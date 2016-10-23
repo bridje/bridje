@@ -1,6 +1,12 @@
 package rho.reader;
 
+import org.pcollections.PVector;
+import org.pcollections.TreePVector;
 import rho.Panic;
+
+import java.util.LinkedList;
+import java.util.List;
+import java.util.function.BiFunction;
 
 import static rho.Panic.panic;
 import static rho.reader.Range.range;
@@ -90,11 +96,48 @@ public class FormReader {
         }
     }
 
+    private static class CollectionDispatcher implements Dispatcher {
+        private final String startChar;
+        private final char endChar;
+        private final BiFunction<Range, PVector<Form>, Form> formCreator;
+
+        public CollectionDispatcher(String startChar, char endChar, BiFunction<Range, PVector<Form>, Form> formCreator) {
+
+            this.startChar = startChar;
+            this.endChar = endChar;
+            this.formCreator = formCreator;
+        }
+
+        @Override
+        public Form read(LCReader reader, Character endChar) {
+            Location start = reader.location();
+
+            for (int i = 0; i < startChar.length(); i++) {
+                reader.read();
+            }
+
+            List<Form> forms = new LinkedList<>();
+
+            Form form;
+            do {
+                form = read0(reader, this.endChar, EOFBehaviour.THROW);
+
+                if (form != null) {
+                    forms.add(form);
+                }
+            } while (form != null);
+
+            return formCreator.apply(range(start, reader.location()), TreePVector.from(forms));
+        }
+    }
+
     static {
         DISPATCH_CHARS['"'] = new StringDispatcher();
         DISPATCH_CHARS[')'] = new UnmatchedDelimiterDispatcher(')');
         DISPATCH_CHARS[']'] = new UnmatchedDelimiterDispatcher(']');
         DISPATCH_CHARS['}'] = new UnmatchedDelimiterDispatcher('}');
+
+        DISPATCH_CHARS['['] = new CollectionDispatcher("[", ']', Form.VectorForm::new);
     }
 
     private static String readToken(LCReader rdr, Character endChar, EOFBehaviour eofBehaviour) {
@@ -139,6 +182,10 @@ public class FormReader {
             if (!isWhitespace((char) ch)) {
                 break;
             }
+        }
+
+        if (endChar != null && ch == endChar) {
+            return null;
         }
 
         Dispatcher dispatcher = DISPATCH_CHARS[ch];
