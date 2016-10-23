@@ -210,13 +210,11 @@ public class FormReader {
         }
     }
 
-    private static Form read0(LCReader reader, Character endChar, EOFBehaviour eofBehaviour) {
-        int ch;
-
+    private static int readNextChar(LCReader reader) {
         while (true) {
-            ch = reader.read();
+            int ch = reader.read();
             if (-1 == ch) {
-                return null;
+                return -1;
             }
 
             if (';' == ch) {
@@ -224,7 +222,7 @@ public class FormReader {
                     ch = reader.read();
 
                     if (-1 == ch) {
-                        return null;
+                        return -1;
                     }
                 }
 
@@ -232,8 +230,18 @@ public class FormReader {
             }
 
             if (!isWhitespace((char) ch)) {
-                break;
+                return ch;
             }
+        }
+    }
+
+    private static Form read0(LCReader reader, Character endChar, EOFBehaviour eofBehaviour) {
+        int ch = readNextChar(reader);
+
+        if (-1 == ch) {
+            reader.unread(ch);
+            eofBehaviour.reactToEOF(reader.location(), endChar);
+            return null;
         }
 
         if (endChar != null && ch == endChar) {
