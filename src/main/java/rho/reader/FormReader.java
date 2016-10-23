@@ -162,6 +162,7 @@ public class FormReader {
         DISPATCH_CHARS['}'] = new UnmatchedDelimiterDispatcher('}');
 
         DISPATCH_CHARS['['] = new CollectionDispatcher("[", ']', Form.VectorForm::new);
+        DISPATCH_CHARS['('] = new CollectionDispatcher("(", ')', Form.ListForm::new);
 
         DISPATCH_CHARS['^'] = new SecondaryDispatcher();
         SECONDARY_DISPATCH_CHARS['['] = new CollectionDispatcher("^[", ']', Form.SetForm::new);

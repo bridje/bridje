@@ -73,7 +73,7 @@ public abstract class Form {
 
         @Override
         public String toString() {
-            return String.format("(IntForm \"%s\")", num);
+            return String.format("(IntForm %s)", num);
         }
     }
 
@@ -138,6 +138,38 @@ public abstract class Form {
         @Override
         public String toString() {
             return String.format("(SetForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
+        }
+    }
+
+    public static class ListForm extends Form {
+
+        public final PVector<Form> forms;
+
+        static ListForm listForm(Form... forms) {
+            return new ListForm(null, TreePVector.from(Arrays.asList(forms)));
+        }
+
+        public ListForm(Range range, PVector<Form> forms) {
+            super(range);
+            this.forms = forms;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            ListForm that = (ListForm) o;
+            return Objects.equals(forms, that.forms);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(forms);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(ListForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
         }
     }
 

@@ -6,6 +6,7 @@ import rho.Panic;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static rho.reader.Form.IntForm.intForm;
+import static rho.reader.Form.ListForm.listForm;
 import static rho.reader.Form.QSymbolForm.qSymbolForm;
 import static rho.reader.Form.SetForm.setForm;
 import static rho.reader.Form.StringForm.stringForm;
@@ -96,6 +97,15 @@ public class FormReaderTest {
 
         assertNotNull(form);
         assertEquals(qSymbolForm("foo", "bar"), form);
+        assertEquals(range(loc(1, 1), loc(1, 8)), form.range);
+    }
+
+    @Test
+    public void readsList() throws Exception {
+        Form form = FormReader.read(LCReader.fromString("(+ 1 2)"));
+
+        assertNotNull(form);
+        assertEquals(listForm(symbolForm("+"), intForm(1), intForm(2)), form);
         assertEquals(range(loc(1, 1), loc(1, 8)), form.range);
     }
 
