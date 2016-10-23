@@ -219,6 +219,18 @@ public class FormReader {
                 return null;
             }
 
+            if (';' == ch) {
+                while ('\n' != ch) {
+                    ch = reader.read();
+
+                    if (-1 == ch) {
+                        return null;
+                    }
+                }
+
+                continue;
+            }
+
             if (!isWhitespace((char) ch)) {
                 break;
             }

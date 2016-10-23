@@ -98,4 +98,13 @@ public class FormReaderTest {
         assertEquals(qSymbolForm("foo", "bar"), form);
         assertEquals(range(loc(1, 1), loc(1, 8)), form.range);
     }
+
+    @Test
+    public void readsEOLComment() throws Exception {
+        Form form = FormReader.read(LCReader.fromString("[\"Hello\", ; comment \n\"world!\"]"));
+
+        assertNotNull(form);
+        assertEquals(vectorForm(stringForm("Hello"), stringForm("world!")), form);
+        assertEquals(range(loc(1, 1), loc(2, 10)), form.range);
+    }
 }
