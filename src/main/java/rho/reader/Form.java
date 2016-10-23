@@ -15,6 +15,8 @@ public abstract class Form {
         this.range = range;
     }
 
+    public abstract <T> T accept(FormVisitor<T> visitor);
+
     public static final class StringForm extends Form {
         public final String string;
 
@@ -43,6 +45,11 @@ public abstract class Form {
         @Override
         public String toString() {
             return String.format("(StringForm \"%s\")", string);
+        }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.accept(this);
         }
     }
 
@@ -74,6 +81,11 @@ public abstract class Form {
         @Override
         public String toString() {
             return String.format("(IntForm %s)", num);
+        }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.accept(this);
         }
     }
 
@@ -107,6 +119,11 @@ public abstract class Form {
         public String toString() {
             return String.format("(VectorForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
         }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.accept(this);
+        }
     }
 
     public static class SetForm extends Form {
@@ -138,6 +155,11 @@ public abstract class Form {
         @Override
         public String toString() {
             return String.format("(SetForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
+        }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.accept(this);
         }
     }
 
@@ -171,6 +193,11 @@ public abstract class Form {
         public String toString() {
             return String.format("(ListForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
         }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.accept(this);
+        }
     }
 
     public static final class SymbolForm extends Form {
@@ -201,6 +228,11 @@ public abstract class Form {
         @Override
         public String toString() {
             return String.format("(SymbolForm \"%s\")", sym);
+        }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.accept(this);
         }
     }
 
@@ -235,6 +267,11 @@ public abstract class Form {
         @Override
         public String toString() {
             return String.format("(QSymbolForm \"%s/%s\")", ns, sym);
+        }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.accept(this);
         }
     }
 }
