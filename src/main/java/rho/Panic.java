@@ -3,12 +3,12 @@ package rho;
 public class Panic extends RuntimeException {
 
 
-    public static Panic panic(String message) {
-        return panic(message, null);
+    public static Panic panic(String fmt, Object... args) {
+        return panic(null, fmt, args);
     }
 
-    public static Panic panic(String message, Throwable cause) {
-        return new Panic(message, cause);
+    public static Panic panic(Throwable cause, String fmt, Object... args) {
+        return new Panic(String.format(fmt, args), cause);
     }
 
     public Panic(String message, Throwable cause) {

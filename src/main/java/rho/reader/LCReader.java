@@ -39,7 +39,7 @@ public class LCReader implements Closeable {
             try {
                 ch = lineNumberReader.read();
             } catch (IOException e) {
-                throw panic("IOException while reading", e);
+                throw panic(e, "IOException while reading");
             }
 
             if (ch == '\n') {

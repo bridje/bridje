@@ -18,11 +18,11 @@ public class FormReader {
     }
 
     private static Panic eof(LCReader reader) {
-        return panic(String.format("EOF while reading (%s)", reader.location()));
+        return panic("EOF while reading (%s)", reader.location());
     }
 
     private static Panic eof(LCReader reader, char endChar) {
-        return panic(String.format("EOF while reading, expected '%s' (%s)", endChar, reader.location()));
+        return panic("EOF while reading, expected '%s' (%s)", endChar, reader.location());
     }
 
     private static Dispatcher[] DISPATCH_CHARS = new Dispatcher[256];
@@ -70,7 +70,7 @@ public class FormReader {
                                 sb.append('\\');
                                 break;
                             default:
-                                throw panic(String.format("Unexpected escape char: '\\%s'", (char) nextCh));
+                                throw panic("Unexpected escape char: '\\%s'", (char) nextCh);
                         }
 
                         break;
@@ -91,8 +91,8 @@ public class FormReader {
 
         @Override
         public Form read(LCReader reader, Character endChar) {
-            throw panic(String.format("Unexpected delimiter '%s' at %s%s", delimiter, reader.location(),
-                endChar != null ? String.format(", expecting '%s'", endChar) : ""));
+            throw panic("Unexpected delimiter '%s' at %s%s", delimiter, reader.location(),
+                endChar != null ? String.format(", expecting '%s'", endChar) : "");
         }
     }
 
@@ -131,6 +131,30 @@ public class FormReader {
         }
     }
 
+    private static class SecondaryDispatcher implements Dispatcher {
+
+        @Override
+        public Form read(LCReader reader, Character endChar) {
+            reader.read();
+            int secondaryCh = reader.read();
+
+            if (-1 == secondaryCh) {
+                throw eof(reader);
+            }
+
+            reader.unread(secondaryCh);
+            reader.unread('^');
+
+            Dispatcher dispatcher = SECONDARY_DISPATCH_CHARS[secondaryCh];
+
+            if (dispatcher == null) {
+                throw panic("Unexpected token: '^%s' (%s)", (char) secondaryCh, reader.location());
+            } else {
+                return dispatcher.read(reader, endChar);
+            }
+        }
+    }
+
     static {
         DISPATCH_CHARS['"'] = new StringDispatcher();
         DISPATCH_CHARS[')'] = new UnmatchedDelimiterDispatcher(')');
@@ -138,6 +162,9 @@ public class FormReader {
         DISPATCH_CHARS['}'] = new UnmatchedDelimiterDispatcher('}');
 
         DISPATCH_CHARS['['] = new CollectionDispatcher("[", ']', Form.VectorForm::new);
+
+        DISPATCH_CHARS['^'] = new SecondaryDispatcher();
+        SECONDARY_DISPATCH_CHARS['['] = new CollectionDispatcher("^[", ']', Form.SetForm::new);
     }
 
     private static String readToken(LCReader rdr, Character endChar, EOFBehaviour eofBehaviour) {
@@ -166,7 +193,20 @@ public class FormReader {
         try {
             return new Form.IntForm(range, Long.parseLong(token));
         } catch (NumberFormatException e) {
-            throw panic(String.format("Invalid number '%s' (%s)", token, range));
+            throw panic("Invalid number '%s' (%s)", token, range);
+        }
+    }
+
+    private static Form readSymbol(LCReader reader, Character endChar, EOFBehaviour eofBehaviour) {
+        Location start = reader.location();
+        String token = readToken(reader, endChar, eofBehaviour);
+        Range range = range(start, reader.location());
+
+        int slashIndex = token.indexOf('/');
+        if (-1 != slashIndex) {
+            return new Form.QSymbolForm(range, token.substring(0, slashIndex), token.substring(slashIndex + 1));
+        } else {
+            return new Form.SymbolForm(range, token);
         }
     }
 
@@ -188,19 +228,18 @@ public class FormReader {
             return null;
         }
 
+        reader.unread(ch);
         Dispatcher dispatcher = DISPATCH_CHARS[ch];
 
         if (dispatcher != null) {
-            reader.unread(ch);
             return dispatcher.read(reader, endChar);
         }
 
         if (Character.isDigit((char) ch) || '-' == ch) {
-            reader.unread(ch);
             return readNumber(reader, endChar, eofBehaviour);
         }
 
-        return null;
+        return readSymbol(reader, endChar, eofBehaviour);
     }
 
     public static Form read(LCReader reader) {

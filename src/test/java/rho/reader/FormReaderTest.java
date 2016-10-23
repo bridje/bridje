@@ -6,7 +6,10 @@ import rho.Panic;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static rho.reader.Form.IntForm.intForm;
+import static rho.reader.Form.QSymbolForm.qSymbolForm;
+import static rho.reader.Form.SetForm.setForm;
 import static rho.reader.Form.StringForm.stringForm;
+import static rho.reader.Form.SymbolForm.symbolForm;
 import static rho.reader.Form.VectorForm.vectorForm;
 import static rho.reader.Location.loc;
 import static rho.reader.Range.range;
@@ -67,5 +70,32 @@ public class FormReaderTest {
         assertNotNull(form);
         assertEquals(vectorForm(stringForm("Hello"), stringForm("world!")), form);
         assertEquals(range(loc(1, 1), loc(1, 20)), form.range);
+    }
+
+    @Test
+    public void readsSet() throws Exception {
+        Form form = FormReader.read(LCReader.fromString("^[\"Hello\", \"world!\"]"));
+
+        assertNotNull(form);
+        assertEquals(setForm(stringForm("Hello"), stringForm("world!")), form);
+        assertEquals(range(loc(1, 1), loc(1, 21)), form.range);
+    }
+
+    @Test
+    public void readsSymbol() throws Exception {
+        Form form = FormReader.read(LCReader.fromString("foo"));
+
+        assertNotNull(form);
+        assertEquals(symbolForm("foo"), form);
+        assertEquals(range(loc(1, 1), loc(1, 4)), form.range);
+    }
+
+    @Test
+    public void readsQSymbol() throws Exception {
+        Form form = FormReader.read(LCReader.fromString("foo/bar"));
+
+        assertNotNull(form);
+        assertEquals(qSymbolForm("foo", "bar"), form);
+        assertEquals(range(loc(1, 1), loc(1, 8)), form.range);
     }
 }

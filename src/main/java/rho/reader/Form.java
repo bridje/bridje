@@ -108,4 +108,101 @@ public abstract class Form {
             return String.format("(VectorForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
         }
     }
+
+    public static class SetForm extends Form {
+
+        public final PVector<Form> forms;
+
+        static SetForm setForm(Form... forms) {
+            return new SetForm(null, TreePVector.from(Arrays.asList(forms)));
+        }
+
+        public SetForm(Range range, PVector<Form> forms) {
+            super(range);
+            this.forms = forms;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SetForm that = (SetForm) o;
+            return Objects.equals(forms, that.forms);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(forms);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(SetForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
+        }
+    }
+
+    public static final class SymbolForm extends Form {
+        public final String sym;
+
+        static SymbolForm symbolForm(String sym) {
+            return new SymbolForm(null, sym);
+        }
+
+        public SymbolForm(Range range, String sym) {
+            super(range);
+            this.sym = sym;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SymbolForm that = (SymbolForm) o;
+            return Objects.equals(sym, that.sym);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(sym);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(SymbolForm \"%s\")", sym);
+        }
+    }
+
+    public static final class QSymbolForm extends Form {
+        public final String ns;
+        public final String sym;
+
+        static QSymbolForm qSymbolForm(String ns, String sym) {
+            return new QSymbolForm(null, ns, sym);
+        }
+
+        public QSymbolForm(Range range, String ns, String sym) {
+            super(range);
+            this.ns = ns;
+            this.sym = sym;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            QSymbolForm that = (QSymbolForm) o;
+            return Objects.equals(ns, that.ns) &&
+                Objects.equals(sym, that.sym);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(ns, sym);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(QSymbolForm \"%s/%s\")", ns, sym);
+        }
+    }
 }
