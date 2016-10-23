@@ -3,12 +3,9 @@ package rho.reader;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static rho.reader.Location.loc;
 
 public class LCReaderTest {
-
-    private static Location loc(int line, int col) {
-        return new Location(line, col);
-    }
 
     @Test
     public void testLCReader() throws Exception {

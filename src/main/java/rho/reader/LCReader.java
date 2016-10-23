@@ -3,6 +3,9 @@ package rho.reader;
 import java.io.*;
 import java.util.Stack;
 
+import static rho.Panic.panic;
+import static rho.reader.Location.loc;
+
 public class LCReader implements Closeable {
 
     public static LCReader fromFile(File file) throws FileNotFoundException {
@@ -29,9 +32,15 @@ public class LCReader implements Closeable {
         lineNumberReader = new LineNumberReader(reader);
     }
 
-    int read() throws IOException {
+    int read() {
         if (stack.isEmpty()) {
-            int ch = lineNumberReader.read();
+            int ch;
+
+            try {
+                ch = lineNumberReader.read();
+            } catch (IOException e) {
+                throw panic("IOException while reading", e);
+            }
 
             if (ch == '\n') {
                 readerColNumber = 0;
@@ -53,7 +62,7 @@ public class LCReader implements Closeable {
     }
 
     Location location() {
-        return new Location(lineNumberReader.getLineNumber() + 1, readerColNumber - stack.size());
+        return loc(lineNumberReader.getLineNumber() + 1, readerColNumber - stack.size());
     }
 
     @Override

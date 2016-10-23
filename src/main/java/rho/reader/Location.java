@@ -6,7 +6,11 @@ public class Location {
     public final int line;
     public final int col;
 
-    public Location(int line, int col) {
+    static Location loc(int line, int col) {
+        return new Location(line, col);
+    }
+
+    private Location(int line, int col) {
         this.line = line;
         this.col = col;
     }
