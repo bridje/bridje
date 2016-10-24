@@ -8,7 +8,7 @@ import rho.runtime.Env;
 
 public class TypeChecker {
 
-    public static Type type(Env env, Expr expr) {
+    private static Type type0(Env env, Expr expr) {
         return expr.accept(new ExprVisitor<Type>() {
             @Override
             public Type accept(ValueExpr expr) {
@@ -35,6 +35,10 @@ public class TypeChecker {
                 });
             }
         });
+    }
+
+    public static Type type(Env env, Expr expr) {
+        return type0(env, expr);
     }
 
 }
