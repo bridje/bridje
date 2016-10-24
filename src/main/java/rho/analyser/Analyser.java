@@ -14,7 +14,7 @@ public class Analyser {
 
             @Override
             public Expr accept(Form.IntForm form) {
-                throw new UnsupportedOperationException();
+                return ValueExpr.IntExpr.fromForm(form);
             }
 
             @Override

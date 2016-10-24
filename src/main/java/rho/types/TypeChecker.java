@@ -17,6 +17,11 @@ public class TypeChecker {
                     public Type accept(ValueExpr.StringExpr expr) {
                         return Type.STRING_TYPE;
                     }
+
+                    @Override
+                    public Type accept(ValueExpr.IntExpr expr) {
+                        return Type.INT_TYPE;
+                    }
                 });
             }
         });

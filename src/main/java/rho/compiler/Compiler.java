@@ -17,8 +17,10 @@ import static rho.Util.setOf;
 import static rho.Util.vectorOf;
 import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
+import static rho.compiler.Instruction.MethodInvoke.INVOKE_STATIC;
 import static rho.compiler.Instruction.SimpleInstruction.ARETURN;
 import static rho.compiler.Instruction.loadObject;
+import static rho.compiler.Instruction.methodCall;
 import static rho.compiler.NewClass.newClass;
 import static rho.compiler.NewMethod.newMethod;
 
@@ -39,6 +41,15 @@ public class Compiler {
             @Override
             public CompileResult accept(ValueExpr.StringExpr expr) {
                 return new CompileResult(vectorOf(loadObject(expr.string)), setOf());
+            }
+
+            @Override
+            public CompileResult accept(ValueExpr.IntExpr expr) {
+                return new CompileResult(
+                    vectorOf(
+                        loadObject(expr.num),
+                        methodCall(Long.class, INVOKE_STATIC, "valueOf", Long.class, vectorOf(Long.TYPE))),
+                    setOf());
             }
         });
     }
