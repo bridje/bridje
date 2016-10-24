@@ -2,17 +2,17 @@ package rho.reader;
 
 public interface FormVisitor<T> {
 
-    T accept(Form.StringForm form);
+    T visit(Form.StringForm form);
 
-    T accept(Form.IntForm form);
+    T visit(Form.IntForm form);
 
-    T accept(Form.VectorForm form);
+    T visit(Form.VectorForm form);
 
-    T accept(Form.SetForm form);
+    T visit(Form.SetForm form);
 
-    T accept(Form.ListForm form);
+    T visit(Form.ListForm form);
 
-    T accept(Form.SymbolForm form);
+    T visit(Form.SymbolForm form);
 
-    T accept(Form.QSymbolForm form);
+    T visit(Form.QSymbolForm form);
 }

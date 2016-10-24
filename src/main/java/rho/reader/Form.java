@@ -49,7 +49,7 @@ public abstract class Form {
 
         @Override
         public <T> T accept(FormVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
     }
 
@@ -85,7 +85,7 @@ public abstract class Form {
 
         @Override
         public <T> T accept(FormVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
     }
 
@@ -122,7 +122,7 @@ public abstract class Form {
 
         @Override
         public <T> T accept(FormVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
     }
 
@@ -159,7 +159,7 @@ public abstract class Form {
 
         @Override
         public <T> T accept(FormVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
     }
 
@@ -196,7 +196,7 @@ public abstract class Form {
 
         @Override
         public <T> T accept(FormVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
     }
 
@@ -232,7 +232,7 @@ public abstract class Form {
 
         @Override
         public <T> T accept(FormVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
     }
 
@@ -271,7 +271,7 @@ public abstract class Form {
 
         @Override
         public <T> T accept(FormVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
     }
 }

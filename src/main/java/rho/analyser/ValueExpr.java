@@ -103,17 +103,17 @@ public abstract class ValueExpr extends Expr {
     }
 
     public static final class VectorExpr extends ValueExpr {
-        public final PVector<Expr> exprs;
+        public final PVector<ValueExpr> exprs;
 
-        public static Expr vectorExpr(PVector<Expr> exprs) {
+        public static VectorExpr vectorExpr(PVector<ValueExpr> exprs) {
             return vectorExpr(null, exprs);
         }
 
-        public static Expr vectorExpr(Range range, PVector<Expr> exprs) {
+        public static VectorExpr vectorExpr(Range range, PVector<ValueExpr> exprs) {
             return new VectorExpr(range, exprs);
         }
 
-        public VectorExpr(Range range, PVector<Expr> exprs) {
+        public VectorExpr(Range range, PVector<ValueExpr> exprs) {
             super(range);
             this.exprs = exprs;
         }
@@ -143,17 +143,17 @@ public abstract class ValueExpr extends Expr {
     }
 
     public static final class SetExpr extends ValueExpr {
-        public final PVector<Expr> exprs;
+        public final PVector<ValueExpr> exprs;
 
-        public static Expr setExpr(PVector<Expr> exprs) {
+        public static SetExpr setExpr(PVector<ValueExpr> exprs) {
             return setExpr(null, exprs);
         }
 
-        public static Expr setExpr(Range range, PVector<Expr> exprs) {
+        public static SetExpr setExpr(Range range, PVector<ValueExpr> exprs) {
             return new SetExpr(range, exprs);
         }
 
-        public SetExpr(Range range, PVector<Expr> exprs) {
+        public SetExpr(Range range, PVector<ValueExpr> exprs) {
             super(range);
             this.exprs = exprs;
         }

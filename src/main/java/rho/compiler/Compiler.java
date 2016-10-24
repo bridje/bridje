@@ -1,7 +1,9 @@
 package rho.compiler;
 
+import org.pcollections.HashTreePSet;
 import org.pcollections.PSet;
 import org.pcollections.PVector;
+import org.pcollections.TreePVector;
 import rho.Panic;
 import rho.analyser.*;
 import rho.reader.Form;
@@ -11,6 +13,10 @@ import rho.types.Type;
 import rho.types.TypeChecker;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 
 import static rho.Panic.panic;
 import static rho.Util.setOf;
@@ -54,12 +60,30 @@ public class Compiler {
 
             @Override
             public CompileResult accept(ValueExpr.VectorExpr expr) {
-                throw new UnsupportedOperationException();
+                List<PVector<Instruction>> instructions = new LinkedList<>();
+                Set<NewClass> newClasses = new HashSet<>();
+
+                for (ValueExpr innerExpr : expr.exprs) {
+                    CompileResult compileResult = innerExpr.accept(this);
+                    instructions.add(compileResult.instructions);
+                    newClasses.addAll(compileResult.newClasses);
+                }
+
+                return new CompileResult(vectorOf(Instruction.vectorOf(Object.class, TreePVector.from(instructions))), HashTreePSet.from(newClasses));
             }
 
             @Override
             public CompileResult accept(ValueExpr.SetExpr expr) {
-                throw new UnsupportedOperationException();
+                List<PVector<Instruction>> instructions = new LinkedList<>();
+                Set<NewClass> newClasses = new HashSet<>();
+
+                for (ValueExpr innerExpr : expr.exprs) {
+                    CompileResult compileResult = innerExpr.accept(this);
+                    instructions.add(compileResult.instructions);
+                    newClasses.addAll(compileResult.newClasses);
+                }
+
+                return new CompileResult(vectorOf(Instruction.setOf(Object.class, TreePVector.from(instructions))), HashTreePSet.from(newClasses));
             }
         });
     }
