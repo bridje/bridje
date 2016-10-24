@@ -1,9 +1,11 @@
 package rho.analyser;
 
+import org.pcollections.PVector;
 import rho.reader.Form;
 import rho.reader.Range;
 
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 public abstract class ValueExpr extends Expr {
 
@@ -100,4 +102,83 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
+    public static final class VectorExpr extends ValueExpr {
+        public final PVector<Expr> exprs;
+
+        public static Expr vectorExpr(PVector<Expr> exprs) {
+            return vectorExpr(null, exprs);
+        }
+
+        public static Expr vectorExpr(Range range, PVector<Expr> exprs) {
+            return new VectorExpr(range, exprs);
+        }
+
+        public VectorExpr(Range range, PVector<Expr> exprs) {
+            super(range);
+            this.exprs = exprs;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.accept(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            VectorExpr that = (VectorExpr) o;
+            return Objects.equals(exprs, that.exprs);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(exprs);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(VectorExpr %s)", exprs.stream().map(Object::toString).collect(Collectors.joining(", ")));
+        }
+    }
+
+    public static final class SetExpr extends ValueExpr {
+        public final PVector<Expr> exprs;
+
+        public static Expr setExpr(PVector<Expr> exprs) {
+            return setExpr(null, exprs);
+        }
+
+        public static Expr setExpr(Range range, PVector<Expr> exprs) {
+            return new SetExpr(range, exprs);
+        }
+
+        public SetExpr(Range range, PVector<Expr> exprs) {
+            super(range);
+            this.exprs = exprs;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.accept(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SetExpr that = (SetExpr) o;
+            return Objects.equals(exprs, that.exprs);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(exprs);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(SetExpr %s)", exprs.stream().map(Object::toString).collect(Collectors.joining(", ")));
+        }
+    }
 }

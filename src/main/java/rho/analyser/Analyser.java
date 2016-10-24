@@ -3,6 +3,8 @@ package rho.analyser;
 import rho.reader.Form;
 import rho.reader.FormVisitor;
 
+import static rho.Util.toPVector;
+
 public class Analyser {
 
     public static Expr analyse(Form form) {
@@ -19,12 +21,12 @@ public class Analyser {
 
             @Override
             public Expr accept(Form.VectorForm form) {
-                throw new UnsupportedOperationException();
+                return ValueExpr.VectorExpr.vectorExpr(form.range, form.forms.stream().map(Analyser::analyse).collect(toPVector()));
             }
 
             @Override
             public Expr accept(Form.SetForm form) {
-                throw new UnsupportedOperationException();
+                return ValueExpr.SetExpr.setExpr(form.range, form.forms.stream().map(Analyser::analyse).collect(toPVector()));
             }
 
             @Override

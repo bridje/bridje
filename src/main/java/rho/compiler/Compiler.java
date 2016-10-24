@@ -51,6 +51,16 @@ public class Compiler {
                         methodCall(Long.class, INVOKE_STATIC, "valueOf", Long.class, vectorOf(Long.TYPE))),
                     setOf());
             }
+
+            @Override
+            public CompileResult accept(ValueExpr.VectorExpr expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompileResult accept(ValueExpr.SetExpr expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 

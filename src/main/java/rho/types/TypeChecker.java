@@ -22,6 +22,16 @@ public class TypeChecker {
                     public Type accept(ValueExpr.IntExpr expr) {
                         return Type.INT_TYPE;
                     }
+
+                    @Override
+                    public Type accept(ValueExpr.VectorExpr expr) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public Type accept(ValueExpr.SetExpr expr) {
+                        throw new UnsupportedOperationException();
+                    }
                 });
             }
         });
