@@ -64,6 +64,11 @@ public class TypeChecker {
 
                         return setType(innerType);
                     }
+
+                    @Override
+                    public Type visit(ValueExpr.CallExpr expr) {
+                        throw new UnsupportedOperationException();
+                    }
                 });
             }
         });

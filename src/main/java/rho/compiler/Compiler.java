@@ -5,8 +5,8 @@ import org.pcollections.PSet;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.Panic;
-import rho.analyser.*;
-import rho.reader.Form;
+import rho.analyser.ValueExpr;
+import rho.analyser.ValueExprVisitor;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.types.Type;
@@ -25,9 +25,7 @@ import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
 import static rho.compiler.Instruction.MethodInvoke.INVOKE_STATIC;
 import static rho.compiler.Instruction.SimpleInstruction.ARETURN;
-import static rho.compiler.Instruction.loadBool;
-import static rho.compiler.Instruction.loadObject;
-import static rho.compiler.Instruction.methodCall;
+import static rho.compiler.Instruction.*;
 import static rho.compiler.NewClass.newClass;
 import static rho.compiler.NewMethod.newMethod;
 
@@ -91,6 +89,11 @@ public class Compiler {
 
                 return new CompileResult(vectorOf(Instruction.setOf(Object.class, TreePVector.from(instructions))), HashTreePSet.from(newClasses));
             }
+
+            @Override
+            public CompileResult visit(ValueExpr.CallExpr expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 
@@ -130,17 +133,4 @@ public class Compiler {
 
         return new EvalResult(env, type, evalInstructions(env, compileResult.instructions.plus(ARETURN)));
     }
-
-    public static EvalResult eval(Form form) {
-        Expr expr = Analyser.analyse(form);
-
-
-        return expr.accept(new ExprVisitor<EvalResult>() {
-            @Override
-            public EvalResult accept(ValueExpr expr) {
-                return evalValue(null, expr);
-            }
-        });
-    }
-
 }

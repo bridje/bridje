@@ -3,6 +3,7 @@ package rho.analyser;
 import org.pcollections.PVector;
 import rho.reader.Form;
 import rho.reader.Range;
+import rho.runtime.Var;
 
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -219,6 +220,46 @@ public abstract class ValueExpr extends Expr {
         @Override
         public String toString() {
             return String.format("(SetExpr %s)", exprs.stream().map(Object::toString).collect(Collectors.joining(", ")));
+        }
+    }
+
+    public static final class CallExpr extends ValueExpr {
+
+        public final Var var;
+        public final PVector<Expr> params;
+
+        public static CallExpr callExpr(Var var, PVector<Expr> params) {
+            return new CallExpr(null, var, params);
+        }
+
+        public CallExpr(Range range, Var var, PVector<Expr> params) {
+            super(range);
+            this.var = var;
+            this.params = params;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            CallExpr callExpr = (CallExpr) o;
+            return Objects.equals(var, callExpr.var) &&
+                Objects.equals(params, callExpr.params);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(var, params);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(CallExpr (%s %s))", var, params.stream().map(Object::toString).collect(Collectors.joining(" ")));
         }
     }
 }

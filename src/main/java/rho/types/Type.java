@@ -167,6 +167,36 @@ public abstract class Type {
         }
     }
 
+    public static final class FnType extends Type {
+
+        public final PVector<Type> paramTypes;
+        public final Type returnType;
+
+        public static FnType fnType(PVector<Type> paramTypes, Type returnType) {
+            return new FnType(paramTypes, returnType);
+        }
+
+        private FnType(PVector<Type> paramTypes, Type returnType) {
+            this.paramTypes = paramTypes;
+            this.returnType = returnType;
+        }
+
+        @Override
+        public PSet<TypeVar> ftvs() {
+            return super.ftvs();
+        }
+
+        @Override
+        public Type apply(PMap<TypeVar, Type> mapping) {
+            return super.apply(mapping);
+        }
+
+        @Override
+        PMap<TypeVar, Type> unify0(Type t2) {
+            return super.unify0(t2);
+        }
+    }
+
     public static final class TypeVar extends Type {
 
         @Override
