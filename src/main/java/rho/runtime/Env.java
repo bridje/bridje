@@ -1,5 +1,7 @@
 package rho.runtime;
 
+import org.pcollections.PMap;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,5 +42,11 @@ public class Env {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public final PMap<Symbol, Var> vars;
+
+    public Env(PMap<Symbol, Var> vars) {
+        this.vars = vars;
     }
 }

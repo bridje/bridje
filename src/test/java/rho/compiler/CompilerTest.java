@@ -54,4 +54,9 @@ public class CompilerTest {
         assertEquals(setType(STRING_TYPE), evalResult.type);
         assertEquals(setOf("Hello", "World!"), evalResult.value);
     }
+
+    @Test
+    public void compilesPlus() throws Exception {
+
+    }
 }

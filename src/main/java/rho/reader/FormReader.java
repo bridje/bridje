@@ -10,6 +10,7 @@ import java.util.function.BiFunction;
 
 import static rho.Panic.panic;
 import static rho.reader.Range.range;
+import static rho.runtime.Symbol.symbol;
 
 public class FormReader {
 
@@ -213,7 +214,7 @@ public class FormReader {
                 if (-1 != slashIndex) {
                     return new Form.QSymbolForm(range, token.substring(0, slashIndex), token.substring(slashIndex + 1));
                 } else {
-                    return new Form.SymbolForm(range, token);
+                    return new Form.SymbolForm(range, symbol(token));
                 }
         }
     }

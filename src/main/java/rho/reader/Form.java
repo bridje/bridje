@@ -2,10 +2,13 @@ package rho.reader;
 
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
+import rho.runtime.Symbol;
 
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static rho.runtime.Symbol.symbol;
 
 public abstract class Form {
 
@@ -93,7 +96,7 @@ public abstract class Form {
     public static class IntForm extends Form {
         public final long num;
 
-        static IntForm intForm(long num) {
+        public static IntForm intForm(long num) {
             return new IntForm(null, num);
         }
 
@@ -204,7 +207,7 @@ public abstract class Form {
 
         public final PVector<Form> forms;
 
-        static ListForm listForm(Form... forms) {
+        public static ListForm listForm(Form... forms) {
             return new ListForm(null, TreePVector.from(Arrays.asList(forms)));
         }
 
@@ -238,13 +241,13 @@ public abstract class Form {
     }
 
     public static final class SymbolForm extends Form {
-        public final String sym;
+        public final Symbol sym;
 
-        static SymbolForm symbolForm(String sym) {
-            return new SymbolForm(null, sym);
+        public static SymbolForm symbolForm(String sym) {
+            return new SymbolForm(null, symbol(sym));
         }
 
-        public SymbolForm(Range range, String sym) {
+        public SymbolForm(Range range, Symbol sym) {
             super(range);
             this.sym = sym;
         }
