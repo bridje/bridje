@@ -17,6 +17,43 @@ public abstract class Form {
 
     public abstract <T> T accept(FormVisitor<T> visitor);
 
+    public static final class BoolForm extends Form {
+
+        public final boolean value;
+
+        public static BoolForm boolForm(boolean value) {
+            return new BoolForm(null, value);
+        }
+
+        public BoolForm(Range range, boolean value) {
+            super(range);
+            this.value = value;
+        }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            BoolForm boolForm = (BoolForm) o;
+            return value == boolForm.value;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(value);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(BoolForm %s)", value);
+        }
+    }
+
     public static final class StringForm extends Form {
         public final String string;
 

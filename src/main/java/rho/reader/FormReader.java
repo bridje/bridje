@@ -203,11 +203,18 @@ public class FormReader {
         String token = readToken(reader, endChar, eofBehaviour);
         Range range = range(start, reader.location());
 
-        int slashIndex = token.indexOf('/');
-        if (-1 != slashIndex) {
-            return new Form.QSymbolForm(range, token.substring(0, slashIndex), token.substring(slashIndex + 1));
-        } else {
-            return new Form.SymbolForm(range, token);
+        switch (token) {
+            case "true":
+                return new Form.BoolForm(range, true);
+            case "false":
+                return new Form.BoolForm(range, false);
+            default:
+                int slashIndex = token.indexOf('/');
+                if (-1 != slashIndex) {
+                    return new Form.QSymbolForm(range, token.substring(0, slashIndex), token.substring(slashIndex + 1));
+                } else {
+                    return new Form.SymbolForm(range, token);
+                }
         }
     }
 

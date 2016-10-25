@@ -10,6 +10,11 @@ public class Analyser {
     public static ValueExpr analyseValueExpr(Form form) {
         return form.accept(new FormVisitor<ValueExpr>() {
             @Override
+            public ValueExpr visit(Form.BoolForm form) {
+                return ValueExpr.BoolExpr.fromForm(form);
+            }
+
+            @Override
             public ValueExpr visit(Form.StringForm form) {
                 return ValueExpr.StringExpr.fromForm(form);
             }
@@ -48,6 +53,11 @@ public class Analyser {
 
     public static Expr analyse(Form form) {
         return form.accept(new FormVisitor<Expr>() {
+            @Override
+            public Expr visit(Form.BoolForm form) {
+                throw new UnsupportedOperationException();
+            }
+
             @Override
             public Expr visit(Form.StringForm form) {
                 return analyseValueExpr(form);

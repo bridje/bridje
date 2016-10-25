@@ -53,6 +53,7 @@ public abstract class Type {
     }
 
     public static class SimpleType extends Type {
+        public static final Type BOOL_TYPE = new SimpleType("Bool");
         public static final Type STRING_TYPE = new SimpleType("Str");
         public static final Type INT_TYPE = new SimpleType("Int");
 

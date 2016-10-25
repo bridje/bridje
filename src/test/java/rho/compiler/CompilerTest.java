@@ -7,16 +7,25 @@ import rho.runtime.EvalResult;
 import static org.junit.Assert.assertEquals;
 import static rho.Util.setOf;
 import static rho.Util.vectorOf;
+import static rho.analyser.ValueExpr.BoolExpr.boolExpr;
 import static rho.analyser.ValueExpr.IntExpr.intExpr;
 import static rho.analyser.ValueExpr.SetExpr.setExpr;
 import static rho.analyser.ValueExpr.StringExpr.stringExpr;
 import static rho.analyser.ValueExpr.VectorExpr.vectorExpr;
 import static rho.types.Type.SetType.setType;
+import static rho.types.Type.SimpleType.BOOL_TYPE;
 import static rho.types.Type.SimpleType.INT_TYPE;
 import static rho.types.Type.SimpleType.STRING_TYPE;
 import static rho.types.Type.VectorType.vectorType;
 
 public class CompilerTest {
+
+    @Test
+    public void compilesBoolean() throws Exception {
+        EvalResult evalResult = Compiler.evalValue(Env.env(), boolExpr(false));
+        assertEquals(BOOL_TYPE, evalResult.type);
+        assertEquals(false, evalResult.value);
+    }
 
     @Test
     public void compilesString() throws Exception {

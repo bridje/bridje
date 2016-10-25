@@ -25,6 +25,7 @@ import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
 import static rho.compiler.Instruction.MethodInvoke.INVOKE_STATIC;
 import static rho.compiler.Instruction.SimpleInstruction.ARETURN;
+import static rho.compiler.Instruction.loadBool;
 import static rho.compiler.Instruction.loadObject;
 import static rho.compiler.Instruction.methodCall;
 import static rho.compiler.NewClass.newClass;
@@ -45,12 +46,17 @@ public class Compiler {
     static CompileResult compileValue(Env env, ValueExpr expr) {
         return expr.accept(new ValueExprVisitor<CompileResult>() {
             @Override
-            public CompileResult accept(ValueExpr.StringExpr expr) {
+            public CompileResult visit(ValueExpr.BoolExpr expr) {
+                return new CompileResult(vectorOf(loadBool(expr.value)), setOf());
+            }
+
+            @Override
+            public CompileResult visit(ValueExpr.StringExpr expr) {
                 return new CompileResult(vectorOf(loadObject(expr.string)), setOf());
             }
 
             @Override
-            public CompileResult accept(ValueExpr.IntExpr expr) {
+            public CompileResult visit(ValueExpr.IntExpr expr) {
                 return new CompileResult(
                     vectorOf(
                         loadObject(expr.num),
@@ -59,7 +65,7 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult accept(ValueExpr.VectorExpr expr) {
+            public CompileResult visit(ValueExpr.VectorExpr expr) {
                 List<PVector<Instruction>> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
@@ -73,7 +79,7 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult accept(ValueExpr.SetExpr expr) {
+            public CompileResult visit(ValueExpr.SetExpr expr) {
                 List<PVector<Instruction>> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 

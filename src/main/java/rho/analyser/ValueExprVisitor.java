@@ -1,11 +1,13 @@
 package rho.analyser;
 
 public interface ValueExprVisitor<T> {
-    T accept(ValueExpr.StringExpr expr);
+    T visit(ValueExpr.BoolExpr expr);
 
-    T accept(ValueExpr.IntExpr expr);
+    T visit(ValueExpr.StringExpr expr);
 
-    T accept(ValueExpr.VectorExpr expr);
+    T visit(ValueExpr.IntExpr expr);
 
-    T accept(ValueExpr.SetExpr expr);
+    T visit(ValueExpr.VectorExpr expr);
+
+    T visit(ValueExpr.SetExpr expr);
 }

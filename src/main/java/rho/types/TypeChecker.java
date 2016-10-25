@@ -10,6 +10,7 @@ import rho.runtime.Env;
 import rho.types.Type.TypeVar;
 
 import static rho.types.Type.SetType.setType;
+import static rho.types.Type.SimpleType.BOOL_TYPE;
 import static rho.types.Type.SimpleType.INT_TYPE;
 import static rho.types.Type.SimpleType.STRING_TYPE;
 import static rho.types.Type.VectorType.vectorType;
@@ -22,17 +23,22 @@ public class TypeChecker {
             public Type accept(ValueExpr expr) {
                 return expr.accept(new ValueExprVisitor<Type>() {
                     @Override
-                    public Type accept(ValueExpr.StringExpr expr) {
+                    public Type visit(ValueExpr.BoolExpr expr) {
+                        return BOOL_TYPE;
+                    }
+
+                    @Override
+                    public Type visit(ValueExpr.StringExpr expr) {
                         return STRING_TYPE;
                     }
 
                     @Override
-                    public Type accept(ValueExpr.IntExpr expr) {
+                    public Type visit(ValueExpr.IntExpr expr) {
                         return INT_TYPE;
                     }
 
                     @Override
-                    public Type accept(ValueExpr.VectorExpr expr) {
+                    public Type visit(ValueExpr.VectorExpr expr) {
                         Type innerType = new TypeVar();
                         PMap<TypeVar, Type> mapping = Empty.map();
 
@@ -46,7 +52,7 @@ public class TypeChecker {
                     }
 
                     @Override
-                    public Type accept(ValueExpr.SetExpr expr) {
+                    public Type visit(ValueExpr.SetExpr expr) {
                         Type innerType = new TypeVar();
                         PMap<TypeVar, Type> mapping = Empty.map();
 

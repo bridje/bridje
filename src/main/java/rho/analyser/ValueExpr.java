@@ -20,6 +20,46 @@ public abstract class ValueExpr extends Expr {
 
     public abstract <T> T accept(ValueExprVisitor<T> visitor);
 
+    public static final class BoolExpr extends ValueExpr {
+        public final boolean value;
+
+        public static BoolExpr fromForm(Form.BoolForm form) {
+            return new BoolExpr(form.range, form.value);
+        }
+
+        public static BoolExpr boolExpr(boolean value) {
+            return new BoolExpr(null, value);
+        }
+
+        public BoolExpr(Range range, boolean value) {
+            super(range);
+            this.value = value;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            BoolExpr boolExpr = (BoolExpr) o;
+            return value == boolExpr.value;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(value);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(BoolExpr %s)", value);
+        }
+    }
+
     public static final class StringExpr extends ValueExpr {
 
         public final String string;
@@ -39,7 +79,7 @@ public abstract class ValueExpr extends Expr {
 
         @Override
         public <T> T accept(ValueExprVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
 
         @Override
@@ -80,7 +120,7 @@ public abstract class ValueExpr extends Expr {
 
         @Override
         public <T> T accept(ValueExprVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
 
         @Override
@@ -120,7 +160,7 @@ public abstract class ValueExpr extends Expr {
 
         @Override
         public <T> T accept(ValueExprVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
 
         @Override
@@ -160,7 +200,7 @@ public abstract class ValueExpr extends Expr {
 
         @Override
         public <T> T accept(ValueExprVisitor<T> visitor) {
-            return visitor.accept(this);
+            return visitor.visit(this);
         }
 
         @Override

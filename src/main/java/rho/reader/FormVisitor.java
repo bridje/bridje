@@ -2,6 +2,8 @@ package rho.reader;
 
 public interface FormVisitor<T> {
 
+    T visit(Form.BoolForm form);
+
     T visit(Form.StringForm form);
 
     T visit(Form.IntForm form);

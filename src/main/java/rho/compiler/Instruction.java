@@ -95,4 +95,11 @@ interface Instruction {
             ARRAY_AS_LIST,
             methodCall(HashTreePSet.class, INVOKE_STATIC, "from", MapPSet.class, Util.vectorOf(Collection.class)));
     }
+
+    static Instruction loadBool(boolean value) {
+        return mplus(
+            mv -> mv.visitInsn(value ? ICONST_1 : ICONST_0),
+            methodCall(Boolean.class, INVOKE_STATIC, "valueOf", Boolean.class, Util.vectorOf(Boolean.TYPE))
+        );
+    }
 }

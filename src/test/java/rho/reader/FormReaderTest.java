@@ -5,6 +5,7 @@ import rho.Panic;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static rho.reader.Form.BoolForm.boolForm;
 import static rho.reader.Form.IntForm.intForm;
 import static rho.reader.Form.ListForm.listForm;
 import static rho.reader.Form.QSymbolForm.qSymbolForm;
@@ -62,6 +63,15 @@ public class FormReaderTest {
     @Test(expected = Panic.class)
     public void barfsOnInvalidNumber() throws Exception {
         FormReader.read(LCReader.fromString("-15f32"));
+    }
+
+    @Test
+    public void readsBoolean() throws Exception {
+        Form form = FormReader.read(LCReader.fromString("false"));
+
+        assertNotNull(form);
+        assertEquals(boolForm(false), form);
+        assertEquals(range(loc(1, 1), loc(1, 6)), form.range);
     }
 
     @Test
