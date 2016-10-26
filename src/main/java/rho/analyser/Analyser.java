@@ -83,6 +83,15 @@ public class Analyser {
                                 }
 
                                 throw new UnsupportedOperationException();
+                            case "if":
+                                if (forms.size() == 4) {
+                                    return new ValueExpr.IfExpr(form.range,
+                                        analyseValueExpr(env, localEnv, forms.get(1)),
+                                        analyseValueExpr(env, localEnv, forms.get(2)),
+                                        analyseValueExpr(env, localEnv, forms.get(3)));
+                                }
+
+                                throw new UnsupportedOperationException();
                             default:
                                 Var var =
                                     Optional.ofNullable(env.vars.get(sym))

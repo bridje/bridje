@@ -92,6 +92,11 @@ public class TypeChecker {
                     }
 
                     @Override
+                    public Type visit(ValueExpr.IfExpr expr) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
                     public Type visit(ValueExpr.LocalVarExpr expr) {
                         throw new UnsupportedOperationException();
                     }

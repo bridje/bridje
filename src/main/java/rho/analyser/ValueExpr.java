@@ -340,6 +340,49 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
+    public static final class IfExpr extends ValueExpr {
+
+        public final ValueExpr testExpr;
+        public final ValueExpr thenExpr;
+        public final ValueExpr elseExpr;
+
+        public static IfExpr ifExpr(ValueExpr testExpr, ValueExpr thenExpr, ValueExpr elseExpr) {
+            return new IfExpr(null, testExpr, thenExpr, elseExpr);
+        }
+
+        public IfExpr(Range range, ValueExpr testExpr, ValueExpr thenExpr, ValueExpr elseExpr) {
+            super(range);
+            this.testExpr = testExpr;
+            this.thenExpr = thenExpr;
+            this.elseExpr = elseExpr;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            IfExpr ifExpr = (IfExpr) o;
+            return Objects.equals(testExpr, ifExpr.testExpr) &&
+                Objects.equals(thenExpr, ifExpr.thenExpr) &&
+                Objects.equals(elseExpr, ifExpr.elseExpr);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(testExpr, thenExpr, elseExpr);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(IfExpr %s %s %s)", testExpr, thenExpr, elseExpr);
+        }
+    }
+
     public static final class LocalVarExpr extends ValueExpr {
 
         public final LocalVar localVar;

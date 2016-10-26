@@ -3,12 +3,14 @@ package rho.analyser;
 import org.junit.Test;
 import org.pcollections.HashTreePMap;
 import rho.analyser.LocalEnv.LocalVar;
+import rho.reader.Form;
 import rho.runtime.Env;
 
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
 import static rho.analyser.Analyser.analyse;
 import static rho.analyser.ValueExpr.CallExpr.callExpr;
+import static rho.analyser.ValueExpr.IfExpr.ifExpr;
 import static rho.analyser.ValueExpr.IntExpr.intExpr;
 import static rho.analyser.ValueExpr.LetExpr.LetBinding.letBinding;
 import static rho.analyser.ValueExpr.LetExpr.letExpr;
@@ -36,5 +38,12 @@ public class AnalyserTest {
         assertEquals(
             letExpr(vectorOf(letBinding(symbol("x"), intExpr(4))), localVarExpr(localVar)),
             expr);
+    }
+
+    @Test
+    public void analysesIf() throws Exception {
+        assertEquals(
+            ifExpr(ValueExpr.BoolExpr.boolExpr(true), intExpr(1), intExpr(2)),
+            analyse(null, listForm(symbolForm("if"), Form.BoolForm.boolForm(true), intForm(1), intForm(2))));
     }
 }

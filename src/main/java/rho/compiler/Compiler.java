@@ -95,6 +95,11 @@ public class Compiler {
             }
 
             @Override
+            public CompileResult visit(ValueExpr.IfExpr expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public CompileResult visit(ValueExpr.LocalVarExpr expr) {
                 throw new UnsupportedOperationException();
             }
