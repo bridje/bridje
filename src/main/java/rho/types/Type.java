@@ -55,20 +55,29 @@ public abstract class Type {
         throw cantUnify(t2);
     }
 
+    public abstract Class<?> javaType();
+
     public static class SimpleType extends Type {
-        public static final Type BOOL_TYPE = new SimpleType("Bool");
-        public static final Type STRING_TYPE = new SimpleType("Str");
-        public static final Type INT_TYPE = new SimpleType("Int");
+        public static final Type BOOL_TYPE = new SimpleType("Bool", Boolean.TYPE);
+        public static final Type STRING_TYPE = new SimpleType("Str", String.class);
+        public static final Type INT_TYPE = new SimpleType("Int", Long.TYPE);
 
         private final String name;
+        private final Class<?> javaType;
 
-        private SimpleType(String name) {
+        private SimpleType(String name, Class<?> javaType) {
             this.name = name;
+            this.javaType = javaType;
         }
 
         @Override
         public String toString() {
             return name;
+        }
+
+        @Override
+        public Class<?> javaType() {
+            return javaType;
         }
     }
 
@@ -100,6 +109,11 @@ public abstract class Type {
             } else {
                 throw cantUnify(t2);
             }
+        }
+
+        @Override
+        public Class<?> javaType() {
+            return PVector.class;
         }
 
         @Override
@@ -152,6 +166,11 @@ public abstract class Type {
         }
 
         @Override
+        public Class<?> javaType() {
+            return PSet.class;
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
@@ -201,6 +220,11 @@ public abstract class Type {
         TypeMapping unify0(Type t2) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public Class<?> javaType() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     public static final class TypeVar extends Type {
@@ -213,6 +237,11 @@ public abstract class Type {
         @Override
         public Type apply(TypeMapping mapping) {
             return mapping.mapping.getOrDefault(this, this);
+        }
+
+        @Override
+        public Class<?> javaType() {
+            return Object.class;
         }
 
         @Override

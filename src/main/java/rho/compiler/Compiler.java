@@ -22,8 +22,6 @@ import static rho.Util.setOf;
 import static rho.Util.vectorOf;
 import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
-import static rho.compiler.Instruction.MethodInvoke.INVOKE_STATIC;
-import static rho.compiler.Instruction.SimpleInstruction.ARETURN;
 import static rho.compiler.Instruction.*;
 import static rho.compiler.NewClass.newClass;
 import static rho.compiler.NewMethod.newMethod;
@@ -45,9 +43,7 @@ public class Compiler {
             @Override
             public CompileResult visit(ValueExpr.IntExpr expr) {
                 return new CompileResult(
-                    vectorOf(
-                        loadObject(expr.num),
-                        methodCall(Long.class, INVOKE_STATIC, "valueOf", Long.class, vectorOf(Long.TYPE))),
+                    vectorOf(loadObject(expr.num)),
                     setOf());
             }
 
@@ -95,13 +91,13 @@ public class Compiler {
         });
     }
 
-    private static Object evalInstructions(Env env, PVector<Instruction> instructions) {
+    private static Object evalInstructions(Env env, Type type, PVector<Instruction> instructions) {
         try {
             return
                 defineClass(env,
                     newClass("user$$eval")
                         .withMethod(
-                            newMethod("$$eval", Object.class, vectorOf(), instructions)
+                            newMethod("$$eval", type.javaType(), vectorOf(), instructions)
                                 .withFlags(setOf(PUBLIC, FINAL, STATIC))))
                     .getDeclaredMethod("$$eval")
                     .invoke(null);
@@ -129,6 +125,6 @@ public class Compiler {
             defineClass(env, newClass);
         }
 
-        return new EvalResult(env, type, evalInstructions(env, compileResult.instructions.plus(ARETURN)));
+        return new EvalResult(env, type, evalInstructions(env, type, compileResult.instructions.plus(ret(type))));
     }
 }

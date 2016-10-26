@@ -12,7 +12,6 @@ import rho.Util;
 import rho.runtime.BootstrapMethod;
 import rho.runtime.Var;
 
-import java.lang.invoke.MethodType;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -106,10 +105,7 @@ interface Instruction {
     }
 
     static Instruction loadBool(boolean value) {
-        return mplus(
-            mv -> mv.visitInsn(value ? ICONST_1 : ICONST_0),
-            methodCall(Boolean.class, INVOKE_STATIC, "valueOf", Boolean.class, Util.vectorOf(Boolean.TYPE))
-        );
+        return mv -> mv.visitInsn(value ? ICONST_1 : ICONST_0);
     }
 
     static Instruction varInvoke(Var var) {
@@ -117,12 +113,7 @@ interface Instruction {
             BootstrapMethod bootstrapMethod = var.bootstrapMethod;
             Handle handle = new Handle(H_INVOKESTATIC, Type.getType(bootstrapMethod.bootstrapClass).getInternalName(), bootstrapMethod.bootstrapMethodName, bootstrapMethod.methodType.toMethodDescriptorString(), false);
 
-            // TODO don't hard code this
-            MethodType methodType = MethodType.methodType(Long.class, Long.class, Long.class);
-
-            mv.visitInvokeDynamicInsn("invoke", methodType.toMethodDescriptorString(), handle);
-
-            throw new UnsupportedOperationException("Still need to write the right methodType here");
+            mv.visitInvokeDynamicInsn("invoke", var.methodType.toMethodDescriptorString(), handle);
         };
     }
 
@@ -130,5 +121,9 @@ interface Instruction {
         return mplus(
             mplus(paramInstructions.stream().flatMap(Collection::stream).collect(toPVector())),
             varInvoke(var));
+    }
+
+    static Instruction ret(rho.types.Type type) {
+        return mv -> mv.visitInsn(Type.getType(type.javaType()).getOpcode(IRETURN));
     }
 }
