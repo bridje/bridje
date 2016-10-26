@@ -88,6 +88,16 @@ public class Compiler {
 
                 return new CompileResult(vectorOf(varCall(expr.var, TreePVector.from(paramInstructions))), HashTreePSet.from(newClasses));
             }
+
+            @Override
+            public CompileResult visit(ValueExpr.LetExpr expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompileResult visit(ValueExpr.LocalVarExpr expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 

@@ -12,4 +12,8 @@ public interface ValueExprVisitor<T> {
     T visit(ValueExpr.SetExpr expr);
 
     T visit(ValueExpr.CallExpr expr);
+
+    T visit(ValueExpr.LetExpr expr);
+
+    T visit(ValueExpr.LocalVarExpr expr);
 }

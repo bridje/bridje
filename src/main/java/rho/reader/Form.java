@@ -133,7 +133,7 @@ public abstract class Form {
 
         public final PVector<Form> forms;
 
-        static VectorForm vectorForm(Form... forms) {
+        public static VectorForm vectorForm(Form... forms) {
             return new VectorForm(null, TreePVector.from(Arrays.asList(forms)));
         }
 

@@ -1,8 +1,10 @@
 package rho.analyser;
 
 import org.pcollections.PVector;
+import rho.analyser.LocalEnv.LocalVar;
 import rho.reader.Form;
 import rho.reader.Range;
+import rho.runtime.Symbol;
 import rho.runtime.Var;
 
 import java.util.Objects;
@@ -260,6 +262,118 @@ public abstract class ValueExpr extends Expr {
         @Override
         public String toString() {
             return String.format("(CallExpr (%s %s))", var, params.stream().map(Object::toString).collect(Collectors.joining(" ")));
+        }
+    }
+
+    public static final class LetExpr extends ValueExpr {
+
+        public static final class LetBinding {
+            public final Range range;
+            public final Symbol symbol;
+            public final ValueExpr expr;
+
+            public static LetBinding letBinding(Symbol symbol, ValueExpr expr) {
+                return new LetBinding(null, symbol, expr);
+            }
+
+            public LetBinding(Range range, Symbol symbol, ValueExpr expr) {
+                this.range = range;
+                this.symbol = symbol;
+                this.expr = expr;
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) return true;
+                if (o == null || getClass() != o.getClass()) return false;
+                LetBinding that = (LetBinding) o;
+                return Objects.equals(symbol, that.symbol) &&
+                    Objects.equals(expr, that.expr);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(symbol, expr);
+            }
+
+            @Override
+            public String toString() {
+                return String.format("(LetBinding %s %s}", symbol, expr);
+            }
+        }
+
+        public final PVector<LetBinding> bindings;
+        public final ValueExpr body;
+
+        public static LetExpr letExpr(PVector<LetBinding> bindings, ValueExpr body) {
+            return new LetExpr(null, bindings, body);
+        }
+
+        public LetExpr(Range range, PVector<LetBinding> bindings, ValueExpr body) {
+            super(range);
+            this.bindings = bindings;
+            this.body = body;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            LetExpr letExpr = (LetExpr) o;
+            return Objects.equals(bindings, letExpr.bindings) &&
+                Objects.equals(body, letExpr.body);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(bindings, body);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(LetExpr [%s] %s)", bindings.stream().map(Object::toString).collect(Collectors.joining(" ")), body);
+        }
+    }
+
+    public static final class LocalVarExpr extends ValueExpr {
+
+        public final LocalVar localVar;
+
+        public static LocalVarExpr localVarExpr(LocalVar localVar) {
+            return new LocalVarExpr(null, localVar);
+        }
+
+        public LocalVarExpr(Range range, LocalVar localVar) {
+            super(range);
+            this.localVar = localVar;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            LocalVarExpr that = (LocalVarExpr) o;
+            return Objects.equals(localVar, that.localVar);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(localVar);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(LocalVarExpr %s)", localVar);
         }
     }
 }

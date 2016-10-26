@@ -85,6 +85,16 @@ public class TypeChecker {
 
                         throw new UnsupportedOperationException();
                     }
+
+                    @Override
+                    public Type visit(ValueExpr.LetExpr expr) {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    @Override
+                    public Type visit(ValueExpr.LocalVarExpr expr) {
+                        throw new UnsupportedOperationException();
+                    }
                 });
             }
         });
