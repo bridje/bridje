@@ -1,7 +1,5 @@
 package rho.types;
 
-import org.pcollections.Empty;
-import org.pcollections.PMap;
 import rho.analyser.Expr;
 import rho.analyser.ExprVisitor;
 import rho.analyser.ValueExpr;
@@ -10,9 +8,7 @@ import rho.runtime.Env;
 import rho.types.Type.TypeVar;
 
 import static rho.types.Type.SetType.setType;
-import static rho.types.Type.SimpleType.BOOL_TYPE;
-import static rho.types.Type.SimpleType.INT_TYPE;
-import static rho.types.Type.SimpleType.STRING_TYPE;
+import static rho.types.Type.SimpleType.*;
 import static rho.types.Type.VectorType.vectorType;
 
 public class TypeChecker {
@@ -40,11 +36,11 @@ public class TypeChecker {
                     @Override
                     public Type visit(ValueExpr.VectorExpr expr) {
                         Type innerType = new TypeVar();
-                        PMap<TypeVar, Type> mapping = Empty.map();
+                        TypeMapping mapping = TypeMapping.EMPTY;
 
                         for (Expr el : expr.exprs) {
                             Type elType = type0(env, el);
-                            mapping = mapping.plusAll(innerType.unify(elType));
+                            mapping = mapping.with(innerType.unify(elType));
                             innerType = innerType.apply(mapping);
                         }
 
@@ -54,11 +50,11 @@ public class TypeChecker {
                     @Override
                     public Type visit(ValueExpr.SetExpr expr) {
                         Type innerType = new TypeVar();
-                        PMap<TypeVar, Type> mapping = Empty.map();
+                        TypeMapping mapping = TypeMapping.EMPTY;
 
                         for (Expr el : expr.exprs) {
                             Type elType = type0(env, el);
-                            mapping = mapping.plusAll(innerType.unify(elType));
+                            mapping = mapping.with(innerType.unify(elType));
                             innerType = innerType.apply(mapping);
                         }
 
@@ -67,6 +63,26 @@ public class TypeChecker {
 
                     @Override
                     public Type visit(ValueExpr.CallExpr expr) {
+                        Type varType = expr.var.type.instantiate();
+
+                        if (varType instanceof Type.FnType) {
+                            FnType fnType = (FnType) varType;
+                            TypeMapping mapping = TypeMapping.EMPTY;
+
+                            if (expr.params.size() != fnType.paramTypes.size()) {
+                                throw new UnsupportedOperationException();
+                            }
+
+                            for (int i = 0; i < expr.params.size(); i++) {
+                                Type paramType = fnType.paramTypes.get(i).apply(mapping);
+                                Type exprType = type0(env, expr.params.get(i)).apply(mapping);
+
+                                mapping = mapping.with(paramType.unify(exprType));
+                            }
+
+                            return fnType.returnType.apply(mapping);
+                        }
+
                         throw new UnsupportedOperationException();
                     }
                 });

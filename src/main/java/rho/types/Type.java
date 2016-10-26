@@ -1,12 +1,15 @@
 package rho.types;
 
-import org.pcollections.*;
+import org.pcollections.Empty;
+import org.pcollections.HashTreePSet;
+import org.pcollections.PSet;
+import org.pcollections.PVector;
 import rho.Panic;
 
 import java.util.Objects;
 
 import static rho.Panic.panic;
-import static rho.Util.toPMap;
+import static rho.Util.*;
 
 public abstract class Type {
     private Type() {
@@ -16,25 +19,25 @@ public abstract class Type {
         return Empty.set();
     }
 
-    public Type apply(PMap<TypeVar, Type> mapping) {
+    public Type apply(TypeMapping mapping) {
         return this;
     }
 
     public final Type instantiate() {
-        return apply(ftvs().stream().collect(toPMap(ftv -> ftv, ftv -> new TypeVar())));
+        return apply(TypeMapping.from(ftvs().stream().collect(toPMap(ftv -> ftv, ftv -> new TypeVar()))));
     }
 
-    private PMap<TypeVar, Type> varBind(TypeVar var, Type t2) {
+    private TypeMapping varBind(TypeVar var, Type t2) {
         if (t2.ftvs().contains(var)) {
             throw panic("Cyclical types: %s and %s", var, t2);
         } else {
-            return HashTreePMap.singleton(var, t2);
+            return TypeMapping.singleton(var, t2);
         }
     }
 
-    public final PMap<TypeVar, Type> unify(Type t2) {
+    public final TypeMapping unify(Type t2) {
         if (this == t2) {
-            return Empty.map();
+            return TypeMapping.EMPTY;
         } else if (this instanceof TypeVar) {
             return varBind((TypeVar) this, t2);
         } else if (t2 instanceof TypeVar) {
@@ -48,7 +51,7 @@ public abstract class Type {
         return panic("Can't unify types %s and %s", this, t2);
     }
 
-    PMap<TypeVar, Type> unify0(Type t2) {
+    TypeMapping unify0(Type t2) {
         throw cantUnify(t2);
     }
 
@@ -86,12 +89,12 @@ public abstract class Type {
         }
 
         @Override
-        public Type apply(PMap<TypeVar, Type> mapping) {
+        public Type apply(TypeMapping mapping) {
             return new VectorType(elemType.apply(mapping));
         }
 
         @Override
-        PMap<TypeVar, Type> unify0(Type t2) {
+        TypeMapping unify0(Type t2) {
             if (t2 instanceof VectorType) {
                 return elemType.unify(((VectorType) t2).elemType);
             } else {
@@ -135,12 +138,12 @@ public abstract class Type {
         }
 
         @Override
-        public Type apply(PMap<TypeVar, Type> mapping) {
+        public Type apply(TypeMapping mapping) {
             return new SetType(elemType.apply(mapping));
         }
 
         @Override
-        PMap<TypeVar, Type> unify0(Type t2) {
+        TypeMapping unify0(Type t2) {
             if (t2 instanceof SetType) {
                 return elemType.unify(((SetType) t2).elemType);
             } else {
@@ -183,17 +186,20 @@ public abstract class Type {
 
         @Override
         public PSet<TypeVar> ftvs() {
-            return super.ftvs();
+            return paramTypes.stream()
+                .flatMap(t -> t.ftvs().stream())
+                .collect(toPSet())
+                .plusAll(returnType.ftvs());
         }
 
         @Override
-        public Type apply(PMap<TypeVar, Type> mapping) {
-            return super.apply(mapping);
+        public Type apply(TypeMapping mapping) {
+            return new FnType(paramTypes.stream().map(t -> t.apply(mapping)).collect(toPVector()), returnType.apply(mapping));
         }
 
         @Override
-        PMap<TypeVar, Type> unify0(Type t2) {
-            return super.unify0(t2);
+        TypeMapping unify0(Type t2) {
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -205,8 +211,8 @@ public abstract class Type {
         }
 
         @Override
-        public Type apply(PMap<TypeVar, Type> mapping) {
-            return mapping.getOrDefault(this, this);
+        public Type apply(TypeMapping mapping) {
+            return mapping.mapping.getOrDefault(this, this);
         }
 
         @Override

@@ -1,9 +1,7 @@
 package rho.types;
 
 import org.junit.Test;
-import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
-import org.pcollections.PMap;
 import rho.Panic;
 import rho.types.Type.TypeVar;
 
@@ -16,8 +14,8 @@ public class TypeTest {
 
     @Test
     public void simpleTypeUnify() throws Exception {
-        assertEquals(STRING_TYPE.unify(STRING_TYPE), Empty.map());
-        assertEquals(INT_TYPE.unify(INT_TYPE), Empty.map());
+        assertEquals(STRING_TYPE.unify(STRING_TYPE), TypeMapping.EMPTY);
+        assertEquals(INT_TYPE.unify(INT_TYPE), TypeMapping.EMPTY);
     }
 
     @Test(expected = Panic.class)
@@ -32,9 +30,9 @@ public class TypeTest {
         Type.VectorType vectorVarType = vectorType(var);
         Type.VectorType vectorConcreteType = vectorType(STRING_TYPE);
 
-        PMap<TypeVar, Type> mapping = vectorVarType.unify(vectorConcreteType);
+        TypeMapping mapping = vectorVarType.unify(vectorConcreteType);
 
-        assertEquals(mapping, HashTreePMap.singleton(var, STRING_TYPE));
+        assertEquals(mapping, TypeMapping.from(HashTreePMap.singleton(var, STRING_TYPE)));
         assertEquals(vectorConcreteType, vectorVarType.apply(mapping));
     }
 }
