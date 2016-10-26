@@ -226,13 +226,13 @@ public abstract class ValueExpr extends Expr {
     public static final class CallExpr extends ValueExpr {
 
         public final Var var;
-        public final PVector<Expr> params;
+        public final PVector<ValueExpr> params;
 
-        public static CallExpr callExpr(Var var, PVector<Expr> params) {
+        public static CallExpr callExpr(Var var, PVector<ValueExpr> params) {
             return new CallExpr(null, var, params);
         }
 
-        public CallExpr(Range range, Var var, PVector<Expr> params) {
+        public CallExpr(Range range, Var var, PVector<ValueExpr> params) {
             super(range);
             this.var = var;
             this.params = params;

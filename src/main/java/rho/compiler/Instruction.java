@@ -1,5 +1,6 @@
 package rho.compiler;
 
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -8,12 +9,16 @@ import org.pcollections.MapPSet;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.Util;
+import rho.runtime.BootstrapMethod;
+import rho.runtime.Var;
 
+import java.lang.invoke.MethodType;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
 import static org.objectweb.asm.Opcodes.*;
+import static rho.Util.toPVector;
 import static rho.compiler.Instruction.MethodInvoke.INVOKE_STATIC;
 
 interface Instruction {
@@ -34,12 +39,16 @@ interface Instruction {
         }
     }
 
-    static Instruction mplus(Instruction... instructions) {
+    static Instruction mplus(Iterable<Instruction> instructions) {
         return mv -> {
             for (Instruction instruction : instructions) {
                 instruction.apply(mv);
             }
         };
+    }
+
+    static Instruction mplus(Instruction... instructions) {
+        return mplus(Arrays.asList(instructions));
     }
 
     static Instruction loadObject(Object obj) {
@@ -101,5 +110,25 @@ interface Instruction {
             mv -> mv.visitInsn(value ? ICONST_1 : ICONST_0),
             methodCall(Boolean.class, INVOKE_STATIC, "valueOf", Boolean.class, Util.vectorOf(Boolean.TYPE))
         );
+    }
+
+    static Instruction varInvoke(Var var) {
+        return mv -> {
+            BootstrapMethod bootstrapMethod = var.bootstrapMethod;
+            Handle handle = new Handle(H_INVOKESTATIC, Type.getType(bootstrapMethod.bootstrapClass).getInternalName(), bootstrapMethod.bootstrapMethodName, bootstrapMethod.methodType.toMethodDescriptorString(), false);
+
+            // TODO don't hard code this
+            MethodType methodType = MethodType.methodType(Long.class, Long.class, Long.class);
+
+            mv.visitInvokeDynamicInsn("invoke", methodType.toMethodDescriptorString(), handle);
+
+            throw new UnsupportedOperationException("Still need to write the right methodType here");
+        };
+    }
+
+    static Instruction varCall(Var var, PVector<PVector<Instruction>> paramInstructions) {
+        return mplus(
+            mplus(paramInstructions.stream().flatMap(Collection::stream).collect(toPVector())),
+            varInvoke(var));
     }
 }

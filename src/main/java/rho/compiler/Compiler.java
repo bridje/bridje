@@ -1,7 +1,6 @@
 package rho.compiler;
 
 import org.pcollections.HashTreePSet;
-import org.pcollections.PSet;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.Panic;
@@ -31,17 +30,7 @@ import static rho.compiler.NewMethod.newMethod;
 
 public class Compiler {
 
-    static final class CompileResult {
-        public final PVector<Instruction> instructions;
-        public final PSet<NewClass> newClasses;
-
-        CompileResult(PVector<Instruction> instructions, PSet<NewClass> newClasses) {
-            this.instructions = instructions;
-            this.newClasses = newClasses;
-        }
-    }
-
-    static CompileResult compileValue(Env env, ValueExpr expr) {
+    static CompileResult compileValue(ValueExpr expr) {
         return expr.accept(new ValueExprVisitor<CompileResult>() {
             @Override
             public CompileResult visit(ValueExpr.BoolExpr expr) {
@@ -92,7 +81,16 @@ public class Compiler {
 
             @Override
             public CompileResult visit(ValueExpr.CallExpr expr) {
-                throw new UnsupportedOperationException();
+                List<PVector<Instruction>> paramInstructions = new LinkedList<>();
+                Set<NewClass> newClasses = new HashSet<>();
+
+                for (ValueExpr param : expr.params) {
+                    CompileResult compileResult = param.accept(this);
+                    paramInstructions.add(compileResult.instructions);
+
+                }
+
+                return new CompileResult(vectorOf(varCall(expr.var, TreePVector.from(paramInstructions))), HashTreePSet.from(newClasses));
             }
         });
     }
@@ -125,7 +123,7 @@ public class Compiler {
     static EvalResult evalValue(Env env, ValueExpr expr) {
         Type type = TypeChecker.type(env, expr);
 
-        CompileResult compileResult = compileValue(env, expr);
+        CompileResult compileResult = compileValue(expr);
 
         for (NewClass newClass : compileResult.newClasses) {
             defineClass(env, newClass);
