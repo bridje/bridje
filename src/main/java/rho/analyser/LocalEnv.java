@@ -17,6 +17,11 @@ final class LocalEnv {
         private LocalVar(Symbol sym) {
             this.sym = sym;
         }
+
+        @Override
+        public String toString() {
+            return String.format("(LocalVar %s@%d", sym, hashCode());
+        }
     }
 
     public final PMap<Symbol, LocalVar> localVars;
@@ -30,4 +35,5 @@ final class LocalEnv {
     LocalEnv withLocal(Symbol symbol, LocalVar localVar) {
         return new LocalEnv(localVars.plus(symbol, localVar));
     }
+
 }

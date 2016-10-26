@@ -15,6 +15,7 @@ import static rho.analyser.ValueExpr.IntExpr.intExpr;
 import static rho.analyser.ValueExpr.LetExpr.LetBinding.letBinding;
 import static rho.analyser.ValueExpr.LetExpr.letExpr;
 import static rho.analyser.ValueExpr.LocalVarExpr.localVarExpr;
+import static rho.analyser.ValueExpr.VectorExpr.vectorExpr;
 import static rho.reader.Form.IntForm.intForm;
 import static rho.reader.Form.ListForm.listForm;
 import static rho.reader.Form.SymbolForm.symbolForm;
@@ -33,10 +34,18 @@ public class AnalyserTest {
 
     @Test
     public void analysesLet() throws Exception {
-        Expr expr = analyse(null, listForm(symbolForm("let"), vectorForm(symbolForm("x"), intForm(4)), symbolForm("x")));
-        LocalVar localVar = ((ValueExpr.LocalVarExpr) ((ValueExpr.LetExpr) expr).body).localVar;
+        Expr expr = analyse(null, listForm(symbolForm("let"), vectorForm(symbolForm("x"), intForm(4), symbolForm("y"), intForm(3)), vectorForm(symbolForm("x"), symbolForm("y"))));
+
+        ValueExpr.VectorExpr body = (ValueExpr.VectorExpr) ((ValueExpr.LetExpr) expr).body;
+        LocalVar xLocalVar = ((ValueExpr.LocalVarExpr) body.exprs.get(0)).localVar;
+        LocalVar yLocalVar = ((ValueExpr.LocalVarExpr) body.exprs.get(1)).localVar;
+
         assertEquals(
-            letExpr(vectorOf(letBinding(symbol("x"), intExpr(4))), localVarExpr(localVar)),
+            letExpr(
+                vectorOf(
+                    letBinding(symbol("x"), intExpr(4)),
+                    letBinding(symbol("y"), intExpr(3))),
+                vectorExpr(vectorOf(localVarExpr(xLocalVar), localVarExpr(yLocalVar)))),
             expr);
     }
 

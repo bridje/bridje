@@ -298,7 +298,7 @@ public abstract class ValueExpr extends Expr {
 
             @Override
             public String toString() {
-                return String.format("(LetBinding %s %s}", symbol, expr);
+                return String.format("(LetBinding %s %s)", symbol, expr);
             }
         }
 
