@@ -10,6 +10,7 @@ import static rho.Util.setOf;
 import static rho.Util.vectorOf;
 import static rho.analyser.ValueExpr.BoolExpr.boolExpr;
 import static rho.analyser.ValueExpr.CallExpr.callExpr;
+import static rho.analyser.ValueExpr.IfExpr.ifExpr;
 import static rho.analyser.ValueExpr.IntExpr.intExpr;
 import static rho.analyser.ValueExpr.SetExpr.setExpr;
 import static rho.analyser.ValueExpr.StringExpr.stringExpr;
@@ -64,5 +65,13 @@ public class CompilerTest {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
         EvalResult evalResult = Compiler.evalValue(env, callExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2))));
         assertEquals(INT_TYPE, evalResult.type);
+        assertEquals(3L, evalResult.value);
+    }
+
+    @Test
+    public void compilesIf() throws Exception {
+        EvalResult evalResult = Compiler.evalValue(Env.env(), ifExpr(boolExpr(false), stringExpr("is true"), stringExpr("is false")));
+        assertEquals(STRING_TYPE, evalResult.type);
+        assertEquals("is false", evalResult.value);
     }
 }

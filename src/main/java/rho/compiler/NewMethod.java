@@ -13,9 +13,9 @@ final class NewMethod {
     public final String name;
     public final String descriptor;
     public final String[] exceptions;
-    public final PVector<Instruction> instructions;
+    public final PVector<Instructions> instructions;
 
-    NewMethod(PSet<AccessFlag> flags, String name, String descriptor, String[] exceptions, PVector<Instruction> instructions) {
+    NewMethod(PSet<AccessFlag> flags, String name, String descriptor, String[] exceptions, PVector<Instructions> instructions) {
         this.flags = flags;
         this.name = name;
         this.descriptor = descriptor;
@@ -23,7 +23,7 @@ final class NewMethod {
         this.instructions = instructions;
     }
 
-    static NewMethod newMethod(String name, Class<?> returnType, PVector<Class<?>> parameterTypes, PVector<Instruction> instructions) {
+    static NewMethod newMethod(String name, Class<?> returnType, PVector<Class<?>> parameterTypes, PVector<Instructions> instructions) {
         return new NewMethod(
             setOf(PUBLIC, FINAL),
             name,

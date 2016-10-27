@@ -50,7 +50,7 @@ class ClassDefiner extends ClassLoader {
         for (NewMethod method : newClass.methods) {
             MethodVisitor mv = cw.visitMethod(AccessFlag.toInt(method.flags), method.name, method.descriptor, null, method.exceptions);
 
-            for (Instruction i : method.instructions) {
+            for (Instructions i : method.instructions) {
                 i.apply(mv);
             }
 

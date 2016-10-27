@@ -22,7 +22,7 @@ import static rho.Util.setOf;
 import static rho.Util.vectorOf;
 import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
-import static rho.compiler.Instruction.*;
+import static rho.compiler.Instructions.*;
 import static rho.compiler.NewClass.newClass;
 import static rho.compiler.NewMethod.newMethod;
 
@@ -32,24 +32,24 @@ public class Compiler {
         return expr.accept(new ValueExprVisitor<CompileResult>() {
             @Override
             public CompileResult visit(ValueExpr.BoolExpr expr) {
-                return new CompileResult(vectorOf(loadBool(expr.value)), setOf());
+                return new CompileResult(loadBool(expr.value), setOf());
             }
 
             @Override
             public CompileResult visit(ValueExpr.StringExpr expr) {
-                return new CompileResult(vectorOf(loadObject(expr.string)), setOf());
+                return new CompileResult(loadObject(expr.string), setOf());
             }
 
             @Override
             public CompileResult visit(ValueExpr.IntExpr expr) {
                 return new CompileResult(
-                    vectorOf(loadObject(expr.num)),
+                    loadObject(expr.num),
                     setOf());
             }
 
             @Override
             public CompileResult visit(ValueExpr.VectorExpr expr) {
-                List<PVector<Instruction>> instructions = new LinkedList<>();
+                List<Instructions> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
                 for (ValueExpr innerExpr : expr.exprs) {
@@ -58,12 +58,12 @@ public class Compiler {
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(vectorOf(Instruction.vectorOf(Object.class, TreePVector.from(instructions))), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.vectorOf(Object.class, TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
             public CompileResult visit(ValueExpr.SetExpr expr) {
-                List<PVector<Instruction>> instructions = new LinkedList<>();
+                List<Instructions> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
                 for (ValueExpr innerExpr : expr.exprs) {
@@ -72,12 +72,12 @@ public class Compiler {
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(vectorOf(Instruction.setOf(Object.class, TreePVector.from(instructions))), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.setOf(Object.class, TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
             public CompileResult visit(ValueExpr.CallExpr expr) {
-                List<PVector<Instruction>> paramInstructions = new LinkedList<>();
+                List<Instructions> paramInstructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
                 for (ValueExpr param : expr.params) {
@@ -86,7 +86,7 @@ public class Compiler {
 
                 }
 
-                return new CompileResult(vectorOf(varCall(expr.var, TreePVector.from(paramInstructions))), HashTreePSet.from(newClasses));
+                return new CompileResult(varCall(expr.var, TreePVector.from(paramInstructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
@@ -96,7 +96,13 @@ public class Compiler {
 
             @Override
             public CompileResult visit(ValueExpr.IfExpr expr) {
-                throw new UnsupportedOperationException();
+                CompileResult compiledTest = compileValue(expr.testExpr);
+                CompileResult compiledThen = compileValue(expr.thenExpr);
+                CompileResult compiledElse = compileValue(expr.elseExpr);
+
+                return new CompileResult(
+                    ifCall(compiledTest.instructions, compiledThen.instructions, compiledElse.instructions),
+                    compiledTest.newClasses.plusAll(compiledThen.newClasses).plusAll(compiledElse.newClasses));
             }
 
             @Override
@@ -106,7 +112,7 @@ public class Compiler {
         });
     }
 
-    private static Object evalInstructions(Env env, Type type, PVector<Instruction> instructions) {
+    private static Object evalInstructions(Env env, Type type, PVector<Instructions> instructions) {
         try {
             return
                 defineClass(env,
@@ -140,6 +146,6 @@ public class Compiler {
             defineClass(env, newClass);
         }
 
-        return new EvalResult(env, type, evalInstructions(env, type, compileResult.instructions.plus(ret(type))));
+        return new EvalResult(env, type, evalInstructions(env, type, vectorOf(compileResult.instructions, ret(type))));
     }
 }
