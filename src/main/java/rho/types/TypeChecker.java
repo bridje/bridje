@@ -13,7 +13,7 @@ import static rho.types.Type.VectorType.vectorType;
 
 public class TypeChecker {
 
-    private static Type type0(Env env, Expr expr) {
+    private static Type type0(Env env, LocalTypeEnv localTypeEnv, Expr expr) {
         return expr.accept(new ExprVisitor<Type>() {
             @Override
             public Type accept(ValueExpr expr) {
@@ -39,7 +39,7 @@ public class TypeChecker {
                         TypeMapping mapping = TypeMapping.EMPTY;
 
                         for (Expr el : expr.exprs) {
-                            Type elType = type0(env, el);
+                            Type elType = type0(env, localTypeEnv, el);
                             mapping = mapping.with(innerType.unify(elType));
                             innerType = innerType.apply(mapping);
                         }
@@ -53,7 +53,7 @@ public class TypeChecker {
                         TypeMapping mapping = TypeMapping.EMPTY;
 
                         for (Expr el : expr.exprs) {
-                            Type elType = type0(env, el);
+                            Type elType = type0(env, localTypeEnv, el);
                             mapping = mapping.with(innerType.unify(elType));
                             innerType = innerType.apply(mapping);
                         }
@@ -75,7 +75,7 @@ public class TypeChecker {
 
                             for (int i = 0; i < expr.params.size(); i++) {
                                 Type paramType = fnType.paramTypes.get(i).apply(mapping);
-                                Type exprType = type0(env, expr.params.get(i)).apply(mapping);
+                                Type exprType = type0(env, localTypeEnv, expr.params.get(i)).apply(mapping);
 
                                 mapping = mapping.with(paramType.unify(exprType));
                             }
@@ -88,21 +88,33 @@ public class TypeChecker {
 
                     @Override
                     public Type visit(ValueExpr.LetExpr expr) {
-                        throw new UnsupportedOperationException();
+                        LocalTypeEnv localTypeEnv_ = localTypeEnv;
+
+                        for (ValueExpr.LetExpr.LetBinding letBinding : expr.bindings) {
+                            Type bindingType = type0(env, localTypeEnv_, letBinding.expr);
+                            localTypeEnv_ = localTypeEnv_.with(letBinding.localVar, bindingType);
+                        }
+
+                        return type0(env, localTypeEnv_, expr.body);
                     }
 
                     @Override
                     public Type visit(ValueExpr.IfExpr expr) {
-                        TypeMapping mapping = type0(env, expr.testExpr).unify(BOOL_TYPE);
+                        TypeMapping mapping = type0(env, localTypeEnv, expr.testExpr).unify(BOOL_TYPE);
                         TypeVar returnType = new TypeVar();
-                        mapping = type0(env, expr.thenExpr).apply(mapping).unify(returnType);
-                        mapping = type0(env, expr.elseExpr).apply(mapping).unify(returnType);
+                        mapping = type0(env, localTypeEnv, expr.thenExpr).apply(mapping).unify(returnType);
+                        mapping = type0(env, localTypeEnv, expr.elseExpr).apply(mapping).unify(returnType);
 
                         return returnType.apply(mapping);
                     }
 
                     @Override
                     public Type visit(ValueExpr.LocalVarExpr expr) {
+                        Type type = localTypeEnv.env.get(expr.localVar);
+                        if (type != null) {
+                            return type;
+                        }
+
                         throw new UnsupportedOperationException();
                     }
                 });
@@ -111,7 +123,7 @@ public class TypeChecker {
     }
 
     public static Type type(Env env, Expr expr) {
-        return type0(env, expr);
+        return type0(env, LocalTypeEnv.EMPTY_TYPE_ENV, expr);
     }
 
 }

@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static rho.Util.toPVector;
-import static rho.analyser.LocalEnv.LocalVar.localVar;
+import static rho.analyser.LocalVar.localVar;
 import static rho.analyser.ValueExpr.LetExpr.LetBinding.letBinding;
 
 public class Analyser {
@@ -71,9 +71,9 @@ public class Analyser {
                                     for (int i = 0; i < bindingForms.size(); i += 2) {
                                         if (bindingForms.get(i) instanceof Form.SymbolForm) {
                                             Symbol bindingSym = ((Form.SymbolForm) bindingForms.get(i)).sym;
-                                            LocalEnv.LocalVar localVar = localVar(bindingSym);
+                                            LocalVar localVar = localVar(bindingSym);
                                             localEnv_ = localEnv_.withLocal(bindingSym, localVar);
-                                            bindings.add(letBinding(bindingSym, analyseValueExpr(env, localEnv_, bindingForms.get(i + 1))));
+                                            bindings.add(letBinding(localVar, analyseValueExpr(env, localEnv_, bindingForms.get(i + 1))));
                                         } else {
                                             throw new UnsupportedOperationException();
                                         }
@@ -108,7 +108,7 @@ public class Analyser {
 
             @Override
             public ValueExpr visit(Form.SymbolForm form) {
-                LocalEnv.LocalVar localVar = localEnv.localVars.get(form.sym);
+                LocalVar localVar = localEnv.localVars.get(form.sym);
                 if (localVar != null) {
                     return new LocalVarExpr(form.range, localVar);
                 }

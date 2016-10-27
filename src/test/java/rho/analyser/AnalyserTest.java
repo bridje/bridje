@@ -2,7 +2,6 @@ package rho.analyser;
 
 import org.junit.Test;
 import org.pcollections.HashTreePMap;
-import rho.analyser.LocalEnv.LocalVar;
 import rho.reader.Form;
 import rho.runtime.Env;
 
@@ -43,8 +42,8 @@ public class AnalyserTest {
         assertEquals(
             letExpr(
                 vectorOf(
-                    letBinding(symbol("x"), intExpr(4)),
-                    letBinding(symbol("y"), intExpr(3))),
+                    letBinding(xLocalVar, intExpr(4)),
+                    letBinding(yLocalVar, intExpr(3))),
                 vectorExpr(vectorOf(localVarExpr(xLocalVar), localVarExpr(yLocalVar)))),
             expr);
     }

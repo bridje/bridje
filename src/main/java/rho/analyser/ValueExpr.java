@@ -1,10 +1,8 @@
 package rho.analyser;
 
 import org.pcollections.PVector;
-import rho.analyser.LocalEnv.LocalVar;
 import rho.reader.Form;
 import rho.reader.Range;
-import rho.runtime.Symbol;
 import rho.runtime.Var;
 
 import java.util.Objects;
@@ -269,16 +267,16 @@ public abstract class ValueExpr extends Expr {
 
         public static final class LetBinding {
             public final Range range;
-            public final Symbol symbol;
+            public final LocalVar localVar;
             public final ValueExpr expr;
 
-            public static LetBinding letBinding(Symbol symbol, ValueExpr expr) {
+            public static LetBinding letBinding(LocalVar symbol, ValueExpr expr) {
                 return new LetBinding(null, symbol, expr);
             }
 
-            public LetBinding(Range range, Symbol symbol, ValueExpr expr) {
+            public LetBinding(Range range, LocalVar localVar, ValueExpr expr) {
                 this.range = range;
-                this.symbol = symbol;
+                this.localVar = localVar;
                 this.expr = expr;
             }
 
@@ -287,18 +285,18 @@ public abstract class ValueExpr extends Expr {
                 if (this == o) return true;
                 if (o == null || getClass() != o.getClass()) return false;
                 LetBinding that = (LetBinding) o;
-                return Objects.equals(symbol, that.symbol) &&
+                return Objects.equals(localVar, that.localVar) &&
                     Objects.equals(expr, that.expr);
             }
 
             @Override
             public int hashCode() {
-                return Objects.hash(symbol, expr);
+                return Objects.hash(localVar, expr);
             }
 
             @Override
             public String toString() {
-                return String.format("(LetBinding %s %s)", symbol, expr);
+                return String.format("(LetBinding %s %s)", localVar, expr);
             }
         }
 
