@@ -93,7 +93,12 @@ public class TypeChecker {
 
                     @Override
                     public Type visit(ValueExpr.IfExpr expr) {
-                        throw new UnsupportedOperationException();
+                        TypeMapping mapping = type0(env, expr.testExpr).unify(BOOL_TYPE);
+                        TypeVar returnType = new TypeVar();
+                        mapping = type0(env, expr.thenExpr).apply(mapping).unify(returnType);
+                        mapping = type0(env, expr.elseExpr).apply(mapping).unify(returnType);
+
+                        return returnType.apply(mapping);
                     }
 
                     @Override

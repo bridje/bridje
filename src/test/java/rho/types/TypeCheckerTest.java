@@ -7,7 +7,9 @@ import rho.runtime.Env;
 
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
+import static rho.analyser.ValueExpr.BoolExpr.boolExpr;
 import static rho.analyser.ValueExpr.CallExpr.callExpr;
+import static rho.analyser.ValueExpr.IfExpr.ifExpr;
 import static rho.analyser.ValueExpr.IntExpr.intExpr;
 import static rho.analyser.ValueExpr.SetExpr.setExpr;
 import static rho.analyser.ValueExpr.StringExpr.stringExpr;
@@ -47,5 +49,8 @@ public class TypeCheckerTest {
         assertEquals(INT_TYPE, TypeChecker.type(env, callExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2)))));
     }
 
-
+    @Test
+    public void typesIfExpr() throws Exception {
+        assertEquals(STRING_TYPE, TypeChecker.type(Env.env(), ifExpr(boolExpr(false), stringExpr("is true"), stringExpr("is false"))));
+    }
 }
