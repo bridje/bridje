@@ -19,21 +19,6 @@ import static rho.compiler.Instructions.MethodInvoke.INVOKE_STATIC;
 interface Instructions {
     void apply(MethodVisitor mv);
 
-    enum SimpleInstruction implements Instructions {
-        ARETURN(Opcodes.ARETURN);
-
-        private final int opcode;
-
-        SimpleInstruction(int opcode) {
-            this.opcode = opcode;
-        }
-
-        @Override
-        public void apply(MethodVisitor mv) {
-            mv.visitInsn(opcode);
-        }
-    }
-
     static Instructions mplus(Iterable<Instructions> instructions) {
         return mv -> {
             for (Instructions instruction : instructions) {
@@ -134,5 +119,14 @@ interface Instructions {
             },
             elseInstructions,
             mv -> mv.visitLabel(endLabel));
+    }
+
+    static Instructions letBinding(Instructions instructions, Locals.Local local) {
+        return mplus(instructions,
+            mv -> mv.visitVarInsn(ASTORE, local.idx));
+    }
+
+    static Instructions localVarCall(Locals.Local local) {
+        return mv -> mv.visitVarInsn(ALOAD, local.idx);
     }
 }

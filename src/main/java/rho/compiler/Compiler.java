@@ -1,5 +1,6 @@
 package rho.compiler;
 
+import org.pcollections.Empty;
 import org.pcollections.HashTreePSet;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
@@ -10,6 +11,7 @@ import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.types.Type;
 import rho.types.TypeChecker;
+import rho.util.Pair;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashSet;
@@ -23,12 +25,13 @@ import static rho.Util.vectorOf;
 import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
 import static rho.compiler.Instructions.*;
+import static rho.compiler.Locals.staticLocals;
 import static rho.compiler.NewClass.newClass;
 import static rho.compiler.NewMethod.newMethod;
 
 public class Compiler {
 
-    static CompileResult compileValue(ValueExpr expr) {
+    static CompileResult compileValue(Locals locals, ValueExpr expr) {
         return expr.accept(new ValueExprVisitor<CompileResult>() {
             @Override
             public CompileResult visit(ValueExpr.BoolExpr expr) {
@@ -53,7 +56,7 @@ public class Compiler {
                 Set<NewClass> newClasses = new HashSet<>();
 
                 for (ValueExpr innerExpr : expr.exprs) {
-                    CompileResult compileResult = innerExpr.accept(this);
+                    CompileResult compileResult = compileValue(locals, innerExpr);
                     instructions.add(compileResult.instructions);
                     newClasses.addAll(compileResult.newClasses);
                 }
@@ -67,7 +70,7 @@ public class Compiler {
                 Set<NewClass> newClasses = new HashSet<>();
 
                 for (ValueExpr innerExpr : expr.exprs) {
-                    CompileResult compileResult = innerExpr.accept(this);
+                    CompileResult compileResult = compileValue(locals, innerExpr);
                     instructions.add(compileResult.instructions);
                     newClasses.addAll(compileResult.newClasses);
                 }
@@ -81,7 +84,7 @@ public class Compiler {
                 Set<NewClass> newClasses = new HashSet<>();
 
                 for (ValueExpr param : expr.params) {
-                    CompileResult compileResult = param.accept(this);
+                    CompileResult compileResult = compileValue(locals, param);
                     paramInstructions.add(compileResult.instructions);
 
                 }
@@ -91,14 +94,32 @@ public class Compiler {
 
             @Override
             public CompileResult visit(ValueExpr.LetExpr expr) {
-                throw new UnsupportedOperationException();
+                List<Instructions> bindingsInstructions = new LinkedList<>();
+                Set<NewClass> newClasses = new HashSet<>();
+                Locals locals_ = locals;
+
+                for (ValueExpr.LetExpr.LetBinding binding : expr.bindings) {
+                    CompileResult bindingResult = compileValue(locals_, binding.expr);
+                    newClasses.addAll(bindingResult.newClasses);
+
+                    Pair<Locals, Locals.Local> withNewLocal = locals_.newLocal(binding.localVar);
+                    locals_ = withNewLocal.left;
+                    Locals.Local local = withNewLocal.right;
+
+                    bindingsInstructions.add(letBinding(bindingResult.instructions, local));
+                }
+
+                CompileResult bodyCompileResult = compileValue(locals_, expr.body);
+                newClasses.addAll(bodyCompileResult.newClasses);
+
+                return new CompileResult(mplus(mplus(TreePVector.from(bindingsInstructions)), bodyCompileResult.instructions), HashTreePSet.from(newClasses));
             }
 
             @Override
             public CompileResult visit(ValueExpr.IfExpr expr) {
-                CompileResult compiledTest = compileValue(expr.testExpr);
-                CompileResult compiledThen = compileValue(expr.thenExpr);
-                CompileResult compiledElse = compileValue(expr.elseExpr);
+                CompileResult compiledTest = compileValue(locals, expr.testExpr);
+                CompileResult compiledThen = compileValue(locals, expr.thenExpr);
+                CompileResult compiledElse = compileValue(locals, expr.elseExpr);
 
                 return new CompileResult(
                     ifCall(compiledTest.instructions, compiledThen.instructions, compiledElse.instructions),
@@ -107,7 +128,7 @@ public class Compiler {
 
             @Override
             public CompileResult visit(ValueExpr.LocalVarExpr expr) {
-                throw new UnsupportedOperationException();
+                return new CompileResult(localVarCall(locals.locals.get(expr.localVar)), Empty.set());
             }
         });
     }
@@ -140,7 +161,7 @@ public class Compiler {
     static EvalResult evalValue(Env env, ValueExpr expr) {
         Type type = TypeChecker.type(env, expr);
 
-        CompileResult compileResult = compileValue(expr);
+        CompileResult compileResult = compileValue(staticLocals(), expr);
 
         for (NewClass newClass : compileResult.newClasses) {
             defineClass(env, newClass);
