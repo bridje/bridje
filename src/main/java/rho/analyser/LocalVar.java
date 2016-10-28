@@ -16,6 +16,6 @@ public final class LocalVar {
 
     @Override
     public String toString() {
-        return String.format("(LocalVar %s@%d", sym, hashCode());
+        return String.format("(LocalVar %s@%d)", sym, hashCode());
     }
 }

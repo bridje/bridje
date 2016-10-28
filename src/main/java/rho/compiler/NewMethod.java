@@ -1,6 +1,5 @@
 package rho.compiler;
 
-import org.objectweb.asm.Type;
 import org.pcollections.PSet;
 import org.pcollections.PVector;
 
@@ -11,28 +10,28 @@ import static rho.compiler.AccessFlag.PUBLIC;
 final class NewMethod {
     public final PSet<AccessFlag> flags;
     public final String name;
-    public final String descriptor;
-    public final String[] exceptions;
-    public final PVector<Instructions> instructions;
+    public final Class<?> returnType;
+    public final PVector<Class<?>> parameterTypes;
+    public final Instructions instructions;
 
-    NewMethod(PSet<AccessFlag> flags, String name, String descriptor, String[] exceptions, PVector<Instructions> instructions) {
+    NewMethod(PSet<AccessFlag> flags, String name, Class<?> returnType, PVector<Class<?>> parameterTypes, Instructions instructions) {
         this.flags = flags;
         this.name = name;
-        this.descriptor = descriptor;
-        this.exceptions = exceptions;
+        this.returnType = returnType;
+        this.parameterTypes = parameterTypes;
         this.instructions = instructions;
     }
 
-    static NewMethod newMethod(String name, Class<?> returnType, PVector<Class<?>> parameterTypes, PVector<Instructions> instructions) {
+    static NewMethod newMethod(String name, Class<?> returnType, PVector<Class<?>> parameterTypes, Instructions instructions) {
         return new NewMethod(
             setOf(PUBLIC, FINAL),
             name,
-            Type.getMethodDescriptor(Type.getType(returnType), parameterTypes.stream().map(Type::getType).toArray(Type[]::new)),
-            null,
+            returnType,
+            parameterTypes,
             instructions);
     }
 
     NewMethod withFlags(PSet<AccessFlag> flags) {
-        return new NewMethod(flags, name, descriptor, exceptions, instructions);
+        return new NewMethod(flags, name, returnType, parameterTypes, instructions);
     }
 }

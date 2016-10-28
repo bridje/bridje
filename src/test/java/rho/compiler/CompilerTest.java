@@ -24,9 +24,7 @@ import static rho.analyser.ValueExpr.VectorExpr.vectorExpr;
 import static rho.runtime.Symbol.symbol;
 import static rho.runtime.VarUtil.PLUS_VAR;
 import static rho.types.Type.SetType.setType;
-import static rho.types.Type.SimpleType.BOOL_TYPE;
-import static rho.types.Type.SimpleType.INT_TYPE;
-import static rho.types.Type.SimpleType.STRING_TYPE;
+import static rho.types.Type.SimpleType.*;
 import static rho.types.Type.VectorType.vectorType;
 
 public class CompilerTest {
@@ -93,7 +91,7 @@ public class CompilerTest {
             vectorExpr(vectorOf(localVarExpr(x), localVarExpr(y))));
 
         EvalResult evalResult = Compiler.evalValue(Env.env(), letExpr);
-        assertEquals(STRING_TYPE, evalResult.type);
-        assertEquals("is false", evalResult.value);
+        assertEquals(vectorType(INT_TYPE), evalResult.type);
+        assertEquals(vectorOf(4L, 3L), evalResult.value);
     }
 }

@@ -2,6 +2,8 @@ package rho.compiler;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
+import org.pcollections.PVector;
 import rho.runtime.Env;
 
 import java.io.IOException;
@@ -9,10 +11,13 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Stack;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.objectweb.asm.Opcodes.V1_8;
 import static rho.Panic.panic;
+import static rho.Util.toPVector;
 
 class ClassDefiner extends ClassLoader {
 
@@ -48,11 +53,17 @@ class ClassDefiner extends ClassLoader {
         cw.visit(V1_8, AccessFlag.toInt(newClass.flags), toInternalName(className), null, toInternalName(newClass.superClassName), null);
 
         for (NewMethod method : newClass.methods) {
-            MethodVisitor mv = cw.visitMethod(AccessFlag.toInt(method.flags), method.name, method.descriptor, null, method.exceptions);
+            PVector<Type> paramTypes = method.parameterTypes.stream().map(Type::getType).collect(toPVector());
+            MethodVisitor mv = cw.visitMethod(AccessFlag.toInt(method.flags), method.name,
+                Type.getMethodDescriptor(Type.getType(method.returnType), paramTypes.toArray(new Type[paramTypes.size()])),
+                null,
+                null);
 
-            for (Instructions i : method.instructions) {
-                i.apply(mv);
-            }
+            method.instructions.apply(mv, new Stack<>(),
+                new ArrayList<>(
+                    method.flags.contains(AccessFlag.STATIC)
+                        ? paramTypes
+                        : paramTypes.plus(0, Type.getObjectType(toInternalName(className)))));
 
             mv.visitMaxs(0, 0);
             mv.visitEnd();

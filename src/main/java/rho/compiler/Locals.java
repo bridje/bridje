@@ -9,13 +9,18 @@ import static rho.util.Pair.pair;
 
 final class Locals {
 
-    final class Local {
+    static final class Local {
         final LocalVar localVar;
         final int idx;
 
         Local(LocalVar localVar, int idx) {
             this.localVar = localVar;
             this.idx = idx;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(Local %d %s)", idx, localVar);
         }
     }
 

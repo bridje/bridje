@@ -2,7 +2,6 @@ package rho.compiler;
 
 import org.pcollections.Empty;
 import org.pcollections.HashTreePSet;
-import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.Panic;
 import rho.analyser.ValueExpr;
@@ -40,13 +39,13 @@ public class Compiler {
 
             @Override
             public CompileResult visit(ValueExpr.StringExpr expr) {
-                return new CompileResult(loadObject(expr.string), setOf());
+                return new CompileResult(loadObject(expr.string, String.class), setOf());
             }
 
             @Override
             public CompileResult visit(ValueExpr.IntExpr expr) {
                 return new CompileResult(
-                    loadObject(expr.num),
+                    loadObject(expr.num, Long.TYPE),
                     setOf());
             }
 
@@ -61,7 +60,7 @@ public class Compiler {
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(Instructions.vectorOf(Object.class, TreePVector.from(instructions)), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.vectorOf(TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
@@ -75,7 +74,7 @@ public class Compiler {
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(Instructions.setOf(Object.class, TreePVector.from(instructions)), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.setOf(TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
@@ -133,7 +132,7 @@ public class Compiler {
         });
     }
 
-    private static Object evalInstructions(Env env, Type type, PVector<Instructions> instructions) {
+    private static Object evalInstructions(Env env, Type type, Instructions instructions) {
         try {
             return
                 defineClass(env,
@@ -167,6 +166,6 @@ public class Compiler {
             defineClass(env, newClass);
         }
 
-        return new EvalResult(env, type, evalInstructions(env, type, vectorOf(compileResult.instructions, ret(type))));
+        return new EvalResult(env, type, evalInstructions(env, type, mplus(compileResult.instructions, ret())));
     }
 }
