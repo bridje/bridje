@@ -9,16 +9,16 @@ import rho.Util;
 import rho.runtime.BootstrapMethod;
 import rho.runtime.Var;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Stack;
+import java.util.*;
 
 import static org.objectweb.asm.Opcodes.*;
 import static rho.compiler.Instructions.MethodInvoke.INVOKE_STATIC;
 
 interface Instructions {
     void apply(MethodVisitor mv, Stack<Type> stackTypes, List<Type> localTypes);
+
+    Instructions MZERO = (mv, st, lt) -> {
+    };
 
     static Instructions mplus(Iterable<Instructions> instructions) {
         return (mv, st, lt) -> {
@@ -66,7 +66,7 @@ interface Instructions {
     static Instructions box(Type type) {
         switch (type.getSort()) {
             case Type.OBJECT:
-                return mplus();
+                return MZERO;
             case Type.LONG:
                 return methodCall(Long.class, INVOKE_STATIC, "valueOf", Long.class, Util.vectorOf(Long.TYPE));
         }
@@ -152,13 +152,7 @@ interface Instructions {
     }
 
     static int localCount(List<Type> localTypes) {
-        int count = 0;
-        for (Type localType : localTypes) {
-            if (localType != null) {
-                count += localType.getSize();
-            }
-        }
-        return count;
+        return localTypes.stream().filter(Objects::nonNull).mapToInt(Type::getSize).sum();
     }
 
     static Instructions letBinding(Instructions instructions, Locals.Local local) {
