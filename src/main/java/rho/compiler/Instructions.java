@@ -158,7 +158,6 @@ interface Instructions {
     static Instructions letBinding(Instructions instructions, Locals.Local local) {
         return mplus(instructions,
             (mv, st, lt) -> {
-                instructions.apply(mv, st, lt);
                 Type type = st.pop();
                 lt.add(local.idx, type);
                 mv.visitVarInsn(type.getOpcode(ISTORE), localCount(lt.subList(0, local.idx)));
