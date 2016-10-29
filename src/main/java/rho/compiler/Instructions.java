@@ -64,10 +64,10 @@ interface Instructions {
     }
 
     static Instructions box(Type type) {
-        switch (type.getOpcode(ISTORE)) {
-            case ASTORE:
+        switch (type.getSort()) {
+            case Type.OBJECT:
                 return mplus();
-            case LSTORE:
+            case Type.LONG:
                 return methodCall(Long.class, INVOKE_STATIC, "valueOf", Long.class, Util.vectorOf(Long.TYPE));
         }
 
