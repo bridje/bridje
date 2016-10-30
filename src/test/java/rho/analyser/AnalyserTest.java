@@ -7,8 +7,10 @@ import rho.runtime.Env;
 
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
+import static rho.analyser.ActionExpr.DefExpr.defExpr;
 import static rho.analyser.Analyser.analyse;
 import static rho.analyser.ValueExpr.CallExpr.callExpr;
+import static rho.analyser.ValueExpr.GlobalVarExpr.globalVarExpr;
 import static rho.analyser.ValueExpr.IfExpr.ifExpr;
 import static rho.analyser.ValueExpr.IntExpr.intExpr;
 import static rho.analyser.ValueExpr.LetExpr.LetBinding.letBinding;
@@ -25,10 +27,16 @@ import static rho.runtime.VarUtil.PLUS_VAR;
 public class AnalyserTest {
 
     @Test
-    public void resolvesPlus() throws Exception {
+    public void resolvesPlusCall() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
 
         assertEquals(callExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2))), analyse(env, listForm(symbolForm("+"), intForm(1), intForm(2))));
+    }
+
+    @Test
+    public void resolvesPlusValue() throws Exception {
+        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
+        assertEquals(globalVarExpr(PLUS_VAR), analyse(env, symbolForm("+")));
     }
 
     @Test
@@ -53,5 +61,12 @@ public class AnalyserTest {
         assertEquals(
             ifExpr(ValueExpr.BoolExpr.boolExpr(true), intExpr(1), intExpr(2)),
             analyse(null, listForm(symbolForm("if"), Form.BoolForm.boolForm(true), intForm(1), intForm(2))));
+    }
+
+    @Test
+    public void analysesDefValue() throws Exception {
+        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
+
+        assertEquals(defExpr(symbol("x"), callExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2)))), analyse(env, listForm(symbolForm("def"), symbolForm("x"), listForm(symbolForm("+"), intForm(1), intForm(2)))));
     }
 }

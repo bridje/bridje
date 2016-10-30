@@ -18,4 +18,6 @@ public interface ValueExprVisitor<T> {
     T visit(ValueExpr.IfExpr expr);
 
     T visit(ValueExpr.LocalVarExpr expr);
+
+    T visit(ValueExpr.GlobalVarExpr expr);
 }

@@ -417,4 +417,41 @@ public abstract class ValueExpr extends Expr {
             return String.format("(LocalVarExpr %s)", localVar);
         }
     }
+
+    public static final class GlobalVarExpr extends ValueExpr {
+
+        public final Var var;
+
+        public static GlobalVarExpr globalVarExpr(Var var) {
+            return new GlobalVarExpr(null, var);
+        }
+
+        public GlobalVarExpr(Range range, Var var) {
+            super(range);
+            this.var = var;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            GlobalVarExpr that = (GlobalVarExpr) o;
+            return Objects.equals(var, that.var);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(var);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(GlobalVarExpr %s)", var);
+        }
+    }
 }

@@ -1,10 +1,11 @@
 package rho.compiler;
 
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
 import org.pcollections.PVector;
-import rho.runtime.Env;
+import rho.Util;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -13,25 +14,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Stack;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static org.objectweb.asm.Opcodes.V1_8;
 import static rho.Panic.panic;
+import static rho.Util.toInternalName;
 import static rho.Util.toPVector;
 
 class ClassDefiner extends ClassLoader {
 
-    private static AtomicLong UNIQUE_INTS = new AtomicLong(1000);
-
-    private static long uniqueInt() {
-        return UNIQUE_INTS.getAndIncrement();
-    }
-
     private static final ClassDefiner LOADER = new ClassDefiner();
-
-    private static String toInternalName(String name) {
-        return name.replace('.', '/');
-    }
 
     private static void writeClassFile(String name, byte[] bytes) {
         try {
@@ -45,12 +36,16 @@ class ClassDefiner extends ClassLoader {
         }
     }
 
-    static Class<?> defineClass(Env env, NewClass newClass) {
+    static Class<?> defineClass(NewClass newClass) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
-        String className = newClass.name + "$$" + uniqueInt();
+        cw.visit(V1_8, AccessFlag.toInt(newClass.flags), toInternalName(newClass.name), null, toInternalName(newClass.superClassName),
+            newClass.interfaceNames.stream().map(Util::toInternalName).toArray(String[]::new));
 
-        cw.visit(V1_8, AccessFlag.toInt(newClass.flags), toInternalName(className), null, toInternalName(newClass.superClassName), null);
+        for (NewField field : newClass.fields) {
+            FieldVisitor fv = cw.visitField(AccessFlag.toInt(field.flags), field.name, Type.getType(field.clazz).getDescriptor(), null, null);
+            fv.visitEnd();
+        }
 
         for (NewMethod method : newClass.methods) {
             PVector<Type> paramTypes = method.parameterTypes.stream().map(Type::getType).collect(toPVector());
@@ -63,7 +58,7 @@ class ClassDefiner extends ClassLoader {
                 new ArrayList<>(
                     method.flags.contains(AccessFlag.STATIC)
                         ? paramTypes
-                        : paramTypes.plus(0, Type.getObjectType(toInternalName(className)))));
+                        : paramTypes.plus(0, Type.getObjectType(toInternalName(newClass.name)))));
 
             mv.visitMaxs(0, 0);
             mv.visitEnd();
@@ -72,8 +67,8 @@ class ClassDefiner extends ClassLoader {
         cw.visitEnd();
 
         byte[] bytes = cw.toByteArray();
-        writeClassFile(className, bytes);
-        return LOADER.defineClass(className, bytes, 0, bytes.length);
+        writeClassFile(newClass.name, bytes);
+        return LOADER.defineClass(newClass.name, bytes, 0, bytes.length);
     }
 
 }

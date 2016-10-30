@@ -83,6 +83,7 @@ public class Analyser {
                                 }
 
                                 throw new UnsupportedOperationException();
+
                             case "if":
                                 if (forms.size() == 4) {
                                     return new ValueExpr.IfExpr(form.range,
@@ -92,6 +93,7 @@ public class Analyser {
                                 }
 
                                 throw new UnsupportedOperationException();
+
                             default:
                                 Var var =
                                     Optional.ofNullable(env.vars.get(sym))
@@ -111,6 +113,12 @@ public class Analyser {
                 LocalVar localVar = localEnv.localVars.get(form.sym);
                 if (localVar != null) {
                     return new LocalVarExpr(form.range, localVar);
+                }
+
+                Var var = env.vars.get(form.sym);
+
+                if (var != null) {
+                    return new ValueExpr.GlobalVarExpr(form.range, var);
                 }
 
                 throw new UnsupportedOperationException();
@@ -152,18 +160,34 @@ public class Analyser {
 
             @Override
             public Expr visit(Form.ListForm form) {
-                // TODO this isn't always going to be a ValueExpr
-                return analyseValueExpr(env, localEnv, form);
+                Form firstForm = form.forms.get(0);
+                if (firstForm instanceof Form.SymbolForm) {
+                    switch (((Form.SymbolForm) firstForm).sym.sym) {
+                        case "def":
+                            if (form.forms.size() == 3 && form.forms.get(1) instanceof Form.SymbolForm) {
+
+                                return new ActionExpr.DefExpr(form.range,
+                                    ((Form.SymbolForm) form.forms.get(1)).sym,
+                                    analyseValueExpr(env, localEnv, form.forms.get(2)));
+                            }
+
+                            throw new UnsupportedOperationException();
+                        default:
+                            return analyseValueExpr(env, localEnv, form);
+                    }
+                }
+
+                throw new UnsupportedOperationException();
             }
 
             @Override
             public Expr visit(Form.SymbolForm form) {
-                throw new UnsupportedOperationException();
+                return analyseValueExpr(env, localEnv, form);
             }
 
             @Override
             public Expr visit(Form.QSymbolForm form) {
-                throw new UnsupportedOperationException();
+                return analyseValueExpr(env, localEnv, form);
             }
         });
     }

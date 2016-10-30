@@ -49,4 +49,8 @@ public class Env {
     public Env(PMap<Symbol, Var> vars) {
         this.vars = vars;
     }
+
+    public Env withVar(Symbol sym, Var var) {
+        return new Env(vars.plus(sym, var));
+    }
 }

@@ -1,129 +1,149 @@
 package rho.types;
 
-import rho.analyser.Expr;
-import rho.analyser.ExprVisitor;
-import rho.analyser.ValueExpr;
-import rho.analyser.ValueExprVisitor;
+import rho.analyser.*;
 import rho.runtime.Env;
-import rho.types.Type.TypeVar;
+import rho.types.ValueType.TypeVar;
 
-import static rho.types.Type.SetType.setType;
-import static rho.types.Type.SimpleType.*;
-import static rho.types.Type.VectorType.vectorType;
+import static rho.types.ValueType.SetType.setType;
+import static rho.types.ValueType.SimpleType.*;
+import static rho.types.ValueType.VectorType.vectorType;
 
 public class TypeChecker {
 
-    private static Type type0(Env env, LocalTypeEnv localTypeEnv, Expr expr) {
-        return expr.accept(new ExprVisitor<Type>() {
+    private static ValueType typeValueExpr0(Env env, LocalTypeEnv localTypeEnv, ValueExpr expr) {
+        return expr.accept(new ValueExprVisitor<ValueType>() {
             @Override
-            public Type accept(ValueExpr expr) {
-                return expr.accept(new ValueExprVisitor<Type>() {
-                    @Override
-                    public Type visit(ValueExpr.BoolExpr expr) {
-                        return BOOL_TYPE;
-                    }
+            public ValueType visit(ValueExpr.BoolExpr expr) {
+                return BOOL_TYPE;
+            }
 
-                    @Override
-                    public Type visit(ValueExpr.StringExpr expr) {
-                        return STRING_TYPE;
-                    }
+            @Override
+            public ValueType visit(ValueExpr.StringExpr expr) {
+                return STRING_TYPE;
+            }
 
-                    @Override
-                    public Type visit(ValueExpr.IntExpr expr) {
-                        return INT_TYPE;
-                    }
+            @Override
+            public ValueType visit(ValueExpr.IntExpr expr) {
+                return INT_TYPE;
+            }
 
-                    @Override
-                    public Type visit(ValueExpr.VectorExpr expr) {
-                        Type innerType = new TypeVar();
-                        TypeMapping mapping = TypeMapping.EMPTY;
+            @Override
+            public ValueType visit(ValueExpr.VectorExpr expr) {
+                ValueType innerType = new TypeVar();
+                TypeMapping mapping = TypeMapping.EMPTY;
 
-                        for (Expr el : expr.exprs) {
-                            Type elType = type0(env, localTypeEnv, el);
-                            mapping = mapping.with(innerType.unify(elType));
-                            innerType = innerType.apply(mapping);
-                        }
+                for (ValueExpr el : expr.exprs) {
+                    ValueType elType = typeValueExpr0(env, localTypeEnv, el);
+                    mapping = mapping.with(innerType.unify(elType));
+                    innerType = innerType.apply(mapping);
+                }
 
-                        return vectorType(innerType);
-                    }
+                return vectorType(innerType);
+            }
 
-                    @Override
-                    public Type visit(ValueExpr.SetExpr expr) {
-                        Type innerType = new TypeVar();
-                        TypeMapping mapping = TypeMapping.EMPTY;
+            @Override
+            public ValueType visit(ValueExpr.SetExpr expr) {
+                ValueType innerType = new TypeVar();
+                TypeMapping mapping = TypeMapping.EMPTY;
 
-                        for (Expr el : expr.exprs) {
-                            Type elType = type0(env, localTypeEnv, el);
-                            mapping = mapping.with(innerType.unify(elType));
-                            innerType = innerType.apply(mapping);
-                        }
+                for (ValueExpr el : expr.exprs) {
+                    ValueType elType = typeValueExpr0(env, localTypeEnv, el);
+                    mapping = mapping.with(innerType.unify(elType));
+                    innerType = innerType.apply(mapping);
+                }
 
-                        return setType(innerType);
-                    }
+                return setType(innerType);
+            }
 
-                    @Override
-                    public Type visit(ValueExpr.CallExpr expr) {
-                        Type varType = expr.var.type.instantiate();
+            @Override
+            public ValueType visit(ValueExpr.CallExpr expr) {
+                ValueType varType = expr.var.type.instantiate();
 
-                        if (varType instanceof Type.FnType) {
-                            FnType fnType = (FnType) varType;
-                            TypeMapping mapping = TypeMapping.EMPTY;
+                if (varType instanceof ValueType.FnType) {
+                    FnType fnType = (FnType) varType;
+                    TypeMapping mapping = TypeMapping.EMPTY;
 
-                            if (expr.params.size() != fnType.paramTypes.size()) {
-                                throw new UnsupportedOperationException();
-                            }
-
-                            for (int i = 0; i < expr.params.size(); i++) {
-                                Type paramType = fnType.paramTypes.get(i).apply(mapping);
-                                Type exprType = type0(env, localTypeEnv, expr.params.get(i)).apply(mapping);
-
-                                mapping = mapping.with(paramType.unify(exprType));
-                            }
-
-                            return fnType.returnType.apply(mapping);
-                        }
-
+                    if (expr.params.size() != fnType.paramTypes.size()) {
                         throw new UnsupportedOperationException();
                     }
 
-                    @Override
-                    public Type visit(ValueExpr.LetExpr expr) {
-                        LocalTypeEnv localTypeEnv_ = localTypeEnv;
+                    for (int i = 0; i < expr.params.size(); i++) {
+                        ValueType paramType = fnType.paramTypes.get(i).apply(mapping);
+                        ValueType exprType = typeValueExpr0(env, localTypeEnv, expr.params.get(i)).apply(mapping);
 
-                        for (ValueExpr.LetExpr.LetBinding letBinding : expr.bindings) {
-                            Type bindingType = type0(env, localTypeEnv_, letBinding.expr);
-                            localTypeEnv_ = localTypeEnv_.with(letBinding.localVar, bindingType);
-                        }
-
-                        return type0(env, localTypeEnv_, expr.body);
+                        mapping = mapping.with(paramType.unify(exprType));
                     }
 
-                    @Override
-                    public Type visit(ValueExpr.IfExpr expr) {
-                        TypeMapping mapping = type0(env, localTypeEnv, expr.testExpr).unify(BOOL_TYPE);
-                        TypeVar returnType = new TypeVar();
-                        mapping = type0(env, localTypeEnv, expr.thenExpr).apply(mapping).unify(returnType);
-                        mapping = type0(env, localTypeEnv, expr.elseExpr).apply(mapping).unify(returnType);
+                    return fnType.returnType.apply(mapping);
+                }
 
-                        return returnType.apply(mapping);
-                    }
+                throw new UnsupportedOperationException();
+            }
 
-                    @Override
-                    public Type visit(ValueExpr.LocalVarExpr expr) {
-                        Type type = localTypeEnv.env.get(expr.localVar);
-                        if (type != null) {
-                            return type;
-                        }
+            @Override
+            public ValueType visit(ValueExpr.LetExpr expr) {
+                LocalTypeEnv localTypeEnv_ = localTypeEnv;
 
-                        throw new UnsupportedOperationException();
-                    }
-                });
+                for (ValueExpr.LetExpr.LetBinding letBinding : expr.bindings) {
+                    ValueType bindingType = typeValueExpr0(env, localTypeEnv_, letBinding.expr);
+                    localTypeEnv_ = localTypeEnv_.with(letBinding.localVar, bindingType);
+                }
+
+                return typeValueExpr0(env, localTypeEnv_, expr.body);
+            }
+
+            @Override
+            public ValueType visit(ValueExpr.IfExpr expr) {
+                TypeMapping mapping = typeValueExpr0(env, localTypeEnv, expr.testExpr).unify(BOOL_TYPE);
+                TypeVar returnType = new TypeVar();
+                mapping = typeValueExpr0(env, localTypeEnv, expr.thenExpr).apply(mapping).unify(returnType);
+                mapping = typeValueExpr0(env, localTypeEnv, expr.elseExpr).apply(mapping).unify(returnType);
+
+                return returnType.apply(mapping);
+            }
+
+            @Override
+            public ValueType visit(ValueExpr.LocalVarExpr expr) {
+                ValueType type = localTypeEnv.env.get(expr.localVar);
+                if (type != null) {
+                    return type;
+                }
+
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ValueType visit(ValueExpr.GlobalVarExpr expr) {
+                return expr.var.type.instantiate();
+            }
+        });
+    }
+
+    public static ValueType typeValueExpr(Env env, ValueExpr expr) {
+        return typeValueExpr0(env, LocalTypeEnv.EMPTY_TYPE_ENV, expr);
+    }
+
+    public static ActionType typeActionExpr(Env env, ActionExpr expr) {
+        return expr.accept(new ActionExprVisitor<ActionType>() {
+            @Override
+            public ActionType visit(ActionExpr.DefExpr expr) {
+                return new ActionType.DefType(typeValueExpr(env, expr.body));
             }
         });
     }
 
     public static Type type(Env env, Expr expr) {
-        return type0(env, LocalTypeEnv.EMPTY_TYPE_ENV, expr);
+        return expr.accept(new ExprVisitor<Type>() {
+            @Override
+            public Type accept(ValueExpr expr) {
+                return typeValueExpr(env, expr);
+            }
+
+            @Override
+            public Type accept(ActionExpr expr) {
+                return typeActionExpr(env, expr);
+            }
+        });
     }
 
 }

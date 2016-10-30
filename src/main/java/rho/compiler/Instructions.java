@@ -6,12 +6,16 @@ import org.pcollections.MapPSet;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.Util;
-import rho.runtime.BootstrapMethod;
 import rho.runtime.Var;
 
+import java.lang.invoke.MethodType;
 import java.util.*;
+import java.util.function.BiConsumer;
 
 import static org.objectweb.asm.Opcodes.*;
+import static rho.Util.toInternalName;
+import static rho.compiler.Instructions.FieldOp.GET_STATIC;
+import static rho.compiler.Instructions.MethodInvoke.INVOKE_SPECIAL;
 import static rho.compiler.Instructions.MethodInvoke.INVOKE_STATIC;
 
 interface Instructions {
@@ -39,8 +43,24 @@ interface Instructions {
         };
     }
 
+    static Instructions loadClass(Class clazz) {
+        Type type = Type.getType(clazz);
+        switch (type.getSort()) {
+            case Type.LONG:
+                return fieldOp(GET_STATIC, Long.class.getName(), "TYPE", Class.class);
+
+            case Type.OBJECT:
+                return (mv, stackTypes, localTypes) -> {
+                    mv.visitLdcInsn(type);
+                    stackTypes.push(Type.getType(Class.class));
+                };
+            default:
+                throw new UnsupportedOperationException();
+        }
+    }
+
     enum MethodInvoke {
-        INVOKE_STATIC(Opcodes.INVOKESTATIC, false), INVOKE_VIRTUAL(Opcodes.INVOKEVIRTUAL, false);
+        INVOKE_STATIC(Opcodes.INVOKESTATIC, false), INVOKE_VIRTUAL(INVOKEVIRTUAL, false), INVOKE_SPECIAL(INVOKESPECIAL, false);
 
         final int opcode;
         final boolean isInterface;
@@ -60,7 +80,31 @@ interface Instructions {
                 Type.getMethodDescriptor(Type.getType(returnType), paramTypes.stream().map(Type::getType).toArray(Type[]::new)),
                 methodInvoke.isInterface);
         };
+    }
 
+    static Instructions loadThis() {
+        return (mv, st, lt) -> {
+            st.push(lt.get(0));
+            mv.visitVarInsn(ALOAD, 0);
+        };
+    }
+
+    static Instructions newObject0(Class<?> clazz) {
+        return newObject(clazz, Util.vectorOf(), MZERO);
+    }
+
+    static Instructions newObject(Class<?> clazz, PVector<Class<?>> params, Instructions paramInstructions) {
+        return
+            mplus(
+                (mv, st, lt) -> {
+                    Type type = Type.getType(clazz);
+                    mv.visitTypeInsn(NEW, type.getInternalName());
+                    mv.visitInsn(DUP);
+                    st.push(type);
+                    st.push(type);
+                },
+                paramInstructions,
+                methodCall(clazz, INVOKE_SPECIAL, "<init>", Void.TYPE, params));
     }
 
     static Instructions box(Type type) {
@@ -69,6 +113,8 @@ interface Instructions {
                 return MZERO;
             case Type.LONG:
                 return methodCall(Long.class, INVOKE_STATIC, "valueOf", Long.class, Util.vectorOf(Long.TYPE));
+            case Type.BOOLEAN:
+                return methodCall(Boolean.class, INVOKE_STATIC, "valueOf", Boolean.class, Util.vectorOf(Boolean.TYPE));
         }
 
         throw new UnsupportedOperationException();
@@ -115,12 +161,11 @@ interface Instructions {
 
     static Instructions varInvoke(Var var) {
         return (mv, st, lt) -> {
-            BootstrapMethod bootstrapMethod = var.bootstrapMethod;
-            Handle handle = new Handle(H_INVOKESTATIC, Type.getType(bootstrapMethod.bootstrapClass).getInternalName(), bootstrapMethod.bootstrapMethodName, bootstrapMethod.methodType.toMethodDescriptorString(), false);
-            var.methodType.parameterList().forEach(p -> st.pop());
-            st.push(Type.getType(var.methodType.returnType()));
+            Handle handle = new Handle(H_INVOKESTATIC, Type.getType(var.bootstrapClass()).getInternalName(), Var.BOOTSTRAP_METHOD_NAME, Var.BOOTSTRAP_METHOD_TYPE.toMethodDescriptorString(), false);
+            var.functionMethodType.parameterList().forEach(p -> st.pop());
+            st.push(Type.getType(var.functionMethodType.returnType()));
 
-            mv.visitInvokeDynamicInsn("invoke", var.methodType.toMethodDescriptorString(), handle);
+            mv.visitInvokeDynamicInsn(Var.FN_METHOD_NAME, var.functionMethodType.toMethodDescriptorString(), handle);
         };
     }
 
@@ -130,9 +175,14 @@ interface Instructions {
             varInvoke(var));
     }
 
-    static Instructions ret() {
+    static Instructions ret(Class<?> clazz) {
+        Type type = Type.getType(clazz);
         return (mv, st, lt) -> {
-            mv.visitInsn(st.peek().getOpcode(IRETURN));
+            if (type.getSort() == Type.OBJECT) {
+                box(st.peek()).apply(mv, st, lt);
+            }
+
+            mv.visitInsn(type.getOpcode(IRETURN));
         };
     }
 
@@ -170,5 +220,54 @@ interface Instructions {
             st.push(type);
             mv.visitVarInsn(type.getOpcode(ILOAD), localCount(lt.subList(0, local.idx)));
         };
+    }
+
+    static Instructions globalVarValue(Var var) {
+        return (mv, st, lt) -> {
+            Handle handle = new Handle(H_INVOKESTATIC, Type.getType(var.bootstrapClass()).getInternalName(), Var.BOOTSTRAP_METHOD_NAME, Var.BOOTSTRAP_METHOD_TYPE.toMethodDescriptorString(), false);
+            Class<?> valueType = var.type.javaType();
+            st.push(Type.getType(valueType));
+
+            mv.visitInvokeDynamicInsn(Var.VALUE_METHOD_NAME, MethodType.methodType(valueType).toMethodDescriptorString(), handle);
+        };
+    }
+
+    enum StackOp {
+        PUSH(Stack::push), POP((st, t) -> st.pop());
+
+        private final BiConsumer<Stack<Type>, Type> stackUpdater;
+
+        StackOp(BiConsumer<Stack<Type>, Type> stackUpdater) {
+            this.stackUpdater = stackUpdater;
+        }
+
+        public void updateStack(Stack<Type> st, Type type) {
+            stackUpdater.accept(st, type);
+        }
+    }
+
+    enum FieldOp {
+        PUT_STATIC(PUTSTATIC, StackOp.POP), GET_STATIC(GETSTATIC, StackOp.PUSH);
+
+        final int opcode;
+        private final StackOp stackOp;
+
+        FieldOp(int opcode, StackOp stackOp) {
+            this.opcode = opcode;
+            this.stackOp = stackOp;
+        }
+
+        public void updateStack(Stack<Type> st, Type type) {
+            stackOp.updateStack(st, type);
+        }
+    }
+
+    static Instructions fieldOp(FieldOp op, String className, String fieldName, Class<?> clazz) {
+        return (mv, st, lt) -> {
+            Type type = Type.getType(clazz);
+            op.updateStack(st, type);
+            mv.visitFieldInsn(op.opcode, toInternalName(className), fieldName, type.getDescriptor());
+        };
+
     }
 }

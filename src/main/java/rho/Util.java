@@ -3,6 +3,7 @@ package rho;
 import org.pcollections.*;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
@@ -10,6 +11,11 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 
 public class Util {
+    private static AtomicLong UNIQUE_INTS = new AtomicLong(1000);
+
+    public static long uniqueInt() {
+        return UNIQUE_INTS.getAndIncrement();
+    }
 
     public static <T> PSet<T> setOf(T... ts) {
         return HashTreePSet.from(Arrays.asList(ts));
@@ -113,5 +119,9 @@ public class Util {
                 return Empty.set();
             }
         };
+    }
+
+    public static String toInternalName(String name) {
+        return name.replace('.', '/');
     }
 }

@@ -1,22 +1,32 @@
 package rho.runtime;
 
-import java.lang.invoke.CallSite;
-import java.lang.invoke.ConstantCallSite;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
+import rho.types.ValueType;
+
+import java.lang.invoke.*;
 
 import static rho.Util.vectorOf;
-import static rho.runtime.Var.var;
-import static rho.types.Type.FnType.fnType;
-import static rho.types.Type.SimpleType.INT_TYPE;
+import static rho.runtime.Var.*;
+import static rho.types.ValueType.FnType.fnType;
+import static rho.types.ValueType.SimpleType.INT_TYPE;
 
-public class VarUtil {
+public class VarUtil implements IndyBootstrap {
 
-    public static CallSite bootstrapPlus(MethodHandles.Lookup lookup, String name, MethodType methodType) {
+    public static CallSite __bootstrap(MethodHandles.Lookup lookup, String name, MethodType methodType) {
+        MethodHandle plusFn;
+
         try {
-            return new ConstantCallSite(lookup.findStatic(VarUtil.class, "plusFn", MethodType.methodType(Long.TYPE, Long.TYPE, Long.TYPE)));
+            plusFn = lookup.findStatic(VarUtil.class, "plusFn", MethodType.methodType(Long.TYPE, Long.TYPE, Long.TYPE));
         } catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
+        }
+
+        switch (name) {
+            case VALUE_METHOD_NAME:
+                return new ConstantCallSite(MethodHandles.constant(MethodHandle.class, plusFn));
+            case FN_METHOD_NAME:
+                return new ConstantCallSite(plusFn);
+            default:
+                throw new UnsupportedOperationException();
         }
     }
 
@@ -24,8 +34,12 @@ public class VarUtil {
         return a + b;
     }
 
-    public static final BootstrapMethod BOOTSTRAP_METHOD = new BootstrapMethod(VarUtil.class, "bootstrapPlus", MethodType.methodType(CallSite.class, MethodHandles.Lookup.class, String.class, MethodType.class));
+    public static final ValueType.FnType PLUS_TYPE = fnType(vectorOf(INT_TYPE, INT_TYPE), INT_TYPE);
 
-    public static final Var PLUS_VAR = var(fnType(vectorOf(INT_TYPE, INT_TYPE), INT_TYPE), BOOTSTRAP_METHOD, MethodType.methodType(Long.TYPE, Long.TYPE, Long.TYPE));
+    public static final Var PLUS_VAR = var(PLUS_TYPE, new VarUtil(), MethodType.methodType(Long.TYPE, Long.TYPE, Long.TYPE));
 
+    @Override
+    public void setHandles(MethodHandle valueHandle, MethodHandle fnHandle) {
+        throw new UnsupportedOperationException();
+    }
 }
