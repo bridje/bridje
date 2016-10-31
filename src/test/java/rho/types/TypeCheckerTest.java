@@ -1,7 +1,6 @@
 package rho.types;
 
 import org.junit.Test;
-import org.pcollections.HashTreePMap;
 import rho.Panic;
 import rho.analyser.LocalVar;
 import rho.analyser.ValueExpr;
@@ -21,8 +20,10 @@ import static rho.analyser.ValueExpr.LetExpr.letExpr;
 import static rho.analyser.ValueExpr.LocalVarExpr.localVarExpr;
 import static rho.analyser.ValueExpr.SetExpr.setExpr;
 import static rho.analyser.ValueExpr.StringExpr.stringExpr;
+import static rho.analyser.ValueExpr.VarCallExpr.varCallExpr;
 import static rho.analyser.ValueExpr.VectorExpr.vectorExpr;
 import static rho.runtime.Symbol.symbol;
+import static rho.runtime.VarUtil.PLUS_ENV;
 import static rho.runtime.VarUtil.PLUS_VAR;
 import static rho.types.ActionType.DefType.defType;
 import static rho.types.ValueType.FnType.fnType;
@@ -55,14 +56,12 @@ public class TypeCheckerTest {
 
     @Test
     public void typesPlusCall() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        assertEquals(INT_TYPE, TypeChecker.type(env, callExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2)))));
+        assertEquals(INT_TYPE, TypeChecker.type(PLUS_ENV, varCallExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2)))));
     }
 
     @Test
     public void typesPlusValue() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        assertEquals(fnType(vectorOf(INT_TYPE, INT_TYPE), INT_TYPE), TypeChecker.type(env, globalVarExpr(PLUS_VAR)));
+        assertEquals(fnType(vectorOf(INT_TYPE, INT_TYPE), INT_TYPE), TypeChecker.type(PLUS_ENV, globalVarExpr(PLUS_VAR)));
     }
 
     @Test
@@ -85,8 +84,17 @@ public class TypeCheckerTest {
     }
 
     @Test
+    public void typesCallExpr() throws Exception {
+        LocalVar x = localVar(symbol("x"));
+        assertEquals(INT_TYPE, TypeChecker.type(PLUS_ENV,
+            letExpr(
+                vectorOf(
+                    letBinding(x, globalVarExpr(PLUS_VAR))),
+                callExpr(vectorOf(localVarExpr(x), intExpr(1), intExpr(2))))));
+    }
+
+    @Test
     public void typesDefValue() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        assertEquals(defType(INT_TYPE), TypeChecker.type(env, defExpr(symbol("x"), callExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2))))));
+        assertEquals(defType(INT_TYPE), TypeChecker.type(PLUS_ENV, defExpr(symbol("x"), varCallExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2))))));
     }
 }

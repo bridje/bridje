@@ -1,5 +1,6 @@
 package rho.types;
 
+import org.pcollections.PVector;
 import rho.analyser.*;
 import rho.runtime.Env;
 import rho.types.ValueType.TypeVar;
@@ -57,6 +58,33 @@ public class TypeChecker {
 
             @Override
             public ValueType visit(ValueExpr.CallExpr expr) {
+                PVector<ValueExpr> params = expr.params;
+                ValueType firstParamType = typeValueExpr0(env, localTypeEnv, params.get(0));
+
+                if (firstParamType instanceof FnType) {
+                    FnType fnType = (FnType) firstParamType;
+
+                    PVector<ValueType> fnParamTypes = fnType.paramTypes;
+                    if (fnParamTypes.size() == params.size() - 1) {
+                        TypeMapping mapping = TypeMapping.EMPTY;
+                        for (int i = 0; i < fnParamTypes.size(); i++) {
+                            ValueType paramType = fnParamTypes.get(i).apply(mapping);
+                            ValueType exprType = typeValueExpr0(env, localTypeEnv, params.get(i + 1)).apply(mapping);
+
+                            mapping = mapping.with(paramType.unify(exprType));
+                        }
+
+                        return fnType.returnType.apply(mapping);
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public ValueType visit(ValueExpr.VarCallExpr expr) {
                 ValueType varType = expr.var.type.instantiate();
 
                 if (varType instanceof ValueType.FnType) {

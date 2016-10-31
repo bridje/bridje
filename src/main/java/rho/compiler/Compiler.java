@@ -88,6 +88,11 @@ public class Compiler {
 
             @Override
             public CompileResult visit(ValueExpr.CallExpr expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompileResult visit(ValueExpr.VarCallExpr expr) {
                 List<Instructions> paramInstructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 

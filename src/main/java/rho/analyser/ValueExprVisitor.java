@@ -13,6 +13,8 @@ public interface ValueExprVisitor<T> {
 
     T visit(ValueExpr.CallExpr expr);
 
+    T visit(ValueExpr.VarCallExpr expr);
+
     T visit(ValueExpr.LetExpr expr);
 
     T visit(ValueExpr.IfExpr expr);

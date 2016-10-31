@@ -11,7 +11,6 @@ import rho.runtime.Var;
 
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 
 import static rho.Util.toPVector;
 import static rho.analyser.LocalVar.localVar;
@@ -95,12 +94,19 @@ public class Analyser {
                                 throw new UnsupportedOperationException();
 
                             default:
-                                Var var =
-                                    Optional.ofNullable(env.vars.get(sym))
-                                        .orElseThrow(UnsupportedOperationException::new);
+                                LocalVar localVar = localEnv.localVars.get(sym);
+                                if (localVar != null) {
+                                    return new ValueExpr.CallExpr(form.range, forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
+                                }
 
-                                return new ValueExpr.CallExpr(form.range, var,
-                                    forms.subList(1, forms.size()).stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
+                                Var var = env.vars.get(sym);
+                                if (var != null) {
+                                    return new ValueExpr.VarCallExpr(form.range, var,
+                                        forms.subList(1, forms.size()).stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
+
+                                }
+
+                                throw new UnsupportedOperationException();
                         }
                     }
                 }

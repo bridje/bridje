@@ -26,10 +26,10 @@ import static rho.analyser.ValueExpr.LetExpr.letExpr;
 import static rho.analyser.ValueExpr.LocalVarExpr.localVarExpr;
 import static rho.analyser.ValueExpr.SetExpr.setExpr;
 import static rho.analyser.ValueExpr.StringExpr.stringExpr;
+import static rho.analyser.ValueExpr.VarCallExpr.varCallExpr;
 import static rho.analyser.ValueExpr.VectorExpr.vectorExpr;
 import static rho.runtime.Symbol.symbol;
-import static rho.runtime.VarUtil.PLUS_TYPE;
-import static rho.runtime.VarUtil.PLUS_VAR;
+import static rho.runtime.VarUtil.*;
 import static rho.types.ActionType.DefType.defType;
 import static rho.types.ValueType.SetType.setType;
 import static rho.types.ValueType.SimpleType.*;
@@ -65,7 +65,7 @@ public class CompilerTest {
     @Test
     public void compilesPlus() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        assertEquals(3L, Compiler.compile(env, callExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2))), INT_TYPE).value);
+        assertEquals(3L, Compiler.compile(env, varCallExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2))), INT_TYPE).value);
     }
 
     @Test
@@ -97,7 +97,7 @@ public class CompilerTest {
     @Test
     public void compilesDefValue() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        EvalResult evalResult = Compiler.compile(env, defExpr(symbol("three"), callExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2)))), defType(INT_TYPE));
+        EvalResult evalResult = Compiler.compile(env, defExpr(symbol("three"), varCallExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2)))), defType(INT_TYPE));
         assertEquals(3L, evalResult.value);
 
         Var var = evalResult.env.vars.get(symbol("three"));
@@ -105,6 +105,16 @@ public class CompilerTest {
         assertEquals(INT_TYPE, var.type);
 
         assertEquals(3L, Compiler.compile(evalResult.env, globalVarExpr(var), INT_TYPE).value);
+    }
+
+    @Test
+    public void compilesFirstClassFn() throws Exception {
+        LocalVar x = localVar(symbol("x"));
+        assertEquals(3L, Compiler.compile(PLUS_ENV,
+            letExpr(
+                vectorOf(
+                    letBinding(x, globalVarExpr(PLUS_VAR))),
+                callExpr(vectorOf(localVarExpr(x), intExpr(1), intExpr(2)))), INT_TYPE).value);
 
     }
 }

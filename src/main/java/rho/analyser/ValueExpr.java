@@ -225,14 +225,51 @@ public abstract class ValueExpr extends Expr {
 
     public static final class CallExpr extends ValueExpr {
 
+        public final PVector<ValueExpr> params;
+
+        public static CallExpr callExpr(PVector<ValueExpr> params) {
+            return new CallExpr(null, params);
+        }
+
+        public CallExpr(Range range, PVector<ValueExpr> params) {
+            super(range);
+            this.params = params;
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            CallExpr callExpr = (CallExpr) o;
+            return Objects.equals(params, callExpr.params);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(params);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(CallExpr (%s))", params.stream().map(Object::toString).collect(Collectors.joining(" ")));
+        }
+    }
+
+    public static final class VarCallExpr extends ValueExpr {
+
         public final Var var;
         public final PVector<ValueExpr> params;
 
-        public static CallExpr callExpr(Var var, PVector<ValueExpr> params) {
-            return new CallExpr(null, var, params);
+        public static VarCallExpr varCallExpr(Var var, PVector<ValueExpr> params) {
+            return new VarCallExpr(null, var, params);
         }
 
-        public CallExpr(Range range, Var var, PVector<ValueExpr> params) {
+        public VarCallExpr(Range range, Var var, PVector<ValueExpr> params) {
             super(range);
             this.var = var;
             this.params = params;
@@ -247,9 +284,9 @@ public abstract class ValueExpr extends Expr {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            CallExpr callExpr = (CallExpr) o;
-            return Objects.equals(var, callExpr.var) &&
-                Objects.equals(params, callExpr.params);
+            VarCallExpr varCallExpr = (VarCallExpr) o;
+            return Objects.equals(var, varCallExpr.var) &&
+                Objects.equals(params, varCallExpr.params);
         }
 
         @Override
@@ -259,7 +296,7 @@ public abstract class ValueExpr extends Expr {
 
         @Override
         public String toString() {
-            return String.format("(CallExpr (%s %s))", var, params.stream().map(Object::toString).collect(Collectors.joining(" ")));
+            return String.format("(VarCallExpr (%s %s))", var, params.stream().map(Object::toString).collect(Collectors.joining(" ")));
         }
     }
 

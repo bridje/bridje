@@ -1,10 +1,12 @@
 package rho.runtime;
 
+import org.pcollections.HashTreePMap;
 import rho.types.ValueType;
 
 import java.lang.invoke.*;
 
 import static rho.Util.vectorOf;
+import static rho.runtime.Symbol.symbol;
 import static rho.runtime.Var.*;
 import static rho.types.ValueType.FnType.fnType;
 import static rho.types.ValueType.SimpleType.INT_TYPE;
@@ -37,6 +39,8 @@ public class VarUtil implements IndyBootstrap {
     public static final ValueType.FnType PLUS_TYPE = fnType(vectorOf(INT_TYPE, INT_TYPE), INT_TYPE);
 
     public static final Var PLUS_VAR = var(PLUS_TYPE, new VarUtil(), MethodType.methodType(Long.TYPE, Long.TYPE, Long.TYPE));
+
+    public static final Env PLUS_ENV = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
 
     @Override
     public void setHandles(MethodHandle valueHandle, MethodHandle fnHandle) {
