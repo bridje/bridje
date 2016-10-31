@@ -2,6 +2,7 @@ package rho.compiler;
 
 import org.pcollections.Empty;
 import org.pcollections.HashTreePSet;
+import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.Panic;
 import rho.analyser.*;
@@ -88,7 +89,21 @@ public class Compiler {
 
             @Override
             public CompileResult visit(ValueExpr.CallExpr expr) {
-                throw new UnsupportedOperationException();
+                PVector<ValueExpr> params = expr.params;
+
+                CompileResult fnCompileResult = compileValue(locals, params.get(0));
+
+                PVector<CompileResult> paramCompileResults = expr.params.minus(0).stream().map(p -> compileValue(locals, p)).collect(toPVector());
+
+                return new CompileResult(
+                    mplus(
+                        fnCompileResult.instructions,
+                        arrayOf(paramCompileResults.stream().map(pcr -> pcr.instructions).collect(toPVector())),
+                        methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", Object.class, vectorOf(Object[].class))),
+                    fnCompileResult.newClasses
+                        .plusAll(paramCompileResults.stream().flatMap(pcr -> pcr.newClasses.stream()).collect(toPSet())));
+
+
             }
 
             @Override
