@@ -1,6 +1,5 @@
 package rho.compiler;
 
-import org.objectweb.asm.Type;
 import org.pcollections.Empty;
 import org.pcollections.HashTreePSet;
 import org.pcollections.PVector;
@@ -10,7 +9,7 @@ import rho.analyser.*;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.runtime.IndyBootstrap;
-import rho.types.ValueType;
+import rho.types.Type;
 import rho.util.Pair;
 
 import java.lang.invoke.MethodHandle;
@@ -40,59 +39,59 @@ import static rho.runtime.Var.var;
 
 public class Compiler {
 
-    static CompileResult compileValue(Locals locals, ValueExpr<? extends ValueType> expr) {
-        return expr.accept(new ValueExprVisitor<CompileResult, ValueType>() {
+    static CompileResult compileValue(Locals locals, ValueExpr<? extends Type> expr) {
+        return expr.accept(new ValueExprVisitor<Type, CompileResult>() {
             @Override
-            public CompileResult visit(ValueExpr.BoolExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.BoolExpr<? extends Type> expr) {
                 return new CompileResult(loadBool(expr.value), setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.StringExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.StringExpr<? extends Type> expr) {
                 return new CompileResult(loadObject(expr.string), setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.IntExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.IntExpr<? extends Type> expr) {
                 return new CompileResult(
                     loadObject(expr.num),
                     setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.VectorExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.VectorExpr<? extends Type> expr) {
                 List<Instructions> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr<? extends ValueType> innerExpr : expr.exprs) {
+                for (ValueExpr<? extends Type> innerExpr : expr.exprs) {
                     CompileResult compileResult = compileValue(locals, innerExpr);
                     instructions.add(compileResult.instructions);
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(Instructions.vectorOf(((ValueType.VectorType) expr.data).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.vectorOf(((Type.VectorType) expr.data).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
-            public CompileResult visit(ValueExpr.SetExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.SetExpr<? extends Type> expr) {
                 List<Instructions> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr<? extends ValueType> innerExpr : expr.exprs) {
+                for (ValueExpr<? extends Type> innerExpr : expr.exprs) {
                     CompileResult compileResult = compileValue(locals, innerExpr);
                     instructions.add(compileResult.instructions);
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(Instructions.setOf(((ValueType.SetType) expr.data).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.setOf(((Type.SetType) expr.data).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
-            public CompileResult visit(ValueExpr.CallExpr<? extends ValueType> expr) {
-                PVector<? extends ValueExpr<? extends ValueType>> params = expr.params;
+            public CompileResult visit(ValueExpr.CallExpr<? extends Type> expr) {
+                PVector<? extends ValueExpr<? extends Type>> params = expr.exprs;
 
-                ValueExpr<? extends ValueType> fn = params.get(0);
-                PVector<? extends ValueExpr<? extends ValueType>> args = expr.params.minus(0);
+                ValueExpr<? extends Type> fn = params.get(0);
+                PVector<? extends ValueExpr<? extends Type>> args = expr.exprs.minus(0);
 
                 CompileResult fnCompileResult = compileValue(locals, fn);
 
@@ -110,11 +109,11 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.VarCallExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.VarCallExpr<? extends Type> expr) {
                 List<Instructions> paramInstructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr<? extends ValueType> param : expr.params) {
+                for (ValueExpr<? extends Type> param : expr.params) {
                     CompileResult compileResult = compileValue(locals, param);
                     paramInstructions.add(compileResult.instructions);
 
@@ -124,12 +123,12 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.LetExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.LetExpr<? extends Type> expr) {
                 List<Instructions> bindingsInstructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
                 Locals locals_ = locals;
 
-                for (ValueExpr.LetExpr.LetBinding<? extends ValueType> binding : expr.bindings) {
+                for (ValueExpr.LetExpr.LetBinding<? extends Type> binding : expr.bindings) {
                     CompileResult bindingResult = compileValue(locals_, binding.expr);
                     newClasses.addAll(bindingResult.newClasses);
 
@@ -147,7 +146,7 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.IfExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.IfExpr<? extends Type> expr) {
                 CompileResult compiledTest = compileValue(locals, expr.testExpr);
                 CompileResult compiledThen = compileValue(locals, expr.thenExpr);
                 CompileResult compiledElse = compileValue(locals, expr.elseExpr);
@@ -158,12 +157,12 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.LocalVarExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.LocalVarExpr<? extends Type> expr) {
                 return new CompileResult(localVarCall(locals.locals.get(expr.localVar)), Empty.set());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.GlobalVarExpr<? extends ValueType> expr) {
+            public CompileResult visit(ValueExpr.GlobalVarExpr<? extends Type> expr) {
                 return new CompileResult(globalVarValue(expr.var), Empty.set());
             }
         });
@@ -177,7 +176,7 @@ public class Compiler {
                         defineClass(
                             newClass("user$$eval$$" + uniqueInt())
                                 .withMethod(
-                                    newMethod("$$eval", Object.class, vectorOf(), mplus(instructions, box(Type.getType(returnType)), ret(Object.class)))
+                                    newMethod("$$eval", Object.class, vectorOf(), mplus(instructions, box(org.objectweb.asm.Type.getType(returnType)), ret(Object.class)))
                                         .withFlags(setOf(PUBLIC, FINAL, STATIC)))),
 
 
@@ -199,10 +198,10 @@ public class Compiler {
         }
     }
 
-    static EvalResult compile(Env env, Expr<? extends ValueType> expr) {
-        return expr.accept(new ExprVisitor<EvalResult, ValueType>() {
+    static EvalResult compile(Env env, Expr<? extends Type> expr) {
+        return expr.accept(new ExprVisitor<Type, EvalResult>() {
             @Override
-            public EvalResult accept(ValueExpr<? extends ValueType> expr) {
+            public EvalResult accept(ValueExpr<? extends Type> expr) {
                 CompileResult compileResult = compileValue(staticLocals(), expr);
 
                 compileResult.newClasses.forEach(ClassDefiner::defineClass);
@@ -211,19 +210,19 @@ public class Compiler {
             }
 
             @Override
-            public EvalResult accept(ActionExpr<? extends ValueType> expr) {
-                return expr.accept(new ActionExprVisitor<EvalResult, ValueType>() {
+            public EvalResult accept(ActionExpr<? extends Type> expr) {
+                return expr.accept(new ActionExprVisitor<Type, EvalResult>() {
                     @Override
-                    public EvalResult visit(ActionExpr.DefExpr<? extends ValueType> expr) {
+                    public EvalResult visit(ActionExpr.DefExpr<? extends Type> expr) {
                         CompileResult compileResult = compileValue(staticLocals(), expr.body);
 
                         compileResult.newClasses.forEach(ClassDefiner::defineClass);
 
                         String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
 
-                        ValueType valueType = expr.body.data;
+                        Type type = expr.body.data;
 
-                        Class<?> clazz = valueType.javaType();
+                        Class<?> clazz = type.javaType();
 
                         NewClass newClass = newClass(className)
                             .withField(newField("$$value", clazz, setOf(STATIC, FINAL, PRIVATE)))
@@ -247,7 +246,7 @@ public class Compiler {
                         }
 
                         @SuppressWarnings("unchecked")
-                        Class<? extends IndyBootstrap> bootstrapClass = (Class<? extends IndyBootstrap>) defineClass(newBootstrapClass(valueType));
+                        Class<? extends IndyBootstrap> bootstrapClass = (Class<? extends IndyBootstrap>) defineClass(newBootstrapClass(type));
 
                         IndyBootstrap bootstrap;
                         try {
@@ -258,7 +257,7 @@ public class Compiler {
 
                         bootstrap.setHandles(handle, null);
 
-                        Env newEnv = env.withVar(expr.sym, var(valueType, bootstrap, null));
+                        Env newEnv = env.withVar(expr.sym, var(type, bootstrap, null));
 
                         try {
                             return new EvalResult(newEnv, dynClass.getDeclaredMethod("$$value").invoke(null));

@@ -6,5 +6,5 @@ public abstract class Expr<VED> {
 
     }
 
-    public abstract <V> V accept(ExprVisitor<V, ? super VED> visitor);
+    public abstract <V> V accept(ExprVisitor<? super VED, V> visitor);
 }

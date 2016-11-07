@@ -3,12 +3,12 @@ package rho.types;
 import org.junit.Test;
 import org.pcollections.HashTreePMap;
 import rho.Panic;
-import rho.types.ValueType.TypeVar;
+import rho.types.Type.TypeVar;
 
 import static org.junit.Assert.assertEquals;
-import static rho.types.ValueType.SimpleType.INT_TYPE;
-import static rho.types.ValueType.SimpleType.STRING_TYPE;
-import static rho.types.ValueType.VectorType.vectorType;
+import static rho.types.Type.SimpleType.INT_TYPE;
+import static rho.types.Type.SimpleType.STRING_TYPE;
+import static rho.types.Type.VectorType.vectorType;
 
 public class TypeTest {
 
@@ -27,8 +27,8 @@ public class TypeTest {
     public void vectorUnify() throws Exception {
         TypeVar var = new TypeVar();
 
-        ValueType.VectorType vectorVarType = vectorType(var);
-        ValueType.VectorType vectorConcreteType = vectorType(STRING_TYPE);
+        Type.VectorType vectorVarType = vectorType(var);
+        Type.VectorType vectorConcreteType = vectorType(STRING_TYPE);
 
         TypeMapping mapping = vectorVarType.unify(vectorConcreteType);
 

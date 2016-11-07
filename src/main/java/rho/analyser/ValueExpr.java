@@ -4,7 +4,10 @@ import org.pcollections.PVector;
 import rho.runtime.Var;
 
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static rho.Util.toPVector;
 
 public abstract class ValueExpr<D> extends Expr<D> {
 
@@ -15,11 +18,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
     }
 
     @Override
-    public <V> V accept(ExprVisitor<V, ? super D> visitor) {
+    public <V> V accept(ExprVisitor<? super D, V> visitor) {
         return visitor.accept(this);
     }
 
-    public abstract <T> T accept(ValueExprVisitor<T, ? super D> visitor);
+    public abstract <T> T accept(ValueExprVisitor<? super D, T> visitor);
+
+    public abstract <D_> ValueExpr<D_> fmap(Function<D, D_> fn);
 
     public static final class BoolExpr<D> extends ValueExpr<D> {
         public final boolean value;
@@ -30,8 +35,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new BoolExpr<>(fn.apply(data), value);
         }
 
         @Override
@@ -63,8 +73,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new StringExpr<>(fn.apply(data), string);
         }
 
         @Override
@@ -96,8 +111,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new IntExpr<>(fn.apply(data), num);
         }
 
         @Override
@@ -128,8 +148,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new VectorExpr<>(fn.apply(data), exprs.stream().map(e -> e.fmap(fn)).collect(toPVector()));
         }
 
         @Override
@@ -160,8 +185,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new SetExpr<>(fn.apply(data), exprs.stream().map(e -> e.fmap(fn)).collect(toPVector()));
         }
 
         @Override
@@ -185,16 +215,21 @@ public abstract class ValueExpr<D> extends Expr<D> {
 
     public static final class CallExpr<D> extends ValueExpr<D> {
 
-        public final PVector<ValueExpr<D>> params;
+        public final PVector<ValueExpr<D>> exprs;
 
-        public CallExpr(D data, PVector<ValueExpr<D>> params) {
+        public CallExpr(D data, PVector<ValueExpr<D>> exprs) {
             super(data);
-            this.params = params;
+            this.exprs = exprs;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new CallExpr<>(fn.apply(data), exprs.stream().map(e -> e.fmap(fn)).collect(toPVector()));
         }
 
         @Override
@@ -202,17 +237,17 @@ public abstract class ValueExpr<D> extends Expr<D> {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             CallExpr callExpr = (CallExpr) o;
-            return Objects.equals(params, callExpr.params);
+            return Objects.equals(exprs, callExpr.exprs);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(params);
+            return Objects.hash(exprs);
         }
 
         @Override
         public String toString() {
-            return String.format("(CallExpr (%s))", params.stream().map(Object::toString).collect(Collectors.joining(" ")));
+            return String.format("(CallExpr (%s))", exprs.stream().map(Object::toString).collect(Collectors.joining(" ")));
         }
     }
 
@@ -228,8 +263,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new VarCallExpr<>(fn.apply(data), var, params.stream().map(p -> p.fmap(fn)).collect(toPVector()));
         }
 
         @Override
@@ -263,6 +303,10 @@ public abstract class ValueExpr<D> extends Expr<D> {
                 this.expr = expr;
             }
 
+            public <D_> LetBinding<D_> fmap(Function<D, D_> fn) {
+                return new LetBinding<>(localVar, expr.fmap(fn));
+            }
+
             @Override
             public boolean equals(Object o) {
                 if (this == o) return true;
@@ -293,8 +337,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new LetExpr<>(fn.apply(data), bindings.stream().map(b -> b.fmap(fn)).collect(toPVector()), body.fmap(fn));
         }
 
         @Override
@@ -331,8 +380,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new IfExpr<>(fn.apply(data), testExpr.fmap(fn), thenExpr.fmap(fn), elseExpr.fmap(fn));
         }
 
         @Override
@@ -366,8 +420,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new LocalVarExpr<>(fn.apply(data), localVar);
         }
 
         @Override
@@ -399,8 +458,13 @@ public abstract class ValueExpr<D> extends Expr<D> {
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T, ? super D> visitor) {
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new GlobalVarExpr<>(fn.apply(data), var);
         }
 
         @Override

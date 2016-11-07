@@ -1,6 +1,6 @@
 package rho.analyser;
 
-public interface ActionExprVisitor<T, VED> {
+public interface ActionExprVisitor<VED, T> {
 
     T visit(ActionExpr.DefExpr<? extends VED> expr);
 }

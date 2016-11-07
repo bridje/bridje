@@ -9,7 +9,6 @@ import org.pcollections.TreePVector;
 import rho.Panic;
 import rho.runtime.IndyBootstrap;
 import rho.runtime.Var;
-import rho.types.ValueType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -52,7 +51,7 @@ class NewClass {
         }
     }
 
-    public static NewClass newBootstrapClass(ValueType valueType) {
+    public static NewClass newBootstrapClass(rho.types.Type type) {
         String className = "$$bootstrap" + uniqueInt();
 
 
@@ -66,7 +65,7 @@ class NewClass {
                 mplus(
                     newObject(MutableCallSite.class, vectorOf(MethodType.class),
                         mplus(
-                            loadClass(valueType.javaType()),
+                            loadClass(type.javaType()),
                             methodCall(MethodType.class, INVOKE_STATIC, "methodType", MethodType.class, vectorOf(Class.class))
                         )
                     ),
@@ -102,7 +101,7 @@ class NewClass {
                     Label tryValue = new Label();
                     Label fail = new Label();
 
-                    Type stringType = Type.getType(String.class);
+                    org.objectweb.asm.Type stringType = Type.getType(String.class);
 
                     mv.visitLdcInsn(Var.FN_METHOD_NAME);
                     mv.visitVarInsn(ALOAD, 1); // name

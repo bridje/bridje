@@ -55,6 +55,6 @@ public class ExprUtil {
     }
 
     public static <VED> ActionExpr.DefExpr<VED> defExpr(Symbol sym, ValueExpr<VED> expr) {
-        return new ActionExpr.DefExpr<>(null, sym, expr);
+        return new ActionExpr.DefExpr<>(sym, expr);
     }
 }

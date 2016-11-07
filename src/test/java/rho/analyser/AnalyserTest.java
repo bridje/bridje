@@ -61,7 +61,7 @@ public class AnalyserTest {
         Expr expr = analyse(PLUS_ENV, listForm(symbolForm("let"), vectorForm(symbolForm("x"), symbolForm("+")), listForm(symbolForm("x"), intForm(1), intForm(2))));
 
         ValueExpr.CallExpr body = (ValueExpr.CallExpr) ((ValueExpr.LetExpr) expr).body;
-        LocalVar xLocalVar = ((ValueExpr.LocalVarExpr) body.params.get(0)).localVar;
+        LocalVar xLocalVar = ((ValueExpr.LocalVarExpr) body.exprs.get(0)).localVar;
 
         assertEquals(
             letExpr(null,

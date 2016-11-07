@@ -1,6 +1,6 @@
 package rho.analyser;
 
-public interface ValueExprVisitor<T, D> {
+public interface ValueExprVisitor<D, T> {
     T visit(ValueExpr.BoolExpr<? extends D> expr);
 
     T visit(ValueExpr.StringExpr<? extends D> expr);

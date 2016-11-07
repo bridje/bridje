@@ -1,8 +1,8 @@
 package rho.analyser;
 
-public interface ExprVisitor<V, VED> {
+public interface ExprVisitor<VED, T> {
 
-    V accept(ValueExpr<? extends VED> expr);
+    T accept(ValueExpr<? extends VED> expr);
 
-    V accept(ActionExpr<? extends VED> expr);
+    T accept(ActionExpr<? extends VED> expr);
 }

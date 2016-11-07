@@ -1,6 +1,6 @@
 package rho.runtime;
 
-import rho.types.ValueType;
+import rho.types.Type;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandles;
@@ -14,15 +14,15 @@ public class Var {
     public static final String VALUE_METHOD_NAME = "$$value";
     public static final String FN_METHOD_NAME = "$$invoke";
 
-    public final ValueType type;
+    public final Type type;
     private final IndyBootstrap indyBootstrap;
     public final MethodType functionMethodType;
 
-    public static Var var(ValueType type, IndyBootstrap indyBootstrap, MethodType functionMethodType) {
+    public static Var var(Type type, IndyBootstrap indyBootstrap, MethodType functionMethodType) {
         return new Var(type, indyBootstrap, functionMethodType);
     }
 
-    private Var(ValueType type, IndyBootstrap indyBootstrap, MethodType functionMethodType) {
+    private Var(Type type, IndyBootstrap indyBootstrap, MethodType functionMethodType) {
         this.type = type;
         this.indyBootstrap = indyBootstrap;
         this.functionMethodType = functionMethodType;

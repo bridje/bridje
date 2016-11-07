@@ -7,7 +7,7 @@ import rho.analyser.ValueExpr;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.runtime.Var;
-import rho.types.ValueType;
+import rho.types.Type;
 
 import java.lang.invoke.MethodHandle;
 
@@ -18,9 +18,9 @@ import static rho.Util.vectorOf;
 import static rho.analyser.ExprUtil.*;
 import static rho.runtime.Symbol.symbol;
 import static rho.runtime.VarUtil.*;
-import static rho.types.ValueType.SetType.setType;
-import static rho.types.ValueType.SimpleType.*;
-import static rho.types.ValueType.VectorType.vectorType;
+import static rho.types.Type.SetType.setType;
+import static rho.types.Type.SimpleType.*;
+import static rho.types.Type.VectorType.vectorType;
 
 public class CompilerTest {
 
@@ -65,7 +65,7 @@ public class CompilerTest {
         LocalVar x = new LocalVar(symbol("x"));
         LocalVar y = new LocalVar(symbol("y"));
 
-        ValueExpr.LetExpr<ValueType> letExpr = letExpr(vectorType(INT_TYPE),
+        ValueExpr.LetExpr<Type> letExpr = letExpr(vectorType(INT_TYPE),
             vectorOf(
                 letBinding(x, intExpr(INT_TYPE, 4)),
                 letBinding(y, intExpr(INT_TYPE, 3))),

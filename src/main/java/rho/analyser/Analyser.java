@@ -171,7 +171,7 @@ public class Analyser {
                         case "def":
                             if (form.forms.size() == 3 && form.forms.get(1) instanceof Form.SymbolForm) {
 
-                                return new ActionExpr.DefExpr<>(form.range,
+                                return new ActionExpr.DefExpr<>(
                                     ((Form.SymbolForm) form.forms.get(1)).sym,
                                     analyseValueExpr(env, localEnv, form.forms.get(2)));
                             }

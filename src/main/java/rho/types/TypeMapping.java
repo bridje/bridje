@@ -3,28 +3,28 @@ package rho.types;
 import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
-import rho.types.ValueType.TypeVar;
+import rho.types.Type.TypeVar;
 
 import java.util.Objects;
 
 final class TypeMapping {
-    final PMap<TypeVar, ValueType> mapping;
+    final PMap<TypeVar, Type> mapping;
 
     static final TypeMapping EMPTY = new TypeMapping(Empty.map());
 
-    public static TypeMapping singleton(TypeVar var, ValueType type) {
+    public static TypeMapping singleton(TypeVar var, Type type) {
         return new TypeMapping(HashTreePMap.singleton(var, type));
     }
 
-    public static TypeMapping from(PMap<TypeVar, ValueType> mapping) {
+    public static TypeMapping from(PMap<TypeVar, Type> mapping) {
         return new TypeMapping(mapping);
     }
 
-    TypeMapping(PMap<TypeVar, ValueType> mapping) {
+    TypeMapping(PMap<TypeVar, Type> mapping) {
         this.mapping = mapping;
     }
 
-    TypeMapping with(PMap<TypeVar, ValueType> mapping) {
+    TypeMapping with(PMap<TypeVar, Type> mapping) {
         return new TypeMapping(this.mapping.plusAll(mapping));
     }
 
