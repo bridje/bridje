@@ -40,59 +40,59 @@ import static rho.runtime.Var.var;
 
 public class Compiler {
 
-    static CompileResult compileValue(Locals locals, ValueExpr<ValueType> expr) {
+    static CompileResult compileValue(Locals locals, ValueExpr<? extends ValueType> expr) {
         return expr.accept(new ValueExprVisitor<CompileResult, ValueType>() {
             @Override
-            public CompileResult visit(ValueExpr.BoolExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.BoolExpr<? extends ValueType> expr) {
                 return new CompileResult(loadBool(expr.value), setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.StringExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.StringExpr<? extends ValueType> expr) {
                 return new CompileResult(loadObject(expr.string), setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.IntExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.IntExpr<? extends ValueType> expr) {
                 return new CompileResult(
                     loadObject(expr.num),
                     setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.VectorExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.VectorExpr<? extends ValueType> expr) {
                 List<Instructions> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr<ValueType> innerExpr : expr.exprs) {
+                for (ValueExpr<? extends ValueType> innerExpr : expr.exprs) {
                     CompileResult compileResult = compileValue(locals, innerExpr);
                     instructions.add(compileResult.instructions);
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(Instructions.vectorOf(((ValueType.VectorType) expr.type).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.vectorOf(((ValueType.VectorType) expr.data).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
-            public CompileResult visit(ValueExpr.SetExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.SetExpr<? extends ValueType> expr) {
                 List<Instructions> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr<ValueType> innerExpr : expr.exprs) {
+                for (ValueExpr<? extends ValueType> innerExpr : expr.exprs) {
                     CompileResult compileResult = compileValue(locals, innerExpr);
                     instructions.add(compileResult.instructions);
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(Instructions.setOf(((ValueType.SetType) expr.type).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.setOf(((ValueType.SetType) expr.data).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
-            public CompileResult visit(ValueExpr.CallExpr<ValueType> expr) {
-                PVector<ValueExpr<ValueType>> params = expr.params;
+            public CompileResult visit(ValueExpr.CallExpr<? extends ValueType> expr) {
+                PVector<? extends ValueExpr<? extends ValueType>> params = expr.params;
 
-                ValueExpr<ValueType> fn = params.get(0);
-                PVector<ValueExpr<ValueType>> args = expr.params.minus(0);
+                ValueExpr<? extends ValueType> fn = params.get(0);
+                PVector<? extends ValueExpr<? extends ValueType>> args = expr.params.minus(0);
 
                 CompileResult fnCompileResult = compileValue(locals, fn);
 
@@ -102,7 +102,7 @@ public class Compiler {
                     mplus(
                         fnCompileResult.instructions,
                         mplus(paramCompileResults.stream().map(pcr -> pcr.instructions).collect(toPVector())),
-                        methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", expr.type.javaType(), args.stream().map(a -> a.type.javaType()).collect(toPVector()))),
+                        methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", expr.data.javaType(), args.stream().map(a -> a.data.javaType()).collect(toPVector()))),
                     fnCompileResult.newClasses
                         .plusAll(paramCompileResults.stream().flatMap(pcr -> pcr.newClasses.stream()).collect(toPSet())));
 
@@ -110,11 +110,11 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.VarCallExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.VarCallExpr<? extends ValueType> expr) {
                 List<Instructions> paramInstructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr<ValueType> param : expr.params) {
+                for (ValueExpr<? extends ValueType> param : expr.params) {
                     CompileResult compileResult = compileValue(locals, param);
                     paramInstructions.add(compileResult.instructions);
 
@@ -124,20 +124,20 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.LetExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.LetExpr<? extends ValueType> expr) {
                 List<Instructions> bindingsInstructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
                 Locals locals_ = locals;
 
-                for (ValueExpr.LetExpr.LetBinding<ValueType> binding : expr.bindings) {
+                for (ValueExpr.LetExpr.LetBinding<? extends ValueType> binding : expr.bindings) {
                     CompileResult bindingResult = compileValue(locals_, binding.expr);
                     newClasses.addAll(bindingResult.newClasses);
 
-                    Pair<Locals, Locals.Local> withNewLocal = locals_.newLocal(binding.localVar);
+                    Pair<Locals, Locals.Local> withNewLocal = locals_.newLocal(binding.localVar, binding.expr.data.javaType());
                     locals_ = withNewLocal.left;
                     Locals.Local local = withNewLocal.right;
 
-                    bindingsInstructions.add(letBinding(bindingResult.instructions, binding.expr.type.javaType(), local));
+                    bindingsInstructions.add(letBinding(bindingResult.instructions, binding.expr.data.javaType(), local));
                 }
 
                 CompileResult bodyCompileResult = compileValue(locals_, expr.body);
@@ -147,7 +147,7 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.IfExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.IfExpr<? extends ValueType> expr) {
                 CompileResult compiledTest = compileValue(locals, expr.testExpr);
                 CompileResult compiledThen = compileValue(locals, expr.thenExpr);
                 CompileResult compiledElse = compileValue(locals, expr.elseExpr);
@@ -158,12 +158,12 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.LocalVarExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.LocalVarExpr<? extends ValueType> expr) {
                 return new CompileResult(localVarCall(locals.locals.get(expr.localVar)), Empty.set());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.GlobalVarExpr<ValueType> expr) {
+            public CompileResult visit(ValueExpr.GlobalVarExpr<? extends ValueType> expr) {
                 return new CompileResult(globalVarValue(expr.var), Empty.set());
             }
         });
@@ -199,29 +199,29 @@ public class Compiler {
         }
     }
 
-    static EvalResult compile(Env env, Expr<ValueType> expr) {
+    static EvalResult compile(Env env, Expr<? extends ValueType> expr) {
         return expr.accept(new ExprVisitor<EvalResult, ValueType>() {
             @Override
-            public EvalResult accept(ValueExpr<ValueType> expr) {
+            public EvalResult accept(ValueExpr<? extends ValueType> expr) {
                 CompileResult compileResult = compileValue(staticLocals(), expr);
 
                 compileResult.newClasses.forEach(ClassDefiner::defineClass);
 
-                return new EvalResult(env, evalInstructions(mplus(compileResult.instructions), expr.type.javaType()));
+                return new EvalResult(env, evalInstructions(mplus(compileResult.instructions), expr.data.javaType()));
             }
 
             @Override
-            public EvalResult accept(ActionExpr<ValueType> expr) {
+            public EvalResult accept(ActionExpr<? extends ValueType> expr) {
                 return expr.accept(new ActionExprVisitor<EvalResult, ValueType>() {
                     @Override
-                    public EvalResult visit(ActionExpr.DefExpr<ValueType> expr) {
+                    public EvalResult visit(ActionExpr.DefExpr<? extends ValueType> expr) {
                         CompileResult compileResult = compileValue(staticLocals(), expr.body);
 
                         compileResult.newClasses.forEach(ClassDefiner::defineClass);
 
                         String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
 
-                        ValueType valueType = expr.body.type;
+                        ValueType valueType = expr.body.data;
 
                         Class<?> clazz = valueType.javaType();
 

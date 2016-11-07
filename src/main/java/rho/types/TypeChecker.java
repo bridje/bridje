@@ -9,29 +9,29 @@ import static rho.types.ValueType.VectorType.vectorType;
 
 public class TypeChecker {
 
-    private static ValueType typeValueExpr0(LocalTypeEnv localTypeEnv, ValueExpr<ValueTypeHole> expr) {
-        return expr.accept(new ValueExprVisitor<ValueType, ValueTypeHole>() {
+    private static ValueType typeValueExpr0(LocalTypeEnv localTypeEnv, ValueExpr<?> expr) {
+        return expr.accept(new ValueExprVisitor<ValueType, Object>() {
             @Override
-            public ValueType visit(ValueExpr.BoolExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.BoolExpr<?> expr) {
                 return BOOL_TYPE;
             }
 
             @Override
-            public ValueType visit(ValueExpr.StringExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.StringExpr<?> expr) {
                 return STRING_TYPE;
             }
 
             @Override
-            public ValueType visit(ValueExpr.IntExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.IntExpr<?> expr) {
                 return INT_TYPE;
             }
 
             @Override
-            public ValueType visit(ValueExpr.VectorExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.VectorExpr<?> expr) {
                 ValueType innerType = new TypeVar();
                 TypeMapping mapping = TypeMapping.EMPTY;
 
-                for (ValueExpr<ValueTypeHole> el : expr.exprs) {
+                for (ValueExpr<?> el : expr.exprs) {
                     ValueType elType = typeValueExpr0(localTypeEnv, el);
                     mapping = mapping.with(innerType.unify(elType));
                     innerType = innerType.apply(mapping);
@@ -41,11 +41,11 @@ public class TypeChecker {
             }
 
             @Override
-            public ValueType visit(ValueExpr.SetExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.SetExpr<?> expr) {
                 ValueType innerType = new TypeVar();
                 TypeMapping mapping = TypeMapping.EMPTY;
 
-                for (ValueExpr<ValueTypeHole> el : expr.exprs) {
+                for (ValueExpr<?> el : expr.exprs) {
                     ValueType elType = typeValueExpr0(localTypeEnv, el);
                     mapping = mapping.with(innerType.unify(elType));
                     innerType = innerType.apply(mapping);
@@ -55,8 +55,8 @@ public class TypeChecker {
             }
 
             @Override
-            public ValueType visit(ValueExpr.CallExpr<ValueTypeHole> expr) {
-                PVector<ValueExpr<ValueTypeHole>> params = expr.params;
+            public ValueType visit(ValueExpr.CallExpr<?> expr) {
+                PVector<? extends ValueExpr<?>> params = expr.params;
                 ValueType firstParamType = typeValueExpr0(localTypeEnv, params.get(0));
 
                 if (firstParamType instanceof FnType) {
@@ -82,7 +82,7 @@ public class TypeChecker {
             }
 
             @Override
-            public ValueType visit(ValueExpr.VarCallExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.VarCallExpr<?> expr) {
                 ValueType varType = expr.var.type.instantiate();
 
                 if (varType instanceof ValueType.FnType) {
@@ -107,10 +107,10 @@ public class TypeChecker {
             }
 
             @Override
-            public ValueType visit(ValueExpr.LetExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.LetExpr<?> expr) {
                 LocalTypeEnv localTypeEnv_ = localTypeEnv;
 
-                for (ValueExpr.LetExpr.LetBinding<ValueTypeHole> letBinding : expr.bindings) {
+                for (ValueExpr.LetExpr.LetBinding<?> letBinding : expr.bindings) {
                     ValueType bindingType = typeValueExpr0(localTypeEnv_, letBinding.expr);
                     localTypeEnv_ = localTypeEnv_.with(letBinding.localVar, bindingType);
                 }
@@ -119,7 +119,7 @@ public class TypeChecker {
             }
 
             @Override
-            public ValueType visit(ValueExpr.IfExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.IfExpr<?> expr) {
                 TypeMapping mapping = typeValueExpr0(localTypeEnv, expr.testExpr).unify(BOOL_TYPE);
                 TypeVar returnType = new TypeVar();
                 mapping = typeValueExpr0(localTypeEnv, expr.thenExpr).apply(mapping).unify(returnType);
@@ -129,7 +129,7 @@ public class TypeChecker {
             }
 
             @Override
-            public ValueType visit(ValueExpr.LocalVarExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.LocalVarExpr<?> expr) {
                 ValueType type = localTypeEnv.env.get(expr.localVar);
                 if (type != null) {
                     return type;
@@ -139,34 +139,34 @@ public class TypeChecker {
             }
 
             @Override
-            public ValueType visit(ValueExpr.GlobalVarExpr<ValueTypeHole> expr) {
+            public ValueType visit(ValueExpr.GlobalVarExpr<?> expr) {
                 return expr.var.type.instantiate();
             }
         });
     }
 
-    public static ValueType typeValueExpr(ValueExpr<ValueTypeHole> expr) {
+    public static ValueType typeValueExpr(ValueExpr<?> expr) {
         return typeValueExpr0(LocalTypeEnv.EMPTY_TYPE_ENV, expr);
     }
 
-    public static ActionType typeActionExpr(ActionExpr<ValueTypeHole> expr) {
-        return expr.accept(new ActionExprVisitor<ActionType, ValueTypeHole>() {
+    public static ActionType typeActionExpr(ActionExpr<?> expr) {
+        return expr.accept(new ActionExprVisitor<ActionType, Object>() {
             @Override
-            public ActionType visit(ActionExpr.DefExpr<ValueTypeHole> expr) {
+            public ActionType visit(ActionExpr.DefExpr<?> expr) {
                 return new ActionType.DefType(typeValueExpr(expr.body));
             }
         });
     }
 
-    public static Type type(Expr<ValueTypeHole> expr) {
-        return expr.accept(new ExprVisitor<Type, ValueTypeHole>() {
+    public static Type type(Expr<?> expr) {
+        return expr.accept(new ExprVisitor<Type, Object>() {
             @Override
-            public Type accept(ValueExpr<ValueTypeHole> expr) {
+            public Type accept(ValueExpr<?> expr) {
                 return typeValueExpr(expr);
             }
 
             @Override
-            public Type accept(ActionExpr<ValueTypeHole> expr) {
+            public Type accept(ActionExpr<?> expr) {
                 return typeActionExpr(expr);
             }
         });

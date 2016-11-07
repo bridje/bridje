@@ -2,35 +2,34 @@ package rho.analyser;
 
 import rho.reader.Range;
 import rho.runtime.Symbol;
-import rho.types.ValueTypeHole;
 
 import java.util.Objects;
 
-public abstract class ActionExpr<VT extends ValueTypeHole> extends Expr<VT> {
+public abstract class ActionExpr<VED> extends Expr<VED> {
     private ActionExpr(Range range) {
-        super(range);
+        super();
     }
 
     @Override
-    public <T> T accept(ExprVisitor<T, VT> visitor) {
+    public <T> T accept(ExprVisitor<T, ? super VED> visitor) {
         return visitor.accept(this);
     }
 
-    public abstract <T> T accept(ActionExprVisitor<T, VT> visitor);
+    public abstract <T> T accept(ActionExprVisitor<T, ? super VED> visitor);
 
-    public static class DefExpr<VT extends ValueTypeHole> extends ActionExpr<VT> {
+    public static class DefExpr<VED> extends ActionExpr<VED> {
 
         public final Symbol sym;
-        public final ValueExpr<VT> body;
+        public final ValueExpr<VED> body;
 
-        public DefExpr(Range range, Symbol sym, ValueExpr<VT> body) {
+        public DefExpr(Range range, Symbol sym, ValueExpr<VED> body) {
             super(range);
             this.sym = sym;
             this.body = body;
         }
 
         @Override
-        public <T> T accept(ActionExprVisitor<T, VT> visitor) {
+        public <T> T accept(ActionExprVisitor<T, ? super VED> visitor) {
             return visitor.visit(this);
         }
 

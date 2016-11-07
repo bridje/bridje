@@ -56,10 +56,10 @@ public class TypeCheckerTest {
 
     @Test
     public void typesLet() throws Exception {
-        LocalVar<ValueType> x = new LocalVar<>(INT_TYPE, symbol("x"));
-        LocalVar<ValueType> y = new LocalVar<>(INT_TYPE, symbol("y"));
+        LocalVar x = new LocalVar(symbol("x"));
+        LocalVar y = new LocalVar(symbol("y"));
 
-        ValueExpr.LetExpr<ValueTypeHole> letExpr = letExpr(null,
+        ValueExpr.LetExpr<?> letExpr = letExpr(null,
             vectorOf(
                 letBinding(x, intExpr(null, 4)),
                 letBinding(y, intExpr(null, 3))),
@@ -70,7 +70,7 @@ public class TypeCheckerTest {
 
     @Test
     public void typesCallExpr() throws Exception {
-        LocalVar<ValueType> x = new LocalVar<>(INT_TYPE, symbol("x"));
+        LocalVar x = new LocalVar(symbol("x"));
         assertEquals(INT_TYPE, TypeChecker.type(
             letExpr(null,
                 vectorOf(

@@ -174,7 +174,7 @@ interface Instructions {
     }
 
     static Instructions localVarCall(Locals.Local local) {
-        return mv -> mv.visitVarInsn(Type.getType(local.localVar.type.javaType()).getOpcode(ILOAD), local.idx);
+        return mv -> mv.visitVarInsn(Type.getType(local.clazz).getOpcode(ILOAD), local.idx);
     }
 
     static Instructions globalVarValue(Var var) {

@@ -62,8 +62,8 @@ public class CompilerTest {
 
     @Test
     public void compilesLet() throws Exception {
-        LocalVar<ValueType> x = new LocalVar<>(INT_TYPE, symbol("x"));
-        LocalVar<ValueType> y = new LocalVar<>(INT_TYPE, symbol("y"));
+        LocalVar x = new LocalVar(symbol("x"));
+        LocalVar y = new LocalVar(symbol("y"));
 
         ValueExpr.LetExpr<ValueType> letExpr = letExpr(vectorType(INT_TYPE),
             vectorOf(
@@ -96,7 +96,7 @@ public class CompilerTest {
 
     @Test
     public void compilesFirstClassFn() throws Exception {
-        LocalVar<ValueType> x = new LocalVar<>(PLUS_TYPE, symbol("x"));
+        LocalVar x = new LocalVar(symbol("x"));
         assertEquals(3L, Compiler.compile(PLUS_ENV,
             letExpr(INT_TYPE,
                 vectorOf(

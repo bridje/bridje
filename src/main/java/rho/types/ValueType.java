@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 import static rho.Panic.panic;
 import static rho.Util.*;
 
-public abstract class ValueType extends Type implements ValueTypeHole {
+public abstract class ValueType extends Type {
 
     private ValueType() {
     }
