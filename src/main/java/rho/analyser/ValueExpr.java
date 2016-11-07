@@ -1,44 +1,39 @@
 package rho.analyser;
 
 import org.pcollections.PVector;
-import rho.reader.Form;
 import rho.reader.Range;
 import rho.runtime.Var;
+import rho.types.ValueTypeHole;
 
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public abstract class ValueExpr extends Expr {
+public abstract class ValueExpr<VT extends ValueTypeHole> extends Expr<VT> {
 
-    private ValueExpr(Range range) {
+    public final VT type;
+
+    private ValueExpr(Range range, VT type) {
         super(range);
+        this.type = type;
     }
 
     @Override
-    public <T> T accept(ExprVisitor<T> visitor) {
+    public <V> V accept(ExprVisitor<V, VT> visitor) {
         return visitor.accept(this);
     }
 
-    public abstract <T> T accept(ValueExprVisitor<T> visitor);
+    public abstract <T> T accept(ValueExprVisitor<T, VT> visitor);
 
-    public static final class BoolExpr extends ValueExpr {
+    public static final class BoolExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
         public final boolean value;
 
-        public static BoolExpr fromForm(Form.BoolForm form) {
-            return new BoolExpr(form.range, form.value);
-        }
-
-        public static BoolExpr boolExpr(boolean value) {
-            return new BoolExpr(null, value);
-        }
-
-        public BoolExpr(Range range, boolean value) {
-            super(range);
+        public BoolExpr(Range range, VT type, boolean value) {
+            super(range, type);
             this.value = value;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -61,25 +56,17 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class StringExpr extends ValueExpr {
+    public static final class StringExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
 
         public final String string;
 
-        public static StringExpr stringExpr(String string) {
-            return new StringExpr(null, string);
-        }
-
-        public static StringExpr fromForm(Form.StringForm form) {
-            return new StringExpr(form.range, form.string);
-        }
-
-        public StringExpr(Range range, String string) {
-            super(range);
+        public StringExpr(Range range, VT type, String string) {
+            super(range, type);
             this.string = string;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -102,25 +89,17 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class IntExpr extends ValueExpr {
+    public static final class IntExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
 
         public final long num;
 
-        public static IntExpr fromForm(Form.IntForm form) {
-            return new IntExpr(form.range, form.num);
-        }
-
-        public static IntExpr intExpr(long num) {
-            return new IntExpr(null, num);
-        }
-
-        public IntExpr(Range range, long num) {
-            super(range);
+        public IntExpr(Range range, VT type, long num) {
+            super(range, type);
             this.num = num;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -143,24 +122,16 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class VectorExpr extends ValueExpr {
-        public final PVector<ValueExpr> exprs;
+    public static final class VectorExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
+        public final PVector<ValueExpr<VT>> exprs;
 
-        public static VectorExpr vectorExpr(PVector<ValueExpr> exprs) {
-            return vectorExpr(null, exprs);
-        }
-
-        public static VectorExpr vectorExpr(Range range, PVector<ValueExpr> exprs) {
-            return new VectorExpr(range, exprs);
-        }
-
-        public VectorExpr(Range range, PVector<ValueExpr> exprs) {
-            super(range);
+        public VectorExpr(Range range, VT type, PVector<ValueExpr<VT>> exprs) {
+            super(range, type);
             this.exprs = exprs;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -183,24 +154,16 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class SetExpr extends ValueExpr {
-        public final PVector<ValueExpr> exprs;
+    public static final class SetExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
+        public final PVector<ValueExpr<VT>> exprs;
 
-        public static SetExpr setExpr(PVector<ValueExpr> exprs) {
-            return setExpr(null, exprs);
-        }
-
-        public static SetExpr setExpr(Range range, PVector<ValueExpr> exprs) {
-            return new SetExpr(range, exprs);
-        }
-
-        public SetExpr(Range range, PVector<ValueExpr> exprs) {
-            super(range);
+        public SetExpr(Range range, VT type, PVector<ValueExpr<VT>> exprs) {
+            super(range, type);
             this.exprs = exprs;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -223,21 +186,17 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class CallExpr extends ValueExpr {
+    public static final class CallExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
 
-        public final PVector<ValueExpr> params;
+        public final PVector<ValueExpr<VT>> params;
 
-        public static CallExpr callExpr(PVector<ValueExpr> params) {
-            return new CallExpr(null, params);
-        }
-
-        public CallExpr(Range range, PVector<ValueExpr> params) {
-            super(range);
+        public CallExpr(Range range, VT type, PVector<ValueExpr<VT>> params) {
+            super(range, type);
             this.params = params;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -260,23 +219,19 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class VarCallExpr extends ValueExpr {
+    public static final class VarCallExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
 
         public final Var var;
-        public final PVector<ValueExpr> params;
+        public final PVector<ValueExpr<VT>> params;
 
-        public static VarCallExpr varCallExpr(Var var, PVector<ValueExpr> params) {
-            return new VarCallExpr(null, var, params);
-        }
-
-        public VarCallExpr(Range range, Var var, PVector<ValueExpr> params) {
-            super(range);
+        public VarCallExpr(Range range, VT type, Var var, PVector<ValueExpr<VT>> params) {
+            super(range, type);
             this.var = var;
             this.params = params;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -300,18 +255,14 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class LetExpr extends ValueExpr {
+    public static final class LetExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
 
-        public static final class LetBinding {
+        public static final class LetBinding<VT extends ValueTypeHole> {
             public final Range range;
             public final LocalVar localVar;
-            public final ValueExpr expr;
+            public final ValueExpr<VT> expr;
 
-            public static LetBinding letBinding(LocalVar symbol, ValueExpr expr) {
-                return new LetBinding(null, symbol, expr);
-            }
-
-            public LetBinding(Range range, LocalVar localVar, ValueExpr expr) {
+            public LetBinding(Range range, LocalVar localVar, ValueExpr<VT> expr) {
                 this.range = range;
                 this.localVar = localVar;
                 this.expr = expr;
@@ -337,21 +288,17 @@ public abstract class ValueExpr extends Expr {
             }
         }
 
-        public final PVector<LetBinding> bindings;
-        public final ValueExpr body;
+        public final PVector<LetBinding<VT>> bindings;
+        public final ValueExpr<VT> body;
 
-        public static LetExpr letExpr(PVector<LetBinding> bindings, ValueExpr body) {
-            return new LetExpr(null, bindings, body);
-        }
-
-        public LetExpr(Range range, PVector<LetBinding> bindings, ValueExpr body) {
-            super(range);
+        public LetExpr(Range range, VT type, PVector<LetBinding<VT>> bindings, ValueExpr<VT> body) {
+            super(range, type);
             this.bindings = bindings;
             this.body = body;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -375,25 +322,21 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class IfExpr extends ValueExpr {
+    public static final class IfExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
 
-        public final ValueExpr testExpr;
-        public final ValueExpr thenExpr;
-        public final ValueExpr elseExpr;
+        public final ValueExpr<VT> testExpr;
+        public final ValueExpr<VT> thenExpr;
+        public final ValueExpr<VT> elseExpr;
 
-        public static IfExpr ifExpr(ValueExpr testExpr, ValueExpr thenExpr, ValueExpr elseExpr) {
-            return new IfExpr(null, testExpr, thenExpr, elseExpr);
-        }
-
-        public IfExpr(Range range, ValueExpr testExpr, ValueExpr thenExpr, ValueExpr elseExpr) {
-            super(range);
+        public IfExpr(Range range, VT type, ValueExpr<VT> testExpr, ValueExpr<VT> thenExpr, ValueExpr<VT> elseExpr) {
+            super(range, type);
             this.testExpr = testExpr;
             this.thenExpr = thenExpr;
             this.elseExpr = elseExpr;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -418,21 +361,17 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class LocalVarExpr extends ValueExpr {
+    public static final class LocalVarExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
 
         public final LocalVar localVar;
 
-        public static LocalVarExpr localVarExpr(LocalVar localVar) {
-            return new LocalVarExpr(null, localVar);
-        }
-
-        public LocalVarExpr(Range range, LocalVar localVar) {
-            super(range);
+        public LocalVarExpr(Range range, VT type, LocalVar localVar) {
+            super(range, type);
             this.localVar = localVar;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 
@@ -455,21 +394,17 @@ public abstract class ValueExpr extends Expr {
         }
     }
 
-    public static final class GlobalVarExpr extends ValueExpr {
+    public static final class GlobalVarExpr<VT extends ValueTypeHole> extends ValueExpr<VT> {
 
         public final Var var;
 
-        public static GlobalVarExpr globalVarExpr(Var var) {
-            return new GlobalVarExpr(null, var);
-        }
-
-        public GlobalVarExpr(Range range, Var var) {
-            super(range);
+        public GlobalVarExpr(Range range, VT type, Var var) {
+            super(range, type);
             this.var = var;
         }
 
         @Override
-        public <T> T accept(ValueExprVisitor<T> visitor) {
+        public <T> T accept(ValueExprVisitor<T, VT> visitor) {
             return visitor.visit(this);
         }
 

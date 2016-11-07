@@ -1,8 +1,9 @@
 package rho.analyser;
 
 import rho.reader.Range;
+import rho.types.ValueTypeHole;
 
-public abstract class Expr {
+public abstract class Expr<VT extends ValueTypeHole> {
 
     public final Range range;
 
@@ -10,5 +11,5 @@ public abstract class Expr {
         this.range = range;
     }
 
-    public abstract <T> T accept(ExprVisitor<T> visitor);
+    public abstract <V> V accept(ExprVisitor<V, VT> visitor);
 }

@@ -9,7 +9,6 @@ import rho.analyser.*;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.runtime.IndyBootstrap;
-import rho.types.ActionType;
 import rho.types.ValueType;
 import rho.util.Pair;
 
@@ -40,31 +39,31 @@ import static rho.runtime.Var.var;
 
 public class Compiler {
 
-    static CompileResult compileValue(Locals locals, ValueExpr expr) {
-        return expr.accept(new ValueExprVisitor<CompileResult>() {
+    static CompileResult compileValue(Locals locals, ValueExpr<ValueType> expr) {
+        return expr.accept(new ValueExprVisitor<CompileResult, ValueType>() {
             @Override
-            public CompileResult visit(ValueExpr.BoolExpr expr) {
+            public CompileResult visit(ValueExpr.BoolExpr<ValueType> expr) {
                 return new CompileResult(loadBool(expr.value), setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.StringExpr expr) {
+            public CompileResult visit(ValueExpr.StringExpr<ValueType> expr) {
                 return new CompileResult(loadObject(expr.string, String.class), setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.IntExpr expr) {
+            public CompileResult visit(ValueExpr.IntExpr<ValueType> expr) {
                 return new CompileResult(
                     loadObject(expr.num, Long.TYPE),
                     setOf());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.VectorExpr expr) {
+            public CompileResult visit(ValueExpr.VectorExpr<ValueType> expr) {
                 List<Instructions> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr innerExpr : expr.exprs) {
+                for (ValueExpr<ValueType> innerExpr : expr.exprs) {
                     CompileResult compileResult = compileValue(locals, innerExpr);
                     instructions.add(compileResult.instructions);
                     newClasses.addAll(compileResult.newClasses);
@@ -74,11 +73,11 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.SetExpr expr) {
+            public CompileResult visit(ValueExpr.SetExpr<ValueType> expr) {
                 List<Instructions> instructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr innerExpr : expr.exprs) {
+                for (ValueExpr<ValueType> innerExpr : expr.exprs) {
                     CompileResult compileResult = compileValue(locals, innerExpr);
                     instructions.add(compileResult.instructions);
                     newClasses.addAll(compileResult.newClasses);
@@ -88,8 +87,8 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.CallExpr expr) {
-                PVector<ValueExpr> params = expr.params;
+            public CompileResult visit(ValueExpr.CallExpr<ValueType> expr) {
+                PVector<ValueExpr<ValueType>> params = expr.params;
 
                 CompileResult fnCompileResult = compileValue(locals, params.get(0));
 
@@ -98,8 +97,8 @@ public class Compiler {
                 return new CompileResult(
                     mplus(
                         fnCompileResult.instructions,
-                        arrayOf(paramCompileResults.stream().map(pcr -> pcr.instructions).collect(toPVector())),
-                        methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", Object.class, vectorOf(Object[].class))),
+                        mplus(paramCompileResults.stream().map(pcr -> pcr.instructions).collect(toPVector())),
+                        methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", Object.class, vectorOf(Object.class, Object.class))),
                     fnCompileResult.newClasses
                         .plusAll(paramCompileResults.stream().flatMap(pcr -> pcr.newClasses.stream()).collect(toPSet())));
 
@@ -107,11 +106,11 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.VarCallExpr expr) {
+            public CompileResult visit(ValueExpr.VarCallExpr<ValueType> expr) {
                 List<Instructions> paramInstructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
 
-                for (ValueExpr param : expr.params) {
+                for (ValueExpr<ValueType> param : expr.params) {
                     CompileResult compileResult = compileValue(locals, param);
                     paramInstructions.add(compileResult.instructions);
 
@@ -121,7 +120,7 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.LetExpr expr) {
+            public CompileResult visit(ValueExpr.LetExpr<ValueType> expr) {
                 List<Instructions> bindingsInstructions = new LinkedList<>();
                 Set<NewClass> newClasses = new HashSet<>();
                 Locals locals_ = locals;
@@ -144,7 +143,7 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.IfExpr expr) {
+            public CompileResult visit(ValueExpr.IfExpr<ValueType> expr) {
                 CompileResult compiledTest = compileValue(locals, expr.testExpr);
                 CompileResult compiledThen = compileValue(locals, expr.thenExpr);
                 CompileResult compiledElse = compileValue(locals, expr.elseExpr);
@@ -155,12 +154,12 @@ public class Compiler {
             }
 
             @Override
-            public CompileResult visit(ValueExpr.LocalVarExpr expr) {
+            public CompileResult visit(ValueExpr.LocalVarExpr<ValueType> expr) {
                 return new CompileResult(localVarCall(locals.locals.get(expr.localVar)), Empty.set());
             }
 
             @Override
-            public CompileResult visit(ValueExpr.GlobalVarExpr expr) {
+            public CompileResult visit(ValueExpr.GlobalVarExpr<ValueType> expr) {
                 return new CompileResult(globalVarValue(expr.var), Empty.set());
             }
         });
@@ -191,10 +190,10 @@ public class Compiler {
         }
     }
 
-    static EvalResult compile(Env env, Expr expr, rho.types.Type type) {
-        return expr.accept(new ExprVisitor<EvalResult>() {
+    static EvalResult compile(Env env, Expr<ValueType> expr) {
+        return expr.accept(new ExprVisitor<EvalResult, ValueType>() {
             @Override
-            public EvalResult accept(ValueExpr expr) {
+            public EvalResult accept(ValueExpr<ValueType> expr) {
                 CompileResult compileResult = compileValue(staticLocals(), expr);
 
                 for (NewClass newClass : compileResult.newClasses) {
@@ -205,10 +204,10 @@ public class Compiler {
             }
 
             @Override
-            public EvalResult accept(ActionExpr expr) {
-                return expr.accept(new ActionExprVisitor<EvalResult>() {
+            public EvalResult accept(ActionExpr<ValueType> expr) {
+                return expr.accept(new ActionExprVisitor<EvalResult, ValueType>() {
                     @Override
-                    public EvalResult visit(ActionExpr.DefExpr expr) {
+                    public EvalResult visit(ActionExpr.DefExpr<ValueType> expr) {
                         CompileResult compileResult = compileValue(staticLocals(), expr.body);
 
                         for (NewClass newClass : compileResult.newClasses) {
@@ -217,7 +216,7 @@ public class Compiler {
 
                         String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
 
-                        ValueType valueType = ((ActionType.DefType) type).exprType;
+                        ValueType valueType = expr.body.type;
 
                         Class<?> clazz = valueType.javaType();
 

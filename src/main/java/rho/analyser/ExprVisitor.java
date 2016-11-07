@@ -1,8 +1,10 @@
 package rho.analyser;
 
-public interface ExprVisitor<T> {
+import rho.types.ValueTypeHole;
 
-    T accept(ValueExpr expr);
+public interface ExprVisitor<V, VT extends ValueTypeHole> {
 
-    T accept(ActionExpr expr);
+    V accept(ValueExpr<VT> expr);
+
+    V accept(ActionExpr<VT> expr);
 }

@@ -2,51 +2,52 @@ package rho.analyser;
 
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
+import rho.analyser.ValueExpr.LetExpr.LetBinding;
 import rho.analyser.ValueExpr.LocalVarExpr;
 import rho.reader.Form;
 import rho.reader.FormVisitor;
 import rho.runtime.Env;
 import rho.runtime.Symbol;
 import rho.runtime.Var;
+import rho.types.ValueTypeHole;
 
 import java.util.LinkedList;
 import java.util.List;
 
 import static rho.Util.toPVector;
 import static rho.analyser.LocalVar.localVar;
-import static rho.analyser.ValueExpr.LetExpr.LetBinding.letBinding;
 
 public class Analyser {
 
-    static ValueExpr analyseValueExpr(Env env, LocalEnv localEnv, Form form) {
-        return form.accept(new FormVisitor<ValueExpr>() {
+    static ValueExpr<ValueTypeHole> analyseValueExpr(Env env, LocalEnv localEnv, Form form) {
+        return form.accept(new FormVisitor<ValueExpr<ValueTypeHole>>() {
             @Override
-            public ValueExpr visit(Form.BoolForm form) {
-                return ValueExpr.BoolExpr.fromForm(form);
+            public ValueExpr<ValueTypeHole> visit(Form.BoolForm form) {
+                return new ValueExpr.BoolExpr<>(form.range, null, form.value);
             }
 
             @Override
-            public ValueExpr visit(Form.StringForm form) {
-                return ValueExpr.StringExpr.fromForm(form);
+            public ValueExpr<ValueTypeHole> visit(Form.StringForm form) {
+                return new ValueExpr.StringExpr<>(form.range, null, form.string);
             }
 
             @Override
-            public ValueExpr visit(Form.IntForm form) {
-                return ValueExpr.IntExpr.fromForm(form);
+            public ValueExpr<ValueTypeHole> visit(Form.IntForm form) {
+                return new ValueExpr.IntExpr<>(form.range, null, form.num);
             }
 
             @Override
-            public ValueExpr visit(Form.VectorForm form) {
-                return ValueExpr.VectorExpr.vectorExpr(form.range, form.forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
+            public ValueExpr<ValueTypeHole> visit(Form.VectorForm form) {
+                return new ValueExpr.VectorExpr<>(form.range, null, form.forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
             }
 
             @Override
-            public ValueExpr visit(Form.SetForm form) {
-                return ValueExpr.SetExpr.setExpr(form.range, form.forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
+            public ValueExpr<ValueTypeHole> visit(Form.SetForm form) {
+                return new ValueExpr.SetExpr<>(form.range, null, form.forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
             }
 
             @Override
-            public ValueExpr visit(Form.ListForm form) {
+            public ValueExpr<ValueTypeHole> visit(Form.ListForm form) {
                 PVector<Form> forms = form.forms;
 
                 if (!forms.isEmpty()) {
@@ -65,27 +66,27 @@ public class Analyser {
                                     }
 
                                     LocalEnv localEnv_ = localEnv;
-                                    List<ValueExpr.LetExpr.LetBinding> bindings = new LinkedList<>();
+                                    List<LetBinding<ValueTypeHole>> bindings = new LinkedList<>();
 
                                     for (int i = 0; i < bindingForms.size(); i += 2) {
                                         if (bindingForms.get(i) instanceof Form.SymbolForm) {
                                             Symbol bindingSym = ((Form.SymbolForm) bindingForms.get(i)).sym;
                                             LocalVar localVar = localVar(bindingSym);
                                             localEnv_ = localEnv_.withLocal(bindingSym, localVar);
-                                            bindings.add(letBinding(localVar, analyseValueExpr(env, localEnv_, bindingForms.get(i + 1))));
+                                            bindings.add(new LetBinding<>(null, localVar, analyseValueExpr(env, localEnv_, bindingForms.get(i + 1))));
                                         } else {
                                             throw new UnsupportedOperationException();
                                         }
                                     }
 
-                                    return new ValueExpr.LetExpr(form.range, TreePVector.from(bindings), analyseValueExpr(env, localEnv_, forms.get(2)));
+                                    return new ValueExpr.LetExpr<>(form.range, null, TreePVector.from(bindings), analyseValueExpr(env, localEnv_, forms.get(2)));
                                 }
 
                                 throw new UnsupportedOperationException();
 
                             case "if":
                                 if (forms.size() == 4) {
-                                    return new ValueExpr.IfExpr(form.range,
+                                    return new ValueExpr.IfExpr<>(form.range, null,
                                         analyseValueExpr(env, localEnv, forms.get(1)),
                                         analyseValueExpr(env, localEnv, forms.get(2)),
                                         analyseValueExpr(env, localEnv, forms.get(3)));
@@ -96,12 +97,12 @@ public class Analyser {
                             default:
                                 LocalVar localVar = localEnv.localVars.get(sym);
                                 if (localVar != null) {
-                                    return new ValueExpr.CallExpr(form.range, forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
+                                    return new ValueExpr.CallExpr<>(form.range, null, forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
                                 }
 
                                 Var var = env.vars.get(sym);
                                 if (var != null) {
-                                    return new ValueExpr.VarCallExpr(form.range, var,
+                                    return new ValueExpr.VarCallExpr<>(form.range, null, var,
                                         forms.subList(1, forms.size()).stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
 
                                 }
@@ -115,29 +116,29 @@ public class Analyser {
             }
 
             @Override
-            public ValueExpr visit(Form.SymbolForm form) {
+            public ValueExpr<ValueTypeHole> visit(Form.SymbolForm form) {
                 LocalVar localVar = localEnv.localVars.get(form.sym);
                 if (localVar != null) {
-                    return new LocalVarExpr(form.range, localVar);
+                    return new LocalVarExpr<>(form.range, null, localVar);
                 }
 
                 Var var = env.vars.get(form.sym);
 
                 if (var != null) {
-                    return new ValueExpr.GlobalVarExpr(form.range, var);
+                    return new ValueExpr.GlobalVarExpr<>(form.range, null, var);
                 }
 
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public ValueExpr visit(Form.QSymbolForm form) {
+            public ValueExpr<ValueTypeHole> visit(Form.QSymbolForm form) {
                 throw new UnsupportedOperationException();
             }
         });
     }
 
-    static Expr analyse0(Env env, LocalEnv localEnv, Form form) {
+    static Expr<ValueTypeHole> analyse0(Env env, LocalEnv localEnv, Form form) {
         return form.accept(new FormVisitor<Expr>() {
             @Override
             public Expr visit(Form.BoolForm form) {
@@ -198,7 +199,7 @@ public class Analyser {
         });
     }
 
-    public static Expr analyse(Env env, Form form) {
+    public static Expr<ValueTypeHole> analyse(Env env, Form form) {
         return analyse0(env, LocalEnv.EMPTY_ENV, form);
     }
 }

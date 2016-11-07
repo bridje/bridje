@@ -1,6 +1,8 @@
 package rho.analyser;
 
-public interface ActionExprVisitor<T> {
+import rho.types.ValueTypeHole;
 
-    T visit(ActionExpr.DefExpr expr);
+public interface ActionExprVisitor<T, VT extends ValueTypeHole> {
+
+    T visit(ActionExpr.DefExpr<VT> expr);
 }

@@ -1,25 +1,27 @@
 package rho.analyser;
 
-public interface ValueExprVisitor<T> {
-    T visit(ValueExpr.BoolExpr expr);
+import rho.types.ValueTypeHole;
 
-    T visit(ValueExpr.StringExpr expr);
+public interface ValueExprVisitor<T, VT extends ValueTypeHole> {
+    T visit(ValueExpr.BoolExpr<VT> expr);
 
-    T visit(ValueExpr.IntExpr expr);
+    T visit(ValueExpr.StringExpr<VT> expr);
 
-    T visit(ValueExpr.VectorExpr expr);
+    T visit(ValueExpr.IntExpr<VT> expr);
 
-    T visit(ValueExpr.SetExpr expr);
+    T visit(ValueExpr.VectorExpr<VT> expr);
 
-    T visit(ValueExpr.CallExpr expr);
+    T visit(ValueExpr.SetExpr<VT> expr);
 
-    T visit(ValueExpr.VarCallExpr expr);
+    T visit(ValueExpr.CallExpr<VT> expr);
 
-    T visit(ValueExpr.LetExpr expr);
+    T visit(ValueExpr.VarCallExpr<VT> expr);
 
-    T visit(ValueExpr.IfExpr expr);
+    T visit(ValueExpr.LetExpr<VT> expr);
 
-    T visit(ValueExpr.LocalVarExpr expr);
+    T visit(ValueExpr.IfExpr<VT> expr);
 
-    T visit(ValueExpr.GlobalVarExpr expr);
+    T visit(ValueExpr.LocalVarExpr<VT> expr);
+
+    T visit(ValueExpr.GlobalVarExpr<VT> expr);
 }

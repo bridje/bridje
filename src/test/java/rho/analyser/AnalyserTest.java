@@ -7,17 +7,8 @@ import rho.runtime.Env;
 
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
-import static rho.analyser.ActionExpr.DefExpr.defExpr;
 import static rho.analyser.Analyser.analyse;
-import static rho.analyser.ValueExpr.CallExpr.callExpr;
-import static rho.analyser.ValueExpr.GlobalVarExpr.globalVarExpr;
-import static rho.analyser.ValueExpr.IfExpr.ifExpr;
-import static rho.analyser.ValueExpr.IntExpr.intExpr;
-import static rho.analyser.ValueExpr.LetExpr.LetBinding.letBinding;
-import static rho.analyser.ValueExpr.LetExpr.letExpr;
-import static rho.analyser.ValueExpr.LocalVarExpr.localVarExpr;
-import static rho.analyser.ValueExpr.VarCallExpr.varCallExpr;
-import static rho.analyser.ValueExpr.VectorExpr.vectorExpr;
+import static rho.analyser.ExprUtil.*;
 import static rho.reader.Form.IntForm.intForm;
 import static rho.reader.Form.ListForm.listForm;
 import static rho.reader.Form.SymbolForm.symbolForm;
@@ -32,13 +23,13 @@ public class AnalyserTest {
     public void resolvesPlusCall() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
 
-        assertEquals(varCallExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2))), analyse(env, listForm(symbolForm("+"), intForm(1), intForm(2))));
+        assertEquals(varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2))), analyse(env, listForm(symbolForm("+"), intForm(1), intForm(2))));
     }
 
     @Test
     public void resolvesPlusValue() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        assertEquals(globalVarExpr(PLUS_VAR), analyse(env, symbolForm("+")));
+        assertEquals(globalVarExpr(null, PLUS_VAR), analyse(env, symbolForm("+")));
     }
 
     @Test
@@ -50,18 +41,18 @@ public class AnalyserTest {
         LocalVar yLocalVar = ((ValueExpr.LocalVarExpr) body.exprs.get(1)).localVar;
 
         assertEquals(
-            letExpr(
+            letExpr(null,
                 vectorOf(
-                    letBinding(xLocalVar, intExpr(4)),
-                    letBinding(yLocalVar, intExpr(3))),
-                vectorExpr(vectorOf(localVarExpr(xLocalVar), localVarExpr(yLocalVar)))),
+                    letBinding(xLocalVar, intExpr(null, 4)),
+                    letBinding(yLocalVar, intExpr(null, 3))),
+                vectorExpr(null, vectorOf(localVarExpr(null, xLocalVar), localVarExpr(null, yLocalVar)))),
             expr);
     }
 
     @Test
     public void analysesIf() throws Exception {
         assertEquals(
-            ifExpr(ValueExpr.BoolExpr.boolExpr(true), intExpr(1), intExpr(2)),
+            ifExpr(null, boolExpr(null, true), intExpr(null, 1), intExpr(null, 2)),
             analyse(null, listForm(symbolForm("if"), Form.BoolForm.boolForm(true), intForm(1), intForm(2))));
     }
 
@@ -73,10 +64,10 @@ public class AnalyserTest {
         LocalVar xLocalVar = ((ValueExpr.LocalVarExpr) body.params.get(0)).localVar;
 
         assertEquals(
-            letExpr(
+            letExpr(null,
                 vectorOf(
-                    letBinding(xLocalVar, globalVarExpr(PLUS_VAR))),
-                callExpr(vectorOf(localVarExpr(xLocalVar), intExpr(1), intExpr(2)))),
+                    letBinding(xLocalVar, globalVarExpr(null, PLUS_VAR))),
+                callExpr(null, vectorOf(localVarExpr(null, xLocalVar), intExpr(null, 1), intExpr(null, 2)))),
             expr);
 
     }
@@ -85,6 +76,6 @@ public class AnalyserTest {
     public void analysesDefValue() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
 
-        assertEquals(defExpr(symbol("x"), varCallExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2)))), analyse(env, listForm(symbolForm("def"), symbolForm("x"), listForm(symbolForm("+"), intForm(1), intForm(2)))));
+        assertEquals(defExpr(symbol("x"), varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2)))), analyse(env, listForm(symbolForm("def"), symbolForm("x"), listForm(symbolForm("+"), intForm(1), intForm(2)))));
     }
 }
