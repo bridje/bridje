@@ -12,8 +12,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Stack;
 
 import static org.objectweb.asm.Opcodes.V1_8;
 import static rho.Panic.panic;
@@ -54,11 +52,7 @@ class ClassDefiner extends ClassLoader {
                 null,
                 null);
 
-            method.instructions.apply(mv, new Stack<>(),
-                new ArrayList<>(
-                    method.flags.contains(AccessFlag.STATIC)
-                        ? paramTypes
-                        : paramTypes.plus(0, Type.getObjectType(toInternalName(newClass.name)))));
+            method.instructions.apply(mv);
 
             mv.visitMaxs(0, 0);
             mv.visitEnd();

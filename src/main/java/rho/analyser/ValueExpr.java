@@ -259,10 +259,10 @@ public abstract class ValueExpr<VT extends ValueTypeHole> extends Expr<VT> {
 
         public static final class LetBinding<VT extends ValueTypeHole> {
             public final Range range;
-            public final LocalVar localVar;
+            public final LocalVar<VT> localVar;
             public final ValueExpr<VT> expr;
 
-            public LetBinding(Range range, LocalVar localVar, ValueExpr<VT> expr) {
+            public LetBinding(Range range, LocalVar<VT> localVar, ValueExpr<VT> expr) {
                 this.range = range;
                 this.localVar = localVar;
                 this.expr = expr;

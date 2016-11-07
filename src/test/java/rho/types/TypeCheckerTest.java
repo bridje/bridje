@@ -8,7 +8,6 @@ import rho.analyser.ValueExpr;
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
 import static rho.analyser.ExprUtil.*;
-import static rho.analyser.LocalVar.localVar;
 import static rho.runtime.Symbol.symbol;
 import static rho.runtime.VarUtil.PLUS_VAR;
 import static rho.types.ActionType.DefType.defType;
@@ -57,8 +56,8 @@ public class TypeCheckerTest {
 
     @Test
     public void typesLet() throws Exception {
-        LocalVar x = localVar(symbol("x"));
-        LocalVar y = localVar(symbol("y"));
+        LocalVar<ValueType> x = new LocalVar<>(INT_TYPE, symbol("x"));
+        LocalVar<ValueType> y = new LocalVar<>(INT_TYPE, symbol("y"));
 
         ValueExpr.LetExpr<ValueTypeHole> letExpr = letExpr(null,
             vectorOf(
@@ -71,7 +70,7 @@ public class TypeCheckerTest {
 
     @Test
     public void typesCallExpr() throws Exception {
-        LocalVar x = localVar(symbol("x"));
+        LocalVar<ValueType> x = new LocalVar<>(INT_TYPE, symbol("x"));
         assertEquals(INT_TYPE, TypeChecker.type(
             letExpr(null,
                 vectorOf(

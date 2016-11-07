@@ -2,7 +2,6 @@ package rho.types;
 
 import org.pcollections.PVector;
 import rho.analyser.*;
-import rho.types.ValueType.TypeVar;
 
 import static rho.types.ValueType.SetType.setType;
 import static rho.types.ValueType.SimpleType.*;

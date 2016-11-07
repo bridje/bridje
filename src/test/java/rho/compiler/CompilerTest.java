@@ -7,6 +7,7 @@ import rho.analyser.ValueExpr;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.runtime.Var;
+import rho.types.ValueType;
 
 import java.lang.invoke.MethodHandle;
 
@@ -15,7 +16,6 @@ import static org.junit.Assert.assertNotNull;
 import static rho.Util.setOf;
 import static rho.Util.vectorOf;
 import static rho.analyser.ExprUtil.*;
-import static rho.analyser.LocalVar.localVar;
 import static rho.runtime.Symbol.symbol;
 import static rho.runtime.VarUtil.*;
 import static rho.types.ValueType.SetType.setType;
@@ -62,10 +62,10 @@ public class CompilerTest {
 
     @Test
     public void compilesLet() throws Exception {
-        LocalVar x = localVar(symbol("x"));
-        LocalVar y = localVar(symbol("y"));
+        LocalVar<ValueType> x = new LocalVar<>(INT_TYPE, symbol("x"));
+        LocalVar<ValueType> y = new LocalVar<>(INT_TYPE, symbol("y"));
 
-        ValueExpr.LetExpr letExpr = letExpr(vectorType(INT_TYPE),
+        ValueExpr.LetExpr<ValueType> letExpr = letExpr(vectorType(INT_TYPE),
             vectorOf(
                 letBinding(x, intExpr(INT_TYPE, 4)),
                 letBinding(y, intExpr(INT_TYPE, 3))),
@@ -96,7 +96,7 @@ public class CompilerTest {
 
     @Test
     public void compilesFirstClassFn() throws Exception {
-        LocalVar x = localVar(symbol("x"));
+        LocalVar<ValueType> x = new LocalVar<>(PLUS_TYPE, symbol("x"));
         assertEquals(3L, Compiler.compile(PLUS_ENV,
             letExpr(INT_TYPE,
                 vectorOf(

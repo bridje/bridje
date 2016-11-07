@@ -11,7 +11,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collector;
 
 public class Util {
-    private static AtomicLong UNIQUE_INTS = new AtomicLong(1000);
+    private static final AtomicLong UNIQUE_INTS = new AtomicLong(1000);
 
     public static long uniqueInt() {
         return UNIQUE_INTS.getAndIncrement();

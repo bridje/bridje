@@ -98,49 +98,40 @@ class NewClass {
                 .withFlags(setOf(PUBLIC)))
 
             .withMethod(newMethod(BOOTSTRAP_METHOD_NAME, BOOTSTRAP_METHOD_TYPE.returnType(), TreePVector.from(BOOTSTRAP_METHOD_TYPE.parameterList()),
-                (mv, st, lt) -> {
+                mv -> {
                     Label tryValue = new Label();
                     Label fail = new Label();
 
                     Type stringType = Type.getType(String.class);
 
                     mv.visitLdcInsn(Var.FN_METHOD_NAME);
-                    st.push(stringType);
                     mv.visitVarInsn(ALOAD, 1); // name
-                    st.push(stringType);
-                    methodCall(Object.class, INVOKE_VIRTUAL, "equals", Boolean.TYPE, vectorOf(Object.class)).apply(mv, st, lt);
+                    methodCall(Object.class, INVOKE_VIRTUAL, "equals", Boolean.TYPE, vectorOf(Object.class)).apply(mv);
                     mv.visitJumpInsn(IFEQ, tryValue);
-                    st.pop();
-                    st.push(Type.BOOLEAN_TYPE);
-                    fieldOp(GET_STATIC, className, "FN_CALLSITE", MutableCallSite.class).apply(mv, st, lt);
+                    fieldOp(GET_STATIC, className, "FN_CALLSITE", MutableCallSite.class).apply(mv);
                     mv.visitInsn(ARETURN);
 
                     mv.visitLabel(tryValue);
                     mv.visitLdcInsn(Var.VALUE_METHOD_NAME);
-                    st.push(stringType);
                     mv.visitVarInsn(ALOAD, 1); // name
-                    st.push(stringType);
-                    methodCall(Object.class, INVOKE_VIRTUAL, "equals", Boolean.TYPE, vectorOf(Object.class)).apply(mv, st, lt);
+                    methodCall(Object.class, INVOKE_VIRTUAL, "equals", Boolean.TYPE, vectorOf(Object.class)).apply(mv);
                     mv.visitJumpInsn(IFEQ, fail);
-                    st.pop();
-                    st.push(Type.BOOLEAN_TYPE);
-                    fieldOp(GET_STATIC, className, "VALUE_CALLSITE", MutableCallSite.class).apply(mv, st, lt);
+                    fieldOp(GET_STATIC, className, "VALUE_CALLSITE", MutableCallSite.class).apply(mv);
                     mv.visitInsn(ARETURN);
 
                     mv.visitLabel(fail);
                     mv.visitLdcInsn("Invalid bootstrap name");
                     mv.visitInsn(ICONST_0);
                     mv.visitTypeInsn(ANEWARRAY, Type.getType(Object.class).getInternalName());
-                    methodCall(Panic.class, INVOKE_STATIC, "panic", Panic.class, vectorOf(String.class, Object[].class)).apply(mv, st, lt);
+                    methodCall(Panic.class, INVOKE_STATIC, "panic", Panic.class, vectorOf(String.class, Object[].class)).apply(mv);
                     mv.visitInsn(ATHROW);
                 }).withFlags(setOf(PUBLIC, STATIC)))
 
             .withMethod(newMethod("setHandles", Void.TYPE, vectorOf(MethodHandle.class, MethodHandle.class),
-                (mv, stackTypes, localTypes) -> {
-                    fieldOp(GET_STATIC, className, "VALUE_CALLSITE", MutableCallSite.class).apply(mv, stackTypes, localTypes);
+                mv -> {
+                    fieldOp(GET_STATIC, className, "VALUE_CALLSITE", MutableCallSite.class).apply(mv);
                     mv.visitVarInsn(ALOAD, 1);
-                    stackTypes.push(Type.getType(MethodHandle.class));
-                    methodCall(MutableCallSite.class, INVOKE_VIRTUAL, "setTarget", Void.TYPE, vectorOf(MethodHandle.class)).apply(mv, stackTypes, localTypes);
+                    methodCall(MutableCallSite.class, INVOKE_VIRTUAL, "setTarget", Void.TYPE, vectorOf(MethodHandle.class)).apply(mv);
                     mv.visitInsn(RETURN);
                 }));
     }

@@ -7,7 +7,7 @@ public class Pair<L, R> {
     public final R right;
 
     public static <L, R> Pair<L, R> pair(L left, R right) {
-        return new Pair<L, R>(left, right);
+        return new Pair<>(left, right);
     }
 
     public Pair(L left, R right) {
@@ -33,4 +33,5 @@ public class Pair<L, R> {
     public String toString() {
         return String.format("(Pair %s %s)", left, right);
     }
+
 }

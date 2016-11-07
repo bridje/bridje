@@ -1,8 +1,10 @@
 package rho.compiler;
 
+import org.objectweb.asm.Type;
 import org.pcollections.Empty;
 import org.pcollections.PMap;
 import rho.analyser.LocalVar;
+import rho.types.ValueType;
 import rho.util.Pair;
 
 import static rho.util.Pair.pair;
@@ -10,10 +12,10 @@ import static rho.util.Pair.pair;
 final class Locals {
 
     static final class Local {
-        final LocalVar localVar;
+        final LocalVar<ValueType> localVar;
         final int idx;
 
-        Local(LocalVar localVar, int idx) {
+        Local(LocalVar<ValueType> localVar, int idx) {
             this.localVar = localVar;
             this.idx = idx;
         }
@@ -36,8 +38,8 @@ final class Locals {
         this.nextIdx = nextIdx;
     }
 
-    Pair<Locals, Local> newLocal(LocalVar localVar) {
+    Pair<Locals, Local> newLocal(LocalVar<ValueType> localVar) {
         Local local = new Local(localVar, nextIdx);
-        return pair(new Locals(locals.plus(localVar, local), nextIdx + 1), local);
+        return pair(new Locals(locals.plus(localVar, local), nextIdx + Type.getType(localVar.type.javaType()).getSize()), local);
     }
 }

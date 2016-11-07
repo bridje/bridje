@@ -15,7 +15,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static rho.Util.toPVector;
-import static rho.analyser.LocalVar.localVar;
 
 public class Analyser {
 
@@ -71,7 +70,7 @@ public class Analyser {
                                     for (int i = 0; i < bindingForms.size(); i += 2) {
                                         if (bindingForms.get(i) instanceof Form.SymbolForm) {
                                             Symbol bindingSym = ((Form.SymbolForm) bindingForms.get(i)).sym;
-                                            LocalVar localVar = localVar(bindingSym);
+                                            LocalVar<ValueTypeHole> localVar = new LocalVar<>(null, bindingSym);
                                             localEnv_ = localEnv_.withLocal(bindingSym, localVar);
                                             bindings.add(new LetBinding<>(null, localVar, analyseValueExpr(env, localEnv_, bindingForms.get(i + 1))));
                                         } else {
@@ -139,41 +138,41 @@ public class Analyser {
     }
 
     static Expr<ValueTypeHole> analyse0(Env env, LocalEnv localEnv, Form form) {
-        return form.accept(new FormVisitor<Expr>() {
+        return form.accept(new FormVisitor<Expr<ValueTypeHole>>() {
             @Override
-            public Expr visit(Form.BoolForm form) {
+            public Expr<ValueTypeHole> visit(Form.BoolForm form) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public Expr visit(Form.StringForm form) {
+            public Expr<ValueTypeHole> visit(Form.StringForm form) {
                 return analyseValueExpr(env, localEnv, form);
             }
 
             @Override
-            public Expr visit(Form.IntForm form) {
+            public Expr<ValueTypeHole> visit(Form.IntForm form) {
                 return analyseValueExpr(env, localEnv, form);
             }
 
             @Override
-            public Expr visit(Form.VectorForm form) {
+            public Expr<ValueTypeHole> visit(Form.VectorForm form) {
                 return analyseValueExpr(env, localEnv, form);
             }
 
             @Override
-            public Expr visit(Form.SetForm form) {
+            public Expr<ValueTypeHole> visit(Form.SetForm form) {
                 return analyseValueExpr(env, localEnv, form);
             }
 
             @Override
-            public Expr visit(Form.ListForm form) {
+            public Expr<ValueTypeHole> visit(Form.ListForm form) {
                 Form firstForm = form.forms.get(0);
                 if (firstForm instanceof Form.SymbolForm) {
                     switch (((Form.SymbolForm) firstForm).sym.sym) {
                         case "def":
                             if (form.forms.size() == 3 && form.forms.get(1) instanceof Form.SymbolForm) {
 
-                                return new ActionExpr.DefExpr(form.range,
+                                return new ActionExpr.DefExpr<>(form.range,
                                     ((Form.SymbolForm) form.forms.get(1)).sym,
                                     analyseValueExpr(env, localEnv, form.forms.get(2)));
                             }
@@ -188,12 +187,12 @@ public class Analyser {
             }
 
             @Override
-            public Expr visit(Form.SymbolForm form) {
+            public Expr<ValueTypeHole> visit(Form.SymbolForm form) {
                 return analyseValueExpr(env, localEnv, form);
             }
 
             @Override
-            public Expr visit(Form.QSymbolForm form) {
+            public Expr<ValueTypeHole> visit(Form.QSymbolForm form) {
                 return analyseValueExpr(env, localEnv, form);
             }
         });

@@ -26,8 +26,8 @@ public class FormReader {
         return panic("EOF while reading, expected '%s' (%s)", endChar, reader.location());
     }
 
-    private static Dispatcher[] DISPATCH_CHARS = new Dispatcher[256];
-    private static Dispatcher[] SECONDARY_DISPATCH_CHARS = new Dispatcher[256];
+    private static final Dispatcher[] DISPATCH_CHARS = new Dispatcher[256];
+    private static final Dispatcher[] SECONDARY_DISPATCH_CHARS = new Dispatcher[256];
 
     private interface Dispatcher {
         Form read(LCReader reader, Character endChar);

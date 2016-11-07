@@ -1,5 +1,6 @@
 package rho.compiler;
 
+import org.objectweb.asm.Type;
 import org.pcollections.Empty;
 import org.pcollections.HashTreePSet;
 import org.pcollections.PVector;
@@ -48,13 +49,13 @@ public class Compiler {
 
             @Override
             public CompileResult visit(ValueExpr.StringExpr<ValueType> expr) {
-                return new CompileResult(loadObject(expr.string, String.class), setOf());
+                return new CompileResult(loadObject(expr.string), setOf());
             }
 
             @Override
             public CompileResult visit(ValueExpr.IntExpr<ValueType> expr) {
                 return new CompileResult(
-                    loadObject(expr.num, Long.TYPE),
+                    loadObject(expr.num),
                     setOf());
             }
 
@@ -69,7 +70,7 @@ public class Compiler {
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(Instructions.vectorOf(TreePVector.from(instructions)), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.vectorOf(((ValueType.VectorType) expr.type).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
@@ -83,22 +84,25 @@ public class Compiler {
                     newClasses.addAll(compileResult.newClasses);
                 }
 
-                return new CompileResult(Instructions.setOf(TreePVector.from(instructions)), HashTreePSet.from(newClasses));
+                return new CompileResult(Instructions.setOf(((ValueType.SetType) expr.type).elemType.javaType(), TreePVector.from(instructions)), HashTreePSet.from(newClasses));
             }
 
             @Override
             public CompileResult visit(ValueExpr.CallExpr<ValueType> expr) {
                 PVector<ValueExpr<ValueType>> params = expr.params;
 
-                CompileResult fnCompileResult = compileValue(locals, params.get(0));
+                ValueExpr<ValueType> fn = params.get(0);
+                PVector<ValueExpr<ValueType>> args = expr.params.minus(0);
 
-                PVector<CompileResult> paramCompileResults = expr.params.minus(0).stream().map(p -> compileValue(locals, p)).collect(toPVector());
+                CompileResult fnCompileResult = compileValue(locals, fn);
+
+                PVector<CompileResult> paramCompileResults = args.stream().map(p -> compileValue(locals, p)).collect(toPVector());
 
                 return new CompileResult(
                     mplus(
                         fnCompileResult.instructions,
                         mplus(paramCompileResults.stream().map(pcr -> pcr.instructions).collect(toPVector())),
-                        methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", Object.class, vectorOf(Object.class, Object.class))),
+                        methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", expr.type.javaType(), args.stream().map(a -> a.type.javaType()).collect(toPVector()))),
                     fnCompileResult.newClasses
                         .plusAll(paramCompileResults.stream().flatMap(pcr -> pcr.newClasses.stream()).collect(toPSet())));
 
@@ -125,7 +129,7 @@ public class Compiler {
                 Set<NewClass> newClasses = new HashSet<>();
                 Locals locals_ = locals;
 
-                for (ValueExpr.LetExpr.LetBinding binding : expr.bindings) {
+                for (ValueExpr.LetExpr.LetBinding<ValueType> binding : expr.bindings) {
                     CompileResult bindingResult = compileValue(locals_, binding.expr);
                     newClasses.addAll(bindingResult.newClasses);
 
@@ -133,7 +137,7 @@ public class Compiler {
                     locals_ = withNewLocal.left;
                     Locals.Local local = withNewLocal.right;
 
-                    bindingsInstructions.add(letBinding(bindingResult.instructions, local));
+                    bindingsInstructions.add(letBinding(bindingResult.instructions, binding.expr.type.javaType(), local));
                 }
 
                 CompileResult bodyCompileResult = compileValue(locals_, expr.body);
@@ -165,16 +169,21 @@ public class Compiler {
         });
     }
 
-    private static Object evalInstructions(Instructions instructions) {
+    private static Object evalInstructions(Instructions instructions, Class<?> returnType) {
         try {
             return
-                defineClass(
-                    newClass("user$$eval$$" + uniqueInt())
-                        .withMethod(
-                            newMethod("$$eval", Object.class, vectorOf(), mplus(instructions, ret(Object.class)))
-                                .withFlags(setOf(PUBLIC, FINAL, STATIC))))
-                    .getDeclaredMethod("$$eval")
-                    .invoke(null);
+                publicLookup()
+                    .findStatic(
+                        defineClass(
+                            newClass("user$$eval$$" + uniqueInt())
+                                .withMethod(
+                                    newMethod("$$eval", Object.class, vectorOf(), mplus(instructions, box(Type.getType(returnType)), ret(Object.class)))
+                                        .withFlags(setOf(PUBLIC, FINAL, STATIC)))),
+
+
+                        "$$eval",
+                        MethodType.methodType(Object.class))
+                    .invoke();
         } catch (Panic e) {
             throw e;
         } catch (InvocationTargetException e) {
@@ -185,7 +194,7 @@ public class Compiler {
             } catch (Throwable t) {
                 throw panic(t, "Error evaluating $$eval method.");
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw panic(e, "Can't execute $$eval method.");
         }
     }
@@ -196,11 +205,9 @@ public class Compiler {
             public EvalResult accept(ValueExpr<ValueType> expr) {
                 CompileResult compileResult = compileValue(staticLocals(), expr);
 
-                for (NewClass newClass : compileResult.newClasses) {
-                    defineClass(newClass);
-                }
+                compileResult.newClasses.forEach(ClassDefiner::defineClass);
 
-                return new EvalResult(env, evalInstructions(compileResult.instructions));
+                return new EvalResult(env, evalInstructions(mplus(compileResult.instructions), expr.type.javaType()));
             }
 
             @Override
@@ -210,9 +217,7 @@ public class Compiler {
                     public EvalResult visit(ActionExpr.DefExpr<ValueType> expr) {
                         CompileResult compileResult = compileValue(staticLocals(), expr.body);
 
-                        for (NewClass newClass : compileResult.newClasses) {
-                            defineClass(newClass);
-                        }
+                        compileResult.newClasses.forEach(ClassDefiner::defineClass);
 
                         String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
 
