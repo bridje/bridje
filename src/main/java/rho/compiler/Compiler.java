@@ -166,6 +166,11 @@ public class Compiler {
             public CompileResult visit(ValueExpr.GlobalVarExpr<? extends TypedExprData> expr) {
                 return new CompileResult(globalVarValue(expr.var), Empty.set());
             }
+
+            @Override
+            public CompileResult visit(ValueExpr.FnExpr<? extends TypedExprData> expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 

@@ -485,4 +485,45 @@ public abstract class ValueExpr<D> extends Expr<D> {
             return String.format("(GlobalVarExpr %s)", var);
         }
     }
+
+    public static final class FnExpr<D> extends ValueExpr<D> {
+
+        public final PVector<LocalVar> params;
+        public final ValueExpr<D> body;
+
+        public FnExpr(D data, PVector<LocalVar> params, ValueExpr<D> body) {
+            super(data);
+            this.params = params;
+            this.body = body;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            FnExpr<?> fnExpr = (FnExpr<?>) o;
+            return Objects.equals(params, fnExpr.params) &&
+                Objects.equals(body, fnExpr.body);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(params, body);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(FnExpr (%s) %s)", params.stream().map(Object::toString).collect(Collectors.joining(" ")), body);
+        }
+
+        @Override
+        public <T> T accept(ValueExprVisitor<? super D, T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
+            return new FnExpr<D_>(fn.apply(data), params, body.fmap(fn));
+        }
+    }
 }

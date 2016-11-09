@@ -57,4 +57,8 @@ public class ExprUtil {
     public static <VED> ActionExpr.DefExpr<VED> defExpr(Symbol sym, ValueExpr<VED> expr) {
         return new ActionExpr.DefExpr<>(sym, expr);
     }
+
+    public static <VED> ValueExpr.FnExpr<VED> fnExpr(VED data, PVector<LocalVar> params, ValueExpr<VED> body) {
+        return new ValueExpr.FnExpr<>(data, params, body);
+    }
 }

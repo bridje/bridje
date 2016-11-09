@@ -73,6 +73,16 @@ public class AnalyserTest {
     }
 
     @Test
+    public void analysesInlineFn() throws Exception {
+        Expr<Form> expr = analyse(PLUS_ENV, listForm(symbolForm("fn"), listForm(symbolForm("x")), listForm(symbolForm("+"), symbolForm("x"), symbolForm("x"))));
+        LocalVar x = ((ValueExpr.FnExpr<Form>) expr).params.get(0);
+
+        assertEquals(
+            fnExpr(null, vectorOf(x), varCallExpr(null, PLUS_VAR, vectorOf(localVarExpr(null, x), localVarExpr(null, x)))),
+            expr);
+    }
+
+    @Test
     public void analysesDefValue() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
 

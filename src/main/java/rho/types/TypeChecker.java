@@ -177,6 +177,11 @@ public class TypeChecker {
             public ValueExpr<TypedExprData> visit(ValueExpr.GlobalVarExpr<? extends Form> expr) {
                 return new ValueExpr.GlobalVarExpr<>(new TypedExprData(expr.var.type.instantiate(), expr.data), expr.var);
             }
+
+            @Override
+            public ValueExpr<TypedExprData> visit(ValueExpr.FnExpr<? extends Form> expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 

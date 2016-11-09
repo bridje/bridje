@@ -92,6 +92,9 @@ public class Analyser {
 
                                 throw new UnsupportedOperationException();
 
+                            case "fn":
+                                throw new UnsupportedOperationException();
+
                             default:
                                 LocalVar localVar = localEnv.localVars.get(sym);
                                 if (localVar != null) {

@@ -22,4 +22,6 @@ public interface ValueExprVisitor<D, T> {
     T visit(ValueExpr.LocalVarExpr<? extends D> expr);
 
     T visit(ValueExpr.GlobalVarExpr<? extends D> expr);
+
+    T visit(ValueExpr.FnExpr<? extends D> expr);
 }
