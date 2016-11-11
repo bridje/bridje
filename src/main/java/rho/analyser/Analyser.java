@@ -1,5 +1,6 @@
 package rho.analyser;
 
+import org.pcollections.Empty;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.analyser.ValueExpr.LetExpr.LetBinding;
@@ -93,6 +94,27 @@ public class Analyser {
                                 throw new UnsupportedOperationException();
 
                             case "fn":
+                                if (forms.size() == 3) {
+                                    Form paramsForm = forms.get(1);
+                                    if (paramsForm instanceof Form.ListForm) {
+                                        LocalEnv localEnv_ = localEnv;
+                                        PVector<LocalVar> paramLocals = Empty.vector();
+
+                                        for (Form paramForm : ((Form.ListForm) paramsForm).forms) {
+                                            if (paramForm instanceof Form.SymbolForm) {
+                                                Symbol paramSym = ((Form.SymbolForm) paramForm).sym;
+                                                LocalVar localVar = new LocalVar(paramSym);
+                                                localEnv_ = localEnv_.withLocal(paramSym, localVar);
+                                                paramLocals = paramLocals.plus(localVar);
+                                            } else {
+                                                throw new UnsupportedOperationException();
+                                            }
+                                        }
+
+                                        return new ValueExpr.FnExpr<>(form, paramLocals, analyseValueExpr(env, localEnv_, forms.get(2)));
+                                    }
+                                }
+
                                 throw new UnsupportedOperationException();
 
                             default:
