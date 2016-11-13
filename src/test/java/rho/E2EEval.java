@@ -40,6 +40,6 @@ public class E2EEval {
 
     @Test
     public void evalsAnonymousFn() throws Exception {
-        testEvalsString(PLUS_ENV, "(let [double (fn (x) (+ x x))] (double 4))", INT_TYPE, 11L);
+        testEvalsString(PLUS_ENV, "(let [double (fn (x) (+ x x))] (double 4))", INT_TYPE, 8L);
     }
 }

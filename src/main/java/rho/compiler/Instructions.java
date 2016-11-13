@@ -201,6 +201,9 @@ interface Instructions {
             Type type = Type.getType(clazz);
             mv.visitFieldInsn(op.opcode, toInternalName(className), fieldName, type.getDescriptor());
         };
+    }
 
+    static Instructions staticMethodHandle(Class<?> clazz, String methodName, PVector<Class<?>> paramClasses, Class<?> returnClass) {
+        return loadObject(new Handle(H_INVOKESTATIC, Type.getType(clazz).getInternalName(), methodName, MethodType.methodType(returnClass, paramClasses.toArray(new Class<?>[paramClasses.size()])).toMethodDescriptorString(), false));
     }
 }

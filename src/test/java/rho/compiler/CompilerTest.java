@@ -133,7 +133,6 @@ public class CompilerTest {
                                 globalVarExpr(new TypedExprData(PLUS_TYPE, null), PLUS_VAR),
                                 localVarExpr(new TypedExprData(INT_TYPE, null), x),
                                 localVarExpr(new TypedExprData(INT_TYPE, null), x)))),
-                    intExpr(new TypedExprData(INT_TYPE, null), 2),
-                    intExpr(new TypedExprData(INT_TYPE, null), 3)))));
+                    intExpr(new TypedExprData(INT_TYPE, null), 2)))).value);
     }
 }
