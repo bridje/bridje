@@ -1,8 +1,6 @@
 package rho.compiler;
 
-import org.pcollections.Empty;
-import org.pcollections.PVector;
-import org.pcollections.TreePVector;
+import org.pcollections.*;
 import rho.Panic;
 import rho.analyser.*;
 import rho.runtime.Env;
@@ -17,6 +15,7 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import static java.lang.invoke.MethodHandles.publicLookup;
 import static rho.Panic.panic;
@@ -28,6 +27,7 @@ import static rho.compiler.ClassDefiner.defineClass;
 import static rho.compiler.Instructions.FieldOp.GET_STATIC;
 import static rho.compiler.Instructions.FieldOp.PUT_STATIC;
 import static rho.compiler.Instructions.*;
+import static rho.compiler.Locals.instanceLocals;
 import static rho.compiler.Locals.staticLocals;
 import static rho.compiler.NewClass.newBootstrapClass;
 import static rho.compiler.NewClass.newClass;
@@ -36,6 +36,83 @@ import static rho.compiler.NewMethod.newMethod;
 import static rho.runtime.Var.var;
 
 public class Compiler {
+
+    private static PMap<LocalVar, Type> closedOverVars(PSet<LocalVar> localVars, ValueExpr<? extends TypedExprData> expr) {
+        return expr.accept(new ValueExprVisitor<TypedExprData, PMap<LocalVar, Type>>() {
+
+            private PMap<LocalVar, Type> closedOverVars(PCollection<? extends ValueExpr<? extends TypedExprData>> exprs) {
+                return exprs.stream().flatMap(e -> e.accept(this).entrySet().stream()).collect(toPMap(Map.Entry::getKey, Map.Entry::getValue));
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.BoolExpr<? extends TypedExprData> expr) {
+                return Empty.map();
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.StringExpr<? extends TypedExprData> expr) {
+                return Empty.map();
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.IntExpr<? extends TypedExprData> expr) {
+                return Empty.map();
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.VectorExpr<? extends TypedExprData> expr) {
+                return closedOverVars(expr.exprs);
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.SetExpr<? extends TypedExprData> expr) {
+                return closedOverVars(expr.exprs);
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.CallExpr<? extends TypedExprData> expr) {
+                return closedOverVars(expr.exprs);
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.VarCallExpr<? extends TypedExprData> expr) {
+                return closedOverVars(expr.params);
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.LetExpr<? extends TypedExprData> expr) {
+                return closedOverVars(
+                    expr.bindings.stream().map(b -> b.expr).collect(toPVector()))
+                    .plusAll(expr.body.accept(this));
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.IfExpr<? extends TypedExprData> expr) {
+                return expr.testExpr.accept(this)
+                    .plusAll(expr.thenExpr.accept(this))
+                    .plusAll(expr.elseExpr.accept(this));
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.LocalVarExpr<? extends TypedExprData> expr) {
+                if (localVars.contains(expr.localVar)) {
+                    return HashTreePMap.singleton(expr.localVar, expr.data.type);
+                } else {
+                    return Empty.map();
+                }
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.GlobalVarExpr<? extends TypedExprData> expr) {
+                return Empty.map();
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(ValueExpr.FnExpr<? extends TypedExprData> expr) {
+                return expr.body.accept(this);
+            }
+        });
+    }
 
     static Instructions compileValue(Locals locals, ValueExpr<? extends TypedExprData> expr) {
         return expr.accept(new ValueExprVisitor<TypedExprData, Instructions>() {
@@ -98,9 +175,9 @@ public class Compiler {
                 for (ValueExpr.LetExpr.LetBinding<? extends TypedExprData> binding : expr.bindings) {
                     Instructions bindingInstructions = compileValue(locals_, binding.expr);
 
-                    Pair<Locals, Locals.Local> withNewLocal = locals_.newLocal(binding.localVar, binding.expr.data.type.javaType());
+                    Pair<Locals, Locals.Local.VarLocal> withNewLocal = locals_.newVarLocal(binding.localVar, binding.expr.data.type.javaType());
                     locals_ = withNewLocal.left;
-                    Locals.Local local = withNewLocal.right;
+                    Locals.Local.VarLocal local = withNewLocal.right;
 
                     bindingsInstructions.add(letBinding(bindingInstructions, binding.expr.data.type.javaType(), local));
                 }
@@ -133,28 +210,52 @@ public class Compiler {
                 PVector<Type> paramTypes = fnType.paramTypes;
                 PVector<Class<?>> paramClasses = Empty.vector();
                 Class<?> returnClass = fnType.returnType.javaType();
-                Locals fnLocals = staticLocals();
+                Locals fnLocals = instanceLocals();
+
+                PMap<LocalVar, Type> closedOverVars = closedOverVars(HashTreePSet.from(locals.locals.keySet()), expr.body);
+                PMap<LocalVar, String> closedOverFieldNames = closedOverVars.entrySet().stream().collect(
+                    toPMap(
+                        Map.Entry::getKey,
+                        e -> String.format("%s$$%d", e.getKey().sym.sym, uniqueInt())));
+
+                PVector<LocalVar> closedOverParamOrder = closedOverVars.entrySet().stream().map(Map.Entry::getKey).collect(toPVector());
 
                 for (int i = 0; i < paramTypes.size(); i++) {
                     Type paramType = paramTypes.get(i);
                     Class<?> paramClass = paramType.javaType();
 
                     paramClasses = paramClasses.plus(paramClass);
-                    fnLocals = fnLocals.newLocal(expr.params.get(i), paramClass).left;
+                    fnLocals = fnLocals.newVarLocal(expr.params.get(i), paramClass).left;
+                }
+
+                for (LocalVar closedOverVar : closedOverParamOrder) {
+                    fnLocals = fnLocals.newFieldLocal(closedOverVar, closedOverVars.get(closedOverVar).javaType(), className, closedOverFieldNames.get(closedOverVar)).left;
                 }
 
                 Instructions bodyInstructions = compileValue(fnLocals, expr.body);
 
-                Class<?> fnClass = defineClass(newClass(className)
+                NewClass newClass = newClass(className);
+
+                for (LocalVar closedOverVar : closedOverParamOrder) {
+                    newClass = newClass.withField(newField(closedOverFieldNames.get(closedOverVar), closedOverVars.get(closedOverVar).javaType(), setOf(PRIVATE, FINAL)));
+                }
+
+                Class<?> fnClass = defineClass(newClass
                     .withMethod(newMethod("$$fn",
                         returnClass,
                         paramClasses,
                         mplus(
                             bodyInstructions,
                             ret(returnClass)))
-                        .withFlags(setOf(PUBLIC, STATIC, FINAL))));
+                        .withFlags(setOf(PUBLIC, FINAL))));
 
-                return staticMethodHandle(fnClass, "$$fn", paramClasses, returnClass);
+                return mplus(
+                    newObject(fnClass, closedOverParamOrder.stream().map(p -> closedOverVars.get(p).javaType()).collect(toPVector()),
+                        mplus(closedOverParamOrder.stream()
+                            .map(p -> localVarCall(locals.locals.get(p)))
+                            .collect(toPVector()))),
+
+                    staticMethodHandle(fnClass, "$$fn", paramClasses, returnClass));
             }
         });
     }

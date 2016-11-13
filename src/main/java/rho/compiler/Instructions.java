@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.objectweb.asm.Opcodes.*;
 import static rho.Util.toInternalName;
+import static rho.compiler.Instructions.FieldOp.GET_FIELD;
 import static rho.compiler.Instructions.FieldOp.GET_STATIC;
 import static rho.compiler.Instructions.MethodInvoke.INVOKE_SPECIAL;
 import static rho.compiler.Instructions.MethodInvoke.INVOKE_STATIC;
@@ -168,13 +169,25 @@ interface Instructions {
             mv -> mv.visitLabel(endLabel));
     }
 
-    static Instructions letBinding(Instructions instructions, Class<?> clazz, Locals.Local local) {
+    static Instructions letBinding(Instructions instructions, Class<?> clazz, Locals.Local.VarLocal local) {
         return mplus(instructions,
             mv -> mv.visitVarInsn(Type.getType(clazz).getOpcode(ISTORE), local.idx));
     }
 
     static Instructions localVarCall(Locals.Local local) {
-        return mv -> mv.visitVarInsn(Type.getType(local.clazz).getOpcode(ILOAD), local.idx);
+        return local.accept(new Locals.Local.LocalVisitor<Instructions>() {
+            @Override
+            public Instructions visit(Locals.Local.FieldLocal local) {
+                return mplus(
+                    mv -> mv.visitVarInsn(ALOAD, 0),
+                    fieldOp(GET_FIELD, local.className, local.fieldName, local.clazz));
+            }
+
+            @Override
+            public Instructions visit(Locals.Local.VarLocal local) {
+                return mv -> mv.visitVarInsn(Type.getType(local.clazz).getOpcode(ILOAD), local.idx);
+            }
+        });
     }
 
     static Instructions globalVarValue(Var var) {
@@ -187,7 +200,7 @@ interface Instructions {
     }
 
     enum FieldOp {
-        PUT_STATIC(PUTSTATIC), GET_STATIC(GETSTATIC);
+        PUT_STATIC(PUTSTATIC), GET_STATIC(GETSTATIC), GET_FIELD(GETFIELD);
 
         final int opcode;
 

@@ -10,20 +10,64 @@ import static rho.util.Pair.pair;
 
 final class Locals {
 
-    static final class Local {
+    static abstract class Local {
         final LocalVar localVar;
         final Class<?> clazz;
-        final int idx;
 
-        Local(LocalVar localVar, Class<?> clazz, int idx) {
+        Local(LocalVar localVar, Class<?> clazz) {
             this.localVar = localVar;
             this.clazz = clazz;
-            this.idx = idx;
         }
 
-        @Override
-        public String toString() {
-            return String.format("(Local %d %s)", idx, localVar);
+        abstract <T> T accept(LocalVisitor<T> visitor);
+
+        interface LocalVisitor<T> {
+
+            T visit(FieldLocal local);
+
+            T visit(VarLocal local);
+        }
+
+        static final class VarLocal extends Local {
+
+            final int idx;
+
+            VarLocal(LocalVar localVar, Class<?> clazz, int idx) {
+                super(localVar, clazz);
+                this.idx = idx;
+            }
+
+            @Override
+            public String toString() {
+                return String.format("(StackLocal %d %s)", idx, localVar);
+            }
+
+            @Override
+            <T> T accept(LocalVisitor<T> visitor) {
+                return visitor.visit(this);
+            }
+        }
+
+        static final class FieldLocal extends Local {
+
+            final String className;
+            final String fieldName;
+
+            FieldLocal(LocalVar localVar, Class<?> clazz, String className, String fieldName) {
+                super(localVar, clazz);
+                this.className = className;
+                this.fieldName = fieldName;
+            }
+
+            @Override
+            <T> T accept(LocalVisitor<T> visitor) {
+                return visitor.visit(this);
+            }
+
+            @Override
+            public String toString() {
+                return String.format("(FieldLocal %s)", fieldName);
+            }
         }
     }
 
@@ -34,13 +78,22 @@ final class Locals {
         return new Locals(Empty.map(), 0);
     }
 
+    static Locals instanceLocals() {
+        return new Locals(Empty.map(), 1);
+    }
+
     private Locals(PMap<LocalVar, Local> locals, int nextIdx) {
         this.locals = locals;
         this.nextIdx = nextIdx;
     }
 
-    Pair<Locals, Local> newLocal(LocalVar localVar, Class<?> clazz) {
-        Local local = new Local(localVar, clazz, nextIdx);
+    Pair<Locals, Local.VarLocal> newVarLocal(LocalVar localVar, Class<?> clazz) {
+        Local.VarLocal local = new Local.VarLocal(localVar, clazz, nextIdx);
         return pair(new Locals(locals.plus(localVar, local), nextIdx + Type.getType(clazz).getSize()), local);
+    }
+
+    Pair<Locals, Local> newFieldLocal(LocalVar localVar, Class<?> clazz, String className, String fieldName) {
+        Local local = new Local.FieldLocal(localVar, clazz, className, fieldName);
+        return pair(new Locals(locals.plus(localVar, local), nextIdx), local);
     }
 }

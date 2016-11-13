@@ -135,4 +135,29 @@ public class CompilerTest {
                                 localVarExpr(new TypedExprData(INT_TYPE, null), x)))),
                     intExpr(new TypedExprData(INT_TYPE, null), 2)))).value);
     }
+
+    @Test
+    public void compilesInlineFnWithClosedOverVars() throws Exception {
+        LocalVar x = new LocalVar(symbol("x"));
+        LocalVar y = new LocalVar(symbol("y"));
+        LocalVar addY = new LocalVar(symbol("add-y"));
+
+        assertEquals(5L, Compiler.compile(PLUS_ENV,
+            letExpr(new TypedExprData(INT_TYPE, null),
+                vectorOf(
+                    letBinding(y, intExpr(new TypedExprData(INT_TYPE, null), 3)),
+                    letBinding(addY, fnExpr(new TypedExprData(fnType(vectorOf(INT_TYPE), INT_TYPE), null),
+                        vectorOf(x),
+                        callExpr(new TypedExprData(INT_TYPE, null),
+                            vectorOf(
+                                globalVarExpr(new TypedExprData(PLUS_TYPE, null), PLUS_VAR),
+                                localVarExpr(new TypedExprData(INT_TYPE, null), x),
+                                localVarExpr(new TypedExprData(INT_TYPE, null), y)))))),
+
+                callExpr(new TypedExprData(INT_TYPE, null),
+                    vectorOf(
+                        localVarExpr(new TypedExprData(fnType(vectorOf(INT_TYPE), INT_TYPE), null), addY),
+                        intExpr(new TypedExprData(INT_TYPE, null), 2))))
+        ).value);
+    }
 }

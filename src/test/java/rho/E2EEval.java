@@ -42,4 +42,9 @@ public class E2EEval {
     public void evalsAnonymousFn() throws Exception {
         testEvalsString(PLUS_ENV, "(let [double (fn (x) (+ x x))] (double 4))", INT_TYPE, 8L);
     }
+
+    @Test
+    public void evalsFnWithClosedOverLocals() throws Exception {
+        testEvalsString(PLUS_ENV, "(let [y 2, add-y (fn (x) (+ x y))] (add-y 4))", INT_TYPE, 6L);
+    }
 }
