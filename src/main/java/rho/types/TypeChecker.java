@@ -7,13 +7,21 @@ import rho.analyser.ValueExpr.BoolExpr;
 import rho.analyser.ValueExpr.StringExpr;
 import rho.reader.Form;
 
+import static rho.Util.toPVector;
+import static rho.types.Type.FnType.fnType;
 import static rho.types.Type.SetType.setType;
 import static rho.types.Type.SimpleType.*;
 import static rho.types.Type.VectorType.vectorType;
 
 public class TypeChecker {
 
-    private static ValueExpr<TypedExprData> typeValueExpr0(LocalTypeEnv localTypeEnv, ValueExpr<? extends Form> expr) {
+    private TypeMapping mapping;
+
+    private TypeChecker(TypeMapping mapping) {
+        this.mapping = mapping;
+    }
+
+    private ValueExpr<TypedExprData> typeValueExpr0(LocalTypeEnv localTypeEnv, ValueExpr<? extends Form> expr) {
         return expr.accept(new ValueExprVisitor<Form, ValueExpr<TypedExprData>>() {
             @Override
             public ValueExpr<TypedExprData> visit(BoolExpr<? extends Form> expr) {
@@ -33,7 +41,6 @@ public class TypeChecker {
             @Override
             public ValueExpr<TypedExprData> visit(ValueExpr.VectorExpr<? extends Form> expr) {
                 Type innerType = new TypeVar();
-                TypeMapping mapping = TypeMapping.EMPTY;
 
                 PVector<ValueExpr<TypedExprData>> exprs = Empty.vector();
 
@@ -50,7 +57,6 @@ public class TypeChecker {
             @Override
             public ValueExpr<TypedExprData> visit(ValueExpr.SetExpr<? extends Form> expr) {
                 Type innerType = new TypeVar();
-                TypeMapping mapping = TypeMapping.EMPTY;
 
                 PVector<ValueExpr<TypedExprData>> exprs = Empty.vector();
 
@@ -68,7 +74,6 @@ public class TypeChecker {
             public ValueExpr<TypedExprData> visit(ValueExpr.CallExpr<? extends Form> expr) {
                 PVector<? extends ValueExpr<? extends Form>> exprs = expr.exprs;
                 ValueExpr<? extends Form> fnExpr = exprs.get(0);
-                PVector<? extends ValueExpr<?>> params = exprs.minus(0);
 
                 ValueExpr<TypedExprData> typedFirstParam = typeValueExpr0(localTypeEnv, fnExpr);
                 Type firstParamType = typedFirstParam.data.type;
@@ -79,20 +84,20 @@ public class TypeChecker {
 
                     PVector<Type> fnParamTypes = fnType.paramTypes;
                     if (fnParamTypes.size() == exprs.size() - 1) {
-                        TypeMapping mapping = TypeMapping.EMPTY;
                         PVector<ValueExpr<TypedExprData>> typedExprs = Empty.vector();
                         for (int i = 0; i < fnParamTypes.size(); i++) {
                             TypeMapping mapping_ = mapping;
                             Type paramType = fnParamTypes.get(i).apply(mapping_);
                             ValueExpr<TypedExprData> typedExpr = typeValueExpr0(localTypeEnv, exprs.get(i + 1)).fmap(ted -> ted.fmapType(t -> t.apply(mapping_)));
+                            mapping = mapping.with(paramType.unify(typedExpr.data.type));
+
                             typedExprs = typedExprs.plus(typedExpr);
 
-                            mapping = mapping.with(paramType.unify(typedExpr.data.type));
                         }
 
                         TypeMapping mapping_ = mapping;
 
-                        return new ValueExpr.CallExpr<TypedExprData>(new TypedExprData(fnType.returnType.apply(mapping), expr.data),
+                        return new ValueExpr.CallExpr<>(new TypedExprData(fnType.returnType.apply(mapping), expr.data),
                             typedExprs.plus(0, typedFirstParam.fmap(ted -> ted.fmapType(t -> t.apply(mapping_)))));
                     } else {
                         throw new UnsupportedOperationException();
@@ -108,7 +113,6 @@ public class TypeChecker {
 
                 if (varType instanceof Type.FnType) {
                     FnType fnType = (FnType) varType;
-                    TypeMapping mapping = TypeMapping.EMPTY;
 
                     if (expr.params.size() != fnType.paramTypes.size()) {
                         throw new UnsupportedOperationException();
@@ -151,16 +155,16 @@ public class TypeChecker {
             @Override
             public ValueExpr<TypedExprData> visit(ValueExpr.IfExpr<? extends Form> expr) {
                 ValueExpr<TypedExprData> typedTestExpr = typeValueExpr0(localTypeEnv, expr.testExpr);
-                TypeMapping mapping = typedTestExpr.data.type.unify(BOOL_TYPE);
+                mapping = mapping.with(typedTestExpr.data.type.unify(BOOL_TYPE));
 
                 TypeVar returnType = new TypeVar();
                 ValueExpr<TypedExprData> typedThenExpr = typeValueExpr0(localTypeEnv, expr.thenExpr).fmap(ted -> ted.fmapType(t -> t.apply(mapping)));
-                TypeMapping mapping_ = typedThenExpr.data.type.unify(returnType);
+                mapping = mapping.with(typedThenExpr.data.type.unify(returnType));
 
-                ValueExpr<TypedExprData> typedElseExpr = typeValueExpr0(localTypeEnv, expr.elseExpr).fmap(ted -> ted.fmapType(t -> t.apply(mapping_)));
-                TypeMapping mapping__ = typeValueExpr0(localTypeEnv, expr.elseExpr).data.type.unify(returnType);
+                ValueExpr<TypedExprData> typedElseExpr = typeValueExpr0(localTypeEnv, expr.elseExpr).fmap(ted -> ted.fmapType(t -> t.apply(mapping)));
+                mapping = mapping.with(typeValueExpr0(localTypeEnv, expr.elseExpr).data.type.unify(returnType));
 
-                return new ValueExpr.IfExpr<>(new TypedExprData(returnType.apply(mapping__), expr.data), typedTestExpr, typedThenExpr, typedElseExpr);
+                return new ValueExpr.IfExpr<>(new TypedExprData(returnType.apply(mapping), expr.data), typedTestExpr, typedThenExpr, typedElseExpr);
             }
 
             @Override
@@ -180,13 +184,33 @@ public class TypeChecker {
 
             @Override
             public ValueExpr<TypedExprData> visit(ValueExpr.FnExpr<? extends Form> expr) {
-                throw new UnsupportedOperationException();
+                LocalTypeEnv localTypeEnv_ = localTypeEnv;
+
+                for (LocalVar param : expr.params) {
+                    localTypeEnv_ = localTypeEnv_.with(param, new TypeVar());
+                }
+
+                final LocalTypeEnv bodyLocalTypeEnv = localTypeEnv_;
+
+                TypeVar returnType = new TypeVar();
+                ValueExpr<TypedExprData> typedBody = typeValueExpr0(localTypeEnv_, expr.body);
+                Type bodyType = typedBody.data.type;
+                mapping = mapping.with(bodyType.unify(returnType));
+
+                return new ValueExpr.FnExpr<>(
+                    new TypedExprData(
+                        fnType(
+                            expr.params.stream().map(p -> bodyLocalTypeEnv.env.get(p).apply(mapping)).collect(toPVector()),
+                            bodyType.apply(mapping)),
+                        expr.data),
+                    expr.params,
+                    typedBody.fmap(ted -> ted.fmapType(t -> t.apply(mapping))));
             }
         });
     }
 
     public static ValueExpr<TypedExprData> typeValueExpr(ValueExpr<? extends Form> expr) {
-        return typeValueExpr0(LocalTypeEnv.EMPTY_TYPE_ENV, expr);
+        return new TypeChecker(TypeMapping.EMPTY).typeValueExpr0(LocalTypeEnv.EMPTY_TYPE_ENV, expr);
     }
 
     public static Expr<TypedExprData> typeActionExpr(ActionExpr<? extends Form> expr) {

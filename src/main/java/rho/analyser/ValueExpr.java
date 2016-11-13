@@ -523,7 +523,7 @@ public abstract class ValueExpr<D> extends Expr<D> {
 
         @Override
         public <D_> ValueExpr<D_> fmap(Function<D, D_> fn) {
-            return new FnExpr<D_>(fn.apply(data), params, body.fmap(fn));
+            return new FnExpr<>(fn.apply(data), params, body.fmap(fn));
         }
     }
 }
