@@ -6,6 +6,7 @@ import rho.reader.Form;
 import rho.reader.LCReader;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
+import rho.types.Type;
 import rho.types.TypeChecker;
 import rho.types.TypedExprData;
 
@@ -18,11 +19,8 @@ import static rho.types.Type.SimpleType.INT_TYPE;
 
 public class E2EEval {
 
-    @Test
-    public void evalsLet() throws Exception {
-        Env env = PLUS_ENV;
-
-        Form form = read(LCReader.fromString("(let [x 4, y 3] (+ x (+ x y)))"));
+    private void testEvalsString(Env env, String code, Type expectedType, Object expectedResult) {
+        Form form = read(LCReader.fromString(code));
 
         ValueExpr<? extends Form> expr = (ValueExpr<? extends Form>) analyse(env, form);
 
@@ -30,8 +28,18 @@ public class E2EEval {
 
         EvalResult result = compile(env, typedExpr);
 
-        assertEquals(INT_TYPE, typedExpr.data.type);
+        assertEquals(expectedType, typedExpr.data.type);
         assertEquals(env, result.env);
-        assertEquals(11L, result.value);
+        assertEquals(expectedResult, result.value);
+    }
+
+    @Test
+    public void evalsLet() throws Exception {
+        testEvalsString(PLUS_ENV, "(let [x 4, y 3] (+ x (+ x y)))", INT_TYPE, 11L);
+    }
+
+    @Test
+    public void evalsAnonymousFn() throws Exception {
+        testEvalsString(PLUS_ENV, "(let [double (fn (x) (+ x x))] (double 4))", INT_TYPE, 11L);
     }
 }

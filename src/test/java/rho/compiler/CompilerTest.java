@@ -18,6 +18,7 @@ import static rho.Util.vectorOf;
 import static rho.analyser.ExprUtil.*;
 import static rho.runtime.Symbol.symbol;
 import static rho.runtime.VarUtil.*;
+import static rho.types.Type.FnType.fnType;
 import static rho.types.Type.SetType.setType;
 import static rho.types.Type.SimpleType.*;
 import static rho.types.Type.VectorType.vectorType;
@@ -117,5 +118,22 @@ public class CompilerTest {
                         intExpr(new TypedExprData(INT_TYPE, null), 1),
                         intExpr(new TypedExprData(INT_TYPE, null), 2))))).value);
 
+    }
+
+    @Test
+    public void compilesInlineFn() throws Exception {
+        LocalVar x = new LocalVar(symbol("x"));
+        assertEquals(4L, Compiler.compile(PLUS_ENV,
+            callExpr(new TypedExprData(INT_TYPE, null),
+                vectorOf(
+                    fnExpr(new TypedExprData(fnType(vectorOf(INT_TYPE), INT_TYPE), null),
+                        vectorOf(x),
+                        callExpr(new TypedExprData(INT_TYPE, null),
+                            vectorOf(
+                                globalVarExpr(new TypedExprData(PLUS_TYPE, null), PLUS_VAR),
+                                localVarExpr(new TypedExprData(INT_TYPE, null), x),
+                                localVarExpr(new TypedExprData(INT_TYPE, null), x)))),
+                    intExpr(new TypedExprData(INT_TYPE, null), 2),
+                    intExpr(new TypedExprData(INT_TYPE, null), 3)))));
     }
 }
