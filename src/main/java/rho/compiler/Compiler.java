@@ -241,6 +241,7 @@ public class Compiler {
                 }
 
                 Class<?> fnClass = defineClass(newClass
+                    // TODO constructor 
                     .withMethod(newMethod("$$fn",
                         returnClass,
                         paramClasses,
@@ -254,6 +255,8 @@ public class Compiler {
                         mplus(closedOverParamOrder.stream()
                             .map(p -> localVarCall(locals.locals.get(p)))
                             .collect(toPVector()))),
+
+                    // TODO return bound virtual method handle
 
                     staticMethodHandle(fnClass, "$$fn", paramClasses, returnClass));
             }
