@@ -194,11 +194,44 @@ public class Analyser {
                 if (firstForm instanceof Form.SymbolForm) {
                     switch (((Form.SymbolForm) firstForm).sym.sym) {
                         case "def":
-                            if (form.forms.size() == 3 && form.forms.get(1) instanceof Form.SymbolForm) {
+                            if (form.forms.size() == 3) {
+                                Form nameForm = form.forms.get(1);
+
+                                Symbol name;
+                                PVector<LocalVar> params;
+                                LocalEnv localEnv_ = localEnv;
+
+                                if (nameForm instanceof Form.SymbolForm) {
+                                    name = ((Form.SymbolForm) nameForm).sym;
+                                    params = Empty.vector();
+                                } else if (nameForm instanceof Form.ListForm) {
+                                    PVector<Form> nameFormForms = ((Form.ListForm) nameForm).forms;
+
+                                    if (nameFormForms.get(0) instanceof Form.SymbolForm) {
+                                        name = ((Form.SymbolForm) nameFormForms.get(0)).sym;
+                                        params = Empty.vector();
+                                        for (Form paramForm : nameFormForms.minus(0)) {
+                                            if (paramForm instanceof Form.SymbolForm) {
+                                                Symbol sym = ((Form.SymbolForm) paramForm).sym;
+                                                LocalVar localVar = new LocalVar(sym);
+                                                params = params.plus(localVar);
+                                                localEnv_ = localEnv_.withLocal(sym, localVar);
+                                            } else {
+                                                throw new UnsupportedOperationException();
+                                            }
+                                        }
+                                    } else {
+                                        throw new UnsupportedOperationException();
+                                    }
+                                } else {
+                                    throw new UnsupportedOperationException();
+                                }
 
                                 return new ActionExpr.DefExpr<>(
-                                    ((Form.SymbolForm) form.forms.get(1)).sym,
-                                    analyseValueExpr(env, localEnv, form.forms.get(2)));
+                                    name,
+                                    params,
+                                    analyseValueExpr(env, localEnv_, form.forms.get(2)));
+
                             }
 
                             throw new UnsupportedOperationException();

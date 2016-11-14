@@ -88,4 +88,14 @@ public class AnalyserTest {
 
         assertEquals(defExpr(symbol("x"), varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2)))), analyse(env, listForm(symbolForm("def"), symbolForm("x"), listForm(symbolForm("+"), intForm(1), intForm(2)))));
     }
+
+    @Test
+    public void analysesDefFn() throws Exception {
+        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
+        Expr<Form> expr = analyse(env, listForm(symbolForm("def"), listForm(symbolForm("double"), symbolForm("x")), listForm(symbolForm("+"), symbolForm("x"), symbolForm("x"))));
+
+        LocalVar x = ((ActionExpr.DefExpr<Form>) expr).params.get(0);
+
+        assertEquals(defExpr(symbol("double"), vectorOf(x), varCallExpr(null, PLUS_VAR, vectorOf(localVarExpr(null, x), localVarExpr(null, x)))), expr);
+    }
 }
