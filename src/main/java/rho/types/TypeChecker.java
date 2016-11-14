@@ -213,10 +213,10 @@ public class TypeChecker {
         return new TypeChecker(TypeMapping.EMPTY).typeValueExpr0(LocalTypeEnv.EMPTY_TYPE_ENV, expr);
     }
 
-    public static Expr<TypedExprData> typeActionExpr(ActionExpr<? extends Form> expr) {
-        return expr.accept(new ActionExprVisitor<Form, Expr<TypedExprData>>() {
+    public static ActionExpr<TypedExprData> typeActionExpr(ActionExpr<? extends Form> expr) {
+        return expr.accept(new ActionExprVisitor<Form, ActionExpr<TypedExprData>>() {
             @Override
-            public Expr<TypedExprData> visit(ActionExpr.DefExpr<? extends Form> expr) {
+            public ActionExpr<TypedExprData> visit(ActionExpr.DefExpr<? extends Form> expr) {
                 return new ActionExpr.DefExpr<>(expr.sym, expr.params, typeValueExpr(expr.body));
             }
         });
