@@ -8,6 +8,7 @@ import org.pcollections.TreePVector;
 import rho.Util;
 import rho.runtime.Var;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.util.Arrays;
 import java.util.Collection;
@@ -17,8 +18,7 @@ import static org.objectweb.asm.Opcodes.*;
 import static rho.Util.toInternalName;
 import static rho.compiler.Instructions.FieldOp.GET_FIELD;
 import static rho.compiler.Instructions.FieldOp.GET_STATIC;
-import static rho.compiler.Instructions.MethodInvoke.INVOKE_SPECIAL;
-import static rho.compiler.Instructions.MethodInvoke.INVOKE_STATIC;
+import static rho.compiler.Instructions.MethodInvoke.*;
 
 interface Instructions {
     void apply(MethodVisitor mv);
@@ -200,7 +200,7 @@ interface Instructions {
     }
 
     enum FieldOp {
-        PUT_STATIC(PUTSTATIC), GET_STATIC(GETSTATIC), GET_FIELD(GETFIELD);
+        PUT_STATIC(PUTSTATIC), GET_STATIC(GETSTATIC), GET_FIELD(GETFIELD), PUT_FIELD(PUTFIELD);
 
         final int opcode;
 
@@ -216,7 +216,12 @@ interface Instructions {
         };
     }
 
-    static Instructions staticMethodHandle(Class<?> clazz, String methodName, PVector<Class<?>> paramClasses, Class<?> returnClass) {
-        return loadObject(new Handle(H_INVOKESTATIC, Type.getType(clazz).getInternalName(), methodName, MethodType.methodType(returnClass, paramClasses.toArray(new Class<?>[paramClasses.size()])).toMethodDescriptorString(), false));
+    static Instructions virtualMethodHandle(Class<?> clazz, String methodName, PVector<Class<?>> paramClasses, Class<?> returnClass) {
+        return loadObject(new Handle(H_INVOKEVIRTUAL, Type.getType(clazz).getInternalName(), methodName,
+            MethodType.methodType(returnClass, paramClasses.toArray(new Class<?>[paramClasses.size()])).toMethodDescriptorString(), false));
+    }
+
+    static Instructions bindMethodHandle() {
+        return methodCall(MethodHandle.class, INVOKE_VIRTUAL, "bindTo", MethodHandle.class, Util.vectorOf(Object.class));
     }
 }

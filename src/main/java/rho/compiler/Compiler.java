@@ -24,8 +24,7 @@ import static rho.Util.*;
 import static rho.Util.vectorOf;
 import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
-import static rho.compiler.Instructions.FieldOp.GET_STATIC;
-import static rho.compiler.Instructions.FieldOp.PUT_STATIC;
+import static rho.compiler.Instructions.FieldOp.*;
 import static rho.compiler.Instructions.*;
 import static rho.compiler.Locals.instanceLocals;
 import static rho.compiler.Locals.staticLocals;
@@ -219,6 +218,7 @@ public class Compiler {
                         e -> String.format("%s$$%d", e.getKey().sym.sym, uniqueInt())));
 
                 PVector<LocalVar> closedOverParamOrder = closedOverVars.entrySet().stream().map(Map.Entry::getKey).collect(toPVector());
+                PVector<Class<?>> closedOverParamClasses = closedOverParamOrder.stream().map(p -> closedOverVars.get(p).javaType()).collect(toPVector());
 
                 for (int i = 0; i < paramTypes.size(); i++) {
                     Type paramType = paramTypes.get(i);
@@ -240,25 +240,44 @@ public class Compiler {
                     newClass = newClass.withField(newField(closedOverFieldNames.get(closedOverVar), closedOverVars.get(closedOverVar).javaType(), setOf(PRIVATE, FINAL)));
                 }
 
+                Instructions constructorInstructions =
+                    mplus(loadThis(),
+                    methodCall(Object.class, MethodInvoke.INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector())
+                    );
+
+                Locals constructorLocals = instanceLocals();
+
+                for (LocalVar localVar : closedOverParamOrder) {
+                    Class<?> paramClass = closedOverVars.get(localVar).javaType();
+                    Pair<Locals, Locals.Local.VarLocal> paramLocalResult = constructorLocals.newVarLocal(localVar, paramClass);
+                    constructorLocals = paramLocalResult.left;
+                    constructorInstructions = mplus(constructorInstructions,
+                        loadThis(),
+                        localVarCall(paramLocalResult.right),
+                        fieldOp(PUT_FIELD, className, closedOverFieldNames.get(localVar), paramClass));
+                }
+
                 Class<?> fnClass = defineClass(newClass
-                    // TODO constructor 
+                    .withMethod(newMethod("<init>", Void.TYPE, closedOverParamClasses,
+                        mplus(constructorInstructions, ret(Void.TYPE)))
+                    .withFlags(setOf(PUBLIC)))
                     .withMethod(newMethod("$$fn",
                         returnClass,
                         paramClasses,
                         mplus(
                             bodyInstructions,
-                            ret(returnClass)))
-                        .withFlags(setOf(PUBLIC, FINAL))));
+                            ret(returnClass)))));
+
 
                 return mplus(
-                    newObject(fnClass, closedOverParamOrder.stream().map(p -> closedOverVars.get(p).javaType()).collect(toPVector()),
+                    virtualMethodHandle(fnClass, "$$fn", paramClasses, returnClass),
+
+                    newObject(fnClass, closedOverParamClasses,
                         mplus(closedOverParamOrder.stream()
                             .map(p -> localVarCall(locals.locals.get(p)))
                             .collect(toPVector()))),
 
-                    // TODO return bound virtual method handle
-
-                    staticMethodHandle(fnClass, "$$fn", paramClasses, returnClass));
+                    bindMethodHandle());
             }
         });
     }
