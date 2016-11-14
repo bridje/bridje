@@ -32,7 +32,7 @@ import static rho.compiler.NewClass.newBootstrapClass;
 import static rho.compiler.NewClass.newClass;
 import static rho.compiler.NewField.newField;
 import static rho.compiler.NewMethod.newMethod;
-import static rho.runtime.Var.var;
+import static rho.runtime.Var.*;
 
 public class Compiler {
 
@@ -242,7 +242,7 @@ public class Compiler {
 
                 Instructions constructorInstructions =
                     mplus(loadThis(),
-                    methodCall(Object.class, MethodInvoke.INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector())
+                        methodCall(Object.class, MethodInvoke.INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector())
                     );
 
                 Locals constructorLocals = instanceLocals();
@@ -260,7 +260,7 @@ public class Compiler {
                 Class<?> fnClass = defineClass(newClass
                     .withMethod(newMethod("<init>", Void.TYPE, closedOverParamClasses,
                         mplus(constructorInstructions, ret(Void.TYPE)))
-                    .withFlags(setOf(PUBLIC)))
+                        .withFlags(setOf(PUBLIC)))
                     .withMethod(newMethod("$$fn",
                         returnClass,
                         paramClasses,
@@ -324,33 +324,71 @@ public class Compiler {
                 return expr.accept(new ActionExprVisitor<TypedExprData, EvalResult>() {
                     @Override
                     public EvalResult visit(ActionExpr.DefExpr<? extends TypedExprData> expr) {
-                        Instructions instructions = compileValue(staticLocals(), expr.body);
-
                         String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
-
                         Type type = expr.body.data.type;
-
                         Class<?> clazz = type.javaType();
 
-                        NewClass newClass = newClass(className)
-                            .withField(newField("$$value", clazz, setOf(STATIC, FINAL, PRIVATE)))
-                            .withMethod(newMethod("<clinit>", Void.TYPE, vectorOf(),
-                                mplus(instructions,
-                                    fieldOp(PUT_STATIC, className, "$$value", clazz),
-                                    ret(Void.TYPE))).withFlags(setOf(STATIC)))
+                        boolean isFn = expr.body instanceof ValueExpr.FnExpr && type instanceof Type.FnType;
 
-                            .withMethod(newMethod("$$value", clazz, vectorOf(),
+                        ValueExpr.FnExpr<? extends TypedExprData> fnExpr = null;
+                        Type.FnType fnType = null;
+                        PVector<Class<?>> paramTypes = null;
+                        MethodType fnMethodType = null;
+
+                        if (isFn) {
+                            fnType = (Type.FnType) type;
+                            fnExpr = (ValueExpr.FnExpr<? extends TypedExprData>) expr.body;
+                            paramTypes = fnType.paramTypes.stream().map(Type::javaType).collect(toPVector());
+                            fnMethodType = MethodType.methodType(
+                                fnType.returnType.javaType(),
+                                paramTypes);
+                        }
+
+                        Instructions valueInstructions = isFn
+                            ? Instructions.staticMethodHandle(toInternalName(className), FN_METHOD_NAME, paramTypes, fnMethodType.returnType())
+                            : compileValue(staticLocals(), expr.body);
+
+                        NewClass newClass = newClass(className)
+                            .withField(newField(VALUE_METHOD_NAME, clazz, setOf(STATIC, FINAL, PRIVATE)))
+                            .withMethod(newMethod(VALUE_METHOD_NAME, clazz, vectorOf(),
                                 mplus(
-                                    fieldOp(GET_STATIC, className, "$$value", clazz),
-                                    ret(clazz))).withFlags(setOf(PUBLIC, STATIC)));
+                                    fieldOp(GET_STATIC, className, VALUE_METHOD_NAME, clazz),
+                                    ret(clazz))).withFlags(setOf(PUBLIC, STATIC)))
+                            .withMethod(newMethod("<clinit>", Void.TYPE, vectorOf(),
+                                mplus(valueInstructions,
+                                    fieldOp(PUT_STATIC, className, VALUE_METHOD_NAME, clazz),
+                                    ret(Void.TYPE))).withFlags(setOf(STATIC)));
+
+                        if (isFn) {
+                            Locals locals = staticLocals();
+                            for (int i = 0; i < fnExpr.params.size(); i++) {
+                                locals = locals.newVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType()).left;
+                            }
+
+                            newClass = newClass.withMethod(newMethod(FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
+                                mplus(
+                                    compileValue(locals, fnExpr.body),
+                                    ret(fnType.returnType.javaType())))
+                                .withFlags(setOf(STATIC, PUBLIC)));
+                        }
 
                         Class<?> dynClass = defineClass(newClass);
-                        MethodHandle handle;
+                        MethodHandle valueHandle;
+                        MethodHandle fnHandle = null;
 
                         try {
-                            handle = publicLookup().findStatic(dynClass, "$$value", MethodType.methodType(clazz));
+                            valueHandle = publicLookup().findStatic(dynClass, VALUE_METHOD_NAME, MethodType.methodType(clazz));
                         } catch (NoSuchMethodException | IllegalAccessException e) {
                             throw new RuntimeException(e);
+                        }
+
+
+                        if (isFn) {
+                            try {
+                                fnHandle = publicLookup().findStatic(dynClass, FN_METHOD_NAME, fnMethodType);
+                            } catch (NoSuchMethodException | IllegalAccessException e) {
+                                throw new RuntimeException(e);
+                            }
                         }
 
                         @SuppressWarnings("unchecked")
@@ -363,9 +401,10 @@ public class Compiler {
                             throw panic(e, "Failed instantiating bootstrap class");
                         }
 
-                        bootstrap.setHandles(handle, null);
 
-                        Env newEnv = env.withVar(expr.sym, var(type, bootstrap, null));
+                        bootstrap.setHandles(valueHandle, fnHandle);
+
+                        Env newEnv = env.withVar(expr.sym, var(type, bootstrap, fnMethodType));
 
                         try {
                             return new EvalResult(newEnv, dynClass.getDeclaredMethod("$$value").invoke(null));

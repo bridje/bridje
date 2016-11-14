@@ -55,6 +55,7 @@ interface Instructions {
         }
     }
 
+
     enum MethodInvoke {
         INVOKE_STATIC(Opcodes.INVOKESTATIC, false), INVOKE_VIRTUAL(INVOKEVIRTUAL, false), INVOKE_SPECIAL(INVOKESPECIAL, false);
 
@@ -214,6 +215,11 @@ interface Instructions {
             Type type = Type.getType(clazz);
             mv.visitFieldInsn(op.opcode, toInternalName(className), fieldName, type.getDescriptor());
         };
+    }
+
+    static Instructions staticMethodHandle(String classInternalName, String methodName, PVector<Class<?>> paramClasses, Class<?> returnClass) {
+        return loadObject(new Handle(H_INVOKESTATIC, classInternalName, methodName,
+            MethodType.methodType(returnClass, paramClasses.toArray(new Class<?>[paramClasses.size()])).toMethodDescriptorString(), false));
     }
 
     static Instructions virtualMethodHandle(Class<?> clazz, String methodName, PVector<Class<?>> paramClasses, Class<?> returnClass) {

@@ -59,15 +59,12 @@ class NewClass {
             .withInterfaces(setOf(IndyBootstrap.class))
 
             .withField(newField("VALUE_CALLSITE", MutableCallSite.class, setOf(PRIVATE, STATIC, FINAL)))
-//            .withField(newField("FN_CALLSITE", MutableCallSite.class, setOf(PRIVATE, STATIC, FINAL)))
+            .withField(newField("FN_CALLSITE", MutableCallSite.class, setOf(PRIVATE, STATIC, FINAL)))
 
             .withMethod(newMethod("<clinit>", Void.TYPE, vectorOf(),
                 mplus(
                     newObject(MutableCallSite.class, vectorOf(MethodType.class),
-                        mplus(
-                            loadClass(type.javaType()),
-                            methodCall(MethodType.class, INVOKE_STATIC, "methodType", MethodType.class, vectorOf(Class.class))
-                        )
+                        loadObject(Type.getMethodType(Type.getType(type.javaType())))
                     ),
                     fieldOp(FieldOp.PUT_STATIC, className, "VALUE_CALLSITE", MutableCallSite.class),
 
@@ -101,8 +98,6 @@ class NewClass {
                     Label tryValue = new Label();
                     Label fail = new Label();
 
-                    org.objectweb.asm.Type stringType = Type.getType(String.class);
-
                     mv.visitLdcInsn(Var.FN_METHOD_NAME);
                     mv.visitVarInsn(ALOAD, 1); // name
                     methodCall(Object.class, INVOKE_VIRTUAL, "equals", Boolean.TYPE, vectorOf(Object.class)).apply(mv);
@@ -131,6 +126,10 @@ class NewClass {
                     fieldOp(GET_STATIC, className, "VALUE_CALLSITE", MutableCallSite.class).apply(mv);
                     mv.visitVarInsn(ALOAD, 1);
                     methodCall(MutableCallSite.class, INVOKE_VIRTUAL, "setTarget", Void.TYPE, vectorOf(MethodHandle.class)).apply(mv);
+
+//                    fieldOp(GET_STATIC, className, "FN_CALLSITE", MutableCallSite.class).apply(mv);
+//                    mv.visitVarInsn(ALOAD, 2);
+//                    methodCall(MutableCallSite.class, INVOKE_VIRTUAL, "setTarget", Void.TYPE, vectorOf(MethodHandle.class)).apply(mv);
                     mv.visitInsn(RETURN);
                 }));
     }
