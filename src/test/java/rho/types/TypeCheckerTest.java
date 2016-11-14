@@ -87,14 +87,13 @@ public class TypeCheckerTest {
     }
 
     @Test
-    public void typesDefValue() throws Exception {
+    public void typesDef() throws Exception {
         assertEquals(INT_TYPE, ((ActionExpr.DefExpr<TypedExprData>) TypeChecker.type(defExpr(symbol("x"), varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2)))))).body.data.type);
     }
 
     @Test
     public void typesInlineFn() throws Exception {
         LocalVar x = new LocalVar(symbol("x"));
-
 
         assertEquals(
             fnType(vectorOf(INT_TYPE), INT_TYPE),

@@ -217,7 +217,7 @@ public class TypeChecker {
         return expr.accept(new ActionExprVisitor<Form, ActionExpr<TypedExprData>>() {
             @Override
             public ActionExpr<TypedExprData> visit(ActionExpr.DefExpr<? extends Form> expr) {
-                return new ActionExpr.DefExpr<>(expr.sym, expr.params, typeValueExpr(expr.body));
+                return new ActionExpr.DefExpr<>(expr.sym, typeValueExpr(expr.body));
             }
         });
     }

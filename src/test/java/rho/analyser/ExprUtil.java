@@ -1,6 +1,5 @@
 package rho.analyser;
 
-import org.pcollections.Empty;
 import org.pcollections.PVector;
 import rho.runtime.Symbol;
 import rho.runtime.Var;
@@ -56,11 +55,11 @@ public class ExprUtil {
     }
 
     public static <VED> ActionExpr.DefExpr<VED> defExpr(Symbol sym, ValueExpr<VED> expr) {
-        return new ActionExpr.DefExpr<>(sym, Empty.vector(), expr);
+        return new ActionExpr.DefExpr<>(sym, expr);
     }
 
     public static <VED> ActionExpr.DefExpr<VED> defExpr(Symbol sym, PVector<LocalVar> params, ValueExpr<VED> expr) {
-        return new ActionExpr.DefExpr<>(sym, params, expr);
+        return new ActionExpr.DefExpr<>(sym, expr);
     }
 
     public static <VED> ValueExpr.FnExpr<VED> fnExpr(VED data, PVector<LocalVar> params, ValueExpr<VED> body) {

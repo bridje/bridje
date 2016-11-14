@@ -196,20 +196,21 @@ public class Analyser {
                         case "def":
                             if (form.forms.size() == 3) {
                                 Form nameForm = form.forms.get(1);
-
-                                Symbol name;
-                                PVector<LocalVar> params;
-                                LocalEnv localEnv_ = localEnv;
+                                Form bodyForm = form.forms.get(2);
 
                                 if (nameForm instanceof Form.SymbolForm) {
-                                    name = ((Form.SymbolForm) nameForm).sym;
-                                    params = Empty.vector();
+                                    return new ActionExpr.DefExpr<>(
+                                        ((Form.SymbolForm) nameForm).sym,
+                                        analyseValueExpr(env, localEnv, bodyForm));
+
                                 } else if (nameForm instanceof Form.ListForm) {
                                     PVector<Form> nameFormForms = ((Form.ListForm) nameForm).forms;
 
                                     if (nameFormForms.get(0) instanceof Form.SymbolForm) {
-                                        name = ((Form.SymbolForm) nameFormForms.get(0)).sym;
-                                        params = Empty.vector();
+                                        Symbol name = ((Form.SymbolForm) nameFormForms.get(0)).sym;
+                                        PVector<LocalVar> params = Empty.vector();
+                                        LocalEnv localEnv_ = localEnv;
+
                                         for (Form paramForm : nameFormForms.minus(0)) {
                                             if (paramForm instanceof Form.SymbolForm) {
                                                 Symbol sym = ((Form.SymbolForm) paramForm).sym;
@@ -220,6 +221,8 @@ public class Analyser {
                                                 throw new UnsupportedOperationException();
                                             }
                                         }
+
+                                        return new ActionExpr.DefExpr<>(name, new ValueExpr.FnExpr<>(form, params, analyseValueExpr(env, localEnv_, bodyForm)));
                                     } else {
                                         throw new UnsupportedOperationException();
                                     }
@@ -227,10 +230,6 @@ public class Analyser {
                                     throw new UnsupportedOperationException();
                                 }
 
-                                return new ActionExpr.DefExpr<>(
-                                    name,
-                                    params,
-                                    analyseValueExpr(env, localEnv_, form.forms.get(2)));
 
                             }
 

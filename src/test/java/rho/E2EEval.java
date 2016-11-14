@@ -13,10 +13,12 @@ import rho.types.TypedExprData;
 import rho.util.Pair;
 
 import static org.junit.Assert.assertEquals;
+import static rho.Util.vectorOf;
 import static rho.analyser.Analyser.analyse;
 import static rho.compiler.Compiler.compile;
 import static rho.reader.FormReader.read;
 import static rho.runtime.VarUtil.PLUS_ENV;
+import static rho.types.Type.FnType.fnType;
 import static rho.types.Type.SimpleType.INT_TYPE;
 import static rho.util.Pair.pair;
 
@@ -61,4 +63,14 @@ public class E2EEval {
         testEvalsValueExpr(PLUS_ENV, "(let [y 2, add-y (fn (x) (+ x y))] (add-y 4))", INT_TYPE, 6L);
     }
 
+    @Test
+    public void testsDefFn() throws Exception {
+        Pair<ActionExpr<TypedExprData>, EvalResult> result = evalActionExpr(PLUS_ENV, "(def (double x) (+ x x))");
+        assertEquals(fnType(vectorOf(INT_TYPE), INT_TYPE),
+            ((ActionExpr.DefExpr<TypedExprData>) result.left).body.data.type);
+
+        Env resultEnv = result.right.env;
+
+        testEvalsValueExpr(resultEnv, "(double 12)", INT_TYPE, 24L);
+    }
 }
