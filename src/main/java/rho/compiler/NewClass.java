@@ -11,6 +11,7 @@ import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 
+import static org.objectweb.asm.Opcodes.ACONST_NULL;
 import static org.objectweb.asm.Opcodes.ALOAD;
 import static rho.Util.setOf;
 import static rho.Util.*;
@@ -35,6 +36,9 @@ class NewClass {
     public static NewClass newBootstrapClass(rho.types.Type type) {
         String className = "$$bootstrap" + uniqueInt();
 
+        rho.types.Type.FnType fnType = type instanceof rho.types.Type.FnType
+            ? (rho.types.Type.FnType) type
+            : null;
 
         return newClass(className)
             .withInterfaces(setOf(IndyBootstrap.class))
@@ -45,7 +49,10 @@ class NewClass {
                     newObject(IndyBootstrap.Delegate.class, vectorOf(Class.class, MethodType.class),
                         mplus(
                             loadClass(type.javaType()),
-                            loadObject(Type.getMethodType(Type.getType(type.javaType()))))),
+                            fnType != null
+                                ? loadObject(Type.getMethodType(Type.getType(fnType.returnType.javaType()), fnType.paramTypes.stream().map(pt -> Type.getType(pt.javaType())).toArray(Type[]::new)))
+                                : mv -> mv.visitInsn(ACONST_NULL))),
+
                     fieldOp(FieldOp.PUT_STATIC, className, "delegate", IndyBootstrap.Delegate.class),
 
                     ret(Void.TYPE)))
