@@ -100,4 +100,9 @@ public class AnalyserTest {
             defExpr(symbol("double"), fnExpr(null, vectorOf(x), varCallExpr(null, PLUS_VAR, vectorOf(localVarExpr(null, x), localVarExpr(null, x))))),
             expr);
     }
+
+    @Test
+    public void analysesTypeDef() throws Exception {
+
+    }
 }
