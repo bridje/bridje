@@ -3,8 +3,8 @@ package rho.analyser;
 import org.pcollections.Empty;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
-import rho.analyser.ValueExpr.LetExpr.LetBinding;
-import rho.analyser.ValueExpr.LocalVarExpr;
+import rho.analyser.Expr.LetExpr.LetBinding;
+import rho.analyser.Expr.LocalVarExpr;
 import rho.reader.Form;
 import rho.reader.FormVisitor;
 import rho.runtime.Env;
@@ -19,191 +19,111 @@ import static rho.Util.toPVector;
 
 public class Analyser {
 
-    static ValueExpr<Form> analyseValueExpr(Env env, LocalEnv localEnv, Form form) {
-        return form.accept(new FormVisitor<ValueExpr<Form>>() {
+    static Expr<Void> analyse0(Env env, LocalEnv localEnv, Form form) {
+        return form.accept(new FormVisitor<Expr<Void>>() {
             @Override
-            public ValueExpr<Form> visit(Form.BoolForm form) {
-                return new ValueExpr.BoolExpr<>(null, form.value);
+            public Expr<Void> visit(Form.BoolForm form) {
+                return new Expr.BoolExpr<>(form.range, null, form.value);
             }
 
             @Override
-            public ValueExpr<Form> visit(Form.StringForm form) {
-                return new ValueExpr.StringExpr<>(null, form.string);
+            public Expr<Void> visit(Form.StringForm form) {
+                return new Expr.StringExpr<>(form.range, null, form.string);
             }
 
             @Override
-            public ValueExpr<Form> visit(Form.IntForm form) {
-                return new ValueExpr.IntExpr<>(form, form.num);
+            public Expr<Void> visit(Form.IntForm form) {
+                return new Expr.IntExpr<>(form.range, null, form.num);
             }
 
             @Override
-            public ValueExpr<Form> visit(Form.VectorForm form) {
-                return new ValueExpr.VectorExpr<>(form, form.forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
+            public Expr<Void> visit(Form.VectorForm form) {
+                return new Expr.VectorExpr<>(form.range, null, form.forms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
             }
 
             @Override
-            public ValueExpr<Form> visit(Form.SetForm form) {
-                return new ValueExpr.SetExpr<>(form, form.forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
+            public Expr<Void> visit(Form.SetForm form) {
+                return new Expr.SetExpr<>(form.range, null, form.forms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
             }
 
             @Override
-            public ValueExpr<Form> visit(Form.ListForm form) {
+            public Expr<Void> visit(Form.ListForm form) {
                 PVector<Form> forms = form.forms;
+                Form firstForm = forms.get(0);
+                if (firstForm instanceof Form.SymbolForm) {
+                    Symbol sym = ((Form.SymbolForm) firstForm).sym;
+                    switch (sym.sym) {
+                        case "let":
+                            if (forms.size() == 3 && forms.get(1) instanceof Form.VectorForm) {
+                                PVector<Form> bindingForms = ((Form.VectorForm) forms.get(1)).forms;
 
-                if (!forms.isEmpty()) {
-                    Form firstForm = forms.get(0);
+                                if (bindingForms.size() % 2 != 0) {
+                                    throw new UnsupportedOperationException();
+                                }
 
-                    if (firstForm instanceof Form.SymbolForm) {
-                        Symbol sym = ((Form.SymbolForm) firstForm).sym;
+                                LocalEnv localEnv_ = localEnv;
+                                List<LetBinding<Void>> bindings = new LinkedList<>();
 
-                        switch (sym.sym) {
-                            case "let":
-                                if (forms.size() == 3 && forms.get(1) instanceof Form.VectorForm) {
-                                    PVector<Form> bindingForms = ((Form.VectorForm) forms.get(1)).forms;
-
-                                    if (bindingForms.size() % 2 != 0) {
+                                for (int i = 0; i < bindingForms.size(); i += 2) {
+                                    if (bindingForms.get(i) instanceof Form.SymbolForm) {
+                                        Symbol bindingSym = ((Form.SymbolForm) bindingForms.get(i)).sym;
+                                        LocalVar localVar = new LocalVar(bindingSym);
+                                        localEnv_ = localEnv_.withLocal(bindingSym, localVar);
+                                        bindings.add(new LetBinding<>(localVar, analyse0(env, localEnv_, bindingForms.get(i + 1))));
+                                    } else {
                                         throw new UnsupportedOperationException();
                                     }
+                                }
 
+                                return new Expr.LetExpr<>(form.range, null, TreePVector.from(bindings), analyse0(env, localEnv_, forms.get(2)));
+                            }
+
+                            throw new UnsupportedOperationException();
+
+                        case "if":
+                            if (forms.size() == 4) {
+                                return new Expr.IfExpr<>(form.range, null,
+                                    analyse0(env, localEnv, forms.get(1)),
+                                    analyse0(env, localEnv, forms.get(2)),
+                                    analyse0(env, localEnv, forms.get(3)));
+                            }
+
+                            throw new UnsupportedOperationException();
+
+                        case "fn":
+                            if (forms.size() == 3) {
+                                Form paramsForm = forms.get(1);
+                                if (paramsForm instanceof Form.ListForm) {
                                     LocalEnv localEnv_ = localEnv;
-                                    List<LetBinding<Form>> bindings = new LinkedList<>();
+                                    PVector<LocalVar> paramLocals = Empty.vector();
 
-                                    for (int i = 0; i < bindingForms.size(); i += 2) {
-                                        if (bindingForms.get(i) instanceof Form.SymbolForm) {
-                                            Symbol bindingSym = ((Form.SymbolForm) bindingForms.get(i)).sym;
-                                            LocalVar localVar = new LocalVar(bindingSym);
-                                            localEnv_ = localEnv_.withLocal(bindingSym, localVar);
-                                            bindings.add(new LetBinding<>(localVar, analyseValueExpr(env, localEnv_, bindingForms.get(i + 1))));
+                                    for (Form paramForm : ((Form.ListForm) paramsForm).forms) {
+                                        if (paramForm instanceof Form.SymbolForm) {
+                                            Symbol paramSym = ((Form.SymbolForm) paramForm).sym;
+                                            LocalVar localVar = new LocalVar(paramSym);
+                                            localEnv_ = localEnv_.withLocal(paramSym, localVar);
+                                            paramLocals = paramLocals.plus(localVar);
                                         } else {
                                             throw new UnsupportedOperationException();
                                         }
                                     }
 
-                                    return new ValueExpr.LetExpr<>(form, TreePVector.from(bindings), analyseValueExpr(env, localEnv_, forms.get(2)));
+                                    return new Expr.FnExpr<>(form.range, null, paramLocals, analyse0(env, localEnv_, forms.get(2)));
                                 }
+                            }
 
-                                throw new UnsupportedOperationException();
+                            throw new UnsupportedOperationException();
 
-                            case "if":
-                                if (forms.size() == 4) {
-                                    return new ValueExpr.IfExpr<>(form,
-                                        analyseValueExpr(env, localEnv, forms.get(1)),
-                                        analyseValueExpr(env, localEnv, forms.get(2)),
-                                        analyseValueExpr(env, localEnv, forms.get(3)));
-                                }
-
-                                throw new UnsupportedOperationException();
-
-                            case "fn":
-                                if (forms.size() == 3) {
-                                    Form paramsForm = forms.get(1);
-                                    if (paramsForm instanceof Form.ListForm) {
-                                        LocalEnv localEnv_ = localEnv;
-                                        PVector<LocalVar> paramLocals = Empty.vector();
-
-                                        for (Form paramForm : ((Form.ListForm) paramsForm).forms) {
-                                            if (paramForm instanceof Form.SymbolForm) {
-                                                Symbol paramSym = ((Form.SymbolForm) paramForm).sym;
-                                                LocalVar localVar = new LocalVar(paramSym);
-                                                localEnv_ = localEnv_.withLocal(paramSym, localVar);
-                                                paramLocals = paramLocals.plus(localVar);
-                                            } else {
-                                                throw new UnsupportedOperationException();
-                                            }
-                                        }
-
-                                        return new ValueExpr.FnExpr<>(form, paramLocals, analyseValueExpr(env, localEnv_, forms.get(2)));
-                                    }
-                                }
-
-                                throw new UnsupportedOperationException();
-
-                            default:
-                                LocalVar localVar = localEnv.localVars.get(sym);
-                                if (localVar != null) {
-                                    return new ValueExpr.CallExpr<>(form, forms.stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
-                                }
-
-                                Var var = env.vars.get(sym);
-                                if (var != null) {
-                                    return new ValueExpr.VarCallExpr<>(form, var,
-                                        forms.subList(1, forms.size()).stream().map(f -> analyseValueExpr(env, localEnv, f)).collect(toPVector()));
-
-                                }
-
-                                throw new UnsupportedOperationException();
-                        }
-                    }
-                }
-
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ValueExpr<Form> visit(Form.SymbolForm form) {
-                LocalVar localVar = localEnv.localVars.get(form.sym);
-                if (localVar != null) {
-                    return new LocalVarExpr<>(form, localVar);
-                }
-
-                Var var = env.vars.get(form.sym);
-
-                if (var != null) {
-                    return new ValueExpr.GlobalVarExpr<>(form, var);
-                }
-
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public ValueExpr<Form> visit(Form.QSymbolForm form) {
-                throw new UnsupportedOperationException();
-            }
-        });
-    }
-
-    static Expr<Form> analyse0(Env env, LocalEnv localEnv, Form form) {
-        return form.accept(new FormVisitor<Expr<Form>>() {
-            @Override
-            public Expr<Form> visit(Form.BoolForm form) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Expr<Form> visit(Form.StringForm form) {
-                return analyseValueExpr(env, localEnv, form);
-            }
-
-            @Override
-            public Expr<Form> visit(Form.IntForm form) {
-                return analyseValueExpr(env, localEnv, form);
-            }
-
-            @Override
-            public Expr<Form> visit(Form.VectorForm form) {
-                return analyseValueExpr(env, localEnv, form);
-            }
-
-            @Override
-            public Expr<Form> visit(Form.SetForm form) {
-                return analyseValueExpr(env, localEnv, form);
-            }
-
-            @Override
-            public Expr<Form> visit(Form.ListForm form) {
-                PVector<Form> forms = form.forms;
-                Form firstForm = forms.get(0);
-                if (firstForm instanceof Form.SymbolForm) {
-                    switch (((Form.SymbolForm) firstForm).sym.sym) {
+                        
                         case "def":
                             if (forms.size() == 3) {
                                 Form nameForm = forms.get(1);
                                 Form bodyForm = forms.get(2);
 
                                 if (nameForm instanceof Form.SymbolForm) {
-                                    return new ActionExpr.DefExpr<>(
+                                    return new Expr.DefExpr<>(form.range, null,
                                         ((Form.SymbolForm) nameForm).sym,
-                                        analyseValueExpr(env, localEnv, bodyForm));
+                                        analyse0(env, localEnv, bodyForm));
 
                                 } else if (nameForm instanceof Form.ListForm) {
                                     PVector<Form> nameFormForms = ((Form.ListForm) nameForm).forms;
@@ -215,16 +135,16 @@ public class Analyser {
 
                                         for (Form paramForm : nameFormForms.minus(0)) {
                                             if (paramForm instanceof Form.SymbolForm) {
-                                                Symbol sym = ((Form.SymbolForm) paramForm).sym;
-                                                LocalVar localVar = new LocalVar(sym);
+                                                Symbol nameSym = ((Form.SymbolForm) paramForm).sym;
+                                                LocalVar localVar = new LocalVar(nameSym);
                                                 params = params.plus(localVar);
-                                                localEnv_ = localEnv_.withLocal(sym, localVar);
+                                                localEnv_ = localEnv_.withLocal(nameSym, localVar);
                                             } else {
                                                 throw new UnsupportedOperationException();
                                             }
                                         }
 
-                                        return new ActionExpr.DefExpr<>(name, new ValueExpr.FnExpr<>(form, params, analyseValueExpr(env, localEnv_, bodyForm)));
+                                        return new Expr.DefExpr<>(form.range, null, name, new Expr.FnExpr<>(form.range, null, params, analyse0(env, localEnv_, bodyForm)));
                                     } else {
                                         throw new UnsupportedOperationException();
                                     }
@@ -243,13 +163,24 @@ public class Analyser {
                                 if (symForm instanceof Form.SymbolForm) {
                                     Symbol typeDefSym = ((Form.SymbolForm) symForm).sym;
                                     Type type = TypeAnalyser.analyzeType(typeForm);
-                                    return new ActionExpr.TypeDefExpr<>(typeDefSym, type);
+                                    return new Expr.TypeDefExpr<>(form.range, null, typeDefSym, type);
                                 }
                             }
 
                             throw new UnsupportedOperationException();
+
                         default:
-                            return analyseValueExpr(env, localEnv, form);
+                            LocalVar localVar = localEnv.localVars.get(sym);
+                            if (localVar != null) {
+                                return new Expr.CallExpr<>(form.range, null, forms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
+                            }
+
+                            Var var = env.vars.get(sym);
+                            if (var != null) {
+                                return new Expr.VarCallExpr<>(form.range, null, var,
+                                    forms.subList(1, forms.size()).stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
+
+                            }
                     }
                 }
 
@@ -257,18 +188,29 @@ public class Analyser {
             }
 
             @Override
-            public Expr<Form> visit(Form.SymbolForm form) {
-                return analyseValueExpr(env, localEnv, form);
+            public Expr<Void> visit(Form.SymbolForm form) {
+                LocalVar localVar = localEnv.localVars.get(form.sym);
+                if (localVar != null) {
+                    return new LocalVarExpr<>(form.range, null, localVar);
+                }
+
+                Var var = env.vars.get(form.sym);
+
+                if (var != null) {
+                    return new Expr.GlobalVarExpr<>(form.range, null, var);
+                }
+
+                throw new UnsupportedOperationException();
             }
 
             @Override
-            public Expr<Form> visit(Form.QSymbolForm form) {
-                return analyseValueExpr(env, localEnv, form);
+            public Expr<Void> visit(Form.QSymbolForm form) {
+                throw new UnsupportedOperationException();
             }
         });
     }
 
-    public static Expr<Form> analyse(Env env, Form form) {
+    public static Expr<Void> analyse(Env env, Form form) {
         return analyse0(env, LocalEnv.EMPTY_ENV, form);
     }
 }

@@ -2,10 +2,11 @@ package rho.types;
 
 import org.pcollections.Empty;
 import org.pcollections.PVector;
-import rho.analyser.*;
-import rho.analyser.ValueExpr.BoolExpr;
-import rho.analyser.ValueExpr.StringExpr;
-import rho.reader.Form;
+import rho.analyser.Expr;
+import rho.analyser.Expr.BoolExpr;
+import rho.analyser.Expr.StringExpr;
+import rho.analyser.ExprVisitor;
+import rho.analyser.LocalVar;
 
 import static rho.Util.toPVector;
 import static rho.types.Type.FnType.fnType;
@@ -21,62 +22,62 @@ public class TypeChecker {
         this.mapping = mapping;
     }
 
-    private ValueExpr<TypedExprData> typeValueExpr0(LocalTypeEnv localTypeEnv, ValueExpr<? extends Form> expr) {
-        return expr.accept(new ValueExprVisitor<Form, ValueExpr<TypedExprData>>() {
+    private Expr<Type> typeExpr0(LocalTypeEnv localTypeEnv, Expr<?> expr) {
+        return expr.accept(new ExprVisitor<Object, Expr<Type>>() {
             @Override
-            public ValueExpr<TypedExprData> visit(BoolExpr<? extends Form> expr) {
-                return new BoolExpr<>(new TypedExprData(BOOL_TYPE, expr.data), expr.value);
+            public Expr<Type> visit(BoolExpr<?> expr) {
+                return new BoolExpr<>(expr.range, BOOL_TYPE, expr.value);
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(StringExpr<? extends Form> expr) {
-                return new StringExpr<>(new TypedExprData(STRING_TYPE, expr.data), expr.string);
+            public Expr<Type> visit(StringExpr<?> expr) {
+                return new StringExpr<>(expr.range, STRING_TYPE, expr.string);
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.IntExpr<? extends Form> expr) {
-                return new ValueExpr.IntExpr<>(new TypedExprData(INT_TYPE, expr.data), expr.num);
+            public Expr<Type> visit(Expr.IntExpr<?> expr) {
+                return new Expr.IntExpr<>(expr.range, INT_TYPE, expr.num);
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.VectorExpr<? extends Form> expr) {
+            public Expr<Type> visit(Expr.VectorExpr<?> expr) {
                 Type innerType = new TypeVar();
 
-                PVector<ValueExpr<TypedExprData>> exprs = Empty.vector();
+                PVector<Expr<Type>> exprs = Empty.vector();
 
-                for (ValueExpr<? extends Form> el : expr.exprs) {
-                    ValueExpr<TypedExprData> typedEl = typeValueExpr0(localTypeEnv, el);
+                for (Expr<?> el : expr.exprs) {
+                    Expr<Type> typedEl = typeExpr0(localTypeEnv, el);
                     exprs = exprs.plus(typedEl);
-                    mapping = mapping.with(innerType.unify(typedEl.data.type));
+                    mapping = mapping.with(innerType.unify(typedEl.type));
                     innerType = innerType.apply(mapping);
                 }
 
-                return new ValueExpr.VectorExpr<>(new TypedExprData(vectorType(innerType), expr.data), exprs);
+                return new Expr.VectorExpr<>(expr.range, vectorType(innerType), exprs);
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.SetExpr<? extends Form> expr) {
+            public Expr<Type> visit(Expr.SetExpr<?> expr) {
                 Type innerType = new TypeVar();
 
-                PVector<ValueExpr<TypedExprData>> exprs = Empty.vector();
+                PVector<Expr<Type>> exprs = Empty.vector();
 
-                for (ValueExpr<? extends Form> el : expr.exprs) {
-                    ValueExpr<TypedExprData> typedEl = typeValueExpr0(localTypeEnv, el);
+                for (Expr<?> el : expr.exprs) {
+                    Expr<Type> typedEl = typeExpr0(localTypeEnv, el);
                     exprs = exprs.plus(typedEl);
-                    mapping = mapping.with(innerType.unify(typedEl.data.type));
+                    mapping = mapping.with(innerType.unify(typedEl.type));
                     innerType = innerType.apply(mapping);
                 }
 
-                return new ValueExpr.SetExpr<>(new TypedExprData(setType(innerType), expr.data), exprs);
+                return new Expr.SetExpr<>(expr.range, setType(innerType), exprs);
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.CallExpr<? extends Form> expr) {
-                PVector<? extends ValueExpr<? extends Form>> exprs = expr.exprs;
-                ValueExpr<? extends Form> fnExpr = exprs.get(0);
+            public Expr<Type> visit(Expr.CallExpr<?> expr) {
+                PVector<? extends Expr<?>> exprs = expr.exprs;
+                Expr<?> fnExpr = exprs.get(0);
 
-                ValueExpr<TypedExprData> typedFirstParam = typeValueExpr0(localTypeEnv, fnExpr);
-                Type firstParamType = typedFirstParam.data.type;
+                Expr<Type> typedFirstParam = typeExpr0(localTypeEnv, fnExpr);
+                Type firstParamType = typedFirstParam.type;
 
 
                 if (firstParamType instanceof FnType) {
@@ -84,12 +85,12 @@ public class TypeChecker {
 
                     PVector<Type> fnParamTypes = fnType.paramTypes;
                     if (fnParamTypes.size() == exprs.size() - 1) {
-                        PVector<ValueExpr<TypedExprData>> typedExprs = Empty.vector();
+                        PVector<Expr<Type>> typedExprs = Empty.vector();
                         for (int i = 0; i < fnParamTypes.size(); i++) {
                             TypeMapping mapping_ = mapping;
                             Type paramType = fnParamTypes.get(i).apply(mapping_);
-                            ValueExpr<TypedExprData> typedExpr = typeValueExpr0(localTypeEnv, exprs.get(i + 1)).fmap(ted -> ted.fmapType(t -> t.apply(mapping_)));
-                            mapping = mapping.with(paramType.unify(typedExpr.data.type));
+                            Expr<Type> typedExpr = typeExpr0(localTypeEnv, exprs.get(i + 1)).fmapType(t -> t.apply(mapping_));
+                            mapping = mapping.with(paramType.unify(typedExpr.type));
 
                             typedExprs = typedExprs.plus(typedExpr);
 
@@ -97,8 +98,8 @@ public class TypeChecker {
 
                         TypeMapping mapping_ = mapping;
 
-                        return new ValueExpr.CallExpr<>(new TypedExprData(fnType.returnType.apply(mapping), expr.data),
-                            typedExprs.plus(0, typedFirstParam.fmap(ted -> ted.fmapType(t -> t.apply(mapping_)))));
+                        return new Expr.CallExpr<>(expr.range, fnType.returnType.apply(mapping),
+                            typedExprs.plus(0, typedFirstParam.fmapType(t -> t.apply(mapping_))));
                     } else {
                         throw new UnsupportedOperationException();
                     }
@@ -108,7 +109,7 @@ public class TypeChecker {
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.VarCallExpr<? extends Form> expr) {
+            public Expr<Type> visit(Expr.VarCallExpr<?> expr) {
                 Type varType = expr.var.type.instantiate();
 
                 if (varType instanceof Type.FnType) {
@@ -118,72 +119,72 @@ public class TypeChecker {
                         throw new UnsupportedOperationException();
                     }
 
-                    PVector<ValueExpr<TypedExprData>> typedParams = Empty.vector();
+                    PVector<Expr<Type>> typedParams = Empty.vector();
 
                     for (int i = 0; i < expr.params.size(); i++) {
                         TypeMapping mapping_ = mapping;
                         Type paramType = fnType.paramTypes.get(i).apply(mapping_);
-                        ValueExpr<TypedExprData> typedParam = typeValueExpr0(localTypeEnv, expr.params.get(i)).fmap(ted -> ted.fmapType(t -> t.apply(mapping_)));
+                        Expr<Type> typedParam = typeExpr0(localTypeEnv, expr.params.get(i)).fmapType(t -> t.apply(mapping_));
                         typedParams = typedParams.plus(typedParam);
 
-                        mapping = mapping.with(paramType.unify(typedParam.data.type));
+                        mapping = mapping.with(paramType.unify(typedParam.type));
                     }
 
-                    return new ValueExpr.VarCallExpr<>(new TypedExprData(fnType.returnType.apply(mapping), expr.data), expr.var, typedParams);
+                    return new Expr.VarCallExpr<>(expr.range, fnType.returnType.apply(mapping), expr.var, typedParams);
                 }
 
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.LetExpr<? extends Form> expr) {
+            public Expr<Type> visit(Expr.LetExpr<?> expr) {
                 LocalTypeEnv localTypeEnv_ = localTypeEnv;
 
-                PVector<ValueExpr.LetExpr.LetBinding<TypedExprData>> typedBindings = Empty.vector();
+                PVector<Expr.LetExpr.LetBinding<Type>> typedBindings = Empty.vector();
 
-                for (ValueExpr.LetExpr.LetBinding<? extends Form> letBinding : expr.bindings) {
-                    ValueExpr<TypedExprData> typedBindingExpr = typeValueExpr0(localTypeEnv_, letBinding.expr);
-                    typedBindings = typedBindings.plus(new ValueExpr.LetExpr.LetBinding<>(letBinding.localVar, typedBindingExpr));
-                    localTypeEnv_ = localTypeEnv_.with(letBinding.localVar, typedBindingExpr.data.type);
+                for (Expr.LetExpr.LetBinding<?> letBinding : expr.bindings) {
+                    Expr<Type> typedBindingExpr = typeExpr0(localTypeEnv_, letBinding.expr);
+                    typedBindings = typedBindings.plus(new Expr.LetExpr.LetBinding<>(letBinding.localVar, typedBindingExpr));
+                    localTypeEnv_ = localTypeEnv_.with(letBinding.localVar, typedBindingExpr.type);
                 }
 
-                ValueExpr<TypedExprData> typedBody = typeValueExpr0(localTypeEnv_, expr.body);
+                Expr<Type> typedBody = typeExpr0(localTypeEnv_, expr.body);
 
-                return new ValueExpr.LetExpr<>(new TypedExprData(typedBody.data.type, expr.data), typedBindings, typedBody);
+                return new Expr.LetExpr<>(expr.range, typedBody.type, typedBindings, typedBody);
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.IfExpr<? extends Form> expr) {
-                ValueExpr<TypedExprData> typedTestExpr = typeValueExpr0(localTypeEnv, expr.testExpr);
-                mapping = mapping.with(typedTestExpr.data.type.unify(BOOL_TYPE));
+            public Expr<Type> visit(Expr.IfExpr<?> expr) {
+                Expr<Type> typedTestExpr = typeExpr0(localTypeEnv, expr.testExpr);
+                mapping = mapping.with(typedTestExpr.type.unify(BOOL_TYPE));
 
                 TypeVar returnType = new TypeVar();
-                ValueExpr<TypedExprData> typedThenExpr = typeValueExpr0(localTypeEnv, expr.thenExpr).fmap(ted -> ted.fmapType(t -> t.apply(mapping)));
-                mapping = mapping.with(typedThenExpr.data.type.unify(returnType));
+                Expr<Type> typedThenExpr = typeExpr0(localTypeEnv, expr.thenExpr).fmapType(t -> t.apply(mapping));
+                mapping = mapping.with(typedThenExpr.type.unify(returnType));
 
-                ValueExpr<TypedExprData> typedElseExpr = typeValueExpr0(localTypeEnv, expr.elseExpr).fmap(ted -> ted.fmapType(t -> t.apply(mapping)));
-                mapping = mapping.with(typeValueExpr0(localTypeEnv, expr.elseExpr).data.type.unify(returnType));
+                Expr<Type> typedElseExpr = typeExpr0(localTypeEnv, expr.elseExpr).fmapType(t -> t.apply(mapping));
+                mapping = mapping.with(typeExpr0(localTypeEnv, expr.elseExpr).type.unify(returnType));
 
-                return new ValueExpr.IfExpr<>(new TypedExprData(returnType.apply(mapping), expr.data), typedTestExpr, typedThenExpr, typedElseExpr);
+                return new Expr.IfExpr<>(expr.range, returnType.apply(mapping), typedTestExpr, typedThenExpr, typedElseExpr);
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.LocalVarExpr<? extends Form> expr) {
+            public Expr<Type> visit(Expr.LocalVarExpr<?> expr) {
                 Type type = localTypeEnv.env.get(expr.localVar);
                 if (type != null) {
-                    return new ValueExpr.LocalVarExpr<>(new TypedExprData(type, expr.data), expr.localVar);
+                    return new Expr.LocalVarExpr<>(expr.range, type, expr.localVar);
                 }
 
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.GlobalVarExpr<? extends Form> expr) {
-                return new ValueExpr.GlobalVarExpr<>(new TypedExprData(expr.var.type.instantiate(), expr.data), expr.var);
+            public Expr<Type> visit(Expr.GlobalVarExpr<?> expr) {
+                return new Expr.GlobalVarExpr<>(expr.range, expr.var.type.instantiate(), expr.var);
             }
 
             @Override
-            public ValueExpr<TypedExprData> visit(ValueExpr.FnExpr<? extends Form> expr) {
+            public Expr<Type> visit(Expr.FnExpr<?> expr) {
                 LocalTypeEnv localTypeEnv_ = localTypeEnv;
 
                 for (LocalVar param : expr.params) {
@@ -193,52 +194,31 @@ public class TypeChecker {
                 final LocalTypeEnv bodyLocalTypeEnv = localTypeEnv_;
 
                 TypeVar returnType = new TypeVar();
-                ValueExpr<TypedExprData> typedBody = typeValueExpr0(localTypeEnv_, expr.body);
-                Type bodyType = typedBody.data.type;
+                Expr<Type> typedBody = typeExpr0(localTypeEnv_, expr.body);
+                Type bodyType = typedBody.type;
                 mapping = mapping.with(bodyType.unify(returnType));
 
-                return new ValueExpr.FnExpr<>(
-                    new TypedExprData(
-                        fnType(
-                            expr.params.stream().map(p -> bodyLocalTypeEnv.env.get(p).apply(mapping)).collect(toPVector()),
-                            bodyType.apply(mapping)),
-                        expr.data),
+                return new Expr.FnExpr<>(expr.range, fnType(
+                    expr.params.stream().map(p -> bodyLocalTypeEnv.env.get(p).apply(mapping)).collect(toPVector()),
+                    bodyType.apply(mapping)),
                     expr.params,
-                    typedBody.fmap(ted -> ted.fmapType(t -> t.apply(mapping))));
-            }
-        });
-    }
-
-    public static ValueExpr<TypedExprData> typeValueExpr(ValueExpr<? extends Form> expr) {
-        return new TypeChecker(TypeMapping.EMPTY).typeValueExpr0(LocalTypeEnv.EMPTY_TYPE_ENV, expr);
-    }
-
-    public static ActionExpr<TypedExprData> typeActionExpr(ActionExpr<? extends Form> expr) {
-        return expr.accept(new ActionExprVisitor<Form, ActionExpr<TypedExprData>>() {
-            @Override
-            public ActionExpr<TypedExprData> visit(ActionExpr.DefExpr<? extends Form> expr) {
-                return new ActionExpr.DefExpr<>(expr.sym, typeValueExpr(expr.body));
+                    typedBody.fmapType(t -> t.apply(mapping)));
             }
 
             @Override
-            public ActionExpr<TypedExprData> visit(ActionExpr.TypeDefExpr<? extends Form> expr) {
+            public Expr<Type> visit(Expr.DefExpr<?> expr) {
+                return new Expr.DefExpr<>(expr.range, ENV_UPDATE_TYPE, expr.sym, typeExpr0(localTypeEnv, expr.body));
+            }
+
+            @Override
+            public Expr<Type> visit(Expr.TypeDefExpr<?> expr) {
                 throw new UnsupportedOperationException();
             }
         });
     }
 
-    public static Expr<TypedExprData> type(Expr<Form> expr) {
-        return expr.accept(new ExprVisitor<Form, Expr<TypedExprData>>() {
-            @Override
-            public Expr<TypedExprData> accept(ValueExpr<? extends Form> expr) {
-                return typeValueExpr(expr);
-            }
-
-            @Override
-            public Expr<TypedExprData> accept(ActionExpr<? extends Form> expr) {
-                return typeActionExpr(expr);
-            }
-        });
+    public static Expr<Type> typeExpr(Expr<Void> expr) {
+        return new TypeChecker(TypeMapping.EMPTY).typeExpr0(LocalTypeEnv.EMPTY_TYPE_ENV, expr);
     }
 
 }

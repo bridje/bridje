@@ -6,63 +6,59 @@ import rho.runtime.Var;
 
 public class ExprUtil {
 
-    public static <VED> ValueExpr.IntExpr<VED> intExpr(VED data, int value) {
-        return new ValueExpr.IntExpr<>(data, value);
+    public static <ET> Expr.IntExpr<ET> intExpr(ET type, int value) {
+        return new Expr.IntExpr<>(null, type, value);
     }
 
-    public static <VED> ValueExpr.BoolExpr<VED> boolExpr(VED data, boolean value) {
-        return new ValueExpr.BoolExpr<>(data, value);
+    public static <ET> Expr.BoolExpr<ET> boolExpr(ET type, boolean value) {
+        return new Expr.BoolExpr<>(null, type, value);
     }
 
-    public static <VED> ValueExpr.StringExpr<VED> stringExpr(VED data, String string) {
-        return new ValueExpr.StringExpr<>(data, string);
+    public static <ET> Expr.StringExpr<ET> stringExpr(ET type, String string) {
+        return new Expr.StringExpr<>(null, type, string);
     }
 
-    public static <VED> ValueExpr.VectorExpr<VED> vectorExpr(VED data, PVector<ValueExpr<VED>> exprs) {
-        return new ValueExpr.VectorExpr<>(data, exprs);
+    public static <ET> Expr.VectorExpr<ET> vectorExpr(ET type, PVector<Expr<ET>> exprs) {
+        return new Expr.VectorExpr<>(null, type, exprs);
     }
 
-    public static <VED> ValueExpr.SetExpr<VED> setExpr(VED data, PVector<ValueExpr<VED>> exprs) {
-        return new ValueExpr.SetExpr<>(data, exprs);
+    public static <ET> Expr.SetExpr<ET> setExpr(ET type, PVector<Expr<ET>> exprs) {
+        return new Expr.SetExpr<>(null, type, exprs);
     }
 
-    public static <VED> ValueExpr.CallExpr<VED> callExpr(VED data, PVector<ValueExpr<VED>> exprs) {
-        return new ValueExpr.CallExpr<>(data, exprs);
+    public static <ET> Expr.CallExpr<ET> callExpr(ET type, PVector<Expr<ET>> exprs) {
+        return new Expr.CallExpr<>(null, type, exprs);
     }
 
-    public static <VED> ValueExpr.IfExpr<VED> ifExpr(VED data, ValueExpr<VED> testExpr, ValueExpr<VED> thenExpr, ValueExpr<VED> elseExpr) {
-        return new ValueExpr.IfExpr<>(data, testExpr, thenExpr, elseExpr);
+    public static <ET> Expr.IfExpr<ET> ifExpr(ET type, Expr<ET> testExpr, Expr<ET> thenExpr, Expr<ET> elseExpr) {
+        return new Expr.IfExpr<>(null, type, testExpr, thenExpr, elseExpr);
     }
 
-    public static <VED> ValueExpr.LocalVarExpr<VED> localVarExpr(VED data, LocalVar localVar) {
-        return new ValueExpr.LocalVarExpr<>(data, localVar);
+    public static <ET> Expr.LocalVarExpr<ET> localVarExpr(ET type, LocalVar localVar) {
+        return new Expr.LocalVarExpr<>(null, type, localVar);
     }
 
-    public static <VED> ValueExpr.VarCallExpr<VED> varCallExpr(VED data, Var var, PVector<ValueExpr<VED>> params) {
-        return new ValueExpr.VarCallExpr<>(data, var, params);
+    public static <ET> Expr.VarCallExpr<ET> varCallExpr(ET type, Var var, PVector<Expr<ET>> params) {
+        return new Expr.VarCallExpr<>(null, type, var, params);
     }
 
-    public static <VED> ValueExpr.GlobalVarExpr<VED> globalVarExpr(VED data, Var var) {
-        return new ValueExpr.GlobalVarExpr<>(data, var);
+    public static <ET> Expr.GlobalVarExpr<ET> globalVarExpr(ET type, Var var) {
+        return new Expr.GlobalVarExpr<>(null, type, var);
     }
 
-    public static <VED> ValueExpr.LetExpr.LetBinding<VED> letBinding(LocalVar localVar, ValueExpr<VED> expr) {
-        return new ValueExpr.LetExpr.LetBinding<>(localVar, expr);
+    public static <ET> Expr.LetExpr.LetBinding<ET> letBinding(LocalVar localVar, Expr<ET> expr) {
+        return new Expr.LetExpr.LetBinding<>(localVar, expr);
     }
 
-    public static <VED> ValueExpr.LetExpr<VED> letExpr(VED data, PVector<ValueExpr.LetExpr.LetBinding<VED>> bindings, ValueExpr<VED> body) {
-        return new ValueExpr.LetExpr<>(data, bindings, body);
+    public static <ET> Expr.LetExpr<ET> letExpr(ET type, PVector<Expr.LetExpr.LetBinding<ET>> bindings, Expr<ET> body) {
+        return new Expr.LetExpr<>(null, type, bindings, body);
     }
 
-    public static <VED> ActionExpr.DefExpr<VED> defExpr(Symbol sym, ValueExpr<VED> expr) {
-        return new ActionExpr.DefExpr<>(sym, expr);
+    public static <ET> Expr.DefExpr<ET> defExpr(Symbol sym, Expr<ET> expr) {
+        return new Expr.DefExpr<>(null, null, sym, expr);
     }
 
-    public static <VED> ActionExpr.DefExpr<VED> defExpr(Symbol sym, PVector<LocalVar> params, ValueExpr<VED> expr) {
-        return new ActionExpr.DefExpr<>(sym, expr);
-    }
-
-    public static <VED> ValueExpr.FnExpr<VED> fnExpr(VED data, PVector<LocalVar> params, ValueExpr<VED> body) {
-        return new ValueExpr.FnExpr<>(data, params, body);
+    public static <ET> Expr.FnExpr<ET> fnExpr(ET type, PVector<LocalVar> params, Expr<ET> body) {
+        return new Expr.FnExpr<>(null, type, params, body);
     }
 }

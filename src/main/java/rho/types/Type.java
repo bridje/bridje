@@ -64,6 +64,7 @@ public abstract class Type {
         public static final Type BOOL_TYPE = new SimpleType("Bool", Boolean.TYPE);
         public static final Type STRING_TYPE = new SimpleType("Str", String.class);
         public static final Type INT_TYPE = new SimpleType("Int", Long.TYPE);
+        public static final Type ENV_UPDATE_TYPE = new SimpleType("EnvUpdate", null);
 
         private final String name;
         private final Class<?> javaType;

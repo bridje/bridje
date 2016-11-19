@@ -2,12 +2,13 @@ package rho.compiler;
 
 import org.pcollections.*;
 import rho.Panic;
-import rho.analyser.*;
+import rho.analyser.Expr;
+import rho.analyser.ExprVisitor;
+import rho.analyser.LocalVar;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.runtime.IndyBootstrap;
 import rho.types.Type;
-import rho.types.TypedExprData;
 import rho.util.Pair;
 
 import java.lang.invoke.MethodHandle;
@@ -36,174 +37,184 @@ import static rho.runtime.Var.*;
 
 public class Compiler {
 
-    private static PMap<LocalVar, Type> closedOverVars(PSet<LocalVar> localVars, ValueExpr<? extends TypedExprData> expr) {
-        return expr.accept(new ValueExprVisitor<TypedExprData, PMap<LocalVar, Type>>() {
+    private static PMap<LocalVar, Type> closedOverVars(PSet<LocalVar> localVars, Expr<? extends Type> expr) {
+        return expr.accept(new ExprVisitor<Type, PMap<LocalVar, Type>>() {
 
-            private PMap<LocalVar, Type> closedOverVars(PCollection<? extends ValueExpr<? extends TypedExprData>> exprs) {
+            private PMap<LocalVar, Type> closedOverVars(PCollection<? extends Expr<? extends Type>> exprs) {
                 return exprs.stream().flatMap(e -> e.accept(this).entrySet().stream()).collect(toPMap(Map.Entry::getKey, Map.Entry::getValue));
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.BoolExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.BoolExpr<? extends Type> expr) {
                 return Empty.map();
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.StringExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.StringExpr<? extends Type> expr) {
                 return Empty.map();
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.IntExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.IntExpr<? extends Type> expr) {
                 return Empty.map();
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.VectorExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.VectorExpr<? extends Type> expr) {
                 return closedOverVars(expr.exprs);
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.SetExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.SetExpr<? extends Type> expr) {
                 return closedOverVars(expr.exprs);
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.CallExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.CallExpr<? extends Type> expr) {
                 return closedOverVars(expr.exprs);
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.VarCallExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.VarCallExpr<? extends Type> expr) {
                 return closedOverVars(expr.params);
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.LetExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.LetExpr<? extends Type> expr) {
                 return closedOverVars(
                     expr.bindings.stream().map(b -> b.expr).collect(toPVector()))
                     .plusAll(expr.body.accept(this));
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.IfExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.IfExpr<? extends Type> expr) {
                 return expr.testExpr.accept(this)
                     .plusAll(expr.thenExpr.accept(this))
                     .plusAll(expr.elseExpr.accept(this));
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.LocalVarExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.LocalVarExpr<? extends Type> expr) {
                 if (localVars.contains(expr.localVar)) {
-                    return HashTreePMap.singleton(expr.localVar, expr.data.type);
+                    return HashTreePMap.singleton(expr.localVar, expr.type);
                 } else {
                     return Empty.map();
                 }
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.GlobalVarExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.GlobalVarExpr<? extends Type> expr) {
                 return Empty.map();
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(ValueExpr.FnExpr<? extends TypedExprData> expr) {
+            public PMap<LocalVar, Type> visit(Expr.FnExpr<? extends Type> expr) {
                 return expr.body.accept(this);
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(Expr.DefExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(Expr.TypeDefExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
             }
         });
     }
 
-    static Instructions compileValue(Locals locals, ValueExpr<? extends TypedExprData> expr) {
-        return expr.accept(new ValueExprVisitor<TypedExprData, Instructions>() {
+    private static Instructions compileValue0(Locals locals, Expr<? extends Type> expr) {
+        return expr.accept(new ExprVisitor<Type, Instructions>() {
             @Override
-            public Instructions visit(ValueExpr.BoolExpr<? extends TypedExprData> expr) {
+            public Instructions visit(Expr.BoolExpr<? extends Type> expr) {
                 return loadBool(expr.value);
             }
 
             @Override
-            public Instructions visit(ValueExpr.StringExpr<? extends TypedExprData> expr) {
+            public Instructions visit(Expr.StringExpr<? extends Type> expr) {
                 return loadObject(expr.string);
             }
 
             @Override
-            public Instructions visit(ValueExpr.IntExpr<? extends TypedExprData> expr) {
+            public Instructions visit(Expr.IntExpr<? extends Type> expr) {
                 return loadObject(expr.num);
             }
 
             @Override
-            public Instructions visit(ValueExpr.VectorExpr<? extends TypedExprData> expr) {
-                return Instructions.vectorOf(((Type.VectorType) expr.data.type).elemType.javaType(),
-                    expr.exprs.stream().map(e -> compileValue(locals, e)).collect(toPVector()));
+            public Instructions visit(Expr.VectorExpr<? extends Type> expr) {
+                return Instructions.vectorOf(((Type.VectorType) expr.type).elemType.javaType(),
+                    expr.exprs.stream().map(e -> compileValue0(locals, e)).collect(toPVector()));
             }
 
             @Override
-            public Instructions visit(ValueExpr.SetExpr<? extends TypedExprData> expr) {
-                return Instructions.setOf(((Type.SetType) expr.data.type).elemType.javaType(),
-                    expr.exprs.stream().map(e -> compileValue(locals, e)).collect(toPVector()));
+            public Instructions visit(Expr.SetExpr<? extends Type> expr) {
+                return Instructions.setOf(((Type.SetType) expr.type).elemType.javaType(),
+                    expr.exprs.stream().map(e -> compileValue0(locals, e)).collect(toPVector()));
             }
 
             @Override
-            public Instructions visit(ValueExpr.CallExpr<? extends TypedExprData> expr) {
-                PVector<? extends ValueExpr<? extends TypedExprData>> params = expr.exprs;
+            public Instructions visit(Expr.CallExpr<? extends Type> expr) {
+                PVector<? extends Expr<? extends Type>> params = expr.exprs;
 
-                ValueExpr<? extends TypedExprData> fn = params.get(0);
-                PVector<? extends ValueExpr<? extends TypedExprData>> args = expr.exprs.minus(0);
+                Expr<? extends Type> fn = params.get(0);
+                PVector<? extends Expr<? extends Type>> args = expr.exprs.minus(0);
 
-                Instructions fnInstructions = compileValue(locals, fn);
+                Instructions fnInstructions = compileValue0(locals, fn);
 
-                PVector<Instructions> paramInstructions = args.stream().map(p -> compileValue(locals, p)).collect(toPVector());
+                PVector<Instructions> paramInstructions = args.stream().map(p -> compileValue0(locals, p)).collect(toPVector());
 
                 return mplus(
                     fnInstructions,
                     mplus(paramInstructions),
-                    methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", expr.data.type.javaType(), args.stream().map(a -> a.data.type.javaType()).collect(toPVector())));
+                    methodCall(MethodHandle.class, MethodInvoke.INVOKE_VIRTUAL, "invoke", expr.type.javaType(), args.stream().map(a -> a.type.javaType()).collect(toPVector())));
 
 
             }
 
             @Override
-            public Instructions visit(ValueExpr.VarCallExpr<? extends TypedExprData> expr) {
-                return varCall(expr.var, expr.params.stream().map(p -> compileValue(locals, p)).collect(toPVector()));
+            public Instructions visit(Expr.VarCallExpr<? extends Type> expr) {
+                return varCall(expr.var, expr.params.stream().map(p -> compileValue0(locals, p)).collect(toPVector()));
             }
 
             @Override
-            public Instructions visit(ValueExpr.LetExpr<? extends TypedExprData> expr) {
+            public Instructions visit(Expr.LetExpr<? extends Type> expr) {
                 List<Instructions> bindingsInstructions = new LinkedList<>();
                 Locals locals_ = locals;
 
-                for (ValueExpr.LetExpr.LetBinding<? extends TypedExprData> binding : expr.bindings) {
-                    Instructions bindingInstructions = compileValue(locals_, binding.expr);
+                for (Expr.LetExpr.LetBinding<? extends Type> binding : expr.bindings) {
+                    Instructions bindingInstructions = compileValue0(locals_, binding.expr);
 
-                    Pair<Locals, Locals.Local.VarLocal> withNewLocal = locals_.newVarLocal(binding.localVar, binding.expr.data.type.javaType());
+                    Pair<Locals, Locals.Local.VarLocal> withNewLocal = locals_.newVarLocal(binding.localVar, binding.expr.type.javaType());
                     locals_ = withNewLocal.left;
                     Locals.Local.VarLocal local = withNewLocal.right;
 
-                    bindingsInstructions.add(letBinding(bindingInstructions, binding.expr.data.type.javaType(), local));
+                    bindingsInstructions.add(letBinding(bindingInstructions, binding.expr.type.javaType(), local));
                 }
 
-                Instructions bodyInstructions = compileValue(locals_, expr.body);
+                Instructions bodyInstructions = compileValue0(locals_, expr.body);
 
                 return mplus(mplus(TreePVector.from(bindingsInstructions)), bodyInstructions);
             }
 
             @Override
-            public Instructions visit(ValueExpr.IfExpr<? extends TypedExprData> expr) {
-                return ifCall(compileValue(locals, expr.testExpr), compileValue(locals, expr.thenExpr), compileValue(locals, expr.elseExpr));
+            public Instructions visit(Expr.IfExpr<? extends Type> expr) {
+                return ifCall(compileValue0(locals, expr.testExpr), compileValue0(locals, expr.thenExpr), compileValue0(locals, expr.elseExpr));
             }
 
             @Override
-            public Instructions visit(ValueExpr.LocalVarExpr<? extends TypedExprData> expr) {
+            public Instructions visit(Expr.LocalVarExpr<? extends Type> expr) {
                 return localVarCall(locals.locals.get(expr.localVar));
             }
 
             @Override
-            public Instructions visit(ValueExpr.GlobalVarExpr<? extends TypedExprData> expr) {
+            public Instructions visit(Expr.GlobalVarExpr<? extends Type> expr) {
                 return globalVarValue(expr.var);
             }
 
             @Override
-            public Instructions visit(ValueExpr.FnExpr<? extends TypedExprData> expr) {
-                Type.FnType fnType = (Type.FnType) expr.data.type;
+            public Instructions visit(Expr.FnExpr<? extends Type> expr) {
+                Type.FnType fnType = (Type.FnType) expr.type;
                 String className = "user$$fn$$" + uniqueInt();
 
                 PVector<Type> paramTypes = fnType.paramTypes;
@@ -232,7 +243,7 @@ public class Compiler {
                     fnLocals = fnLocals.newFieldLocal(closedOverVar, closedOverVars.get(closedOverVar).javaType(), className, closedOverFieldNames.get(closedOverVar)).left;
                 }
 
-                Instructions bodyInstructions = compileValue(fnLocals, expr.body);
+                Instructions bodyInstructions = compileValue0(fnLocals, expr.body);
 
                 NewClass newClass = newClass(className);
 
@@ -278,6 +289,16 @@ public class Compiler {
 
                     bindMethodHandle());
             }
+
+            @Override
+            public Instructions visit(Expr.DefExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Instructions visit(Expr.TypeDefExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 
@@ -310,112 +331,169 @@ public class Compiler {
         }
     }
 
-    public static EvalResult compile(Env env, Expr<? extends TypedExprData> expr) {
-        return expr.accept(new ExprVisitor<TypedExprData, EvalResult>() {
-            @Override
-            public EvalResult accept(ValueExpr<? extends TypedExprData> expr) {
-                return new EvalResult(env, evalInstructions(compileValue(staticLocals(), expr), expr.data.type.javaType()));
+    public static EvalResult compile(Env env, Expr<? extends Type> expr) {
+        return expr.accept(new ExprVisitor<Type, EvalResult>() {
+
+            private EvalResult compileValue(Expr<? extends Type> expr) {
+                return new EvalResult(env, evalInstructions(compileValue0(staticLocals(), expr), expr.type.javaType()));
             }
 
             @Override
-            public EvalResult accept(ActionExpr<? extends TypedExprData> expr) {
-                return expr.accept(new ActionExprVisitor<TypedExprData, EvalResult>() {
-                    @Override
-                    public EvalResult visit(ActionExpr.DefExpr<? extends TypedExprData> expr) {
-                        String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
-                        Type type = expr.body.data.type;
-                        Class<?> clazz = type.javaType();
+            public EvalResult visit(Expr.BoolExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
 
-                        boolean isFn = expr.body instanceof ValueExpr.FnExpr && type instanceof Type.FnType;
+            @Override
+            public EvalResult visit(Expr.StringExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
 
-                        ValueExpr.FnExpr<? extends TypedExprData> fnExpr = null;
-                        Type.FnType fnType = null;
-                        PVector<Class<?>> paramTypes = null;
-                        MethodType fnMethodType = null;
+            @Override
+            public EvalResult visit(Expr.IntExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
 
-                        if (isFn) {
-                            fnType = (Type.FnType) type;
-                            fnExpr = (ValueExpr.FnExpr<? extends TypedExprData>) expr.body;
-                            paramTypes = fnType.paramTypes.stream().map(Type::javaType).collect(toPVector());
-                            fnMethodType = MethodType.methodType(
-                                fnType.returnType.javaType(),
-                                paramTypes);
+            @Override
+            public EvalResult visit(Expr.VectorExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.SetExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.CallExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.VarCallExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.LetExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.IfExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.LocalVarExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.GlobalVarExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.FnExpr<? extends Type> expr) {
+                return compileValue(expr);
+            }
+
+            @Override
+            public EvalResult visit(Expr.DefExpr<? extends Type> expr) {
+                {
+                    String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
+                    Type type = expr.body.type;
+                    Class<?> clazz = type.javaType();
+
+                    boolean isFn = expr.body instanceof Expr.FnExpr && type instanceof Type.FnType;
+
+                    Expr.FnExpr<? extends Type> fnExpr = null;
+                    Type.FnType fnType = null;
+                    PVector<Class<?>> paramTypes = null;
+                    MethodType fnMethodType = null;
+
+                    if (isFn) {
+                        fnType = (Type.FnType) type;
+                        fnExpr = (Expr.FnExpr<? extends Type>) expr.body;
+                        paramTypes = fnType.paramTypes.stream().map(Type::javaType).collect(toPVector());
+                        fnMethodType = MethodType.methodType(
+                            fnType.returnType.javaType(),
+                            paramTypes);
+                    }
+
+                    Instructions valueInstructions = isFn
+                        ? Instructions.staticMethodHandle(toInternalName(className), FN_METHOD_NAME, paramTypes, fnMethodType.returnType())
+                        : compileValue0(staticLocals(), expr.body);
+
+                    NewClass newClass = newClass(className)
+                        .withField(newField(VALUE_METHOD_NAME, clazz, setOf(STATIC, FINAL, PRIVATE)))
+                        .withMethod(newMethod(setOf(PUBLIC, STATIC), VALUE_METHOD_NAME, clazz, vectorOf(),
+                            mplus(
+                                fieldOp(GET_STATIC, className, VALUE_METHOD_NAME, clazz),
+                                ret(clazz))))
+                        .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
+                            mplus(valueInstructions,
+                                fieldOp(PUT_STATIC, className, VALUE_METHOD_NAME, clazz),
+                                ret(Void.TYPE))));
+
+                    if (isFn) {
+                        Locals locals = staticLocals();
+                        for (int i = 0; i < fnExpr.params.size(); i++) {
+                            locals = locals.newVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType()).left;
                         }
 
-                        Instructions valueInstructions = isFn
-                            ? Instructions.staticMethodHandle(toInternalName(className), FN_METHOD_NAME, paramTypes, fnMethodType.returnType())
-                            : compileValue(staticLocals(), expr.body);
+                        newClass = newClass.withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
+                            mplus(
+                                compileValue0(locals, fnExpr.body),
+                                ret(fnType.returnType.javaType()))));
+                    }
 
-                        NewClass newClass = newClass(className)
-                            .withField(newField(VALUE_METHOD_NAME, clazz, setOf(STATIC, FINAL, PRIVATE)))
-                            .withMethod(newMethod(setOf(PUBLIC, STATIC), VALUE_METHOD_NAME, clazz, vectorOf(),
-                                mplus(
-                                    fieldOp(GET_STATIC, className, VALUE_METHOD_NAME, clazz),
-                                    ret(clazz))))
-                            .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
-                                mplus(valueInstructions,
-                                    fieldOp(PUT_STATIC, className, VALUE_METHOD_NAME, clazz),
-                                    ret(Void.TYPE))));
+                    Class<?> dynClass = defineClass(newClass);
+                    MethodHandle valueHandle;
+                    MethodHandle fnHandle = null;
 
-                        if (isFn) {
-                            Locals locals = staticLocals();
-                            for (int i = 0; i < fnExpr.params.size(); i++) {
-                                locals = locals.newVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType()).left;
-                            }
+                    try {
+                        valueHandle = publicLookup().findStatic(dynClass, VALUE_METHOD_NAME, MethodType.methodType(clazz));
+                    } catch (NoSuchMethodException | IllegalAccessException e) {
+                        throw new RuntimeException(e);
+                    }
 
-                            newClass = newClass.withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
-                                mplus(
-                                    compileValue(locals, fnExpr.body),
-                                    ret(fnType.returnType.javaType()))));
-                        }
 
-                        Class<?> dynClass = defineClass(newClass);
-                        MethodHandle valueHandle;
-                        MethodHandle fnHandle = null;
-
+                    if (isFn) {
                         try {
-                            valueHandle = publicLookup().findStatic(dynClass, VALUE_METHOD_NAME, MethodType.methodType(clazz));
+                            fnHandle = publicLookup().findStatic(dynClass, FN_METHOD_NAME, fnMethodType);
                         } catch (NoSuchMethodException | IllegalAccessException e) {
                             throw new RuntimeException(e);
                         }
-
-
-                        if (isFn) {
-                            try {
-                                fnHandle = publicLookup().findStatic(dynClass, FN_METHOD_NAME, fnMethodType);
-                            } catch (NoSuchMethodException | IllegalAccessException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-
-                        @SuppressWarnings("unchecked")
-                        Class<? extends IndyBootstrap> bootstrapClass = (Class<? extends IndyBootstrap>) defineClass(newBootstrapClass(type));
-
-                        IndyBootstrap bootstrap;
-                        try {
-                            bootstrap = bootstrapClass.newInstance();
-                        } catch (InstantiationException | IllegalAccessException e) {
-                            throw panic(e, "Failed instantiating bootstrap class");
-                        }
-
-
-                        bootstrap.setHandles(valueHandle, fnHandle);
-
-                        Env newEnv = env.withVar(expr.sym, var(type, bootstrap, fnMethodType));
-
-                        try {
-                            return new EvalResult(newEnv, dynClass.getDeclaredMethod("$$value").invoke(null));
-                        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                            throw new RuntimeException(e);
-                        }
-
                     }
 
-                    @Override
-                    public EvalResult visit(ActionExpr.TypeDefExpr<? extends TypedExprData> expr) {
-                        throw new UnsupportedOperationException();
+                    @SuppressWarnings("unchecked")
+                    Class<? extends IndyBootstrap> bootstrapClass = (Class<? extends IndyBootstrap>) defineClass(newBootstrapClass(type));
+
+                    IndyBootstrap bootstrap;
+                    try {
+                        bootstrap = bootstrapClass.newInstance();
+                    } catch (InstantiationException | IllegalAccessException e) {
+                        throw panic(e, "Failed instantiating bootstrap class");
                     }
-                });
+
+
+                    bootstrap.setHandles(valueHandle, fnHandle);
+
+                    Env newEnv = env.withVar(expr.sym, var(type, bootstrap, fnMethodType));
+
+                    try {
+                        return new EvalResult(newEnv, dynClass.getDeclaredMethod("$$value").invoke(null));
+                    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                }
+            }
+
+            @Override
+            public EvalResult visit(Expr.TypeDefExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
             }
         });
     }

@@ -38,9 +38,9 @@ public class AnalyserTest {
     public void analysesLet() throws Exception {
         Expr expr = analyse(null, listForm(symbolForm("let"), vectorForm(symbolForm("x"), intForm(4), symbolForm("y"), intForm(3)), vectorForm(symbolForm("x"), symbolForm("y"))));
 
-        ValueExpr.VectorExpr body = (ValueExpr.VectorExpr) ((ValueExpr.LetExpr) expr).body;
-        LocalVar xLocalVar = ((ValueExpr.LocalVarExpr) body.exprs.get(0)).localVar;
-        LocalVar yLocalVar = ((ValueExpr.LocalVarExpr) body.exprs.get(1)).localVar;
+        Expr.VectorExpr body = (Expr.VectorExpr) ((Expr.LetExpr) expr).body;
+        LocalVar xLocalVar = ((Expr.LocalVarExpr) body.exprs.get(0)).localVar;
+        LocalVar yLocalVar = ((Expr.LocalVarExpr) body.exprs.get(1)).localVar;
 
         assertEquals(
             letExpr(null,
@@ -62,8 +62,8 @@ public class AnalyserTest {
     public void analysesLocalCallExpr() throws Exception {
         Expr expr = analyse(PLUS_ENV, listForm(symbolForm("let"), vectorForm(symbolForm("x"), symbolForm("+")), listForm(symbolForm("x"), intForm(1), intForm(2))));
 
-        ValueExpr.CallExpr body = (ValueExpr.CallExpr) ((ValueExpr.LetExpr) expr).body;
-        LocalVar xLocalVar = ((ValueExpr.LocalVarExpr) body.exprs.get(0)).localVar;
+        Expr.CallExpr body = (Expr.CallExpr) ((Expr.LetExpr) expr).body;
+        LocalVar xLocalVar = ((Expr.LocalVarExpr) body.exprs.get(0)).localVar;
 
         assertEquals(
             letExpr(null,
@@ -76,8 +76,8 @@ public class AnalyserTest {
 
     @Test
     public void analysesInlineFn() throws Exception {
-        Expr<Form> expr = analyse(PLUS_ENV, listForm(symbolForm("fn"), listForm(symbolForm("x")), listForm(symbolForm("+"), symbolForm("x"), symbolForm("x"))));
-        LocalVar x = ((ValueExpr.FnExpr<Form>) expr).params.get(0);
+        Expr<Void> expr = analyse(PLUS_ENV, listForm(symbolForm("fn"), listForm(symbolForm("x")), listForm(symbolForm("+"), symbolForm("x"), symbolForm("x"))));
+        LocalVar x = ((Expr.FnExpr<Void>) expr).params.get(0);
 
         assertEquals(
             fnExpr(null, vectorOf(x), varCallExpr(null, PLUS_VAR, vectorOf(localVarExpr(null, x), localVarExpr(null, x)))),
@@ -94,9 +94,9 @@ public class AnalyserTest {
     @Test
     public void analysesDefFn() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        Expr<Form> expr = analyse(env, listForm(symbolForm("def"), listForm(symbolForm("double"), symbolForm("x")), listForm(symbolForm("+"), symbolForm("x"), symbolForm("x"))));
+        Expr<Void> expr = analyse(env, listForm(symbolForm("def"), listForm(symbolForm("double"), symbolForm("x")), listForm(symbolForm("+"), symbolForm("x"), symbolForm("x"))));
 
-        LocalVar x = ((ValueExpr.FnExpr<Form>) ((ActionExpr.DefExpr<Form>) expr).body).params.get(0);
+        LocalVar x = ((Expr.FnExpr<Void>) ((Expr.DefExpr<Void>) expr).body).params.get(0);
 
         assertEquals(
             defExpr(symbol("double"), fnExpr(null, vectorOf(x), varCallExpr(null, PLUS_VAR, vectorOf(localVarExpr(null, x), localVarExpr(null, x))))),
@@ -105,7 +105,7 @@ public class AnalyserTest {
 
     @Test
     public void analysesTypeDef() throws Exception {
-        assertEquals(new ActionExpr.TypeDefExpr<>(symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE)),
+        assertEquals(new Expr.TypeDefExpr<>(null, null, symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE)),
             analyse(PLUS_ENV, (listForm(symbolForm("::"), symbolForm("double"), listForm(symbolForm("Fn"), symbolForm("Int"), symbolForm("Int"))))));
     }
 }

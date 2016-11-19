@@ -1,15 +1,13 @@
 package rho;
 
 import org.junit.Test;
-import rho.analyser.ActionExpr;
-import rho.analyser.ValueExpr;
+import rho.analyser.Expr;
 import rho.reader.Form;
 import rho.reader.LCReader;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.types.Type;
 import rho.types.TypeChecker;
-import rho.types.TypedExprData;
 import rho.util.Pair;
 
 import static org.junit.Assert.assertEquals;
@@ -24,53 +22,53 @@ import static rho.util.Pair.pair;
 
 public class E2EEval {
 
-    private void testEvalsValueExpr(Env env, String code, Type expectedType, Object expectedResult) {
+    private void testEvalsValue(Env env, String code, Type expectedType, Object expectedResult) {
         Form form = read(LCReader.fromString(code));
 
-        ValueExpr<? extends Form> expr = (ValueExpr<? extends Form>) analyse(env, form);
+        Expr<Void> expr = analyse(env, form);
 
-        ValueExpr<TypedExprData> typedExpr = TypeChecker.typeValueExpr(expr);
+        Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
         EvalResult result = compile(env, typedExpr);
 
-        assertEquals(expectedType, typedExpr.data.type);
+        assertEquals(expectedType, typedExpr.type);
         assertEquals(env, result.env);
         assertEquals(expectedResult, result.value);
     }
 
-    private Pair<ActionExpr<TypedExprData>, EvalResult> evalActionExpr(Env env, String code) {
+    private Pair<Expr<Type>, EvalResult> testEvalsAction(Env env, String code) {
         Form form = read(LCReader.fromString(code));
 
-        ActionExpr<? extends Form> expr = (ActionExpr<? extends Form>) analyse(env, form);
+        Expr<Void> expr = analyse(env, form);
 
-        ActionExpr<TypedExprData> typedExpr = TypeChecker.typeActionExpr(expr);
+        Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
         return pair(typedExpr, compile(env, typedExpr));
     }
 
     @Test
     public void evalsLet() throws Exception {
-        testEvalsValueExpr(PLUS_ENV, "(let [x 4, y 3] (+ x (+ x y)))", INT_TYPE, 11L);
+        testEvalsValue(PLUS_ENV, "(let [x 4, y 3] (+ x (+ x y)))", INT_TYPE, 11L);
     }
 
     @Test
     public void evalsAnonymousFn() throws Exception {
-        testEvalsValueExpr(PLUS_ENV, "(let [double (fn (x) (+ x x))] (double 4))", INT_TYPE, 8L);
+        testEvalsValue(PLUS_ENV, "(let [double (fn (x) (+ x x))] (double 4))", INT_TYPE, 8L);
     }
 
     @Test
     public void evalsFnWithClosedOverLocals() throws Exception {
-        testEvalsValueExpr(PLUS_ENV, "(let [y 2, add-y (fn (x) (+ x y))] (add-y 4))", INT_TYPE, 6L);
+        testEvalsValue(PLUS_ENV, "(let [y 2, add-y (fn (x) (+ x y))] (add-y 4))", INT_TYPE, 6L);
     }
 
     @Test
     public void testsDefFn() throws Exception {
-        Pair<ActionExpr<TypedExprData>, EvalResult> result = evalActionExpr(PLUS_ENV, "(def (double x) (+ x x))");
+        Pair<Expr<Type>, EvalResult> result = testEvalsAction(PLUS_ENV, "(def (double x) (+ x x))");
         assertEquals(fnType(vectorOf(INT_TYPE), INT_TYPE),
-            ((ActionExpr.DefExpr<TypedExprData>) result.left).body.data.type);
+            ((Expr.DefExpr<Type>) result.left).body.type);
 
         Env resultEnv = result.right.env;
 
-        testEvalsValueExpr(resultEnv, "(double 12)", INT_TYPE, 24L);
+        testEvalsValue(resultEnv, "(double 12)", INT_TYPE, 24L);
     }
 }
