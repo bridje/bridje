@@ -410,6 +410,11 @@ public class Compiler {
                         }
 
                     }
+
+                    @Override
+                    public EvalResult visit(ActionExpr.TypeDefExpr<? extends TypedExprData> expr) {
+                        throw new UnsupportedOperationException();
+                    }
                 });
             }
         });

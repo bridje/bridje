@@ -16,6 +16,8 @@ import static rho.reader.Form.VectorForm.vectorForm;
 import static rho.runtime.Symbol.symbol;
 import static rho.runtime.VarUtil.PLUS_ENV;
 import static rho.runtime.VarUtil.PLUS_VAR;
+import static rho.types.Type.FnType.fnType;
+import static rho.types.Type.SimpleType.INT_TYPE;
 
 public class AnalyserTest {
 
@@ -103,6 +105,7 @@ public class AnalyserTest {
 
     @Test
     public void analysesTypeDef() throws Exception {
-
+        assertEquals(new ActionExpr.TypeDefExpr<>(symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE)),
+            analyse(PLUS_ENV, (listForm(symbolForm("::"), symbolForm("double"), listForm(symbolForm("Fn"), symbolForm("Int"), symbolForm("Int"))))));
     }
 }

@@ -219,6 +219,11 @@ public class TypeChecker {
             public ActionExpr<TypedExprData> visit(ActionExpr.DefExpr<? extends Form> expr) {
                 return new ActionExpr.DefExpr<>(expr.sym, typeValueExpr(expr.body));
             }
+
+            @Override
+            public ActionExpr<TypedExprData> visit(ActionExpr.TypeDefExpr<? extends Form> expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 

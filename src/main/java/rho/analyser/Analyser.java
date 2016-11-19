@@ -10,6 +10,7 @@ import rho.reader.FormVisitor;
 import rho.runtime.Env;
 import rho.runtime.Symbol;
 import rho.runtime.Var;
+import rho.types.Type;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -190,13 +191,14 @@ public class Analyser {
 
             @Override
             public Expr<Form> visit(Form.ListForm form) {
-                Form firstForm = form.forms.get(0);
+                PVector<Form> forms = form.forms;
+                Form firstForm = forms.get(0);
                 if (firstForm instanceof Form.SymbolForm) {
                     switch (((Form.SymbolForm) firstForm).sym.sym) {
                         case "def":
-                            if (form.forms.size() == 3) {
-                                Form nameForm = form.forms.get(1);
-                                Form bodyForm = form.forms.get(2);
+                            if (forms.size() == 3) {
+                                Form nameForm = forms.get(1);
+                                Form bodyForm = forms.get(2);
 
                                 if (nameForm instanceof Form.SymbolForm) {
                                     return new ActionExpr.DefExpr<>(
@@ -231,6 +233,18 @@ public class Analyser {
                                 }
 
 
+                            }
+
+                        case "::":
+                            if (forms.size() == 3) {
+                                Form symForm = forms.get(1);
+                                Form typeForm = forms.get(2);
+
+                                if (symForm instanceof Form.SymbolForm) {
+                                    Symbol typeDefSym = ((Form.SymbolForm) symForm).sym;
+                                    Type type = TypeAnalyser.analyzeType(typeForm);
+                                    return new ActionExpr.TypeDefExpr<>(typeDefSym, type);
+                                }
                             }
 
                             throw new UnsupportedOperationException();
