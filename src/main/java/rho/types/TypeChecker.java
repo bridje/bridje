@@ -110,7 +110,7 @@ public class TypeChecker {
 
             @Override
             public Expr<Type> visit(Expr.VarCallExpr<?> expr) {
-                Type varType = expr.var.type.instantiate();
+                Type varType = expr.var.visibleType().instantiate();
 
                 if (varType instanceof Type.FnType) {
                     FnType fnType = (FnType) varType;
@@ -180,7 +180,7 @@ public class TypeChecker {
 
             @Override
             public Expr<Type> visit(Expr.GlobalVarExpr<?> expr) {
-                return new Expr.GlobalVarExpr<>(expr.range, expr.var.type.instantiate(), expr.var);
+                return new Expr.GlobalVarExpr<>(expr.range, expr.var.visibleType().instantiate(), expr.var);
             }
 
             @Override
@@ -212,7 +212,9 @@ public class TypeChecker {
 
             @Override
             public Expr<Type> visit(Expr.TypeDefExpr<?> expr) {
-                throw new UnsupportedOperationException();
+                // at some point we'll have to check the types that the user provides us with.
+                // today is not that day, though.
+                return new Expr.TypeDefExpr<>(expr.range, ENV_UPDATE_TYPE, expr.sym, expr.typeDef);
             }
         });
     }

@@ -194,7 +194,7 @@ interface Instructions {
     static Instructions globalVarValue(Var var) {
         return mv -> {
             Handle handle = new Handle(H_INVOKESTATIC, Type.getType(var.bootstrapClass()).getInternalName(), Var.BOOTSTRAP_METHOD_NAME, Var.BOOTSTRAP_METHOD_TYPE.toMethodDescriptorString(), false);
-            Class<?> valueType = var.type.javaType();
+            Class<?> valueType = var.visibleType().javaType();
 
             mv.visitInvokeDynamicInsn(Var.VALUE_METHOD_NAME, MethodType.methodType(valueType).toMethodDescriptorString(), handle);
         };

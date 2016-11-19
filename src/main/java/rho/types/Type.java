@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import static rho.Panic.panic;
 import static rho.Util.*;
+import static rho.types.Type.SimpleType.ENV_UPDATE_TYPE;
 
 public abstract class Type {
 
@@ -41,6 +42,8 @@ public abstract class Type {
     public final TypeMapping unify(Type t2) {
         if (this == t2) {
             return TypeMapping.EMPTY;
+        } else if (this == ENV_UPDATE_TYPE || t2 == ENV_UPDATE_TYPE) {
+            throw new UnsupportedOperationException();
         } else if (this instanceof TypeVar) {
             return varBind((TypeVar) this, t2);
         } else if (t2 instanceof TypeVar) {
@@ -237,11 +240,6 @@ public abstract class Type {
         @Override
         public Type apply(TypeMapping mapping) {
             return new FnType(paramTypes.stream().map(t -> t.apply(mapping)).collect(toPVector()), returnType.apply(mapping));
-        }
-
-        @Override
-        TypeMapping unify0(Type t2) {
-            throw new UnsupportedOperationException();
         }
 
         @Override

@@ -12,8 +12,7 @@ import static rho.runtime.Symbol.symbol;
 import static rho.runtime.VarUtil.PLUS_VAR;
 import static rho.types.Type.FnType.fnType;
 import static rho.types.Type.SetType.setType;
-import static rho.types.Type.SimpleType.INT_TYPE;
-import static rho.types.Type.SimpleType.STRING_TYPE;
+import static rho.types.Type.SimpleType.*;
 import static rho.types.Type.VectorType.vectorType;
 
 public class TypeCheckerTest {
@@ -103,5 +102,10 @@ public class TypeCheckerTest {
                             globalVarExpr(null, PLUS_VAR),
                             localVarExpr(null, x),
                             localVarExpr(null, x))))).type);
+    }
+
+    @Test
+    public void typesTypeDef() throws Exception {
+        assertEquals(ENV_UPDATE_TYPE, TypeChecker.typeExpr(new Expr.TypeDefExpr<>(null, null, symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE))).type);
     }
 }

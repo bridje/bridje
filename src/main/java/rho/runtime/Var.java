@@ -14,18 +14,29 @@ public class Var {
     public static final String VALUE_METHOD_NAME = "$$value";
     public static final String FN_METHOD_NAME = "$$invoke";
 
-    public final Type type;
+    public final Type declaredType;
+    public final Type inferredType;
+
     private final IndyBootstrap indyBootstrap;
     public final MethodType functionMethodType;
 
-    public static Var var(Type type, IndyBootstrap indyBootstrap, MethodType functionMethodType) {
-        return new Var(type, indyBootstrap, functionMethodType);
+    public static Var var(Type declaredType, Type inferredType, IndyBootstrap indyBootstrap, MethodType functionMethodType) {
+        return new Var(declaredType, inferredType, indyBootstrap, functionMethodType);
     }
 
-    private Var(Type type, IndyBootstrap indyBootstrap, MethodType functionMethodType) {
-        this.type = type;
+    private Var(Type declaredType, Type inferredType, IndyBootstrap indyBootstrap, MethodType functionMethodType) {
+        this.declaredType = declaredType;
+        this.inferredType = inferredType;
         this.indyBootstrap = indyBootstrap;
         this.functionMethodType = functionMethodType;
+    }
+
+    public Type visibleType() {
+        if (declaredType != null) {
+            return declaredType;
+        } else {
+            return inferredType;
+        }
     }
 
     public Class<? extends IndyBootstrap> bootstrapClass() {

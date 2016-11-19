@@ -6,6 +6,7 @@ import rho.analyser.Expr;
 import rho.analyser.LocalVar;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
+import rho.runtime.Symbol;
 import rho.runtime.Var;
 import rho.types.Type;
 
@@ -99,7 +100,7 @@ public class CompilerTest {
 
         Var var = evalResult.env.vars.get(symbol("three"));
         assertNotNull(var);
-        assertEquals(INT_TYPE, var.type);
+        assertEquals(INT_TYPE, var.visibleType());
 
         assertEquals(3L, Compiler.compile(evalResult.env, globalVarExpr(INT_TYPE, var)).value);
     }
@@ -159,5 +160,15 @@ public class CompilerTest {
                         localVarExpr(fnType(vectorOf(INT_TYPE), INT_TYPE), addY),
                         intExpr(INT_TYPE, 2))))
         ).value);
+    }
+
+    @Test
+    public void compilesTypeDef() throws Exception {
+        Symbol sym = symbol("double");
+        Type doubleType = fnType(vectorOf(INT_TYPE), INT_TYPE);
+        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.TypeDefExpr<>(null, ENV_UPDATE_TYPE, sym, doubleType));
+
+        assertEquals(doubleType, result.env.vars.get(sym).declaredType);
+
     }
 }

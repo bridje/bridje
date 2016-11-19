@@ -38,7 +38,7 @@ public class VarUtil implements IndyBootstrap {
 
     public static final Type.FnType PLUS_TYPE = fnType(vectorOf(INT_TYPE, INT_TYPE), INT_TYPE);
 
-    public static final Var PLUS_VAR = var(PLUS_TYPE, new VarUtil(), MethodType.methodType(Long.TYPE, Long.TYPE, Long.TYPE));
+    public static final Var PLUS_VAR = var(null, PLUS_TYPE, new VarUtil(), MethodType.methodType(Long.TYPE, Long.TYPE, Long.TYPE));
 
     public static final Env PLUS_ENV = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
 

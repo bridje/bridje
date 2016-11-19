@@ -8,6 +8,7 @@ import rho.analyser.LocalVar;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.runtime.IndyBootstrap;
+import rho.runtime.Var;
 import rho.types.Type;
 import rho.util.Pair;
 
@@ -331,6 +332,19 @@ public class Compiler {
         }
     }
 
+    private static IndyBootstrap newIndyBootstrap(Type type) {
+        @SuppressWarnings("unchecked")
+        Class<? extends IndyBootstrap> bootstrapClass = (Class<? extends IndyBootstrap>) defineClass(newBootstrapClass(type));
+
+        IndyBootstrap bootstrap;
+        try {
+            bootstrap = bootstrapClass.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+            throw panic(e, "Failed instantiating bootstrap class");
+        }
+        return bootstrap;
+    }
+
     public static EvalResult compile(Env env, Expr<? extends Type> expr) {
         return expr.accept(new ExprVisitor<Type, EvalResult>() {
 
@@ -467,20 +481,12 @@ public class Compiler {
                         }
                     }
 
-                    @SuppressWarnings("unchecked")
-                    Class<? extends IndyBootstrap> bootstrapClass = (Class<? extends IndyBootstrap>) defineClass(newBootstrapClass(type));
-
-                    IndyBootstrap bootstrap;
-                    try {
-                        bootstrap = bootstrapClass.newInstance();
-                    } catch (InstantiationException | IllegalAccessException e) {
-                        throw panic(e, "Failed instantiating bootstrap class");
-                    }
+                    IndyBootstrap bootstrap = newIndyBootstrap(type);
 
 
                     bootstrap.setHandles(valueHandle, fnHandle);
 
-                    Env newEnv = env.withVar(expr.sym, var(type, bootstrap, fnMethodType));
+                    Env newEnv = env.withVar(expr.sym, var(null, type, bootstrap, fnMethodType));
 
                     try {
                         return new EvalResult(newEnv, dynClass.getDeclaredMethod("$$value").invoke(null));
@@ -493,7 +499,15 @@ public class Compiler {
 
             @Override
             public EvalResult visit(Expr.TypeDefExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                MethodType functionMethodType = null;
+
+                if (expr.typeDef instanceof Type.FnType) {
+                    Type.FnType fnType = (Type.FnType) expr.typeDef;
+                    functionMethodType = MethodType.methodType(fnType.returnType.javaType(), fnType.paramTypes.stream().map(Type::javaType).collect(toPVector()));
+                }
+
+                Var var = var(expr.typeDef, null, newIndyBootstrap(expr.typeDef), functionMethodType);
+                return new EvalResult(env.withVar(expr.sym, var), var);
             }
         });
     }
