@@ -258,10 +258,9 @@ public class Compiler {
                 }
 
                 Class<?> fnClass = defineClass(newClass
-                    .withMethod(newMethod("<init>", Void.TYPE, closedOverParamClasses,
-                        mplus(constructorInstructions, ret(Void.TYPE)))
-                        .withFlags(setOf(PUBLIC)))
-                    .withMethod(newMethod("$$fn",
+                    .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, closedOverParamClasses,
+                        mplus(constructorInstructions, ret(Void.TYPE))))
+                    .withMethod(newMethod(setOf(PUBLIC, FINAL), "$$fn",
                         returnClass,
                         paramClasses,
                         mplus(
@@ -290,8 +289,7 @@ public class Compiler {
                         defineClass(
                             newClass("user$$eval$$" + uniqueInt())
                                 .withMethod(
-                                    newMethod("$$eval", Object.class, vectorOf(), mplus(instructions, box(org.objectweb.asm.Type.getType(returnType)), ret(Object.class)))
-                                        .withFlags(setOf(PUBLIC, FINAL, STATIC)))),
+                                    newMethod(setOf(PUBLIC, FINAL, STATIC), "$$eval", Object.class, vectorOf(), mplus(instructions, box(org.objectweb.asm.Type.getType(returnType)), ret(Object.class))))),
 
 
                         "$$eval",
@@ -350,14 +348,14 @@ public class Compiler {
 
                         NewClass newClass = newClass(className)
                             .withField(newField(VALUE_METHOD_NAME, clazz, setOf(STATIC, FINAL, PRIVATE)))
-                            .withMethod(newMethod(VALUE_METHOD_NAME, clazz, vectorOf(),
+                            .withMethod(newMethod(setOf(PUBLIC, STATIC), VALUE_METHOD_NAME, clazz, vectorOf(),
                                 mplus(
                                     fieldOp(GET_STATIC, className, VALUE_METHOD_NAME, clazz),
-                                    ret(clazz))).withFlags(setOf(PUBLIC, STATIC)))
-                            .withMethod(newMethod("<clinit>", Void.TYPE, vectorOf(),
+                                    ret(clazz))))
+                            .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
                                 mplus(valueInstructions,
                                     fieldOp(PUT_STATIC, className, VALUE_METHOD_NAME, clazz),
-                                    ret(Void.TYPE))).withFlags(setOf(STATIC)));
+                                    ret(Void.TYPE))));
 
                         if (isFn) {
                             Locals locals = staticLocals();
@@ -365,11 +363,10 @@ public class Compiler {
                                 locals = locals.newVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType()).left;
                             }
 
-                            newClass = newClass.withMethod(newMethod(FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
+                            newClass = newClass.withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
                                 mplus(
                                     compileValue(locals, fnExpr.body),
-                                    ret(fnType.returnType.javaType())))
-                                .withFlags(setOf(STATIC, PUBLIC)));
+                                    ret(fnType.returnType.javaType()))));
                         }
 
                         Class<?> dynClass = defineClass(newClass);
