@@ -10,6 +10,8 @@ import rho.runtime.Var;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -140,8 +142,8 @@ interface Instructions {
     }
 
     static Instructions varInvoke(Var var) {
-        return mv -> mv.visitInvokeDynamicInsn(Var.FN_METHOD_NAME, var.functionMethodType.toMethodDescriptorString(),
-            new Handle(H_INVOKESTATIC, Type.getType(var.bootstrapClass()).getInternalName(), Var.BOOTSTRAP_METHOD_NAME, Var.BOOTSTRAP_METHOD_TYPE.toMethodDescriptorString(), false));
+        Method method = var.fnMethod;
+        return methodCall(method.getDeclaringClass(), INVOKE_STATIC, method.getName(), method.getReturnType(), TreePVector.from(Arrays.asList(method.getParameterTypes())));
     }
 
     static Instructions varCall(Var var, PVector<Instructions> paramInstructions) {
@@ -192,12 +194,8 @@ interface Instructions {
     }
 
     static Instructions globalVarValue(Var var) {
-        return mv -> {
-            Handle handle = new Handle(H_INVOKESTATIC, Type.getType(var.bootstrapClass()).getInternalName(), Var.BOOTSTRAP_METHOD_NAME, Var.BOOTSTRAP_METHOD_TYPE.toMethodDescriptorString(), false);
-            Class<?> valueType = var.visibleType().javaType();
-
-            mv.visitInvokeDynamicInsn(Var.VALUE_METHOD_NAME, MethodType.methodType(valueType).toMethodDescriptorString(), handle);
-        };
+        Field valueField = var.valueField;
+        return fieldOp(GET_STATIC, valueField.getDeclaringClass().getName(), valueField.getName(), valueField.getType());
     }
 
     enum FieldOp {

@@ -96,11 +96,11 @@ public class CompilerTest {
                 vectorOf(
                     intExpr(INT_TYPE, 1),
                     intExpr(INT_TYPE, 2)))));
-        assertEquals(3L, evalResult.value);
+        assertEquals(3L, ((Var) evalResult.value).valueField.get(null));
 
         Var var = evalResult.env.vars.get(symbol("three"));
         assertNotNull(var);
-        assertEquals(INT_TYPE, var.visibleType());
+        assertEquals(INT_TYPE, var.inferredType);
 
         assertEquals(3L, Compiler.compile(evalResult.env, globalVarExpr(INT_TYPE, var)).value);
     }

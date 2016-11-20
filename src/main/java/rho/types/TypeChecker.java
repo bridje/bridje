@@ -110,7 +110,7 @@ public class TypeChecker {
 
             @Override
             public Expr<Type> visit(Expr.VarCallExpr<?> expr) {
-                Type varType = expr.var.visibleType().instantiate();
+                Type varType = expr.var.inferredType.instantiate();
 
                 if (varType instanceof Type.FnType) {
                     FnType fnType = (FnType) varType;
@@ -180,7 +180,7 @@ public class TypeChecker {
 
             @Override
             public Expr<Type> visit(Expr.GlobalVarExpr<?> expr) {
-                return new Expr.GlobalVarExpr<>(expr.range, expr.var.visibleType().instantiate(), expr.var);
+                return new Expr.GlobalVarExpr<>(expr.range, expr.var.inferredType.instantiate(), expr.var);
             }
 
             @Override

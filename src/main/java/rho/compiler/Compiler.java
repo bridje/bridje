@@ -7,14 +7,15 @@ import rho.analyser.ExprVisitor;
 import rho.analyser.LocalVar;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
-import rho.runtime.IndyBootstrap;
 import rho.runtime.Var;
 import rho.types.Type;
 import rho.util.Pair;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -26,15 +27,16 @@ import static rho.Util.*;
 import static rho.Util.vectorOf;
 import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
-import static rho.compiler.Instructions.FieldOp.*;
+import static rho.compiler.Instructions.FieldOp.PUT_FIELD;
+import static rho.compiler.Instructions.FieldOp.PUT_STATIC;
 import static rho.compiler.Instructions.*;
 import static rho.compiler.Locals.instanceLocals;
 import static rho.compiler.Locals.staticLocals;
-import static rho.compiler.NewClass.newBootstrapClass;
 import static rho.compiler.NewClass.newClass;
 import static rho.compiler.NewField.newField;
 import static rho.compiler.NewMethod.newMethod;
-import static rho.runtime.Var.*;
+import static rho.runtime.Var.FN_METHOD_NAME;
+import static rho.runtime.Var.VALUE_FIELD_NAME;
 
 public class Compiler {
 
@@ -332,19 +334,6 @@ public class Compiler {
         }
     }
 
-    private static IndyBootstrap newIndyBootstrap(Type type) {
-        @SuppressWarnings("unchecked")
-        Class<? extends IndyBootstrap> bootstrapClass = (Class<? extends IndyBootstrap>) defineClass(newBootstrapClass(type));
-
-        IndyBootstrap bootstrap;
-        try {
-            bootstrap = bootstrapClass.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
-            throw panic(e, "Failed instantiating bootstrap class");
-        }
-        return bootstrap;
-    }
-
     public static EvalResult compile(Env env, Expr<? extends Type> expr) {
         return expr.accept(new ExprVisitor<Type, EvalResult>() {
 
@@ -440,14 +429,10 @@ public class Compiler {
                         : compileValue0(staticLocals(), expr.body);
 
                     NewClass newClass = newClass(className)
-                        .withField(newField(VALUE_METHOD_NAME, clazz, setOf(STATIC, FINAL, PRIVATE)))
-                        .withMethod(newMethod(setOf(PUBLIC, STATIC), VALUE_METHOD_NAME, clazz, vectorOf(),
-                            mplus(
-                                fieldOp(GET_STATIC, className, VALUE_METHOD_NAME, clazz),
-                                ret(clazz))))
+                        .withField(newField(VALUE_FIELD_NAME, clazz, setOf(STATIC, FINAL, PUBLIC)))
                         .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
                             mplus(valueInstructions,
-                                fieldOp(PUT_STATIC, className, VALUE_METHOD_NAME, clazz),
+                                fieldOp(PUT_STATIC, className, VALUE_FIELD_NAME, clazz),
                                 ret(Void.TYPE))));
 
                     if (isFn) {
@@ -463,50 +448,32 @@ public class Compiler {
                     }
 
                     Class<?> dynClass = defineClass(newClass);
-                    MethodHandle valueHandle;
-                    MethodHandle fnHandle = null;
+                    Field valueField;
+                    Method fnMethod = null;
 
                     try {
-                        valueHandle = publicLookup().findStatic(dynClass, VALUE_METHOD_NAME, MethodType.methodType(clazz));
-                    } catch (NoSuchMethodException | IllegalAccessException e) {
+                        valueField = dynClass.getField(VALUE_FIELD_NAME);
+                    } catch (NoSuchFieldException e) {
                         throw new RuntimeException(e);
                     }
 
 
                     if (isFn) {
                         try {
-                            fnHandle = publicLookup().findStatic(dynClass, FN_METHOD_NAME, fnMethodType);
-                        } catch (NoSuchMethodException | IllegalAccessException e) {
+                            fnMethod = dynClass.getMethod(FN_METHOD_NAME, fnMethodType.parameterArray());
+                        } catch (NoSuchMethodException e) {
                             throw new RuntimeException(e);
                         }
                     }
 
-                    IndyBootstrap bootstrap = newIndyBootstrap(type);
-
-
-                    bootstrap.setHandles(valueHandle, fnHandle);
-
-                    Env newEnv = env.withVar(expr.sym, var(null, type, bootstrap, fnMethodType));
-
-                    try {
-                        return new EvalResult(newEnv, dynClass.getDeclaredMethod("$$value").invoke(null));
-                    } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                        throw new RuntimeException(e);
-                    }
-
+                    Var var = new Var(null, type, valueField, fnMethod);
+                    return new EvalResult(env.withVar(expr.sym, var), var);
                 }
             }
 
             @Override
             public EvalResult visit(Expr.TypeDefExpr<? extends Type> expr) {
-                MethodType functionMethodType = null;
-
-                if (expr.typeDef instanceof Type.FnType) {
-                    Type.FnType fnType = (Type.FnType) expr.typeDef;
-                    functionMethodType = MethodType.methodType(fnType.returnType.javaType(), fnType.paramTypes.stream().map(Type::javaType).collect(toPVector()));
-                }
-
-                Var var = var(expr.typeDef, null, newIndyBootstrap(expr.typeDef), functionMethodType);
+                Var var = new Var(expr.typeDef, null, null, null);
                 return new EvalResult(env.withVar(expr.sym, var), var);
             }
         });
