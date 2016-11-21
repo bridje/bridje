@@ -6,15 +6,18 @@ import rho.reader.Form;
 import rho.reader.LCReader;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
+import rho.runtime.Var;
 import rho.types.Type;
 import rho.types.TypeChecker;
 import rho.util.Pair;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static rho.Util.vectorOf;
 import static rho.analyser.Analyser.analyse;
 import static rho.compiler.Compiler.compile;
 import static rho.reader.FormReader.read;
+import static rho.runtime.Symbol.symbol;
 import static rho.runtime.VarUtil.PLUS_ENV;
 import static rho.types.Type.FnType.fnType;
 import static rho.types.Type.SimpleType.INT_TYPE;
@@ -70,5 +73,28 @@ public class E2EEval {
         Env resultEnv = result.right.env;
 
         testEvalsValue(resultEnv, "(double 12)", INT_TYPE, 24L);
+    }
+
+    @Test
+    public void typeDefsIdentityFn() throws Exception {
+        Var var = (Var) testEvalsAction(PLUS_ENV, "(:: identity (Fn a a))").right.value;
+        Type.FnType type = (Type.FnType) var.declaredType;
+        assertEquals(1, type.paramTypes.size());
+        Type returnType = type.returnType;
+        assertTrue(returnType instanceof Type.TypeVar);
+        assertEquals(type.paramTypes.get(0), returnType);
+    }
+
+    @Test
+    public void testsTypeDefdFn() throws Exception {
+        EvalResult typeDefResult = testEvalsAction(PLUS_ENV, "(:: double (Fn Int Int))").right;
+        EvalResult defResult = testEvalsAction(typeDefResult.env, "(def (double x) (+ x x))").right;
+
+        Env env = defResult.env;
+
+        Type doubleType = fnType(vectorOf(INT_TYPE), INT_TYPE);
+
+        assertEquals(doubleType, env.vars.get(symbol("double")).declaredType);
+        testEvalsValue(env, "(double 4)", INT_TYPE, 8);
     }
 }
