@@ -76,6 +76,16 @@ public class E2EEval {
     }
 
     @Test
+    public void testDefLetFn() throws Exception {
+        // we can't (currently) compile straight to a method here - would be a static analysis optimisation
+        // but at least we can avoid bugging out...
+        Pair<Expr<Type>, EvalResult> result = testEvalsAction(PLUS_ENV, ("(def add-two (let [y 2] (fn (x) (+ x y))))"));
+        assertEquals(fnType(vectorOf(INT_TYPE), INT_TYPE), ((Expr.DefExpr<Type>) result.left).body.type);
+
+        testEvalsValue(result.right.env, "(add-two 3)", INT_TYPE, 5L);
+    }
+
+    @Test
     public void typeDefsIdentityFn() throws Exception {
         Var var = (Var) testEvalsAction(PLUS_ENV, "(:: identity (Fn a a))").right.value;
         Type.FnType type = (Type.FnType) var.declaredType;

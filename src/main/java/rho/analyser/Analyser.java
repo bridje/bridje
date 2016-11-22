@@ -114,7 +114,7 @@ public class Analyser {
 
                             throw new UnsupportedOperationException();
 
-                        
+
                         case "def":
                             if (forms.size() == 3) {
                                 Form nameForm = forms.get(1);
@@ -177,8 +177,13 @@ public class Analyser {
 
                             Var var = env.vars.get(sym);
                             if (var != null) {
-                                return new Expr.VarCallExpr<>(form.range, null, var,
-                                    forms.subList(1, forms.size()).stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
+                                PVector<Expr<Void>> paramExprs = forms.subList(1, forms.size()).stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector());
+
+                                if (var.fnMethod != null) {
+                                    return new Expr.VarCallExpr<>(form.range, null, var, paramExprs);
+                                } else {
+                                    return new Expr.CallExpr<>(form.range, null, paramExprs.plus(0, analyse0(env, localEnv, firstForm)));
+                                }
 
                             }
                     }
