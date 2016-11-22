@@ -207,14 +207,14 @@ public class TypeChecker {
 
             @Override
             public Expr<Type> visit(Expr.DefExpr<?> expr) {
-                return new Expr.DefExpr<>(expr.range, ENV_UPDATE_TYPE, expr.sym, typeExpr0(localTypeEnv, expr.body));
+                return new Expr.DefExpr<>(expr.range, ENV_IO, expr.sym, typeExpr0(localTypeEnv, expr.body));
             }
 
             @Override
             public Expr<Type> visit(Expr.TypeDefExpr<?> expr) {
                 // at some point we'll have to check the types that the user provides us with.
                 // today is not that day, though.
-                return new Expr.TypeDefExpr<>(expr.range, ENV_UPDATE_TYPE, expr.sym, expr.typeDef);
+                return new Expr.TypeDefExpr<>(expr.range, ENV_IO, expr.sym, expr.typeDef);
             }
         });
     }

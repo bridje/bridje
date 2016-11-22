@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 import static rho.Panic.panic;
 import static rho.Util.*;
-import static rho.types.Type.SimpleType.ENV_UPDATE_TYPE;
+import static rho.types.Type.SimpleType.ENV_IO;
 
 public abstract class Type {
 
@@ -42,7 +42,7 @@ public abstract class Type {
     public final TypeMapping unify(Type t2) {
         if (this == t2) {
             return TypeMapping.EMPTY;
-        } else if (this == ENV_UPDATE_TYPE || t2 == ENV_UPDATE_TYPE) {
+        } else if (this == ENV_IO || t2 == ENV_IO) {
             throw new UnsupportedOperationException();
         } else if (this instanceof TypeVar) {
             return varBind((TypeVar) this, t2);
@@ -67,7 +67,7 @@ public abstract class Type {
         public static final Type BOOL_TYPE = new SimpleType("Bool", Boolean.TYPE);
         public static final Type STRING_TYPE = new SimpleType("Str", String.class);
         public static final Type INT_TYPE = new SimpleType("Int", Long.TYPE);
-        public static final Type ENV_UPDATE_TYPE = new SimpleType("EnvUpdate", null);
+        public static final Type ENV_IO = new SimpleType("EnvIO", null);
 
         private final String name;
         private final Class<?> javaType;

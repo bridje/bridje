@@ -166,7 +166,7 @@ public class CompilerTest {
     public void compilesTypeDef() throws Exception {
         Symbol sym = symbol("double");
         Type doubleType = fnType(vectorOf(INT_TYPE), INT_TYPE);
-        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.TypeDefExpr<>(null, ENV_UPDATE_TYPE, sym, doubleType));
+        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.TypeDefExpr<>(null, ENV_IO, sym, doubleType));
 
         assertEquals(doubleType, result.env.vars.get(sym).declaredType);
 

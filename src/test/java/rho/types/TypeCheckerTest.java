@@ -106,6 +106,6 @@ public class TypeCheckerTest {
 
     @Test
     public void typesTypeDef() throws Exception {
-        assertEquals(ENV_UPDATE_TYPE, TypeChecker.typeExpr(new Expr.TypeDefExpr<>(null, null, symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE))).type);
+        assertEquals(ENV_IO, TypeChecker.typeExpr(new Expr.TypeDefExpr<>(null, null, symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE))).type);
     }
 }
