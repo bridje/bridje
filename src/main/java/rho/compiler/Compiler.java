@@ -7,15 +7,12 @@ import rho.analyser.ExprVisitor;
 import rho.analyser.LocalVar;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
-import rho.runtime.Var;
 import rho.types.Type;
 import rho.util.Pair;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -127,7 +124,7 @@ public class Compiler {
         });
     }
 
-    private static Instructions compileValue0(Locals locals, Expr<? extends Type> expr) {
+    private static Instructions compileExpr0(Locals locals, Expr<? extends Type> expr) {
         return expr.accept(new ExprVisitor<Type, Instructions>() {
             @Override
             public Instructions visit(Expr.BoolExpr<? extends Type> expr) {
@@ -147,13 +144,13 @@ public class Compiler {
             @Override
             public Instructions visit(Expr.VectorExpr<? extends Type> expr) {
                 return Instructions.vectorOf(((Type.VectorType) expr.type).elemType.javaType(),
-                    expr.exprs.stream().map(e -> compileValue0(locals, e)).collect(toPVector()));
+                    expr.exprs.stream().map(e -> compileExpr0(locals, e)).collect(toPVector()));
             }
 
             @Override
             public Instructions visit(Expr.SetExpr<? extends Type> expr) {
                 return Instructions.setOf(((Type.SetType) expr.type).elemType.javaType(),
-                    expr.exprs.stream().map(e -> compileValue0(locals, e)).collect(toPVector()));
+                    expr.exprs.stream().map(e -> compileExpr0(locals, e)).collect(toPVector()));
             }
 
             @Override
@@ -163,9 +160,9 @@ public class Compiler {
                 Expr<? extends Type> fn = params.get(0);
                 PVector<? extends Expr<? extends Type>> args = expr.exprs.minus(0);
 
-                Instructions fnInstructions = compileValue0(locals, fn);
+                Instructions fnInstructions = compileExpr0(locals, fn);
 
-                PVector<Instructions> paramInstructions = args.stream().map(p -> compileValue0(locals, p)).collect(toPVector());
+                PVector<Instructions> paramInstructions = args.stream().map(p -> compileExpr0(locals, p)).collect(toPVector());
 
                 return mplus(
                     fnInstructions,
@@ -177,7 +174,7 @@ public class Compiler {
 
             @Override
             public Instructions visit(Expr.VarCallExpr<? extends Type> expr) {
-                return varCall(expr.var, expr.params.stream().map(p -> compileValue0(locals, p)).collect(toPVector()));
+                return varCall(expr.var, expr.params.stream().map(p -> compileExpr0(locals, p)).collect(toPVector()));
             }
 
             @Override
@@ -186,7 +183,7 @@ public class Compiler {
                 Locals locals_ = locals;
 
                 for (Expr.LetExpr.LetBinding<? extends Type> binding : expr.bindings) {
-                    Instructions bindingInstructions = compileValue0(locals_, binding.expr);
+                    Instructions bindingInstructions = compileExpr0(locals_, binding.expr);
 
                     Pair<Locals, Locals.Local.VarLocal> withNewLocal = locals_.newVarLocal(binding.localVar, binding.expr.type.javaType());
                     locals_ = withNewLocal.left;
@@ -195,14 +192,14 @@ public class Compiler {
                     bindingsInstructions.add(letBinding(bindingInstructions, binding.expr.type.javaType(), local));
                 }
 
-                Instructions bodyInstructions = compileValue0(locals_, expr.body);
+                Instructions bodyInstructions = compileExpr0(locals_, expr.body);
 
                 return mplus(mplus(TreePVector.from(bindingsInstructions)), bodyInstructions);
             }
 
             @Override
             public Instructions visit(Expr.IfExpr<? extends Type> expr) {
-                return ifCall(compileValue0(locals, expr.testExpr), compileValue0(locals, expr.thenExpr), compileValue0(locals, expr.elseExpr));
+                return ifCall(compileExpr0(locals, expr.testExpr), compileExpr0(locals, expr.thenExpr), compileExpr0(locals, expr.elseExpr));
             }
 
             @Override
@@ -246,7 +243,7 @@ public class Compiler {
                     fnLocals = fnLocals.newFieldLocal(closedOverVar, closedOverVars.get(closedOverVar).javaType(), className, closedOverFieldNames.get(closedOverVar)).left;
                 }
 
-                Instructions bodyInstructions = compileValue0(fnLocals, expr.body);
+                Instructions bodyInstructions = compileExpr0(fnLocals, expr.body);
 
                 NewClass newClass = newClass(className);
 
@@ -295,6 +292,51 @@ public class Compiler {
 
             @Override
             public Instructions visit(Expr.DefExpr<? extends Type> expr) {
+                String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
+                Type type = expr.body.type;
+                Class<?> clazz = type.javaType();
+
+                boolean isFn = expr.body instanceof Expr.FnExpr && type instanceof Type.FnType;
+
+                Expr.FnExpr<? extends Type> fnExpr = null;
+                Type.FnType fnType = null;
+                PVector<Class<?>> paramTypes = null;
+                MethodType fnMethodType = null;
+
+                if (isFn) {
+                    fnType = (Type.FnType) type;
+                    fnExpr = (Expr.FnExpr<? extends Type>) expr.body;
+                    paramTypes = fnType.paramTypes.stream().map(Type::javaType).collect(toPVector());
+                    fnMethodType = MethodType.methodType(
+                        fnType.returnType.javaType(),
+                        paramTypes);
+                }
+
+                Instructions valueInstructions = isFn
+                    ? Instructions.staticMethodHandle(toInternalName(className), FN_METHOD_NAME, paramTypes, fnMethodType.returnType())
+                    : compileExpr0(staticLocals(), expr.body);
+
+                NewClass newClass = newClass(className)
+                    .withField(newField(VALUE_FIELD_NAME, clazz, setOf(STATIC, FINAL, PUBLIC)))
+                    .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
+                        mplus(valueInstructions,
+                            fieldOp(PUT_STATIC, className, VALUE_FIELD_NAME, clazz),
+                            ret(Void.TYPE))));
+
+                if (isFn) {
+                    Locals locals = staticLocals();
+                    for (int i = 0; i < fnExpr.params.size(); i++) {
+                        locals = locals.newVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType()).left;
+                    }
+
+                    newClass = newClass.withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
+                        mplus(
+                            compileExpr0(locals, fnExpr.body),
+                            ret(fnType.returnType.javaType()))));
+                }
+
+                Class<?> dynClass = defineClass(newClass);
+
                 throw new UnsupportedOperationException();
             }
 
@@ -305,20 +347,28 @@ public class Compiler {
         });
     }
 
-    private static Object evalInstructions(Instructions instructions, Class<?> returnType) {
+    public static EvalResult compile(Env env, Expr<? extends Type> expr) {
+        Instructions instructions = compileExpr0(staticLocals(), expr);
+        Class<?> returnType = expr.type.javaType();
+
         try {
-            return
+            return new EvalResult(
+                env,
                 publicLookup()
                     .findStatic(
                         defineClass(
                             newClass("user$$eval$$" + uniqueInt())
                                 .withMethod(
-                                    newMethod(setOf(PUBLIC, FINAL, STATIC), "$$eval", Object.class, vectorOf(), mplus(instructions, box(org.objectweb.asm.Type.getType(returnType)), ret(Object.class))))),
+                                    newMethod(setOf(PUBLIC, FINAL, STATIC), "$$eval", Object.class, vectorOf(),
+                                        mplus(
+                                            instructions,
+                                            box(org.objectweb.asm.Type.getType(returnType)),
+                                            ret(Object.class))))),
 
 
                         "$$eval",
                         MethodType.methodType(Object.class))
-                    .invoke();
+                    .invoke());
         } catch (Panic e) {
             throw e;
         } catch (InvocationTargetException e) {
@@ -332,150 +382,5 @@ public class Compiler {
         } catch (Throwable e) {
             throw panic(e, "Can't execute $$eval method.");
         }
-    }
-
-    public static EvalResult compile(Env env, Expr<? extends Type> expr) {
-        return expr.accept(new ExprVisitor<Type, EvalResult>() {
-
-            private EvalResult compileValue(Expr<? extends Type> expr) {
-                return new EvalResult(env, evalInstructions(compileValue0(staticLocals(), expr), expr.type.javaType()));
-            }
-
-            @Override
-            public EvalResult visit(Expr.BoolExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.StringExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.IntExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.VectorExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.SetExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.CallExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.VarCallExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.LetExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.IfExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.LocalVarExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.GlobalVarExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.FnExpr<? extends Type> expr) {
-                return compileValue(expr);
-            }
-
-            @Override
-            public EvalResult visit(Expr.DefExpr<? extends Type> expr) {
-                {
-                    String className = String.format("user$$%s$$%d", expr.sym, uniqueInt());
-                    Type type = expr.body.type;
-                    Class<?> clazz = type.javaType();
-
-                    boolean isFn = expr.body instanceof Expr.FnExpr && type instanceof Type.FnType;
-
-                    Expr.FnExpr<? extends Type> fnExpr = null;
-                    Type.FnType fnType = null;
-                    PVector<Class<?>> paramTypes = null;
-                    MethodType fnMethodType = null;
-
-                    if (isFn) {
-                        fnType = (Type.FnType) type;
-                        fnExpr = (Expr.FnExpr<? extends Type>) expr.body;
-                        paramTypes = fnType.paramTypes.stream().map(Type::javaType).collect(toPVector());
-                        fnMethodType = MethodType.methodType(
-                            fnType.returnType.javaType(),
-                            paramTypes);
-                    }
-
-                    Instructions valueInstructions = isFn
-                        ? Instructions.staticMethodHandle(toInternalName(className), FN_METHOD_NAME, paramTypes, fnMethodType.returnType())
-                        : compileValue0(staticLocals(), expr.body);
-
-                    NewClass newClass = newClass(className)
-                        .withField(newField(VALUE_FIELD_NAME, clazz, setOf(STATIC, FINAL, PUBLIC)))
-                        .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
-                            mplus(valueInstructions,
-                                fieldOp(PUT_STATIC, className, VALUE_FIELD_NAME, clazz),
-                                ret(Void.TYPE))));
-
-                    if (isFn) {
-                        Locals locals = staticLocals();
-                        for (int i = 0; i < fnExpr.params.size(); i++) {
-                            locals = locals.newVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType()).left;
-                        }
-
-                        newClass = newClass.withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
-                            mplus(
-                                compileValue0(locals, fnExpr.body),
-                                ret(fnType.returnType.javaType()))));
-                    }
-
-                    Class<?> dynClass = defineClass(newClass);
-                    Field valueField;
-                    Method fnMethod = null;
-
-                    try {
-                        valueField = dynClass.getField(VALUE_FIELD_NAME);
-                    } catch (NoSuchFieldException e) {
-                        throw new RuntimeException(e);
-                    }
-
-
-                    if (isFn) {
-                        try {
-                            fnMethod = dynClass.getMethod(FN_METHOD_NAME, fnMethodType.parameterArray());
-                        } catch (NoSuchMethodException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-
-                    Var var = new Var(null, type, valueField, fnMethod);
-                    return new EvalResult(env.withVar(expr.sym, var), var);
-                }
-            }
-
-            @Override
-            public EvalResult visit(Expr.TypeDefExpr<? extends Type> expr) {
-                Var var = new Var(expr.typeDef, null, null, null);
-                return new EvalResult(env.withVar(expr.sym, var), var);
-            }
-        });
     }
 }
