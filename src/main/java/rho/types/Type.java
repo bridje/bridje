@@ -5,6 +5,7 @@ import org.pcollections.HashTreePSet;
 import org.pcollections.PSet;
 import org.pcollections.PVector;
 import rho.Panic;
+import rho.compiler.EnvUpdate;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
@@ -18,6 +19,8 @@ public abstract class Type {
 
     private Type() {
     }
+
+    public abstract <T> T accept(TypeVisitor<T> visitor);
 
     public PSet<TypeVar> ftvs() {
         return Empty.set();
@@ -63,11 +66,31 @@ public abstract class Type {
 
     public abstract Class<?> javaType();
 
-    public static class SimpleType extends Type {
-        public static final Type BOOL_TYPE = new SimpleType("Bool", Boolean.TYPE);
-        public static final Type STRING_TYPE = new SimpleType("Str", String.class);
-        public static final Type INT_TYPE = new SimpleType("Int", Long.TYPE);
-        public static final Type ENV_IO = new SimpleType("EnvIO", null);
+    public static abstract class SimpleType extends Type {
+        public static final Type BOOL_TYPE = new SimpleType("Bool", Boolean.TYPE) {
+            @Override
+            public <T> T accept(TypeVisitor<T> visitor) {
+                return visitor.visitBool();
+            }
+        };
+        public static final Type STRING_TYPE = new SimpleType("Str", String.class) {
+            @Override
+            public <T> T accept(TypeVisitor<T> visitor) {
+                return visitor.visitString();
+            }
+        };
+        public static final Type INT_TYPE = new SimpleType("Int", Long.TYPE) {
+            @Override
+            public <T> T accept(TypeVisitor<T> visitor) {
+                return visitor.visitLong();
+            }
+        };
+        public static final Type ENV_IO = new SimpleType("EnvIO", EnvUpdate.class) {
+            @Override
+            public <T> T accept(TypeVisitor<T> visitor) {
+                return visitor.visitEnvIO();
+            }
+        };
 
         private final String name;
         private final Class<?> javaType;
@@ -97,6 +120,11 @@ public abstract class Type {
 
         private VectorType(Type elemType) {
             this.elemType = elemType;
+        }
+
+        @Override
+        public <T> T accept(TypeVisitor<T> visitor) {
+            return visitor.visit(this);
         }
 
         @Override
@@ -154,6 +182,11 @@ public abstract class Type {
         }
 
         @Override
+        public <T> T accept(TypeVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
         public PSet<TypeVar> ftvs() {
             return elemType.ftvs();
         }
@@ -205,7 +238,7 @@ public abstract class Type {
             return new FnType(paramTypes, returnType);
         }
 
-        private FnType(PVector<Type> paramTypes, Type returnType) {
+        public FnType(PVector<Type> paramTypes, Type returnType) {
             this.paramTypes = paramTypes;
             this.returnType = returnType;
         }
@@ -230,6 +263,11 @@ public abstract class Type {
         }
 
         @Override
+        public <T> T accept(TypeVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
         public PSet<TypeVar> ftvs() {
             return paramTypes.stream()
                 .flatMap(t -> t.ftvs().stream())
@@ -249,6 +287,11 @@ public abstract class Type {
     }
 
     public static final class TypeVar extends Type {
+
+        @Override
+        public <T> T accept(TypeVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
 
         @Override
         public PSet<TypeVar> ftvs() {

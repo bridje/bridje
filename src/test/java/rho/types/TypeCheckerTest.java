@@ -85,7 +85,7 @@ public class TypeCheckerTest {
 
     @Test
     public void typesDef() throws Exception {
-        assertEquals(INT_TYPE, ((Expr.DefExpr<Type>) TypeChecker.typeExpr(defExpr(symbol("x"), varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2)))))).body.type);
+        assertEquals(INT_TYPE, ((Expr.DefExpr<Type>) TypeChecker.typeExpr(defExpr(null, symbol("x"), varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2)))))).body.type);
     }
 
     @Test

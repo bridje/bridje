@@ -54,8 +54,8 @@ public class ExprUtil {
         return new Expr.LetExpr<>(null, type, bindings, body);
     }
 
-    public static <ET> Expr.DefExpr<ET> defExpr(Symbol sym, Expr<ET> expr) {
-        return new Expr.DefExpr<>(null, null, sym, expr);
+    public static <ET> Expr.DefExpr<ET> defExpr(ET type, Symbol sym, Expr<ET> expr) {
+        return new Expr.DefExpr<>(null, type, sym, expr);
     }
 
     public static <ET> Expr.FnExpr<ET> fnExpr(ET type, PVector<LocalVar> params, Expr<ET> body) {

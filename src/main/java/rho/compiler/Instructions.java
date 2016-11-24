@@ -6,7 +6,12 @@ import org.pcollections.MapPSet;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.Util;
+import rho.runtime.Symbol;
 import rho.runtime.Var;
+import rho.types.Type.SetType;
+import rho.types.Type.SimpleType;
+import rho.types.Type.VectorType;
+import rho.types.TypeVisitor;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -18,6 +23,7 @@ import java.util.List;
 
 import static org.objectweb.asm.Opcodes.*;
 import static rho.Util.toInternalName;
+import static rho.Util.toPVector;
 import static rho.compiler.Instructions.FieldOp.GET_FIELD;
 import static rho.compiler.Instructions.FieldOp.GET_STATIC;
 import static rho.compiler.Instructions.MethodInvoke.*;
@@ -44,6 +50,57 @@ interface Instructions {
         return mv -> mv.visitLdcInsn(obj);
     }
 
+    static Instructions loadSymbol(Symbol sym) {
+        return newObject(Symbol.class, Util.vectorOf(String.class), loadObject(sym.sym));
+    }
+
+    static Instructions loadType(rho.types.Type type) {
+        return type.accept(new TypeVisitor<Instructions>() {
+            @Override
+            public Instructions visitBool() {
+                return fieldOp(GET_STATIC, SimpleType.class.getName(), "BOOL_TYPE", rho.types.Type.class);
+            }
+
+            @Override
+            public Instructions visitString() {
+                return fieldOp(GET_STATIC, SimpleType.class.getName(), "STRING_TYPE", rho.types.Type.class);
+            }
+
+            @Override
+            public Instructions visitLong() {
+                return fieldOp(GET_STATIC, SimpleType.class.getName(), "INT_TYPE", rho.types.Type.class);
+            }
+
+            @Override
+            public Instructions visitEnvIO() {
+                return fieldOp(GET_STATIC, SimpleType.class.getName(), "ENV_IO", rho.types.Type.class);
+            }
+
+            @Override
+            public Instructions visit(VectorType type) {
+                return newObject(VectorType.class, Util.vectorOf(Type.class), loadType(type.elemType));
+            }
+
+            @Override
+            public Instructions visit(SetType type) {
+                return newObject(SetType.class, Util.vectorOf(Type.class), loadType(type.elemType));
+            }
+
+            @Override
+            public Instructions visit(rho.types.Type.FnType type) {
+                return newObject(rho.types.Type.FnType.class, Util.vectorOf(PVector.class, Type.class),
+                    mplus(vectorOf(Type.class, type.paramTypes.stream()
+                            .map(t -> loadType(t)).collect(toPVector())),
+                        loadType(type.returnType)));
+            }
+
+            @Override
+            public Instructions visit(rho.types.Type.TypeVar type) {
+                throw new UnsupportedOperationException();
+            }
+        });
+    }
+
     static Instructions loadClass(Class clazz) {
         Type type = Type.getType(clazz);
         switch (type.getSort()) {
@@ -57,6 +114,9 @@ interface Instructions {
         }
     }
 
+    static Instructions loadNull() {
+        return mv -> mv.visitInsn(ACONST_NULL);
+    }
 
     enum MethodInvoke {
         INVOKE_STATIC(Opcodes.INVOKESTATIC, false), INVOKE_VIRTUAL(INVOKEVIRTUAL, false), INVOKE_SPECIAL(INVOKESPECIAL, false), INVOKE_INTERFACE(INVOKEINTERFACE, true);

@@ -89,7 +89,7 @@ public class CompilerTest {
     @Test
     public void compilesDefValue() throws Exception {
         Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        EvalResult evalResult = Compiler.compile(env, defExpr(symbol("three"),
+        EvalResult evalResult = Compiler.compile(env, defExpr(ENV_IO, symbol("three"),
             varCallExpr(
                 INT_TYPE,
                 PLUS_VAR,

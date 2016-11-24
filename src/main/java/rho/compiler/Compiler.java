@@ -7,6 +7,7 @@ import rho.analyser.ExprVisitor;
 import rho.analyser.LocalVar;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
+import rho.runtime.Symbol;
 import rho.types.Type;
 import rho.util.Pair;
 
@@ -337,7 +338,14 @@ public class Compiler {
 
                 Class<?> dynClass = defineClass(newClass);
 
-                throw new UnsupportedOperationException();
+                return newObject(EnvUpdate.DefEnvUpdate.class, vectorOf(Symbol.class, Type.class, Class.class, MethodType.class),
+                    mplus(
+                        loadSymbol(expr.sym),
+                        loadType(type),
+                        loadClass(dynClass),
+                        fnMethodType == null
+                            ? Instructions.loadNull()
+                            : loadObject(fnMethodType)));
             }
 
             @Override
@@ -352,23 +360,28 @@ public class Compiler {
         Class<?> returnType = expr.type.javaType();
 
         try {
-            return new EvalResult(
-                env,
-                publicLookup()
-                    .findStatic(
-                        defineClass(
-                            newClass("user$$eval$$" + uniqueInt())
-                                .withMethod(
-                                    newMethod(setOf(PUBLIC, FINAL, STATIC), "$$eval", Object.class, vectorOf(),
-                                        mplus(
-                                            instructions,
-                                            box(org.objectweb.asm.Type.getType(returnType)),
-                                            ret(Object.class))))),
+            Object result = publicLookup()
+                .findStatic(
+                    defineClass(
+                        newClass("user$$eval$$" + uniqueInt())
+                            .withMethod(
+                                newMethod(setOf(PUBLIC, FINAL, STATIC), "$$eval", Object.class, vectorOf(),
+                                    mplus(
+                                        instructions,
+                                        box(org.objectweb.asm.Type.getType(returnType)),
+                                        ret(Object.class))))),
 
 
-                        "$$eval",
-                        MethodType.methodType(Object.class))
-                    .invoke());
+                    "$$eval",
+                    MethodType.methodType(Object.class))
+                .invoke();
+
+            if (result instanceof EnvUpdate) {
+                Pair<Env, ?> envUpdateResult = ((EnvUpdate<?>) result).updateEnv(env);
+                return new EvalResult(envUpdateResult.left, envUpdateResult.right);
+            } else {
+                return new EvalResult(env, result);
+            }
         } catch (Panic e) {
             throw e;
         } catch (InvocationTargetException e) {
