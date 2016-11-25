@@ -66,6 +66,8 @@ public abstract class Type {
 
     public abstract Class<?> javaType();
 
+    public abstract PSet<TypeVar> typeVars();
+
     public static abstract class SimpleType extends Type {
         public static final Type BOOL_TYPE = new SimpleType("Bool", Boolean.TYPE) {
             @Override
@@ -109,6 +111,11 @@ public abstract class Type {
         public Class<?> javaType() {
             return javaType;
         }
+
+        @Override
+        public PSet<TypeVar> typeVars() {
+            return Empty.set();
+        }
     }
 
     public static final class VectorType extends Type {
@@ -149,6 +156,11 @@ public abstract class Type {
         @Override
         public Class<?> javaType() {
             return PVector.class;
+        }
+
+        @Override
+        public PSet<TypeVar> typeVars() {
+            return elemType.typeVars();
         }
 
         @Override
@@ -208,6 +220,11 @@ public abstract class Type {
         @Override
         public Class<?> javaType() {
             return PSet.class;
+        }
+
+        @Override
+        public PSet<TypeVar> typeVars() {
+            return elemType.typeVars();
         }
 
         @Override
@@ -284,6 +301,11 @@ public abstract class Type {
         public Class<?> javaType() {
             return MethodHandle.class;
         }
+
+        @Override
+        public PSet<TypeVar> typeVars() {
+            return paramTypes.stream().flatMap(pt -> pt.typeVars().stream()).collect(toPSet()).plusAll(returnType.typeVars());
+        }
     }
 
     public static final class TypeVar extends Type {
@@ -306,6 +328,11 @@ public abstract class Type {
         @Override
         public Class<?> javaType() {
             return Object.class;
+        }
+
+        @Override
+        public PSet<TypeVar> typeVars() {
+            return HashTreePSet.singleton(this);
         }
 
         @Override

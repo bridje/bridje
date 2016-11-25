@@ -1,10 +1,7 @@
 package rho.compiler;
 
 import org.objectweb.asm.*;
-import org.pcollections.HashTreePSet;
-import org.pcollections.MapPSet;
-import org.pcollections.PVector;
-import org.pcollections.TreePVector;
+import org.pcollections.*;
 import rho.Util;
 import rho.runtime.Symbol;
 import rho.runtime.Var;
@@ -17,9 +14,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 import static org.objectweb.asm.Opcodes.*;
 import static rho.Util.toInternalName;
@@ -54,51 +49,77 @@ interface Instructions {
         return newObject(Symbol.class, Util.vectorOf(String.class), loadObject(sym.sym));
     }
 
-    static Instructions loadType(rho.types.Type type) {
-        return type.accept(new TypeVisitor<Instructions>() {
-            @Override
-            public Instructions visitBool() {
-                return fieldOp(GET_STATIC, SimpleType.class.getName(), "BOOL_TYPE", rho.types.Type.class);
-            }
+    static Instructions loadType(rho.types.Type type, Locals locals) {
+        int nextIdx = locals.nextIdx;
 
-            @Override
-            public Instructions visitString() {
-                return fieldOp(GET_STATIC, SimpleType.class.getName(), "STRING_TYPE", rho.types.Type.class);
-            }
+        Map<rho.types.Type.TypeVar, Integer> typeVars_ = new HashMap<>();
+        for (rho.types.Type.TypeVar typeVar : type.typeVars()) {
+            typeVars_.put(typeVar, nextIdx++);
+        }
 
-            @Override
-            public Instructions visitLong() {
-                return fieldOp(GET_STATIC, SimpleType.class.getName(), "INT_TYPE", rho.types.Type.class);
-            }
+        PMap<rho.types.Type.TypeVar, Integer> typeVars = HashTreePMap.from(typeVars_);
 
-            @Override
-            public Instructions visitEnvIO() {
-                return fieldOp(GET_STATIC, SimpleType.class.getName(), "ENV_IO", rho.types.Type.class);
-            }
+        return mplus(
+            mplus(
+                typeVars.entrySet().stream()
+                    .map(e ->
+                        mplus(
+                            newObject(rho.types.Type.TypeVar.class, Util.vectorOf(), MZERO),
+                            mv -> mv.visitVarInsn(ASTORE, e.getValue())))
+                    .collect(toPVector())),
 
-            @Override
-            public Instructions visit(VectorType type) {
-                return newObject(VectorType.class, Util.vectorOf(Type.class), loadType(type.elemType));
-            }
+            type.accept(new TypeVisitor<Instructions>() {
+                @Override
+                public Instructions visitBool() {
+                    return fieldOp(GET_STATIC, SimpleType.class.getName(), "BOOL_TYPE", rho.types.Type.class);
+                }
 
-            @Override
-            public Instructions visit(SetType type) {
-                return newObject(SetType.class, Util.vectorOf(Type.class), loadType(type.elemType));
-            }
+                @Override
+                public Instructions visitString() {
+                    return fieldOp(GET_STATIC, SimpleType.class.getName(), "STRING_TYPE", rho.types.Type.class);
+                }
 
-            @Override
-            public Instructions visit(rho.types.Type.FnType type) {
-                return newObject(rho.types.Type.FnType.class, Util.vectorOf(PVector.class, Type.class),
-                    mplus(vectorOf(Type.class, type.paramTypes.stream()
-                            .map(t -> loadType(t)).collect(toPVector())),
-                        loadType(type.returnType)));
-            }
+                @Override
+                public Instructions visitLong() {
+                    return fieldOp(GET_STATIC, SimpleType.class.getName(), "INT_TYPE", rho.types.Type.class);
+                }
 
-            @Override
-            public Instructions visit(rho.types.Type.TypeVar type) {
-                throw new UnsupportedOperationException();
-            }
-        });
+                @Override
+                public Instructions visitEnvIO() {
+                    return fieldOp(GET_STATIC, SimpleType.class.getName(), "ENV_IO", rho.types.Type.class);
+                }
+
+                @Override
+                public Instructions visit(VectorType type) {
+                    return newObject(VectorType.class, Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
+                }
+
+                @Override
+                public Instructions visit(SetType type) {
+                    return newObject(SetType.class, Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
+                }
+
+                @Override
+                public Instructions visit(rho.types.Type.FnType type) {
+                    return newObject(rho.types.Type.FnType.class, Util.vectorOf(PVector.class, rho.types.Type.class),
+                        mplus(vectorOf(Type.class, type.paramTypes.stream()
+                                .map(t -> t.accept(this)).collect(toPVector())),
+                            type.returnType.accept(this)));
+                }
+
+                @Override
+                public Instructions visit(rho.types.Type.TypeVar type) {
+                    return mv -> {
+                        mv.visitVarInsn(ALOAD, typeVars.get(type));
+                    };
+                }
+            }),
+
+            mplus(typeVars_.entrySet().stream()
+                .map(e -> (Instructions) mv -> {
+                    mv.visitInsn(ACONST_NULL);
+                    mv.visitVarInsn(ASTORE, e.getValue());
+                }).collect(toPVector())));
     }
 
     static Instructions loadClass(Class clazz) {
@@ -273,6 +294,10 @@ interface Instructions {
             Type type = Type.getType(clazz);
             mv.visitFieldInsn(op.opcode, toInternalName(className), fieldName, type.getDescriptor());
         };
+    }
+
+    static Instructions loadMethodType(MethodType methodType) {
+        return loadObject(Type.getMethodType(methodType.toMethodDescriptorString()));
     }
 
     static Instructions staticMethodHandle(String classInternalName, String methodName, PVector<Class<?>> paramClasses, Class<?> returnClass) {

@@ -341,16 +341,19 @@ public class Compiler {
                 return newObject(EnvUpdate.DefEnvUpdate.class, vectorOf(Symbol.class, Type.class, Class.class, MethodType.class),
                     mplus(
                         loadSymbol(expr.sym),
-                        loadType(type),
+                        loadType(type, locals),
                         loadClass(dynClass),
                         fnMethodType == null
                             ? Instructions.loadNull()
-                            : loadObject(fnMethodType)));
+                            : loadMethodType(fnMethodType)));
             }
 
             @Override
             public Instructions visit(Expr.TypeDefExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                return newObject(EnvUpdate.TypeDefEnvUpdate.class, vectorOf(Symbol.class, Type.class),
+                    mplus(
+                        loadSymbol(expr.sym),
+                        loadType(expr.typeDef, locals)));
             }
         });
     }
