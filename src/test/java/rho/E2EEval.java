@@ -88,11 +88,9 @@ public class E2EEval {
     @Test
     public void typeDefsIdentityFn() throws Exception {
         Var var = (Var) testEvalsAction(PLUS_ENV, "(:: identity (Fn a a))").right.value;
-        Type.FnType type = (Type.FnType) var.declaredType;
-        assertEquals(1, type.paramTypes.size());
-        Type returnType = type.returnType;
-        assertTrue(returnType instanceof Type.TypeVar);
-        assertEquals(type.paramTypes.get(0), returnType);
+        Type.TypeVar a = new Type.TypeVar();
+
+        assertTrue(var.declaredType.alphaEquivalentTo(new Type.FnType(vectorOf(a), a)));
     }
 
     @Test

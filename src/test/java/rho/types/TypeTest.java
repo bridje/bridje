@@ -5,7 +5,8 @@ import org.pcollections.HashTreePMap;
 import rho.Panic;
 import rho.types.Type.TypeVar;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
+import static rho.Util.vectorOf;
 import static rho.types.Type.SimpleType.INT_TYPE;
 import static rho.types.Type.SimpleType.STRING_TYPE;
 import static rho.types.Type.VectorType.vectorType;
@@ -34,5 +35,19 @@ public class TypeTest {
 
         assertEquals(mapping, TypeMapping.from(HashTreePMap.singleton(var, STRING_TYPE)));
         assertEquals(vectorConcreteType, vectorVarType.apply(mapping));
+    }
+
+    @Test
+    public void testAlphaEquivalence() throws Exception {
+        assertTrue(new TypeVar().alphaEquivalentTo(new TypeVar()));
+
+        Type t1 = new Type.FnType(vectorOf(vectorType(INT_TYPE)), new TypeVar());
+        Type t2 = new Type.FnType(vectorOf(vectorType(INT_TYPE)), new TypeVar());
+        assertTrue(t1.alphaEquivalentTo(t2));
+
+        TypeVar a = new TypeVar();
+        TypeVar b = new TypeVar();
+
+        assertFalse(new Type.FnType(vectorOf(a), a).alphaEquivalentTo(new Type.FnType(vectorOf(a), b)));
     }
 }

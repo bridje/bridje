@@ -6,14 +6,18 @@ import org.pcollections.PSet;
 import org.pcollections.PVector;
 import rho.Panic;
 import rho.compiler.EnvUpdate;
+import rho.util.Pair;
 
 import java.lang.invoke.MethodHandle;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static rho.Panic.panic;
 import static rho.Util.*;
 import static rho.types.Type.SimpleType.ENV_IO;
+import static rho.util.Pair.zip;
 
 public abstract class Type {
 
@@ -32,6 +36,10 @@ public abstract class Type {
 
     public final Type instantiate() {
         return apply(TypeMapping.from(ftvs().stream().collect(toPMap(ftv -> ftv, ftv -> new TypeVar()))));
+    }
+
+    public final Type instantiateAll() {
+        return apply(TypeMapping.from(typeVars().stream().collect(toPMap(tv -> tv, tv -> new TypeVar()))));
     }
 
     private TypeMapping varBind(TypeVar var, Type t2) {
@@ -67,6 +75,12 @@ public abstract class Type {
     public abstract Class<?> javaType();
 
     public abstract PSet<TypeVar> typeVars();
+
+    abstract boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping);
+
+    public final boolean alphaEquivalentTo(Type t2) {
+        return this.instantiateAll().alphaEquivalentTo0(t2.instantiateAll(), new HashMap<>());
+    }
 
     public static abstract class SimpleType extends Type {
         public static final Type BOOL_TYPE = new SimpleType("Bool", Boolean.TYPE) {
@@ -116,6 +130,11 @@ public abstract class Type {
         public PSet<TypeVar> typeVars() {
             return Empty.set();
         }
+
+        @Override
+        final boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+            return this == t2;
+        }
     }
 
     public static final class VectorType extends Type {
@@ -161,6 +180,11 @@ public abstract class Type {
         @Override
         public PSet<TypeVar> typeVars() {
             return elemType.typeVars();
+        }
+
+        @Override
+        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+            return t2 instanceof VectorType && elemType.alphaEquivalentTo0(((VectorType) t2).elemType, mapping);
         }
 
         @Override
@@ -225,6 +249,11 @@ public abstract class Type {
         @Override
         public PSet<TypeVar> typeVars() {
             return elemType.typeVars();
+        }
+
+        @Override
+        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+            return t2 instanceof SetType && elemType.alphaEquivalentTo0(((SetType) t2).elemType, mapping);
         }
 
         @Override
@@ -306,6 +335,32 @@ public abstract class Type {
         public PSet<TypeVar> typeVars() {
             return paramTypes.stream().flatMap(pt -> pt.typeVars().stream()).collect(toPSet()).plusAll(returnType.typeVars());
         }
+
+        @Override
+        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+            if (!(t2 instanceof FnType)) {
+                return false;
+            }
+
+            FnType t2Fn = (FnType) t2;
+
+            if (!returnType.alphaEquivalentTo0(t2Fn.returnType, mapping)) {
+                return false;
+            } else {
+                PVector<Type> t2Params = t2Fn.paramTypes;
+                if (t2Params.size() != paramTypes.size()) {
+                    return false;
+                }
+
+                for (Pair<Type, Type> pts : zip(paramTypes, t2Params)) {
+                    if (!pts.left.alphaEquivalentTo0(pts.right, mapping)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
     }
 
     public static final class TypeVar extends Type {
@@ -333,6 +388,28 @@ public abstract class Type {
         @Override
         public PSet<TypeVar> typeVars() {
             return HashTreePSet.singleton(this);
+        }
+
+        @Override
+        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+            if (!(t2 instanceof TypeVar)) {
+                return false;
+            }
+
+            TypeVar tvar2 = (TypeVar) t2;
+
+            TypeVar t1Mapped = mapping.get(this);
+            TypeVar t2Mapped = mapping.get(t2);
+
+            if (t2Mapped == this && t1Mapped == tvar2) {
+                return true;
+            } else if (t2Mapped == null && t1Mapped == null) {
+                mapping.put(this, tvar2);
+                mapping.put(tvar2, this);
+                return true;
+            } else {
+                return false;
+            }
         }
 
         @Override
