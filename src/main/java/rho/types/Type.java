@@ -82,6 +82,10 @@ public abstract class Type {
         return this.instantiateAll().alphaEquivalentTo0(t2.instantiateAll(), new HashMap<>());
     }
 
+    public boolean subtypeOf(Type type) {
+        return alphaEquivalentTo(type.apply(this.unify(type)));
+    }
+
     public static abstract class SimpleType extends Type {
         public static final Type BOOL_TYPE = new SimpleType("Bool", Boolean.TYPE) {
             @Override
@@ -334,6 +338,23 @@ public abstract class Type {
         @Override
         public PSet<TypeVar> typeVars() {
             return paramTypes.stream().flatMap(pt -> pt.typeVars().stream()).collect(toPSet()).plusAll(returnType.typeVars());
+        }
+
+        @Override
+        TypeMapping unify0(Type t2) {
+            if (t2 instanceof FnType) {
+                TypeMapping mapping = returnType.unify(((FnType) t2).returnType);
+                PVector<Type> t2ParamTypes = ((FnType) t2).paramTypes;
+                if (this.paramTypes.size() == t2ParamTypes.size()) {
+                    for (Pair<Type, Type> types : zip(this.paramTypes, t2ParamTypes)) {
+                        mapping = types.left.apply(mapping).unify(types.right.apply(mapping));
+                    }
+
+                    return mapping;
+                }
+            }
+
+            throw cantUnify(t2);
         }
 
         @Override

@@ -103,6 +103,6 @@ public class E2EEval {
         Type doubleType = fnType(vectorOf(INT_TYPE), INT_TYPE);
 
         assertEquals(doubleType, env.vars.get(symbol("double")).declaredType);
-        testEvalsValue(env, "(double 4)", INT_TYPE, 8);
+        testEvalsValue(env, "(double 4)", INT_TYPE, 8L);
     }
 }

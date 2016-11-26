@@ -52,7 +52,15 @@ public interface EnvUpdate<T> {
                 }
             }
 
-            Var var = new Var(null, type, valueField, fnMethod);
+            Var oldVar = env.vars.get(sym);
+            Type declaredType = null;
+            if (oldVar != null && (declaredType = oldVar.declaredType) != null) {
+                if (!declaredType.subtypeOf(type)) {
+                    throw new UnsupportedOperationException();
+                }
+            }
+
+            Var var = new Var(declaredType, type, valueField, fnMethod);
             return pair(env.withVar(sym, var), var);
         }
     }
