@@ -1,6 +1,7 @@
 package rho.runtime;
 
 import org.pcollections.PMap;
+import rho.types.Type;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -45,12 +46,20 @@ public class Env {
     }
 
     public final PMap<Symbol, Var> vars;
+    public final PMap<Symbol, DataType<Type>> dataTypes;
+    public final PMap<Symbol, Class<?>> dataTypeSuperclasses;
 
-    public Env(PMap<Symbol, Var> vars) {
+    public Env(PMap<Symbol, Var> vars, PMap<Symbol, DataType<Type>> dataTypes, PMap<Symbol, Class<?>> dataTypeSuperclasses) {
         this.vars = vars;
+        this.dataTypes = dataTypes;
+        this.dataTypeSuperclasses = dataTypeSuperclasses;
     }
 
     public Env withVar(Symbol sym, Var var) {
-        return new Env(vars.plus(sym, var));
+        return new Env(vars.plus(sym, var), dataTypes, dataTypeSuperclasses);
+    }
+
+    public Env withDataType(DataType<Type> dataType, Class<?> superclass, PMap<Symbol, Var> constructorVars) {
+        return new Env(vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType), dataTypeSuperclasses.plus(dataType.sym, superclass));
     }
 }

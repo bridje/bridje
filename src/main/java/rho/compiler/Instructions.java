@@ -1,14 +1,17 @@
 package rho.compiler;
 
 import org.objectweb.asm.*;
+import org.objectweb.asm.Type;
 import org.pcollections.*;
 import rho.Util;
+import rho.runtime.DataType;
+import rho.runtime.DataTypeConstructor;
 import rho.runtime.Symbol;
 import rho.runtime.Var;
+import rho.types.*;
 import rho.types.Type.SetType;
 import rho.types.Type.SimpleType;
 import rho.types.Type.VectorType;
-import rho.types.TypeVisitor;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -17,13 +20,16 @@ import java.lang.reflect.Method;
 import java.util.*;
 
 import static org.objectweb.asm.Opcodes.*;
-import static rho.Util.toInternalName;
 import static rho.Util.toPVector;
+import static rho.Util.vectorOf;
+import static rho.compiler.ClassLike.fromClass;
+import static rho.compiler.ClassLike.fromClassName;
 import static rho.compiler.Instructions.FieldOp.GET_FIELD;
 import static rho.compiler.Instructions.FieldOp.GET_STATIC;
 import static rho.compiler.Instructions.MethodInvoke.*;
 
 interface Instructions {
+
     void apply(MethodVisitor mv);
 
     Instructions MZERO = (mv) -> {
@@ -46,7 +52,7 @@ interface Instructions {
     }
 
     static Instructions loadSymbol(Symbol sym) {
-        return newObject(Symbol.class, Util.vectorOf(String.class), loadObject(sym.sym));
+        return newObject(fromClass(Symbol.class), Util.vectorOf(String.class), loadObject(sym.sym));
     }
 
     static Instructions loadType(rho.types.Type type, Locals locals) {
@@ -64,45 +70,45 @@ interface Instructions {
                 typeVars.entrySet().stream()
                     .map(e ->
                         mplus(
-                            newObject(rho.types.Type.TypeVar.class, Util.vectorOf(), MZERO),
+                            newObject(fromClass(rho.types.Type.TypeVar.class), Util.vectorOf(), MZERO),
                             mv -> mv.visitVarInsn(ASTORE, e.getValue())))
                     .collect(toPVector())),
 
             type.accept(new TypeVisitor<Instructions>() {
                 @Override
                 public Instructions visitBool() {
-                    return fieldOp(GET_STATIC, SimpleType.class.getName(), "BOOL_TYPE", rho.types.Type.class);
+                    return fieldOp(GET_STATIC, fromClass(SimpleType.class), "BOOL_TYPE", fromClass(rho.types.Type.class));
                 }
 
                 @Override
                 public Instructions visitString() {
-                    return fieldOp(GET_STATIC, SimpleType.class.getName(), "STRING_TYPE", rho.types.Type.class);
+                    return fieldOp(GET_STATIC, fromClass(SimpleType.class), "STRING_TYPE", fromClass(rho.types.Type.class));
                 }
 
                 @Override
                 public Instructions visitLong() {
-                    return fieldOp(GET_STATIC, SimpleType.class.getName(), "INT_TYPE", rho.types.Type.class);
+                    return fieldOp(GET_STATIC, fromClass(SimpleType.class), "INT_TYPE", fromClass(rho.types.Type.class));
                 }
 
                 @Override
                 public Instructions visitEnvIO() {
-                    return fieldOp(GET_STATIC, SimpleType.class.getName(), "ENV_IO", rho.types.Type.class);
+                    return fieldOp(GET_STATIC, fromClass(SimpleType.class), "ENV_IO", fromClass(rho.types.Type.class));
                 }
 
                 @Override
                 public Instructions visit(VectorType type) {
-                    return newObject(VectorType.class, Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
+                    return newObject(fromClass(VectorType.class), Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
                 }
 
                 @Override
                 public Instructions visit(SetType type) {
-                    return newObject(SetType.class, Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
+                    return newObject(fromClass(SetType.class), Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
                 }
 
                 @Override
                 public Instructions visit(rho.types.Type.FnType type) {
-                    return newObject(rho.types.Type.FnType.class, Util.vectorOf(PVector.class, rho.types.Type.class),
-                        mplus(vectorOf(Type.class, type.paramTypes.stream()
+                    return newObject(fromClass(rho.types.Type.FnType.class), Util.vectorOf(PVector.class, rho.types.Type.class),
+                        mplus(loadVector(Type.class, type.paramTypes.stream()
                                 .map(t -> t.accept(this)).collect(toPVector())),
                             type.returnType.accept(this)));
                 }
@@ -113,6 +119,15 @@ interface Instructions {
                         mv.visitVarInsn(ALOAD, typeVars.get(type));
                     };
                 }
+
+                @Override
+                public Instructions visit(rho.types.Type.DataTypeType type) {
+                    return newObject(fromClass(rho.types.Type.DataTypeType.class), vectorOf(Symbol.class, Class.class),
+                        mplus(
+                            loadSymbol(type.name),
+                            type.javaType == null ? loadNull() : loadClass(type.javaType)
+                        ));
+                }
             }),
 
             mplus(typeVars_.entrySet().stream()
@@ -122,11 +137,25 @@ interface Instructions {
                 }).collect(toPVector())));
     }
 
+    static Instructions loadDataType(DataType<? extends rho.types.Type> dataType, Locals locals) {
+        return newObject(fromClass(DataType.class), vectorOf(Object.class, Symbol.class, PVector.class), mplus(
+            loadType(dataType.type, locals),
+            loadSymbol(dataType.sym),
+            loadVector(DataTypeConstructor.class, dataType.constructors.stream()
+                .map(c -> newObject(fromClass(DataTypeConstructor.class), vectorOf(Object.class, Symbol.class),
+                    mplus(
+                        loadType(dataType.type, locals),
+                        loadSymbol(c.sym))))
+
+                .collect(toPVector()))
+        ));
+    }
+
     static Instructions loadClass(Class clazz) {
         Type type = Type.getType(clazz);
         switch (type.getSort()) {
             case Type.LONG:
-                return fieldOp(GET_STATIC, Long.class.getName(), "TYPE", Class.class);
+                return fieldOp(GET_STATIC, fromClass(Long.class), "TYPE", fromClass(Class.class));
 
             case Type.OBJECT:
                 return mv -> mv.visitLdcInsn(type);
@@ -151,26 +180,29 @@ interface Instructions {
         }
     }
 
-    static Instructions methodCall(Class<?> clazz, MethodInvoke methodInvoke, String name, Class<?> returnType, PVector<Class<?>> paramTypes) {
-        return mv -> mv.visitMethodInsn(methodInvoke.opcode, Type.getType(clazz).getInternalName(), name,
+    static Instructions methodCall(ClassLike classLike, MethodInvoke methodInvoke, String name, Class<?> returnType, PVector<Class<?>> paramTypes) {
+        return mv -> mv.visitMethodInsn(methodInvoke.opcode, classLike.getInternalName(), name,
             Type.getMethodDescriptor(Type.getType(returnType), paramTypes.stream().map(Type::getType).toArray(Type[]::new)),
             methodInvoke.isInterface);
     }
+
+    Instructions OBJECT_SUPER_CONSTRUCTOR_CALL = methodCall(fromClass(Object.class), MethodInvoke.INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector());
 
     static Instructions loadThis() {
         return mv -> mv.visitVarInsn(ALOAD, 0);
     }
 
-    static Instructions newObject(Class<?> clazz, PVector<Class<?>> params, Instructions paramInstructions) {
+
+    static Instructions newObject(ClassLike classLike, PVector<Class<?>> params, Instructions paramInstructions) {
         return
             mplus(
                 mv -> {
-                    Type type = Type.getType(clazz);
-                    mv.visitTypeInsn(NEW, type.getInternalName());
+                    mv.visitTypeInsn(NEW, classLike.getInternalName());
                     mv.visitInsn(DUP);
                 },
                 paramInstructions,
-                methodCall(clazz, INVOKE_SPECIAL, "<init>", Void.TYPE, params));
+
+                methodCall(classLike, INVOKE_SPECIAL, "<init>", Void.TYPE, params));
     }
 
     static Instructions box(Type type) {
@@ -178,9 +210,9 @@ interface Instructions {
             case Type.OBJECT:
                 return MZERO;
             case Type.LONG:
-                return methodCall(Long.class, INVOKE_STATIC, "valueOf", Long.class, Util.vectorOf(Long.TYPE));
+                return methodCall(fromClass(Long.class), INVOKE_STATIC, "valueOf", Long.class, Util.vectorOf(Long.TYPE));
             case Type.BOOLEAN:
-                return methodCall(Boolean.class, INVOKE_STATIC, "valueOf", Boolean.class, Util.vectorOf(Boolean.TYPE));
+                return methodCall(fromClass(Boolean.class), INVOKE_STATIC, "valueOf", Boolean.class, Util.vectorOf(Boolean.TYPE));
         }
 
         throw new UnsupportedOperationException();
@@ -202,20 +234,35 @@ interface Instructions {
         };
     }
 
-    Instructions ARRAY_AS_LIST = methodCall(Arrays.class, INVOKE_STATIC, "asList", List.class, Util.vectorOf(Object[].class));
+    Instructions ARRAY_AS_LIST = methodCall(fromClass(Arrays.class), INVOKE_STATIC, "asList", List.class, Util.vectorOf(Object[].class));
 
-    static Instructions vectorOf(Class<?> clazz, PVector<Instructions> instructions) {
+    static Instructions loadVector(Class<?> clazz, PVector<Instructions> instructions) {
         return mplus(
             arrayOf(clazz, instructions),
             ARRAY_AS_LIST,
-            methodCall(TreePVector.class, INVOKE_STATIC, "from", TreePVector.class, Util.vectorOf(Collection.class)));
+            methodCall(fromClass(TreePVector.class), INVOKE_STATIC, "from", TreePVector.class, Util.vectorOf(Collection.class)));
     }
 
-    static Instructions setOf(Class<?> clazz, PVector<Instructions> instructions) {
+    static Instructions loadSet(Class<?> clazz, PVector<Instructions> instructions) {
         return mplus(
             arrayOf(clazz, instructions),
             ARRAY_AS_LIST,
-            methodCall(HashTreePSet.class, INVOKE_STATIC, "from", MapPSet.class, Util.vectorOf(Collection.class)));
+            methodCall(fromClass(HashTreePSet.class), INVOKE_STATIC, "from", MapPSet.class, Util.vectorOf(Collection.class)));
+    }
+
+    static Instructions loadMap(PVector<Instructions> instructions) {
+        return mplus(
+            newObject(fromClass(HashMap.class), Empty.vector(), MZERO),
+            mplus(instructions.stream()
+                .map(i ->
+                    mplus(
+                        mv -> mv.visitInsn(DUP),
+                        i,
+                        methodCall(fromClass(Map.class), INVOKE_INTERFACE, "put", Object.class, vectorOf(Object.class, Object.class)),
+                        mv -> mv.visitInsn(POP)))
+                .collect(toPVector())),
+            methodCall(fromClass(HashTreePMap.class), INVOKE_STATIC, "from", HashPMap.class, vectorOf(Map.class))
+        );
     }
 
     static Instructions loadBool(boolean value) {
@@ -224,7 +271,7 @@ interface Instructions {
 
     static Instructions varInvoke(Var var) {
         Method method = var.fnMethod;
-        return methodCall(method.getDeclaringClass(), INVOKE_STATIC, method.getName(), method.getReturnType(), TreePVector.from(Arrays.asList(method.getParameterTypes())));
+        return methodCall(fromClass(method.getDeclaringClass()), INVOKE_STATIC, method.getName(), method.getReturnType(), TreePVector.from(Arrays.asList(method.getParameterTypes())));
     }
 
     static Instructions varCall(Var var, PVector<Instructions> paramInstructions) {
@@ -264,7 +311,7 @@ interface Instructions {
             public Instructions visit(Locals.Local.FieldLocal local) {
                 return mplus(
                     mv -> mv.visitVarInsn(ALOAD, 0),
-                    fieldOp(GET_FIELD, local.className, local.fieldName, local.clazz));
+                    fieldOp(GET_FIELD, local.owner, local.fieldName, fromClass(local.clazz)));
             }
 
             @Override
@@ -276,7 +323,7 @@ interface Instructions {
 
     static Instructions globalVarValue(Var var) {
         Field valueField = var.valueField;
-        return fieldOp(GET_STATIC, valueField.getDeclaringClass().getName(), valueField.getName(), valueField.getType());
+        return fieldOp(GET_STATIC, fromClass(valueField.getDeclaringClass()), valueField.getName(), fromClass(valueField.getType()));
     }
 
     enum FieldOp {
@@ -289,10 +336,9 @@ interface Instructions {
         }
     }
 
-    static Instructions fieldOp(FieldOp op, String className, String fieldName, Class<?> clazz) {
+    static Instructions fieldOp(FieldOp op, ClassLike owner, String fieldName, ClassLike fieldType) {
         return mv -> {
-            Type type = Type.getType(clazz);
-            mv.visitFieldInsn(op.opcode, toInternalName(className), fieldName, type.getDescriptor());
+            mv.visitFieldInsn(op.opcode, owner.getInternalName(), fieldName, fieldType.getDescriptor());
         };
     }
 
@@ -311,6 +357,6 @@ interface Instructions {
     }
 
     static Instructions bindMethodHandle() {
-        return methodCall(MethodHandle.class, INVOKE_VIRTUAL, "bindTo", MethodHandle.class, Util.vectorOf(Object.class));
+        return methodCall(fromClass(MethodHandle.class), INVOKE_VIRTUAL, "bindTo", MethodHandle.class, Util.vectorOf(Object.class));
     }
 }

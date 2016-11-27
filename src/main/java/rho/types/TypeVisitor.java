@@ -16,4 +16,6 @@ public interface TypeVisitor<T> {
     T visit(Type.FnType type);
 
     T visit(Type.TypeVar type);
+
+    T visit(Type.DataTypeType type);
 }

@@ -1,11 +1,10 @@
 package rho.analyser;
 
 import org.junit.Test;
-import org.pcollections.HashTreePMap;
+import org.objectweb.asm.Type;
 import rho.reader.Form;
 import rho.runtime.DataType;
 import rho.runtime.DataTypeConstructor;
-import rho.runtime.Env;
 
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
@@ -25,15 +24,12 @@ public class AnalyserTest {
 
     @Test
     public void resolvesPlusCall() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-
-        assertEquals(varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2))), analyse(env, listForm(symbolForm("+"), intForm(1), intForm(2))));
+        assertEquals(varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2))), analyse(PLUS_ENV, listForm(symbolForm("+"), intForm(1), intForm(2))));
     }
 
     @Test
     public void resolvesPlusValue() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        assertEquals(globalVarExpr(null, PLUS_VAR), analyse(env, symbolForm("+")));
+        assertEquals(globalVarExpr(null, PLUS_VAR), analyse(PLUS_ENV, symbolForm("+")));
     }
 
     @Test
@@ -88,15 +84,12 @@ public class AnalyserTest {
 
     @Test
     public void analysesDefValue() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-
-        assertEquals(defExpr(null, symbol("x"), varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2)))), analyse(env, listForm(symbolForm("def"), symbolForm("x"), listForm(symbolForm("+"), intForm(1), intForm(2)))));
+        assertEquals(defExpr(null, symbol("x"), varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2)))), analyse(PLUS_ENV, listForm(symbolForm("def"), symbolForm("x"), listForm(symbolForm("+"), intForm(1), intForm(2)))));
     }
 
     @Test
     public void analysesDefFn() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        Expr<Void> expr = analyse(env, listForm(symbolForm("def"), listForm(symbolForm("double"), symbolForm("x")), listForm(symbolForm("+"), symbolForm("x"), symbolForm("x"))));
+        Expr<Void> expr = analyse(PLUS_ENV, listForm(symbolForm("def"), listForm(symbolForm("double"), symbolForm("x")), listForm(symbolForm("+"), symbolForm("x"), symbolForm("x"))));
 
         LocalVar x = ((Expr.FnExpr<Void>) ((Expr.DefExpr<Void>) expr).body).params.get(0);
 
@@ -114,11 +107,11 @@ public class AnalyserTest {
     @Test
     public void analysesSimpleDefData() throws Exception {
         assertEquals(
-            new Expr.DefDataExpr<Void>(null, null, new DataType(symbol("Month"),
+            new Expr.DefDataExpr<>(null, null, new DataType<>(null, symbol("Month"),
                 vectorOf(
-                    new DataTypeConstructor(symbol("Jan")),
-                    new DataTypeConstructor(symbol("Feb")),
-                    new DataTypeConstructor(symbol("Mar"))))),
+                    new DataTypeConstructor<>(null, symbol("Jan")),
+                    new DataTypeConstructor<>(null, symbol("Feb")),
+                    new DataTypeConstructor<>(null, symbol("Mar"))))),
             analyse(PLUS_ENV,
                 listForm(symbolForm("defdata"), symbolForm("Month"),
                     symbolForm("Jan"),

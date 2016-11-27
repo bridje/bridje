@@ -5,7 +5,7 @@ import org.pcollections.PSet;
 import static org.objectweb.asm.Opcodes.*;
 
 enum AccessFlag {
-    PUBLIC(ACC_PUBLIC), FINAL(ACC_FINAL), STATIC(ACC_STATIC), PRIVATE(ACC_PRIVATE);
+    PUBLIC(ACC_PUBLIC), FINAL(ACC_FINAL), STATIC(ACC_STATIC), PRIVATE(ACC_PRIVATE), ABSTRACT(ACC_ABSTRACT);
 
     final int flag;
 

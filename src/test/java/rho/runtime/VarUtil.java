@@ -1,5 +1,6 @@
 package rho.runtime;
 
+import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 import rho.types.Type;
 
@@ -39,5 +40,5 @@ public class VarUtil {
 
     public static final Var PLUS_VAR = new Var(PLUS_TYPE, PLUS_TYPE, PLUS_VALUE_FIELD, PLUS_FN_METHOD);
 
-    public static final Env PLUS_ENV = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
+    public static final Env PLUS_ENV = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR), Empty.map(), Empty.map());
 }

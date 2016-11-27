@@ -612,9 +612,9 @@ public abstract class Expr<ET> {
 
     public static class DefDataExpr<ET> extends Expr<ET> {
 
-        public final DataType dataType;
+        public final DataType<ET> dataType;
 
-        public DefDataExpr(Range range, ET type, DataType dataType) {
+        public DefDataExpr(Range range, ET type, DataType<ET> dataType) {
             super(range, type);
             this.dataType = dataType;
         }
@@ -626,7 +626,25 @@ public abstract class Expr<ET> {
 
         @Override
         public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new DefDataExpr<>(range, fn.apply(type), dataType);
+            return new DefDataExpr<>(range, fn.apply(type), dataType.fmapType(fn));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            DefDataExpr<?> that = (DefDataExpr<?>) o;
+            return Objects.equals(dataType, that.dataType);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(dataType);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(DefDataExpr %s)", dataType);
         }
     }
 }

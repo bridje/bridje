@@ -53,8 +53,7 @@ public class CompilerTest {
 
     @Test
     public void compilesPlus() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        assertEquals(3L, Compiler.compile(env, varCallExpr(INT_TYPE, PLUS_VAR, vectorOf(intExpr(INT_TYPE, 1), intExpr(INT_TYPE, 2)))).value);
+        assertEquals(3L, Compiler.compile(PLUS_ENV, varCallExpr(INT_TYPE, PLUS_VAR, vectorOf(intExpr(INT_TYPE, 1), intExpr(INT_TYPE, 2)))).value);
     }
 
     @Test
@@ -88,8 +87,7 @@ public class CompilerTest {
 
     @Test
     public void compilesDefValue() throws Exception {
-        Env env = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR));
-        EvalResult evalResult = Compiler.compile(env, defExpr(ENV_IO, symbol("three"),
+        EvalResult evalResult = Compiler.compile(PLUS_ENV, defExpr(ENV_IO, symbol("three"),
             varCallExpr(
                 INT_TYPE,
                 PLUS_VAR,

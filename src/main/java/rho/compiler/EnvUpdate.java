@@ -1,15 +1,19 @@
 package rho.compiler;
 
-import rho.runtime.Env;
-import rho.runtime.Symbol;
-import rho.runtime.Var;
+import org.pcollections.HashTreePMap;
+import org.pcollections.PMap;
+import rho.Util;
+import rho.runtime.*;
 import rho.types.Type;
 import rho.util.Pair;
 
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 
+import static rho.Util.toPVector;
 import static rho.runtime.Var.FN_METHOD_NAME;
 import static rho.runtime.Var.VALUE_FIELD_NAME;
 import static rho.util.Pair.pair;
@@ -82,4 +86,45 @@ public interface EnvUpdate<T> {
         }
     }
 
+    class DefDataEnvUpdate implements EnvUpdate {
+
+        private final DataType<Type> dataType;
+        private final Class<?> superClass;
+        private final PMap<Symbol, Class<?>> constructorClasses;
+
+        public DefDataEnvUpdate(DataType<Type> dataType, Class<?> superClass, PMap<Symbol, Class<?>> constructorClasses) {
+            this.dataType = dataType;
+            this.superClass = superClass;
+            this.constructorClasses = constructorClasses;
+        }
+
+        @Override
+        public Pair<Env, ?> updateEnv(Env env) {
+            Type type = new Type.DataTypeType(dataType.sym, superClass);
+            Map<Symbol, Var> vars = new HashMap<>();
+
+            DataType<Type> dataType = new DataType<>(type, this.dataType.sym, this.dataType.constructors.stream().map(c -> new DataTypeConstructor<>(type, c.sym)).collect(toPVector()));
+
+            for (DataTypeConstructor<Type> constructor : dataType.constructors) {
+                Symbol constructorSym = constructor.sym;
+                Class<?> clazz = constructorClasses.get(constructorSym);
+
+                Field field;
+                try {
+                    field = clazz.getDeclaredField(VALUE_FIELD_NAME);
+                } catch (NoSuchFieldException e) {
+                    throw new RuntimeException(e);
+                }
+
+                vars.put(constructorSym, new Var(type, type, field, null));
+            }
+
+            return pair(
+                env.withDataType(
+                    dataType,
+                    superClass,
+                    HashTreePMap.from(vars)),
+                dataType);
+        }
+    }
 }

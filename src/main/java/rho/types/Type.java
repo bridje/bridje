@@ -6,6 +6,7 @@ import org.pcollections.PSet;
 import org.pcollections.PVector;
 import rho.Panic;
 import rho.compiler.EnvUpdate;
+import rho.runtime.Symbol;
 import rho.util.Pair;
 
 import java.lang.invoke.MethodHandle;
@@ -21,7 +22,10 @@ import static rho.util.Pair.zip;
 
 public abstract class Type {
 
-    private Type() {
+    public final Class<?> javaType;
+
+    Type(Class<?> javaType) {
+        this.javaType = javaType;
     }
 
     public abstract <T> T accept(TypeVisitor<T> visitor);
@@ -72,7 +76,7 @@ public abstract class Type {
         throw cantUnify(t2);
     }
 
-    public abstract Class<?> javaType();
+
 
     public abstract PSet<TypeVar> typeVars();
 
@@ -82,7 +86,7 @@ public abstract class Type {
         return this.instantiateAll().alphaEquivalentTo0(t2.instantiateAll(), new HashMap<>());
     }
 
-    public boolean subtypeOf(Type type) {
+    public final boolean subtypeOf(Type type) {
         return alphaEquivalentTo(type.apply(this.unify(type)));
     }
 
@@ -113,21 +117,15 @@ public abstract class Type {
         };
 
         private final String name;
-        private final Class<?> javaType;
 
         private SimpleType(String name, Class<?> javaType) {
+            super(javaType);
             this.name = name;
-            this.javaType = javaType;
         }
 
         @Override
         public String toString() {
             return name;
-        }
-
-        @Override
-        public Class<?> javaType() {
-            return javaType;
         }
 
         @Override
@@ -149,6 +147,7 @@ public abstract class Type {
         }
 
         private VectorType(Type elemType) {
+            super(PVector.class);
             this.elemType = elemType;
         }
 
@@ -174,11 +173,6 @@ public abstract class Type {
             } else {
                 throw cantUnify(t2);
             }
-        }
-
-        @Override
-        public Class<?> javaType() {
-            return PVector.class;
         }
 
         @Override
@@ -218,6 +212,7 @@ public abstract class Type {
         }
 
         private SetType(Type elemType) {
+            super(PSet.class);
             this.elemType = elemType;
         }
 
@@ -243,11 +238,6 @@ public abstract class Type {
             } else {
                 throw cantUnify(t2);
             }
-        }
-
-        @Override
-        public Class<?> javaType() {
-            return PSet.class;
         }
 
         @Override
@@ -289,6 +279,7 @@ public abstract class Type {
         }
 
         public FnType(PVector<Type> paramTypes, Type returnType) {
+            super(MethodHandle.class);
             this.paramTypes = paramTypes;
             this.returnType = returnType;
         }
@@ -328,11 +319,6 @@ public abstract class Type {
         @Override
         public Type apply(TypeMapping mapping) {
             return new FnType(paramTypes.stream().map(t -> t.apply(mapping)).collect(toPVector()), returnType.apply(mapping));
-        }
-
-        @Override
-        public Class<?> javaType() {
-            return MethodHandle.class;
         }
 
         @Override
@@ -386,6 +372,10 @@ public abstract class Type {
 
     public static final class TypeVar extends Type {
 
+        public TypeVar() {
+            super(Object.class);
+        }
+
         @Override
         public <T> T accept(TypeVisitor<T> visitor) {
             return visitor.visit(this);
@@ -399,11 +389,6 @@ public abstract class Type {
         @Override
         public Type apply(TypeMapping mapping) {
             return mapping.mapping.getOrDefault(this, this);
-        }
-
-        @Override
-        public Class<?> javaType() {
-            return Object.class;
         }
 
         @Override
@@ -436,6 +421,49 @@ public abstract class Type {
         @Override
         public String toString() {
             return String.format("(TypeVar %s)", hashCode());
+        }
+    }
+
+    public static final class DataTypeType extends Type {
+
+        public final Symbol name;
+
+        public DataTypeType(Symbol name, Class<?> javaType) {
+            super(javaType);
+            this.name = name;
+        }
+
+        @Override
+        public <T> T accept(TypeVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public PSet<TypeVar> ftvs() {
+            return Empty.set();
+        }
+
+        @Override
+        public PSet<TypeVar> typeVars() {
+            return Empty.set();
+        }
+
+        @Override
+        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+            return this == t2 || (t2 instanceof DataTypeType && Objects.equals(name, ((DataTypeType) t2).name));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            DataTypeType that = (DataTypeType) o;
+            return Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(name);
         }
     }
 }

@@ -50,12 +50,12 @@ final class Locals {
 
         static final class FieldLocal extends Local {
 
-            final String className;
+            final ClassLike owner;
             final String fieldName;
 
-            FieldLocal(LocalVar localVar, Class<?> clazz, String className, String fieldName) {
+            FieldLocal(LocalVar localVar, Class<?> clazz, ClassLike owner, String fieldName) {
                 super(localVar, clazz);
-                this.className = className;
+                this.owner = owner;
                 this.fieldName = fieldName;
             }
 
@@ -92,8 +92,8 @@ final class Locals {
         return pair(new Locals(locals.plus(localVar, local), nextIdx + Type.getType(clazz).getSize()), local);
     }
 
-    Pair<Locals, Local> newFieldLocal(LocalVar localVar, Class<?> clazz, String className, String fieldName) {
-        Local local = new Local.FieldLocal(localVar, clazz, className, fieldName);
+    Pair<Locals, Local> newFieldLocal(LocalVar localVar, Class<?> clazz, ClassLike owner, String fieldName) {
+        Local local = new Local.FieldLocal(localVar, clazz, owner, fieldName);
         return pair(new Locals(locals.plus(localVar, local), nextIdx), local);
     }
 }

@@ -37,7 +37,7 @@ class ClassDefiner extends ClassLoader {
     static Class<?> defineClass(NewClass newClass) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
-        cw.visit(V1_8, AccessFlag.toInt(newClass.flags), toInternalName(newClass.name), null, toInternalName(newClass.superClassName),
+        cw.visit(V1_8, AccessFlag.toInt(newClass.flags), toInternalName(newClass.name), null, Type.getInternalName(newClass.superClass),
             newClass.interfaceNames.stream().map(Util::toInternalName).toArray(String[]::new));
 
         for (NewField field : newClass.fields) {
