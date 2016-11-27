@@ -216,6 +216,11 @@ public class TypeChecker {
                 // today is not that day, though.
                 return new Expr.TypeDefExpr<>(expr.range, ENV_IO, expr.sym, expr.typeDef);
             }
+
+            @Override
+            public Expr<Type> visit(Expr.DefDataExpr<?> expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 

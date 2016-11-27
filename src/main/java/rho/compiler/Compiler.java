@@ -122,6 +122,11 @@ public class Compiler {
             public PMap<LocalVar, Type> visit(Expr.TypeDefExpr<? extends Type> expr) {
                 throw new UnsupportedOperationException();
             }
+
+            @Override
+            public PMap<LocalVar, Type> visit(Expr.DefDataExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 
@@ -354,6 +359,11 @@ public class Compiler {
                     mplus(
                         loadSymbol(expr.sym),
                         loadType(expr.typeDef, locals)));
+            }
+
+            @Override
+            public Instructions visit(Expr.DefDataExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
             }
         });
     }

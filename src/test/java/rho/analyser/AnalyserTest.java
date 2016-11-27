@@ -3,6 +3,8 @@ package rho.analyser;
 import org.junit.Test;
 import org.pcollections.HashTreePMap;
 import rho.reader.Form;
+import rho.runtime.DataType;
+import rho.runtime.DataTypeConstructor;
 import rho.runtime.Env;
 
 import static org.junit.Assert.assertEquals;
@@ -107,5 +109,20 @@ public class AnalyserTest {
     public void analysesTypeDef() throws Exception {
         assertEquals(new Expr.TypeDefExpr<>(null, null, symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE)),
             analyse(PLUS_ENV, (listForm(symbolForm("::"), symbolForm("double"), listForm(symbolForm("Fn"), symbolForm("Int"), symbolForm("Int"))))));
+    }
+
+    @Test
+    public void analysesSimpleDefData() throws Exception {
+        assertEquals(
+            new Expr.DefDataExpr<Void>(null, null, new DataType(symbol("Month"),
+                vectorOf(
+                    new DataTypeConstructor(symbol("Jan")),
+                    new DataTypeConstructor(symbol("Feb")),
+                    new DataTypeConstructor(symbol("Mar"))))),
+            analyse(PLUS_ENV,
+                listForm(symbolForm("defdata"), symbolForm("Month"),
+                    symbolForm("Jan"),
+                    symbolForm("Feb"),
+                    symbolForm("Mar"))));
     }
 }

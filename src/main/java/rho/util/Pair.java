@@ -6,6 +6,7 @@ import org.pcollections.TreePVector;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class Pair<L, R> {
     public final L left;
@@ -35,6 +36,10 @@ public class Pair<L, R> {
         this.right = right;
     }
 
+    public <L_> Pair<L_, R> fmapLeft(Function<L, L_> fn) {
+        return new Pair<>(fn.apply(left), right);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -53,6 +58,4 @@ public class Pair<L, R> {
     public String toString() {
         return String.format("(Pair %s %s)", left, right);
     }
-
-
 }

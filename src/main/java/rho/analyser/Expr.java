@@ -2,6 +2,7 @@ package rho.analyser;
 
 import org.pcollections.PVector;
 import rho.reader.Range;
+import rho.runtime.DataType;
 import rho.runtime.Symbol;
 import rho.runtime.Var;
 import rho.types.Type;
@@ -606,6 +607,26 @@ public abstract class Expr<ET> {
         @Override
         public String toString() {
             return String.format("(TypeDefExpr %s %s)", sym, typeDef);
+        }
+    }
+
+    public static class DefDataExpr<ET> extends Expr<ET> {
+
+        public final DataType dataType;
+
+        public DefDataExpr(Range range, ET type, DataType dataType) {
+            super(range, type);
+            this.dataType = dataType;
+        }
+
+        @Override
+        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
+            return new DefDataExpr<>(range, fn.apply(type), dataType);
         }
     }
 }

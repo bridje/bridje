@@ -10,16 +10,21 @@ import rho.reader.FormVisitor;
 import rho.runtime.Env;
 import rho.runtime.Symbol;
 import rho.runtime.Var;
-import rho.types.Type;
+import rho.util.Pair;
 
 import java.util.LinkedList;
 import java.util.List;
 
 import static rho.Util.toPVector;
+import static rho.analyser.ListParser.*;
+import static rho.analyser.ListParser.ParseResult.fail;
+import static rho.analyser.ListParser.ParseResult.success;
+import static rho.util.Pair.pair;
 
 public class Analyser {
 
     static Expr<Void> analyse0(Env env, LocalEnv localEnv, Form form) {
+
         return form.accept(new FormVisitor<Expr<Void>>() {
             @Override
             public Expr<Void> visit(Form.BoolForm form) {
@@ -46,150 +51,121 @@ public class Analyser {
                 return new Expr.SetExpr<>(form.range, null, form.forms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
             }
 
-            @Override
-            public Expr<Void> visit(Form.ListForm form) {
-                PVector<Form> forms = form.forms;
-                Form firstForm = forms.get(0);
-                if (firstForm instanceof Form.SymbolForm) {
-                    Symbol sym = ((Form.SymbolForm) firstForm).sym;
-                    switch (sym.sym) {
-                        case "let":
-                            if (forms.size() == 3 && forms.get(1) instanceof Form.VectorForm) {
-                                PVector<Form> bindingForms = ((Form.VectorForm) forms.get(1)).forms;
+            private ListParser<Expr<Void>> exprParser(LocalEnv localEnv) {
+                return oneOf(f -> success(analyse0(env, localEnv, f)));
+            }
 
-                                if (bindingForms.size() % 2 != 0) {
-                                    throw new UnsupportedOperationException();
-                                }
+            final ListParser<Expr<Void>> exprParser = exprParser(localEnv);
 
-                                LocalEnv localEnv_ = localEnv;
-                                List<LetBinding<Void>> bindings = new LinkedList<>();
+            private ListParser<LetBinding<Void>> bindingParser(LocalEnv localEnv) {
+                return SYMBOL_PARSER.bind(symForm ->
+                    exprParser(localEnv).fmap(bindingExpr ->
+                        new LetBinding<>(new LocalVar(symForm.sym), bindingExpr)));
+            }
 
-                                for (int i = 0; i < bindingForms.size(); i += 2) {
-                                    if (bindingForms.get(i) instanceof Form.SymbolForm) {
-                                        Symbol bindingSym = ((Form.SymbolForm) bindingForms.get(i)).sym;
-                                        LocalVar localVar = new LocalVar(bindingSym);
-                                        localEnv_ = localEnv_.withLocal(bindingSym, localVar);
-                                        bindings.add(new LetBinding<>(localVar, analyse0(env, localEnv_, bindingForms.get(i + 1))));
-                                    } else {
-                                        throw new UnsupportedOperationException();
-                                    }
-                                }
+            private ListParser<Expr<Void>> listFormParser(Form.SymbolForm firstSymbolForm) {
+                Symbol firstSym = firstSymbolForm.sym;
 
-                                return new Expr.LetExpr<>(form.range, null, TreePVector.from(bindings), analyse0(env, localEnv_, forms.get(2)));
-                            }
-
-                            throw new UnsupportedOperationException();
-
-                        case "if":
-                            if (forms.size() == 4) {
-                                return new Expr.IfExpr<>(form.range, null,
-                                    analyse0(env, localEnv, forms.get(1)),
-                                    analyse0(env, localEnv, forms.get(2)),
-                                    analyse0(env, localEnv, forms.get(3)));
-                            }
-
-                            throw new UnsupportedOperationException();
-
-                        case "fn":
-                            if (forms.size() == 3) {
-                                Form paramsForm = forms.get(1);
-                                if (paramsForm instanceof Form.ListForm) {
+                switch (firstSym.sym) {
+                    case "let": {
+                        return VECTOR_PARSER.bind(bindingForm ->
+                            nestedListParser(
+                                bindingForm.forms,
+                                forms -> {
+                                    List<LetBinding<Void>> letBindings = new LinkedList<>();
                                     LocalEnv localEnv_ = localEnv;
-                                    PVector<LocalVar> paramLocals = Empty.vector();
 
-                                    for (Form paramForm : ((Form.ListForm) paramsForm).forms) {
-                                        if (paramForm instanceof Form.SymbolForm) {
-                                            Symbol paramSym = ((Form.SymbolForm) paramForm).sym;
-                                            LocalVar localVar = new LocalVar(paramSym);
-                                            localEnv_ = localEnv_.withLocal(paramSym, localVar);
-                                            paramLocals = paramLocals.plus(localVar);
+                                    while (!forms.isEmpty()) {
+                                        ParseResult<Pair<LetBinding<Void>, PVector<Form>>> bindingParseResult = bindingParser(localEnv_).parse(forms);
+
+                                        if (bindingParseResult instanceof ParseResult.Success) {
+                                            Pair<LetBinding<Void>, PVector<Form>> result = ((ParseResult.Success<Pair<LetBinding<Void>, PVector<Form>>>) bindingParseResult).result;
+                                            letBindings.add(result.left);
+                                            forms = result.right;
+                                            localEnv_ = localEnv_.withLocal(result.left.localVar);
                                         } else {
-                                            throw new UnsupportedOperationException();
+                                            return fail(((ParseResult.Fail) bindingParseResult).error);
                                         }
                                     }
 
-                                    return new Expr.FnExpr<>(form.range, null, paramLocals, analyse0(env, localEnv_, forms.get(2)));
-                                }
-                            }
+                                    return success(pair(pair(localEnv_, TreePVector.from(letBindings)), Empty.vector()));
+                                },
 
-                            throw new UnsupportedOperationException();
+                                localEnvAndBindings ->
+                                    exprParser(localEnvAndBindings.left)
+                                        .bind(bodyExpr ->
+                                            parseEnd(new Expr.LetExpr<>(form.range, null, localEnvAndBindings.right, bodyExpr)))));
+                    }
 
-
-                        case "def":
-                            if (forms.size() == 3) {
-                                Form nameForm = forms.get(1);
-                                Form bodyForm = forms.get(2);
-
-                                if (nameForm instanceof Form.SymbolForm) {
-                                    return new Expr.DefExpr<>(form.range, null,
-                                        ((Form.SymbolForm) nameForm).sym,
-                                        analyse0(env, localEnv, bodyForm));
-
-                                } else if (nameForm instanceof Form.ListForm) {
-                                    PVector<Form> nameFormForms = ((Form.ListForm) nameForm).forms;
-
-                                    if (nameFormForms.get(0) instanceof Form.SymbolForm) {
-                                        Symbol name = ((Form.SymbolForm) nameFormForms.get(0)).sym;
-                                        PVector<LocalVar> params = Empty.vector();
-                                        LocalEnv localEnv_ = localEnv;
-
-                                        for (Form paramForm : nameFormForms.minus(0)) {
-                                            if (paramForm instanceof Form.SymbolForm) {
-                                                Symbol nameSym = ((Form.SymbolForm) paramForm).sym;
-                                                LocalVar localVar = new LocalVar(nameSym);
-                                                params = params.plus(localVar);
-                                                localEnv_ = localEnv_.withLocal(nameSym, localVar);
-                                            } else {
-                                                throw new UnsupportedOperationException();
-                                            }
-                                        }
-
-                                        return new Expr.DefExpr<>(form.range, null, name, new Expr.FnExpr<>(form.range, null, params, analyse0(env, localEnv_, bodyForm)));
-                                    } else {
-                                        throw new UnsupportedOperationException();
-                                    }
-                                } else {
-                                    throw new UnsupportedOperationException();
-                                }
+                    case "if":
+                        return
+                            exprParser.bind(testExpr ->
+                                exprParser.bind(thenExpr ->
+                                    exprParser.bind(elseExpr ->
+                                        parseEnd(new Expr.IfExpr<>(form.range, null,
+                                            testExpr,
+                                            thenExpr,
+                                            elseExpr)))));
 
 
-                            }
+                    case "fn":
+                        return LIST_PARSER.bind(paramListForm ->
+                            nestedListParser(
+                                paramListForm.forms,
+                                manyOf(SYMBOL_PARSER.fmap(symForm -> new LocalVar(symForm.sym))),
 
-                        case "::":
-                            if (forms.size() == 3) {
-                                Form symForm = forms.get(1);
-                                Form typeForm = forms.get(2);
+                                localVars ->
+                                    exprParser(localEnv.withLocals(localVars)).bind(bodyExpr ->
+                                        parseEnd((Expr<Void>) new Expr.FnExpr<>(form.range, null, localVars, bodyExpr)))));
 
-                                if (symForm instanceof Form.SymbolForm) {
-                                    Symbol typeDefSym = ((Form.SymbolForm) symForm).sym;
-                                    Type type = TypeAnalyser.analyzeType(typeForm);
-                                    return new Expr.TypeDefExpr<>(form.range, null, typeDefSym, type);
-                                }
-                            }
+                    case "def": {
+                        // TODO this needs to be a choice
+                        return anyOf(
+                            SYMBOL_PARSER.bind(symForm ->
+                                exprParser.bind(bodyExpr ->
+                                    parseEnd(new Expr.DefExpr<>(form.range, null, symForm.sym, bodyExpr)))),
 
-                            throw new UnsupportedOperationException();
+                            LIST_PARSER.bind(paramListForm ->
+                                nestedListParser(
+                                    paramListForm.forms,
+                                    SYMBOL_PARSER.bind(nameForm ->
+                                        manyOf(SYMBOL_PARSER.fmap(symForm -> new LocalVar(symForm.sym))).bind(localVars ->
+                                            parseEnd(pair(nameForm.sym, localVars)))),
 
-                        default:
-                            LocalVar localVar = localEnv.localVars.get(sym);
-                            if (localVar != null) {
-                                return new Expr.CallExpr<>(form.range, null, forms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
-                            }
+                                    nameAndVars -> exprParser(localEnv.withLocals(nameAndVars.right)).bind(bodyExpr ->
+                                        parseEnd(new Expr.DefExpr<>(form.range, null, nameAndVars.left, new Expr.FnExpr<>(form.range, null, nameAndVars.right, bodyExpr)))))));
+                    }
 
-                            Var var = env.vars.get(sym);
+                    case "defdata": {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    case "::": {
+                        return SYMBOL_PARSER.bind(nameForm ->
+                            TYPE_PARSER.bind(type ->
+                                parseEnd(new Expr.TypeDefExpr<>(form.range, null, nameForm.sym, type))));
+                    }
+
+                    default:
+                        return paramForms -> {
+                            Var var = env.vars.get(firstSym);
                             if (var != null) {
-                                PVector<Expr<Void>> paramExprs = forms.subList(1, forms.size()).stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector());
+                                PVector<Expr<Void>> paramExprs = paramForms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector());
 
                                 if (var.fnMethod != null) {
-                                    return new Expr.VarCallExpr<>(form.range, null, var, paramExprs);
-                                } else {
-                                    return new Expr.CallExpr<>(form.range, null, paramExprs.plus(0, analyse0(env, localEnv, firstForm)));
+                                    return success(pair(new Expr.VarCallExpr<>(form.range, null, var, paramExprs), Empty.vector()));
                                 }
-
                             }
-                    }
-                }
 
-                throw new UnsupportedOperationException();
+                            return success(pair(new Expr.CallExpr<>(form.range, null, paramForms.plus(0, firstSymbolForm).stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector())), Empty.vector()));
+                        };
+                }
+            }
+
+
+            @Override
+            public Expr<Void> visit(Form.ListForm form) {
+                return SYMBOL_PARSER.bind(this::listFormParser).parse(form.forms).orThrow().left;
             }
 
             @Override
@@ -218,4 +194,5 @@ public class Analyser {
     public static Expr<Void> analyse(Env env, Form form) {
         return analyse0(env, LocalEnv.EMPTY_ENV, form);
     }
+
 }
