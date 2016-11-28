@@ -1,10 +1,8 @@
 package rho.compiler;
 
+import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
-import rho.runtime.DataType;
-import rho.runtime.Env;
-import rho.runtime.Symbol;
-import rho.runtime.Var;
+import rho.runtime.*;
 import rho.types.Type;
 import rho.util.Pair;
 
@@ -14,8 +12,10 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
+import static rho.Util.toPVector;
 import static rho.runtime.Var.FN_METHOD_NAME;
 import static rho.runtime.Var.VALUE_FIELD_NAME;
+import static rho.types.Type.FnType.fnType;
 import static rho.util.Pair.pair;
 
 public interface EnvUpdate<T> {
@@ -103,30 +103,41 @@ public interface EnvUpdate<T> {
             Type type = new Type.DataTypeType(dataType.sym, superClass);
             Map<Symbol, Var> vars = new HashMap<>();
 
-            DataType<Type> dataType = null; // new DataType<>(type, this.dataType.sym, this.dataType.constructors.stream().map(c -> new DataTypeConstructor<>(type, c.sym)).collect(toPVector()));
+            DataType<Type> dataType = new DataType<>(type, this.dataType.sym,
+                this.dataType.constructors.stream().map(c -> c.accept(new ConstructorVisitor<Type, DataTypeConstructor<Type>>() {
+                    @Override
+                    public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<? extends Type> constructor) {
+                        return new DataTypeConstructor.ValueConstructor<>(type, constructor.sym);
+                    }
 
-            throw new UnsupportedOperationException();
+                    @Override
+                    public DataTypeConstructor<Type> visit(DataTypeConstructor.VectorConstructor<? extends Type> constructor) {
+                        return new DataTypeConstructor.VectorConstructor<>(fnType(constructor.paramTypes, type), constructor.sym, constructor.paramTypes);
+                    }
+                })).collect(toPVector()));
 
-//            for (DataTypeConstructor<Type> constructor : dataType.constructors) {
-//                Symbol constructorSym = constructor.sym;
-//                Class<?> clazz = constructorClasses.get(constructorSym);
-//
-//                Field field;
-//                try {
-//                    field = clazz.getDeclaredField(VALUE_FIELD_NAME);
-//                } catch (NoSuchFieldException e) {
-//                    throw new RuntimeException(e);
-//                }
-//
-//                vars.put(constructorSym, new Var(type, type, field, null));
-//            }
-//
-//            return pair(
-//                env.withDataType(
-//                    dataType,
-//                    superClass,
-//                    HashTreePMap.from(vars)),
-//                dataType);
+//            throw new UnsupportedOperationException();
+
+            for (DataTypeConstructor<Type> constructor : dataType.constructors) {
+                Symbol constructorSym = constructor.sym;
+                Class<?> clazz = constructorClasses.get(constructorSym);
+
+                Field field;
+                try {
+                    field = clazz.getDeclaredField(VALUE_FIELD_NAME);
+                } catch (NoSuchFieldException e) {
+                    throw new RuntimeException(e);
+                }
+
+                vars.put(constructorSym, new Var(constructor.type, constructor.type, field, null));
+            }
+
+            return pair(
+                env.withDataType(
+                    dataType,
+                    superClass,
+                    HashTreePMap.from(vars)),
+                dataType);
         }
     }
 }

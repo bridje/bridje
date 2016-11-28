@@ -374,12 +374,18 @@ public class Compiler {
                         newClass(subclassName)
                             .withSuperClass(superClass)
                             .withField(newField(VALUE_FIELD_NAME, superClass, setOf(PUBLIC, STATIC, FINAL)))
+
+                            // TODO need to add fields for the parameters
+
+                            // TODO this needs to be a MethodHandle iff it's a VectorConstructor
                             .withMethod(newMethod(setOf(PUBLIC, STATIC), "<clinit>", Void.TYPE, Empty.vector(),
                                 mplus(
                                     newObject(fromClassName(subclassName), Empty.vector(), MZERO),
                                     fieldOp(PUT_STATIC, fromClassName(subclassName), VALUE_FIELD_NAME, fromClass(superClass)),
                                     ret(Void.TYPE)
                                 )))
+
+                            // TODO this needs to take VectorParams if applicable
                             .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, Empty.vector(),
                                 mplus(loadThis(), methodCall(fromClass(superClass), INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector()), ret(Void.TYPE))))));
                 }
