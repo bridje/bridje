@@ -17,6 +17,8 @@ public abstract class DataTypeConstructor<T> {
 
     public abstract <T_> DataTypeConstructor<T_> fmapType(Function<T, T_> fn);
 
+    public abstract <U> U accept(ConstructorVisitor<? super T, U> visitor);
+
     public static final class ValueConstructor<T> extends DataTypeConstructor<T> {
 
         public ValueConstructor(T type, Symbol sym) {
@@ -26,6 +28,11 @@ public abstract class DataTypeConstructor<T> {
         @Override
         public <T_> DataTypeConstructor<T_> fmapType(Function<T, T_> fn) {
             return new ValueConstructor<T_>(fn.apply(type), sym);
+        }
+
+        @Override
+        public <U> U accept(ConstructorVisitor<? super T, U> visitor) {
+            return visitor.visit(this);
         }
 
         @Override
@@ -54,6 +61,11 @@ public abstract class DataTypeConstructor<T> {
         @Override
         public <T_> DataTypeConstructor<T_> fmapType(Function<T, T_> fn) {
             return new VectorConstructor<T_>(fn.apply(type), sym, paramTypes);
+        }
+
+        @Override
+        public <U> U accept(ConstructorVisitor<? super T, U> visitor) {
+            return visitor.visit(this);
         }
 
         @Override

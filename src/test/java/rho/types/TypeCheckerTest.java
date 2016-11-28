@@ -1,9 +1,12 @@
 package rho.types;
 
 import org.junit.Test;
+import org.pcollections.PVector;
 import rho.Panic;
 import rho.analyser.Expr;
 import rho.analyser.LocalVar;
+import rho.runtime.DataType;
+import rho.runtime.DataTypeConstructor;
 
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
@@ -107,5 +110,28 @@ public class TypeCheckerTest {
     @Test
     public void typesTypeDef() throws Exception {
         assertEquals(ENV_IO, TypeChecker.typeExpr(new Expr.TypeDefExpr<>(null, null, symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE))).type);
+    }
+
+    @Test
+    public void typesSimpleUnion() throws Exception {
+        Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(
+            new Expr.DefDataExpr<>(null, null,
+                new DataType<>(null, symbol("SimpleUnion"),
+                    vectorOf(
+                        new DataTypeConstructor.VectorConstructor<>(null, symbol("AnInt"), vectorOf(INT_TYPE)),
+                        new DataTypeConstructor.VectorConstructor<>(null, symbol("AString"), vectorOf(STRING_TYPE)),
+                        new DataTypeConstructor.ValueConstructor<>(null, symbol("Neither"))))));
+
+        assertEquals(ENV_IO, expr.type);
+
+        DataType<Type> dataType = expr.dataType;
+        PVector<DataTypeConstructor<Type>> constructors = dataType.constructors;
+
+        DataTypeType simpleUnionType = new DataTypeType(symbol("SimpleUnion"), null);
+
+        assertEquals(simpleUnionType, dataType.type);
+        assertEquals(fnType(vectorOf(INT_TYPE), simpleUnionType), constructors.get(0).type);
+        assertEquals(fnType(vectorOf(STRING_TYPE), simpleUnionType), constructors.get(1).type);
+        assertEquals(simpleUnionType, constructors.get(2).type);
     }
 }

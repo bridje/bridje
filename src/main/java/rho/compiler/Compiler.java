@@ -12,10 +12,7 @@ import rho.util.Pair;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.publicLookup;
@@ -118,17 +115,17 @@ public class Compiler {
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.DefExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                return expr.body.accept(this);
             }
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.TypeDefExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                return Empty.map();
             }
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.DefDataExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                return Empty.map();
             }
         });
     }

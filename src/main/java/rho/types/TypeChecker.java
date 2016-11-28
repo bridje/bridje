@@ -7,7 +7,9 @@ import rho.analyser.Expr.BoolExpr;
 import rho.analyser.Expr.StringExpr;
 import rho.analyser.ExprVisitor;
 import rho.analyser.LocalVar;
+import rho.runtime.ConstructorVisitor;
 import rho.runtime.DataType;
+import rho.runtime.DataTypeConstructor;
 
 import static rho.Util.toPVector;
 import static rho.types.Type.FnType.fnType;
@@ -223,15 +225,23 @@ public class TypeChecker {
                 DataType<?> dataType = expr.dataType;
                 Type dataTypeType = new DataTypeType(dataType.sym, null);
 
-                throw new UnsupportedOperationException();
+                return new Expr.DefDataExpr<>(expr.range, ENV_IO,
+                    new DataType<>(
+                        dataTypeType,
+                        dataType.sym,
+                        dataType.constructors.stream()
+                            .map(c -> c.accept(new ConstructorVisitor<Object, DataTypeConstructor<Type>>() {
 
-//                return new Expr.DefDataExpr<>(expr.range, ENV_IO,
-//                    new DataType<>(
-//                        dataTypeType,
-//                        dataType.sym,
-//                        dataType.constructors.stream()
-//                            .map(c -> new DataTypeConstructor<>(dataTypeType, c.sym))
-//                            .collect(toPVector())));
+                                @Override
+                                public DataTypeConstructor<Type> visit(DataTypeConstructor.VectorConstructor<?> constructor) {
+                                    return new DataTypeConstructor.VectorConstructor<>(fnType(constructor.paramTypes, dataTypeType), constructor.sym, constructor.paramTypes);
+                                }
+
+                                @Override
+                                public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<?> constructor) {
+                                    return new DataTypeConstructor.ValueConstructor<>(dataTypeType, constructor.sym);
+                                }
+                            })).collect(toPVector())));
             }
         });
     }

@@ -48,7 +48,7 @@ public class E2EEval {
 
         Expr<Void> expr = analyse(env, form);
 
-        Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
+            Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
         return pair(typedExpr, compile(env, typedExpr));
     }
