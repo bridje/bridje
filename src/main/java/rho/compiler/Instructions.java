@@ -197,10 +197,13 @@ interface Instructions {
 
     Instructions OBJECT_SUPER_CONSTRUCTOR_CALL = methodCall(fromClass(Object.class), MethodInvoke.INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector());
 
-    static Instructions loadThis() {
-        return mv -> mv.visitVarInsn(ALOAD, 0);
+    static Instructions loadLocal(int i, Class<?> clazz) {
+        return mv -> mv.visitVarInsn(Type.getType(clazz).getOpcode(ILOAD), i);
     }
 
+    static Instructions loadThis() {
+        return loadLocal(0, Object.class);
+    }
 
     static Instructions newObject(ClassLike classLike, PVector<Class<?>> params, Instructions paramInstructions) {
         return
@@ -319,7 +322,7 @@ interface Instructions {
             @Override
             public Instructions visit(Locals.Local.FieldLocal local) {
                 return mplus(
-                    mv -> mv.visitVarInsn(ALOAD, 0),
+                    loadThis(),
                     fieldOp(GET_FIELD, local.owner, local.fieldName, fromClass(local.clazz)));
             }
 
@@ -355,8 +358,8 @@ interface Instructions {
         return loadObject(Type.getMethodType(methodType.toMethodDescriptorString()));
     }
 
-    static Instructions staticMethodHandle(String classInternalName, String methodName, PVector<Class<?>> paramClasses, Class<?> returnClass) {
-        return loadObject(new Handle(H_INVOKESTATIC, classInternalName, methodName,
+    static Instructions staticMethodHandle(ClassLike classLike, String methodName, PVector<Class<?>> paramClasses, Class<?> returnClass) {
+        return loadObject(new Handle(H_INVOKESTATIC, classLike.getInternalName(), methodName,
             MethodType.methodType(returnClass, paramClasses.toArray(new Class<?>[paramClasses.size()])).toMethodDescriptorString(), false));
     }
 

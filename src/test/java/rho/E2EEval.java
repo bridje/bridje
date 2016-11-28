@@ -126,5 +126,8 @@ public class E2EEval {
         Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(AnInt 4)");
 
         assertEquals(new Type.DataTypeType(symbol("IntOrString"), null), result.left.type);
+
+        Object value = result.right.value;
+        assertEquals(4L, value.getClass().getDeclaredField("field$$0").get(value));
     }
 }

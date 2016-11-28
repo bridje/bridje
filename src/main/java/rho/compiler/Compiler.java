@@ -12,14 +12,15 @@ import rho.util.Pair;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.publicLookup;
 import static rho.Panic.panic;
-import static rho.Util.setOf;
 import static rho.Util.*;
-import static rho.Util.vectorOf;
 import static rho.compiler.AccessFlag.*;
 import static rho.compiler.ClassDefiner.defineClass;
 import static rho.compiler.ClassLike.fromClass;
@@ -315,7 +316,7 @@ public class Compiler {
                 }
 
                 Instructions valueInstructions = isFn
-                    ? Instructions.staticMethodHandle(toInternalName(className), FN_METHOD_NAME, paramTypes, fnMethodType.returnType())
+                    ? Instructions.staticMethodHandle(fromClassName(className), FN_METHOD_NAME, paramTypes, fnMethodType.returnType())
                     : compileExpr0(staticLocals(), expr.body);
 
                 NewClass newClass = newClass(className)
@@ -360,6 +361,8 @@ public class Compiler {
             @Override
             public Instructions visit(Expr.DefDataExpr<? extends Type> expr) {
                 DataType<? extends Type> dataType = expr.dataType;
+                Type.DataTypeType dataTypeType = ((Type.DataTypeType) dataType.type);
+
 
                 Class<?> superClass = defineClass(newClass(format("user$$%s$$%d", dataType.sym.sym, uniqueInt()), setOf(PUBLIC, ABSTRACT))
                     .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, Empty.vector(),
@@ -367,27 +370,78 @@ public class Compiler {
 
                 Map<Symbol, Class<?>> constructors = new HashMap<>();
 
-                for (DataTypeConstructor constructor : expr.dataType.constructors) {
+                for (DataTypeConstructor<? extends Type> constructor : expr.dataType.constructors) {
                     String subclassName = format("user$$%s$$%s$$%d", dataType.sym.sym, constructor.sym.sym, uniqueInt());
 
-                    constructors.put(constructor.sym, defineClass(
-                        newClass(subclassName)
-                            .withSuperClass(superClass)
-                            .withField(newField(VALUE_FIELD_NAME, superClass, setOf(PUBLIC, STATIC, FINAL)))
+                    NewClass newClass = newClass(subclassName).withSuperClass(superClass);
+                    final NewClass baseNewClass = newClass;
 
-                            // TODO need to add fields for the parameters
+                    newClass = constructor.accept(new ConstructorVisitor<Type, NewClass>() {
+                        @Override
+                        public NewClass visit(DataTypeConstructor.ValueConstructor<? extends Type> constructor) {
+                            return baseNewClass
+                                .withField(newField(VALUE_FIELD_NAME, superClass, setOf(PUBLIC, STATIC, FINAL)))
+                                .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, Empty.vector(),
+                                    mplus(
+                                        loadThis(),
+                                        methodCall(fromClass(superClass), INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector()),
+                                        ret(Void.TYPE))))
 
-                            // TODO this needs to be a MethodHandle iff it's a VectorConstructor
-                            .withMethod(newMethod(setOf(PUBLIC, STATIC), "<clinit>", Void.TYPE, Empty.vector(),
-                                mplus(
-                                    newObject(fromClassName(subclassName), Empty.vector(), MZERO),
-                                    fieldOp(PUT_STATIC, fromClassName(subclassName), VALUE_FIELD_NAME, fromClass(superClass)),
-                                    ret(Void.TYPE)
-                                )))
+                                .withMethod(newMethod(setOf(PUBLIC, STATIC), "<clinit>", Void.TYPE, Empty.vector(),
+                                    mplus(
+                                        newObject(fromClassName(subclassName), Empty.vector(), MZERO),
+                                        fieldOp(PUT_STATIC, fromClassName(subclassName), VALUE_FIELD_NAME, fromClass(superClass)),
+                                        ret(Void.TYPE))));
+                        }
 
-                            // TODO this needs to take VectorParams if applicable
-                            .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, Empty.vector(),
-                                mplus(loadThis(), methodCall(fromClass(superClass), INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector()), ret(Void.TYPE))))));
+                        @Override
+                        public NewClass visit(DataTypeConstructor.VectorConstructor<? extends Type> constructor) {
+                            NewClass newClass = baseNewClass;
+                            PVector<Class<?>> paramClasses = constructor.paramTypes.stream().map(pt -> pt == dataTypeType ? superClass : pt.javaType).collect(toPVector());
+
+                            Instructions setFieldsInstructions = MZERO;
+                            Instructions loadLocalInstructions = MZERO;
+
+                            for (int i = 0; i < constructor.paramTypes.size(); i++) {
+                                Class<?> paramClass = paramClasses.get(i);
+                                String fieldName = "field$$" + i;
+
+                                setFieldsInstructions = mplus(setFieldsInstructions,
+                                    loadThis(),
+                                    loadLocal(i + 1, paramClass),
+                                    fieldOp(PUT_FIELD, fromClassName(subclassName), fieldName, fromClass(paramClass)));
+
+                                loadLocalInstructions = mplus(loadLocalInstructions, loadLocal(i, paramClass));
+
+                                newClass = newClass.withField(newField(fieldName, paramClass, setOf(PUBLIC, FINAL)));
+                            }
+
+                            newClass = newClass
+                                .withField(newField(VALUE_FIELD_NAME, MethodHandle.class, setOf(PUBLIC, STATIC, FINAL)))
+
+                                .withMethod(newMethod(setOf(PUBLIC, STATIC), "<clinit>", Void.TYPE, Empty.vector(),
+                                    mplus(
+                                        staticMethodHandle(fromClassName(subclassName), FN_METHOD_NAME, paramClasses, superClass),
+                                        fieldOp(PUT_STATIC, fromClassName(subclassName), VALUE_FIELD_NAME, fromClass(MethodHandle.class)),
+                                        ret(Void.TYPE))))
+
+                                .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, paramClasses,
+                                    mplus(
+                                        loadThis(),
+                                        methodCall(fromClass(superClass), INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector()),
+                                        setFieldsInstructions,
+                                        ret(Void.TYPE))))
+
+                                .withMethod(newMethod(setOf(PUBLIC, STATIC), FN_METHOD_NAME, superClass, paramClasses,
+                                    mplus(
+                                        newObject(fromClassName(subclassName), paramClasses, loadLocalInstructions),
+                                        ret(superClass))));
+
+                            return newClass;
+                        }
+                    });
+
+                    constructors.put(constructor.sym, defineClass(newClass));
                 }
 
                 return newObject(fromClass(EnvUpdate.DefDataEnvUpdate.class), vectorOf(DataType.class, Class.class, PMap.class),
