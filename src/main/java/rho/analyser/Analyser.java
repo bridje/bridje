@@ -1,6 +1,5 @@
 package rho.analyser;
 
-import org.objectweb.asm.Type;
 import org.pcollections.Empty;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
@@ -8,8 +7,12 @@ import rho.analyser.Expr.LetExpr.LetBinding;
 import rho.analyser.Expr.LocalVarExpr;
 import rho.reader.Form;
 import rho.reader.FormVisitor;
-import rho.runtime.*;
-import rho.types.Type.DataTypeType;
+import rho.runtime.DataType;
+import rho.runtime.DataTypeConstructor.ValueConstructor;
+import rho.runtime.DataTypeConstructor.VectorConstructor;
+import rho.runtime.Env;
+import rho.runtime.Symbol;
+import rho.runtime.Var;
 import rho.util.Pair;
 
 import java.util.LinkedList;
@@ -139,10 +142,15 @@ public class Analyser {
                     case "defdata": {
                         return SYMBOL_PARSER.bind(nameForm ->
                             manyOf(anyOf(
-                                SYMBOL_PARSER.fmap(symForm -> new DataTypeConstructor<Void>(null, symForm.sym))))
+                                SYMBOL_PARSER.fmap(symForm -> new ValueConstructor<Void>(null, symForm.sym)),
+                                LIST_PARSER.bind(constructorForm -> nestedListParser(constructorForm.forms,
+                                    SYMBOL_PARSER.bind(cNameForm ->
+                                        manyOf(TYPE_PARSER).bind(paramTypes ->
+                                            parseEnd(new VectorConstructor<Void>(null, cNameForm.sym, paramTypes)))),
+                                    c -> ListParser.pure(c)))))
 
                                 .bind(constructors ->
-                                    parseEnd(new Expr.DefDataExpr<>(form.range, null, new DataType<>(null, nameForm.sym, constructors)))));
+                                    parseEnd(new Expr.DefDataExpr<Void>(form.range, null, new DataType<Void>(null, nameForm.sym, constructors)))));
                     }
 
                     case "::": {

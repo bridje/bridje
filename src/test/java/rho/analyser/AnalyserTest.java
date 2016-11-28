@@ -1,10 +1,9 @@
 package rho.analyser;
 
 import org.junit.Test;
-import org.objectweb.asm.Type;
 import rho.reader.Form;
 import rho.runtime.DataType;
-import rho.runtime.DataTypeConstructor;
+import rho.runtime.DataTypeConstructor.ValueConstructor;
 
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
@@ -109,9 +108,9 @@ public class AnalyserTest {
         assertEquals(
             new Expr.DefDataExpr<>(null, null, new DataType<>(null, symbol("Month"),
                 vectorOf(
-                    new DataTypeConstructor<>(null, symbol("Jan")),
-                    new DataTypeConstructor<>(null, symbol("Feb")),
-                    new DataTypeConstructor<>(null, symbol("Mar"))))),
+                    new ValueConstructor<>(null, symbol("Jan")),
+                    new ValueConstructor<>(null, symbol("Feb")),
+                    new ValueConstructor<>(null, symbol("Mar"))))),
             analyse(PLUS_ENV,
                 listForm(symbolForm("defdata"), symbolForm("Month"),
                     symbolForm("Jan"),

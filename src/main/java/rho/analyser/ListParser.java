@@ -104,6 +104,11 @@ interface ListParser<T> {
 
     ParseResult<Pair<T, PVector<Form>>> parse(PVector<Form> forms);
 
+    static <T> ListParser<T> pure(T t) {
+        return forms ->
+            success(pair(t, forms));
+    }
+
     default <U> ListParser<U> bind(Function<T, ListParser<U>> fn) {
         return forms -> this.parse(forms).bind(success -> fn.apply(success.left).parse(success.right));
     }

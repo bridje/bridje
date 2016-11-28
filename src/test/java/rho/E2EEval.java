@@ -111,11 +111,20 @@ public class E2EEval {
     }
 
     @Test
-    public void testsSimpleDataType() throws Exception {
+    public void testsSimpleEnum() throws Exception {
         EvalResult defDataResult = evalAction(PLUS_ENV, "(defdata Month Jan Feb Mar)").right;
 
         Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "Mar");
 
         assertEquals(new Type.DataTypeType(symbol("Month"), null), result.left.type);
+    }
+
+    @Test
+    public void testSimpleUnion() throws Exception {
+        EvalResult defDataResult = evalAction(PLUS_ENV, "(defdata IntOrString (AnInt Int) (AString Str))").right;
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(AnInt 4)");
+
+        assertEquals(new Type.DataTypeType(symbol("IntOrString"), null), result.left.type);
     }
 }

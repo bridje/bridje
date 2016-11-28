@@ -8,7 +8,6 @@ import rho.analyser.Expr.StringExpr;
 import rho.analyser.ExprVisitor;
 import rho.analyser.LocalVar;
 import rho.runtime.DataType;
-import rho.runtime.DataTypeConstructor;
 
 import static rho.Util.toPVector;
 import static rho.types.Type.FnType.fnType;
@@ -224,13 +223,15 @@ public class TypeChecker {
                 DataType<?> dataType = expr.dataType;
                 Type dataTypeType = new DataTypeType(dataType.sym, null);
 
-                return new Expr.DefDataExpr<>(expr.range, ENV_IO,
-                    new DataType<>(
-                        dataTypeType,
-                        dataType.sym,
-                        dataType.constructors.stream()
-                            .map(c -> new DataTypeConstructor<>(dataTypeType, c.sym))
-                            .collect(toPVector())));
+                throw new UnsupportedOperationException();
+
+//                return new Expr.DefDataExpr<>(expr.range, ENV_IO,
+//                    new DataType<>(
+//                        dataTypeType,
+//                        dataType.sym,
+//                        dataType.constructors.stream()
+//                            .map(c -> new DataTypeConstructor<>(dataTypeType, c.sym))
+//                            .collect(toPVector())));
             }
         });
     }
