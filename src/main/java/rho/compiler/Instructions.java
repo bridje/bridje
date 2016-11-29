@@ -197,12 +197,12 @@ interface Instructions {
 
     Instructions OBJECT_SUPER_CONSTRUCTOR_CALL = methodCall(fromClass(Object.class), MethodInvoke.INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector());
 
-    static Instructions loadLocal(int i, Class<?> clazz) {
-        return mv -> mv.visitVarInsn(Type.getType(clazz).getOpcode(ILOAD), i);
+    static Instructions loadLocal(Locals.Local.VarLocal local) {
+        return mv -> mv.visitVarInsn(Type.getType(local.clazz).getOpcode(ILOAD), local.idx);
     }
 
     static Instructions loadThis() {
-        return loadLocal(0, Object.class);
+        return mv -> mv.visitVarInsn(ALOAD, 0);
     }
 
     static Instructions newObject(ClassLike classLike, PVector<Class<?>> params, Instructions paramInstructions) {

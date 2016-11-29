@@ -43,4 +43,13 @@ class ParseException extends RuntimeException {
             this.extraForms = extraForms;
         }
     }
+
+    static final class MultipleParseFailsException extends ParseException {
+        final PVector<ListParser.ParseResult.Fail<?>> fails;
+
+        MultipleParseFailsException(PVector<ListParser.ParseResult.Fail<?>> fails) {
+            this.fails = fails;
+        }
+    }
+
 }

@@ -34,6 +34,7 @@ import static rho.compiler.Locals.staticLocals;
 import static rho.compiler.NewClass.newClass;
 import static rho.compiler.NewField.newField;
 import static rho.compiler.NewMethod.newMethod;
+import static rho.runtime.Symbol.symbol;
 import static rho.runtime.Var.FN_METHOD_NAME;
 import static rho.runtime.Var.VALUE_FIELD_NAME;
 
@@ -397,21 +398,28 @@ public class Compiler {
                         @Override
                         public NewClass visit(DataTypeConstructor.VectorConstructor<? extends Type> constructor) {
                             NewClass newClass = baseNewClass;
-                            PVector<Class<?>> paramClasses = constructor.paramTypes.stream().map(pt -> pt == dataTypeType ? superClass : pt.javaType).collect(toPVector());
+                            PVector<Class<?>> paramClasses = constructor.paramTypes.stream().map(pt -> pt.equals(dataTypeType) ? superClass : pt.javaType).collect(toPVector());
 
                             Instructions setFieldsInstructions = MZERO;
                             Instructions loadLocalInstructions = MZERO;
+                            Locals setFieldsLocals = instanceLocals();
+                            Locals loadLocalLocals = staticLocals();
 
                             for (int i = 0; i < constructor.paramTypes.size(); i++) {
                                 Class<?> paramClass = paramClasses.get(i);
                                 String fieldName = "field$$" + i;
 
+                                LocalVar localVar = new LocalVar(symbol(fieldName));
+                                Pair<Locals, Locals.Local.VarLocal> newSetFieldsLocals = setFieldsLocals.newVarLocal(localVar, paramClass);
+                                setFieldsLocals = newSetFieldsLocals.left;
                                 setFieldsInstructions = mplus(setFieldsInstructions,
                                     loadThis(),
-                                    loadLocal(i + 1, paramClass),
+                                    loadLocal(newSetFieldsLocals.right),
                                     fieldOp(PUT_FIELD, fromClassName(subclassName), fieldName, fromClass(paramClass)));
 
-                                loadLocalInstructions = mplus(loadLocalInstructions, loadLocal(i, paramClass));
+                                Pair<Locals, Locals.Local.VarLocal> newLoadLocalLocals = loadLocalLocals.newVarLocal(localVar, paramClass);
+                                loadLocalLocals = newLoadLocalLocals.left;
+                                loadLocalInstructions = mplus(loadLocalInstructions, loadLocal(newLoadLocalLocals.right));
 
                                 newClass = newClass.withField(newField(fieldName, paramClass, setOf(PUBLIC, FINAL)));
                             }

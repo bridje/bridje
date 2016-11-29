@@ -1,6 +1,7 @@
 package rho.analyser;
 
 import org.pcollections.Empty;
+import org.pcollections.HashTreePMap;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 import rho.analyser.Expr.LetExpr.LetBinding;
@@ -13,6 +14,7 @@ import rho.runtime.DataTypeConstructor.VectorConstructor;
 import rho.runtime.Env;
 import rho.runtime.Symbol;
 import rho.runtime.Var;
+import rho.types.Type;
 import rho.util.Pair;
 
 import java.util.LinkedList;
@@ -144,18 +146,21 @@ public class Analyser {
                             manyOf(anyOf(
                                 SYMBOL_PARSER.fmap(symForm -> new ValueConstructor<Void>(null, symForm.sym)),
                                 LIST_PARSER.bind(constructorForm -> nestedListParser(constructorForm.forms,
-                                    SYMBOL_PARSER.bind(cNameForm ->
-                                        manyOf(TYPE_PARSER).bind(paramTypes ->
-                                            parseEnd(new VectorConstructor<Void>(null, cNameForm.sym, paramTypes)))),
-                                    c -> ListParser.pure(c)))))
+                                    SYMBOL_PARSER.bind(cNameForm -> {
+                                        LocalTypeEnv localTypeEnv = new LocalTypeEnv(HashTreePMap.singleton(nameForm.sym, new Type.DataTypeType(nameForm.sym, null)));
+                                        return manyOf(typeParser(localTypeEnv)).bind(paramTypes ->
+                                            parseEnd(new VectorConstructor<Void>(null, cNameForm.sym, paramTypes)));
+                                    }),
+
+                                    ListParser::pure))))
 
                                 .bind(constructors ->
-                                    parseEnd(new Expr.DefDataExpr<Void>(form.range, null, new DataType<Void>(null, nameForm.sym, constructors)))));
+                                    parseEnd(new Expr.DefDataExpr<Void>(form.range, null, new DataType<>(null, nameForm.sym, constructors)))));
                     }
 
                     case "::": {
                         return SYMBOL_PARSER.bind(nameForm ->
-                            TYPE_PARSER.bind(type ->
+                            typeParser(LocalTypeEnv.EMPTY).bind(type ->
                                 parseEnd(new Expr.TypeDefExpr<>(form.range, null, nameForm.sym, type))));
                     }
 

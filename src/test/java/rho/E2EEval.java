@@ -11,6 +11,8 @@ import rho.types.Type;
 import rho.types.TypeChecker;
 import rho.util.Pair;
 
+import java.lang.reflect.Field;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static rho.Util.vectorOf;
@@ -129,5 +131,21 @@ public class E2EEval {
 
         Object value = result.right.value;
         assertEquals(4L, value.getClass().getDeclaredField("field$$0").get(value));
+    }
+
+    @Test
+    public void testIntList() throws Exception {
+        EvalResult defDataResult = evalAction(PLUS_ENV, "(defdata IntList (IntListCons Int IntList) EmptyIntList)").right;
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(IntListCons 4 (IntListCons 5 EmptyIntList))");
+
+        assertEquals(new Type.DataTypeType(symbol("IntList"), null), result.left.type);
+
+        Object intList = result.right.value;
+        Field field0 = intList.getClass().getDeclaredField("field$$0");
+        Object nestedIntList = intList.getClass().getDeclaredField("field$$1").get(intList);
+
+        assertEquals(4L, field0.get(intList));
+        assertEquals(5L, field0.get(nestedIntList));
     }
 }

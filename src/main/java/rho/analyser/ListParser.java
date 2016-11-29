@@ -2,6 +2,7 @@ package rho.analyser;
 
 import org.pcollections.Empty;
 import org.pcollections.PVector;
+import rho.analyser.ParseException.MultipleParseFailsException;
 import rho.reader.Form;
 import rho.types.Type;
 import rho.util.Pair;
@@ -149,13 +150,15 @@ interface ListParser<T> {
     ListParser<Form.ListForm> LIST_PARSER = formTypeParser(Form.ListForm.class);
     ListParser<Form.VectorForm> VECTOR_PARSER = formTypeParser(Form.VectorForm.class);
 
-    ListParser<Type> TYPE_PARSER = oneOf(form -> {
-        try {
-            return success(TypeAnalyser.analyzeType(form));
-        } catch (Exception e) {
-            return fail(new ParseException.TypeParseException(e));
-        }
-    });
+    static ListParser<Type> typeParser(LocalTypeEnv localTypeEnv) {
+        return oneOf(form -> {
+            try {
+                return success(TypeAnalyser.analyzeType(form, localTypeEnv));
+            } catch (Exception e) {
+                return fail(new ParseException.TypeParseException(e));
+            }
+        });
+    }
 
     static <T> ListParser<T> oneOf(FormParser<T> formParser) {
         return forms -> {
@@ -193,14 +196,18 @@ interface ListParser<T> {
 
     static <T> ListParser<T> anyOf(ListParser<T>... parsers) {
         return forms -> {
+            PVector<ParseResult.Fail<?>> fails = Empty.vector();
+
             for (ListParser<T> parser : parsers) {
                 ParseResult<Pair<T, PVector<Form>>> parseResult = parser.parse(forms);
                 if (parseResult instanceof ParseResult.Success) {
                     return parseResult;
+                } else {
+                    fails = fails.plus(((ParseResult.Fail) parseResult));
                 }
             }
 
-            return fail(new ParseException());
+            return fail(new MultipleParseFailsException(fails));
         };
     }
 }

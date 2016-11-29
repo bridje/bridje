@@ -17,6 +17,11 @@ import static rho.types.Type.SimpleType.*;
 public class TypeAnalyser {
 
     private final Map<Symbol, TypeVar> typeVarEnv = new HashMap<>();
+    private final LocalTypeEnv localTypeEnv;
+
+    public TypeAnalyser(LocalTypeEnv localTypeEnv) {
+        this.localTypeEnv = localTypeEnv;
+    }
 
     private Type analyzeType0(Form form) {
         return form.accept(new FormVisitor<Type>() {
@@ -70,6 +75,10 @@ public class TypeAnalyser {
                                     types.subList(0, types.size() - 1),
                                     types.get(types.size() - 1));
                             }
+                            break;
+
+                        default:
+                            return localTypeEnv.resolve(sym).orElseThrow(() -> new UnsupportedOperationException());
                     }
                 }
 
@@ -91,10 +100,9 @@ public class TypeAnalyser {
                         case "Bool":
                             return BOOL_TYPE;
                         default:
+                            return localTypeEnv.resolve(sym).orElseThrow(() -> new UnsupportedOperationException());
                     }
                 }
-
-                throw new UnsupportedOperationException();
             }
 
             @Override
@@ -104,8 +112,8 @@ public class TypeAnalyser {
         });
     }
 
-    public static Type analyzeType(Form form) {
-        return new TypeAnalyser().analyzeType0(form);
+    public static Type analyzeType(Form form, LocalTypeEnv localTypeEnv) {
+        return new TypeAnalyser(localTypeEnv).analyzeType0(form);
     }
 
 }

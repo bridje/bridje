@@ -4,6 +4,8 @@ import org.junit.Test;
 import rho.reader.Form;
 import rho.runtime.DataType;
 import rho.runtime.DataTypeConstructor.ValueConstructor;
+import rho.runtime.DataTypeConstructor.VectorConstructor;
+import rho.types.Type;
 
 import static org.junit.Assert.assertEquals;
 import static rho.Util.vectorOf;
@@ -116,5 +118,17 @@ public class AnalyserTest {
                     symbolForm("Jan"),
                     symbolForm("Feb"),
                     symbolForm("Mar"))));
+    }
+
+    @Test
+    public void analysesRecursiveDataType() throws Exception {
+        assertEquals(new Expr.DefDataExpr<>(null, null, new DataType<>(null, symbol("IntList"),
+                vectorOf(
+                    new VectorConstructor<>(null, symbol("IntListCons"), vectorOf(INT_TYPE, new Type.DataTypeType(symbol("IntList"), null))),
+                    new ValueConstructor<>(null, symbol("EmptyIntList"))))),
+            analyse(PLUS_ENV,
+                listForm(symbolForm("defdata"), symbolForm("IntList"),
+                    listForm(symbolForm("IntListCons"), symbolForm("Int"), symbolForm("IntList")),
+                    symbolForm("EmptyIntList"))));
     }
 }

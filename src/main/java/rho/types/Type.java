@@ -454,6 +454,17 @@ public abstract class Type {
         }
 
         @Override
+        TypeMapping unify0(Type t2) {
+            if (t2 instanceof DataTypeType) {
+                if (name.equals(((DataTypeType) t2).name)) {
+                    return TypeMapping.EMPTY;
+                }
+            }
+
+            throw cantUnify(t2);
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
