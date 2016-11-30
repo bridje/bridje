@@ -18,4 +18,6 @@ public interface TypeVisitor<T> {
     T visit(Type.TypeVar type);
 
     T visit(Type.DataTypeType type);
+
+    T visit(Type.AppliedType type);
 }

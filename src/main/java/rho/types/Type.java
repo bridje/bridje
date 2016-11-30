@@ -477,4 +477,67 @@ public abstract class Type {
             return Objects.hash(name);
         }
     }
+
+    public static final class AppliedType extends Type {
+
+        public final Type appliedType;
+        public final PVector<Type> typeParams;
+
+        public AppliedType(Type appliedType, PVector<Type> typeParams, Class<?> javaType) {
+            super(javaType);
+            this.appliedType = appliedType;
+            this.typeParams = typeParams;
+        }
+
+        @Override
+        public PSet<TypeVar> ftvs() {
+            return typeParams.plus(appliedType).stream().flatMap(t -> t.ftvs().stream()).collect(toPSet());
+        }
+
+        @Override
+        public Type apply(TypeMapping mapping) {
+            return new AppliedType(appliedType.apply(mapping), typeParams.stream().map(tp -> tp.apply(mapping)).collect(toPVector()), javaType);
+        }
+
+        @Override
+        TypeMapping unify0(Type t2) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <T> T accept(TypeVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public PSet<TypeVar> typeVars() {
+            return typeParams.plus(appliedType).stream().flatMap(t -> t.typeVars().stream()).collect(toPSet());
+        }
+
+        @Override
+        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+            if (!(t2 instanceof AppliedType)) {
+                return false;
+            }
+
+            AppliedType t2Fn = (AppliedType) t2;
+
+            if (!appliedType.alphaEquivalentTo0(t2Fn.appliedType, mapping)) {
+                return false;
+            } else {
+                PVector<Type> t2Params = t2Fn.typeParams;
+                if (t2Params.size() != typeParams.size()) {
+                    return false;
+                }
+
+                for (Pair<Type, Type> pts : zip(typeParams, t2Params)) {
+                    if (!pts.left.alphaEquivalentTo0(pts.right, mapping)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+    }
 }

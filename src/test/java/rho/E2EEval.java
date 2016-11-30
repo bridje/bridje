@@ -148,4 +148,20 @@ public class E2EEval {
         assertEquals(4L, field0.get(intList));
         assertEquals(5L, field0.get(nestedIntList));
     }
+
+    @Test
+    public void testPolymorphicList() throws Exception {
+        EvalResult defDataResult = evalAction(PLUS_ENV, "(defdata (Foo a) (FooCons a (Foo a)) EmptyFoo)").right;
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(FooCons 4 (FooCons 5 EmptyFoo))");
+
+        assertTrue(new Type.AppliedType(new Type.DataTypeType(symbol("FooList"), null), vectorOf(INT_TYPE), null).alphaEquivalentTo(result.left.type));
+
+        Object fooList = result.right.value;
+        Field field0 = fooList.getClass().getDeclaredField("field$$0");
+        Object nestedFooList = fooList.getClass().getDeclaredField("field$$1").get(fooList);
+
+        assertEquals(4L, field0.get(fooList));
+        assertEquals(5L, field0.get(nestedFooList));
+    }
 }

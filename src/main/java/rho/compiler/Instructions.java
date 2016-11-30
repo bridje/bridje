@@ -123,6 +123,14 @@ interface Instructions {
                             type.javaType == null ? loadNull() : loadClass(type.javaType)
                         ));
                 }
+
+                @Override
+                public Instructions visit(rho.types.Type.AppliedType type) {
+                    return newObject(fromClass(rho.types.Type.AppliedType.class), Util.vectorOf(rho.types.Type.class, PVector.class),
+                        mplus(type.appliedType.accept(this),
+                            loadVector(Type.class, type.typeParams.stream()
+                                .map(t -> t.accept(this)).collect(toPVector()))));
+                }
             }),
 
             mplus(typeVars_.entrySet().stream()

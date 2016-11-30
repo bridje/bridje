@@ -131,4 +131,17 @@ public class AnalyserTest {
                     listForm(symbolForm("IntListCons"), symbolForm("Int"), symbolForm("IntList")),
                     symbolForm("EmptyIntList"))));
     }
+
+    @Test
+    public void analysesParameterisedDataType() throws Exception {
+        Type.TypeVar a = new Type.TypeVar();
+        assertEquals(
+            // TODO need to pass the typeVar to `new DataType`
+            new Expr.DefDataExpr<Void>(null, null, new DataType<>(null, symbol("Foo"),
+                vectorOf(new VectorConstructor<>(null, symbol("Foo"), vectorOf(a))))),
+
+            analyse(PLUS_ENV,
+                listForm(symbolForm("defdata"), listForm(symbolForm("Foo"), symbolForm("a")),
+                    listForm(symbolForm("Foo"), symbolForm("a")))));
+    }
 }
