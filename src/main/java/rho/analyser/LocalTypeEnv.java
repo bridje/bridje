@@ -8,12 +8,14 @@ import rho.types.Type;
 import java.util.Optional;
 
 class LocalTypeEnv {
-    public static final LocalTypeEnv EMPTY = new LocalTypeEnv(Empty.map());
+    public static final LocalTypeEnv EMPTY = new LocalTypeEnv(Empty.map(), Empty.map());
 
-    private final PMap<Symbol, Type.DataTypeType> localEnv;
+    public final PMap<Symbol, Type.DataTypeType> localEnv;
+    public final PMap<Symbol, Type.TypeVar> typeVarMapping;
 
-    LocalTypeEnv(PMap<Symbol, Type.DataTypeType> localEnv) {
+    LocalTypeEnv(PMap<Symbol, Type.DataTypeType> localEnv, PMap<Symbol, Type.TypeVar> typeVarMapping) {
         this.localEnv = localEnv;
+        this.typeVarMapping = typeVarMapping;
     }
 
     Optional<Type.DataTypeType> resolve(Symbol symbol) {

@@ -1,5 +1,6 @@
 package rho.compiler;
 
+import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 import rho.runtime.*;
@@ -104,7 +105,7 @@ public interface EnvUpdate<T> {
             Map<Symbol, Var> vars = new HashMap<>();
 
             DataType<Type> dataType = new DataType<>(type, this.dataType.sym,
-                this.dataType.constructors.stream().map(c -> c.accept(new ConstructorVisitor<Type, DataTypeConstructor<Type>>() {
+                Empty.vector(), this.dataType.constructors.stream().map(c -> c.accept(new ConstructorVisitor<Type, DataTypeConstructor<Type>>() {
                     @Override
                     public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<? extends Type> constructor) {
                         return new DataTypeConstructor.ValueConstructor<>(type, constructor.sym);

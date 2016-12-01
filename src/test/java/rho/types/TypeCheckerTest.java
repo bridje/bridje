@@ -1,6 +1,7 @@
 package rho.types;
 
 import org.junit.Test;
+import org.pcollections.Empty;
 import org.pcollections.PVector;
 import rho.Panic;
 import rho.analyser.Expr;
@@ -117,7 +118,7 @@ public class TypeCheckerTest {
         Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(
             new Expr.DefDataExpr<>(null, null,
                 new DataType<>(null, symbol("SimpleUnion"),
-                    vectorOf(
+                    Empty.vector(), vectorOf(
                         new DataTypeConstructor.VectorConstructor<>(null, symbol("AnInt"), vectorOf(INT_TYPE)),
                         new DataTypeConstructor.VectorConstructor<>(null, symbol("AString"), vectorOf(STRING_TYPE)),
                         new DataTypeConstructor.ValueConstructor<>(null, symbol("Neither"))))));

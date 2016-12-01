@@ -1,6 +1,7 @@
 package rho.analyser;
 
 import org.junit.Test;
+import org.pcollections.Empty;
 import rho.reader.Form;
 import rho.runtime.DataType;
 import rho.runtime.DataTypeConstructor.ValueConstructor;
@@ -109,7 +110,7 @@ public class AnalyserTest {
     public void analysesSimpleDefData() throws Exception {
         assertEquals(
             new Expr.DefDataExpr<>(null, null, new DataType<>(null, symbol("Month"),
-                vectorOf(
+                Empty.vector(), vectorOf(
                     new ValueConstructor<>(null, symbol("Jan")),
                     new ValueConstructor<>(null, symbol("Feb")),
                     new ValueConstructor<>(null, symbol("Mar"))))),
@@ -123,7 +124,7 @@ public class AnalyserTest {
     @Test
     public void analysesRecursiveDataType() throws Exception {
         assertEquals(new Expr.DefDataExpr<>(null, null, new DataType<>(null, symbol("IntList"),
-                vectorOf(
+                Empty.vector(), vectorOf(
                     new VectorConstructor<>(null, symbol("IntListCons"), vectorOf(INT_TYPE, new Type.DataTypeType(symbol("IntList"), null))),
                     new ValueConstructor<>(null, symbol("EmptyIntList"))))),
             analyse(PLUS_ENV,
@@ -136,8 +137,8 @@ public class AnalyserTest {
     public void analysesParameterisedDataType() throws Exception {
         Type.TypeVar a = new Type.TypeVar();
         assertEquals(
-            // TODO need to pass the typeVar to `new DataType`
             new Expr.DefDataExpr<Void>(null, null, new DataType<>(null, symbol("Foo"),
+                vectorOf(a),
                 vectorOf(new VectorConstructor<>(null, symbol("Foo"), vectorOf(a))))),
 
             analyse(PLUS_ENV,

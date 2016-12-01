@@ -1,25 +1,23 @@
 package rho.analyser;
 
-import org.pcollections.Empty;
-import org.pcollections.HashTreePMap;
-import org.pcollections.PVector;
-import org.pcollections.TreePVector;
+import org.pcollections.*;
 import rho.analyser.Expr.LetExpr.LetBinding;
 import rho.analyser.Expr.LocalVarExpr;
 import rho.reader.Form;
 import rho.reader.FormVisitor;
-import rho.runtime.DataType;
+import rho.runtime.*;
 import rho.runtime.DataTypeConstructor.ValueConstructor;
 import rho.runtime.DataTypeConstructor.VectorConstructor;
-import rho.runtime.Env;
-import rho.runtime.Symbol;
-import rho.runtime.Var;
 import rho.types.Type;
+import rho.types.Type.TypeVar;
 import rho.util.Pair;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
+import static rho.Util.toPMap;
 import static rho.Util.toPVector;
 import static rho.analyser.ListParser.*;
 import static rho.analyser.ListParser.ParseResult.fail;
@@ -142,20 +140,25 @@ public class Analyser {
                     }
 
                     case "defdata": {
-                        return SYMBOL_PARSER.bind(nameForm ->
-                            manyOf(anyOf(
-                                SYMBOL_PARSER.fmap(symForm -> new ValueConstructor<Void>(null, symForm.sym)),
-                                LIST_PARSER.bind(constructorForm -> nestedListParser(constructorForm.forms,
-                                    SYMBOL_PARSER.bind(cNameForm -> {
-                                        LocalTypeEnv localTypeEnv = new LocalTypeEnv(HashTreePMap.singleton(nameForm.sym, new Type.DataTypeType(nameForm.sym, null)));
-                                        return manyOf(typeParser(localTypeEnv)).bind(paramTypes ->
-                                            parseEnd(new VectorConstructor<Void>(null, cNameForm.sym, paramTypes)));
-                                    }),
-
-                                    ListParser::pure))))
-
-                                .bind(constructors ->
-                                    parseEnd(new Expr.DefDataExpr<Void>(form.range, null, new DataType<>(null, nameForm.sym, constructors)))));
+                        return anyOf(
+                            SYMBOL_PARSER.bind(nameForm ->
+                                parseConstructors(nameForm.sym, Empty.map()).bind(constructors ->
+                                    parseEnd(new Expr.DefDataExpr<>(form.range, null, new DataType<>(null, nameForm.sym, Empty.vector(), constructors))))),
+                            LIST_PARSER.bind(nameForm -> {
+                                Map<Symbol, TypeVar> typeVarMapping = new HashMap<>();
+                                return nestedListParser(nameForm.forms,
+                                    SYMBOL_PARSER.bind(symForm ->
+                                        manyOf(SYMBOL_PARSER).fmap(typeVarSyms -> {
+                                            typeVarMapping.putAll(typeVarSyms.stream().collect(toPMap(f -> f.sym, f -> new TypeVar())));
+                                            return pair(symForm.sym, typeVarSyms);
+                                        })),
+                                    dataTypeDef ->
+                                        parseConstructors(dataTypeDef.left, HashTreePMap.from(typeVarMapping)).fmap(constructors ->
+                                            new Expr.DefDataExpr<>(form.range, null,
+                                                new DataType<>(null, dataTypeDef.left,
+                                                    dataTypeDef.right.stream().map(s -> typeVarMapping.get(s.sym)).collect(toPVector()),
+                                                    constructors))));
+                            }));
                     }
 
                     case "::": {
@@ -178,6 +181,19 @@ public class Analyser {
                             return success(pair(new Expr.CallExpr<>(form.range, null, paramForms.plus(0, firstSymbolForm).stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector())), Empty.vector()));
                         };
                 }
+            }
+
+            private ListParser<PVector<DataTypeConstructor<Void>>> parseConstructors(Symbol name, PMap<Symbol, TypeVar> typeVarMapping) {
+                return manyOf(anyOf(
+                    SYMBOL_PARSER.fmap(symForm -> new ValueConstructor<Void>(null, symForm.sym)),
+                    LIST_PARSER.bind(constructorForm -> nestedListParser(constructorForm.forms,
+                        SYMBOL_PARSER.bind(cNameForm -> {
+                            LocalTypeEnv localTypeEnv = new LocalTypeEnv(HashTreePMap.singleton(name, new Type.DataTypeType(name, null)), typeVarMapping);
+                            return manyOf(typeParser(localTypeEnv)).bind(paramTypes ->
+                                parseEnd(new VectorConstructor<Void>(null, cNameForm.sym, paramTypes)));
+                        }),
+
+                        ListParser::pure))));
             }
 
 

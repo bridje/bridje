@@ -16,11 +16,12 @@ import static rho.types.Type.SimpleType.*;
 
 public class TypeAnalyser {
 
-    private final Map<Symbol, TypeVar> typeVarEnv = new HashMap<>();
     private final LocalTypeEnv localTypeEnv;
+    final Map<Symbol, TypeVar> typeVarMapping;
 
     public TypeAnalyser(LocalTypeEnv localTypeEnv) {
         this.localTypeEnv = localTypeEnv;
+        this.typeVarMapping = new HashMap<>(localTypeEnv.typeVarMapping);
     }
 
     private Type analyzeType0(Form form) {
@@ -90,7 +91,8 @@ public class TypeAnalyser {
                 Symbol sym = form.sym;
 
                 if (Character.isLowerCase(sym.sym.charAt(0))) {
-                    return typeVarEnv.computeIfAbsent(sym, s -> new TypeVar());
+                    TypeVar typeVar = typeVarMapping.computeIfAbsent(sym, s -> new TypeVar());
+                    return typeVar;
                 } else {
                     switch (sym.sym) {
                         case "Str":

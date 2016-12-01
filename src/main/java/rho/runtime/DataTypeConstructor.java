@@ -6,6 +6,8 @@ import rho.types.Type;
 import java.util.Objects;
 import java.util.function.Function;
 
+import static java.util.stream.Collectors.joining;
+
 public abstract class DataTypeConstructor<T> {
     public final T type;
     public final Symbol sym;
@@ -79,6 +81,11 @@ public abstract class DataTypeConstructor<T> {
         @Override
         public int hashCode() {
             return Objects.hash(sym, paramTypes);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(VectorConstructor %s)", paramTypes.stream().map(Object::toString).collect(joining(" ")));
         }
     }
 

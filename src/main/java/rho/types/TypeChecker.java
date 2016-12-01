@@ -229,7 +229,7 @@ public class TypeChecker {
                     new DataType<>(
                         dataTypeType,
                         dataType.sym,
-                        dataType.constructors.stream()
+                        Empty.vector(), dataType.constructors.stream()
                             .map(c -> c.accept(new ConstructorVisitor<Object, DataTypeConstructor<Type>>() {
 
                                 @Override
