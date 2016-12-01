@@ -1,12 +1,17 @@
 package rho.runtime;
 
+import org.pcollections.PSequence;
 import org.pcollections.PVector;
 import rho.types.Type;
+import rho.util.Pair;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
 import static java.util.stream.Collectors.joining;
+import static rho.util.Pair.zip;
 
 public abstract class DataTypeConstructor<T> {
     public final T type;
@@ -20,6 +25,8 @@ public abstract class DataTypeConstructor<T> {
     public abstract <T_> DataTypeConstructor<T_> fmapType(Function<T, T_> fn);
 
     public abstract <U> U accept(ConstructorVisitor<? super T, U> visitor);
+
+    public abstract boolean equals(DataTypeConstructor<T> that, Map<Type.TypeVar, Type.TypeVar> typeVarMapping);
 
     public static final class ValueConstructor<T> extends DataTypeConstructor<T> {
 
@@ -35,6 +42,11 @@ public abstract class DataTypeConstructor<T> {
         @Override
         public <U> U accept(ConstructorVisitor<? super T, U> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(DataTypeConstructor<T> that, Map<Type.TypeVar, Type.TypeVar> typeVarMapping) {
+            return this.equals(that);
         }
 
         @Override
@@ -71,11 +83,34 @@ public abstract class DataTypeConstructor<T> {
         }
 
         @Override
+        public boolean equals(DataTypeConstructor<T> o, Map<Type.TypeVar, Type.TypeVar> typeVarMapping) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            VectorConstructor that = (VectorConstructor) o;
+
+            if (!Objects.equals(sym, that.sym)
+                || paramTypes.size() != that.paramTypes.size()) {
+                return false;
+            }
+
+            // TODO why does this need a cast?
+            PSequence<Pair<Type, Type>> paramTypePairs = zip(paramTypes, that.paramTypes);
+            for (Pair<Type, Type> paramTypePair : paramTypePairs) {
+                if (!paramTypePair.left.alphaEquivalentTo(paramTypePair.right, typeVarMapping)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             VectorConstructor that = (VectorConstructor) o;
-            return Objects.equals(sym, that.sym) && Objects.equals(paramTypes, that.paramTypes);
+
+            return equals(that, new HashMap<>());
         }
 
         @Override

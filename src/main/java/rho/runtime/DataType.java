@@ -3,12 +3,16 @@ package rho.runtime;
 import org.pcollections.Empty;
 import org.pcollections.PVector;
 import rho.types.Type;
+import rho.util.Pair;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
 import static java.util.stream.Collectors.joining;
 import static rho.Util.toPVector;
+import static rho.util.Pair.zip;
 
 public class DataType<T> {
     public final T type;
@@ -27,10 +31,29 @@ public class DataType<T> {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        DataType<?> dataType = (DataType<?>) o;
-        return Objects.equals(sym, dataType.sym) &&
+        DataType<T> dataType = (DataType<T>) o;
 
-            Objects.equals(constructors, dataType.constructors);
+        if (!Objects.equals(sym, dataType.sym)
+            || typeVars.size() != dataType.typeVars.size()
+            || constructors.size() != dataType.constructors.size()) {
+            return false;
+        }
+
+        Map<Type.TypeVar, Type.TypeVar> typeVarMapping = new HashMap<>();
+
+        for (Pair<Type.TypeVar, Type.TypeVar> typeVarPair : zip(typeVars, dataType.typeVars)) {
+            if (!typeVarPair.left.alphaEquivalentTo(typeVarPair.right, typeVarMapping)) {
+                return false;
+            }
+        }
+
+        for (Pair<DataTypeConstructor<T>, DataTypeConstructor<T>> constructorPair : zip(constructors, dataType.constructors)) {
+            if (!constructorPair.left.equals(constructorPair.right, new HashMap<>(typeVarMapping))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override

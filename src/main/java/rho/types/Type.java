@@ -80,10 +80,10 @@ public abstract class Type {
 
     public abstract PSet<TypeVar> typeVars();
 
-    abstract boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping);
+    public abstract boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping);
 
     public final boolean alphaEquivalentTo(Type t2) {
-        return this.instantiateAll().alphaEquivalentTo0(t2.instantiateAll(), new HashMap<>());
+        return this.instantiateAll().alphaEquivalentTo(t2.instantiateAll(), new HashMap<>());
     }
 
     public final boolean subtypeOf(Type type) {
@@ -134,7 +134,7 @@ public abstract class Type {
         }
 
         @Override
-        final boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+        public final boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
             return this == t2;
         }
     }
@@ -181,8 +181,8 @@ public abstract class Type {
         }
 
         @Override
-        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
-            return t2 instanceof VectorType && elemType.alphaEquivalentTo0(((VectorType) t2).elemType, mapping);
+        public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
+            return t2 instanceof VectorType && elemType.alphaEquivalentTo(((VectorType) t2).elemType, mapping);
         }
 
         @Override
@@ -246,8 +246,8 @@ public abstract class Type {
         }
 
         @Override
-        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
-            return t2 instanceof SetType && elemType.alphaEquivalentTo0(((SetType) t2).elemType, mapping);
+        public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
+            return t2 instanceof SetType && elemType.alphaEquivalentTo(((SetType) t2).elemType, mapping);
         }
 
         @Override
@@ -344,14 +344,14 @@ public abstract class Type {
         }
 
         @Override
-        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+        public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
             if (!(t2 instanceof FnType)) {
                 return false;
             }
 
             FnType t2Fn = (FnType) t2;
 
-            if (!returnType.alphaEquivalentTo0(t2Fn.returnType, mapping)) {
+            if (!returnType.alphaEquivalentTo(t2Fn.returnType, mapping)) {
                 return false;
             } else {
                 PVector<Type> t2Params = t2Fn.paramTypes;
@@ -360,7 +360,7 @@ public abstract class Type {
                 }
 
                 for (Pair<Type, Type> pts : zip(paramTypes, t2Params)) {
-                    if (!pts.left.alphaEquivalentTo0(pts.right, mapping)) {
+                    if (!pts.left.alphaEquivalentTo(pts.right, mapping)) {
                         return false;
                     }
                 }
@@ -397,7 +397,7 @@ public abstract class Type {
         }
 
         @Override
-        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+        public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
             if (!(t2 instanceof TypeVar)) {
                 return false;
             }
@@ -449,7 +449,7 @@ public abstract class Type {
         }
 
         @Override
-        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+        public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
             return this == t2 || (t2 instanceof DataTypeType && Objects.equals(name, ((DataTypeType) t2).name));
         }
 
@@ -515,14 +515,14 @@ public abstract class Type {
         }
 
         @Override
-        boolean alphaEquivalentTo0(Type t2, Map<TypeVar, TypeVar> mapping) {
+        public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
             if (!(t2 instanceof AppliedType)) {
                 return false;
             }
 
             AppliedType t2Fn = (AppliedType) t2;
 
-            if (!appliedType.alphaEquivalentTo0(t2Fn.appliedType, mapping)) {
+            if (!appliedType.alphaEquivalentTo(t2Fn.appliedType, mapping)) {
                 return false;
             } else {
                 PVector<Type> t2Params = t2Fn.typeParams;
@@ -531,7 +531,7 @@ public abstract class Type {
                 }
 
                 for (Pair<Type, Type> pts : zip(typeParams, t2Params)) {
-                    if (!pts.left.alphaEquivalentTo0(pts.right, mapping)) {
+                    if (!pts.left.alphaEquivalentTo(pts.right, mapping)) {
                         return false;
                     }
                 }
