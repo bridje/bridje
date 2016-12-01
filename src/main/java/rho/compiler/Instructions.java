@@ -1,13 +1,14 @@
 package rho.compiler;
 
 import org.objectweb.asm.*;
+import org.objectweb.asm.Type;
 import org.pcollections.*;
 import rho.Util;
 import rho.runtime.*;
+import rho.types.*;
 import rho.types.Type.SetType;
 import rho.types.Type.SimpleType;
 import rho.types.Type.VectorType;
-import rho.types.TypeVisitor;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -141,9 +142,11 @@ interface Instructions {
     }
 
     static Instructions loadDataType(DataType<? extends rho.types.Type> dataType, Locals locals) {
-        return newObject(fromClass(DataType.class), vectorOf(Object.class, Symbol.class, PVector.class), mplus(
+        // TODO this is going to need to reuse the TypeVars between instructions
+        return newObject(fromClass(DataType.class), vectorOf(Object.class, Symbol.class, PVector.class, PVector.class), mplus(
             loadType(dataType.type, locals),
             loadSymbol(dataType.sym),
+            loadVector(rho.types.Type.TypeVar.class, dataType.typeVars.stream().map(tv -> loadType(tv, locals)).collect(toPVector())),
             loadVector(DataTypeConstructor.class, dataType.constructors.stream()
                 .map(c -> c.accept(new ConstructorVisitor<rho.types.Type, Instructions>() {
                     @Override
