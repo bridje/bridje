@@ -1,9 +1,6 @@
 package rho.types;
 
-import org.pcollections.Empty;
-import org.pcollections.HashTreePSet;
-import org.pcollections.PSet;
-import org.pcollections.PVector;
+import org.pcollections.*;
 import rho.Panic;
 import rho.compiler.EnvUpdate;
 import rho.runtime.Symbol;
@@ -13,8 +10,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.joining;
 import static rho.Panic.panic;
 import static rho.Util.*;
 import static rho.types.Type.SimpleType.ENV_IO;
@@ -35,6 +32,10 @@ public abstract class Type {
     }
 
     public Type apply(TypeMapping mapping) {
+        return this;
+    }
+
+    public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
         return this;
     }
 
@@ -167,6 +168,11 @@ public abstract class Type {
         }
 
         @Override
+        public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
+            return new VectorType(elemType.applyJavaTypeMapping(mapping));
+        }
+
+        @Override
         TypeMapping unify0(Type t2) {
             if (t2 instanceof VectorType) {
                 return elemType.unify(((VectorType) t2).elemType);
@@ -229,6 +235,11 @@ public abstract class Type {
         @Override
         public Type apply(TypeMapping mapping) {
             return new SetType(elemType.apply(mapping));
+        }
+
+        @Override
+        public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
+            return new SetType(elemType.applyJavaTypeMapping(mapping));
         }
 
         @Override
@@ -300,7 +311,7 @@ public abstract class Type {
 
         @Override
         public String toString() {
-            return String.format("(FnType (%s) %s)", paramTypes.stream().map(Object::toString).collect(Collectors.joining(", ")), returnType);
+            return String.format("(FnType (%s) %s)", paramTypes.stream().map(Object::toString).collect(joining(", ")), returnType);
         }
 
         @Override
@@ -319,6 +330,13 @@ public abstract class Type {
         @Override
         public Type apply(TypeMapping mapping) {
             return new FnType(paramTypes.stream().map(t -> t.apply(mapping)).collect(toPVector()), returnType.apply(mapping));
+        }
+
+        @Override
+        public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
+            return new FnType(
+                paramTypes.stream().map(t -> t.applyJavaTypeMapping(mapping)).collect(toPVector()),
+                returnType.applyJavaTypeMapping(mapping));
         }
 
         @Override
@@ -434,6 +452,11 @@ public abstract class Type {
         }
 
         @Override
+        public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
+            return new DataTypeType(name, mapping.getOrDefault(this, javaType));
+        }
+
+        @Override
         public <T> T accept(TypeVisitor<T> visitor) {
             return visitor.visit(this);
         }
@@ -476,6 +499,11 @@ public abstract class Type {
         public int hashCode() {
             return Objects.hash(name);
         }
+
+        @Override
+        public String toString() {
+            return String.format("(DataTypeType %s)", name);
+        }
     }
 
     public static final class AppliedType extends Type {
@@ -483,8 +511,8 @@ public abstract class Type {
         public final Type appliedType;
         public final PVector<Type> typeParams;
 
-        public AppliedType(Type appliedType, PVector<Type> typeParams, Class<?> javaType) {
-            super(javaType);
+        public AppliedType(Type appliedType, PVector<Type> typeParams) {
+            super(appliedType.javaType);
             this.appliedType = appliedType;
             this.typeParams = typeParams;
         }
@@ -496,7 +524,13 @@ public abstract class Type {
 
         @Override
         public Type apply(TypeMapping mapping) {
-            return new AppliedType(appliedType.apply(mapping), typeParams.stream().map(tp -> tp.apply(mapping)).collect(toPVector()), javaType);
+            return new AppliedType(appliedType.apply(mapping), typeParams.stream().map(tp -> tp.apply(mapping)).collect(toPVector()));
+        }
+
+        @Override
+        public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
+            return new AppliedType(appliedType.applyJavaTypeMapping(mapping),
+                typeParams.stream().map(tp -> tp.applyJavaTypeMapping(mapping)).collect(toPVector()));
         }
 
         @Override
@@ -538,6 +572,11 @@ public abstract class Type {
 
                 return true;
             }
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(AppliedType (%s %s)", appliedType, typeParams.stream().map(Object::toString).collect(joining(" ")));
         }
     }
 }

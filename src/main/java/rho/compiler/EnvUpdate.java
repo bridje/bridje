@@ -1,6 +1,5 @@
 package rho.compiler;
 
-import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
 import rho.runtime.*;
@@ -13,10 +12,8 @@ import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
-import static rho.Util.toPVector;
 import static rho.runtime.Var.FN_METHOD_NAME;
 import static rho.runtime.Var.VALUE_FIELD_NAME;
-import static rho.types.Type.FnType.fnType;
 import static rho.util.Pair.pair;
 
 public interface EnvUpdate<T> {
@@ -101,23 +98,7 @@ public interface EnvUpdate<T> {
 
         @Override
         public Pair<Env, ?> updateEnv(Env env) {
-            Type type = new Type.DataTypeType(dataType.sym, superClass);
             Map<Symbol, Var> vars = new HashMap<>();
-
-            DataType<Type> dataType = new DataType<>(type, this.dataType.sym,
-                Empty.vector(), this.dataType.constructors.stream().map(c -> c.accept(new ConstructorVisitor<Type, DataTypeConstructor<Type>>() {
-                    @Override
-                    public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<? extends Type> constructor) {
-                        return new DataTypeConstructor.ValueConstructor<>(type, constructor.sym);
-                    }
-
-                    @Override
-                    public DataTypeConstructor<Type> visit(DataTypeConstructor.VectorConstructor<? extends Type> constructor) {
-                        return new DataTypeConstructor.VectorConstructor<>(fnType(constructor.paramTypes, type), constructor.sym, constructor.paramTypes);
-                    }
-                })).collect(toPVector()));
-
-//            throw new UnsupportedOperationException();
 
             for (DataTypeConstructor<Type> constructor : dataType.constructors) {
                 Symbol constructorSym = constructor.sym;

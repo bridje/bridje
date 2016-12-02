@@ -1,19 +1,14 @@
 package rho.compiler;
 
 import org.junit.Test;
-import org.pcollections.HashTreePMap;
 import rho.analyser.Expr;
 import rho.analyser.LocalVar;
-import rho.runtime.Env;
-import rho.runtime.EvalResult;
-import rho.runtime.Symbol;
-import rho.runtime.Var;
+import rho.runtime.*;
 import rho.types.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 import static rho.Util.setOf;
 import static rho.Util.vectorOf;
 import static rho.analyser.ExprUtil.*;
@@ -167,6 +162,30 @@ public class CompilerTest {
         EvalResult result = Compiler.compile(PLUS_ENV, new Expr.TypeDefExpr<>(null, ENV_IO, sym, doubleType));
 
         assertEquals(doubleType, result.env.vars.get(sym).declaredType);
+
+    }
+
+    @Test
+    public void compilesParametricDataType() throws Exception {
+        Symbol foo = symbol("Foo");
+        DataTypeType dataTypeType = new DataTypeType(foo, null);
+        TypeVar a = new TypeVar();
+
+        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.DefDataExpr<>(null,
+            ENV_IO, new DataType<>(new AppliedType(dataTypeType, vectorOf(a)), foo, vectorOf(a),
+            vectorOf(
+                new DataTypeConstructor.VectorConstructor<>(
+                    fnType(vectorOf(a), new AppliedType(dataTypeType, vectorOf(a))),
+                    symbol("FooCons"),
+                    vectorOf(a))))));
+
+        Env newEnv = result.env;
+
+        Type type = newEnv.dataTypes.get(foo).constructors.get(0).type;
+        System.out.println(type);
+        assertTrue(
+            type
+                .alphaEquivalentTo(fnType(vectorOf(a), new AppliedType(dataTypeType, vectorOf(a)))));
 
     }
 }

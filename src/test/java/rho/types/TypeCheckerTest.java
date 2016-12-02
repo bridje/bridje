@@ -10,6 +10,7 @@ import rho.runtime.DataType;
 import rho.runtime.DataTypeConstructor;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static rho.Util.vectorOf;
 import static rho.analyser.ExprUtil.*;
 import static rho.runtime.Symbol.symbol;
@@ -116,8 +117,8 @@ public class TypeCheckerTest {
     @Test
     public void typesSimpleUnion() throws Exception {
         Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(
-            new Expr.DefDataExpr<>(null, null,
-                new DataType<>(null, symbol("SimpleUnion"),
+            new Expr.DefDataExpr<>(null,
+                null, new DataType<>(null, symbol("SimpleUnion"),
                     Empty.vector(), vectorOf(
                         new DataTypeConstructor.VectorConstructor<>(null, symbol("AnInt"), vectorOf(INT_TYPE)),
                         new DataTypeConstructor.VectorConstructor<>(null, symbol("AString"), vectorOf(STRING_TYPE)),
@@ -134,5 +135,17 @@ public class TypeCheckerTest {
         assertEquals(fnType(vectorOf(INT_TYPE), simpleUnionType), constructors.get(0).type);
         assertEquals(fnType(vectorOf(STRING_TYPE), simpleUnionType), constructors.get(1).type);
         assertEquals(simpleUnionType, constructors.get(2).type);
+    }
+
+    @Test
+    public void typesPolymorphicDataType() throws Exception {
+        TypeVar a = new TypeVar();
+        Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(new Expr.DefDataExpr<>(null, null, new DataType<>(null, symbol("Foo"), vectorOf(a),
+            vectorOf(new DataTypeConstructor.VectorConstructor<>(null, symbol("FooCons"), vectorOf(a))))));
+
+        DataTypeType dataTypeType = new DataTypeType(symbol("Foo"), null);
+
+        assertTrue(new AppliedType(dataTypeType, vectorOf(a)).alphaEquivalentTo(expr.dataType.type));
+        assertTrue(new FnType(vectorOf(a), new AppliedType(dataTypeType, vectorOf(a))).alphaEquivalentTo(expr.dataType.constructors.get(0).type));
     }
 }

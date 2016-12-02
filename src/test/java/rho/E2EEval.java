@@ -4,6 +4,7 @@ import org.junit.Test;
 import rho.analyser.Expr;
 import rho.reader.Form;
 import rho.reader.LCReader;
+import rho.runtime.DataType;
 import rho.runtime.Env;
 import rho.runtime.EvalResult;
 import rho.runtime.Var;
@@ -50,7 +51,7 @@ public class E2EEval {
 
         Expr<Void> expr = analyse(env, form);
 
-            Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
+        Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
         return pair(typedExpr, compile(env, typedExpr));
     }
@@ -153,9 +154,13 @@ public class E2EEval {
     public void testPolymorphicList() throws Exception {
         EvalResult defDataResult = evalAction(PLUS_ENV, "(defdata (Foo a) (FooCons a (Foo a)) EmptyFoo)").right;
 
+        DataType dataType = (DataType) defDataResult.value;
+
+        assertTrue(dataType.typeVars.size() == 1);
+
         Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(FooCons 4 (FooCons 5 EmptyFoo))");
 
-        assertTrue(new Type.AppliedType(new Type.DataTypeType(symbol("FooList"), null), vectorOf(INT_TYPE), null).alphaEquivalentTo(result.left.type));
+        assertTrue(new Type.AppliedType(new Type.DataTypeType(symbol("FooList"), null), vectorOf(INT_TYPE)).alphaEquivalentTo(result.left.type));
 
         Object fooList = result.right.value;
         Field field0 = fooList.getClass().getDeclaredField("field$$0");

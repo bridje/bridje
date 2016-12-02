@@ -2,6 +2,7 @@ package rho.types;
 
 import org.pcollections.Empty;
 import org.pcollections.PVector;
+import org.pcollections.TreePVector;
 import rho.analyser.Expr;
 import rho.analyser.Expr.BoolExpr;
 import rho.analyser.Expr.StringExpr;
@@ -81,7 +82,6 @@ public class TypeChecker {
 
                 Expr<Type> typedFirstParam = typeExpr0(localTypeEnv, fnExpr);
                 Type firstParamType = typedFirstParam.type;
-
 
                 if (firstParamType instanceof FnType) {
                     FnType fnType = (FnType) firstParamType;
@@ -225,23 +225,27 @@ public class TypeChecker {
                 DataType<?> dataType = expr.dataType;
                 Type dataTypeType = new DataTypeType(dataType.sym, null);
 
-                return new Expr.DefDataExpr<>(expr.range, ENV_IO,
-                    new DataType<>(
-                        dataTypeType,
+                Type defDataExprType = expr.dataType.typeVars.isEmpty()
+                    ? dataTypeType
+                    : new AppliedType(dataTypeType, TreePVector.from(expr.dataType.typeVars));
+
+                return new Expr.DefDataExpr<>(expr.range,
+                    ENV_IO, new DataType<>(
+                        defDataExprType,
                         dataType.sym,
-                        Empty.vector(), dataType.constructors.stream()
-                            .map(c -> c.accept(new ConstructorVisitor<Object, DataTypeConstructor<Type>>() {
+                        dataType.typeVars, dataType.constructors.stream()
+                        .map(c -> c.accept(new ConstructorVisitor<Object, DataTypeConstructor<Type>>() {
 
-                                @Override
-                                public DataTypeConstructor<Type> visit(DataTypeConstructor.VectorConstructor<?> constructor) {
-                                    return new DataTypeConstructor.VectorConstructor<>(fnType(constructor.paramTypes, dataTypeType), constructor.sym, constructor.paramTypes);
-                                }
+                            @Override
+                            public DataTypeConstructor<Type> visit(DataTypeConstructor.VectorConstructor<?> constructor) {
+                                return new DataTypeConstructor.VectorConstructor<>(fnType(constructor.paramTypes, defDataExprType), constructor.sym, constructor.paramTypes);
+                            }
 
-                                @Override
-                                public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<?> constructor) {
-                                    return new DataTypeConstructor.ValueConstructor<>(dataTypeType, constructor.sym);
-                                }
-                            })).collect(toPVector())));
+                            @Override
+                            public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<?> constructor) {
+                                return new DataTypeConstructor.ValueConstructor<>(dataTypeType, constructor.sym);
+                            }
+                        })).collect(toPVector())));
             }
         });
     }

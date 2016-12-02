@@ -1,6 +1,8 @@
 package rho.runtime;
 
+import org.pcollections.Empty;
 import org.pcollections.PSequence;
+import org.pcollections.PSet;
 import org.pcollections.PVector;
 import rho.types.Type;
 import rho.util.Pair;
@@ -11,6 +13,8 @@ import java.util.Objects;
 import java.util.function.Function;
 
 import static java.util.stream.Collectors.joining;
+import static rho.Util.toPSet;
+import static rho.Util.toPVector;
 import static rho.util.Pair.zip;
 
 public abstract class DataTypeConstructor<T> {
@@ -23,8 +27,11 @@ public abstract class DataTypeConstructor<T> {
     }
 
     public abstract <T_> DataTypeConstructor<T_> fmapType(Function<T, T_> fn);
+    public abstract DataTypeConstructor<T> fmapParamTypes(Function<Type, Type> fn);
 
     public abstract <U> U accept(ConstructorVisitor<? super T, U> visitor);
+
+    public abstract PSet<Type.TypeVar> typeVars();
 
     public abstract boolean equals(DataTypeConstructor<T> that, Map<Type.TypeVar, Type.TypeVar> typeVarMapping);
 
@@ -40,8 +47,18 @@ public abstract class DataTypeConstructor<T> {
         }
 
         @Override
+        public DataTypeConstructor<T> fmapParamTypes(Function<Type, Type> fn) {
+            return this;
+        }
+
+        @Override
         public <U> U accept(ConstructorVisitor<? super T, U> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public PSet<Type.TypeVar> typeVars() {
+            return Empty.set();
         }
 
         @Override
@@ -78,8 +95,18 @@ public abstract class DataTypeConstructor<T> {
         }
 
         @Override
+        public DataTypeConstructor<T> fmapParamTypes(Function<Type, Type> fn) {
+            return new VectorConstructor<T>(type, sym, paramTypes.stream().map(pt -> fn.apply(pt)).collect(toPVector()));
+        }
+
+        @Override
         public <U> U accept(ConstructorVisitor<? super T, U> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        public PSet<Type.TypeVar> typeVars() {
+            return paramTypes.stream().flatMap(t -> t.typeVars().stream()).collect(toPSet());
         }
 
         @Override

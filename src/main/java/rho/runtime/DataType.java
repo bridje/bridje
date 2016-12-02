@@ -1,6 +1,5 @@
 package rho.runtime;
 
-import org.pcollections.Empty;
 import org.pcollections.PVector;
 import rho.types.Type;
 import rho.util.Pair;
@@ -71,6 +70,10 @@ public class DataType<T> {
     }
 
     public <T_> DataType<T_> fmapType(Function<T, T_> fn) {
-        return new DataType<>(fn.apply(type), sym, Empty.vector(), constructors.stream().map(c -> c.fmapType(fn)).collect(toPVector()));
+        return new DataType<>(fn.apply(type), sym, typeVars, constructors.stream().map(c -> c.fmapType(fn)).collect(toPVector()));
+    }
+
+    public DataType<T> fmapParamTypes(Function<Type, Type> fn) {
+        return new DataType<>(type, sym, typeVars, constructors.stream().map(c -> c.fmapParamTypes(fn)).collect(toPVector()));
     }
 }

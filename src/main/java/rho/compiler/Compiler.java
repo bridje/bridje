@@ -40,11 +40,12 @@ import static rho.runtime.Var.VALUE_FIELD_NAME;
 
 public class Compiler {
 
-    private static PMap<LocalVar, Type> closedOverVars(PSet<LocalVar> localVars, Expr<? extends Type> expr) {
+    static PMap<LocalVar, Type> closedOverVars(PSet<LocalVar> boundVars, Expr<? extends Type> expr) {
         return expr.accept(new ExprVisitor<Type, PMap<LocalVar, Type>>() {
 
-            private PMap<LocalVar, Type> closedOverVars(PCollection<? extends Expr<? extends Type>> exprs) {
-                return exprs.stream().flatMap(e -> e.accept(this).entrySet().stream()).collect(toPMap(Map.Entry::getKey, Map.Entry::getValue));
+            private PMap<LocalVar, Type> mapClosedOverVars(PCollection<? extends Expr<? extends Type>> exprs) {
+                return exprs.stream().flatMap(e -> e.accept(this).entrySet().stream())
+                    .collect(toPMap(Map.Entry::getKey, Map.Entry::getValue));
             }
 
             @Override
@@ -64,29 +65,35 @@ public class Compiler {
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.VectorExpr<? extends Type> expr) {
-                return closedOverVars(expr.exprs);
+                return mapClosedOverVars(expr.exprs);
             }
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.SetExpr<? extends Type> expr) {
-                return closedOverVars(expr.exprs);
+                return mapClosedOverVars(expr.exprs);
             }
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.CallExpr<? extends Type> expr) {
-                return closedOverVars(expr.exprs);
+                return mapClosedOverVars(expr.exprs);
             }
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.VarCallExpr<? extends Type> expr) {
-                return closedOverVars(expr.params);
+                return mapClosedOverVars(expr.params);
             }
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.LetExpr<? extends Type> expr) {
-                return closedOverVars(
-                    expr.bindings.stream().map(b -> b.expr).collect(toPVector()))
-                    .plusAll(expr.body.accept(this));
+                PSet<LocalVar> boundVars_ = boundVars;
+                PMap<LocalVar, Type> result = Empty.map();
+
+                for (Expr.LetExpr.LetBinding<? extends Type> binding : expr.bindings) {
+                    result = result.plusAll(closedOverVars(boundVars_, binding.expr));
+                    boundVars_ = boundVars_.plus(binding.localVar);
+                }
+
+                return closedOverVars(boundVars_, expr.body);
             }
 
             @Override
@@ -98,7 +105,7 @@ public class Compiler {
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.LocalVarExpr<? extends Type> expr) {
-                if (localVars.contains(expr.localVar)) {
+                if (!boundVars.contains(expr.localVar)) {
                     return HashTreePMap.singleton(expr.localVar, expr.type);
                 } else {
                     return Empty.map();
@@ -112,7 +119,7 @@ public class Compiler {
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.FnExpr<? extends Type> expr) {
-                return expr.body.accept(this);
+                return closedOverVars(boundVars.plusAll(expr.params), expr.body);
             }
 
             @Override
@@ -191,11 +198,9 @@ public class Compiler {
                 for (Expr.LetExpr.LetBinding<? extends Type> binding : expr.bindings) {
                     Instructions bindingInstructions = compileExpr0(locals_, binding.expr);
 
-                    Pair<Locals, Locals.Local.VarLocal> withNewLocal = locals_.newVarLocal(binding.localVar, binding.expr.type.javaType);
-                    locals_ = withNewLocal.left;
-                    Locals.Local.VarLocal local = withNewLocal.right;
+                    locals_ = locals_.withVarLocal(binding.localVar, binding.expr.type.javaType);
 
-                    bindingsInstructions.add(letBinding(bindingInstructions, binding.expr.type.javaType, local));
+                    bindingsInstructions.add(locals_.get(binding.localVar).store(bindingInstructions));
                 }
 
                 Instructions bodyInstructions = compileExpr0(locals_, expr.body);
@@ -210,7 +215,7 @@ public class Compiler {
 
             @Override
             public Instructions visit(Expr.LocalVarExpr<? extends Type> expr) {
-                return localVarCall(locals.locals.get(expr.localVar));
+                return locals.get(expr.localVar).load();
             }
 
             @Override
@@ -228,7 +233,8 @@ public class Compiler {
                 Class<?> returnClass = fnType.returnType.javaType;
                 Locals fnLocals = instanceLocals();
 
-                PMap<LocalVar, Type> closedOverVars = closedOverVars(HashTreePSet.from(locals.locals.keySet()), expr.body);
+                PMap<LocalVar, Type> closedOverVars = closedOverVars(HashTreePSet.from(expr.params), expr.body);
+
                 PMap<LocalVar, String> closedOverFieldNames = closedOverVars.entrySet().stream().collect(
                     toPMap(
                         Map.Entry::getKey,
@@ -242,11 +248,11 @@ public class Compiler {
                     Class<?> paramClass = paramType.javaType;
 
                     paramClasses = paramClasses.plus(paramClass);
-                    fnLocals = fnLocals.newVarLocal(expr.params.get(i), paramClass).left;
+                    fnLocals = fnLocals.withVarLocal(expr.params.get(i), paramClass);
                 }
 
                 for (LocalVar closedOverVar : closedOverParamOrder) {
-                    fnLocals = fnLocals.newFieldLocal(closedOverVar, closedOverVars.get(closedOverVar).javaType, fromClassName(className), closedOverFieldNames.get(closedOverVar)).left;
+                    fnLocals = fnLocals.withFieldLocal(closedOverVar, fromClassName(className), closedOverFieldNames.get(closedOverVar), fromClass(closedOverVars.get(closedOverVar).javaType));
                 }
 
                 Instructions bodyInstructions = compileExpr0(fnLocals, expr.body);
@@ -264,11 +270,10 @@ public class Compiler {
 
                 for (LocalVar localVar : closedOverParamOrder) {
                     Class<?> paramClass = closedOverVars.get(localVar).javaType;
-                    Pair<Locals, Locals.Local.VarLocal> paramLocalResult = constructorLocals.newVarLocal(localVar, paramClass);
-                    constructorLocals = paramLocalResult.left;
+                    constructorLocals = constructorLocals.withVarLocal(localVar, paramClass);
                     constructorInstructions = mplus(constructorInstructions,
                         loadThis(),
-                        localVarCall(paramLocalResult.right),
+                        constructorLocals.get(localVar).load(),
                         fieldOp(PUT_FIELD, fromClassName(className), closedOverFieldNames.get(localVar), fromClass(paramClass)));
                 }
 
@@ -288,7 +293,7 @@ public class Compiler {
 
                     newObject(fromClass(fnClass), closedOverParamClasses,
                         mplus(closedOverParamOrder.stream()
-                            .map(p -> localVarCall(locals.locals.get(p)))
+                            .map(p -> locals.get(p).load())
                             .collect(toPVector()))),
 
                     bindMethodHandle());
@@ -330,7 +335,7 @@ public class Compiler {
                 if (isFn) {
                     Locals locals = staticLocals();
                     for (int i = 0; i < fnExpr.params.size(); i++) {
-                        locals = locals.newVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType).left;
+                        locals = locals.withVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType);
                     }
 
                     newClass = newClass.withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
@@ -344,7 +349,7 @@ public class Compiler {
                 return newObject(fromClass(EnvUpdate.DefEnvUpdate.class), vectorOf(Symbol.class, Type.class, Class.class, MethodType.class),
                     mplus(
                         loadSymbol(expr.sym),
-                        loadType(type, locals),
+                        withTypeLocals(locals, type.typeVars(), typeLocals -> loadType(type, typeLocals)),
                         loadClass(dynClass),
                         fnMethodType == null
                             ? Instructions.loadNull()
@@ -356,22 +361,30 @@ public class Compiler {
                 return newObject(fromClass(EnvUpdate.TypeDefEnvUpdate.class), vectorOf(Symbol.class, Type.class),
                     mplus(
                         loadSymbol(expr.sym),
-                        loadType(expr.typeDef, locals)));
+                        withTypeLocals(locals, expr.typeDef.typeVars(),
+                            typeLocals -> loadType(expr.typeDef, typeLocals))));
             }
 
             @Override
             public Instructions visit(Expr.DefDataExpr<? extends Type> expr) {
                 DataType<? extends Type> dataType = expr.dataType;
-                Type.DataTypeType dataTypeType = ((Type.DataTypeType) dataType.type);
-
+                Type type = dataType.type;
+                if (type instanceof Type.AppliedType) {
+                    type = ((Type.AppliedType) type).appliedType;
+                }
 
                 Class<?> superClass = defineClass(newClass(format("user$$%s$$%d", dataType.sym.sym, uniqueInt()), setOf(PUBLIC, ABSTRACT))
                     .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, Empty.vector(),
                         mplus(loadThis(), OBJECT_SUPER_CONSTRUCTOR_CALL, ret(Void.TYPE)))));
 
                 Map<Symbol, Class<?>> constructors = new HashMap<>();
+                PMap<Type, Class<?>> classMapping = HashTreePMap.singleton(type, superClass);
 
-                for (DataTypeConstructor<? extends Type> constructor : expr.dataType.constructors) {
+                dataType = dataType
+                    .fmapType(t -> t.applyJavaTypeMapping(classMapping))
+                    .fmapParamTypes(t -> t.applyJavaTypeMapping(classMapping));
+
+                for (DataTypeConstructor<? extends Type> constructor : dataType.constructors) {
                     String subclassName = format("user$$%s$$%s$$%d", dataType.sym.sym, constructor.sym.sym, uniqueInt());
 
                     NewClass newClass = newClass(subclassName).withSuperClass(superClass);
@@ -398,7 +411,8 @@ public class Compiler {
                         @Override
                         public NewClass visit(DataTypeConstructor.VectorConstructor<? extends Type> constructor) {
                             NewClass newClass = baseNewClass;
-                            PVector<Class<?>> paramClasses = constructor.paramTypes.stream().map(pt -> pt.equals(dataTypeType) ? superClass : pt.javaType).collect(toPVector());
+
+                            PVector<Class<?>> paramClasses = constructor.paramTypes.stream().map(pt -> pt.javaType).collect(toPVector());
 
                             Instructions setFieldsInstructions = MZERO;
                             Instructions loadLocalInstructions = MZERO;
@@ -410,16 +424,14 @@ public class Compiler {
                                 String fieldName = "field$$" + i;
 
                                 LocalVar localVar = new LocalVar(symbol(fieldName));
-                                Pair<Locals, Locals.Local.VarLocal> newSetFieldsLocals = setFieldsLocals.newVarLocal(localVar, paramClass);
-                                setFieldsLocals = newSetFieldsLocals.left;
+                                setFieldsLocals = setFieldsLocals.withVarLocal(localVar, paramClass);
                                 setFieldsInstructions = mplus(setFieldsInstructions,
                                     loadThis(),
-                                    loadLocal(newSetFieldsLocals.right),
+                                    setFieldsLocals.get(localVar).load(),
                                     fieldOp(PUT_FIELD, fromClassName(subclassName), fieldName, fromClass(paramClass)));
 
-                                Pair<Locals, Locals.Local.VarLocal> newLoadLocalLocals = loadLocalLocals.newVarLocal(localVar, paramClass);
-                                loadLocalLocals = newLoadLocalLocals.left;
-                                loadLocalInstructions = mplus(loadLocalInstructions, loadLocal(newLoadLocalLocals.right));
+                                loadLocalLocals = loadLocalLocals.withVarLocal(localVar, paramClass);
+                                loadLocalInstructions = mplus(loadLocalInstructions, loadLocalLocals.get(localVar).load());
 
                                 newClass = newClass.withField(newField(fieldName, paramClass, setOf(PUBLIC, FINAL)));
                             }
@@ -474,7 +486,7 @@ public class Compiler {
                                 newMethod(setOf(PUBLIC, FINAL, STATIC), "$$eval", Object.class, vectorOf(),
                                     mplus(
                                         instructions,
-                                        box(org.objectweb.asm.Type.getType(returnType)),
+                                        box(org.objectweb.asm.Type.getType(returnType != null ? returnType : Object.class)),
                                         ret(Object.class))))),
 
 

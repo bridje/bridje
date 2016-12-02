@@ -1,26 +1,24 @@
 package rho.compiler;
 
 import org.objectweb.asm.*;
-import org.objectweb.asm.Type;
 import org.pcollections.*;
 import rho.Util;
 import rho.runtime.*;
-import rho.types.*;
 import rho.types.Type.SetType;
 import rho.types.Type.SimpleType;
 import rho.types.Type.VectorType;
+import rho.types.TypeVisitor;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.function.Function;
 
 import static org.objectweb.asm.Opcodes.*;
-import static rho.Util.toPVector;
-import static rho.Util.vectorOf;
+import static rho.Util.*;
 import static rho.compiler.ClassLike.fromClass;
-import static rho.compiler.Instructions.FieldOp.GET_FIELD;
 import static rho.compiler.Instructions.FieldOp.GET_STATIC;
 import static rho.compiler.Instructions.MethodInvoke.*;
 
@@ -51,124 +49,114 @@ interface Instructions {
         return newObject(fromClass(Symbol.class), Util.vectorOf(String.class), loadObject(sym.sym));
     }
 
-    static Instructions loadType(rho.types.Type type, Locals locals) {
-        int nextIdx = locals.nextIdx;
-
-        Map<rho.types.Type.TypeVar, Integer> typeVars_ = new HashMap<>();
-        for (rho.types.Type.TypeVar typeVar : type.typeVars()) {
-            typeVars_.put(typeVar, nextIdx++);
+    static Instructions withTypeLocals(Locals locals, PSet<rho.types.Type.TypeVar> typeVars, Function<Locals, Instructions> fn) {
+        Locals typeLocals = locals.split();
+        Instructions loadTypeVars = MZERO;
+        for (rho.types.Type.TypeVar typeVar : typeVars) {
+            typeLocals = typeLocals.withVarLocal(typeVar, rho.types.Type.TypeVar.class);
+            loadTypeVars = mplus(loadTypeVars, typeLocals.get(typeVar)
+                .store(newObject(fromClass(rho.types.Type.TypeVar.class), vectorOf(), MZERO)));
         }
 
-        PMap<rho.types.Type.TypeVar, Integer> typeVars = HashTreePMap.from(typeVars_);
+        return mplus(loadTypeVars, fn.apply(typeLocals), typeLocals.clear());
+    }
 
-        return mplus(
-            mplus(
-                typeVars.entrySet().stream()
-                    .map(e ->
-                        mplus(
-                            newObject(fromClass(rho.types.Type.TypeVar.class), Util.vectorOf(), MZERO),
-                            mv -> mv.visitVarInsn(ASTORE, e.getValue())))
-                    .collect(toPVector())),
+    static Instructions loadType(rho.types.Type type, Locals locals) {
+        return type.accept(new TypeVisitor<Instructions>() {
+            @Override
+            public Instructions visitBool() {
+                return fieldOp(GET_STATIC, fromClass(SimpleType.class), "BOOL_TYPE", fromClass(rho.types.Type.class));
+            }
 
-            type.accept(new TypeVisitor<Instructions>() {
-                @Override
-                public Instructions visitBool() {
-                    return fieldOp(GET_STATIC, fromClass(SimpleType.class), "BOOL_TYPE", fromClass(rho.types.Type.class));
-                }
+            @Override
+            public Instructions visitString() {
+                return fieldOp(GET_STATIC, fromClass(SimpleType.class), "STRING_TYPE", fromClass(rho.types.Type.class));
+            }
 
-                @Override
-                public Instructions visitString() {
-                    return fieldOp(GET_STATIC, fromClass(SimpleType.class), "STRING_TYPE", fromClass(rho.types.Type.class));
-                }
+            @Override
+            public Instructions visitLong() {
+                return fieldOp(GET_STATIC, fromClass(SimpleType.class), "INT_TYPE", fromClass(rho.types.Type.class));
+            }
 
-                @Override
-                public Instructions visitLong() {
-                    return fieldOp(GET_STATIC, fromClass(SimpleType.class), "INT_TYPE", fromClass(rho.types.Type.class));
-                }
+            @Override
+            public Instructions visitEnvIO() {
+                return fieldOp(GET_STATIC, fromClass(SimpleType.class), "ENV_IO", fromClass(rho.types.Type.class));
+            }
 
-                @Override
-                public Instructions visitEnvIO() {
-                    return fieldOp(GET_STATIC, fromClass(SimpleType.class), "ENV_IO", fromClass(rho.types.Type.class));
-                }
+            @Override
+            public Instructions visit(VectorType type) {
+                return newObject(fromClass(VectorType.class), Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
+            }
 
-                @Override
-                public Instructions visit(VectorType type) {
-                    return newObject(fromClass(VectorType.class), Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
-                }
+            @Override
+            public Instructions visit(SetType type) {
+                return newObject(fromClass(SetType.class), Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
+            }
 
-                @Override
-                public Instructions visit(SetType type) {
-                    return newObject(fromClass(SetType.class), Util.vectorOf(rho.types.Type.class), type.elemType.accept(this));
-                }
+            @Override
+            public Instructions visit(rho.types.Type.FnType type) {
+                return newObject(fromClass(rho.types.Type.FnType.class), Util.vectorOf(PVector.class, rho.types.Type.class),
+                    mplus(loadVector(Type.class, type.paramTypes.stream()
+                            .map(t -> t.accept(this)).collect(toPVector())),
+                        type.returnType.accept(this)));
+            }
 
-                @Override
-                public Instructions visit(rho.types.Type.FnType type) {
-                    return newObject(fromClass(rho.types.Type.FnType.class), Util.vectorOf(PVector.class, rho.types.Type.class),
-                        mplus(loadVector(Type.class, type.paramTypes.stream()
-                                .map(t -> t.accept(this)).collect(toPVector())),
-                            type.returnType.accept(this)));
-                }
+            @Override
+            public Instructions visit(rho.types.Type.TypeVar type) {
+                return locals.get(type).load();
+            }
 
-                @Override
-                public Instructions visit(rho.types.Type.TypeVar type) {
-                    return mv -> {
-                        mv.visitVarInsn(ALOAD, typeVars.get(type));
-                    };
-                }
+            @Override
+            public Instructions visit(rho.types.Type.DataTypeType type) {
+                return newObject(fromClass(rho.types.Type.DataTypeType.class), vectorOf(Symbol.class, Class.class),
+                    mplus(
+                        loadSymbol(type.name),
+                        type.javaType == null ? loadNull() : loadClass(type.javaType)
+                    ));
+            }
 
-                @Override
-                public Instructions visit(rho.types.Type.DataTypeType type) {
-                    return newObject(fromClass(rho.types.Type.DataTypeType.class), vectorOf(Symbol.class, Class.class),
-                        mplus(
-                            loadSymbol(type.name),
-                            type.javaType == null ? loadNull() : loadClass(type.javaType)
-                        ));
-                }
-
-                @Override
-                public Instructions visit(rho.types.Type.AppliedType type) {
-                    return newObject(fromClass(rho.types.Type.AppliedType.class), Util.vectorOf(rho.types.Type.class, PVector.class),
-                        mplus(type.appliedType.accept(this),
-                            loadVector(Type.class, type.typeParams.stream()
-                                .map(t -> t.accept(this)).collect(toPVector()))));
-                }
-            }),
-
-            mplus(typeVars_.entrySet().stream()
-                .map(e -> (Instructions) mv -> {
-                    mv.visitInsn(ACONST_NULL);
-                    mv.visitVarInsn(ASTORE, e.getValue());
-                }).collect(toPVector())));
+            @Override
+            public Instructions visit(rho.types.Type.AppliedType type) {
+                return newObject(fromClass(rho.types.Type.AppliedType.class), Util.vectorOf(rho.types.Type.class, PVector.class),
+                    mplus(type.appliedType.accept(this),
+                        loadVector(Type.class, type.typeParams.stream()
+                            .map(t -> t.accept(this)).collect(toPVector()))));
+            }
+        });
     }
 
     static Instructions loadDataType(DataType<? extends rho.types.Type> dataType, Locals locals) {
-        // TODO this is going to need to reuse the TypeVars between instructions
-        return newObject(fromClass(DataType.class), vectorOf(Object.class, Symbol.class, PVector.class, PVector.class), mplus(
-            loadType(dataType.type, locals),
-            loadSymbol(dataType.sym),
-            loadVector(rho.types.Type.TypeVar.class, dataType.typeVars.stream().map(tv -> loadType(tv, locals)).collect(toPVector())),
-            loadVector(DataTypeConstructor.class, dataType.constructors.stream()
-                .map(c -> c.accept(new ConstructorVisitor<rho.types.Type, Instructions>() {
-                    @Override
-                    public Instructions visit(DataTypeConstructor.ValueConstructor<? extends rho.types.Type> constructor) {
-                        return newObject(fromClass(DataTypeConstructor.ValueConstructor.class), vectorOf(Object.class, Symbol.class),
-                            mplus(
-                                loadType(constructor.type, locals),
-                                loadSymbol(c.sym)));
-                    }
+        return withTypeLocals(locals,
+            dataType.constructors.stream()
+                .flatMap(c -> c.typeVars().stream())
+                .collect(toPSet()).plusAll(dataType.typeVars),
 
-                    @Override
-                    public Instructions visit(DataTypeConstructor.VectorConstructor<? extends rho.types.Type> constructor) {
-                        return newObject(fromClass(DataTypeConstructor.VectorConstructor.class), vectorOf(Object.class, Symbol.class, PVector.class),
-                            mplus(
-                                loadType(constructor.type, locals),
-                                loadSymbol(c.sym),
-                                loadVector(rho.types.Type.class, constructor.paramTypes.stream().map(pt -> loadType(pt, locals)).collect(toPVector()))));
-                    }
-                }))
+            typeLocals -> newObject(fromClass(DataType.class), vectorOf(Object.class, Symbol.class, PVector.class, PVector.class), mplus(
+                loadType(dataType.type, typeLocals),
+                loadSymbol(dataType.sym),
+                loadVector(rho.types.Type.TypeVar.class, dataType.typeVars.stream().map(tv -> loadType(tv, typeLocals)).collect(toPVector())),
+                loadVector(DataTypeConstructor.class, dataType.constructors.stream()
+                    .map(c -> c.accept(new ConstructorVisitor<rho.types.Type, Instructions>() {
+                        @Override
+                        public Instructions visit(DataTypeConstructor.ValueConstructor<? extends rho.types.Type> constructor) {
+                            return newObject(fromClass(DataTypeConstructor.ValueConstructor.class), vectorOf(Object.class, Symbol.class),
+                                mplus(
+                                    loadType(constructor.type, locals),
+                                    loadSymbol(c.sym)));
+                        }
 
-                .collect(toPVector()))
-        ));
+                        @Override
+                        public Instructions visit(DataTypeConstructor.VectorConstructor<? extends rho.types.Type> constructor) {
+                            return newObject(fromClass(DataTypeConstructor.VectorConstructor.class), vectorOf(Object.class, Symbol.class, PVector.class),
+                                mplus(
+                                    loadType(constructor.type, typeLocals),
+                                    loadSymbol(c.sym),
+                                    loadVector(rho.types.Type.class, constructor.paramTypes.stream().map(pt -> loadType(pt, typeLocals)).collect(toPVector()))));
+                        }
+                    }))
+
+                    .collect(toPVector()))
+            )));
     }
 
     static Instructions loadClass(Class clazz) {
@@ -201,16 +189,15 @@ interface Instructions {
     }
 
     static Instructions methodCall(ClassLike classLike, MethodInvoke methodInvoke, String name, Class<?> returnType, PVector<Class<?>> paramTypes) {
+        if (returnType == null || paramTypes.stream().anyMatch(pt -> pt == null)) {
+            throw new UnsupportedOperationException();
+        }
         return mv -> mv.visitMethodInsn(methodInvoke.opcode, classLike.getInternalName(), name,
             Type.getMethodDescriptor(Type.getType(returnType), paramTypes.stream().map(Type::getType).toArray(Type[]::new)),
             methodInvoke.isInterface);
     }
 
     Instructions OBJECT_SUPER_CONSTRUCTOR_CALL = methodCall(fromClass(Object.class), MethodInvoke.INVOKE_SPECIAL, "<init>", Void.TYPE, Empty.vector());
-
-    static Instructions loadLocal(Locals.Local.VarLocal local) {
-        return mv -> mv.visitVarInsn(Type.getType(local.clazz).getOpcode(ILOAD), local.idx);
-    }
 
     static Instructions loadThis() {
         return mv -> mv.visitVarInsn(ALOAD, 0);
@@ -321,27 +308,6 @@ interface Instructions {
             },
             elseInstructions,
             mv -> mv.visitLabel(endLabel));
-    }
-
-    static Instructions letBinding(Instructions instructions, Class<?> clazz, Locals.Local.VarLocal local) {
-        return mplus(instructions,
-            mv -> mv.visitVarInsn(Type.getType(clazz).getOpcode(ISTORE), local.idx));
-    }
-
-    static Instructions localVarCall(Locals.Local local) {
-        return local.accept(new Locals.Local.LocalVisitor<Instructions>() {
-            @Override
-            public Instructions visit(Locals.Local.FieldLocal local) {
-                return mplus(
-                    loadThis(),
-                    fieldOp(GET_FIELD, local.owner, local.fieldName, fromClass(local.clazz)));
-            }
-
-            @Override
-            public Instructions visit(Locals.Local.VarLocal local) {
-                return mv -> mv.visitVarInsn(Type.getType(local.clazz).getOpcode(ILOAD), local.idx);
-            }
-        });
     }
 
     static Instructions globalVarValue(Var var) {

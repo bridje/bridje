@@ -122,7 +122,6 @@ public class Analyser {
                                         parseEnd((Expr<Void>) new Expr.FnExpr<>(form.range, null, localVars, bodyExpr)))));
 
                     case "def": {
-                        // TODO this needs to be a choice
                         return anyOf(
                             SYMBOL_PARSER.bind(symForm ->
                                 exprParser.bind(bodyExpr ->
@@ -154,8 +153,8 @@ public class Analyser {
                                         })),
                                     dataTypeDef ->
                                         parseConstructors(dataTypeDef.left, HashTreePMap.from(typeVarMapping)).fmap(constructors ->
-                                            new Expr.DefDataExpr<>(form.range, null,
-                                                new DataType<>(null, dataTypeDef.left,
+                                            new Expr.DefDataExpr<>(form.range,
+                                                null, new DataType<>(null, dataTypeDef.left,
                                                     dataTypeDef.right.stream().map(s -> typeVarMapping.get(s.sym)).collect(toPVector()),
                                                     constructors))));
                             }));

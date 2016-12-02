@@ -3,76 +3,77 @@ package rho.compiler;
 import org.objectweb.asm.Type;
 import org.pcollections.Empty;
 import org.pcollections.PMap;
-import rho.analyser.LocalVar;
-import rho.util.Pair;
 
-import static rho.util.Pair.pair;
+import static org.objectweb.asm.Opcodes.*;
+import static rho.Util.toPVector;
+import static rho.compiler.Instructions.FieldOp.GET_FIELD;
+import static rho.compiler.Instructions.FieldOp.PUT_FIELD;
+import static rho.compiler.Instructions.*;
 
 final class Locals {
 
-    static abstract class Local {
-        final LocalVar localVar;
-        final Class<?> clazz;
+    interface LocalInstructions {
+        Instructions load();
 
-        Local(LocalVar localVar, Class<?> clazz) {
-            this.localVar = localVar;
-            this.clazz = clazz;
-        }
+        Instructions store(Instructions instructions);
 
-        abstract <T> T accept(LocalVisitor<T> visitor);
-
-        interface LocalVisitor<T> {
-
-            T visit(FieldLocal local);
-
-            T visit(VarLocal local);
-        }
-
-        static final class VarLocal extends Local {
-
-            final int idx;
-
-            VarLocal(LocalVar localVar, Class<?> clazz, int idx) {
-                super(localVar, clazz);
-                this.idx = idx;
-            }
-
-            @Override
-            public String toString() {
-                return String.format("(StackLocal %d %s)", idx, localVar);
-            }
-
-            @Override
-            <T> T accept(LocalVisitor<T> visitor) {
-                return visitor.visit(this);
-            }
-        }
-
-        static final class FieldLocal extends Local {
-
-            final ClassLike owner;
-            final String fieldName;
-
-            FieldLocal(LocalVar localVar, Class<?> clazz, ClassLike owner, String fieldName) {
-                super(localVar, clazz);
-                this.owner = owner;
-                this.fieldName = fieldName;
-            }
-
-            @Override
-            <T> T accept(LocalVisitor<T> visitor) {
-                return visitor.visit(this);
-            }
-
-            @Override
-            public String toString() {
-                return String.format("(FieldLocal %s)", fieldName);
-            }
+        default Instructions clear() {
+            return store(mv -> mv.visitInsn(ACONST_NULL));
         }
     }
 
-    final PMap<LocalVar, Local> locals;
-    final int nextIdx;
+    private class VarLocal implements LocalInstructions {
+        private final Type type;
+
+        public VarLocal(Type type) {
+            this.type = type;
+        }
+
+        @Override
+        public Instructions load() {
+            return mv -> mv.visitVarInsn(type.getOpcode(ILOAD), nextIdx);
+        }
+
+        @Override
+        public Instructions store(Instructions instructions) {
+            return mplus(
+                instructions,
+                mv -> mv.visitVarInsn(type.getOpcode(ISTORE), nextIdx)
+            );
+        }
+    }
+
+    private static class FieldLocal implements LocalInstructions {
+
+        final ClassLike owner;
+        final String fieldName;
+        final ClassLike clazz;
+
+        FieldLocal(ClassLike owner, String fieldName, ClassLike clazz) {
+            this.owner = owner;
+            this.fieldName = fieldName;
+            this.clazz = clazz;
+        }
+
+        @Override
+        public Instructions load() {
+            return mplus(
+                loadThis(),
+                fieldOp(GET_FIELD, owner, fieldName, clazz));
+
+        }
+
+        @Override
+        public Instructions store(Instructions instructions) {
+            return mplus(
+                loadThis(),
+                instructions,
+                fieldOp(PUT_FIELD, owner, fieldName, clazz));
+        }
+    }
+
+    private final PMap<Object, LocalInstructions> localInstructions;
+    private final int nextIdx;
 
     static Locals staticLocals() {
         return new Locals(Empty.map(), 0);
@@ -82,18 +83,31 @@ final class Locals {
         return new Locals(Empty.map(), 1);
     }
 
-    private Locals(PMap<LocalVar, Local> locals, int nextIdx) {
-        this.locals = locals;
+    private Locals(PMap<Object, LocalInstructions> localInstructions, int nextIdx) {
+        this.localInstructions = localInstructions;
         this.nextIdx = nextIdx;
     }
 
-    Pair<Locals, Local.VarLocal> newVarLocal(LocalVar localVar, Class<?> clazz) {
-        Local.VarLocal local = new Local.VarLocal(localVar, clazz, nextIdx);
-        return pair(new Locals(locals.plus(localVar, local), nextIdx + Type.getType(clazz).getSize()), local);
+    public LocalInstructions get(Object token) {
+        return localInstructions.get(token);
     }
 
-    Pair<Locals, Local> newFieldLocal(LocalVar localVar, Class<?> clazz, ClassLike owner, String fieldName) {
-        Local local = new Local.FieldLocal(localVar, clazz, owner, fieldName);
-        return pair(new Locals(locals.plus(localVar, local), nextIdx), local);
+    Locals withVarLocal(Object token, Class<?> clazz) {
+        Type type = Type.getType(clazz);
+        return new Locals(localInstructions.plus(token, new VarLocal(type)),
+            nextIdx + type.getSize());
+    }
+
+    Locals withFieldLocal(Object token, ClassLike owner, String fieldName, ClassLike clazz) {
+        return new Locals(localInstructions.plus(token,
+            new FieldLocal(owner, fieldName, clazz)), nextIdx);
+    }
+
+    Locals split() {
+        return new Locals(Empty.map(), nextIdx);
+    }
+
+    Instructions clear() {
+        return mplus(localInstructions.values().stream().map(lvi -> lvi.clear()).collect(toPVector()));
     }
 }
