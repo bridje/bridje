@@ -171,21 +171,20 @@ public class CompilerTest {
         DataTypeType dataTypeType = new DataTypeType(foo, null);
         TypeVar a = new TypeVar();
 
+        AppliedType appliedType = new AppliedType(dataTypeType, vectorOf(a));
+
         EvalResult result = Compiler.compile(PLUS_ENV, new Expr.DefDataExpr<>(null,
-            ENV_IO, new DataType<>(new AppliedType(dataTypeType, vectorOf(a)), foo, vectorOf(a),
+            ENV_IO, new DataType<>(appliedType, foo, vectorOf(a),
             vectorOf(
                 new DataTypeConstructor.VectorConstructor<>(
-                    fnType(vectorOf(a), new AppliedType(dataTypeType, vectorOf(a))),
+                    fnType(vectorOf(a, appliedType), appliedType),
                     symbol("FooCons"),
                     vectorOf(a))))));
 
         Env newEnv = result.env;
 
         Type type = newEnv.dataTypes.get(foo).constructors.get(0).type;
-        System.out.println(type);
-        assertTrue(
-            type
-                .alphaEquivalentTo(fnType(vectorOf(a), new AppliedType(dataTypeType, vectorOf(a)))));
+        assertTrue(type.alphaEquivalentTo(fnType(vectorOf(a, appliedType), appliedType)));
 
     }
 }

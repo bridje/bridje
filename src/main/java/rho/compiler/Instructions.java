@@ -141,7 +141,7 @@ interface Instructions {
                         public Instructions visit(DataTypeConstructor.ValueConstructor<? extends rho.types.Type> constructor) {
                             return newObject(fromClass(DataTypeConstructor.ValueConstructor.class), vectorOf(Object.class, Symbol.class),
                                 mplus(
-                                    loadType(constructor.type, locals),
+                                    loadType(constructor.type, typeLocals),
                                     loadSymbol(c.sym)));
                         }
 

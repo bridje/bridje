@@ -119,10 +119,10 @@ public class TypeCheckerTest {
         Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(
             new Expr.DefDataExpr<>(null,
                 null, new DataType<>(null, symbol("SimpleUnion"),
-                    Empty.vector(), vectorOf(
-                        new DataTypeConstructor.VectorConstructor<>(null, symbol("AnInt"), vectorOf(INT_TYPE)),
-                        new DataTypeConstructor.VectorConstructor<>(null, symbol("AString"), vectorOf(STRING_TYPE)),
-                        new DataTypeConstructor.ValueConstructor<>(null, symbol("Neither"))))));
+                Empty.vector(), vectorOf(
+                new DataTypeConstructor.VectorConstructor<>(null, symbol("AnInt"), vectorOf(INT_TYPE)),
+                new DataTypeConstructor.VectorConstructor<>(null, symbol("AString"), vectorOf(STRING_TYPE)),
+                new DataTypeConstructor.ValueConstructor<>(null, symbol("Neither"))))));
 
         assertEquals(ENV_IO, expr.type);
 
@@ -139,13 +139,15 @@ public class TypeCheckerTest {
 
     @Test
     public void typesPolymorphicDataType() throws Exception {
-        TypeVar a = new TypeVar();
-        Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(new Expr.DefDataExpr<>(null, null, new DataType<>(null, symbol("Foo"), vectorOf(a),
-            vectorOf(new DataTypeConstructor.VectorConstructor<>(null, symbol("FooCons"), vectorOf(a))))));
-
         DataTypeType dataTypeType = new DataTypeType(symbol("Foo"), null);
+        TypeVar a = new TypeVar();
+        AppliedType appliedType = new AppliedType(dataTypeType, vectorOf(a));
 
-        assertTrue(new AppliedType(dataTypeType, vectorOf(a)).alphaEquivalentTo(expr.dataType.type));
-        assertTrue(new FnType(vectorOf(a), new AppliedType(dataTypeType, vectorOf(a))).alphaEquivalentTo(expr.dataType.constructors.get(0).type));
+        Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(new Expr.DefDataExpr<>(null, null,
+            new DataType<>(null, symbol("Foo"), vectorOf(a),
+                vectorOf(new DataTypeConstructor.VectorConstructor<>(null, symbol("FooCons"), vectorOf(a, appliedType))))));
+
+        assertTrue(appliedType.alphaEquivalentTo(expr.dataType.type));
+        assertTrue(new FnType(vectorOf(a, appliedType), appliedType).alphaEquivalentTo(expr.dataType.constructors.get(0).type));
     }
 }

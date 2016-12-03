@@ -231,21 +231,21 @@ public class TypeChecker {
 
                 return new Expr.DefDataExpr<>(expr.range,
                     ENV_IO, new DataType<>(
-                        defDataExprType,
-                        dataType.sym,
-                        dataType.typeVars, dataType.constructors.stream()
-                        .map(c -> c.accept(new ConstructorVisitor<Object, DataTypeConstructor<Type>>() {
+                    defDataExprType,
+                    dataType.sym,
+                    dataType.typeVars, dataType.constructors.stream()
+                    .map(c -> c.accept(new ConstructorVisitor<Object, DataTypeConstructor<Type>>() {
 
-                            @Override
-                            public DataTypeConstructor<Type> visit(DataTypeConstructor.VectorConstructor<?> constructor) {
-                                return new DataTypeConstructor.VectorConstructor<>(fnType(constructor.paramTypes, defDataExprType), constructor.sym, constructor.paramTypes);
-                            }
+                        @Override
+                        public DataTypeConstructor<Type> visit(DataTypeConstructor.VectorConstructor<?> constructor) {
+                            return new DataTypeConstructor.VectorConstructor<>(fnType(constructor.paramTypes, defDataExprType), constructor.sym, constructor.paramTypes);
+                        }
 
-                            @Override
-                            public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<?> constructor) {
-                                return new DataTypeConstructor.ValueConstructor<>(dataTypeType, constructor.sym);
-                            }
-                        })).collect(toPVector())));
+                        @Override
+                        public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<?> constructor) {
+                            return new DataTypeConstructor.ValueConstructor<>(defDataExprType, constructor.sym);
+                        }
+                    })).collect(toPVector())));
             }
         });
     }

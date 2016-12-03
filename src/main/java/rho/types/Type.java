@@ -1,5 +1,6 @@
 package rho.types;
 
+import jdk.nashorn.internal.codegen.TypeMap;
 import org.pcollections.*;
 import rho.Panic;
 import rho.compiler.EnvUpdate;
@@ -535,7 +536,24 @@ public abstract class Type {
 
         @Override
         TypeMapping unify0(Type t2) {
-            throw new UnsupportedOperationException();
+            if (!(t2 instanceof AppliedType)) {
+               throw cantUnify(t2);
+            }
+
+            AppliedType appliedT2 = (AppliedType) t2;
+
+            if (typeParams.size() != appliedT2.typeParams.size()) {
+                throw cantUnify(t2);
+            }
+
+
+            TypeMapping mapping = TypeMapping.EMPTY;
+
+            for (Pair<Type, Type> paramTypePairs : zip(typeParams, appliedT2.typeParams)) {
+                mapping = paramTypePairs.left.apply(mapping).unify(paramTypePairs.right.apply(mapping));
+            }
+
+            return mapping;
         }
 
         @Override

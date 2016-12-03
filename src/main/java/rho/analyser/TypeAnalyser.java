@@ -8,6 +8,7 @@ import rho.types.Type;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static rho.Util.toPVector;
 import static rho.types.Type.FnType.fnType;
@@ -79,7 +80,8 @@ public class TypeAnalyser {
                             break;
 
                         default:
-                            return localTypeEnv.resolve(sym).orElseThrow(() -> new UnsupportedOperationException());
+                            return new AppliedType(localTypeEnv.resolve(sym).orElseThrow(() -> new UnsupportedOperationException()),
+                                forms.minus(0).stream().map(f -> analyzeType0(f)).collect(toPVector()));
                     }
                 }
 

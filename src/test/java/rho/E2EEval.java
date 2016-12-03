@@ -154,13 +154,20 @@ public class E2EEval {
     public void testPolymorphicList() throws Exception {
         EvalResult defDataResult = evalAction(PLUS_ENV, "(defdata (Foo a) (FooCons a (Foo a)) EmptyFoo)").right;
 
-        DataType dataType = (DataType) defDataResult.value;
+        DataType<Type> dataType = (DataType) defDataResult.value;
 
         assertTrue(dataType.typeVars.size() == 1);
 
+        Type.TypeVar a = new Type.TypeVar();
+
+        Type.AppliedType appliedType = new Type.AppliedType(new Type.DataTypeType(symbol("Foo"), null), vectorOf(a));
+        assertTrue(defDataResult.env.vars.get(symbol("FooCons")).declaredType
+            .alphaEquivalentTo(fnType(vectorOf(a, appliedType), appliedType)));
+
         Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(FooCons 4 (FooCons 5 EmptyFoo))");
 
-        assertTrue(new Type.AppliedType(new Type.DataTypeType(symbol("FooList"), null), vectorOf(INT_TYPE)).alphaEquivalentTo(result.left.type));
+
+        assertTrue(new Type.AppliedType(new Type.DataTypeType(symbol("Foo"), null), vectorOf(INT_TYPE)).alphaEquivalentTo(result.left.type));
 
         Object fooList = result.right.value;
         Field field0 = fooList.getClass().getDeclaredField("field$$0");

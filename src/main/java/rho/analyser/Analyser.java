@@ -155,8 +155,8 @@ public class Analyser {
                                         parseConstructors(dataTypeDef.left, HashTreePMap.from(typeVarMapping)).fmap(constructors ->
                                             new Expr.DefDataExpr<>(form.range,
                                                 null, new DataType<>(null, dataTypeDef.left,
-                                                    dataTypeDef.right.stream().map(s -> typeVarMapping.get(s.sym)).collect(toPVector()),
-                                                    constructors))));
+                                                dataTypeDef.right.stream().map(s -> typeVarMapping.get(s.sym)).collect(toPVector()),
+                                                constructors))));
                             }));
                     }
 
@@ -183,14 +183,14 @@ public class Analyser {
             }
 
             private ListParser<PVector<DataTypeConstructor<Void>>> parseConstructors(Symbol name, PMap<Symbol, TypeVar> typeVarMapping) {
+                LocalTypeEnv localTypeEnv = new LocalTypeEnv(HashTreePMap.singleton(name, new Type.DataTypeType(name, null)), typeVarMapping);
+
                 return manyOf(anyOf(
                     SYMBOL_PARSER.fmap(symForm -> new ValueConstructor<Void>(null, symForm.sym)),
                     LIST_PARSER.bind(constructorForm -> nestedListParser(constructorForm.forms,
-                        SYMBOL_PARSER.bind(cNameForm -> {
-                            LocalTypeEnv localTypeEnv = new LocalTypeEnv(HashTreePMap.singleton(name, new Type.DataTypeType(name, null)), typeVarMapping);
-                            return manyOf(typeParser(localTypeEnv)).bind(paramTypes ->
-                                parseEnd(new VectorConstructor<Void>(null, cNameForm.sym, paramTypes)));
-                        }),
+                        SYMBOL_PARSER.bind(cNameForm ->
+                            manyOf(typeParser(localTypeEnv)).bind(paramTypes ->
+                                parseEnd(new VectorConstructor<Void>(null, cNameForm.sym, paramTypes)))),
 
                         ListParser::pure))));
             }
