@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/rho.iml" filepath="$PROJECT_DIR$/rho.iml" />
+      <module fileurl="file://$PROJECT_DIR$/bridje.iml" filepath="$PROJECT_DIR$/bridje.iml" />
     </modules>
   </component>
 </project>
