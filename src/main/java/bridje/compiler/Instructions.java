@@ -4,6 +4,7 @@ import bridje.Util;
 import bridje.runtime.*;
 import bridje.types.Type.SetType;
 import bridje.types.Type.SimpleType;
+import bridje.types.Type.TypeVar;
 import bridje.types.Type.VectorType;
 import bridje.types.TypeVisitor;
 import org.objectweb.asm.*;
@@ -49,13 +50,13 @@ interface Instructions {
         return newObject(fromClass(Symbol.class), Util.vectorOf(String.class), loadObject(sym.sym));
     }
 
-    static Instructions withTypeLocals(Locals locals, PSet<bridje.types.Type.TypeVar> typeVars, Function<Locals, Instructions> fn) {
+    static Instructions withTypeLocals(Locals locals, PSet<TypeVar> typeVars, Function<Locals, Instructions> fn) {
         Locals typeLocals = locals.split();
         Instructions loadTypeVars = MZERO;
-        for (bridje.types.Type.TypeVar typeVar : typeVars) {
-            typeLocals = typeLocals.withVarLocal(typeVar, bridje.types.Type.TypeVar.class);
+        for (TypeVar typeVar : typeVars) {
+            typeLocals = typeLocals.withVarLocal(typeVar, TypeVar.class);
             loadTypeVars = mplus(loadTypeVars, typeLocals.get(typeVar)
-                .store(newObject(fromClass(bridje.types.Type.TypeVar.class), vectorOf(), MZERO)));
+                .store(newObject(fromClass(TypeVar.class), vectorOf(), MZERO)));
         }
 
         return mplus(loadTypeVars, fn.apply(typeLocals), typeLocals.clear());
@@ -102,7 +103,7 @@ interface Instructions {
             }
 
             @Override
-            public Instructions visit(bridje.types.Type.TypeVar type) {
+            public Instructions visit(TypeVar type) {
                 return locals.get(type).load();
             }
 
@@ -134,7 +135,7 @@ interface Instructions {
             typeLocals -> newObject(fromClass(DataType.class), vectorOf(Object.class, Symbol.class, PVector.class, PVector.class), mplus(
                 loadType(dataType.type, typeLocals),
                 loadSymbol(dataType.sym),
-                loadVector(bridje.types.Type.TypeVar.class, dataType.typeVars.stream().map(tv -> loadType(tv, typeLocals)).collect(toPVector())),
+                loadVector(TypeVar.class, dataType.typeVars.stream().map(tv -> loadType(tv, typeLocals)).collect(toPVector())),
                 loadVector(DataTypeConstructor.class, dataType.constructors.stream()
                     .map(c -> c.accept(new ConstructorVisitor<bridje.types.Type, Instructions>() {
                         @Override
