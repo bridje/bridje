@@ -1,5 +1,6 @@
 package bridje.types;
 
+import bridje.analyser.Expr;
 import bridje.types.Type.TypeVar;
 import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
@@ -32,6 +33,10 @@ final class TypeMapping {
         return with(mapping.mapping);
     }
 
+    Expr<Type> applyTo(Expr<Type> expr) {
+        return expr.fmapType(t -> t.apply(this));
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -48,5 +53,9 @@ final class TypeMapping {
     @Override
     public String toString() {
         return String.format("(TypeMapping %s)", mapping);
+    }
+
+    public TypeMapping with(TypeVar var, Type type) {
+        return new TypeMapping(mapping.plus(var, type));
     }
 }
