@@ -58,19 +58,60 @@ public class TypeChecker {
                 TypeMapping mapping = unify(typeEquations(envs)
                     .plusAll(typeResults.stream().map(r -> new TypeEquation(elemType, r.expr.type)).collect(toPVector())));
 
-                return new TypeResult(union(envs.stream().map(e -> e.apply(mapping)).collect(toPVector())),
+                return new TypeResult(
+                    union(envs.stream().map(e -> e.apply(mapping)).collect(toPVector())),
                     new Expr.SetExpr<>(expr.range, setType(elemType.apply(mapping)),
                         typeResults.stream().map(r -> mapping.applyTo(r.expr)).collect(toPVector())));
             }
 
             @Override
             public TypeResult visit(Expr.CallExpr<? extends Void> expr) {
-                throw new UnsupportedOperationException();
+                TypeVar resultType = new TypeVar();
+                TypeResult callResult = typeExpr0(expr.exprs.get(0));
+                PVector<TypeResult> paramTypeResults = expr.exprs.minus(0).stream().map(e -> typeExpr0(e)).collect(toPVector());
+
+                PVector<MonomorphicEnv> envs = paramTypeResults.stream()
+                    .map(tr -> tr.monomorphicEnv)
+                    .collect(toPVector())
+                    .plus(callResult.monomorphicEnv);
+
+                TypeMapping mapping = unify(
+                    typeEquations(envs)
+                        .plus(new TypeEquation(callResult.expr.type, new FnType(paramTypeResults.stream().map(tr -> tr.expr.type).collect(toPVector()), resultType))));
+
+                return new TypeResult(
+                    union(envs.stream().map(e -> e.apply(mapping)).collect(toPVector())),
+                    mapping.applyTo(
+                        new Expr.CallExpr<>(expr.range, resultType,
+                            paramTypeResults.stream()
+                                .map(tr -> tr.expr)
+                                .collect(toPVector())
+                                .plus(0, callResult.expr))));
             }
 
             @Override
             public TypeResult visit(Expr.VarCallExpr<? extends Void> expr) {
-                throw new UnsupportedOperationException();
+                TypeVar resultType = new TypeVar();
+                Type varType = expr.var.inferredType.instantiate();
+
+                PVector<TypeResult> paramTypeResults = expr.params.stream().map(e -> typeExpr0(e)).collect(toPVector());
+
+                PVector<MonomorphicEnv> envs = paramTypeResults.stream()
+                    .map(tr -> tr.monomorphicEnv)
+                    .collect(toPVector());
+
+                TypeMapping mapping = unify(
+                    typeEquations(envs)
+                        .plus(new TypeEquation(varType, new FnType(paramTypeResults.stream().map(tr -> tr.expr.type).collect(toPVector()), resultType))));
+
+                return new TypeResult(
+                    union(envs.stream().map(e -> e.apply(mapping)).collect(toPVector())),
+                    mapping.applyTo(
+                        new Expr.VarCallExpr<>(expr.range, resultType,
+                            expr.var,
+                            paramTypeResults.stream()
+                                .map(tr -> tr.expr)
+                                .collect(toPVector()))));
             }
 
             @Override
@@ -111,7 +152,7 @@ public class TypeChecker {
 
             @Override
             public TypeResult visit(Expr.GlobalVarExpr<? extends Void> expr) {
-                throw new UnsupportedOperationException();
+                return new TypeResult(new Expr.GlobalVarExpr<>(expr.range, expr.var.inferredType.instantiate(), expr.var));
             }
 
             @Override

@@ -5,7 +5,9 @@ import org.pcollections.PCollection;
 import java.util.LinkedList;
 
 import static bridje.Panic.panic;
+import static bridje.Util.toPMap;
 import static bridje.Util.toPVector;
+import static bridje.util.Pair.zip;
 
 class TypeEquation {
     final Type left, right;
@@ -52,7 +54,12 @@ class TypeEquation {
                     mappedTeqs.add(new TypeEquation(teq.left.apply(singleMapping), teq.right.apply(singleMapping)));
                 }
 
-                mapping = mapping.with(singleMapping);
+                mapping = new TypeMapping(mapping.with(singleMapping).mapping.entrySet().stream()
+                    .collect(
+                        toPMap(
+                            e -> e.getKey(),
+                            e -> e.getValue().apply(singleMapping))));
+
                 teqs = mappedTeqs;
 
                 continue;
@@ -61,6 +68,22 @@ class TypeEquation {
             if (right instanceof Type.TypeVar) {
                 teqs.addFirst(new TypeEquation(right, left));
                 continue;
+            }
+
+            if (left instanceof Type.FnType && right instanceof Type.FnType) {
+                Type.FnType leftFn = (Type.FnType) left;
+                Type.FnType rightFn = (Type.FnType) right;
+
+                if (leftFn.paramTypes.size() != rightFn.paramTypes.size()) {
+                    throw new UnsupportedOperationException();
+                } else {
+                    teqs.addAll(0,
+                        zip(leftFn.paramTypes, rightFn.paramTypes).stream()
+                            .map(pts -> new TypeEquation(pts.left, pts.right))
+                            .collect(toPVector())
+                            .plus(new TypeEquation(leftFn.returnType, rightFn.returnType)));
+                    continue;
+                }
             }
 
             if (left instanceof Type.FnType || left instanceof Type.DataTypeType) {
