@@ -60,4 +60,8 @@ class MonomorphicEnv {
             .map(e -> new TypeEquation(localVarTypeVars.get(e.getKey()), e.getValue()))
             .collect(toPVector());
     }
+
+    public MonomorphicEnv minus(LocalVar localVar) {
+        return new MonomorphicEnv(typings.minus(localVar));
+    }
 }

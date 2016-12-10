@@ -7,8 +7,8 @@ import bridje.runtime.DataType;
 import bridje.runtime.Env;
 import bridje.runtime.EvalResult;
 import bridje.runtime.Var;
-import bridje.types.HMTypeChecker;
 import bridje.types.Type;
+import bridje.types.TypeChecker;
 import bridje.util.Pair;
 import org.junit.Test;
 
@@ -33,7 +33,7 @@ public class E2EEval {
 
         Expr<Void> expr = analyse(env, form);
 
-        Expr<Type> typedExpr = HMTypeChecker.typeExpr(expr);
+        Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
         return pair(typedExpr, compile(env, typedExpr));
     }
@@ -51,7 +51,7 @@ public class E2EEval {
 
         Expr<Void> expr = analyse(env, form);
 
-        Expr<Type> typedExpr = HMTypeChecker.typeExpr(expr);
+        Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
         return pair(typedExpr, compile(env, typedExpr));
     }

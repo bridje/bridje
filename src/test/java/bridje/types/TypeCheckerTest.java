@@ -72,6 +72,23 @@ public class TypeCheckerTest {
     }
 
     @Test
+    public void typesPolymorphicLet() throws Exception {
+        LocalVar id = new LocalVar(symbol("id"));
+        LocalVar a = new LocalVar(symbol("a"));
+        LocalVar b = new LocalVar(symbol("b"));
+
+        Expr.LetExpr<Void> letExpr = letExpr(null,
+            vectorOf(
+                letBinding(id, fnExpr(null, vectorOf(a), new Expr.LocalVarExpr<>(null, null, a))),
+                letBinding(b, callExpr(null, vectorOf(localVarExpr(null, id), stringExpr(null, "unused"))))),
+            callExpr(null, vectorOf(localVarExpr(null, id), intExpr(null, 4))));
+
+        Expr<Type> typedExpr = TypeChecker.typeExpr(letExpr);
+        assertEquals(INT_TYPE, typedExpr.type);
+        assertEquals(STRING_TYPE, ((Expr.LetExpr<Type>) typedExpr).bindings.get(1).expr.type);
+    }
+
+    @Test
     public void typesCallExpr() throws Exception {
         LocalVar x = new LocalVar(symbol("x"));
         Expr<Type> typedLetExpr = TypeChecker.typeExpr(
