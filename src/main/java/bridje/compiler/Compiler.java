@@ -35,6 +35,7 @@ import static bridje.compiler.NewMethod.newMethod;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.Var.FN_METHOD_NAME;
 import static bridje.runtime.Var.VALUE_FIELD_NAME;
+import static bridje.util.Pair.pair;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.publicLookup;
 
@@ -176,15 +177,11 @@ public class Compiler {
             @Override
             public Instructions visit(Expr.MapExpr<? extends Type> expr) {
                 Type.MapType type = ((Type.MapType) expr.type);
-                Instructions boxKey = box(type.keyType.javaType);
-                Instructions boxValue = box(type.valueType.javaType);
 
-                return Instructions.loadMap(expr.entries.stream()
-                    .map(e ->
-                        mplus(
-                            compileExpr0(locals, e.key), boxKey,
-                            compileExpr0(locals, e.value), boxValue))
-                    .collect(toPVector()));
+                return Instructions.loadMap(type.keyType.javaType, type.valueType.javaType,
+                    expr.entries.stream()
+                        .map(e -> pair(compileExpr0(locals, e.key), compileExpr0(locals, e.value)))
+                        .collect(toPVector()));
             }
 
             @Override
@@ -487,7 +484,7 @@ public class Compiler {
                     mplus(
                         loadDataType(dataType, locals),
                         loadClass(superClass),
-                        loadMap(constructors.entrySet().stream().map(e -> mplus(loadSymbol(e.getKey()), loadClass(e.getValue()))).collect(toPVector()))));
+                        loadMap(Symbol.class, Class.class, constructors.entrySet().stream().map(e -> pair(loadSymbol(e.getKey()), loadClass(e.getValue()))).collect(toPVector()))));
             }
         });
     }

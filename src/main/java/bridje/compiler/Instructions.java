@@ -4,6 +4,7 @@ import bridje.Util;
 import bridje.runtime.*;
 import bridje.types.Type.*;
 import bridje.types.TypeVisitor;
+import bridje.util.Pair;
 import org.objectweb.asm.*;
 import org.pcollections.*;
 
@@ -262,14 +263,17 @@ interface Instructions {
             methodCall(fromClass(HashTreePSet.class), INVOKE_STATIC, "from", MapPSet.class, Util.vectorOf(Collection.class)));
     }
 
-    static Instructions loadMap(PVector<Instructions> instructions) {
+    static Instructions loadMap(Class<?> keyType, Class<?> valueType, PVector<Pair<Instructions, Instructions>> instructions) {
+        Instructions boxKey = box(keyType);
+        Instructions boxValue = box(valueType);
         return mplus(
             newObject(fromClass(HashMap.class), Empty.vector(), MZERO),
             mplus(instructions.stream()
                 .map(i ->
                     mplus(
                         mv -> mv.visitInsn(DUP),
-                        i,
+                        i.left, boxKey,
+                        i.right, boxValue,
                         methodCall(fromClass(Map.class), INVOKE_INTERFACE, "put", Object.class, vectorOf(Object.class, Object.class)),
                         mv -> mv.visitInsn(POP)))
                 .collect(toPVector())),
