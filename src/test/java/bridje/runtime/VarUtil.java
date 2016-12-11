@@ -1,8 +1,6 @@
 package bridje.runtime;
 
 import bridje.types.Type;
-import org.pcollections.Empty;
-import org.pcollections.HashTreePMap;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -11,6 +9,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import static bridje.Util.vectorOf;
+import static bridje.runtime.Env.EMPTY;
+import static bridje.runtime.FQSymbol.fqSym;
+import static bridje.runtime.NS.USER;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.types.Type.FnType.fnType;
 import static bridje.types.Type.SimpleType.INT_TYPE;
@@ -40,5 +41,5 @@ public class VarUtil {
 
     public static final Var PLUS_VAR = new Var(PLUS_TYPE, PLUS_TYPE, PLUS_VALUE_FIELD, PLUS_FN_METHOD);
 
-    public static final Env PLUS_ENV = new Env(HashTreePMap.singleton(symbol("+"), PLUS_VAR), Empty.map(), Empty.map());
+    public static final Env PLUS_ENV = EMPTY.withVar(fqSym(USER, symbol("+")), PLUS_VAR);
 }

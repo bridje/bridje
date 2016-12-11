@@ -24,9 +24,10 @@ class ClassDefiner extends ClassLoader {
 
     private static void writeClassFile(String name, byte[] bytes) {
         try {
-            Path dir = Paths.get("target", "bytecode");
-            Files.createDirectories(dir);
-            try (OutputStream stream = Files.newOutputStream(dir.resolve(String.format("%s.class", name)))) {
+            Path path = Paths.get("target", "bytecode", String.format("%s.class", name));
+            Files.createDirectories(path.getParent());
+
+            try (OutputStream stream = Files.newOutputStream(path)) {
                 stream.write(bytes);
             }
         } catch (IOException e) {

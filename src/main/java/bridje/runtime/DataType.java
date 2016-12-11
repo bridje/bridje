@@ -15,11 +15,11 @@ import static java.util.stream.Collectors.joining;
 
 public class DataType<T> {
     public final T type;
-    public final Symbol sym;
+    public final FQSymbol sym;
     public final PVector<Type.TypeVar> typeVars;
     public final PVector<DataTypeConstructor<T>> constructors;
 
-    public DataType(T type, Symbol sym, PVector<Type.TypeVar> typeVars, PVector<DataTypeConstructor<T>> constructors) {
+    public DataType(T type, FQSymbol sym, PVector<Type.TypeVar> typeVars, PVector<DataTypeConstructor<T>> constructors) {
         this.type = type;
         this.sym = sym;
         this.typeVars = typeVars;

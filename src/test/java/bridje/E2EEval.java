@@ -19,6 +19,8 @@ import static bridje.Util.vectorOf;
 import static bridje.analyser.Analyser.analyse;
 import static bridje.compiler.Compiler.compile;
 import static bridje.reader.FormReader.read;
+import static bridje.runtime.FQSymbol.fqSym;
+import static bridje.runtime.NS.USER;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.PLUS_ENV;
 import static bridje.types.Type.FnType.fnType;
@@ -33,7 +35,7 @@ public class E2EEval {
     private Pair<Expr<Type>, EvalResult> evalValue(Env env, String code) {
         Form form = read(LCReader.fromString(code));
 
-        Expr<Void> expr = analyse(env, form);
+        Expr<Void> expr = analyse(env, USER, form);
 
         Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
@@ -51,7 +53,7 @@ public class E2EEval {
     private Pair<Expr<Type>, EvalResult> evalAction(Env env, String code) {
         Form form = read(LCReader.fromString(code));
 
-        Expr<Void> expr = analyse(env, form);
+        Expr<Void> expr = analyse(env, USER, form);
 
         Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
@@ -117,7 +119,7 @@ public class E2EEval {
 
         Type doubleType = fnType(vectorOf(INT_TYPE), INT_TYPE);
 
-        assertEquals(doubleType, env.vars.get(symbol("double")).declaredType);
+        assertEquals(doubleType, env.resolveVar(USER, symbol("double")).orElse(null).declaredType);
         testEvalValue(env, "(double 4)", INT_TYPE, 8L);
     }
 
@@ -127,7 +129,7 @@ public class E2EEval {
 
         Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "Mar");
 
-        assertEquals(new Type.DataTypeType(symbol("Month"), null), result.left.type);
+        assertEquals(new Type.DataTypeType(fqSym(USER, symbol("Month")), null), result.left.type);
     }
 
     @Test
@@ -136,7 +138,7 @@ public class E2EEval {
 
         Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(AnInt 4)");
 
-        assertEquals(new Type.DataTypeType(symbol("IntOrString"), null), result.left.type);
+        assertEquals(new Type.DataTypeType(fqSym(USER, symbol("IntOrString")), null), result.left.type);
 
         Object value = result.right.value;
         assertEquals(4L, value.getClass().getDeclaredField("field$$0").get(value));
@@ -148,7 +150,7 @@ public class E2EEval {
 
         Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(IntListCons 4 (IntListCons 5 EmptyIntList))");
 
-        assertEquals(new Type.DataTypeType(symbol("IntList"), null), result.left.type);
+        assertEquals(new Type.DataTypeType(fqSym(USER, symbol("IntList")), null), result.left.type);
 
         Object intList = result.right.value;
         Field field0 = intList.getClass().getDeclaredField("field$$0");
@@ -168,14 +170,14 @@ public class E2EEval {
 
         Type.TypeVar a = new Type.TypeVar();
 
-        Type.AppliedType appliedType = new Type.AppliedType(new Type.DataTypeType(symbol("Foo"), null), vectorOf(a));
-        assertTrue(defDataResult.env.vars.get(symbol("FooCons")).declaredType
+        Type.AppliedType appliedType = new Type.AppliedType(new Type.DataTypeType(fqSym(USER, symbol("Foo")), null), vectorOf(a));
+        assertTrue(defDataResult.env.resolveVar(USER, symbol("FooCons")).orElse(null).declaredType
             .alphaEquivalentTo(fnType(vectorOf(a, appliedType), appliedType)));
 
         Pair<Expr<Type>, EvalResult> result = evalValue(defDataResult.env, "(FooCons 4 (FooCons 5 EmptyFoo))");
 
 
-        assertTrue(new Type.AppliedType(new Type.DataTypeType(symbol("Foo"), null), vectorOf(INT_TYPE)).alphaEquivalentTo(result.left.type));
+        assertTrue(new Type.AppliedType(new Type.DataTypeType(fqSym(USER, symbol("Foo")), null), vectorOf(INT_TYPE)).alphaEquivalentTo(result.left.type));
 
         Object fooList = result.right.value;
         Field field0 = fooList.getClass().getDeclaredField("field$$0");

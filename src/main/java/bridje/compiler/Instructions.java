@@ -44,8 +44,16 @@ interface Instructions {
         return mv -> mv.visitLdcInsn(obj);
     }
 
+    static Instructions loadNS(NS ns) {
+        return mplus(loadObject(ns.name), methodCall(fromClass(NS.class), INVOKE_STATIC, "ns", NS.class, vectorOf(String.class)));
+    }
+
     static Instructions loadSymbol(Symbol sym) {
         return newObject(fromClass(Symbol.class), Util.vectorOf(String.class), loadObject(sym.sym));
+    }
+
+    static Instructions loadFQSymbol(FQSymbol sym) {
+        return mplus(loadNS(sym.ns), loadSymbol(sym.symbol), methodCall(fromClass(FQSymbol.class), INVOKE_STATIC, "fqSym", FQSymbol.class, vectorOf(NS.class, Symbol.class)));
     }
 
     static Instructions withTypeLocals(Locals locals, PSet<TypeVar> typeVars, Function<Locals, Instructions> fn) {
@@ -112,9 +120,9 @@ interface Instructions {
 
             @Override
             public Instructions visit(DataTypeType type) {
-                return newObject(fromClass(DataTypeType.class), vectorOf(Symbol.class, Class.class),
+                return newObject(fromClass(DataTypeType.class), vectorOf(FQSymbol.class, Class.class),
                     mplus(
-                        loadSymbol(type.name),
+                        loadFQSymbol(type.name),
                         type.javaType == null ? loadNull() : loadClass(type.javaType)
                     ));
             }
@@ -135,26 +143,26 @@ interface Instructions {
                 .flatMap(c -> c.typeVars().stream())
                 .collect(toPSet()).plusAll(dataType.typeVars),
 
-            typeLocals -> newObject(fromClass(DataType.class), vectorOf(Object.class, Symbol.class, PVector.class, PVector.class), mplus(
+            typeLocals -> newObject(fromClass(DataType.class), vectorOf(Object.class, FQSymbol.class, PVector.class, PVector.class), mplus(
                 loadType(dataType.type, typeLocals),
-                loadSymbol(dataType.sym),
+                loadFQSymbol(dataType.sym),
                 loadVector(TypeVar.class, dataType.typeVars.stream().map(tv -> loadType(tv, typeLocals)).collect(toPVector())),
                 loadVector(DataTypeConstructor.class, dataType.constructors.stream()
                     .map(c -> c.accept(new ConstructorVisitor<bridje.types.Type, Instructions>() {
                         @Override
                         public Instructions visit(DataTypeConstructor.ValueConstructor<? extends bridje.types.Type> constructor) {
-                            return newObject(fromClass(DataTypeConstructor.ValueConstructor.class), vectorOf(Object.class, Symbol.class),
+                            return newObject(fromClass(DataTypeConstructor.ValueConstructor.class), vectorOf(Object.class, FQSymbol.class),
                                 mplus(
                                     loadType(constructor.type, typeLocals),
-                                    loadSymbol(c.sym)));
+                                    loadFQSymbol(c.sym)));
                         }
 
                         @Override
                         public Instructions visit(DataTypeConstructor.VectorConstructor<? extends bridje.types.Type> constructor) {
-                            return newObject(fromClass(DataTypeConstructor.VectorConstructor.class), vectorOf(Object.class, Symbol.class, PVector.class),
+                            return newObject(fromClass(DataTypeConstructor.VectorConstructor.class), vectorOf(Object.class, FQSymbol.class, PVector.class),
                                 mplus(
                                     loadType(constructor.type, typeLocals),
-                                    loadSymbol(c.sym),
+                                    loadFQSymbol(c.sym),
                                     loadVector(bridje.types.Type.class, constructor.paramTypes.stream().map(pt -> loadType(pt, typeLocals)).collect(toPVector()))));
                         }
                     }))
@@ -332,9 +340,7 @@ interface Instructions {
     }
 
     static Instructions fieldOp(FieldOp op, ClassLike owner, String fieldName, ClassLike fieldType) {
-        return mv -> {
-            mv.visitFieldInsn(op.opcode, owner.getInternalName(), fieldName, fieldType.getDescriptor());
-        };
+        return mv -> mv.visitFieldInsn(op.opcode, owner.getInternalName(), fieldName, fieldType.getDescriptor());
     }
 
     static Instructions loadMethodType(MethodType methodType) {

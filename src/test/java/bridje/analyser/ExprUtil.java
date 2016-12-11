@@ -4,6 +4,9 @@ import bridje.runtime.Symbol;
 import bridje.runtime.Var;
 import org.pcollections.PVector;
 
+import static bridje.runtime.FQSymbol.fqSym;
+import static bridje.runtime.NS.USER;
+
 public class ExprUtil {
 
     public static <ET> Expr.IntExpr<ET> intExpr(ET type, int value) {
@@ -55,7 +58,7 @@ public class ExprUtil {
     }
 
     public static <ET> Expr.DefExpr<ET> defExpr(ET type, Symbol sym, Expr<ET> expr) {
-        return new Expr.DefExpr<>(null, type, sym, expr);
+        return new Expr.DefExpr<>(null, type, fqSym(USER, sym), expr);
     }
 
     public static <ET> Expr.FnExpr<ET> fnExpr(ET type, PVector<LocalVar> params, Expr<ET> body) {

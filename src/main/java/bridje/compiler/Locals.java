@@ -108,6 +108,6 @@ final class Locals {
     }
 
     Instructions clear() {
-        return mplus(localInstructions.values().stream().map(lvi -> lvi.clear()).collect(toPVector()));
+        return mplus(localInstructions.values().stream().map(LocalInstructions::clear).collect(toPVector()));
     }
 }

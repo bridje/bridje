@@ -11,6 +11,8 @@ import org.pcollections.PVector;
 
 import static bridje.Util.vectorOf;
 import static bridje.analyser.ExprUtil.*;
+import static bridje.runtime.FQSymbol.fqSym;
+import static bridje.runtime.NS.USER;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.PLUS_VAR;
 import static bridje.types.Type.FnType.fnType;
@@ -139,25 +141,25 @@ public class TypeCheckerTest {
 
     @Test
     public void typesTypeDef() throws Exception {
-        assertEquals(ENV_IO, TypeChecker.typeExpr(new Expr.TypeDefExpr<>(null, null, symbol("double"), fnType(vectorOf(INT_TYPE), INT_TYPE))).type);
+        assertEquals(ENV_IO, TypeChecker.typeExpr(new Expr.TypeDefExpr<>(null, null, fqSym(USER, symbol("double")), fnType(vectorOf(INT_TYPE), INT_TYPE))).type);
     }
 
     @Test
     public void typesSimpleUnion() throws Exception {
         Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(
             new Expr.DefDataExpr<>(null,
-                null, new DataType<>(null, symbol("SimpleUnion"),
+                null, new DataType<>(null, fqSym(USER, symbol("SimpleUnion")),
                 Empty.vector(), vectorOf(
-                new DataTypeConstructor.VectorConstructor<>(null, symbol("AnInt"), vectorOf(INT_TYPE)),
-                new DataTypeConstructor.VectorConstructor<>(null, symbol("AString"), vectorOf(STRING_TYPE)),
-                new DataTypeConstructor.ValueConstructor<>(null, symbol("Neither"))))));
+                new DataTypeConstructor.VectorConstructor<>(null, fqSym(USER, symbol("AnInt")), vectorOf(INT_TYPE)),
+                new DataTypeConstructor.VectorConstructor<>(null, fqSym(USER, symbol("AString")), vectorOf(STRING_TYPE)),
+                new DataTypeConstructor.ValueConstructor<>(null, fqSym(USER, symbol("Neither")))))));
 
         assertEquals(ENV_IO, expr.type);
 
         DataType<Type> dataType = expr.dataType;
         PVector<DataTypeConstructor<Type>> constructors = dataType.constructors;
 
-        DataTypeType simpleUnionType = new DataTypeType(symbol("SimpleUnion"), null);
+        DataTypeType simpleUnionType = new DataTypeType(fqSym(USER, symbol("SimpleUnion")), null);
 
         assertEquals(simpleUnionType, dataType.type);
         assertEquals(fnType(vectorOf(INT_TYPE), simpleUnionType), constructors.get(0).type);
@@ -167,13 +169,13 @@ public class TypeCheckerTest {
 
     @Test
     public void typesPolymorphicDataType() throws Exception {
-        DataTypeType dataTypeType = new DataTypeType(symbol("Foo"), null);
+        DataTypeType dataTypeType = new DataTypeType(fqSym(USER, symbol("Foo")), null);
         TypeVar a = new TypeVar();
         AppliedType appliedType = new AppliedType(dataTypeType, vectorOf(a));
 
         Expr.DefDataExpr<Type> expr = (Expr.DefDataExpr<Type>) TypeChecker.typeExpr(new Expr.DefDataExpr<>(null, null,
-            new DataType<>(null, symbol("Foo"), vectorOf(a),
-                vectorOf(new DataTypeConstructor.VectorConstructor<>(null, symbol("FooCons"), vectorOf(a, appliedType))))));
+            new DataType<>(null, fqSym(USER, symbol("Foo")), vectorOf(a),
+                vectorOf(new DataTypeConstructor.VectorConstructor<>(null, fqSym(USER, symbol("FooCons")), vectorOf(a, appliedType))))));
 
         assertTrue(appliedType.alphaEquivalentTo(expr.dataType.type));
         assertTrue(new FnType(vectorOf(a, appliedType), appliedType).alphaEquivalentTo(expr.dataType.constructors.get(0).type));

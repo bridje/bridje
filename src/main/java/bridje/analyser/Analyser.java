@@ -22,11 +22,12 @@ import static bridje.Util.toPVector;
 import static bridje.analyser.ListParser.*;
 import static bridje.analyser.ListParser.ParseResult.fail;
 import static bridje.analyser.ListParser.ParseResult.success;
+import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.util.Pair.pair;
 
 public class Analyser {
 
-    static Expr<Void> analyse0(Env env, LocalEnv localEnv, Form form) {
+    static Expr<Void> analyse0(Env env, NS currentNS, LocalEnv localEnv, Form form) {
 
         return form.accept(new FormVisitor<Expr<Void>>() {
             @Override
@@ -46,25 +47,25 @@ public class Analyser {
 
             @Override
             public Expr<Void> visit(Form.VectorForm form) {
-                return new Expr.VectorExpr<>(form.range, null, form.forms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
+                return new Expr.VectorExpr<>(form.range, null, form.forms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector()));
             }
 
             @Override
             public Expr<Void> visit(Form.SetForm form) {
-                return new Expr.SetExpr<>(form.range, null, form.forms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
+                return new Expr.SetExpr<>(form.range, null, form.forms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector()));
             }
 
             @Override
             public Expr<Void> visit(Form.MapForm mapForm) {
                 return new Expr.MapExpr<>(mapForm.range, null, mapForm.entries.stream()
                     .map(e -> new Expr.MapExpr.MapEntryExpr<>(e.range,
-                        analyse0(env, localEnv, e.key),
-                        analyse0(env, localEnv, e.value)))
+                        analyse0(env, currentNS, localEnv, e.key),
+                        analyse0(env, currentNS, localEnv, e.value)))
                     .collect(toPVector()));
             }
 
             private ListParser<Expr<Void>> exprParser(LocalEnv localEnv) {
-                return oneOf(f -> success(analyse0(env, localEnv, f)));
+                return oneOf(f -> success(analyse0(env, currentNS, localEnv, f)));
             }
 
             final ListParser<Expr<Void>> exprParser = exprParser(localEnv);
@@ -134,14 +135,14 @@ public class Analyser {
                         return anyOf(
                             SYMBOL_PARSER.bind(symForm ->
                                 exprParser.bind(bodyExpr ->
-                                    parseEnd(new Expr.DefExpr<>(form.range, null, symForm.sym, bodyExpr)))),
+                                    parseEnd(new Expr.DefExpr<>(form.range, null, fqSym(currentNS, symForm.sym), bodyExpr)))),
 
                             LIST_PARSER.bind(paramListForm ->
                                 nestedListParser(
                                     paramListForm.forms,
                                     SYMBOL_PARSER.bind(nameForm ->
                                         manyOf(SYMBOL_PARSER.fmap(symForm -> new LocalVar(symForm.sym))).bind(localVars ->
-                                            parseEnd(pair(nameForm.sym, localVars)))),
+                                            parseEnd(pair(fqSym(currentNS, nameForm.sym), localVars)))),
 
                                     nameAndVars -> exprParser(localEnv.withLocals(nameAndVars.right)).bind(bodyExpr ->
                                         parseEnd(new Expr.DefExpr<>(form.range, null, nameAndVars.left, new Expr.FnExpr<>(form.range, null, nameAndVars.right, bodyExpr)))))));
@@ -150,15 +151,15 @@ public class Analyser {
                     case "defdata": {
                         return anyOf(
                             SYMBOL_PARSER.bind(nameForm ->
-                                parseConstructors(nameForm.sym, Empty.map()).bind(constructors ->
-                                    parseEnd(new Expr.DefDataExpr<>(form.range, null, new DataType<>(null, nameForm.sym, Empty.vector(), constructors))))),
+                                parseConstructors(fqSym(currentNS, nameForm.sym), Empty.map()).bind(constructors ->
+                                    parseEnd(new Expr.DefDataExpr<>(form.range, null, new DataType<>(null, fqSym(currentNS, nameForm.sym), Empty.vector(), constructors))))),
                             LIST_PARSER.bind(nameForm -> {
                                 Map<Symbol, TypeVar> typeVarMapping = new HashMap<>();
                                 return nestedListParser(nameForm.forms,
                                     SYMBOL_PARSER.bind(symForm ->
                                         manyOf(SYMBOL_PARSER).fmap(typeVarSyms -> {
                                             typeVarMapping.putAll(typeVarSyms.stream().collect(toPMap(f -> f.sym, f -> new TypeVar())));
-                                            return pair(symForm.sym, typeVarSyms);
+                                            return pair(fqSym(currentNS, symForm.sym), typeVarSyms);
                                         })),
                                     dataTypeDef ->
                                         parseConstructors(dataTypeDef.left, HashTreePMap.from(typeVarMapping)).fmap(constructors ->
@@ -172,34 +173,34 @@ public class Analyser {
                     case "::": {
                         return SYMBOL_PARSER.bind(nameForm ->
                             typeParser(LocalTypeEnv.EMPTY).bind(type ->
-                                parseEnd(new Expr.TypeDefExpr<>(form.range, null, nameForm.sym, type))));
+                                parseEnd(new Expr.TypeDefExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), type))));
                     }
 
                     default:
                         return paramForms -> {
-                            Var var = env.vars.get(firstSym);
+                            Var var = env.resolveVar(currentNS, firstSym).orElse(null);
                             if (var != null) {
-                                PVector<Expr<Void>> paramExprs = paramForms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector());
+                                PVector<Expr<Void>> paramExprs = paramForms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector());
 
                                 if (var.fnMethod != null) {
                                     return success(pair(new Expr.VarCallExpr<>(form.range, null, var, paramExprs), Empty.vector()));
                                 }
                             }
 
-                            return success(pair(new Expr.CallExpr<>(form.range, null, paramForms.plus(0, firstSymbolForm).stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector())), Empty.vector()));
+                            return success(pair(new Expr.CallExpr<>(form.range, null, paramForms.plus(0, firstSymbolForm).stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
                         };
                 }
             }
 
-            private ListParser<PVector<DataTypeConstructor<Void>>> parseConstructors(Symbol name, PMap<Symbol, TypeVar> typeVarMapping) {
-                LocalTypeEnv localTypeEnv = new LocalTypeEnv(HashTreePMap.singleton(name, new Type.DataTypeType(name, null)), typeVarMapping);
+            private ListParser<PVector<DataTypeConstructor<Void>>> parseConstructors(FQSymbol name, PMap<Symbol, TypeVar> typeVarMapping) {
+                LocalTypeEnv localTypeEnv = new LocalTypeEnv(HashTreePMap.singleton(name.symbol, new Type.DataTypeType(name, null)), typeVarMapping);
 
                 return manyOf(anyOf(
-                    SYMBOL_PARSER.fmap(symForm -> new ValueConstructor<Void>(null, symForm.sym)),
+                    SYMBOL_PARSER.fmap(symForm -> new ValueConstructor<Void>(null, fqSym(currentNS, symForm.sym))),
                     LIST_PARSER.bind(constructorForm -> nestedListParser(constructorForm.forms,
                         SYMBOL_PARSER.bind(cNameForm ->
                             manyOf(typeParser(localTypeEnv)).bind(paramTypes ->
-                                parseEnd(new VectorConstructor<Void>(null, cNameForm.sym, paramTypes)))),
+                                parseEnd(new VectorConstructor<Void>(null, fqSym(currentNS, cNameForm.sym), paramTypes)))),
 
                         ListParser::pure))));
             }
@@ -217,13 +218,9 @@ public class Analyser {
                     return new LocalVarExpr<>(form.range, null, localVar);
                 }
 
-                Var var = env.vars.get(form.sym);
-
-                if (var != null) {
-                    return new Expr.GlobalVarExpr<>(form.range, null, var);
-                }
-
-                throw new UnsupportedOperationException();
+                return env.resolveVar(currentNS, form.sym)
+                    .map(var -> new Expr.GlobalVarExpr<Void>(form.range, null, var))
+                    .orElseThrow(UnsupportedOperationException::new);
             }
 
             @Override
@@ -233,8 +230,8 @@ public class Analyser {
         });
     }
 
-    public static Expr<Void> analyse(Env env, Form form) {
-        return analyse0(env, LocalEnv.EMPTY_ENV, form);
+    public static Expr<Void> analyse(Env env, NS currentNS, Form form) {
+        return analyse0(env, currentNS, LocalEnv.EMPTY_ENV, form);
     }
 
 }

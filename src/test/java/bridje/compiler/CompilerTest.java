@@ -11,6 +11,8 @@ import java.lang.invoke.MethodHandle;
 import static bridje.Util.setOf;
 import static bridje.Util.vectorOf;
 import static bridje.analyser.ExprUtil.*;
+import static bridje.runtime.FQSymbol.fqSym;
+import static bridje.runtime.NS.USER;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.*;
 import static bridje.types.Type.FnType.fnType;
@@ -91,7 +93,7 @@ public class CompilerTest {
                     intExpr(INT_TYPE, 2)))));
         assertEquals(3L, ((Var) evalResult.value).valueField.get(null));
 
-        Var var = evalResult.env.vars.get(symbol("three"));
+        Var var = evalResult.env.resolveVar(USER, symbol("three")).orElse(null);
         assertNotNull(var);
         assertEquals(INT_TYPE, var.inferredType);
 
@@ -159,15 +161,15 @@ public class CompilerTest {
     public void compilesTypeDef() throws Exception {
         Symbol sym = symbol("double");
         Type doubleType = fnType(vectorOf(INT_TYPE), INT_TYPE);
-        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.TypeDefExpr<>(null, ENV_IO, sym, doubleType));
+        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.TypeDefExpr<>(null, ENV_IO, fqSym(USER, sym), doubleType));
 
-        assertEquals(doubleType, result.env.vars.get(sym).declaredType);
+        assertEquals(doubleType, result.env.resolveVar(USER, sym).orElse(null).declaredType);
 
     }
 
     @Test
     public void compilesParametricDataType() throws Exception {
-        Symbol foo = symbol("Foo");
+        FQSymbol foo = fqSym(USER, symbol("Foo"));
         DataTypeType dataTypeType = new DataTypeType(foo, null);
         TypeVar a = new TypeVar();
 
@@ -178,7 +180,7 @@ public class CompilerTest {
             vectorOf(
                 new DataTypeConstructor.VectorConstructor<>(
                     fnType(vectorOf(a, appliedType), appliedType),
-                    symbol("FooCons"),
+                    fqSym(USER, symbol("FooCons")),
                     vectorOf(a))))));
 
         Env newEnv = result.env;

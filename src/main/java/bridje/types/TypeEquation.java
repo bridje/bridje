@@ -3,6 +3,8 @@ package bridje.types;
 import org.pcollections.PCollection;
 
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static bridje.Panic.panic;
 import static bridje.Util.toPMap;
@@ -49,18 +51,11 @@ class TypeEquation {
 
                 TypeMapping singleMapping = TypeMapping.singleton(typeVar, right);
 
-                LinkedList<TypeEquation> mappedTeqs = new LinkedList<>();
-                for (TypeEquation teq : teqs) {
-                    mappedTeqs.add(new TypeEquation(teq.left.apply(singleMapping), teq.right.apply(singleMapping)));
-                }
+                mapping = new TypeMapping(mapping.with(singleMapping).mapping.entrySet().stream().collect(toPMap(Map.Entry::getKey, e -> e.getValue().apply(singleMapping))));
 
-                mapping = new TypeMapping(mapping.with(singleMapping).mapping.entrySet().stream()
-                    .collect(
-                        toPMap(
-                            e -> e.getKey(),
-                            e -> e.getValue().apply(singleMapping))));
-
-                teqs = mappedTeqs;
+                teqs = teqs.stream()
+                    .map(teq -> new TypeEquation(teq.left.apply(singleMapping), teq.right.apply(singleMapping)))
+                    .collect(Collectors.toCollection(LinkedList::new));
 
                 continue;
             }

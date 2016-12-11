@@ -21,13 +21,13 @@ public interface EnvUpdate<T> {
 
     class DefEnvUpdate implements EnvUpdate<Var> {
 
-        private final Symbol sym;
+        private final FQSymbol sym;
         private final Type type;
 
         private final Class<?> dynClass;
         private final MethodType fnMethodType;
 
-        public DefEnvUpdate(Symbol sym, Type type, Class<?> dynClass, MethodType fnMethodType) {
+        public DefEnvUpdate(FQSymbol sym, Type type, Class<?> dynClass, MethodType fnMethodType) {
             this.sym = sym;
             this.type = type;
             this.dynClass = dynClass;
@@ -69,10 +69,10 @@ public interface EnvUpdate<T> {
 
     class TypeDefEnvUpdate implements EnvUpdate<Var> {
 
-        private final Symbol sym;
+        private final FQSymbol sym;
         private final Type typeDef;
 
-        public TypeDefEnvUpdate(Symbol sym, Type typeDef) {
+        public TypeDefEnvUpdate(FQSymbol sym, Type typeDef) {
             this.sym = sym;
             this.typeDef = typeDef;
         }
@@ -88,9 +88,9 @@ public interface EnvUpdate<T> {
 
         private final DataType<Type> dataType;
         private final Class<?> superClass;
-        private final PMap<Symbol, Class<?>> constructorClasses;
+        private final PMap<FQSymbol, Class<?>> constructorClasses;
 
-        public DefDataEnvUpdate(DataType<Type> dataType, Class<?> superClass, PMap<Symbol, Class<?>> constructorClasses) {
+        public DefDataEnvUpdate(DataType<Type> dataType, Class<?> superClass, PMap<FQSymbol, Class<?>> constructorClasses) {
             this.dataType = dataType;
             this.superClass = superClass;
             this.constructorClasses = constructorClasses;
@@ -98,10 +98,10 @@ public interface EnvUpdate<T> {
 
         @Override
         public Pair<Env, ?> updateEnv(Env env) {
-            Map<Symbol, Var> vars = new HashMap<>();
+            Map<FQSymbol, Var> vars = new HashMap<>();
 
             for (DataTypeConstructor<Type> constructor : dataType.constructors) {
-                Symbol constructorSym = constructor.sym;
+                FQSymbol constructorSym = constructor.sym;
                 Class<?> clazz = constructorClasses.get(constructorSym);
 
                 Field field;

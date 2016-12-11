@@ -2,7 +2,7 @@ package bridje.analyser;
 
 import bridje.reader.Range;
 import bridje.runtime.DataType;
-import bridje.runtime.Symbol;
+import bridje.runtime.FQSymbol;
 import bridje.runtime.Var;
 import bridje.types.Type;
 import org.pcollections.PVector;
@@ -597,10 +597,10 @@ public abstract class Expr<ET> {
 
     public static class DefExpr<ET> extends Expr<ET> {
 
-        public final Symbol sym;
+        public final FQSymbol sym;
         public final Expr<ET> body;
 
-        public DefExpr(Range range, ET type, Symbol sym, Expr<ET> body) {
+        public DefExpr(Range range, ET type, FQSymbol sym, Expr<ET> body) {
             super(range, type);
             this.sym = sym;
             this.body = body;
@@ -638,10 +638,10 @@ public abstract class Expr<ET> {
 
     public static class TypeDefExpr<ET> extends Expr<ET> {
 
-        public final Symbol sym;
+        public final FQSymbol sym;
         public final Type typeDef;
 
-        public TypeDefExpr(Range range, ET type, Symbol sym, Type typeDef) {
+        public TypeDefExpr(Range range, ET type, FQSymbol sym, Type typeDef) {
             super(range, type);
             this.sym = sym;
             this.typeDef = typeDef;

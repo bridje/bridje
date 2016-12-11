@@ -1,7 +1,7 @@
 package bridje.types;
 
 import bridje.compiler.EnvUpdate;
-import bridje.runtime.Symbol;
+import bridje.runtime.FQSymbol;
 import bridje.util.Pair;
 import org.pcollections.*;
 
@@ -420,9 +420,9 @@ public abstract class Type {
 
     public static final class DataTypeType extends Type {
 
-        public final Symbol name;
+        public final FQSymbol name;
 
-        public DataTypeType(Symbol name, Class<?> javaType) {
+        public DataTypeType(FQSymbol name, Class<?> javaType) {
             super(javaType);
             this.name = name;
         }

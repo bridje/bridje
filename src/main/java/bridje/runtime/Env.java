@@ -1,8 +1,10 @@
 package bridje.runtime;
 
 import bridje.types.Type;
+import org.pcollections.Empty;
 import org.pcollections.PMap;
 
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -10,6 +12,7 @@ import java.util.function.Function;
 
 public class Env {
 
+    public static final Env EMPTY = new Env(Empty.map(), Empty.map(), Empty.map(), Empty.map());
     private static volatile Env ENV;
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
@@ -45,21 +48,35 @@ public class Env {
         }
     }
 
-    public final PMap<Symbol, Var> vars;
-    public final PMap<Symbol, DataType<Type>> dataTypes;
-    public final PMap<Symbol, Class<?>> dataTypeSuperclasses;
+    public final PMap<NS, NSEnv> nsEnvs;
+    public final PMap<FQSymbol, Var> vars;
+    public final PMap<FQSymbol, DataType<Type>> dataTypes;
+    public final PMap<FQSymbol, Class<?>> dataTypeSuperclasses;
 
-    public Env(PMap<Symbol, Var> vars, PMap<Symbol, DataType<Type>> dataTypes, PMap<Symbol, Class<?>> dataTypeSuperclasses) {
+    public Env(PMap<NS, NSEnv> nsEnvs, PMap<FQSymbol, Var> vars, PMap<FQSymbol, DataType<Type>> dataTypes, PMap<FQSymbol, Class<?>> dataTypeSuperclasses) {
+        this.nsEnvs = nsEnvs;
         this.vars = vars;
         this.dataTypes = dataTypes;
         this.dataTypeSuperclasses = dataTypeSuperclasses;
     }
 
-    public Env withVar(Symbol sym, Var var) {
-        return new Env(vars.plus(sym, var), dataTypes, dataTypeSuperclasses);
+    private PMap<NS, NSEnv> updateNSEnv(NS ns, Function<NSEnv, NSEnv> fn) {
+        return nsEnvs.plus(ns, fn.apply(Optional.ofNullable(nsEnvs.get(ns)).orElseGet(() -> new NSEnv(ns, Empty.map(), Empty.map()))));
     }
 
-    public Env withDataType(DataType<Type> dataType, Class<?> superclass, PMap<Symbol, Var> constructorVars) {
-        return new Env(vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType), dataTypeSuperclasses.plus(dataType.sym, superclass));
+    public Env withVar(FQSymbol sym, Var var) {
+        return new Env(updateNSEnv(sym.ns, nsEnv -> nsEnv.withVar(sym)), vars.plus(sym, var), dataTypes, dataTypeSuperclasses);
+    }
+
+    public Env withDataType(DataType<Type> dataType, Class<?> superclass, PMap<FQSymbol, Var> constructorVars) {
+        return new Env(
+            updateNSEnv(dataType.sym.ns, nsEnv -> nsEnv.withDataType(dataType)),
+            vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType), dataTypeSuperclasses.plus(dataType.sym, superclass));
+    }
+
+    public Optional<Var> resolveVar(NS ns, Symbol symbol) {
+        return Optional.ofNullable(nsEnvs.get(ns))
+            .flatMap(nsEnv -> Optional.ofNullable(nsEnv.vars.get(symbol)))
+            .flatMap(fqSym -> Optional.ofNullable(vars.get(fqSym)));
     }
 }

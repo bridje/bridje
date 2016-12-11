@@ -19,9 +19,9 @@ import static java.util.stream.Collectors.joining;
 
 public abstract class DataTypeConstructor<T> {
     public final T type;
-    public final Symbol sym;
+    public final FQSymbol sym;
 
-    DataTypeConstructor(T type, Symbol sym) {
+    DataTypeConstructor(T type, FQSymbol sym) {
         this.type = type;
         this.sym = sym;
     }
@@ -37,13 +37,13 @@ public abstract class DataTypeConstructor<T> {
 
     public static final class ValueConstructor<T> extends DataTypeConstructor<T> {
 
-        public ValueConstructor(T type, Symbol sym) {
+        public ValueConstructor(T type, FQSymbol sym) {
             super(type, sym);
         }
 
         @Override
         public <T_> DataTypeConstructor<T_> fmapType(Function<T, T_> fn) {
-            return new ValueConstructor<T_>(fn.apply(type), sym);
+            return new ValueConstructor<>(fn.apply(type), sym);
         }
 
         @Override
@@ -78,25 +78,30 @@ public abstract class DataTypeConstructor<T> {
         public int hashCode() {
             return Objects.hash(sym);
         }
+
+        @Override
+        public String toString() {
+            return String.format("(ValueConstructor %s)", sym);
+        }
     }
 
     public static final class VectorConstructor<T> extends DataTypeConstructor<T> {
 
         public final PVector<Type> paramTypes;
 
-        public VectorConstructor(T type, Symbol sym, PVector<Type> paramTypes) {
+        public VectorConstructor(T type, FQSymbol sym, PVector<Type> paramTypes) {
             super(type, sym);
             this.paramTypes = paramTypes;
         }
 
         @Override
         public <T_> DataTypeConstructor<T_> fmapType(Function<T, T_> fn) {
-            return new VectorConstructor<T_>(fn.apply(type), sym, paramTypes);
+            return new VectorConstructor<>(fn.apply(type), sym, paramTypes);
         }
 
         @Override
         public DataTypeConstructor<T> fmapParamTypes(Function<Type, Type> fn) {
-            return new VectorConstructor<T>(type, sym, paramTypes.stream().map(pt -> fn.apply(pt)).collect(toPVector()));
+            return new VectorConstructor<>(type, sym, paramTypes.stream().map(pt -> fn.apply(pt)).collect(toPVector()));
         }
 
         @Override

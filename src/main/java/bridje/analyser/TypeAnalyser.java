@@ -84,7 +84,7 @@ public class TypeAnalyser {
                             break;
 
                         default:
-                            return new AppliedType(localTypeEnv.resolve(sym).orElseThrow(() -> new UnsupportedOperationException()),
+                            return new AppliedType(localTypeEnv.resolve(sym).orElseThrow(UnsupportedOperationException::new),
                                 forms.minus(0).stream().map(f -> analyzeType0(f)).collect(toPVector()));
                     }
                 }
@@ -97,8 +97,7 @@ public class TypeAnalyser {
                 Symbol sym = form.sym;
 
                 if (Character.isLowerCase(sym.sym.charAt(0))) {
-                    TypeVar typeVar = typeVarMapping.computeIfAbsent(sym, s -> new TypeVar());
-                    return typeVar;
+                    return typeVarMapping.computeIfAbsent(sym, s -> new TypeVar());
                 } else {
                     switch (sym.sym) {
                         case "Str":
@@ -108,7 +107,7 @@ public class TypeAnalyser {
                         case "Bool":
                             return BOOL_TYPE;
                         default:
-                            return localTypeEnv.resolve(sym).orElseThrow(() -> new UnsupportedOperationException());
+                            return localTypeEnv.resolve(sym).orElseThrow(UnsupportedOperationException::new);
                     }
                 }
             }
