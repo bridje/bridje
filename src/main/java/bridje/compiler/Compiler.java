@@ -175,7 +175,16 @@ public class Compiler {
 
             @Override
             public Instructions visit(Expr.MapExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                Type.MapType type = ((Type.MapType) expr.type);
+                Instructions boxKey = box(type.keyType.javaType);
+                Instructions boxValue = box(type.valueType.javaType);
+
+                return Instructions.loadMap(expr.entries.stream()
+                    .map(e ->
+                        mplus(
+                            compileExpr0(locals, e.key), boxKey,
+                            compileExpr0(locals, e.value), boxValue))
+                    .collect(toPVector()));
             }
 
             @Override
@@ -496,7 +505,7 @@ public class Compiler {
                                 newMethod(setOf(PUBLIC, FINAL, STATIC), "$$eval", Object.class, vectorOf(),
                                     mplus(
                                         instructions,
-                                        box(org.objectweb.asm.Type.getType(returnType != null ? returnType : Object.class)),
+                                        box(returnType != null ? returnType : Object.class),
                                         ret(Object.class))))),
 
 

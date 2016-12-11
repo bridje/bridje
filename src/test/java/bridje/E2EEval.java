@@ -76,7 +76,7 @@ public class E2EEval {
     @Test
     public void evalsMap() throws Exception {
         testEvalValue(PLUS_ENV, "^{\"Alice\" 4, \"Bob\" 3}", new Type.MapType(STRING_TYPE, INT_TYPE),
-            HashTreePMap.singleton("Alice", 4).plus("Bob", 3));
+            HashTreePMap.singleton("Alice", 4L).plus("Bob", 3L));
     }
 
     @Test

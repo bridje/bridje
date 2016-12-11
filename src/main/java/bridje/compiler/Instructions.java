@@ -218,8 +218,8 @@ interface Instructions {
                 methodCall(classLike, INVOKE_SPECIAL, "<init>", Void.TYPE, params));
     }
 
-    static Instructions box(Type type) {
-        switch (type.getSort()) {
+    static Instructions box(Class<?> clazz) {
+        switch (Type.getType(clazz).getSort()) {
             case Type.OBJECT:
                 return MZERO;
             case Type.LONG:
@@ -235,13 +235,12 @@ interface Instructions {
         return mv -> {
             mv.visitLdcInsn(instructions.size());
             mv.visitTypeInsn(ANEWARRAY, Type.getType(Object.class).getInternalName());
-            Type type = Type.getType(clazz);
 
             for (int i = 0; i < instructions.size(); i++) {
                 mv.visitInsn(DUP);
                 mv.visitLdcInsn(i);
                 instructions.get(i).apply(mv);
-                box(type).apply(mv);
+                box(clazz).apply(mv);
                 mv.visitInsn(AASTORE);
             }
         };
