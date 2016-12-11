@@ -2,6 +2,9 @@ package bridje.types;
 
 import bridje.analyser.Expr;
 import bridje.analyser.ExprVisitor;
+import bridje.runtime.ConstructorVisitor;
+import bridje.runtime.DataType;
+import bridje.runtime.DataTypeConstructor;
 import org.pcollections.PCollection;
 import org.pcollections.PSequence;
 import org.pcollections.PVector;
@@ -14,6 +17,7 @@ import java.util.Optional;
 import static bridje.Util.*;
 import static bridje.types.MonomorphicEnv.typeEquations;
 import static bridje.types.MonomorphicEnv.union;
+import static bridje.types.Type.FnType.fnType;
 import static bridje.types.Type.SetType.setType;
 import static bridje.types.Type.SimpleType.*;
 import static bridje.types.Type.VectorType.vectorType;
@@ -208,17 +212,45 @@ public class TypeChecker {
 
             @Override
             public TypeResult visit(Expr.DefExpr<? extends Void> expr) {
-                throw new UnsupportedOperationException();
+                TypeResult typedExpr = typeExpr0(expr.body, localEnv);
+                return new TypeResult(typedExpr.monomorphicEnv, new Expr.DefExpr<>(expr.range, ENV_IO, expr.sym, typedExpr.expr));
             }
 
             @Override
             public TypeResult visit(Expr.TypeDefExpr<? extends Void> expr) {
-                throw new UnsupportedOperationException();
+                // TODO at some point we'll have to check the types that the user provides us with.
+                // today is not that day, though.
+
+                return new TypeResult(new Expr.TypeDefExpr<>(expr.range, ENV_IO, expr.sym, expr.typeDef));
             }
 
             @Override
             public TypeResult visit(Expr.DefDataExpr<? extends Void> expr) {
-                throw new UnsupportedOperationException();
+                DataType<?> dataType = expr.dataType;
+                Type dataTypeType = new DataTypeType(dataType.sym, null);
+
+                Type defDataExprType = expr.dataType.typeVars.isEmpty()
+                    ? dataTypeType
+                    : new AppliedType(dataTypeType, TreePVector.from(expr.dataType.typeVars));
+
+                return new TypeResult(new Expr.DefDataExpr<>(expr.range,
+                    ENV_IO, new DataType<>(
+                    defDataExprType,
+                    dataType.sym,
+                    dataType.typeVars, dataType.constructors.stream()
+                    .map(c -> c.accept(new ConstructorVisitor<Object, DataTypeConstructor<Type>>() {
+
+                        @Override
+                        public DataTypeConstructor<Type> visit(DataTypeConstructor.VectorConstructor<?> constructor) {
+                            return new DataTypeConstructor.VectorConstructor<>(fnType(constructor.paramTypes, defDataExprType), constructor.sym, constructor.paramTypes);
+                        }
+
+                        @Override
+                        public DataTypeConstructor<Type> visit(DataTypeConstructor.ValueConstructor<?> constructor) {
+                            return new DataTypeConstructor.ValueConstructor<>(defDataExprType, constructor.sym);
+                        }
+                    })).collect(toPVector()))));
+
             }
         });
     }

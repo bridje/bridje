@@ -86,9 +86,17 @@ class TypeEquation {
                 }
             }
 
-            if (left instanceof Type.FnType || left instanceof Type.DataTypeType) {
-                // TODO
-                throw new UnsupportedOperationException();
+            if (left instanceof Type.AppliedType && right instanceof Type.AppliedType) {
+                Type.AppliedType leftAT = (Type.AppliedType) left;
+                Type.AppliedType rightAT = (Type.AppliedType) right;
+
+                if (leftAT.typeParams.size() != rightAT.typeParams.size()) {
+                    throw new UnsupportedOperationException();
+                } else {
+                    teqs.addFirst(new TypeEquation(leftAT.appliedType, rightAT.appliedType));
+                    teqs.addAll(0, zip(leftAT.typeParams, rightAT.typeParams).stream().map(tps -> new TypeEquation(tps.left, tps.right)).collect(toPVector()));
+                    continue;
+                }
             }
 
             throw panic("Can't unify types: %s & %s", left, right);
