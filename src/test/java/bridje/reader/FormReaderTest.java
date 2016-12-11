@@ -14,6 +14,7 @@ import static bridje.reader.Form.SymbolForm.symbolForm;
 import static bridje.reader.Form.VectorForm.vectorForm;
 import static bridje.reader.Location.loc;
 import static bridje.reader.Range.range;
+import static bridje.runtime.Symbol.symbol;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
@@ -104,6 +105,19 @@ public class FormReaderTest {
                     new Form.MapForm.MapEntryForm(null, stringForm("Bob"), intForm(3)))),
             form);
         assertEquals(range(loc(1, 1), loc(1, 22)), form.range);
+    }
+
+    @Test
+    public void readsRecord() throws Exception {
+        Form form = FormReader.read(LCReader.fromString("{alice 4, bob 3}"));
+
+        assertNotNull(form);
+        assertEquals(new Form.RecordForm(null,
+                vectorOf(
+                    new Form.RecordForm.RecordEntryForm(null, symbol("alice"), intForm(4)),
+                    new Form.RecordForm.RecordEntryForm(null, symbol("bob"), intForm(3)))),
+            form);
+        assertEquals(range(loc(1, 1), loc(1, 17)), form.range);
     }
 
     @Test

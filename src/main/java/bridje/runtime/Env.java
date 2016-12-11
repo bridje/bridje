@@ -61,7 +61,7 @@ public class Env {
     }
 
     private PMap<NS, NSEnv> updateNSEnv(NS ns, Function<NSEnv, NSEnv> fn) {
-        return nsEnvs.plus(ns, fn.apply(Optional.ofNullable(nsEnvs.get(ns)).orElseGet(() -> new NSEnv(ns, Empty.map(), Empty.map()))));
+        return nsEnvs.plus(ns, fn.apply(Optional.ofNullable(nsEnvs.get(ns)).orElseGet(() -> NSEnv.empty(ns))));
     }
 
     public Env withVar(FQSymbol sym, Var var) {
@@ -78,5 +78,9 @@ public class Env {
         return Optional.ofNullable(nsEnvs.get(ns))
             .flatMap(nsEnv -> Optional.ofNullable(nsEnv.vars.get(symbol)))
             .flatMap(fqSym -> Optional.ofNullable(vars.get(fqSym)));
+    }
+
+    public Env withNS(NS ns, PMap<Symbol, NS> aliases) {
+        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases)), vars, dataTypes, dataTypeSuperclasses);
     }
 }

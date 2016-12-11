@@ -1,6 +1,7 @@
 package bridje.analyser;
 
 import bridje.reader.Form;
+import bridje.runtime.Symbol;
 import org.pcollections.PVector;
 
 class ParseException extends RuntimeException {
@@ -43,6 +44,25 @@ class ParseException extends RuntimeException {
             this.extraForms = extraForms;
         }
     }
+
+    static final class MultipleAliasesInNS extends ParseException {
+        final Form nsForm;
+
+        MultipleAliasesInNS(Form nsForm) {
+            this.nsForm = nsForm;
+        }
+    }
+
+    static final class DuplicateAliasException extends ParseException {
+        final Form nsForm;
+        final Symbol duplicateAlias;
+
+        DuplicateAliasException(Form nsForm, Symbol duplicateAlias) {
+            this.nsForm = nsForm;
+            this.duplicateAlias = duplicateAlias;
+        }
+    }
+
 
     static final class MultipleParseFailsException extends ParseException {
         final PVector<ListParser.ParseResult.Fail<?>> fails;

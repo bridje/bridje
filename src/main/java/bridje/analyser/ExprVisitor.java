@@ -28,6 +28,8 @@ public interface ExprVisitor<ET, T> {
 
     T visit(Expr.FnExpr<? extends ET> expr);
 
+    T visit(Expr.NSExpr<? extends ET> expr);
+
     T visit(Expr.DefExpr<? extends ET> expr);
 
     T visit(Expr.TypeDefExpr<? extends ET> expr);

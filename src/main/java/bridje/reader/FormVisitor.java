@@ -14,6 +14,8 @@ public interface FormVisitor<T> {
 
     T visit(Form.MapForm mapForm);
 
+    T visit(Form.RecordForm form);
+
     T visit(Form.ListForm form);
 
     T visit(Form.SymbolForm form);

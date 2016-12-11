@@ -2,6 +2,8 @@ package bridje.analyser;
 
 import bridje.analyser.Expr.LetExpr.LetBinding;
 import bridje.analyser.Expr.LocalVarExpr;
+import bridje.analyser.ParseException.DuplicateAliasException;
+import bridje.analyser.ParseException.UnexpectedFormTypeException;
 import bridje.reader.Form;
 import bridje.reader.FormVisitor;
 import bridje.runtime.*;
@@ -23,6 +25,7 @@ import static bridje.analyser.ListParser.*;
 import static bridje.analyser.ListParser.ParseResult.fail;
 import static bridje.analyser.ListParser.ParseResult.success;
 import static bridje.runtime.FQSymbol.fqSym;
+import static bridje.runtime.NS.ns;
 import static bridje.util.Pair.pair;
 
 public class Analyser {
@@ -62,6 +65,11 @@ public class Analyser {
                         analyse0(env, currentNS, localEnv, e.key),
                         analyse0(env, currentNS, localEnv, e.value)))
                     .collect(toPVector()));
+            }
+
+            @Override
+            public Expr<Void> visit(Form.RecordForm form) {
+                throw new UnsupportedOperationException();
             }
 
             private ListParser<Expr<Void>> exprParser(LocalEnv localEnv) {
@@ -174,6 +182,61 @@ public class Analyser {
                         return SYMBOL_PARSER.bind(nameForm ->
                             typeParser(LocalTypeEnv.EMPTY).bind(type ->
                                 parseEnd(new Expr.TypeDefExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), type))));
+                    }
+
+                    case "ns": {
+                        return SYMBOL_PARSER.bind(nameForm ->
+                            anyOf(
+                                parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), Empty.map())),
+                                RECORD_PARSER.bind(optsForm -> {
+                                    PMap<Symbol, NS> aliases = null;
+
+                                    for (Form.RecordForm.RecordEntryForm entry : optsForm.entries) {
+                                        switch (entry.key.sym) {
+                                            case "aliases":
+                                                if (aliases != null) {
+                                                    throw new ParseException.MultipleAliasesInNS(form);
+                                                }
+
+                                                if (entry.value instanceof Form.RecordForm) {
+                                                    Form.RecordForm aliasesForm = (Form.RecordForm) entry.value;
+                                                    Map<Symbol, NS> aliases_ = new HashMap<>();
+
+                                                    for (Form.RecordForm.RecordEntryForm aliasEntry : aliasesForm.entries) {
+                                                        if (!(aliasEntry.value instanceof Form.SymbolForm)) {
+                                                            throw new UnexpectedFormTypeException(aliasEntry.value);
+                                                        }
+
+                                                        Symbol alias = aliasEntry.key;
+                                                        NS ns = ns(((Form.SymbolForm) aliasEntry.value).sym.sym);
+
+                                                        if (aliases_.containsKey(alias)) {
+                                                            throw new DuplicateAliasException(form, alias);
+                                                        }
+
+                                                        if (!env.nsEnvs.containsKey(ns)) {
+                                                            throw new UnsupportedOperationException();
+                                                        }
+
+                                                        aliases_.put(alias, ns);
+
+                                                        // TODO should we do a cycle check here?
+                                                    }
+
+                                                    aliases = HashTreePMap.from(aliases_);
+                                                } else {
+                                                    throw new UnexpectedFormTypeException(entry.value);
+                                                }
+
+                                                break;
+
+                                            default:
+                                                throw new UnsupportedOperationException();
+                                        }
+                                    }
+
+                                    return parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), aliases));
+                                })));
                     }
 
                     default:

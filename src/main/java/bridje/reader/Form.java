@@ -267,6 +267,70 @@ public abstract class Form {
         }
     }
 
+    public static class RecordForm extends Form {
+
+        public static class RecordEntryForm {
+            public final Range range;
+            public final Symbol key;
+            public final Form value;
+
+            public RecordEntryForm(Range range, Symbol key, Form value) {
+                this.range = range;
+                this.key = key;
+                this.value = value;
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) return true;
+                if (o == null || getClass() != o.getClass()) return false;
+                RecordEntryForm that = (RecordEntryForm) o;
+                return Objects.equals(key, that.key) &&
+                    Objects.equals(value, that.value);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(key, value);
+            }
+
+            @Override
+            public String toString() {
+                return String.format("(RecordEntryForm %s=%s)", key, value);
+            }
+        }
+
+        public final PCollection<RecordEntryForm> entries;
+
+        public RecordForm(Range range, PCollection<RecordEntryForm> entries) {
+            super(range);
+            this.entries = entries;
+        }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            RecordForm recordForm = (RecordForm) o;
+            return Objects.equals(entries, recordForm.entries);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(entries);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(RecordForm {%s})", entries.stream().map(ref -> String.format("%s %s", ref.key, ref.value)).collect(joining(", ")));
+        }
+    }
+
     public static class ListForm extends Form {
 
         public final PVector<Form> forms;

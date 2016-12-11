@@ -21,8 +21,8 @@ public class NS {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        NS NS = (NS) o;
-        return Objects.equals(name, NS.name);
+        NS ns = (NS) o;
+        return Objects.equals(name, ns.name);
     }
 
     @Override

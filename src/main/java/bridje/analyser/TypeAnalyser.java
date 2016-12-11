@@ -65,6 +65,11 @@ public class TypeAnalyser {
             }
 
             @Override
+            public Type visit(Form.RecordForm form) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public Type visit(Form.ListForm form) {
                 PVector<Form> forms = form.forms;
                 Form firstForm = forms.get(0);

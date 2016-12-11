@@ -165,6 +165,7 @@ public class FormReader {
 
         DISPATCH_CHARS['['] = new CollectionDispatcher("[", ']', Form.VectorForm::new);
         DISPATCH_CHARS['('] = new CollectionDispatcher("(", ')', Form.ListForm::new);
+        DISPATCH_CHARS['{'] = new CollectionDispatcher("{", '}', (range, forms) -> new Form.RecordForm(range, readRecordEntries(forms)));
 
         DISPATCH_CHARS['^'] = new SecondaryDispatcher();
         SECONDARY_DISPATCH_CHARS['['] = new CollectionDispatcher("^[", ']', Form.SetForm::new);
@@ -182,6 +183,28 @@ public class FormReader {
             Form key = forms.get(i);
             Form value = forms.get(i + 1);
             entryForms.add(new Form.MapForm.MapEntryForm(range(key.range.start, value.range.end), key, value));
+        }
+
+        return TreePVector.from(entryForms);
+    }
+
+    private static PVector<Form.RecordForm.RecordEntryForm> readRecordEntries(PVector<Form> forms) {
+        if (forms.size() % 2 != 0) {
+            throw new UnsupportedOperationException();
+        }
+
+        Collection<Form.RecordForm.RecordEntryForm> entryForms = new LinkedList<>();
+
+        for (int i = 0; i < forms.size(); i += 2) {
+            Form keyForm = forms.get(i);
+
+            if (!(keyForm instanceof Form.SymbolForm)) {
+                throw new UnsupportedOperationException();
+            }
+
+            Form.SymbolForm key = ((Form.SymbolForm) keyForm);
+            Form value = forms.get(i + 1);
+            entryForms.add(new Form.RecordForm.RecordEntryForm(range(key.range.start, value.range.end), key.sym, value));
         }
 
         return TreePVector.from(entryForms);

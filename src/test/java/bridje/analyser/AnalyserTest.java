@@ -7,6 +7,7 @@ import bridje.runtime.DataTypeConstructor.VectorConstructor;
 import bridje.types.Type;
 import org.junit.Test;
 import org.pcollections.Empty;
+import org.pcollections.HashTreePMap;
 
 import static bridje.Util.vectorOf;
 import static bridje.analyser.Analyser.analyse;
@@ -17,6 +18,7 @@ import static bridje.reader.Form.SymbolForm.symbolForm;
 import static bridje.reader.Form.VectorForm.vectorForm;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.USER;
+import static bridje.runtime.NS.ns;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.PLUS_ENV;
 import static bridje.runtime.VarUtil.PLUS_VAR;
@@ -84,6 +86,23 @@ public class AnalyserTest {
         assertEquals(
             fnExpr(null, vectorOf(x), varCallExpr(null, PLUS_VAR, vectorOf(localVarExpr(null, x), localVarExpr(null, x)))),
             expr);
+    }
+
+    @Test
+    public void analysesEmptyNS() throws Exception {
+        assertEquals(new Expr.NSExpr<Void>(null, null, ns("my-ns"), Empty.map()),
+            analyse(PLUS_ENV, USER, listForm(symbolForm("ns"), symbolForm("my-ns"))));
+    }
+
+    @Test
+    public void analysesNSAliases() throws Exception {
+        assertEquals(new Expr.NSExpr<Void>(null, null, ns("my-ns"), HashTreePMap.singleton(symbol("u"), USER)),
+            analyse(PLUS_ENV, USER, listForm(symbolForm("ns"), symbolForm("my-ns"),
+                new Form.RecordForm(null, vectorOf(
+                    new Form.RecordForm.RecordEntryForm(null,
+                        symbol("aliases"),
+                        new Form.RecordForm(null, vectorOf(
+                            new Form.RecordForm.RecordEntryForm(null, symbol("u"), symbolForm("user"))))))))));
     }
 
     @Test

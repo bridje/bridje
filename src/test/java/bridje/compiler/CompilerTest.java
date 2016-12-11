@@ -5,6 +5,7 @@ import bridje.analyser.LocalVar;
 import bridje.runtime.*;
 import bridje.types.Type;
 import org.junit.Test;
+import org.pcollections.HashTreePMap;
 
 import java.lang.invoke.MethodHandle;
 
@@ -13,6 +14,7 @@ import static bridje.Util.vectorOf;
 import static bridje.analyser.ExprUtil.*;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.USER;
+import static bridje.runtime.NS.ns;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.*;
 import static bridje.types.Type.FnType.fnType;
@@ -80,6 +82,12 @@ public class CompilerTest {
         MethodHandle handle = (MethodHandle) Compiler.compile(Env.env(), globalVarExpr(PLUS_TYPE, PLUS_VAR)).value;
 
         assertEquals(3L, handle.invoke(1L, 2L));
+    }
+
+    @Test
+    public void compilesNS() throws Exception {
+        EvalResult evalResult = Compiler.compile(PLUS_ENV, new Expr.NSExpr<>(null, ENV_IO, ns("my-ns"), HashTreePMap.singleton(symbol("u"), ns("user"))));
+        assertEquals(ns("user"), evalResult.env.nsEnvs.get(ns("my-ns")).aliases.get(symbol("u")));
     }
 
     @Test

@@ -76,7 +76,7 @@ public class Compiler {
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.MapExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                return mapClosedOverVars(expr.entries.stream().flatMap(e -> vectorOf(e.key, e.value).stream()).collect(toPVector()));
             }
 
             @Override
@@ -126,6 +126,11 @@ public class Compiler {
             @Override
             public PMap<LocalVar, Type> visit(Expr.FnExpr<? extends Type> expr) {
                 return closedOverVars(boundVars.plusAll(expr.params), expr.body);
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(Expr.NSExpr<? extends Type> expr) {
+                return Empty.map();
             }
 
             @Override
@@ -313,6 +318,15 @@ public class Compiler {
                             .collect(toPVector()))),
 
                     bindMethodHandle());
+            }
+
+            @Override
+            public Instructions visit(Expr.NSExpr<? extends Type> expr) {
+                return newObject(fromClass(EnvUpdate.NSEnvUpdate.class), vectorOf(NS.class, PMap.class),
+                    mplus(
+                        loadNS(expr.ns),
+                        loadMap(Symbol.class, NS.class,
+                            expr.aliases.entrySet().stream().map(e -> pair(loadSymbol(e.getKey()), loadNS(e.getValue()))).collect(toPVector()))));
             }
 
             @Override

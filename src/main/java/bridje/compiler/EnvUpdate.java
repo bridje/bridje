@@ -19,6 +19,22 @@ import static bridje.util.Pair.pair;
 public interface EnvUpdate<T> {
     Pair<Env, T> updateEnv(Env env);
 
+    class NSEnvUpdate implements EnvUpdate<NS> {
+
+        final NS ns;
+        final PMap<Symbol, NS> aliases;
+
+        public NSEnvUpdate(NS ns, PMap<Symbol, NS> aliases) {
+            this.ns = ns;
+            this.aliases = aliases;
+        }
+
+        @Override
+        public Pair<Env, NS> updateEnv(Env env) {
+            return pair(env.withNS(ns, aliases), ns);
+        }
+    }
+
     class DefEnvUpdate implements EnvUpdate<Var> {
 
         private final FQSymbol sym;

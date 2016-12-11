@@ -149,6 +149,7 @@ interface ListParser<T> {
     ListParser<Form.SymbolForm> SYMBOL_PARSER = formTypeParser(Form.SymbolForm.class);
     ListParser<Form.ListForm> LIST_PARSER = formTypeParser(Form.ListForm.class);
     ListParser<Form.VectorForm> VECTOR_PARSER = formTypeParser(Form.VectorForm.class);
+    ListParser<Form.RecordForm> RECORD_PARSER = formTypeParser(Form.RecordForm.class);
 
     static ListParser<Type> typeParser(LocalTypeEnv localTypeEnv) {
         return oneOf(form -> {

@@ -1,10 +1,9 @@
 package bridje.analyser;
 
 import bridje.reader.Range;
-import bridje.runtime.DataType;
-import bridje.runtime.FQSymbol;
-import bridje.runtime.Var;
+import bridje.runtime.*;
 import bridje.types.Type;
+import org.pcollections.PMap;
 import org.pcollections.PVector;
 
 import java.util.Objects;
@@ -592,6 +591,47 @@ public abstract class Expr<ET> {
         @Override
         public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
             return new FnExpr<>(range, fn.apply(type), params, body.fmapType(fn));
+        }
+    }
+
+    public static final class NSExpr<ET> extends Expr<ET> {
+
+        public final NS ns;
+        public final PMap<Symbol, NS> aliases;
+
+        public NSExpr(Range range, ET type, NS ns, PMap<Symbol, NS> aliases) {
+            super(range, type);
+            this.ns = ns;
+            this.aliases = aliases;
+        }
+
+        @Override
+        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
+            return new NSExpr<>(range, fn.apply(type), ns, aliases);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            NSExpr<?> nsExpr = (NSExpr<?>) o;
+            return Objects.equals(ns, nsExpr.ns) &&
+                Objects.equals(aliases, nsExpr.aliases);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(ns, aliases);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(NSExpr %s {aliases %s})", ns, aliases);
         }
     }
 

@@ -21,6 +21,7 @@ import static bridje.compiler.Compiler.compile;
 import static bridje.reader.FormReader.read;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.USER;
+import static bridje.runtime.NS.ns;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.PLUS_ENV;
 import static bridje.types.Type.FnType.fnType;
@@ -185,5 +186,12 @@ public class E2EEval {
 
         assertEquals(4L, field0.get(fooList));
         assertEquals(5L, field0.get(nestedFooList));
+    }
+
+    @Test
+    public void testNSAliases() throws Exception {
+        EvalResult evalResult = evalAction(PLUS_ENV, "(ns my-ns {aliases {u user}})").right;
+
+        assertEquals(ns("user"), evalResult.env.nsEnvs.get(ns("my-ns")).aliases.get(symbol("u")));
     }
 }
