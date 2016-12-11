@@ -2,10 +2,7 @@ package bridje.compiler;
 
 import bridje.Util;
 import bridje.runtime.*;
-import bridje.types.Type.SetType;
-import bridje.types.Type.SimpleType;
-import bridje.types.Type.TypeVar;
-import bridje.types.Type.VectorType;
+import bridje.types.Type.*;
 import bridje.types.TypeVisitor;
 import org.objectweb.asm.*;
 import org.pcollections.*;
@@ -95,8 +92,13 @@ interface Instructions {
             }
 
             @Override
-            public Instructions visit(bridje.types.Type.FnType type) {
-                return newObject(fromClass(bridje.types.Type.FnType.class), Util.vectorOf(PVector.class, bridje.types.Type.class),
+            public Instructions visit(MapType type) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Instructions visit(FnType type) {
+                return newObject(fromClass(FnType.class), Util.vectorOf(PVector.class, bridje.types.Type.class),
                     mplus(loadVector(Type.class, type.paramTypes.stream()
                             .map(t -> t.accept(this)).collect(toPVector())),
                         type.returnType.accept(this)));
@@ -108,8 +110,8 @@ interface Instructions {
             }
 
             @Override
-            public Instructions visit(bridje.types.Type.DataTypeType type) {
-                return newObject(fromClass(bridje.types.Type.DataTypeType.class), vectorOf(Symbol.class, Class.class),
+            public Instructions visit(DataTypeType type) {
+                return newObject(fromClass(DataTypeType.class), vectorOf(Symbol.class, Class.class),
                     mplus(
                         loadSymbol(type.name),
                         type.javaType == null ? loadNull() : loadClass(type.javaType)

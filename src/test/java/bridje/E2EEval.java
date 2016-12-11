@@ -11,6 +11,7 @@ import bridje.types.Type;
 import bridje.types.TypeChecker;
 import bridje.util.Pair;
 import org.junit.Test;
+import org.pcollections.HashTreePMap;
 
 import java.lang.reflect.Field;
 
@@ -22,6 +23,7 @@ import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.PLUS_ENV;
 import static bridje.types.Type.FnType.fnType;
 import static bridje.types.Type.SimpleType.INT_TYPE;
+import static bridje.types.Type.SimpleType.STRING_TYPE;
 import static bridje.util.Pair.pair;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -69,6 +71,12 @@ public class E2EEval {
     @Test
     public void evalsFnWithClosedOverLocals() throws Exception {
         testEvalValue(PLUS_ENV, "(let [y 2, add-y (fn (x) (+ x y))] (add-y 4))", INT_TYPE, 6L);
+    }
+
+    @Test
+    public void evalsMap() throws Exception {
+        testEvalValue(PLUS_ENV, "^{\"Alice\" 4, \"Bob\" 3}", new Type.MapType(STRING_TYPE, INT_TYPE),
+            HashTreePMap.singleton("Alice", 4).plus("Bob", 3));
     }
 
     @Test

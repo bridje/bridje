@@ -43,6 +43,17 @@ public class TypeCheckerTest {
     }
 
     @Test
+    public void typesMap() throws Exception {
+        assertEquals(new MapType(STRING_TYPE, INT_TYPE),
+            TypeChecker.typeExpr(
+                new Expr.MapExpr<>(null, null,
+                    vectorOf(
+                        new Expr.MapExpr.MapEntryExpr<>(null, stringExpr(null, "Alice"), intExpr(null, 4)),
+                        new Expr.MapExpr.MapEntryExpr<>(null, stringExpr(null, "Bob"), intExpr(null, 3)))))
+                .type);
+    }
+
+    @Test
     public void typesPlusCall() throws Exception {
         assertEquals(INT_TYPE, TypeChecker.typeExpr(varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 1), intExpr(null, 2)))).type);
     }

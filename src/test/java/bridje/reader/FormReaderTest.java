@@ -3,6 +3,7 @@ package bridje.reader;
 import bridje.Panic;
 import org.junit.Test;
 
+import static bridje.Util.vectorOf;
 import static bridje.reader.Form.BoolForm.boolForm;
 import static bridje.reader.Form.IntForm.intForm;
 import static bridje.reader.Form.ListForm.listForm;
@@ -90,6 +91,19 @@ public class FormReaderTest {
         assertNotNull(form);
         assertEquals(setForm(stringForm("Hello"), stringForm("world!")), form);
         assertEquals(range(loc(1, 1), loc(1, 21)), form.range);
+    }
+
+    @Test
+    public void readsMap() throws Exception {
+        Form form = FormReader.read(LCReader.fromString("^{\"Alice\" 4, \"Bob\" 3}"));
+
+        assertNotNull(form);
+        assertEquals(new Form.MapForm(null,
+                vectorOf(
+                    new Form.MapForm.MapEntryForm(null, stringForm("Alice"), intForm(4)),
+                    new Form.MapForm.MapEntryForm(null, stringForm("Bob"), intForm(3)))),
+            form);
+        assertEquals(range(loc(1, 1), loc(1, 22)), form.range);
     }
 
     @Test

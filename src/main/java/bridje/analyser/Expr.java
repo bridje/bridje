@@ -9,9 +9,9 @@ import org.pcollections.PVector;
 
 import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static bridje.Util.toPVector;
+import static java.util.stream.Collectors.joining;
 
 public abstract class Expr<ET> {
 
@@ -173,7 +173,7 @@ public abstract class Expr<ET> {
 
         @Override
         public String toString() {
-            return String.format("(VectorExpr %s)", exprs.stream().map(Object::toString).collect(Collectors.joining(", ")));
+            return String.format("(VectorExpr %s)", exprs.stream().map(Object::toString).collect(joining(", ")));
         }
     }
 
@@ -210,7 +210,74 @@ public abstract class Expr<ET> {
 
         @Override
         public String toString() {
-            return String.format("(SetExpr %s)", exprs.stream().map(Object::toString).collect(Collectors.joining(", ")));
+            return String.format("(SetExpr %s)", exprs.stream().map(Object::toString).collect(joining(", ")));
+        }
+    }
+
+    public static final class MapExpr<ET> extends Expr<ET> {
+
+        public static final class MapEntryExpr<ET> {
+            public final Range range;
+            public final Expr<ET> key, value;
+
+            public MapEntryExpr(Range range, Expr<ET> key, Expr<ET> value) {
+                this.range = range;
+                this.key = key;
+                this.value = value;
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) return true;
+                if (o == null || getClass() != o.getClass()) return false;
+                MapEntryExpr<?> that = (MapEntryExpr<?>) o;
+                return Objects.equals(key, that.key) &&
+                    Objects.equals(value, that.value);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(key, value);
+            }
+
+            public <ET_> MapEntryExpr<ET_> fmapType(Function<ET, ET_> fn) {
+                return new MapEntryExpr<>(range, key.fmapType(fn), value.fmapType(fn));
+            }
+        }
+
+        public final PVector<MapEntryExpr<ET>> entries;
+
+        public MapExpr(Range range, ET type, PVector<MapEntryExpr<ET>> entries) {
+            super(range, type);
+            this.entries = entries;
+        }
+
+        @Override
+        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
+            return new MapExpr<>(range, fn.apply(type), entries.stream().map(e -> e.fmapType(fn)).collect(toPVector()));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            MapExpr<?> mapExpr = (MapExpr<?>) o;
+            return Objects.equals(entries, mapExpr.entries);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(entries);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(MapExpr ^{%s})", entries.stream().map(e -> String.format("%s %s", e.key, e.value)).collect(joining(", ")));
         }
     }
 
@@ -248,7 +315,7 @@ public abstract class Expr<ET> {
 
         @Override
         public String toString() {
-            return String.format("(CallExpr (%s))", exprs.stream().map(Object::toString).collect(Collectors.joining(" ")));
+            return String.format("(CallExpr (%s))", exprs.stream().map(Object::toString).collect(joining(" ")));
         }
     }
 
@@ -289,7 +356,7 @@ public abstract class Expr<ET> {
 
         @Override
         public String toString() {
-            return String.format("(VarCallExpr (%s %s))", var, params.stream().map(Object::toString).collect(Collectors.joining(" ")));
+            return String.format("(VarCallExpr (%s %s))", var, params.stream().map(Object::toString).collect(joining(" ")));
         }
     }
 
@@ -363,7 +430,7 @@ public abstract class Expr<ET> {
 
         @Override
         public String toString() {
-            return String.format("(LetExpr [%s] %s)", bindings.stream().map(Object::toString).collect(Collectors.joining(" ")), body);
+            return String.format("(LetExpr [%s] %s)", bindings.stream().map(Object::toString).collect(joining(" ")), body);
         }
     }
 
@@ -514,7 +581,7 @@ public abstract class Expr<ET> {
 
         @Override
         public String toString() {
-            return String.format("(FnExpr (%s) %s)", params.stream().map(Object::toString).collect(Collectors.joining(" ")), body);
+            return String.format("(FnExpr (%s) %s)", params.stream().map(Object::toString).collect(joining(" ")), body);
         }
 
         @Override

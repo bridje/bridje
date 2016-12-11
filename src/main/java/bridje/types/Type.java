@@ -1,6 +1,5 @@
 package bridje.types;
 
-import bridje.Panic;
 import bridje.compiler.EnvUpdate;
 import bridje.runtime.Symbol;
 import bridje.util.Pair;
@@ -11,9 +10,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-import static bridje.Panic.panic;
 import static bridje.Util.*;
-import static bridje.types.Type.SimpleType.ENV_IO;
+import static bridje.types.TypeEquation.unify;
 import static bridje.util.Pair.zip;
 import static java.util.stream.Collectors.joining;
 
@@ -27,13 +25,17 @@ public abstract class Type {
 
     public abstract <T> T accept(TypeVisitor<T> visitor);
 
+    abstract PCollection<Type> childTypes();
+
     public PSet<TypeVar> ftvs() {
-        return Empty.set();
+        return childTypes().stream().flatMap(t -> t.ftvs().stream()).collect(toPSet());
     }
 
-    public Type apply(TypeMapping mapping) {
-        return this;
+    public PSet<TypeVar> typeVars() {
+        return childTypes().stream().flatMap(t -> t.typeVars().stream()).collect(toPSet());
     }
+
+    public abstract Type apply(TypeMapping mapping);
 
     public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
         return this;
@@ -43,52 +45,14 @@ public abstract class Type {
         return apply(TypeMapping.from(ftvs().stream().collect(toPMap(ftv -> ftv, ftv -> new TypeVar()))));
     }
 
-    public final Type instantiateAll() {
-        return apply(TypeMapping.from(typeVars().stream().collect(toPMap(tv -> tv, tv -> new TypeVar()))));
-    }
-
-    private TypeMapping varBind(TypeVar var, Type t2) {
-        if (t2.ftvs().contains(var)) {
-            throw panic("Cyclical types: %s and %s", var, t2);
-        } else {
-            return TypeMapping.singleton(var, t2);
-        }
-    }
-
-    public final TypeMapping unify(Type t2) {
-        if (this == t2) {
-            return TypeMapping.EMPTY;
-        } else if (this == ENV_IO || t2 == ENV_IO) {
-            throw new UnsupportedOperationException();
-        } else if (this instanceof TypeVar) {
-            return varBind((TypeVar) this, t2);
-        } else if (t2 instanceof TypeVar) {
-            return varBind((TypeVar) t2, this);
-        } else {
-            return unify0(t2);
-        }
-    }
-
-    final Panic cantUnify(Type t2) {
-        return panic("Can't unify types %s and %s", this, t2);
-    }
-
-    TypeMapping unify0(Type t2) {
-        throw cantUnify(t2);
-    }
-
-
-
-    public abstract PSet<TypeVar> typeVars();
-
     public abstract boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping);
 
     public final boolean alphaEquivalentTo(Type t2) {
-        return this.instantiateAll().alphaEquivalentTo(t2.instantiateAll(), new HashMap<>());
+        return this.instantiate().alphaEquivalentTo(t2.instantiate(), new HashMap<>());
     }
 
     public final boolean subtypeOf(Type type) {
-        return alphaEquivalentTo(type.apply(this.unify(type)));
+        return alphaEquivalentTo(type.apply(unify(vectorOf(new TypeEquation(this, type)))));
     }
 
     public static abstract class SimpleType extends Type {
@@ -130,8 +94,13 @@ public abstract class Type {
         }
 
         @Override
-        public PSet<TypeVar> typeVars() {
-            return Empty.set();
+        PCollection<Type> childTypes() {
+            return Empty.vector();
+        }
+
+        @Override
+        public Type apply(TypeMapping mapping) {
+            return this;
         }
 
         @Override
@@ -158,8 +127,8 @@ public abstract class Type {
         }
 
         @Override
-        public PSet<TypeVar> ftvs() {
-            return elemType.ftvs();
+        PCollection<Type> childTypes() {
+            return setOf(elemType);
         }
 
         @Override
@@ -170,20 +139,6 @@ public abstract class Type {
         @Override
         public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
             return new VectorType(elemType.applyJavaTypeMapping(mapping));
-        }
-
-        @Override
-        TypeMapping unify0(Type t2) {
-            if (t2 instanceof VectorType) {
-                return elemType.unify(((VectorType) t2).elemType);
-            } else {
-                throw cantUnify(t2);
-            }
-        }
-
-        @Override
-        public PSet<TypeVar> typeVars() {
-            return elemType.typeVars();
         }
 
         @Override
@@ -228,8 +183,8 @@ public abstract class Type {
         }
 
         @Override
-        public PSet<TypeVar> ftvs() {
-            return elemType.ftvs();
+        PCollection<Type> childTypes() {
+            return vectorOf(elemType);
         }
 
         @Override
@@ -240,20 +195,6 @@ public abstract class Type {
         @Override
         public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
             return new SetType(elemType.applyJavaTypeMapping(mapping));
-        }
-
-        @Override
-        TypeMapping unify0(Type t2) {
-            if (t2 instanceof SetType) {
-                return elemType.unify(((SetType) t2).elemType);
-            } else {
-                throw cantUnify(t2);
-            }
-        }
-
-        @Override
-        public PSet<TypeVar> typeVars() {
-            return elemType.typeVars();
         }
 
         @Override
@@ -277,6 +218,61 @@ public abstract class Type {
         @Override
         public String toString() {
             return String.format("^[%s]", elemType);
+        }
+    }
+
+    public static final class MapType extends Type {
+        public final Type keyType;
+        public final Type valueType;
+
+        public MapType(Type keyType, Type valueType) {
+            super(PMap.class);
+            this.keyType = keyType;
+            this.valueType = valueType;
+        }
+
+        @Override
+        public <T> T accept(TypeVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        PCollection<Type> childTypes() {
+            return vectorOf(keyType, valueType);
+        }
+
+        @Override
+        public Type apply(TypeMapping mapping) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Type applyJavaTypeMapping(PMap<Type, Class<?>> mapping) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            MapType mapType = (MapType) o;
+            return Objects.equals(keyType, mapType.keyType) &&
+                Objects.equals(valueType, mapType.valueType);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(keyType, valueType);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(MapType ^{%s %s})", keyType, valueType);
         }
     }
 
@@ -320,11 +316,8 @@ public abstract class Type {
         }
 
         @Override
-        public PSet<TypeVar> ftvs() {
-            return paramTypes.stream()
-                .flatMap(t -> t.ftvs().stream())
-                .collect(toPSet())
-                .plusAll(returnType.ftvs());
+        PCollection<Type> childTypes() {
+            return paramTypes.plus(returnType);
         }
 
         @Override
@@ -337,28 +330,6 @@ public abstract class Type {
             return new FnType(
                 paramTypes.stream().map(t -> t.applyJavaTypeMapping(mapping)).collect(toPVector()),
                 returnType.applyJavaTypeMapping(mapping));
-        }
-
-        @Override
-        public PSet<TypeVar> typeVars() {
-            return paramTypes.stream().flatMap(pt -> pt.typeVars().stream()).collect(toPSet()).plusAll(returnType.typeVars());
-        }
-
-        @Override
-        TypeMapping unify0(Type t2) {
-            if (t2 instanceof FnType) {
-                TypeMapping mapping = returnType.unify(((FnType) t2).returnType);
-                PVector<Type> t2ParamTypes = ((FnType) t2).paramTypes;
-                if (this.paramTypes.size() == t2ParamTypes.size()) {
-                    for (Pair<Type, Type> types : zip(this.paramTypes, t2ParamTypes)) {
-                        mapping = types.left.apply(mapping).unify(types.right.apply(mapping));
-                    }
-
-                    return mapping;
-                }
-            }
-
-            throw cantUnify(t2);
         }
 
         @Override
@@ -397,6 +368,11 @@ public abstract class Type {
         @Override
         public <T> T accept(TypeVisitor<T> visitor) {
             return visitor.visit(this);
+        }
+
+        @Override
+        PCollection<Type> childTypes() {
+            return Empty.vector();
         }
 
         @Override
@@ -462,29 +438,18 @@ public abstract class Type {
         }
 
         @Override
-        public PSet<TypeVar> ftvs() {
-            return Empty.set();
+        PCollection<Type> childTypes() {
+            return Empty.vector();
         }
 
         @Override
-        public PSet<TypeVar> typeVars() {
-            return Empty.set();
+        public Type apply(TypeMapping mapping) {
+            return this;
         }
 
         @Override
         public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
             return this == t2 || (t2 instanceof DataTypeType && Objects.equals(name, ((DataTypeType) t2).name));
-        }
-
-        @Override
-        TypeMapping unify0(Type t2) {
-            if (t2 instanceof DataTypeType) {
-                if (name.equals(((DataTypeType) t2).name)) {
-                    return TypeMapping.EMPTY;
-                }
-            }
-
-            throw cantUnify(t2);
         }
 
         @Override
@@ -518,11 +483,6 @@ public abstract class Type {
         }
 
         @Override
-        public PSet<TypeVar> ftvs() {
-            return typeParams.plus(appliedType).stream().flatMap(t -> t.ftvs().stream()).collect(toPSet());
-        }
-
-        @Override
         public Type apply(TypeMapping mapping) {
             return new AppliedType(appliedType.apply(mapping), typeParams.stream().map(tp -> tp.apply(mapping)).collect(toPVector()));
         }
@@ -534,35 +494,13 @@ public abstract class Type {
         }
 
         @Override
-        TypeMapping unify0(Type t2) {
-            if (!(t2 instanceof AppliedType)) {
-               throw cantUnify(t2);
-            }
-
-            AppliedType appliedT2 = (AppliedType) t2;
-
-            if (typeParams.size() != appliedT2.typeParams.size()) {
-                throw cantUnify(t2);
-            }
-
-
-            TypeMapping mapping = TypeMapping.EMPTY;
-
-            for (Pair<Type, Type> paramTypePairs : zip(typeParams, appliedT2.typeParams)) {
-                mapping = paramTypePairs.left.apply(mapping).unify(paramTypePairs.right.apply(mapping));
-            }
-
-            return mapping;
-        }
-
-        @Override
         public <T> T accept(TypeVisitor<T> visitor) {
             return visitor.visit(this);
         }
 
         @Override
-        public PSet<TypeVar> typeVars() {
-            return typeParams.plus(appliedType).stream().flatMap(t -> t.typeVars().stream()).collect(toPSet());
+        PCollection<Type> childTypes() {
+            return typeParams.plus(appliedType);
         }
 
         @Override
@@ -596,4 +534,5 @@ public abstract class Type {
             return String.format("(AppliedType (%s %s)", appliedType, typeParams.stream().map(Object::toString).collect(joining(" ")));
         }
     }
+
 }

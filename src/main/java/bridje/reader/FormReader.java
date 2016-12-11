@@ -4,6 +4,7 @@ import bridje.Panic;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -167,6 +168,23 @@ public class FormReader {
 
         DISPATCH_CHARS['^'] = new SecondaryDispatcher();
         SECONDARY_DISPATCH_CHARS['['] = new CollectionDispatcher("^[", ']', Form.SetForm::new);
+        SECONDARY_DISPATCH_CHARS['{'] = new CollectionDispatcher("^{", '}', (range, forms) -> new Form.MapForm(range, readMapEntries(forms)));
+    }
+
+    private static PVector<Form.MapForm.MapEntryForm> readMapEntries(PVector<Form> forms) {
+        if (forms.size() % 2 != 0) {
+            throw new UnsupportedOperationException();
+        }
+
+        Collection<Form.MapForm.MapEntryForm> entryForms = new LinkedList<>();
+
+        for (int i = 0; i < forms.size(); i += 2) {
+            Form key = forms.get(i);
+            Form value = forms.get(i + 1);
+            entryForms.add(new Form.MapForm.MapEntryForm(range(key.range.start, value.range.end), key, value));
+        }
+
+        return TreePVector.from(entryForms);
     }
 
     private static String readToken(LCReader rdr, Character endChar, EOFBehaviour eofBehaviour) {

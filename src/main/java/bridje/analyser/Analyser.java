@@ -54,6 +54,15 @@ public class Analyser {
                 return new Expr.SetExpr<>(form.range, null, form.forms.stream().map(f -> analyse0(env, localEnv, f)).collect(toPVector()));
             }
 
+            @Override
+            public Expr<Void> visit(Form.MapForm mapForm) {
+                return new Expr.MapExpr<>(mapForm.range, null, mapForm.entries.stream()
+                    .map(e -> new Expr.MapExpr.MapEntryExpr<>(e.range,
+                        analyse0(env, localEnv, e.key),
+                        analyse0(env, localEnv, e.value)))
+                    .collect(toPVector()));
+            }
+
             private ListParser<Expr<Void>> exprParser(LocalEnv localEnv) {
                 return oneOf(f -> success(analyse0(env, localEnv, f)));
             }

@@ -12,6 +12,8 @@ public interface ExprVisitor<ET, T> {
 
     T visit(Expr.SetExpr<? extends ET> expr);
 
+    T visit(Expr.MapExpr<? extends ET> expr);
+
     T visit(Expr.CallExpr<? extends ET> expr);
 
     T visit(Expr.VarCallExpr<? extends ET> expr);

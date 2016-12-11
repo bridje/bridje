@@ -13,6 +13,8 @@ public interface TypeVisitor<T> {
 
     T visit(Type.SetType type);
 
+    T visit(Type.MapType type);
+
     T visit(Type.FnType type);
 
     T visit(Type.TypeVar type);

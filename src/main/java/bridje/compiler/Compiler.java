@@ -74,6 +74,11 @@ public class Compiler {
             }
 
             @Override
+            public PMap<LocalVar, Type> visit(Expr.MapExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public PMap<LocalVar, Type> visit(Expr.CallExpr<? extends Type> expr) {
                 return mapClosedOverVars(expr.exprs);
             }
@@ -166,6 +171,11 @@ public class Compiler {
             public Instructions visit(Expr.SetExpr<? extends Type> expr) {
                 return Instructions.loadSet(((Type.SetType) expr.type).elemType.javaType,
                     expr.exprs.stream().map(e -> compileExpr0(locals, e)).collect(toPVector()));
+            }
+
+            @Override
+            public Instructions visit(Expr.MapExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
             }
 
             @Override

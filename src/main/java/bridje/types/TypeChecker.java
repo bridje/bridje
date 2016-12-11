@@ -73,6 +73,45 @@ public class TypeChecker {
                         typeResults.stream().map(r -> mapping.applyTo(r.expr)).collect(toPVector())));
             }
 
+            final class MapEntryTypeResult {
+                final Expr.MapExpr.MapEntryExpr<? extends Void> entryExpr;
+                final TypeResult keyTypeResult, valueTypeResult;
+
+                MapEntryTypeResult(Expr.MapExpr.MapEntryExpr<? extends Void> entryExpr, TypeResult keyTypeResult, TypeResult valueTypeResult) {
+                    this.entryExpr = entryExpr;
+                    this.keyTypeResult = keyTypeResult;
+                    this.valueTypeResult = valueTypeResult;
+                }
+            }
+
+            @Override
+            public TypeResult visit(Expr.MapExpr<? extends Void> expr) {
+                TypeVar keyType = new TypeVar();
+                TypeVar valueType = new TypeVar();
+
+                PVector<MapEntryTypeResult> typeResults = expr.entries.stream().map(e -> new MapEntryTypeResult(e, typeExpr0(e.key, localEnv), typeExpr0(e.value, localEnv))).collect(toPVector());
+                PCollection<MonomorphicEnv> keyEnvs = typeResults.stream().map(r -> r.keyTypeResult.monomorphicEnv).collect(toPVector());
+                PCollection<MonomorphicEnv> valueEnvs = typeResults.stream().map(r -> r.valueTypeResult.monomorphicEnv).collect(toPVector());
+
+                TypeMapping mapping = unify(
+                    typeEquations(keyEnvs)
+                        .plusAll(typeEquations(valueEnvs))
+                        .plusAll(typeResults.stream().map(r -> new TypeEquation(keyType, r.keyTypeResult.expr.type)).collect(toPVector()))
+                        .plusAll(typeResults.stream().map(r -> new TypeEquation(valueType, r.valueTypeResult.expr.type)).collect(toPVector())));
+
+                return new TypeResult(
+                    union(keyEnvs.plusAll(valueEnvs).stream().map(e -> e.apply(mapping)).collect(toPVector())),
+
+                    new Expr.MapExpr<>(expr.range, new MapType(keyType.apply(mapping), valueType.apply(mapping)),
+                        typeResults.stream()
+                            .map(r ->
+                                new Expr.MapExpr.MapEntryExpr<>(
+                                    r.entryExpr.range,
+                                    mapping.applyTo(r.keyTypeResult.expr),
+                                    mapping.applyTo(r.valueTypeResult.expr)))
+                            .collect(toPVector())));
+            }
+
             @Override
             public TypeResult visit(Expr.CallExpr<? extends Void> expr) {
                 TypeVar resultType = new TypeVar();

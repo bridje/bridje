@@ -1,14 +1,15 @@
 package bridje.reader;
 
 import bridje.runtime.Symbol;
+import org.pcollections.PCollection;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static bridje.runtime.Symbol.symbol;
+import static java.util.stream.Collectors.joining;
 
 public abstract class Form {
 
@@ -157,7 +158,7 @@ public abstract class Form {
 
         @Override
         public String toString() {
-            return String.format("(VectorForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
+            return String.format("(VectorForm %s)", forms.stream().map(Object::toString).collect(joining(" ")));
         }
 
         @Override
@@ -194,12 +195,75 @@ public abstract class Form {
 
         @Override
         public String toString() {
-            return String.format("(SetForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
+            return String.format("(SetForm %s)", forms.stream().map(Object::toString).collect(joining(" ")));
         }
 
         @Override
         public <T> T accept(FormVisitor<T> visitor) {
             return visitor.visit(this);
+        }
+    }
+
+    public static class MapForm extends Form {
+
+        public static class MapEntryForm {
+            public final Range range;
+            public final Form key, value;
+
+            public MapEntryForm(Range range, Form key, Form value) {
+                this.range = range;
+                this.key = key;
+                this.value = value;
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) return true;
+                if (o == null || getClass() != o.getClass()) return false;
+                MapEntryForm that = (MapEntryForm) o;
+                return Objects.equals(key, that.key) &&
+                    Objects.equals(value, that.value);
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(key, value);
+            }
+
+            @Override
+            public String toString() {
+                return String.format("(MapEntryForm %s=%s)", key, value);
+            }
+        }
+
+        public final PCollection<MapEntryForm> entries;
+
+        public MapForm(Range range, PCollection<MapEntryForm> entries) {
+            super(range);
+            this.entries = entries;
+        }
+
+        @Override
+        public <T> T accept(FormVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            MapForm mapForm = (MapForm) o;
+            return Objects.equals(entries, mapForm.entries);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(entries);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(MapForm ^{%s})", entries.stream().map(mef -> String.format("%s %s", mef.key, mef.value)).collect(joining(", ")));
         }
     }
 
@@ -231,7 +295,7 @@ public abstract class Form {
 
         @Override
         public String toString() {
-            return String.format("(ListForm %s)", forms.stream().map(Object::toString).collect(Collectors.joining(" ")));
+            return String.format("(ListForm %s)", forms.stream().map(Object::toString).collect(joining(" ")));
         }
 
         @Override
