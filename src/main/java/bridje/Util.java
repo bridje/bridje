@@ -17,10 +17,12 @@ public class Util {
         return UNIQUE_INTS.getAndIncrement();
     }
 
+    @SafeVarargs
     public static <T> PSet<T> setOf(T... ts) {
         return HashTreePSet.from(Arrays.asList(ts));
     }
 
+    @SafeVarargs
     public static <T> PVector<T> vectorOf(T... ts) {
         return TreePVector.from(Arrays.asList(ts));
     }
