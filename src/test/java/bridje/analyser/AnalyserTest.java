@@ -14,14 +14,14 @@ import static bridje.analyser.Analyser.analyse;
 import static bridje.analyser.ExprUtil.*;
 import static bridje.reader.Form.IntForm.intForm;
 import static bridje.reader.Form.ListForm.listForm;
+import static bridje.reader.Form.QSymbolForm.qSymbolForm;
 import static bridje.reader.Form.SymbolForm.symbolForm;
 import static bridje.reader.Form.VectorForm.vectorForm;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.USER;
 import static bridje.runtime.NS.ns;
 import static bridje.runtime.Symbol.symbol;
-import static bridje.runtime.VarUtil.PLUS_ENV;
-import static bridje.runtime.VarUtil.PLUS_VAR;
+import static bridje.runtime.VarUtil.*;
 import static bridje.types.Type.FnType.fnType;
 import static bridje.types.Type.SimpleType.INT_TYPE;
 import static org.junit.Assert.assertEquals;
@@ -167,5 +167,10 @@ public class AnalyserTest {
             analyse(PLUS_ENV,
                 USER, listForm(symbolForm("defdata"), listForm(symbolForm("Foo"), symbolForm("a")),
                     listForm(symbolForm("Foo"), symbolForm("a")))));
+    }
+
+    @Test
+    public void analysesQualifiedPlusCall() throws Exception {
+        assertEquals(varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 4), intExpr(null, 3))), analyse(PLUS_ENV, FOO_NS, (listForm(qSymbolForm("u", "+"), intForm(4), intForm(3)))));
     }
 }

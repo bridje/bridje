@@ -3,10 +3,7 @@ package bridje;
 import bridje.analyser.Expr;
 import bridje.reader.Form;
 import bridje.reader.LCReader;
-import bridje.runtime.DataType;
-import bridje.runtime.Env;
-import bridje.runtime.EvalResult;
-import bridje.runtime.Var;
+import bridje.runtime.*;
 import bridje.types.Type;
 import bridje.types.TypeChecker;
 import bridje.util.Pair;
@@ -33,14 +30,18 @@ import static org.junit.Assert.assertTrue;
 
 public class E2EEval {
 
-    private Pair<Expr<Type>, EvalResult> evalValue(Env env, String code) {
+    private Pair<Expr<Type>, EvalResult> evalValue(Env env, NS ns, String code) {
         Form form = read(LCReader.fromString(code));
 
-        Expr<Void> expr = analyse(env, USER, form);
+        Expr<Void> expr = analyse(env, ns, form);
 
         Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
         return pair(typedExpr, compile(env, typedExpr));
+    }
+
+    private Pair<Expr<Type>, EvalResult> evalValue(Env env, String code) {
+        return evalValue(env, USER, code);
     }
 
     private void testEvalValue(Env env, String code, Type expectedType, Object expectedResult) {
@@ -193,5 +194,10 @@ public class E2EEval {
         EvalResult evalResult = evalAction(PLUS_ENV, "(ns my-ns {aliases {u user}})").right;
 
         assertEquals(ns("user"), evalResult.env.nsEnvs.get(ns("my-ns")).aliases.get(symbol("u")));
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(evalResult.env, ns("my-ns"), "(u/+ 4 3)");
+
+        assertEquals(INT_TYPE, result.left.type);
+        assertEquals(7L, result.right.value);
     }
 }

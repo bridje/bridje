@@ -84,6 +84,10 @@ public class Analyser {
                         new LetBinding<>(new LocalVar(symForm.sym), bindingExpr)));
             }
 
+            private ParseResult<Pair<Expr<Void>, PVector<Form>>> parseVarCall(Var var, PVector<Form> paramForms) {
+                return success(pair(new Expr.VarCallExpr<>(form.range, null, var, paramForms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
+            }
+
             private ListParser<Expr<Void>> listFormParser(Form.SymbolForm firstSymbolForm) {
                 Symbol firstSym = firstSymbolForm.sym;
 
@@ -242,12 +246,8 @@ public class Analyser {
                     default:
                         return paramForms -> {
                             Var var = env.resolveVar(currentNS, firstSym).orElse(null);
-                            if (var != null) {
-                                PVector<Expr<Void>> paramExprs = paramForms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector());
-
-                                if (var.fnMethod != null) {
-                                    return success(pair(new Expr.VarCallExpr<>(form.range, null, var, paramExprs), Empty.vector()));
-                                }
+                            if (var != null && var.fnMethod != null) {
+                                return parseVarCall(var, paramForms);
                             }
 
                             return success(pair(new Expr.CallExpr<>(form.range, null, paramForms.plus(0, firstSymbolForm).stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
@@ -271,7 +271,19 @@ public class Analyser {
 
             @Override
             public Expr<Void> visit(Form.ListForm form) {
-                return SYMBOL_PARSER.bind(this::listFormParser).parse(form.forms).orThrow().left;
+                return
+                    anyOf(
+                        SYMBOL_PARSER.bind(this::listFormParser),
+                        QSYMBOL_PARSER.bind(qsymForm -> paramForms -> {
+                            Var var = env.resolveVar(currentNS, qsymForm.qsym).orElse(null);
+                            if (var != null) {
+                                return parseVarCall(var, paramForms);
+                            }
+
+                            throw new UnsupportedOperationException();
+                        }))
+
+                        .parse(form.forms).orThrow().left;
             }
 
             @Override

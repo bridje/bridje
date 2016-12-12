@@ -1,5 +1,6 @@
 package bridje.reader;
 
+import bridje.runtime.QSymbol;
 import bridje.runtime.Symbol;
 import org.pcollections.PCollection;
 import org.pcollections.PVector;
@@ -405,36 +406,20 @@ public abstract class Form {
     }
 
     public static final class QSymbolForm extends Form {
-        public final String ns;
-        public final String sym;
+        public final QSymbol qsym;
 
-        static QSymbolForm qSymbolForm(String ns, String sym) {
-            return new QSymbolForm(null, ns, sym);
+        public static QSymbolForm qSymbolForm(String ns, String sym) {
+            return new QSymbolForm(null, new QSymbol(ns, sym));
         }
 
-        public QSymbolForm(Range range, String ns, String sym) {
+        public QSymbolForm(Range range, QSymbol qsym) {
             super(range);
-            this.ns = ns;
-            this.sym = sym;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            QSymbolForm that = (QSymbolForm) o;
-            return Objects.equals(ns, that.ns) &&
-                Objects.equals(sym, that.sym);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(ns, sym);
+            this.qsym = qsym;
         }
 
         @Override
         public String toString() {
-            return String.format("(QSymbolForm \"%s/%s\")", ns, sym);
+            return String.format("(QSymbolForm %s)", qsym);
         }
 
         @Override
