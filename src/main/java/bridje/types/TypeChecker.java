@@ -251,7 +251,7 @@ public class TypeChecker {
 
             @Override
             public TypeResult visit(Expr.NSExpr<? extends Void> expr) {
-                return new TypeResult(new Expr.NSExpr<>(expr.range, ENV_IO, expr.ns, expr.aliases));
+                return new TypeResult(new Expr.NSExpr<>(expr.range, ENV_IO, expr.ns, expr.aliases, expr.refers));
             }
 
             @Override

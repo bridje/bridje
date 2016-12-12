@@ -126,4 +126,16 @@ public class Util {
     public static String toInternalName(String name) {
         return name.replace('.', '/');
     }
+
+    @SafeVarargs
+    public static <T> Optional<T> or(Supplier<Optional<T>>... suppliers) {
+        for (Supplier<Optional<T>> supplier : suppliers) {
+            Optional<T> maybeT = supplier.get();
+            if (maybeT.isPresent()) {
+                return maybeT;
+            }
+        }
+
+        return Optional.empty();
+    }
 }

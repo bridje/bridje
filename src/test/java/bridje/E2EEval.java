@@ -200,4 +200,16 @@ public class E2EEval {
         assertEquals(INT_TYPE, result.left.type);
         assertEquals(7L, result.right.value);
     }
+
+    @Test
+    public void testNSRefers() throws Exception {
+        EvalResult evalResult = evalAction(PLUS_ENV, "(ns my-ns {refers {user [+]}})").right;
+
+        assertEquals(fqSym(USER, symbol("+")), evalResult.env.nsEnvs.get(ns("my-ns")).refers.get(symbol("+")));
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(evalResult.env, ns("my-ns"), "(+ 4 3)");
+
+        assertEquals(INT_TYPE, result.left.type);
+        assertEquals(7L, result.right.value);
+    }
 }

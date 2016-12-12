@@ -63,6 +63,16 @@ class ParseException extends RuntimeException {
         }
     }
 
+    static final class DuplicateReferException extends ParseException {
+        final Form nsForm;
+        final Symbol duplicateRefer;
+
+        DuplicateReferException(Form nsForm, Symbol duplicateRefer) {
+            this.nsForm = nsForm;
+            this.duplicateRefer = duplicateRefer;
+        }
+    }
+
 
     static final class MultipleParseFailsException extends ParseException {
         final PVector<ListParser.ParseResult.Fail<?>> fails;
@@ -72,4 +82,11 @@ class ParseException extends RuntimeException {
         }
     }
 
+    static class MultipleRefersInNS extends ParseException {
+        final Form nsForm;
+
+        MultipleRefersInNS(Form nsForm) {
+            this.nsForm = nsForm;
+        }
+    }
 }

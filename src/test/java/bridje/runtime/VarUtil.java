@@ -1,6 +1,7 @@
 package bridje.runtime;
 
 import bridje.types.Type;
+import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 
 import java.lang.invoke.MethodHandle;
@@ -45,5 +46,5 @@ public class VarUtil {
 
     public static final NS FOO_NS = ns("foo");
 
-    public static final Env PLUS_ENV = EMPTY.withVar(fqSym(USER, symbol("+")), PLUS_VAR).withNS(FOO_NS, HashTreePMap.singleton(symbol("u"), USER));
+    public static final Env PLUS_ENV = EMPTY.withVar(fqSym(USER, symbol("+")), PLUS_VAR).withNS(FOO_NS, HashTreePMap.singleton(symbol("u"), USER), Empty.map());
 }

@@ -86,8 +86,11 @@ public class CompilerTest {
 
     @Test
     public void compilesNS() throws Exception {
-        EvalResult evalResult = Compiler.compile(PLUS_ENV, new Expr.NSExpr<>(null, ENV_IO, ns("my-ns"), HashTreePMap.singleton(symbol("u"), ns("user"))));
-        assertEquals(ns("user"), evalResult.env.nsEnvs.get(ns("my-ns")).aliases.get(symbol("u")));
+        Symbol plusSym = symbol("+");
+        EvalResult evalResult = Compiler.compile(PLUS_ENV, new Expr.NSExpr<>(null, ENV_IO, ns("my-ns"), HashTreePMap.singleton(symbol("u"), ns("user")), HashTreePMap.singleton(plusSym, fqSym(USER, plusSym))));
+        NSEnv nsEnv = evalResult.env.nsEnvs.get(ns("my-ns"));
+        assertEquals(USER, nsEnv.aliases.get(symbol("u")));
+        assertEquals(fqSym(USER, plusSym), nsEnv.refers.get(plusSym));
     }
 
     @Test

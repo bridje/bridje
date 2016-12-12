@@ -598,11 +598,13 @@ public abstract class Expr<ET> {
 
         public final NS ns;
         public final PMap<Symbol, NS> aliases;
+        public final PMap<Symbol, FQSymbol> refers;
 
-        public NSExpr(Range range, ET type, NS ns, PMap<Symbol, NS> aliases) {
+        public NSExpr(Range range, ET type, NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers) {
             super(range, type);
             this.ns = ns;
             this.aliases = aliases;
+            this.refers = refers;
         }
 
         @Override
@@ -612,7 +614,7 @@ public abstract class Expr<ET> {
 
         @Override
         public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new NSExpr<>(range, fn.apply(type), ns, aliases);
+            return new NSExpr<>(range, fn.apply(type), ns, aliases, refers);
         }
 
         @Override
@@ -621,17 +623,18 @@ public abstract class Expr<ET> {
             if (o == null || getClass() != o.getClass()) return false;
             NSExpr<?> nsExpr = (NSExpr<?>) o;
             return Objects.equals(ns, nsExpr.ns) &&
-                Objects.equals(aliases, nsExpr.aliases);
+                Objects.equals(aliases, nsExpr.aliases) &&
+                Objects.equals(refers, nsExpr.refers);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(ns, aliases);
+            return Objects.hash(ns, aliases, refers);
         }
 
         @Override
         public String toString() {
-            return String.format("(NSExpr %s {aliases %s})", ns, aliases);
+            return String.format("(NSExpr %s {aliases %s, refers %s})", ns, aliases, refers);
         }
     }
 

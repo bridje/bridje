@@ -10,6 +10,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
+import static bridje.Util.or;
 import static bridje.runtime.Symbol.symbol;
 
 public class Env {
@@ -76,13 +77,16 @@ public class Env {
             vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType), dataTypeSuperclasses.plus(dataType.sym, superclass));
     }
 
-    public Env withNS(NS ns, PMap<Symbol, NS> aliases) {
-        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases)), vars, dataTypes, dataTypeSuperclasses);
+    public Env withNS(NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers) {
+        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers)), vars, dataTypes, dataTypeSuperclasses);
     }
 
     public Optional<Var> resolveVar(NS ns, Symbol symbol) {
         return Optional.ofNullable(nsEnvs.get(ns))
-            .flatMap(nsEnv -> Optional.ofNullable(nsEnv.vars.get(symbol)))
+            .flatMap(nsEnv ->
+                or(
+                    () -> Optional.ofNullable(nsEnv.vars.get(symbol)),
+                    () -> Optional.ofNullable(nsEnv.refers.get(symbol))))
             .flatMap(fqSym -> Optional.ofNullable(vars.get(fqSym)));
     }
 

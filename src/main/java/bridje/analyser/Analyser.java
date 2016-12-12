@@ -3,6 +3,7 @@ package bridje.analyser;
 import bridje.analyser.Expr.LetExpr.LetBinding;
 import bridje.analyser.Expr.LocalVarExpr;
 import bridje.analyser.ParseException.DuplicateAliasException;
+import bridje.analyser.ParseException.DuplicateReferException;
 import bridje.analyser.ParseException.UnexpectedFormTypeException;
 import bridje.reader.Form;
 import bridje.reader.FormVisitor;
@@ -191,14 +192,15 @@ public class Analyser {
                     case "ns": {
                         return SYMBOL_PARSER.bind(nameForm ->
                             anyOf(
-                                parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), Empty.map())),
+                                parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), Empty.map(), Empty.map())),
                                 RECORD_PARSER.bind(optsForm -> {
-                                    PMap<Symbol, NS> aliases = null;
+                                    PMap<Symbol, NS> aliases = Empty.map();
+                                    PMap<Symbol, FQSymbol> refers = Empty.map();
 
                                     for (Form.RecordForm.RecordEntryForm entry : optsForm.entries) {
                                         switch (entry.key.sym) {
                                             case "aliases":
-                                                if (aliases != null) {
+                                                if (!aliases.isEmpty()) {
                                                     throw new ParseException.MultipleAliasesInNS(form);
                                                 }
 
@@ -234,12 +236,58 @@ public class Analyser {
 
                                                 break;
 
+                                            case "refers":
+                                                if (!refers.isEmpty()) {
+                                                    throw new ParseException.MultipleRefersInNS(form);
+                                                }
+
+                                                if (entry.value instanceof Form.RecordForm) {
+                                                    Map<Symbol, FQSymbol> refers_ = new HashMap<>();
+                                                    Form.RecordForm refersForm = (Form.RecordForm) entry.value;
+
+                                                    for (Form.RecordForm.RecordEntryForm referEntry : refersForm.entries) {
+                                                        NS referredNS = ns(referEntry.key.sym);
+                                                        // TODO should we do a cycle check here?
+
+                                                        if (!env.nsEnvs.containsKey(referredNS)) {
+                                                            throw new UnsupportedOperationException();
+                                                        }
+
+                                                        PSet<Symbol> availableSyms = HashTreePSet.from(env.nsEnvs.get(referredNS).vars.keySet());
+
+                                                        if (!(referEntry.value instanceof Form.VectorForm)) {
+                                                            throw new UnexpectedFormTypeException(referEntry.value);
+                                                        }
+
+                                                        for (Form referredForm : ((Form.VectorForm) referEntry.value).forms) {
+                                                            if (!(referredForm instanceof Form.SymbolForm)) {
+                                                                throw new UnexpectedFormTypeException(referredForm);
+                                                            }
+
+                                                            Symbol referredSym = ((Form.SymbolForm) referredForm).sym;
+
+                                                            if (refers_.containsKey(referredSym)) {
+                                                                throw new DuplicateReferException(form, referredSym);
+                                                            }
+
+                                                            if (!availableSyms.contains(referredSym)) {
+                                                                throw new UnsupportedOperationException();
+                                                            }
+
+                                                            refers_.put(referredSym, fqSym(referredNS, referredSym));
+                                                        }
+                                                    }
+
+                                                    refers = HashTreePMap.from(refers_);
+                                                }
+
+                                                break;
                                             default:
                                                 throw new UnsupportedOperationException();
                                         }
                                     }
 
-                                    return parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), aliases));
+                                    return parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), aliases, refers));
                                 })));
                     }
 

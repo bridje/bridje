@@ -23,15 +23,17 @@ public interface EnvUpdate<T> {
 
         final NS ns;
         final PMap<Symbol, NS> aliases;
+        final PMap<Symbol, FQSymbol> refers;
 
-        public NSEnvUpdate(NS ns, PMap<Symbol, NS> aliases) {
+        public NSEnvUpdate(NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers) {
             this.ns = ns;
             this.aliases = aliases;
+            this.refers = refers;
         }
 
         @Override
         public Pair<Env, NS> updateEnv(Env env) {
-            return pair(env.withNS(ns, aliases), ns);
+            return pair(env.withNS(ns, aliases, refers), ns);
         }
     }
 

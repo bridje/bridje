@@ -418,6 +418,19 @@ public abstract class Form {
         }
 
         @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            QSymbolForm that = (QSymbolForm) o;
+            return Objects.equals(qsym, that.qsym);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(qsym);
+        }
+
+        @Override
         public String toString() {
             return String.format("(QSymbolForm %s)", qsym);
         }
