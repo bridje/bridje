@@ -5,7 +5,10 @@ import bridje.runtime.*;
 import bridje.types.Type.*;
 import bridje.types.TypeVisitor;
 import bridje.util.Pair;
-import org.objectweb.asm.*;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Type;
 import org.pcollections.*;
 
 import java.lang.invoke.MethodHandle;
@@ -18,7 +21,7 @@ import java.util.function.Function;
 import static bridje.Util.*;
 import static bridje.compiler.ClassLike.fromClass;
 import static bridje.compiler.Instructions.FieldOp.GET_STATIC;
-import static bridje.compiler.Instructions.MethodInvoke.*;
+import static bridje.runtime.MethodInvoke.*;
 import static org.objectweb.asm.Opcodes.*;
 
 interface Instructions {
@@ -186,18 +189,6 @@ interface Instructions {
 
     static Instructions loadNull() {
         return mv -> mv.visitInsn(ACONST_NULL);
-    }
-
-    enum MethodInvoke {
-        INVOKE_STATIC(Opcodes.INVOKESTATIC, false), INVOKE_VIRTUAL(INVOKEVIRTUAL, false), INVOKE_SPECIAL(INVOKESPECIAL, false), INVOKE_INTERFACE(INVOKEINTERFACE, true);
-
-        final int opcode;
-        final boolean isInterface;
-
-        MethodInvoke(int opcode, boolean isInterface) {
-            this.opcode = opcode;
-            this.isInterface = isInterface;
-        }
     }
 
     static Instructions methodCall(ClassLike classLike, MethodInvoke methodInvoke, String name, Class<?> returnType, PVector<Class<?>> paramTypes) {
