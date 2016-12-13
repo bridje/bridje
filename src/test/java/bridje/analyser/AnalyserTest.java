@@ -90,13 +90,13 @@ public class AnalyserTest {
 
     @Test
     public void analysesEmptyNS() throws Exception {
-        assertEquals(new Expr.NSExpr<Void>(null, null, ns("my-ns"), Empty.map(), Empty.map()),
+        assertEquals(new Expr.NSExpr<Void>(null, null, ns("my-ns"), Empty.map(), Empty.map(), Empty.map()),
             analyse(PLUS_ENV, USER, listForm(symbolForm("ns"), symbolForm("my-ns"))));
     }
 
     @Test
     public void analysesNSAliases() throws Exception {
-        assertEquals(new Expr.NSExpr<Void>(null, null, ns("my-ns"), HashTreePMap.singleton(symbol("u"), USER), Empty.map()),
+        assertEquals(new Expr.NSExpr<Void>(null, null, ns("my-ns"), HashTreePMap.singleton(symbol("u"), USER), Empty.map(), Empty.map()),
             analyse(PLUS_ENV, USER, listForm(symbolForm("ns"), symbolForm("my-ns"),
                 new Form.RecordForm(null, vectorOf(
                     new Form.RecordForm.RecordEntryForm(null,
@@ -107,7 +107,7 @@ public class AnalyserTest {
 
     @Test
     public void analysesNSRefers() throws Exception {
-        assertEquals(new Expr.NSExpr<Void>(null, null, ns("my-ns"), Empty.map(), HashTreePMap.singleton(symbol("+"), fqSym(USER, symbol("+")))),
+        assertEquals(new Expr.NSExpr<Void>(null, null, ns("my-ns"), Empty.map(), HashTreePMap.singleton(symbol("+"), fqSym(USER, symbol("+"))), Empty.map()),
             analyse(PLUS_ENV, USER, listForm(symbolForm("ns"), symbolForm("my-ns"),
                 new Form.RecordForm(null, vectorOf(
                     new Form.RecordForm.RecordEntryForm(null,

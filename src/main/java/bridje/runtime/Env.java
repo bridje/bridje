@@ -77,8 +77,8 @@ public class Env {
             vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType), dataTypeSuperclasses.plus(dataType.sym, superclass));
     }
 
-    public Env withNS(NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers) {
-        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers)), vars, dataTypes, dataTypeSuperclasses);
+    public Env withNS(NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers, PMap<Symbol, Class<?>> imports) {
+        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers, imports)), vars, dataTypes, dataTypeSuperclasses);
     }
 
     public Optional<Var> resolveVar(NS ns, Symbol symbol) {

@@ -8,6 +8,7 @@ import org.junit.Test;
 import org.pcollections.HashTreePMap;
 
 import java.lang.invoke.MethodHandle;
+import java.time.Instant;
 
 import static bridje.Util.setOf;
 import static bridje.Util.vectorOf;
@@ -87,10 +88,14 @@ public class CompilerTest {
     @Test
     public void compilesNS() throws Exception {
         Symbol plusSym = symbol("+");
-        EvalResult evalResult = Compiler.compile(PLUS_ENV, new Expr.NSExpr<>(null, ENV_IO, ns("my-ns"), HashTreePMap.singleton(symbol("u"), ns("user")), HashTreePMap.singleton(plusSym, fqSym(USER, plusSym))));
+        EvalResult evalResult = Compiler.compile(PLUS_ENV, new Expr.NSExpr<>(null, ENV_IO, ns("my-ns"),
+            HashTreePMap.singleton(symbol("u"), ns("user")),
+            HashTreePMap.singleton(plusSym, fqSym(USER, plusSym)),
+            HashTreePMap.singleton(symbol("Instant"), Instant.class)));
         NSEnv nsEnv = evalResult.env.nsEnvs.get(ns("my-ns"));
         assertEquals(USER, nsEnv.aliases.get(symbol("u")));
         assertEquals(fqSym(USER, plusSym), nsEnv.refers.get(plusSym));
+        assertEquals(Instant.class, nsEnv.imports.get(symbol("Instant")));
     }
 
     @Test

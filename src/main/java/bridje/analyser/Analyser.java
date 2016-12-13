@@ -192,10 +192,11 @@ public class Analyser {
                     case "ns": {
                         return SYMBOL_PARSER.bind(nameForm ->
                             anyOf(
-                                parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), Empty.map(), Empty.map())),
+                                parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), Empty.map(), Empty.map(), Empty.map())),
                                 RECORD_PARSER.bind(optsForm -> {
                                     PMap<Symbol, NS> aliases = Empty.map();
                                     PMap<Symbol, FQSymbol> refers = Empty.map();
+                                    PMap<Symbol, Class<?>> imports = Empty.map();
 
                                     for (Form.RecordForm.RecordEntryForm entry : optsForm.entries) {
                                         switch (entry.key.sym) {
@@ -282,12 +283,55 @@ public class Analyser {
                                                 }
 
                                                 break;
+
+                                            case "imports":
+                                                if (!imports.isEmpty()) {
+                                                    throw new ParseException.MultipleImportsInNS(form);
+                                                }
+
+                                                if (entry.value instanceof Form.RecordForm) {
+                                                    Map<Symbol, Class<?>> imports_ = new HashMap<>();
+                                                    Form.RecordForm importsForm = (Form.RecordForm) entry.value;
+
+                                                    for (Form.RecordForm.RecordEntryForm importEntry : importsForm.entries) {
+                                                        if (!(importEntry.value instanceof Form.VectorForm)) {
+                                                            throw new UnexpectedFormTypeException(importEntry.value);
+                                                        }
+
+                                                        for (Form classNameForm : ((Form.VectorForm) importEntry.value).forms) {
+                                                            if (!(classNameForm instanceof Form.SymbolForm)) {
+                                                                throw new UnexpectedFormTypeException(classNameForm);
+                                                            }
+
+                                                            Symbol classNameSym = ((Form.SymbolForm) classNameForm).sym;
+
+                                                            if (imports_.containsKey(classNameSym)) {
+                                                                throw new DuplicateReferException(form, classNameSym);
+                                                            }
+
+                                                            Class<?> clazz;
+
+                                                            try {
+                                                                clazz = Class.forName(importEntry.key.sym + "." + classNameSym.sym);
+                                                            } catch (ClassNotFoundException e) {
+                                                                throw new UnsupportedOperationException();
+                                                            }
+
+                                                            imports_.put(classNameSym, clazz);
+                                                        }
+                                                    }
+
+                                                    imports = HashTreePMap.from(imports_);
+                                                }
+
+                                                break;
+
                                             default:
                                                 throw new UnsupportedOperationException();
                                         }
                                     }
 
-                                    return parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), aliases, refers));
+                                    return parseEnd(new Expr.NSExpr<Void>(form.range, null, ns(nameForm.sym.sym), aliases, refers, imports));
                                 })));
                     }
 

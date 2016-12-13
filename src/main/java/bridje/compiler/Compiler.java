@@ -322,13 +322,15 @@ public class Compiler {
 
             @Override
             public Instructions visit(Expr.NSExpr<? extends Type> expr) {
-                return newObject(fromClass(EnvUpdate.NSEnvUpdate.class), vectorOf(NS.class, PMap.class, PMap.class),
+                return newObject(fromClass(EnvUpdate.NSEnvUpdate.class), vectorOf(NS.class, PMap.class, PMap.class, PMap.class),
                     mplus(
                         loadNS(expr.ns),
                         loadMap(Symbol.class, NS.class,
                             expr.aliases.entrySet().stream().map(e -> pair(loadSymbol(e.getKey()), loadNS(e.getValue()))).collect(toPVector())),
                         loadMap(Symbol.class, FQSymbol.class,
-                            expr.refers.entrySet().stream().map(e -> pair(loadSymbol(e.getKey()), loadFQSymbol(e.getValue()))).collect(toPVector()))));
+                            expr.refers.entrySet().stream().map(e -> pair(loadSymbol(e.getKey()), loadFQSymbol(e.getValue()))).collect(toPVector())),
+                        loadMap(Symbol.class, Class.class,
+                            expr.imports.entrySet().stream().map(e -> pair(loadSymbol(e.getKey()), loadClass(e.getValue()))).collect(toPVector()))));
             }
 
             @Override

@@ -24,16 +24,18 @@ public interface EnvUpdate<T> {
         final NS ns;
         final PMap<Symbol, NS> aliases;
         final PMap<Symbol, FQSymbol> refers;
+        final PMap<Symbol, Class<?>> imports;
 
-        public NSEnvUpdate(NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers) {
+        public NSEnvUpdate(NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers, PMap<Symbol, Class<?>> imports) {
             this.ns = ns;
             this.aliases = aliases;
             this.refers = refers;
+            this.imports = imports;
         }
 
         @Override
         public Pair<Env, NS> updateEnv(Env env) {
-            return pair(env.withNS(ns, aliases, refers), ns);
+            return pair(env.withNS(ns, aliases, refers, imports), ns);
         }
     }
 

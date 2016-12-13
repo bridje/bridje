@@ -89,4 +89,12 @@ class ParseException extends RuntimeException {
             this.nsForm = nsForm;
         }
     }
+
+    static class MultipleImportsInNS extends ParseException {
+        final Form nsForm;
+
+        MultipleImportsInNS(Form nsForm) {
+            this.nsForm = nsForm;
+        }
+    }
 }

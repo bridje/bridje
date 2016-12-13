@@ -11,6 +11,7 @@ import org.junit.Test;
 import org.pcollections.HashTreePMap;
 
 import java.lang.reflect.Field;
+import java.time.Instant;
 
 import static bridje.Util.vectorOf;
 import static bridje.analyser.Analyser.analyse;
@@ -211,5 +212,14 @@ public class E2EEval {
 
         assertEquals(INT_TYPE, result.left.type);
         assertEquals(7L, result.right.value);
+    }
+
+    @Test
+    public void testJavaTypeDef() throws Exception {
+        EvalResult evalResult = evalAction(PLUS_ENV, "(ns my-ns {imports {java.time [Instant]}})").right;
+
+        assertEquals(Instant.class, evalResult.env.nsEnvs.get(ns("my-ns")).imports.get(symbol("Instant")));
+
+        // TODO test for typedef
     }
 }
