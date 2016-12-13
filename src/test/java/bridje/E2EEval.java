@@ -23,6 +23,7 @@ import static bridje.reader.FormReader.read;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.*;
 import static bridje.runtime.Symbol.symbol;
+import static bridje.runtime.VarUtil.FOO_NS;
 import static bridje.runtime.VarUtil.PLUS_ENV;
 import static bridje.types.Type.FnType.fnType;
 import static bridje.types.Type.SimpleType.INT_TYPE;
@@ -214,6 +215,11 @@ public class E2EEval {
 
         assertEquals(INT_TYPE, result.left.type);
         assertEquals(7L, result.right.value);
+    }
+
+    @Test
+    public void testCoreEnv() throws Exception {
+        assertEquals(IO.DATA_TYPE, PLUS_ENV.resolveDataType(FOO_NS, symbol("IO")).orElse(null));
     }
 
     @Test

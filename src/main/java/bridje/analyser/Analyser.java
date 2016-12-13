@@ -15,10 +15,8 @@ import bridje.types.Type.TypeVar;
 import bridje.util.Pair;
 import org.pcollections.*;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.lang.invoke.MethodHandle;
+import java.util.*;
 
 import static bridje.Util.toPMap;
 import static bridje.Util.toPVector;
@@ -27,6 +25,7 @@ import static bridje.analyser.ListParser.ParseResult.fail;
 import static bridje.analyser.ListParser.ParseResult.success;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.ns;
+import static bridje.runtime.Symbol.symbol;
 import static bridje.util.Pair.pair;
 
 public class Analyser {
@@ -184,9 +183,22 @@ public class Analyser {
                     }
 
                     case "::": {
-                        return SYMBOL_PARSER.bind(nameForm ->
-                            typeParser(LocalTypeEnv.EMPTY).bind(type ->
-                                parseEnd(new Expr.TypeDefExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), type))));
+                        return anyOf(
+                            SYMBOL_PARSER.bind(nameForm ->
+                                typeParser(env, LocalTypeEnv.EMPTY, currentNS).bind(type ->
+                                    parseEnd(new Expr.TypeDefExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), type)))),
+                            QSYMBOL_PARSER.bind(nameForm ->
+                                typeParser(env, LocalTypeEnv.EMPTY, currentNS).bind(type -> {
+                                    Class<?> c = env.resolveImport(currentNS, symbol(nameForm.qsym.ns)).orElse(null);
+                                    if (c == null) {
+                                        throw new UnsupportedOperationException();
+                                    }
+
+                                    MethodHandle handle = findMethodHandle(c, nameForm.qsym.symbol, type).orElse(null);
+
+                                    return parseEnd(new Expr.JavaTypeDefExpr<>(form.range, null, null, type));
+                                })
+                            ));
                     }
 
                     case "ns": {
@@ -254,7 +266,7 @@ public class Analyser {
                                                             throw new UnsupportedOperationException();
                                                         }
 
-                                                        PSet<Symbol> availableSyms = HashTreePSet.from(env.nsEnvs.get(referredNS).vars.keySet());
+                                                        PSet<Symbol> availableSyms = HashTreePSet.from(env.nsEnvs.get(referredNS).declarations.keySet());
 
                                                         if (!(referEntry.value instanceof Form.VectorForm)) {
                                                             throw new UnexpectedFormTypeException(referEntry.value);
@@ -354,7 +366,7 @@ public class Analyser {
                     SYMBOL_PARSER.fmap(symForm -> new ValueConstructor<Void>(null, fqSym(currentNS, symForm.sym))),
                     LIST_PARSER.bind(constructorForm -> nestedListParser(constructorForm.forms,
                         SYMBOL_PARSER.bind(cNameForm ->
-                            manyOf(typeParser(localTypeEnv)).bind(paramTypes ->
+                            manyOf(typeParser(env, localTypeEnv, currentNS)).bind(paramTypes ->
                                 parseEnd(new VectorConstructor<Void>(null, fqSym(currentNS, cNameForm.sym), paramTypes)))),
 
                         ListParser::pure))));
@@ -366,14 +378,14 @@ public class Analyser {
                 return
                     anyOf(
                         SYMBOL_PARSER.bind(this::listFormParser),
-                        QSYMBOL_PARSER.bind(qsymForm -> paramForms -> {
+                        QSYMBOL_PARSER.bind(qsymForm -> (paramForms -> {
                             Var var = env.resolveVar(currentNS, qsymForm.qsym).orElse(null);
                             if (var != null) {
                                 return parseVarCall(var, paramForms);
                             }
 
                             throw new UnsupportedOperationException();
-                        }))
+                        })))
 
                         .parse(form.forms).orThrow().left;
             }
@@ -395,6 +407,10 @@ public class Analyser {
                 throw new UnsupportedOperationException();
             }
         });
+    }
+
+    private static Optional<MethodHandle> findMethodHandle(Class<?> clazz, String name, Type type) {
+        throw new UnsupportedOperationException();
     }
 
     public static Expr<Void> analyse(Env env, NS currentNS, Form form) {

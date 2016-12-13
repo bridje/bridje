@@ -146,7 +146,7 @@ public class AnalyserTest {
     public void analysesJavaStaticTypeDef() throws Exception {
         MethodHandle nowHandle = MethodHandles.publicLookup().findStatic(Instant.class, "now", MethodType.methodType(Instant.class));
         assertEquals(new Expr.JavaTypeDefExpr<>(null, null, nowHandle, new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), null), vectorOf(new Type.JavaType(Instant.class)))),
-            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), symbolForm("Instant/now"), listForm(symbolForm("IO"), symbolForm("Instant"))))));
+            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), qSymbolForm("Instant", "now"), listForm(symbolForm("IO"), symbolForm("Instant"))))));
     }
 
     @Test

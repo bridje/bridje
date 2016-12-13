@@ -12,7 +12,7 @@ import java.lang.reflect.Method;
 import java.time.Instant;
 
 import static bridje.Util.vectorOf;
-import static bridje.runtime.Env.EMPTY;
+import static bridje.runtime.Env.CORE;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.USER;
 import static bridje.runtime.NS.ns;
@@ -47,5 +47,5 @@ public class VarUtil {
 
     public static final NS FOO_NS = ns("foo");
 
-    public static final Env PLUS_ENV = EMPTY.withVar(fqSym(USER, symbol("+")), PLUS_VAR).withNS(FOO_NS, HashTreePMap.singleton(symbol("u"), USER), Empty.map(), HashTreePMap.singleton(symbol("Instant"), Instant.class));
+    public static final Env PLUS_ENV = CORE.withVar(fqSym(USER, symbol("+")), PLUS_VAR).withNS(FOO_NS, HashTreePMap.singleton(symbol("u"), USER), Empty.map(), HashTreePMap.singleton(symbol("Instant"), Instant.class));
 }

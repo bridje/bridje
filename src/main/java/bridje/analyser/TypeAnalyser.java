@@ -2,6 +2,8 @@ package bridje.analyser;
 
 import bridje.reader.Form;
 import bridje.reader.FormVisitor;
+import bridje.runtime.Env;
+import bridje.runtime.NS;
 import bridje.runtime.Symbol;
 import bridje.types.Type;
 import org.pcollections.PVector;
@@ -9,6 +11,7 @@ import org.pcollections.PVector;
 import java.util.HashMap;
 import java.util.Map;
 
+import static bridje.Util.or;
 import static bridje.Util.toPVector;
 import static bridje.types.Type.FnType.fnType;
 import static bridje.types.Type.SetType.setType;
@@ -16,12 +19,16 @@ import static bridje.types.Type.SimpleType.*;
 
 public class TypeAnalyser {
 
+    private final Env env;
     private final LocalTypeEnv localTypeEnv;
+    private final NS currentNS;
     final Map<Symbol, TypeVar> typeVarMapping;
 
-    public TypeAnalyser(LocalTypeEnv localTypeEnv) {
+    public TypeAnalyser(Env env, LocalTypeEnv localTypeEnv, NS currentNS) {
+        this.env = env;
         this.localTypeEnv = localTypeEnv;
         this.typeVarMapping = new HashMap<>(localTypeEnv.typeVarMapping);
+        this.currentNS = currentNS;
     }
 
     private Type analyzeType0(Form form) {
@@ -89,7 +96,7 @@ public class TypeAnalyser {
                             break;
 
                         default:
-                            return new AppliedType(localTypeEnv.resolve(sym).orElseThrow(UnsupportedOperationException::new),
+                            return new AppliedType(analyzeType0(firstForm),
                                 forms.minus(0).stream().map(f -> analyzeType0(f)).collect(toPVector()));
                     }
                 }
@@ -112,7 +119,12 @@ public class TypeAnalyser {
                         case "Bool":
                             return BOOL_TYPE;
                         default:
-                            return localTypeEnv.resolve(sym).orElseThrow(UnsupportedOperationException::new);
+                            return or(
+                                () -> localTypeEnv.resolve(sym),
+                                () -> env.resolveDataType(currentNS, sym).map(dt -> dt.type),
+                                () -> env.resolveImport(currentNS, sym).map(JavaType::new))
+
+                                .orElseThrow(UnsupportedOperationException::new);
                     }
                 }
             }
@@ -124,8 +136,8 @@ public class TypeAnalyser {
         });
     }
 
-    public static Type analyzeType(Form form, LocalTypeEnv localTypeEnv) {
-        return new TypeAnalyser(localTypeEnv).analyzeType0(form);
+    public static Type analyzeType(Env env, LocalTypeEnv localTypeEnv, NS currentNS, Form form) {
+        return new TypeAnalyser(env, localTypeEnv, currentNS).analyzeType0(form);
     }
 
 }

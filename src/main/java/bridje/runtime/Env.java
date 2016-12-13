@@ -16,7 +16,13 @@ import static bridje.runtime.Symbol.symbol;
 public class Env {
 
     public static final Env EMPTY = new Env(Empty.map(), Empty.map(), Empty.map(), Empty.map());
-    private static volatile Env ENV;
+    public static final Env CORE;
+
+    static {
+        CORE = EMPTY.withDataType(IO.DATA_TYPE, IO.class, Empty.map());
+    }
+
+    private static volatile Env ENV = CORE;
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r);
@@ -81,20 +87,59 @@ public class Env {
         return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers, imports)), vars, dataTypes, dataTypeSuperclasses);
     }
 
-    public Optional<Var> resolveVar(NS ns, Symbol symbol) {
-        return Optional.ofNullable(nsEnvs.get(ns))
-            .flatMap(nsEnv ->
-                or(
-                    () -> Optional.ofNullable(nsEnv.vars.get(symbol)),
-                    () -> Optional.ofNullable(nsEnv.refers.get(symbol))))
-            .flatMap(fqSym -> Optional.ofNullable(vars.get(fqSym)));
+
+    private static <K, V> Optional<V> find(PMap<K, V> map, K key) {
+        return Optional.ofNullable(map.get(key));
     }
 
-    public Optional<Var> resolveVar(NS ns, QSymbol qsym) {
+    private static <K, V> Function<K, Optional<V>> find(PMap<K, V> map) {
+        return key -> find(map, key);
+    }
+
+    private <T> Optional<T> resolveSym(NS ns, Symbol symbol, Function<FQSymbol, Optional<T>> fn) {
+        return or(
+            () -> find(nsEnvs, ns)
+                .flatMap(nsEnv -> or(
+                    () -> find(nsEnv.declarations, symbol).flatMap(fn),
+                    () -> find(nsEnv.refers, symbol).flatMap(fn))),
+            () -> find(nsEnvs, NS.CORE)
+                .flatMap(nsEnv -> find(nsEnv.declarations, symbol).flatMap(fn)));
+    }
+
+    private <T> Optional<T> resolveQSym(NS ns, QSymbol qsym, Function<FQSymbol, Optional<T>> fn) {
         return Optional.ofNullable(nsEnvs.get(ns))
             .flatMap(nsEnv -> Optional.ofNullable(nsEnv.aliases.get(symbol(qsym.ns))))
             .flatMap(otherNS -> Optional.ofNullable(nsEnvs.get(otherNS)))
-            .flatMap(otherNSEnv -> Optional.ofNullable(otherNSEnv.vars.get(symbol(qsym.symbol))))
-            .flatMap(fqSym -> Optional.ofNullable(vars.get(fqSym)));
+            .flatMap(otherNSEnv -> Optional.ofNullable(otherNSEnv.declarations.get(symbol(qsym.symbol))))
+            .flatMap(fn);
+    }
+
+    public Optional<Var> resolveVar(NS ns, Symbol symbol) {
+        return resolveSym(ns, symbol, find(vars));
+    }
+
+    public Optional<Var> resolveVar(NS ns, QSymbol qsym) {
+        return resolveQSym(ns, qsym, find(vars));
+    }
+
+    public Optional<DataType<Type>> resolveDataType(NS ns, Symbol symbol) {
+        return resolveSym(ns, symbol, find(dataTypes));
+    }
+
+    public Optional<DataType<Type>> resolveDataType(NS ns, QSymbol qsym) {
+        return resolveQSym(ns, qsym, find(dataTypes));
+    }
+
+    public Optional<Class<?>> resolveImport(NS ns, Symbol symbol) {
+        return or(
+            () -> find(nsEnvs, ns)
+                .flatMap(nsEnv -> find(nsEnv.imports, symbol)),
+            () -> {
+                try {
+                    return Optional.of(Class.forName("java.lang." + symbol.sym));
+                } catch (ClassNotFoundException e) {
+                    return Optional.empty();
+                }
+            });
     }
 }
