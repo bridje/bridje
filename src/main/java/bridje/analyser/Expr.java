@@ -6,6 +6,7 @@ import bridje.types.Type;
 import org.pcollections.PMap;
 import org.pcollections.PVector;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -720,6 +721,46 @@ public abstract class Expr<ET> {
         @Override
         public String toString() {
             return String.format("(TypeDefExpr %s %s)", sym, typeDef);
+        }
+    }
+
+    public static class JavaTypeDefExpr<ET> extends Expr<ET> {
+        public final MethodHandle handle;
+        public final Type typeDef;
+
+        public JavaTypeDefExpr(Range range, ET type, MethodHandle handle, Type typeDef) {
+            super(range, type);
+            this.handle = handle;
+            this.typeDef = typeDef;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            JavaTypeDefExpr<?> that = (JavaTypeDefExpr<?>) o;
+            return Objects.equals(handle, that.handle) &&
+                Objects.equals(typeDef, that.typeDef);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(handle, typeDef);
+        }
+
+        @Override
+        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
+            return new JavaTypeDefExpr<ET_>(range, fn.apply(type), handle, typeDef);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(JavaTypeDefExpr (:: %s %s))", handle, typeDef);
         }
     }
 

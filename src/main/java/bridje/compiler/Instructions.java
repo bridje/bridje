@@ -137,6 +137,12 @@ interface Instructions {
                         loadVector(Type.class, type.typeParams.stream()
                             .map(t -> t.accept(this)).collect(toPVector()))));
             }
+
+            @Override
+            public Instructions visit(JavaType javaType) {
+                return newObject(fromClass(JavaType.class), Util.vectorOf(Class.class),
+                    loadClass(javaType.clazz));
+            }
         });
     }
 

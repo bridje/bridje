@@ -22,4 +22,6 @@ public interface TypeVisitor<T> {
     T visit(Type.DataTypeType type);
 
     T visit(Type.AppliedType type);
+
+    T visit(Type.JavaType javaType);
 }

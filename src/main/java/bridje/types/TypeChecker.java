@@ -269,6 +269,11 @@ public class TypeChecker {
             }
 
             @Override
+            public TypeResult visit(Expr.JavaTypeDefExpr<? extends Void> expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public TypeResult visit(Expr.DefDataExpr<? extends Void> expr) {
                 DataType<?> dataType = expr.dataType;
                 Type dataTypeType = new DataTypeType(dataType.sym, null);

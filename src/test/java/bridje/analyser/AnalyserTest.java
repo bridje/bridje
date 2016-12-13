@@ -9,6 +9,11 @@ import org.junit.Test;
 import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.time.Instant;
+
 import static bridje.Util.vectorOf;
 import static bridje.analyser.Analyser.analyse;
 import static bridje.analyser.ExprUtil.*;
@@ -18,8 +23,7 @@ import static bridje.reader.Form.QSymbolForm.qSymbolForm;
 import static bridje.reader.Form.SymbolForm.symbolForm;
 import static bridje.reader.Form.VectorForm.vectorForm;
 import static bridje.runtime.FQSymbol.fqSym;
-import static bridje.runtime.NS.USER;
-import static bridje.runtime.NS.ns;
+import static bridje.runtime.NS.*;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.*;
 import static bridje.types.Type.FnType.fnType;
@@ -136,6 +140,13 @@ public class AnalyserTest {
     public void analysesTypeDef() throws Exception {
         assertEquals(new Expr.TypeDefExpr<>(null, null, fqSym(USER, symbol("double")), fnType(vectorOf(INT_TYPE), INT_TYPE)),
             analyse(PLUS_ENV, USER, (listForm(symbolForm("::"), symbolForm("double"), listForm(symbolForm("Fn"), symbolForm("Int"), symbolForm("Int"))))));
+    }
+
+    @Test
+    public void analysesJavaStaticTypeDef() throws Exception {
+        MethodHandle nowHandle = MethodHandles.publicLookup().findStatic(Instant.class, "now", MethodType.methodType(Instant.class));
+        assertEquals(new Expr.JavaTypeDefExpr<>(null, null, nowHandle, new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), null), vectorOf(new Type.JavaType(Instant.class)))),
+            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), symbolForm("Instant/now"), listForm(symbolForm("IO"), symbolForm("Instant"))))));
     }
 
     @Test

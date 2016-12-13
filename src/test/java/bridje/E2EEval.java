@@ -227,7 +227,7 @@ public class E2EEval {
         MethodHandle nowHandle = MethodHandles.publicLookup().findStatic(Instant.class, "now", MethodType.methodType(Instant.class));
 
         assertEquals(
-            new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), IO.class), vectorOf()),
+            new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), IO.class), vectorOf(new Type.JavaType(Instant.class))),
             evalAction(evalResult.env, "(:: Instant/now (IO Instant))").right.env.nsEnvs.get(myNS).javaTypeDefs.get(nowHandle));
     }
 }

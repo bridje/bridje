@@ -144,6 +144,11 @@ public class Compiler {
             }
 
             @Override
+            public PMap<LocalVar, Type> visit(Expr.JavaTypeDefExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public PMap<LocalVar, Type> visit(Expr.DefDataExpr<? extends Type> expr) {
                 return Empty.map();
             }
@@ -397,6 +402,11 @@ public class Compiler {
                         loadFQSymbol(expr.sym),
                         withTypeLocals(locals, expr.typeDef.typeVars(),
                             typeLocals -> loadType(expr.typeDef, typeLocals))));
+            }
+
+            @Override
+            public Instructions visit(Expr.JavaTypeDefExpr<? extends Type> expr) {
+                throw new UnsupportedOperationException();
             }
 
             @Override

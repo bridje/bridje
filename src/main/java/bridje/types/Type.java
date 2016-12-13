@@ -535,4 +535,51 @@ public abstract class Type {
         }
     }
 
+    public static class JavaType extends Type {
+
+        public final Class<?> clazz;
+
+        public JavaType(Class<?> clazz) {
+            super(clazz);
+            this.clazz = clazz;
+        }
+
+        @Override
+        public <T> T accept(TypeVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        PCollection<Type> childTypes() {
+            return Empty.set();
+        }
+
+        @Override
+        public Type apply(TypeMapping mapping) {
+            return this;
+        }
+
+        @Override
+        public boolean alphaEquivalentTo(Type t2, Map<TypeVar, TypeVar> mapping) {
+            return this.equals(t2);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            JavaType javaType = (JavaType) o;
+            return Objects.equals(clazz, javaType.clazz);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(clazz);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(JavaType %s)", clazz.getName());
+        }
+    }
 }
