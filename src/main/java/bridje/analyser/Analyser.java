@@ -15,8 +15,10 @@ import bridje.types.Type.TypeVar;
 import bridje.util.Pair;
 import org.pcollections.*;
 
-import java.lang.invoke.MethodHandle;
-import java.util.*;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 import static bridje.Util.toPMap;
 import static bridje.Util.toPVector;
@@ -194,9 +196,9 @@ public class Analyser {
                                         throw new UnsupportedOperationException();
                                     }
 
-                                    MethodHandle handle = findMethodHandle(c, nameForm.qsym.symbol, type).orElse(null);
+                                    JavaCall call = JavaCall.StaticMethodCall.find(c, nameForm.qsym.symbol, type).orElseThrow(UnsupportedOperationException::new);
 
-                                    return parseEnd(new Expr.JavaTypeDefExpr<>(form.range, null, null, type));
+                                    return parseEnd(new Expr.JavaTypeDefExpr<>(form.range, null, call, type));
                                 })
                             ));
                     }
@@ -407,10 +409,6 @@ public class Analyser {
                 throw new UnsupportedOperationException();
             }
         });
-    }
-
-    private static Optional<MethodHandle> findMethodHandle(Class<?> clazz, String name, Type type) {
-        throw new UnsupportedOperationException();
     }
 
     public static Expr<Void> analyse(Env env, NS currentNS, Form form) {

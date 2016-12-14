@@ -4,13 +4,12 @@ import bridje.reader.Form;
 import bridje.runtime.DataType;
 import bridje.runtime.DataTypeConstructor.ValueConstructor;
 import bridje.runtime.DataTypeConstructor.VectorConstructor;
+import bridje.runtime.JavaCall;
 import bridje.types.Type;
 import org.junit.Test;
 import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.time.Instant;
 
@@ -144,8 +143,8 @@ public class AnalyserTest {
 
     @Test
     public void analysesJavaStaticTypeDef() throws Exception {
-        MethodHandle nowHandle = MethodHandles.publicLookup().findStatic(Instant.class, "now", MethodType.methodType(Instant.class));
-        assertEquals(new Expr.JavaTypeDefExpr<>(null, null, nowHandle, new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), null), vectorOf(new Type.JavaType(Instant.class)))),
+        JavaCall call = new JavaCall.StaticMethodCall(Instant.class, "now", MethodType.methodType(Instant.class));
+        assertEquals(new Expr.JavaTypeDefExpr<>(null, null, call, new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), null), vectorOf(new Type.JavaType(Instant.class)))),
             analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), qSymbolForm("Instant", "now"), listForm(symbolForm("IO"), symbolForm("Instant"))))));
     }
 

@@ -6,7 +6,6 @@ import bridje.types.Type;
 import org.pcollections.PMap;
 import org.pcollections.PVector;
 
-import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -725,12 +724,12 @@ public abstract class Expr<ET> {
     }
 
     public static class JavaTypeDefExpr<ET> extends Expr<ET> {
-        public final MethodHandle handle;
+        public final JavaCall javaCall;
         public final Type typeDef;
 
-        public JavaTypeDefExpr(Range range, ET type, MethodHandle handle, Type typeDef) {
+        public JavaTypeDefExpr(Range range, ET type, JavaCall javaCall, Type typeDef) {
             super(range, type);
-            this.handle = handle;
+            this.javaCall = javaCall;
             this.typeDef = typeDef;
         }
 
@@ -739,13 +738,13 @@ public abstract class Expr<ET> {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             JavaTypeDefExpr<?> that = (JavaTypeDefExpr<?>) o;
-            return Objects.equals(handle, that.handle) &&
+            return Objects.equals(javaCall, that.javaCall) &&
                 Objects.equals(typeDef, that.typeDef);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(handle, typeDef);
+            return Objects.hash(javaCall, typeDef);
         }
 
         @Override
@@ -755,12 +754,12 @@ public abstract class Expr<ET> {
 
         @Override
         public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new JavaTypeDefExpr<ET_>(range, fn.apply(type), handle, typeDef);
+            return new JavaTypeDefExpr<>(range, fn.apply(type), javaCall, typeDef);
         }
 
         @Override
         public String toString() {
-            return String.format("(JavaTypeDefExpr (:: %s %s))", handle, typeDef);
+            return String.format("(JavaTypeDefExpr (:: %s %s))", javaCall, typeDef);
         }
     }
 
