@@ -1,10 +1,16 @@
 package bridje.runtime;
 
 import bridje.types.Type;
+import org.pcollections.PVector;
 
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
+
+import static bridje.Util.toPSet;
+import static bridje.Util.toPVector;
 
 public abstract class JavaCall {
 
@@ -14,7 +20,6 @@ public abstract class JavaCall {
 
     public abstract <T> T accept(JavaCallVisitor<T> visitor);
 
-
     public static final class StaticMethodCall extends JavaCall {
 
         public final Class<?> clazz;
@@ -22,10 +27,23 @@ public abstract class JavaCall {
         public final MethodType methodType;
 
         public static Optional<StaticMethodCall> find(Class<?> clazz, String name, Type type) {
-            throw new UnsupportedOperationException();
+            MethodType methodType = type.methodType();
+            PVector<Method> methods = Arrays.stream(clazz.getMethods())
+                .filter(m -> m.getName().equals(name))
+                .filter(m -> m.getParameterCount() == methodType.parameterCount())
+                // TODO filter on types too
+                .collect(toPVector());
+
+            if (methods.size() == 1) {
+                Method method = methods.get(0);
+                return Optional.of(new StaticMethodCall(clazz, name, MethodType.methodType(method.getReturnType(), method.getParameterTypes())));
+            } else {
+                return Optional.empty();
+            }
         }
 
         public StaticMethodCall(Class<?> clazz, String name, MethodType methodType) {
+            Arrays.stream(clazz.getMethods()).filter(m -> m.getName().equals(name)).collect(toPSet());
             this.clazz = clazz;
             this.name = name;
             this.methodType = methodType;
@@ -49,6 +67,11 @@ public abstract class JavaCall {
         @Override
         public int hashCode() {
             return Objects.hash(clazz, name, methodType);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(StaticMethodCall %s/%s (%s))", clazz.getName(), name, methodType);
         }
     }
 

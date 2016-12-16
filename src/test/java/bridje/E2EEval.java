@@ -57,9 +57,13 @@ public class E2EEval {
     }
 
     private Pair<Expr<Type>, EvalResult> evalAction(Env env, String code) {
+        return evalAction(env, USER, code);
+    }
+
+    private Pair<Expr<Type>, EvalResult> evalAction(Env env, NS ns, String code) {
         Form form = read(LCReader.fromString(code));
 
-        Expr<Void> expr = analyse(env, USER, form);
+        Expr<Void> expr = analyse(env, ns, form);
 
         Expr<Type> typedExpr = TypeChecker.typeExpr(expr);
 
@@ -234,6 +238,6 @@ public class E2EEval {
 
         assertEquals(
             new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), IO.class), vectorOf(new Type.JavaType(Instant.class))),
-            evalAction(evalResult.env, "(:: Instant/now (IO Instant))").right.env.nsEnvs.get(myNS).javaTypeDefs.get(nowHandle));
+            evalAction(evalResult.env, myNS, "(:: Instant/now (IO Instant))").right.env.nsEnvs.get(myNS).javaTypeDefs.get(nowHandle));
     }
 }

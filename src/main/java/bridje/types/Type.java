@@ -6,6 +6,7 @@ import bridje.util.Pair;
 import org.pcollections.*;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -53,6 +54,10 @@ public abstract class Type {
 
     public final boolean subtypeOf(Type type) {
         return alphaEquivalentTo(type.apply(unify(vectorOf(new TypeEquation(this, type)))));
+    }
+
+    public MethodType methodType() {
+        return MethodType.methodType(javaType);
     }
 
     public static abstract class SimpleType extends Type {
@@ -357,6 +362,11 @@ public abstract class Type {
                 return true;
             }
         }
+
+        @Override
+        public MethodType methodType() {
+            return MethodType.methodType(returnType.javaType, paramTypes.stream().map(pt -> pt.javaType).collect(toPVector()));
+        }
     }
 
     public static final class TypeVar extends Type {
@@ -527,6 +537,20 @@ public abstract class Type {
 
                 return true;
             }
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            AppliedType that = (AppliedType) o;
+            return Objects.equals(appliedType, that.appliedType) &&
+                Objects.equals(typeParams, that.typeParams);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(appliedType, typeParams);
         }
 
         @Override
