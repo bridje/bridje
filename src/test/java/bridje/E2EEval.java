@@ -233,9 +233,15 @@ public class E2EEval {
 
         assertEquals(Instant.class, evalResult.env.nsEnvs.get(myNS).imports.get(symbol("Instant")));
 
+        Env env = evalAction(evalResult.env, myNS, "(:: Instant/now Instant)").right.env;
         assertEquals(
             new JavaTypeDef(new JavaCall.StaticMethodCall(Instant.class, "now", MethodType.methodType(Instant.class)),
                 new Type.JavaType(Instant.class)),
-            evalAction(evalResult.env, myNS, "(:: Instant/now Instant)").right.env.nsEnvs.get(myNS).javaTypeDefs.get(new QSymbol("Instant", "now")));
+            env.nsEnvs.get(myNS).javaTypeDefs.get(new QSymbol("Instant", "now")));
+
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(env, myNS, "(Instant/now)");
+        assertEquals(result.left.type, new Type.JavaType(Instant.class));
+        assertTrue(result.right.value instanceof Instant);
     }
 }

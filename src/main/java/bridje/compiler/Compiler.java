@@ -32,6 +32,7 @@ import static bridje.compiler.NewClass.newClass;
 import static bridje.compiler.NewField.newField;
 import static bridje.compiler.NewMethod.newMethod;
 import static bridje.runtime.MethodInvoke.INVOKE_SPECIAL;
+import static bridje.runtime.MethodInvoke.INVOKE_STATIC;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.Var.FN_METHOD_NAME;
 import static bridje.runtime.Var.VALUE_FIELD_NAME;
@@ -145,7 +146,12 @@ public class Compiler {
 
             @Override
             public PMap<LocalVar, Type> visit(Expr.JavaTypeDefExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                return Empty.map();
+            }
+
+            @Override
+            public PMap<LocalVar, Type> visit(Expr.JavaCallExpr<? extends Type> expr) {
+                return mapClosedOverVars(expr.params);
             }
 
             @Override
@@ -416,6 +422,19 @@ public class Compiler {
                                 loadJavaCall(expr.javaTypeDef.javaCall),
                                 withTypeLocals(locals, expr.javaTypeDef.type.typeVars(),
                                     typeLocals -> loadType(expr.javaTypeDef.type, typeLocals))))));
+            }
+
+            @Override
+            public Instructions visit(Expr.JavaCallExpr<? extends Type> expr) {
+                return expr.javaTypeDef.javaCall.accept(new JavaCall.JavaCallVisitor<Instructions>() {
+                    @Override
+                    public Instructions visit(JavaCall.StaticMethodCall call) {
+                        return mplus(
+                            mplus(expr.params.stream().map(p -> compileExpr0(locals, p)).collect(toPVector())),
+                            methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name, call.methodType.returnType(),
+                                TreePVector.from(call.methodType.parameterList())));
+                }
+                });
             }
 
             @Override

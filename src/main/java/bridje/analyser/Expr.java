@@ -803,4 +803,46 @@ public abstract class Expr<ET> {
             return String.format("(DefDataExpr %s)", dataType);
         }
     }
+
+    public static class JavaCallExpr<ET> extends Expr<ET> {
+        public final JavaTypeDef javaTypeDef;
+        public final PVector<Expr<ET>> params;
+
+        public JavaCallExpr(Range range, ET type, JavaTypeDef javaTypeDef, PVector<Expr<ET>> params) {
+            super(range, type);
+
+            this.javaTypeDef = javaTypeDef;
+            this.params = params;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            JavaCallExpr<?> that = (JavaCallExpr<?>) o;
+            return Objects.equals(javaTypeDef, that.javaTypeDef) &&
+                Objects.equals(params, that.params);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(javaTypeDef, params);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(JavaCallExpr %s %s)", javaTypeDef.javaCall, params);
+        }
+
+        @Override
+        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
+            return new JavaCallExpr<ET_>(range, fn.apply(type), javaTypeDef,
+                params.stream().map(p -> p.fmapType(fn)).collect(toPVector()));
+        }
+    }
 }

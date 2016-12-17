@@ -90,6 +90,10 @@ public class Analyser {
                 return success(pair(new Expr.VarCallExpr<>(form.range, null, var, paramForms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
             }
 
+            private ParseResult<Pair<Expr<Void>, PVector<Form>>> parseJavaCall(JavaTypeDef javaTypeDef, PVector<Form> paramForms) {
+                return success(pair(new Expr.JavaCallExpr<>(form.range, null, javaTypeDef, paramForms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
+            }
+
             private ListParser<Expr<Void>> listFormParser(Form.SymbolForm firstSymbolForm) {
                 Symbol firstSym = firstSymbolForm.sym;
 
@@ -385,6 +389,12 @@ public class Analyser {
                             Var var = env.resolveVar(currentNS, qsymForm.qsym).orElse(null);
                             if (var != null) {
                                 return parseVarCall(var, paramForms);
+                            }
+
+                            JavaTypeDef javaTypeDef = env.resolveJavaCall(currentNS, qsymForm.qsym).orElse(null);
+                            if (javaTypeDef != null) {
+                                return parseJavaCall(javaTypeDef, paramForms);
+
                             }
 
                             throw new UnsupportedOperationException();

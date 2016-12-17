@@ -36,5 +36,7 @@ public interface ExprVisitor<ET, T> {
 
     T visit(Expr.JavaTypeDefExpr<? extends ET> expr);
 
+    T visit(Expr.JavaCallExpr<? extends ET> expr);
+
     T visit(Expr.DefDataExpr<? extends ET> expr);
 }

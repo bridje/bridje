@@ -146,4 +146,9 @@ public class Env {
                 }
             });
     }
+
+    public Optional<JavaTypeDef> resolveJavaCall(NS ns, QSymbol qsym) {
+        return find(nsEnvs, ns)
+            .flatMap(nsEnv -> find(nsEnv.javaTypeDefs, qsym));
+    }
 }
