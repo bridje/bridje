@@ -5,6 +5,8 @@ import bridje.runtime.DataType;
 import bridje.runtime.DataTypeConstructor.ValueConstructor;
 import bridje.runtime.DataTypeConstructor.VectorConstructor;
 import bridje.runtime.JavaCall;
+import bridje.runtime.JavaTypeDef;
+import bridje.runtime.QSymbol;
 import bridje.types.Type;
 import org.junit.Test;
 import org.pcollections.Empty;
@@ -22,7 +24,8 @@ import static bridje.reader.Form.QSymbolForm.qSymbolForm;
 import static bridje.reader.Form.SymbolForm.symbolForm;
 import static bridje.reader.Form.VectorForm.vectorForm;
 import static bridje.runtime.FQSymbol.fqSym;
-import static bridje.runtime.NS.*;
+import static bridje.runtime.NS.USER;
+import static bridje.runtime.NS.ns;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.*;
 import static bridje.types.Type.FnType.fnType;
@@ -144,8 +147,9 @@ public class AnalyserTest {
     @Test
     public void analysesJavaStaticTypeDef() throws Exception {
         JavaCall call = new JavaCall.StaticMethodCall(Instant.class, "now", MethodType.methodType(Instant.class));
-        assertEquals(new Expr.JavaTypeDefExpr<>(null, null, call, new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), null), vectorOf(new Type.JavaType(Instant.class)))),
-            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), qSymbolForm("Instant", "now"), listForm(symbolForm("IO"), symbolForm("Instant"))))));
+        assertEquals(new Expr.JavaTypeDefExpr<>(null, null, FOO_NS, new QSymbol("Instant", "now"),
+                new JavaTypeDef(call, new Type.JavaType(Instant.class))),
+            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), qSymbolForm("Instant", "now"), symbolForm("Instant")))));
     }
 
     @Test

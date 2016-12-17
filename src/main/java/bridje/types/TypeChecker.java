@@ -270,7 +270,10 @@ public class TypeChecker {
 
             @Override
             public TypeResult visit(Expr.JavaTypeDefExpr<? extends Void> expr) {
-                throw new UnsupportedOperationException();
+                // TODO at some point we'll have to check the types that the user provides us with.
+                // today is not that day, though.
+
+                return new TypeResult(new Expr.JavaTypeDefExpr<>(expr.range, ENV_IO, expr.ns, expr.qsym, expr.javaTypeDef));
             }
 
             @Override

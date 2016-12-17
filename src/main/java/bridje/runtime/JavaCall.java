@@ -14,7 +14,7 @@ import static bridje.Util.toPVector;
 
 public abstract class JavaCall {
 
-    interface JavaCallVisitor<T> {
+    public interface JavaCallVisitor<T> {
         T visit(StaticMethodCall call);
     }
 

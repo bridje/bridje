@@ -724,13 +724,15 @@ public abstract class Expr<ET> {
     }
 
     public static class JavaTypeDefExpr<ET> extends Expr<ET> {
-        public final JavaCall javaCall;
-        public final Type typeDef;
+        public final NS ns;
+        public final QSymbol qsym;
+        public final JavaTypeDef javaTypeDef;
 
-        public JavaTypeDefExpr(Range range, ET type, JavaCall javaCall, Type typeDef) {
+        public JavaTypeDefExpr(Range range, ET type, NS ns, QSymbol qsym, JavaTypeDef javaTypeDef) {
             super(range, type);
-            this.javaCall = javaCall;
-            this.typeDef = typeDef;
+            this.ns = ns;
+            this.qsym = qsym;
+            this.javaTypeDef = javaTypeDef;
         }
 
         @Override
@@ -738,13 +740,14 @@ public abstract class Expr<ET> {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             JavaTypeDefExpr<?> that = (JavaTypeDefExpr<?>) o;
-            return Objects.equals(javaCall, that.javaCall) &&
-                Objects.equals(typeDef, that.typeDef);
+            return Objects.equals(ns, that.ns) &&
+                Objects.equals(qsym, that.qsym) &&
+                Objects.equals(javaTypeDef, that.javaTypeDef);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(javaCall, typeDef);
+            return Objects.hash(ns, qsym, javaTypeDef);
         }
 
         @Override
@@ -754,12 +757,12 @@ public abstract class Expr<ET> {
 
         @Override
         public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new JavaTypeDefExpr<>(range, fn.apply(type), javaCall, typeDef);
+            return new JavaTypeDefExpr<>(range, fn.apply(type), ns, qsym, javaTypeDef);
         }
 
         @Override
         public String toString() {
-            return String.format("(JavaTypeDefExpr (:: %s %s))", javaCall, typeDef);
+            return String.format("(JavaTypeDefExpr (:: %s.%s/%s %s))", ns.name, qsym.ns, qsym.symbol, javaTypeDef.type);
         }
     }
 

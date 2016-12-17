@@ -27,4 +27,9 @@ public class JavaTypeDef {
     public int hashCode() {
         return Objects.hash(javaCall, type);
     }
+
+    @Override
+    public String toString() {
+        return String.format("(JavaTypeDef (:: %s %s)", javaCall, type);
+    }
 }

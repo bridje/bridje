@@ -198,7 +198,8 @@ public class Analyser {
 
                                     JavaCall call = JavaCall.StaticMethodCall.find(c, nameForm.qsym.symbol, type).orElseThrow(UnsupportedOperationException::new);
 
-                                    return parseEnd(new Expr.JavaTypeDefExpr<>(form.range, null, call, type));
+                                    return parseEnd(new Expr.JavaTypeDefExpr<>(form.range, null, currentNS, nameForm.qsym,
+                                        new JavaTypeDef(call, type)));
                                 })
                             ));
                     }

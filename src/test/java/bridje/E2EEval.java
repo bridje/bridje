@@ -10,8 +10,6 @@ import bridje.util.Pair;
 import org.junit.Test;
 import org.pcollections.HashTreePMap;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -21,7 +19,8 @@ import static bridje.analyser.Analyser.analyse;
 import static bridje.compiler.Compiler.compile;
 import static bridje.reader.FormReader.read;
 import static bridje.runtime.FQSymbol.fqSym;
-import static bridje.runtime.NS.*;
+import static bridje.runtime.NS.USER;
+import static bridje.runtime.NS.ns;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.FOO_NS;
 import static bridje.runtime.VarUtil.PLUS_ENV;
@@ -234,10 +233,9 @@ public class E2EEval {
 
         assertEquals(Instant.class, evalResult.env.nsEnvs.get(myNS).imports.get(symbol("Instant")));
 
-        MethodHandle nowHandle = MethodHandles.publicLookup().findStatic(Instant.class, "now", MethodType.methodType(Instant.class));
-
         assertEquals(
-            new Type.AppliedType(new Type.DataTypeType(fqSym(CORE, symbol("IO")), IO.class), vectorOf(new Type.JavaType(Instant.class))),
-            evalAction(evalResult.env, myNS, "(:: Instant/now (IO Instant))").right.env.nsEnvs.get(myNS).javaTypeDefs.get(nowHandle));
+            new JavaTypeDef(new JavaCall.StaticMethodCall(Instant.class, "now", MethodType.methodType(Instant.class)),
+                new Type.JavaType(Instant.class)),
+            evalAction(evalResult.env, myNS, "(:: Instant/now Instant)").right.env.nsEnvs.get(myNS).javaTypeDefs.get(new QSymbol("Instant", "now")));
     }
 }

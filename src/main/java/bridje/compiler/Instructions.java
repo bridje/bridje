@@ -55,6 +55,10 @@ interface Instructions {
         return newObject(fromClass(Symbol.class), Util.vectorOf(String.class), loadObject(sym.sym));
     }
 
+    static Instructions loadSymbol(QSymbol sym) {
+        return newObject(fromClass(QSymbol.class), Util.vectorOf(String.class, String.class),
+            mplus(loadObject(sym.ns), loadObject(sym.symbol)));
+    }
     static Instructions loadFQSymbol(FQSymbol sym) {
         return mplus(loadNS(sym.ns), loadSymbol(sym.symbol), methodCall(fromClass(FQSymbol.class), INVOKE_STATIC, "fqSym", FQSymbol.class, vectorOf(NS.class, Symbol.class)));
     }
@@ -356,5 +360,18 @@ interface Instructions {
 
     static Instructions bindMethodHandle() {
         return methodCall(fromClass(MethodHandle.class), INVOKE_VIRTUAL, "bindTo", MethodHandle.class, Util.vectorOf(Object.class));
+    }
+
+    static Instructions loadJavaCall(JavaCall javaCall) {
+        return javaCall.accept(new JavaCall.JavaCallVisitor<Instructions>() {
+            @Override
+            public Instructions visit(JavaCall.StaticMethodCall call) {
+                return newObject(fromClass(JavaCall.StaticMethodCall.class), vectorOf(Class.class, String.class, MethodType.class),
+                    mplus(
+                        loadClass(call.clazz),
+                        loadObject(call.name),
+                        loadMethodType(call.methodType)));
+            }
+        });
     }
 }

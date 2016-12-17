@@ -406,7 +406,16 @@ public class Compiler {
 
             @Override
             public Instructions visit(Expr.JavaTypeDefExpr<? extends Type> expr) {
-                throw new UnsupportedOperationException();
+                return newObject(fromClass(EnvUpdate.JavaTypeDefEnvUpdate.class),
+                    vectorOf(NS.class, QSymbol.class, JavaTypeDef.class),
+                    mplus(
+                        loadNS(expr.ns),
+                        loadSymbol(expr.qsym),
+                        newObject(fromClass(JavaTypeDef.class), vectorOf(JavaCall.class, Type.class),
+                            mplus(
+                                loadJavaCall(expr.javaTypeDef.javaCall),
+                                withTypeLocals(locals, expr.javaTypeDef.type.typeVars(),
+                                    typeLocals -> loadType(expr.javaTypeDef.type, typeLocals))))));
             }
 
             @Override
