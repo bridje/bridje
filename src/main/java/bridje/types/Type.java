@@ -2,11 +2,11 @@ package bridje.types;
 
 import bridje.compiler.EnvUpdate;
 import bridje.runtime.FQSymbol;
+import bridje.runtime.JavaCall;
 import bridje.util.Pair;
 import org.pcollections.*;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -56,8 +56,8 @@ public abstract class Type {
         return alphaEquivalentTo(type.apply(unify(vectorOf(new TypeEquation(this, type)))));
     }
 
-    public MethodType methodType() {
-        return MethodType.methodType(javaType);
+    public JavaCall.JavaSignature javaSignature() {
+        return new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(javaType));
     }
 
     public static abstract class SimpleType extends Type {
@@ -363,10 +363,6 @@ public abstract class Type {
             }
         }
 
-        @Override
-        public MethodType methodType() {
-            return MethodType.methodType(returnType.javaType, paramTypes.stream().map(pt -> pt.javaType).collect(toPVector()));
-        }
     }
 
     public static final class TypeVar extends Type {

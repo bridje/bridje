@@ -200,12 +200,14 @@ public class Analyser {
                                         throw new UnsupportedOperationException();
                                     }
 
-                                    JavaCall call = JavaCall.StaticMethodCall.find(c, nameForm.qsym.symbol, type).orElseThrow(UnsupportedOperationException::new);
+                                    try {
+                                        return parseEnd(new Expr.JavaTypeDefExpr<>(form.range, null, currentNS, nameForm.qsym,
+                                            new JavaTypeDef(JavaCall.StaticMethodCall.find(c, nameForm.qsym.symbol, type), type)));
+                                    } catch (JavaCall.NoMatches | JavaCall.MultipleMatches e) {
+                                        throw new RuntimeException(e);
+                                    }
 
-                                    return parseEnd(new Expr.JavaTypeDefExpr<>(form.range, null, currentNS, nameForm.qsym,
-                                        new JavaTypeDef(call, type)));
-                                })
-                            ));
+                                })));
                     }
 
                     case "ns": {

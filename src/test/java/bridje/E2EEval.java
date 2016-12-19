@@ -8,9 +8,9 @@ import bridje.types.Type;
 import bridje.types.TypeChecker;
 import bridje.util.Pair;
 import org.junit.Test;
+import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 
-import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.time.Instant;
 
@@ -235,7 +235,8 @@ public class E2EEval {
 
         Env env = evalAction(evalResult.env, myNS, "(:: Instant/now Instant)").right.env;
         assertEquals(
-            new JavaTypeDef(new JavaCall.StaticMethodCall(Instant.class, "now", MethodType.methodType(Instant.class)),
+            new JavaTypeDef(new JavaCall.StaticMethodCall(Instant.class, "now",
+                new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(Instant.class))),
                 new Type.JavaType(Instant.class)),
             env.nsEnvs.get(myNS).javaTypeDefs.get(new QSymbol("Instant", "now")));
 

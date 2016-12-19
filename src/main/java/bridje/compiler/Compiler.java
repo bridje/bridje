@@ -431,9 +431,9 @@ public class Compiler {
                     public Instructions visit(JavaCall.StaticMethodCall call) {
                         return mplus(
                             mplus(expr.params.stream().map(p -> compileExpr0(locals, p)).collect(toPVector())),
-                            methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name, call.methodType.returnType(),
-                                TreePVector.from(call.methodType.parameterList())));
-                }
+                            methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name, call.signature.javaReturn.returnClass,
+                                call.signature.javaParams.stream().map(p -> p.paramClass).collect(toPVector())));
+                    }
                 });
             }
 

@@ -12,7 +12,6 @@ import org.junit.Test;
 import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 
-import java.lang.invoke.MethodType;
 import java.time.Instant;
 
 import static bridje.Util.vectorOf;
@@ -146,7 +145,8 @@ public class AnalyserTest {
 
     @Test
     public void analysesJavaStaticTypeDef() throws Exception {
-        JavaCall call = new JavaCall.StaticMethodCall(Instant.class, "now", MethodType.methodType(Instant.class));
+        JavaCall call = new JavaCall.StaticMethodCall(Instant.class, "now",
+            new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(Instant.class)));
         assertEquals(new Expr.JavaTypeDefExpr<>(null, null, FOO_NS, new QSymbol("Instant", "now"),
                 new JavaTypeDef(call, new Type.JavaType(Instant.class))),
             analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), qSymbolForm("Instant", "now"), symbolForm("Instant")))));

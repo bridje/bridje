@@ -59,6 +59,7 @@ interface Instructions {
         return newObject(fromClass(QSymbol.class), Util.vectorOf(String.class, String.class),
             mplus(loadObject(sym.ns), loadObject(sym.symbol)));
     }
+
     static Instructions loadFQSymbol(FQSymbol sym) {
         return mplus(loadNS(sym.ns), loadSymbol(sym.symbol), methodCall(fromClass(FQSymbol.class), INVOKE_STATIC, "fqSym", FQSymbol.class, vectorOf(NS.class, Symbol.class)));
     }
@@ -366,11 +367,23 @@ interface Instructions {
         return javaCall.accept(new JavaCall.JavaCallVisitor<Instructions>() {
             @Override
             public Instructions visit(JavaCall.StaticMethodCall call) {
-                return newObject(fromClass(JavaCall.StaticMethodCall.class), vectorOf(Class.class, String.class, MethodType.class),
+                return newObject(fromClass(JavaCall.StaticMethodCall.class),
+                    vectorOf(Class.class, String.class, JavaCall.JavaSignature.class),
                     mplus(
                         loadClass(call.clazz),
                         loadObject(call.name),
-                        loadMethodType(call.methodType)));
+
+                        newObject(fromClass(JavaCall.JavaSignature.class),
+                            vectorOf(PVector.class, JavaCall.JavaReturn.class),
+                            mplus(
+                                loadVector(JavaCall.JavaParam.class,
+                                    call.signature.javaParams.stream()
+                                        .map(p -> newObject(fromClass(JavaCall.JavaParam.class), vectorOf(Class.class),
+                                            loadClass(p.paramClass)))
+                                        .collect(toPVector())),
+
+                                newObject(fromClass(JavaCall.JavaReturn.class), vectorOf(Class.class),
+                                    loadClass(call.signature.javaReturn.returnClass))))));
             }
         });
     }
