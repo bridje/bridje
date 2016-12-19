@@ -4,6 +4,7 @@ import bridje.analyser.Expr;
 import bridje.reader.Form;
 import bridje.reader.LCReader;
 import bridje.runtime.*;
+import bridje.runtime.JavaCall.JavaReturn.ReturnWrapper;
 import bridje.types.Type;
 import bridje.types.TypeChecker;
 import bridje.util.Pair;
@@ -25,8 +26,7 @@ import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.VarUtil.FOO_NS;
 import static bridje.runtime.VarUtil.PLUS_ENV;
 import static bridje.types.Type.FnType.fnType;
-import static bridje.types.Type.SimpleType.INT_TYPE;
-import static bridje.types.Type.SimpleType.STRING_TYPE;
+import static bridje.types.Type.SimpleType.*;
 import static bridje.util.Pair.pair;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -225,24 +225,45 @@ public class E2EEval {
         assertEquals(IO.DATA_TYPE, PLUS_ENV.resolveDataType(FOO_NS, symbol("IO")).orElse(null));
     }
 
+
     @Test
     public void testJavaTypeDef() throws Exception {
+        Env env = evalAction(PLUS_ENV, FOO_NS, "(:: String/valueOf (Fn Bool Str))").right.env;
+        assertEquals(
+            new JavaTypeDef(new JavaCall.StaticMethodCall(String.class, "valueOf",
+                new JavaCall.JavaSignature(
+                    vectorOf(new JavaCall.JavaParam(Boolean.TYPE)),
+                    new JavaCall.JavaReturn(String.class, Empty.vector()))),
+                new Type.FnType(vectorOf(BOOL_TYPE), STRING_TYPE)),
+            env.nsEnvs.get(FOO_NS).javaTypeDefs.get(new QSymbol("String", "valueOf")));
+
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(env, FOO_NS, "(String/valueOf true)");
+        assertEquals(result.left.type, STRING_TYPE);
+        assertEquals(result.right.value, "true");
+    }
+
+    @Test
+    public void testJavaIOTypeDef() throws Exception {
         NS myNS = ns("my-ns");
 
         EvalResult evalResult = evalAction(PLUS_ENV, "(ns my-ns {imports {java.time [Instant]}})").right;
 
         assertEquals(Instant.class, evalResult.env.nsEnvs.get(myNS).imports.get(symbol("Instant")));
 
-        Env env = evalAction(evalResult.env, myNS, "(:: Instant/now Instant)").right.env;
+        Env env = evalAction(evalResult.env, myNS, "(:: Instant/now (IO Instant))").right.env;
         assertEquals(
             new JavaTypeDef(new JavaCall.StaticMethodCall(Instant.class, "now",
-                new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(Instant.class))),
-                new Type.JavaType(Instant.class)),
+                new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(Instant.class, vectorOf(ReturnWrapper.IO)))),
+                new Type.AppliedType(IO.DATA_TYPE.type, vectorOf(new Type.JavaType(Instant.class)))),
             env.nsEnvs.get(myNS).javaTypeDefs.get(new QSymbol("Instant", "now")));
 
 
         Pair<Expr<Type>, EvalResult> result = evalValue(env, myNS, "(Instant/now)");
-        assertEquals(result.left.type, new Type.JavaType(Instant.class));
-        assertTrue(result.right.value instanceof Instant);
+        assertEquals(result.left.type, new Type.AppliedType(IO.DATA_TYPE.type, vectorOf(new Type.JavaType(Instant.class))));
+
+        Object ioValue = result.right.value;
+        assertTrue(ioValue instanceof IO);
+        assertTrue(((IO<?>) ioValue).runIO() instanceof Instant);
     }
 }

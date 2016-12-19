@@ -13,7 +13,7 @@ public class JavaCallTest {
     @Test
     public void findsInstantNow() throws Exception {
         assertEquals(new JavaCall.StaticMethodCall(Instant.class, "now",
-                new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(Instant.class))),
+                new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(Instant.class, Empty.vector()))),
             JavaCall.StaticMethodCall.find(Instant.class, "now", new Type.JavaType(Instant.class)));
     }
 

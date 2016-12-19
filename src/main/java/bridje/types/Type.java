@@ -2,7 +2,9 @@ package bridje.types;
 
 import bridje.compiler.EnvUpdate;
 import bridje.runtime.FQSymbol;
+import bridje.runtime.IO;
 import bridje.runtime.JavaCall;
+import bridje.runtime.JavaCall.JavaReturn.ReturnWrapper;
 import bridje.util.Pair;
 import org.pcollections.*;
 
@@ -57,7 +59,15 @@ public abstract class Type {
     }
 
     public JavaCall.JavaSignature javaSignature() {
-        return new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(javaType));
+        return new JavaCall.JavaSignature(Empty.vector(), javaReturn());
+    }
+
+    public JavaCall.JavaParam javaParam() {
+        return new JavaCall.JavaParam(javaType);
+    }
+
+    public JavaCall.JavaReturn javaReturn() {
+        return new JavaCall.JavaReturn(javaType, Empty.vector());
     }
 
     public static abstract class SimpleType extends Type {
@@ -363,6 +373,12 @@ public abstract class Type {
             }
         }
 
+        @Override
+        public JavaCall.JavaSignature javaSignature() {
+            return new JavaCall.JavaSignature(
+                paramTypes.stream().map(Type::javaParam).collect(toPVector()),
+                returnType.javaReturn());
+        }
     }
 
     public static final class TypeVar extends Type {
@@ -532,6 +548,16 @@ public abstract class Type {
                 }
 
                 return true;
+            }
+        }
+
+        @Override
+        public JavaCall.JavaReturn javaReturn() {
+            if (appliedType.equals(IO.DATA_TYPE.type)) {
+                JavaCall.JavaReturn javaReturn = typeParams.get(0).javaReturn();
+                return new JavaCall.JavaReturn(javaReturn.returnClass, javaReturn.wrappers.plus(0, ReturnWrapper.IO));
+            } else {
+                return super.javaReturn();
             }
         }
 

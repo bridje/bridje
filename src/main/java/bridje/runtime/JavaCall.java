@@ -46,18 +46,42 @@ public abstract class JavaCall {
 
             return Optional.empty();
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            JavaParam javaParam = (JavaParam) o;
+            return Objects.equals(paramClass, javaParam.paramClass);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(paramClass);
+        }
+
+        @Override
+        public String toString() {
+            return paramClass.getName();
+        }
     }
 
     public static class JavaReturn {
-        public final Class<?> returnClass;
+        public enum ReturnWrapper {
+            IO
+        }
 
-        public JavaReturn(Class<?> returnClass) {
+        public final Class<?> returnClass;
+        public final PVector<ReturnWrapper> wrappers;
+
+        public JavaReturn(Class<?> returnClass, PVector<ReturnWrapper> wrappers) {
             this.returnClass = returnClass;
+            this.wrappers = wrappers;
         }
 
         public Optional<JavaReturn> match(Class<?> methodReturn) {
             if (returnClass.isAssignableFrom(methodReturn)) {
-                return Optional.of(new JavaReturn(methodReturn));
+                return Optional.of(new JavaReturn(methodReturn, wrappers));
             } else {
                 return Optional.empty();
             }
@@ -68,12 +92,13 @@ public abstract class JavaCall {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             JavaReturn that = (JavaReturn) o;
-            return Objects.equals(returnClass, that.returnClass);
+            return Objects.equals(returnClass, that.returnClass) &&
+                Objects.equals(wrappers, that.wrappers);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(returnClass);
+            return Objects.hash(returnClass, wrappers);
         }
 
         @Override

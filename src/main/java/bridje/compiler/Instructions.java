@@ -47,6 +47,10 @@ interface Instructions {
         return mv -> mv.visitLdcInsn(obj);
     }
 
+    static <T extends Enum<T>> Instructions loadEnum(Class<T> clazz, T val) {
+        return fieldOp(GET_STATIC, fromClass(clazz), val.name(), fromClass(clazz));
+    }
+
     static Instructions loadNS(NS ns) {
         return mplus(loadObject(ns.name), methodCall(fromClass(NS.class), INVOKE_STATIC, "ns", NS.class, vectorOf(String.class)));
     }
@@ -190,7 +194,8 @@ interface Instructions {
         switch (type.getSort()) {
             case Type.LONG:
                 return fieldOp(GET_STATIC, fromClass(Long.class), "TYPE", fromClass(Class.class));
-
+            case Type.BOOLEAN:
+                return fieldOp(GET_STATIC, fromClass(Boolean.class), "TYPE", fromClass(Class.class));
             case Type.OBJECT:
                 return mv -> mv.visitLdcInsn(type);
             default:
@@ -382,8 +387,13 @@ interface Instructions {
                                             loadClass(p.paramClass)))
                                         .collect(toPVector())),
 
-                                newObject(fromClass(JavaCall.JavaReturn.class), vectorOf(Class.class),
-                                    loadClass(call.signature.javaReturn.returnClass))))));
+                                newObject(fromClass(JavaCall.JavaReturn.class), vectorOf(Class.class, PVector.class),
+                                    mplus(
+                                        loadClass(call.signature.javaReturn.returnClass),
+                                        loadVector(JavaCall.JavaReturn.ReturnWrapper.class,
+                                            call.signature.javaReturn.wrappers.stream()
+                                                .map(w -> loadEnum(JavaCall.JavaReturn.ReturnWrapper.class, w))
+                                                .collect(toPVector()))))))));
             }
         });
     }
