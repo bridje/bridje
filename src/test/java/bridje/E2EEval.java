@@ -224,14 +224,23 @@ public class E2EEval {
         assertEquals(IO.DATA_TYPE, PLUS_ENV.resolveDataType(FOO_NS, symbol("IO")).orElse(null));
     }
 
-
     @Test
-    public void testJavaTypeDef() throws Exception {
+    public void testJavaStaticTypeDef() throws Exception {
         Env env = evalAction(PLUS_ENV, FOO_NS, "(defj bool->str String valueOf (Fn Bool Str))").right.env;
 
         Pair<Expr<Type>, EvalResult> result = evalValue(env, FOO_NS, "(bool->str true)");
         assertEquals(result.left.type, STRING_TYPE);
         assertEquals(result.right.value, "true");
+    }
+
+
+    @Test
+    public void testJavaInstanceTypeDef() throws Exception {
+        Env env = evalAction(PLUS_ENV, FOO_NS, "(defj trim-str String .trim (Fn Str Str))").right.env;
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(env, FOO_NS, "(trim-str \"   foo  \")");
+        assertEquals(result.left.type, STRING_TYPE);
+        assertEquals(result.right.value, "foo");
     }
 
     @Test

@@ -16,6 +16,8 @@ public abstract class JavaCall {
 
     public interface JavaCallVisitor<T> {
         T visit(StaticMethodCall call);
+
+        T visit(InstanceMethodCall call);
     }
 
     public abstract <T> T accept(JavaCallVisitor<T> visitor);
@@ -169,12 +171,13 @@ public abstract class JavaCall {
         public final JavaSignature signature;
 
         public static StaticMethodCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
+            JavaSignature signature = type.javaSignature();
+
             PVector<StaticMethodCall> matches = Arrays.stream(clazz.getMethods())
                 .filter(m -> m.getName().equals(name))
                 .filter(m -> Modifier.isStatic(m.getModifiers()))
                 .map(m ->
-                    type.javaSignature()
-                        .match(TreePVector.from(Arrays.asList(m.getParameterTypes())), m.getReturnType())
+                    signature.match(TreePVector.from(Arrays.asList(m.getParameterTypes())), m.getReturnType())
                         .map(sig -> new StaticMethodCall(clazz, name, sig))
                         .orElse(null))
                 .filter(Objects::nonNull)
@@ -221,6 +224,83 @@ public abstract class JavaCall {
         @Override
         public String toString() {
             return String.format("(StaticMethodCall %s/%s %s", clazz.getName(), name, signature);
+        }
+    }
+
+    public static class InstanceMethodCall extends JavaCall {
+        public final Class<?> clazz;
+        public final String name;
+        public final JavaSignature signature;
+
+        public static InstanceMethodCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
+            if (!(type instanceof Type.FnType)) {
+                throw new NoMatches();
+            }
+
+            Type.FnType fnType = (Type.FnType) type;
+
+            JavaSignature fnSignature = fnType.javaSignature();
+            if (fnSignature.javaParams.isEmpty()) {
+                JavaParam thisParam = fnSignature.javaParams.get(0);
+                if (!thisParam.paramClass.equals(clazz)) {
+                    throw new NoMatches();
+                }
+            }
+
+            JavaSignature signature = new JavaSignature(fnSignature.javaParams.minus(0), fnSignature.javaReturn);
+
+            PVector<InstanceMethodCall> matches = Arrays.stream(clazz.getMethods())
+                .filter(m -> m.getName().equals(name))
+                .filter(m -> !Modifier.isStatic(m.getModifiers()))
+                .map(m ->
+                    signature.match(TreePVector.from(Arrays.asList(m.getParameterTypes())), m.getReturnType())
+                        .map(sig -> new InstanceMethodCall(clazz, name, sig))
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .collect(toPVector());
+
+            switch (matches.size()) {
+                case 1:
+                    return matches.get(0);
+                case 0:
+                    throw new NoMatches();
+                default:
+                    throw new MultipleMatches(matches.stream()
+                        .map(match -> match.signature)
+                        .collect(toPVector()));
+            }
+
+        }
+
+        public InstanceMethodCall(Class<?> clazz, String name, JavaSignature signature) {
+            this.clazz = clazz;
+            this.name = name;
+            this.signature = signature;
+        }
+
+        @Override
+        public <T> T accept(JavaCallVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            InstanceMethodCall that = (InstanceMethodCall) o;
+            return Objects.equals(clazz, that.clazz) &&
+                Objects.equals(name, that.name) &&
+                Objects.equals(signature, that.signature);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(clazz, name, signature);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(InstanceMethodCall %s/%s %s", clazz.getName(), name, signature);
         }
     }
 }

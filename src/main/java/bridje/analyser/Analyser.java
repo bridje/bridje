@@ -199,8 +199,15 @@ public class Analyser {
                                         }
 
                                         try {
-                                            return parseEnd(new Expr.DefJExpr<>(form.range, null, fqSym(currentNS, nameForm.sym),
-                                                JavaCall.StaticMethodCall.find(c, calleeNameForm.sym.sym, type), type));
+                                            JavaCall call;
+                                            String calleeName = calleeNameForm.sym.sym;
+                                            if (calleeName.startsWith(".")) {
+                                                call = JavaCall.InstanceMethodCall.find(c, calleeNameForm.sym.sym.substring(1), type);
+                                            } else {
+                                                call = JavaCall.StaticMethodCall.find(c, calleeNameForm.sym.sym, type);
+                                            }
+
+                                            return parseEnd(new Expr.DefJExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), call, type));
                                         } catch (JavaCall.NoMatches | JavaCall.MultipleMatches e) {
                                             throw new RuntimeException(e);
                                         }

@@ -367,34 +367,4 @@ interface Instructions {
     static Instructions bindMethodHandle() {
         return methodCall(fromClass(MethodHandle.class), INVOKE_VIRTUAL, "bindTo", MethodHandle.class, Util.vectorOf(Object.class));
     }
-
-    static Instructions loadJavaCall(JavaCall javaCall) {
-        return javaCall.accept(new JavaCall.JavaCallVisitor<Instructions>() {
-            @Override
-            public Instructions visit(JavaCall.StaticMethodCall call) {
-                return newObject(fromClass(JavaCall.StaticMethodCall.class),
-                    vectorOf(Class.class, String.class, JavaCall.JavaSignature.class),
-                    mplus(
-                        loadClass(call.clazz),
-                        loadObject(call.name),
-
-                        newObject(fromClass(JavaCall.JavaSignature.class),
-                            vectorOf(PVector.class, JavaCall.JavaReturn.class),
-                            mplus(
-                                loadVector(JavaCall.JavaParam.class,
-                                    call.signature.javaParams.stream()
-                                        .map(p -> newObject(fromClass(JavaCall.JavaParam.class), vectorOf(Class.class),
-                                            loadClass(p.paramClass)))
-                                        .collect(toPVector())),
-
-                                newObject(fromClass(JavaCall.JavaReturn.class), vectorOf(Class.class, PVector.class),
-                                    mplus(
-                                        loadClass(call.signature.javaReturn.returnClass),
-                                        loadVector(JavaCall.JavaReturn.ReturnWrapper.class,
-                                            call.signature.javaReturn.wrappers.stream()
-                                                .map(w -> loadEnum(JavaCall.JavaReturn.ReturnWrapper.class, w))
-                                                .collect(toPVector()))))))));
-            }
-        });
-    }
 }

@@ -32,8 +32,7 @@ import static bridje.compiler.Locals.staticLocals;
 import static bridje.compiler.NewClass.newClass;
 import static bridje.compiler.NewField.newField;
 import static bridje.compiler.NewMethod.newMethod;
-import static bridje.runtime.MethodInvoke.INVOKE_SPECIAL;
-import static bridje.runtime.MethodInvoke.INVOKE_STATIC;
+import static bridje.runtime.MethodInvoke.*;
 import static bridje.runtime.Symbol.symbol;
 import static bridje.runtime.Var.FN_METHOD_NAME;
 import static bridje.runtime.Var.VALUE_FIELD_NAME;
@@ -427,6 +426,13 @@ public class Compiler {
                     @Override
                     public Instructions visit(JavaCall.StaticMethodCall call) {
                         return methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name,
+                            call.signature.javaReturn.returnClass,
+                            call.signature.javaParams.stream().map(p -> p.paramClass).collect(toPVector()));
+                    }
+
+                    @Override
+                    public Instructions visit(JavaCall.InstanceMethodCall call) {
+                        return methodCall(fromClass(call.clazz), INVOKE_VIRTUAL, call.name,
                             call.signature.javaReturn.returnClass,
                             call.signature.javaParams.stream().map(p -> p.paramClass).collect(toPVector()));
                     }
