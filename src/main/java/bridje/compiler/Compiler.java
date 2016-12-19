@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import static bridje.Panic.panic;
 import static bridje.Util.*;
@@ -39,6 +40,7 @@ import static bridje.runtime.Var.VALUE_FIELD_NAME;
 import static bridje.util.Pair.pair;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.publicLookup;
+import static java.lang.invoke.MethodType.methodType;
 
 public class Compiler {
 
@@ -145,13 +147,8 @@ public class Compiler {
             }
 
             @Override
-            public PMap<LocalVar, Type> visit(Expr.JavaTypeDefExpr<? extends Type> expr) {
+            public PMap<LocalVar, Type> visit(Expr.DefJExpr<? extends Type> expr) {
                 return Empty.map();
-            }
-
-            @Override
-            public PMap<LocalVar, Type> visit(Expr.JavaCallExpr<? extends Type> expr) {
-                return mapClosedOverVars(expr.params);
             }
 
             @Override
@@ -344,61 +341,76 @@ public class Compiler {
                             expr.imports.entrySet().stream().map(e -> pair(loadSymbol(e.getKey()), loadClass(e.getValue()))).collect(toPVector()))));
             }
 
-            @Override
-            public Instructions visit(Expr.DefExpr<? extends Type> expr) {
-                String className = format("%s$$%s$$%d", expr.sym.ns, expr.sym.symbol, uniqueInt());
-                Type type = expr.body.type;
+            private Instructions compileDefValue(FQSymbol fqSym, Type type, NewClass newClass, Instructions valueInstructions) {
                 Class<?> clazz = type.javaType;
 
-                boolean isFn = expr.body instanceof Expr.FnExpr && type instanceof Type.FnType;
-
-                Expr.FnExpr<? extends Type> fnExpr = null;
-                Type.FnType fnType = null;
-                PVector<Class<?>> paramTypes = null;
-                MethodType fnMethodType = null;
-
-                if (isFn) {
-                    fnType = (Type.FnType) type;
-                    fnExpr = (Expr.FnExpr<? extends Type>) expr.body;
-                    paramTypes = fnType.paramTypes.stream().map(pt -> pt.javaType).collect(toPVector());
-                    fnMethodType = MethodType.methodType(
-                        fnType.returnType.javaType,
-                        paramTypes);
-                }
-
-                Instructions valueInstructions = isFn
-                    ? Instructions.staticMethodHandle(fromClassName(className), FN_METHOD_NAME, paramTypes, fnMethodType.returnType())
-                    : compileExpr0(staticLocals(), expr.body);
-
-                NewClass newClass = newClass(className)
+                newClass = newClass
                     .withField(newField(VALUE_FIELD_NAME, clazz, setOf(STATIC, FINAL, PUBLIC)))
                     .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
-                        mplus(valueInstructions,
-                            fieldOp(PUT_STATIC, fromClassName(className), VALUE_FIELD_NAME, fromClass(clazz)),
-                            ret(Void.TYPE))));
-
-                if (isFn) {
-                    Locals locals = staticLocals();
-                    for (int i = 0; i < fnExpr.params.size(); i++) {
-                        locals = locals.withVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType);
-                    }
-
-                    newClass = newClass.withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes,
                         mplus(
-                            compileExpr0(locals, fnExpr.body),
-                            ret(fnType.returnType.javaType))));
-                }
+                            valueInstructions,
+                            fieldOp(PUT_STATIC, fromClassName(newClass.name), VALUE_FIELD_NAME, fromClass(clazz)),
+                            ret(Void.TYPE))));
 
                 Class<?> dynClass = defineClass(newClass);
 
                 return newObject(fromClass(EnvUpdate.DefEnvUpdate.class), vectorOf(FQSymbol.class, Type.class, Class.class, MethodType.class),
                     mplus(
-                        loadFQSymbol(expr.sym),
+                        loadFQSymbol(fqSym),
                         withTypeLocals(locals, type.typeVars(), typeLocals -> loadType(type, typeLocals)),
                         loadClass(dynClass),
-                        fnMethodType == null
-                            ? Instructions.loadNull()
-                            : loadMethodType(fnMethodType)));
+                        Instructions.loadNull()));
+            }
+
+            private Instructions compileDefFn(FQSymbol fqSym, Type.FnType fnType, NewClass newClass, Instructions fnInstructions) {
+                PVector<Class<?>> paramTypes = fnType.paramTypes.stream().map(pt -> pt.javaType).collect(toPVector());
+                MethodType fnMethodType = methodType(fnType.returnType.javaType, paramTypes);
+
+                Class<?> clazz = fnType.javaType;
+
+                newClass = newClass
+                    .withField(newField(VALUE_FIELD_NAME, clazz, setOf(STATIC, FINAL, PUBLIC)))
+                    .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
+                        mplus(Instructions.staticMethodHandle(fromClassName(newClass.name), FN_METHOD_NAME, paramTypes, fnMethodType.returnType()),
+                            fieldOp(PUT_STATIC, fromClassName(newClass.name), VALUE_FIELD_NAME, fromClass(clazz)),
+                            ret(Void.TYPE))))
+
+                    .withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes, fnInstructions));
+
+                Class<?> dynClass = defineClass(newClass);
+
+                return newObject(fromClass(EnvUpdate.DefEnvUpdate.class), vectorOf(FQSymbol.class, Type.class, Class.class, MethodType.class),
+                    mplus(
+                        loadFQSymbol(fqSym),
+                        withTypeLocals(locals, fnType.typeVars(), typeLocals -> loadType(fnType, typeLocals)),
+                        loadClass(dynClass),
+                        loadMethodType(fnMethodType)));
+            }
+
+            @Override
+            public Instructions visit(Expr.DefExpr<? extends Type> expr) {
+                Type type = expr.body.type;
+
+                String className = format("%s$$%s$$%d", expr.sym.ns, expr.sym.symbol, uniqueInt());
+                NewClass newClass = newClass(className);
+
+                if (expr.body instanceof Expr.FnExpr && type instanceof Type.FnType) {
+                    Type.FnType fnType = (Type.FnType) type;
+                    Expr.FnExpr<? extends Type> fnExpr = (Expr.FnExpr<? extends Type>) expr.body;
+
+                    Locals locals = staticLocals();
+                    for (int i = 0; i < fnExpr.params.size(); i++) {
+                        locals = locals.withVarLocal(fnExpr.params.get(i), fnType.paramTypes.get(i).javaType);
+                    }
+
+                    Instructions fnInstructions = mplus(
+                        compileExpr0(locals, fnExpr.body),
+                        ret(fnType.returnType.javaType));
+
+                    return compileDefFn(expr.sym, fnType, newClass, fnInstructions);
+                } else {
+                    return compileDefValue(expr.sym, type, newClass, compileExpr0(staticLocals(), expr.body));
+                }
             }
 
             @Override
@@ -410,31 +422,42 @@ public class Compiler {
                             typeLocals -> loadType(expr.typeDef, typeLocals))));
             }
 
-            @Override
-            public Instructions visit(Expr.JavaTypeDefExpr<? extends Type> expr) {
-                return newObject(fromClass(EnvUpdate.JavaTypeDefEnvUpdate.class),
-                    vectorOf(NS.class, QSymbol.class, JavaTypeDef.class),
-                    mplus(
-                        loadNS(expr.ns),
-                        loadSymbol(expr.qsym),
-                        newObject(fromClass(JavaTypeDef.class), vectorOf(JavaCall.class, Type.class),
-                            mplus(
-                                loadJavaCall(expr.javaTypeDef.javaCall),
-                                withTypeLocals(locals, expr.javaTypeDef.type.typeVars(),
-                                    typeLocals -> loadType(expr.javaTypeDef.type, typeLocals))))));
+            private Instructions callInstructions(JavaCall call) {
+                return call.accept(new JavaCall.JavaCallVisitor<Instructions>() {
+                    @Override
+                    public Instructions visit(JavaCall.StaticMethodCall call) {
+                        return methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name,
+                            call.signature.javaReturn.returnClass,
+                            call.signature.javaParams.stream().map(p -> p.paramClass).collect(toPVector()));
+                    }
+                });
             }
 
             @Override
-            public Instructions visit(Expr.JavaCallExpr<? extends Type> expr) {
-                return expr.javaTypeDef.javaCall.accept(new JavaCall.JavaCallVisitor<Instructions>() {
-                    @Override
-                    public Instructions visit(JavaCall.StaticMethodCall call) {
-                        return mplus(
-                            mplus(expr.params.stream().map(p -> compileExpr0(locals, p)).collect(toPVector())),
-                            methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name, call.signature.javaReturn.returnClass,
-                                call.signature.javaParams.stream().map(p -> p.paramClass).collect(toPVector())));
+            public Instructions visit(Expr.DefJExpr<? extends Type> expr) {
+                Type typeDef = expr.typeDef;
+
+                NewClass newClass = newClass(format("%s$$%s$$%d", expr.sym.ns.name, expr.sym.symbol.sym, uniqueInt()));
+
+                if (typeDef instanceof Type.FnType) {
+                    Type.FnType fnType = (Type.FnType) typeDef;
+
+                    Locals locals = staticLocals();
+
+                    for (int i = 0; i < fnType.paramTypes.size(); i++) {
+                        locals = locals.withVarLocal(i, fnType.paramTypes.get(i).javaType);
                     }
-                });
+
+                    final Locals locals_ = locals;
+
+                    return compileDefFn(expr.sym, fnType, newClass,
+                        mplus(
+                            mplus(IntStream.range(0, fnType.paramTypes.size()).mapToObj(i -> locals_.get(i).load()).collect(toPVector())),
+                            callInstructions(expr.javaCall),
+                            ret(fnType.returnType.javaType)));
+                } else {
+                    return compileDefValue(expr.sym, typeDef, newClass, callInstructions(expr.javaCall));
+                }
             }
 
             @Override
@@ -563,7 +586,7 @@ public class Compiler {
 
 
                     "$$eval",
-                    MethodType.methodType(Object.class))
+                    methodType(Object.class))
                 .invoke();
 
             if (result instanceof EnvUpdate) {

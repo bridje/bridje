@@ -27,7 +27,6 @@ import static bridje.analyser.ListParser.ParseResult.fail;
 import static bridje.analyser.ListParser.ParseResult.success;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.ns;
-import static bridje.runtime.Symbol.symbol;
 import static bridje.util.Pair.pair;
 
 public class Analyser {
@@ -88,10 +87,6 @@ public class Analyser {
 
             private ParseResult<Pair<Expr<Void>, PVector<Form>>> parseVarCall(Var var, PVector<Form> paramForms) {
                 return success(pair(new Expr.VarCallExpr<>(form.range, null, var, paramForms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
-            }
-
-            private ParseResult<Pair<Expr<Void>, PVector<Form>>> parseJavaCall(JavaTypeDef javaTypeDef, PVector<Form> paramForms) {
-                return success(pair(new Expr.JavaCallExpr<>(form.range, null, javaTypeDef, paramForms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
             }
 
             private ListParser<Expr<Void>> listFormParser(Form.SymbolForm firstSymbolForm) {
@@ -189,25 +184,27 @@ public class Analyser {
                     }
 
                     case "::": {
-                        return anyOf(
-                            SYMBOL_PARSER.bind(nameForm ->
-                                typeParser(env, LocalTypeEnv.EMPTY, currentNS).bind(type ->
-                                    parseEnd(new Expr.TypeDefExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), type)))),
-                            QSYMBOL_PARSER.bind(nameForm ->
-                                typeParser(env, LocalTypeEnv.EMPTY, currentNS).bind(type -> {
-                                    Class<?> c = env.resolveImport(currentNS, symbol(nameForm.qsym.ns)).orElse(null);
-                                    if (c == null) {
-                                        throw new UnsupportedOperationException();
-                                    }
+                        return SYMBOL_PARSER.bind(nameForm ->
+                            typeParser(env, LocalTypeEnv.EMPTY, currentNS).bind(type ->
+                                parseEnd(new Expr.TypeDefExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), type))));
+                    }
+                    case "defj": {
+                        return SYMBOL_PARSER.bind(nameForm ->
+                            SYMBOL_PARSER.bind(classNameForm ->
+                                SYMBOL_PARSER.bind(calleeNameForm ->
+                                    typeParser(env, LocalTypeEnv.EMPTY, currentNS).bind(type -> {
+                                        Class<?> c = env.resolveImport(currentNS, classNameForm.sym).orElse(null);
+                                        if (c == null) {
+                                            throw new UnsupportedOperationException();
+                                        }
 
-                                    try {
-                                        return parseEnd(new Expr.JavaTypeDefExpr<>(form.range, null, currentNS, nameForm.qsym,
-                                            new JavaTypeDef(JavaCall.StaticMethodCall.find(c, nameForm.qsym.symbol, type), type)));
-                                    } catch (JavaCall.NoMatches | JavaCall.MultipleMatches e) {
-                                        throw new RuntimeException(e);
-                                    }
-
-                                })));
+                                        try {
+                                            return parseEnd(new Expr.DefJExpr<>(form.range, null, fqSym(currentNS, nameForm.sym),
+                                                JavaCall.StaticMethodCall.find(c, calleeNameForm.sym.sym, type), type));
+                                        } catch (JavaCall.NoMatches | JavaCall.MultipleMatches e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    }))));
                     }
 
                     case "ns": {
@@ -391,12 +388,6 @@ public class Analyser {
                             Var var = env.resolveVar(currentNS, qsymForm.qsym).orElse(null);
                             if (var != null) {
                                 return parseVarCall(var, paramForms);
-                            }
-
-                            JavaTypeDef javaTypeDef = env.resolveJavaCall(currentNS, qsymForm.qsym).orElse(null);
-                            if (javaTypeDef != null) {
-                                return parseJavaCall(javaTypeDef, paramForms);
-
                             }
 
                             throw new UnsupportedOperationException();

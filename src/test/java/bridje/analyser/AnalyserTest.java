@@ -1,9 +1,11 @@
 package bridje.analyser;
 
 import bridje.reader.Form;
-import bridje.runtime.*;
+import bridje.runtime.DataType;
 import bridje.runtime.DataTypeConstructor.ValueConstructor;
 import bridje.runtime.DataTypeConstructor.VectorConstructor;
+import bridje.runtime.IO;
+import bridje.runtime.JavaCall;
 import bridje.runtime.JavaCall.JavaReturn.ReturnWrapper;
 import bridje.types.Type;
 import org.junit.Test;
@@ -148,9 +150,11 @@ public class AnalyserTest {
                 vectorOf(new JavaCall.JavaParam(Boolean.TYPE)),
                 new JavaCall.JavaReturn(String.class, Empty.vector())));
 
-        assertEquals(new Expr.JavaTypeDefExpr<>(null, null, FOO_NS, new QSymbol("String", "valueOf"),
-                new JavaTypeDef(call, new Type.FnType(vectorOf(BOOL_TYPE), STRING_TYPE))),
-            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), qSymbolForm("String", "valueOf"),
+        assertEquals(new Expr.DefJExpr<>(null, null, fqSym(FOO_NS, symbol("bool->str")), call,
+                new Type.FnType(vectorOf(BOOL_TYPE), STRING_TYPE)),
+            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("defj"), symbolForm("bool->str"),
+                symbolForm("String"),
+                symbolForm("valueOf"),
                 listForm(symbolForm("Fn"), symbolForm("Bool"), symbolForm("Str"))))));
     }
 
@@ -159,9 +163,12 @@ public class AnalyserTest {
         JavaCall call = new JavaCall.StaticMethodCall(Instant.class, "now",
             new JavaCall.JavaSignature(Empty.vector(), new JavaCall.JavaReturn(Instant.class, vectorOf(ReturnWrapper.IO))));
 
-        assertEquals(new Expr.JavaTypeDefExpr<>(null, null, FOO_NS, new QSymbol("Instant", "now"),
-                new JavaTypeDef(call, new Type.AppliedType(IO.DATA_TYPE.type, vectorOf(new Type.JavaType(Instant.class))))),
-            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("::"), qSymbolForm("Instant", "now"),
+        assertEquals(new Expr.DefJExpr<>(null, null, fqSym(FOO_NS, symbol("now")), call,
+                new Type.AppliedType(IO.IO_TYPE, vectorOf(new Type.JavaType(Instant.class)))),
+            analyse(PLUS_ENV, FOO_NS, (listForm(symbolForm("defj"),
+                symbolForm("now"),
+                symbolForm("Instant"),
+                symbolForm("now"),
                 listForm(symbolForm("IO"), symbolForm("Instant"))))));
     }
 
@@ -210,10 +217,5 @@ public class AnalyserTest {
     @Test
     public void analysesQualifiedPlusCall() throws Exception {
         assertEquals(varCallExpr(null, PLUS_VAR, vectorOf(intExpr(null, 4), intExpr(null, 3))), analyse(PLUS_ENV, FOO_NS, (listForm(qSymbolForm("u", "+"), intForm(4), intForm(3)))));
-    }
-
-    @Test
-    public void testEnum() throws Exception {
-        System.out.println(ReturnWrapper.IO);
     }
 }

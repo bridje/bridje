@@ -269,38 +269,11 @@ public class TypeChecker {
             }
 
             @Override
-            public TypeResult visit(Expr.JavaTypeDefExpr<? extends Void> expr) {
+            public TypeResult visit(Expr.DefJExpr<? extends Void> expr) {
                 // TODO at some point we'll have to check the types that the user provides us with.
                 // today is not that day, though.
 
-                return new TypeResult(new Expr.JavaTypeDefExpr<>(expr.range, ENV_IO, expr.ns, expr.qsym, expr.javaTypeDef));
-            }
-
-            @Override
-            public TypeResult visit(Expr.JavaCallExpr<? extends Void> expr) {
-                TypeVar resultType = new TypeVar();
-                Type varType = expr.javaTypeDef.type.instantiate();
-
-                PVector<TypeResult> paramTypeResults = expr.params.stream().map(e -> typeExpr0(e, localEnv)).collect(toPVector());
-
-                PVector<MonomorphicEnv> envs = paramTypeResults.stream()
-                    .map(tr -> tr.monomorphicEnv)
-                    .collect(toPVector());
-
-                TypeMapping mapping = unify(
-                    typeEquations(envs)
-                        .plus(new TypeEquation(varType, paramTypeResults.isEmpty()
-                            ? resultType
-                            : new FnType(paramTypeResults.stream().map(tr -> tr.expr.type).collect(toPVector()), resultType))));
-
-                return new TypeResult(
-                    union(envs.stream().map(e -> e.apply(mapping)).collect(toPVector())),
-                    mapping.applyTo(
-                        new Expr.JavaCallExpr<>(expr.range, resultType,
-                            expr.javaTypeDef,
-                            paramTypeResults.stream()
-                                .map(tr -> tr.expr)
-                                .collect(toPVector()))));
+                return new TypeResult(new Expr.DefJExpr<>(expr.range, ENV_IO, expr.sym, expr.javaCall, expr.typeDef));
             }
 
             @Override

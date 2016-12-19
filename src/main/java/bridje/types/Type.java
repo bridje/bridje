@@ -553,7 +553,7 @@ public abstract class Type {
 
         @Override
         public JavaCall.JavaReturn javaReturn() {
-            if (appliedType.equals(IO.DATA_TYPE.type)) {
+            if (appliedType.equals(IO.IO_TYPE)) {
                 JavaCall.JavaReturn javaReturn = typeParams.get(0).javaReturn();
                 return new JavaCall.JavaReturn(javaReturn.returnClass, javaReturn.wrappers.plus(0, ReturnWrapper.IO));
             } else {

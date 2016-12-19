@@ -87,11 +87,6 @@ public class Env {
         return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers, imports)), vars, dataTypes, dataTypeSuperclasses);
     }
 
-    public Env withJavaTypeDef(NS ns, QSymbol sym, JavaTypeDef javaTypeDef) {
-        return new Env(updateNSEnv(ns, nsEnv -> nsEnv.withJavaTypeDef(sym, javaTypeDef)),
-            vars, dataTypes, dataTypeSuperclasses);
-    }
-
     private static <K, V> Optional<V> find(PMap<K, V> map, K key) {
         return Optional.ofNullable(map.get(key));
     }
@@ -145,10 +140,5 @@ public class Env {
                     return Optional.empty();
                 }
             });
-    }
-
-    public Optional<JavaTypeDef> resolveJavaCall(NS ns, QSymbol qsym) {
-        return find(nsEnvs, ns)
-            .flatMap(nsEnv -> find(nsEnv.javaTypeDefs, qsym));
     }
 }

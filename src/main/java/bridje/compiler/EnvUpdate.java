@@ -142,22 +142,4 @@ public interface EnvUpdate<T> {
                 dataType);
         }
     }
-
-    class JavaTypeDefEnvUpdate implements EnvUpdate<JavaCall> {
-
-        final NS ns;
-        final QSymbol qsym;
-        final JavaTypeDef javaTypeDef;
-
-        public JavaTypeDefEnvUpdate(NS ns, QSymbol qsym, JavaTypeDef javaTypeDef) {
-            this.ns = ns;
-            this.qsym = qsym;
-            this.javaTypeDef = javaTypeDef;
-        }
-
-        @Override
-        public Pair<Env, JavaCall> updateEnv(Env env) {
-            return pair(env.withJavaTypeDef(ns, qsym, javaTypeDef), javaTypeDef.javaCall);
-        }
-    }
 }

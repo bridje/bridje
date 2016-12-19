@@ -723,31 +723,31 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static class JavaTypeDefExpr<ET> extends Expr<ET> {
-        public final NS ns;
-        public final QSymbol qsym;
-        public final JavaTypeDef javaTypeDef;
+    public static class DefJExpr<ET> extends Expr<ET> {
+        public final FQSymbol sym;
+        public final JavaCall javaCall;
+        public final Type typeDef;
 
-        public JavaTypeDefExpr(Range range, ET type, NS ns, QSymbol qsym, JavaTypeDef javaTypeDef) {
+        public DefJExpr(Range range, ET type, FQSymbol sym, JavaCall javaCall, Type typeDef) {
             super(range, type);
-            this.ns = ns;
-            this.qsym = qsym;
-            this.javaTypeDef = javaTypeDef;
+            this.sym = sym;
+            this.javaCall = javaCall;
+            this.typeDef = typeDef;
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            JavaTypeDefExpr<?> that = (JavaTypeDefExpr<?>) o;
-            return Objects.equals(ns, that.ns) &&
-                Objects.equals(qsym, that.qsym) &&
-                Objects.equals(javaTypeDef, that.javaTypeDef);
+            DefJExpr<?> that = (DefJExpr<?>) o;
+            return Objects.equals(sym, that.sym) &&
+                Objects.equals(javaCall, that.javaCall) &&
+                Objects.equals(typeDef, that.typeDef);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(ns, qsym, javaTypeDef);
+            return Objects.hash(sym, javaCall, typeDef);
         }
 
         @Override
@@ -757,12 +757,12 @@ public abstract class Expr<ET> {
 
         @Override
         public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new JavaTypeDefExpr<>(range, fn.apply(type), ns, qsym, javaTypeDef);
+            return new DefJExpr<>(range, fn.apply(type), sym, javaCall, typeDef);
         }
 
         @Override
         public String toString() {
-            return String.format("(JavaTypeDefExpr (:: %s.%s/%s %s))", ns.name, qsym.ns, qsym.symbol, javaTypeDef.type);
+            return String.format("(DefJExpr %s (:: %s %s))", sym, javaCall, typeDef);
         }
     }
 
@@ -801,48 +801,6 @@ public abstract class Expr<ET> {
         @Override
         public String toString() {
             return String.format("(DefDataExpr %s)", dataType);
-        }
-    }
-
-    public static class JavaCallExpr<ET> extends Expr<ET> {
-        public final JavaTypeDef javaTypeDef;
-        public final PVector<Expr<ET>> params;
-
-        public JavaCallExpr(Range range, ET type, JavaTypeDef javaTypeDef, PVector<Expr<ET>> params) {
-            super(range, type);
-
-            this.javaTypeDef = javaTypeDef;
-            this.params = params;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            JavaCallExpr<?> that = (JavaCallExpr<?>) o;
-            return Objects.equals(javaTypeDef, that.javaTypeDef) &&
-                Objects.equals(params, that.params);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(javaTypeDef, params);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("(JavaCallExpr %s %s)", javaTypeDef.javaCall, params);
-        }
-
-        @Override
-        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
-            return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new JavaCallExpr<ET_>(range, fn.apply(type), javaTypeDef,
-                params.stream().map(p -> p.fmapType(fn)).collect(toPVector()));
         }
     }
 }
