@@ -199,16 +199,16 @@ public class Analyser {
                                         }
 
                                         try {
-                                            JavaCall call;
+                                            JCall call;
                                             String calleeName = calleeNameForm.sym.sym;
                                             if (calleeName.startsWith(".")) {
-                                                call = JavaCall.InstanceMethodCall.find(c, calleeNameForm.sym.sym.substring(1), type);
+                                                call = JCall.InstanceMethodCall.find(c, calleeNameForm.sym.sym.substring(1), type);
                                             } else {
-                                                call = JavaCall.StaticMethodCall.find(c, calleeNameForm.sym.sym, type);
+                                                call = JCall.StaticMethodCall.find(c, calleeNameForm.sym.sym, type);
                                             }
 
                                             return parseEnd(new Expr.DefJExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), call, type));
-                                        } catch (JavaCall.NoMatches | JavaCall.MultipleMatches e) {
+                                        } catch (JCall.NoMatches | JCall.MultipleMatches e) {
                                             throw new RuntimeException(e);
                                         }
                                     }))));

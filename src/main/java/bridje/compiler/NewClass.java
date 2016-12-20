@@ -44,4 +44,8 @@ class NewClass {
     public NewClass withSuperClass(Class<?> superClass) {
         return new NewClass(name, flags, superClass, interfaceNames, fields, methods);
     }
+
+    public NewClass withInterface(Class<?> interfaceClass) {
+        return new NewClass(name, flags, superClass, interfaceNames.plus(interfaceClass.getName()), fields, methods);
+    }
 }

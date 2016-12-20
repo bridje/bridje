@@ -5,6 +5,7 @@ import bridje.analyser.Expr;
 import bridje.analyser.ExprVisitor;
 import bridje.analyser.LocalVar;
 import bridje.runtime.*;
+import bridje.runtime.JCall.JReturn.ReturnWrapper;
 import bridje.types.Type;
 import bridje.util.Pair;
 import org.pcollections.*;
@@ -24,8 +25,7 @@ import static bridje.compiler.AccessFlag.*;
 import static bridje.compiler.ClassDefiner.defineClass;
 import static bridje.compiler.ClassLike.fromClass;
 import static bridje.compiler.ClassLike.fromClassName;
-import static bridje.compiler.Instructions.FieldOp.PUT_FIELD;
-import static bridje.compiler.Instructions.FieldOp.PUT_STATIC;
+import static bridje.compiler.Instructions.FieldOp.*;
 import static bridje.compiler.Instructions.*;
 import static bridje.compiler.Locals.instanceLocals;
 import static bridje.compiler.Locals.staticLocals;
@@ -421,20 +421,20 @@ public class Compiler {
                             typeLocals -> loadType(expr.typeDef, typeLocals))));
             }
 
-            private Instructions callInstructions(JavaCall call) {
-                return call.accept(new JavaCall.JavaCallVisitor<Instructions>() {
+            private Instructions callInstructions(JCall call) {
+                return call.accept(new JCall.JCallVisitor<Instructions>() {
                     @Override
-                    public Instructions visit(JavaCall.StaticMethodCall call) {
+                    public Instructions visit(JCall.StaticMethodCall call) {
                         return methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name,
-                            call.signature.javaReturn.returnClass,
-                            call.signature.javaParams.stream().map(p -> p.paramClass).collect(toPVector()));
+                            call.signature.jReturn.returnClass,
+                            call.signature.jParams.stream().map(p -> p.paramClass).collect(toPVector()));
                     }
 
                     @Override
-                    public Instructions visit(JavaCall.InstanceMethodCall call) {
+                    public Instructions visit(JCall.InstanceMethodCall call) {
                         return methodCall(fromClass(call.clazz), INVOKE_VIRTUAL, call.name,
-                            call.signature.javaReturn.returnClass,
-                            call.signature.javaParams.stream().map(p -> p.paramClass).collect(toPVector()));
+                            call.signature.jReturn.returnClass,
+                            call.signature.jParams.stream().map(p -> p.paramClass).collect(toPVector()));
                     }
                 });
             }
@@ -444,25 +444,72 @@ public class Compiler {
                 Type typeDef = expr.typeDef;
 
                 NewClass newClass = newClass(format("%s$$%s$$%d", expr.sym.ns.name, expr.sym.symbol.sym, uniqueInt()));
+                ClassLike classLike = fromClassName(newClass.name);
+
+                JCall jCall = expr.jCall;
+                JCall.JSignature sig = jCall.signature;
+                PVector<ReturnWrapper> returnWrappers = sig.jReturn.wrappers;
+
+                Instructions callInstructions = callInstructions(jCall);
+
+                boolean isIO = !returnWrappers.isEmpty() && returnWrappers.get(0) == ReturnWrapper.IO;
 
                 if (typeDef instanceof Type.FnType) {
                     Type.FnType fnType = (Type.FnType) typeDef;
 
+                    Instructions methodInstructions;
+
                     Locals locals = staticLocals();
 
-                    for (int i = 0; i < fnType.paramTypes.size(); i++) {
-                        locals = locals.withVarLocal(i, fnType.paramTypes.get(i).javaType);
+                    PVector<Type> paramTypes = fnType.paramTypes;
+                    for (int i = 0; i < paramTypes.size(); i++) {
+                        locals = locals.withVarLocal(i, paramTypes.get(i).javaType);
                     }
 
                     final Locals locals_ = locals;
+                    Instructions loadParamInstructions = mplus(IntStream.range(0, paramTypes.size()).mapToObj(i -> locals_.get(i).load()).collect(toPVector()));
 
-                    return compileDefFn(expr.sym, fnType, newClass,
-                        mplus(
-                            mplus(IntStream.range(0, fnType.paramTypes.size()).mapToObj(i -> locals_.get(i).load()).collect(toPVector())),
-                            callInstructions(expr.javaCall),
-                            ret(fnType.returnType.javaType)));
+                    if (isIO) {
+                        returnWrappers = returnWrappers.minus(0);
+
+                        for (int i = 0; i < paramTypes.size(); i++) {
+                            newClass = newClass.withField(newField("param$" + i, paramTypes.get(i).javaType, setOf(PRIVATE, FINAL)));
+                        }
+
+                        newClass = newClass.withInterface(IO.class)
+                            .withMethod(newMethod(setOf(PUBLIC, FINAL), "runIO", Object.class, Empty.vector(),
+                                mplus(
+                                    mplus(IntStream.range(0, paramTypes.size())
+                                        .mapToObj(i -> fieldOp(GET_FIELD, classLike, "param$" + i, fromClass(paramTypes.get(i).javaType)))
+                                        .collect(toPVector())),
+                                    callInstructions)));
+
+                        methodInstructions = newObject(fromClassName(newClass.name),
+                            paramTypes.stream().map(p -> p.javaType).collect(toPVector()),
+                            loadParamInstructions);
+                    } else {
+                        methodInstructions = mplus(
+                            loadParamInstructions,
+                            callInstructions);
+                    }
+
+                    return compileDefFn(expr.sym, fnType, newClass, mplus(methodInstructions, ret(fnType.returnType.javaType)));
                 } else {
-                    return compileDefValue(expr.sym, typeDef, newClass, callInstructions(expr.javaCall));
+                    Instructions valueInstructions;
+
+                    if (isIO) {
+                        newClass = newClass.withInterface(IO.class)
+                            .withMethod(newMethod(Empty.set(), "<init>", Void.TYPE, Empty.vector(),
+                                mplus(loadThis(), OBJECT_SUPER_CONSTRUCTOR_CALL, ret(Void.TYPE))))
+                            .withMethod(newMethod(setOf(PUBLIC, FINAL), "runIO", Object.class, Empty.vector(),
+                                mplus(callInstructions, ret(typeDef.javaType))));
+
+                        valueInstructions = newObject(classLike, Empty.vector(), MZERO);
+                    } else {
+                        valueInstructions = callInstructions;
+                    }
+
+                    return compileDefValue(expr.sym, typeDef, newClass, valueInstructions);
                 }
             }
 

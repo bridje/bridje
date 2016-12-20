@@ -3,8 +3,8 @@ package bridje.types;
 import bridje.compiler.EnvUpdate;
 import bridje.runtime.FQSymbol;
 import bridje.runtime.IO;
-import bridje.runtime.JavaCall;
-import bridje.runtime.JavaCall.JavaReturn.ReturnWrapper;
+import bridje.runtime.JCall;
+import bridje.runtime.JCall.JReturn.ReturnWrapper;
 import bridje.util.Pair;
 import org.pcollections.*;
 
@@ -58,16 +58,16 @@ public abstract class Type {
         return alphaEquivalentTo(type.apply(unify(vectorOf(new TypeEquation(this, type)))));
     }
 
-    public JavaCall.JavaSignature javaSignature() {
-        return new JavaCall.JavaSignature(Empty.vector(), javaReturn());
+    public JCall.JSignature javaSignature() {
+        return new JCall.JSignature(Empty.vector(), javaReturn());
     }
 
-    public JavaCall.JavaParam javaParam() {
-        return new JavaCall.JavaParam(javaType);
+    public JCall.JParam javaParam() {
+        return new JCall.JParam(javaType);
     }
 
-    public JavaCall.JavaReturn javaReturn() {
-        return new JavaCall.JavaReturn(javaType, Empty.vector());
+    public JCall.JReturn javaReturn() {
+        return new JCall.JReturn(javaType, Empty.vector());
     }
 
     public static abstract class SimpleType extends Type {
@@ -374,8 +374,8 @@ public abstract class Type {
         }
 
         @Override
-        public JavaCall.JavaSignature javaSignature() {
-            return new JavaCall.JavaSignature(
+        public JCall.JSignature javaSignature() {
+            return new JCall.JSignature(
                 paramTypes.stream().map(Type::javaParam).collect(toPVector()),
                 returnType.javaReturn());
         }
@@ -552,10 +552,10 @@ public abstract class Type {
         }
 
         @Override
-        public JavaCall.JavaReturn javaReturn() {
+        public JCall.JReturn javaReturn() {
             if (appliedType.equals(IO.IO_TYPE)) {
-                JavaCall.JavaReturn javaReturn = typeParams.get(0).javaReturn();
-                return new JavaCall.JavaReturn(javaReturn.returnClass, javaReturn.wrappers.plus(0, ReturnWrapper.IO));
+                JCall.JReturn jReturn = typeParams.get(0).javaReturn();
+                return new JCall.JReturn(jReturn.returnClass, jReturn.wrappers.plus(0, ReturnWrapper.IO));
             } else {
                 return super.javaReturn();
             }

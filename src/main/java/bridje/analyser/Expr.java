@@ -725,13 +725,13 @@ public abstract class Expr<ET> {
 
     public static class DefJExpr<ET> extends Expr<ET> {
         public final FQSymbol sym;
-        public final JavaCall javaCall;
+        public final JCall jCall;
         public final Type typeDef;
 
-        public DefJExpr(Range range, ET type, FQSymbol sym, JavaCall javaCall, Type typeDef) {
+        public DefJExpr(Range range, ET type, FQSymbol sym, JCall jCall, Type typeDef) {
             super(range, type);
             this.sym = sym;
-            this.javaCall = javaCall;
+            this.jCall = jCall;
             this.typeDef = typeDef;
         }
 
@@ -741,13 +741,13 @@ public abstract class Expr<ET> {
             if (o == null || getClass() != o.getClass()) return false;
             DefJExpr<?> that = (DefJExpr<?>) o;
             return Objects.equals(sym, that.sym) &&
-                Objects.equals(javaCall, that.javaCall) &&
+                Objects.equals(jCall, that.jCall) &&
                 Objects.equals(typeDef, that.typeDef);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(sym, javaCall, typeDef);
+            return Objects.hash(sym, jCall, typeDef);
         }
 
         @Override
@@ -757,12 +757,12 @@ public abstract class Expr<ET> {
 
         @Override
         public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new DefJExpr<>(range, fn.apply(type), sym, javaCall, typeDef);
+            return new DefJExpr<>(range, fn.apply(type), sym, jCall, typeDef);
         }
 
         @Override
         public String toString() {
-            return String.format("(DefJExpr %s (:: %s %s))", sym, javaCall, typeDef);
+            return String.format("(DefJExpr %s (:: %s %s))", sym, jCall, typeDef);
         }
     }
 

@@ -273,7 +273,7 @@ public class TypeChecker {
                 // TODO at some point we'll have to check the types that the user provides us with.
                 // today is not that day, though.
 
-                return new TypeResult(new Expr.DefJExpr<>(expr.range, ENV_IO, expr.sym, expr.javaCall, expr.typeDef));
+                return new TypeResult(new Expr.DefJExpr<>(expr.range, ENV_IO, expr.sym, expr.jCall, expr.typeDef));
             }
 
             @Override

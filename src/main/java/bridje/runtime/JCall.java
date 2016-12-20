@@ -12,38 +12,44 @@ import static bridje.Util.toPVector;
 import static bridje.util.Pair.zip;
 import static java.util.stream.Collectors.joining;
 
-public abstract class JavaCall {
+public abstract class JCall {
 
-    public interface JavaCallVisitor<T> {
+    public interface JCallVisitor<T> {
         T visit(StaticMethodCall call);
 
         T visit(InstanceMethodCall call);
     }
 
-    public abstract <T> T accept(JavaCallVisitor<T> visitor);
+    public final JSignature signature;
+
+    JCall(JSignature signature) {
+        this.signature = signature;
+    }
+
+    public abstract <T> T accept(JCallVisitor<T> visitor);
 
     public static class NoMatches extends Exception {
 
     }
 
     public static class MultipleMatches extends Exception {
-        public final PVector<JavaSignature> matches;
+        public final PVector<JSignature> matches;
 
-        public MultipleMatches(PVector<JavaSignature> matches) {
+        public MultipleMatches(PVector<JSignature> matches) {
             this.matches = matches;
         }
     }
 
-    public static class JavaParam {
+    public static class JParam {
         public final Class<?> paramClass;
 
-        public JavaParam(Class<?> paramClass) {
+        public JParam(Class<?> paramClass) {
             this.paramClass = paramClass;
         }
 
-        public Optional<JavaParam> match(Class<?> methodParamClass) {
+        public Optional<JParam> match(Class<?> methodParamClass) {
             if (methodParamClass.isAssignableFrom(paramClass)) {
-                return Optional.of(new JavaParam(methodParamClass));
+                return Optional.of(new JParam(methodParamClass));
             }
 
             return Optional.empty();
@@ -53,8 +59,8 @@ public abstract class JavaCall {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            JavaParam javaParam = (JavaParam) o;
-            return Objects.equals(paramClass, javaParam.paramClass);
+            JParam jParam = (JParam) o;
+            return Objects.equals(paramClass, jParam.paramClass);
         }
 
         @Override
@@ -68,7 +74,7 @@ public abstract class JavaCall {
         }
     }
 
-    public static class JavaReturn {
+    public static class JReturn {
         public enum ReturnWrapper {
             IO
         }
@@ -76,14 +82,14 @@ public abstract class JavaCall {
         public final Class<?> returnClass;
         public final PVector<ReturnWrapper> wrappers;
 
-        public JavaReturn(Class<?> returnClass, PVector<ReturnWrapper> wrappers) {
+        public JReturn(Class<?> returnClass, PVector<ReturnWrapper> wrappers) {
             this.returnClass = returnClass;
             this.wrappers = wrappers;
         }
 
-        public Optional<JavaReturn> match(Class<?> methodReturn) {
+        public Optional<JReturn> match(Class<?> methodReturn) {
             if (returnClass.isAssignableFrom(methodReturn)) {
-                return Optional.of(new JavaReturn(methodReturn, wrappers));
+                return Optional.of(new JReturn(methodReturn, wrappers));
             } else {
                 return Optional.empty();
             }
@@ -93,7 +99,7 @@ public abstract class JavaCall {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            JavaReturn that = (JavaReturn) o;
+            JReturn that = (JReturn) o;
             return Objects.equals(returnClass, that.returnClass) &&
                 Objects.equals(wrappers, that.wrappers);
         }
@@ -109,23 +115,23 @@ public abstract class JavaCall {
         }
     }
 
-    public static class JavaSignature {
-        public final PVector<JavaParam> javaParams;
-        public final JavaReturn javaReturn;
+    public static class JSignature {
+        public final PVector<JParam> jParams;
+        public final JReturn jReturn;
 
-        public JavaSignature(PVector<JavaParam> javaParams, JavaReturn javaReturn) {
-            this.javaParams = javaParams;
-            this.javaReturn = javaReturn;
+        public JSignature(PVector<JParam> jParams, JReturn jReturn) {
+            this.jParams = jParams;
+            this.jReturn = jReturn;
         }
 
-        public Optional<JavaSignature> match(PVector<Class<?>> methodParams, Class<?> methodReturn) {
-            if (javaParams.size() != methodParams.size()) {
+        public Optional<JSignature> match(PVector<Class<?>> methodParams, Class<?> methodReturn) {
+            if (jParams.size() != methodParams.size()) {
                 return Optional.empty();
             }
 
-            List<JavaParam> matchedParams = new LinkedList<>();
-            for (Pair<JavaParam, Class<?>> paramPair : zip(javaParams, methodParams)) {
-                Optional<JavaParam> matchedParam = paramPair.left.match(paramPair.right);
+            List<JParam> matchedParams = new LinkedList<>();
+            for (Pair<JParam, Class<?>> paramPair : zip(jParams, methodParams)) {
+                Optional<JParam> matchedParam = paramPair.left.match(paramPair.right);
                 if (matchedParam.isPresent()) {
                     matchedParams.add(matchedParam.get());
                 } else {
@@ -133,9 +139,9 @@ public abstract class JavaCall {
                 }
             }
 
-            Optional<JavaReturn> matchedReturn = javaReturn.match(methodReturn);
+            Optional<JReturn> matchedReturn = jReturn.match(methodReturn);
             if (matchedReturn.isPresent()) {
-                return Optional.of(new JavaSignature(TreePVector.from(matchedParams), matchedReturn.get()));
+                return Optional.of(new JSignature(TreePVector.from(matchedParams), matchedReturn.get()));
             } else {
                 return Optional.empty();
             }
@@ -145,33 +151,32 @@ public abstract class JavaCall {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            JavaSignature signature = (JavaSignature) o;
-            return Objects.equals(javaParams, signature.javaParams) &&
-                Objects.equals(javaReturn, signature.javaReturn);
+            JSignature signature = (JSignature) o;
+            return Objects.equals(jParams, signature.jParams) &&
+                Objects.equals(jReturn, signature.jReturn);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(javaParams, javaReturn);
+            return Objects.hash(jParams, jReturn);
         }
 
         @Override
         public String toString() {
-            return String.format("(JavaSignature %s)",
-                javaParams.isEmpty()
-                    ? javaReturn
-                    : String.format("(-> %s %s)", javaParams.stream().map(Object::toString).collect(joining(" ")), javaReturn));
+            return String.format("(JSignature %s)",
+                jParams.isEmpty()
+                    ? jReturn
+                    : String.format("(-> %s %s)", jParams.stream().map(Object::toString).collect(joining(" ")), jReturn));
         }
     }
 
-    public static final class StaticMethodCall extends JavaCall {
+    public static final class StaticMethodCall extends JCall {
 
         public final Class<?> clazz;
         public final String name;
-        public final JavaSignature signature;
 
         public static StaticMethodCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
-            JavaSignature signature = type.javaSignature();
+            JSignature signature = type.javaSignature();
 
             PVector<StaticMethodCall> matches = Arrays.stream(clazz.getMethods())
                 .filter(m -> m.getName().equals(name))
@@ -195,14 +200,14 @@ public abstract class JavaCall {
             }
         }
 
-        public StaticMethodCall(Class<?> clazz, String name, JavaSignature signature) {
+        public StaticMethodCall(Class<?> clazz, String name, JSignature signature) {
+            super(signature);
             this.clazz = clazz;
             this.name = name;
-            this.signature = signature;
         }
 
         @Override
-        public <T> T accept(JavaCallVisitor<T> visitor) {
+        public <T> T accept(JCallVisitor<T> visitor) {
             return visitor.visit(this);
         }
 
@@ -227,10 +232,9 @@ public abstract class JavaCall {
         }
     }
 
-    public static class InstanceMethodCall extends JavaCall {
+    public static class InstanceMethodCall extends JCall {
         public final Class<?> clazz;
         public final String name;
-        public final JavaSignature signature;
 
         public static InstanceMethodCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
             if (!(type instanceof Type.FnType)) {
@@ -239,15 +243,15 @@ public abstract class JavaCall {
 
             Type.FnType fnType = (Type.FnType) type;
 
-            JavaSignature fnSignature = fnType.javaSignature();
-            if (fnSignature.javaParams.isEmpty()) {
-                JavaParam thisParam = fnSignature.javaParams.get(0);
+            JSignature fnSignature = fnType.javaSignature();
+            if (fnSignature.jParams.isEmpty()) {
+                JParam thisParam = fnSignature.jParams.get(0);
                 if (!thisParam.paramClass.equals(clazz)) {
                     throw new NoMatches();
                 }
             }
 
-            JavaSignature signature = new JavaSignature(fnSignature.javaParams.minus(0), fnSignature.javaReturn);
+            JSignature signature = new JSignature(fnSignature.jParams.minus(0), fnSignature.jReturn);
 
             PVector<InstanceMethodCall> matches = Arrays.stream(clazz.getMethods())
                 .filter(m -> m.getName().equals(name))
@@ -272,14 +276,14 @@ public abstract class JavaCall {
 
         }
 
-        public InstanceMethodCall(Class<?> clazz, String name, JavaSignature signature) {
+        public InstanceMethodCall(Class<?> clazz, String name, JSignature signature) {
+            super(signature);
             this.clazz = clazz;
             this.name = name;
-            this.signature = signature;
         }
 
         @Override
-        public <T> T accept(JavaCallVisitor<T> visitor) {
+        public <T> T accept(JCallVisitor<T> visitor) {
             return visitor.visit(this);
         }
 
