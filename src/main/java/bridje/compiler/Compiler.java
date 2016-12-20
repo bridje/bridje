@@ -439,6 +439,14 @@ public class Compiler {
                 });
             }
 
+            private Locals withParams(Locals locals, PVector<Class<?>> classes) {
+                for (int i = 0; i < classes.size(); i++) {
+                    locals = locals.withVarLocal(i, classes.get(i));
+                }
+
+                return locals;
+            }
+
             @Override
             public Instructions visit(Expr.DefJExpr<? extends Type> expr) {
                 Type typeDef = expr.typeDef;
@@ -450,66 +458,64 @@ public class Compiler {
                 JCall.JSignature sig = jCall.signature;
                 PVector<ReturnWrapper> returnWrappers = sig.jReturn.wrappers;
 
-                Instructions callInstructions = callInstructions(jCall);
 
                 boolean isIO = !returnWrappers.isEmpty() && returnWrappers.get(0) == ReturnWrapper.IO;
+                boolean isFn = typeDef instanceof Type.FnType;
 
-                if (typeDef instanceof Type.FnType) {
-                    Type.FnType fnType = (Type.FnType) typeDef;
+                if (isIO) {
+                    returnWrappers = returnWrappers.minus(0);
+                }
 
-                    Instructions methodInstructions;
+                Type.FnType fnType = isFn ? ((Type.FnType) typeDef) : null;
+                Type returnType = fnType != null ? fnType.returnType : typeDef;
+                PVector<Type> paramTypes = isFn ? fnType.paramTypes : Empty.vector();
+                PVector<Class<?>> paramClasses = paramTypes.stream().map(p -> p.javaType).collect(toPVector());
+                int paramCount = paramTypes.size();
 
-                    Locals locals = staticLocals();
+                Locals staticParamLocals = withParams(staticLocals(), paramClasses);
+                // TODO wrap these with param wrappers
+                Instructions loadParamInstructions = mplus(IntStream.range(0, paramCount).mapToObj(i -> staticParamLocals.get(i).load()).collect(toPVector()));
 
-                    PVector<Type> paramTypes = fnType.paramTypes;
-                    for (int i = 0; i < paramTypes.size(); i++) {
-                        locals = locals.withVarLocal(i, paramTypes.get(i).javaType);
+                // TODO wrap this with other return wrappers
+                Instructions callInstructions = mplus(loadParamInstructions, callInstructions(jCall));
+
+                if (isIO) {
+                    for (int i = 0; i < paramCount; i++) {
+                        newClass = newClass.withField(newField("param$" + i, paramTypes.get(i).javaType, setOf(PRIVATE, FINAL)));
                     }
 
-                    final Locals locals_ = locals;
-                    Instructions loadParamInstructions = mplus(IntStream.range(0, paramTypes.size()).mapToObj(i -> locals_.get(i).load()).collect(toPVector()));
+                    Locals instanceParamLocals = withParams(instanceLocals(), paramClasses);
 
-                    if (isIO) {
-                        returnWrappers = returnWrappers.minus(0);
+                    newClass = newClass
+                        .withInterface(IO.class)
+                        .withMethod(newMethod(Empty.set(), "<init>", Void.TYPE, paramClasses,
+                            mplus(
+                                loadThis(), OBJECT_SUPER_CONSTRUCTOR_CALL,
+                                mplus(IntStream.range(0, paramCount)
+                                    .mapToObj(i -> mplus(
+                                        instanceParamLocals.get(i).load(),
+                                        fieldOp(PUT_FIELD, classLike, "param$" + i, fromClass(paramTypes.get(i).javaType))))
+                                    .collect(toPVector())),
+                                ret(Void.TYPE))))
 
-                        for (int i = 0; i < paramTypes.size(); i++) {
-                            newClass = newClass.withField(newField("param$" + i, paramTypes.get(i).javaType, setOf(PRIVATE, FINAL)));
-                        }
+                        .withMethod(newMethod(setOf(PUBLIC, FINAL), "runIO", Object.class, Empty.vector(),
+                            mplus(
+                                mplus(IntStream.range(0, paramCount)
+                                    .mapToObj(i -> mplus(
+                                        loadThis(),
+                                        fieldOp(GET_FIELD, classLike, "param$" + i, fromClass(paramTypes.get(i).javaType))))
+                                    .collect(toPVector())),
+                                callInstructions,
+                                box(returnType.javaType),
+                                ret(Object.class))));
 
-                        newClass = newClass.withInterface(IO.class)
-                            .withMethod(newMethod(setOf(PUBLIC, FINAL), "runIO", Object.class, Empty.vector(),
-                                mplus(
-                                    mplus(IntStream.range(0, paramTypes.size())
-                                        .mapToObj(i -> fieldOp(GET_FIELD, classLike, "param$" + i, fromClass(paramTypes.get(i).javaType)))
-                                        .collect(toPVector())),
-                                    callInstructions)));
+                    callInstructions = newObject(classLike, paramClasses, loadParamInstructions);
+                }
 
-                        methodInstructions = newObject(fromClassName(newClass.name),
-                            paramTypes.stream().map(p -> p.javaType).collect(toPVector()),
-                            loadParamInstructions);
-                    } else {
-                        methodInstructions = mplus(
-                            loadParamInstructions,
-                            callInstructions);
-                    }
-
-                    return compileDefFn(expr.sym, fnType, newClass, mplus(methodInstructions, ret(fnType.returnType.javaType)));
+                if (isFn) {
+                    return compileDefFn(expr.sym, fnType, newClass, mplus(callInstructions, ret(returnType.javaType)));
                 } else {
-                    Instructions valueInstructions;
-
-                    if (isIO) {
-                        newClass = newClass.withInterface(IO.class)
-                            .withMethod(newMethod(Empty.set(), "<init>", Void.TYPE, Empty.vector(),
-                                mplus(loadThis(), OBJECT_SUPER_CONSTRUCTOR_CALL, ret(Void.TYPE))))
-                            .withMethod(newMethod(setOf(PUBLIC, FINAL), "runIO", Object.class, Empty.vector(),
-                                mplus(callInstructions, ret(typeDef.javaType))));
-
-                        valueInstructions = newObject(classLike, Empty.vector(), MZERO);
-                    } else {
-                        valueInstructions = callInstructions;
-                    }
-
-                    return compileDefValue(expr.sym, typeDef, newClass, valueInstructions);
+                    return compileDefValue(expr.sym, typeDef, newClass, callInstructions);
                 }
             }
 
