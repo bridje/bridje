@@ -390,7 +390,7 @@ public class Compiler {
             public Instructions visit(Expr.DefExpr<? extends Type> expr) {
                 Type type = expr.body.type;
 
-                String className = format("%s$$%s$$%d", expr.sym.ns, expr.sym.symbol, uniqueInt());
+                String className = format("%s$$%s$$%d", expr.sym.ns.name, expr.sym.symbol, uniqueInt());
                 NewClass newClass = newClass(className);
 
                 if (expr.body instanceof Expr.FnExpr && type instanceof Type.FnType) {
@@ -527,7 +527,7 @@ public class Compiler {
                     type = ((Type.AppliedType) type).appliedType;
                 }
 
-                Class<?> superClass = defineClass(newClass(format("%s$$%s$$%d", dataType.sym.ns, dataType.sym.symbol, uniqueInt()), setOf(PUBLIC, ABSTRACT))
+                Class<?> superClass = defineClass(newClass(format("%s$$%s$$%d", dataType.sym.ns.name, dataType.sym.symbol, uniqueInt()), setOf(PUBLIC, ABSTRACT))
                     .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, Empty.vector(),
                         mplus(loadThis(), OBJECT_SUPER_CONSTRUCTOR_CALL, ret(Void.TYPE)))));
 
@@ -539,7 +539,7 @@ public class Compiler {
                     .fmapParamTypes(t -> t.applyJavaTypeMapping(classMapping));
 
                 for (DataTypeConstructor<? extends Type> constructor : dataType.constructors) {
-                    String subclassName = format("%s$$%s$$%s$$%d", dataType.sym.ns, dataType.sym.symbol, constructor.sym.symbol, uniqueInt());
+                    String subclassName = format("%s$$%s$$%s$$%d", dataType.sym.ns.name, dataType.sym.symbol, constructor.sym.symbol, uniqueInt());
 
                     NewClass newClass = newClass(subclassName).withSuperClass(superClass);
                     final NewClass baseNewClass = newClass;
