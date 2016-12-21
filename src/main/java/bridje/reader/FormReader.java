@@ -237,7 +237,13 @@ public class FormReader {
         try {
             return new Form.IntForm(range, Long.parseLong(token));
         } catch (NumberFormatException e) {
-            throw panic("Invalid number '%s' (%s)", token, range);
+            if ((Character.isDigit(token.charAt(0))) ||
+                token.length() > 1 && token.startsWith("-") && Character.isDigit(token.charAt(1))) {
+
+                throw panic("Invalid number '%s' (%s)", token, range);
+            } else {
+                return new Form.SymbolForm(range, symbol(token));
+            }
         }
     }
 
