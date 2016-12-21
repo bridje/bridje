@@ -6,7 +6,8 @@ import bridje.runtime.DataTypeConstructor.ValueConstructor;
 import bridje.runtime.DataTypeConstructor.VectorConstructor;
 import bridje.runtime.IO;
 import bridje.runtime.JCall;
-import bridje.runtime.JCall.JReturn.ReturnWrapper;
+import bridje.runtime.JSignature.JReturn.ReturnWrapper;
+import bridje.runtime.JSignature;
 import bridje.types.Type;
 import org.junit.Test;
 import org.pcollections.Empty;
@@ -146,9 +147,9 @@ public class AnalyserTest {
     @Test
     public void analysesJavaStaticPureFunction() throws Exception {
         JCall call = new JCall.StaticMethodCall(String.class, "valueOf",
-            new JCall.JSignature(
-                vectorOf(new JCall.JParam(Boolean.TYPE)),
-                new JCall.JReturn(String.class, Empty.vector())));
+            new JSignature(
+                vectorOf(new JSignature.JParam(Boolean.TYPE)),
+                new JSignature.JReturn(String.class, Empty.vector())));
 
         assertEquals(new Expr.DefJExpr<>(null, null, fqSym(FOO_NS, symbol("bool->str")), call,
                 new Type.FnType(vectorOf(BOOL_TYPE), STRING_TYPE)),
@@ -161,7 +162,7 @@ public class AnalyserTest {
     @Test
     public void analysesJavaStaticIOTypeDef() throws Exception {
         JCall call = new JCall.StaticMethodCall(Instant.class, "now",
-            new JCall.JSignature(Empty.vector(), new JCall.JReturn(Instant.class, vectorOf(ReturnWrapper.IO))));
+            new JSignature(Empty.vector(), new JSignature.JReturn(Instant.class, vectorOf(ReturnWrapper.IO))));
 
         assertEquals(new Expr.DefJExpr<>(null, null, fqSym(FOO_NS, symbol("now")), call,
                 new Type.AppliedType(IO.IO_TYPE, vectorOf(new Type.JavaType(Instant.class)))),

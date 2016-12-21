@@ -15,7 +15,7 @@ public class JCallTest {
     @Test
     public void findsInstantNow() throws Exception {
         assertEquals(new JCall.StaticMethodCall(Instant.class, "now",
-                new JCall.JSignature(Empty.vector(), new JCall.JReturn(Instant.class, Empty.vector()))),
+                new JSignature(Empty.vector(), new JSignature.JReturn(Instant.class, Empty.vector()))),
             JCall.StaticMethodCall.find(Instant.class, "now", new Type.JavaType(Instant.class)));
     }
 
@@ -27,7 +27,7 @@ public class JCallTest {
     @Test
     public void findsStringTrim() throws Exception {
         assertEquals(new JCall.InstanceMethodCall(String.class, "trim",
-                new JCall.JSignature(Empty.vector(), new JCall.JReturn(String.class, Empty.vector()))),
+                new JSignature(Empty.vector(), new JSignature.JReturn(String.class, Empty.vector()))),
             JCall.InstanceMethodCall.find(String.class, "trim", new Type.FnType(vectorOf(STRING_TYPE), STRING_TYPE)));
     }
 }

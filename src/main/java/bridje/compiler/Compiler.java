@@ -5,7 +5,7 @@ import bridje.analyser.Expr;
 import bridje.analyser.ExprVisitor;
 import bridje.analyser.LocalVar;
 import bridje.runtime.*;
-import bridje.runtime.JCall.JReturn.ReturnWrapper;
+import bridje.runtime.JSignature.JReturn.ReturnWrapper;
 import bridje.types.Type;
 import bridje.util.Pair;
 import org.pcollections.*;

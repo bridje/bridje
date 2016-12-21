@@ -3,8 +3,8 @@ package bridje.types;
 import bridje.compiler.EnvUpdate;
 import bridje.runtime.FQSymbol;
 import bridje.runtime.IO;
-import bridje.runtime.JCall;
-import bridje.runtime.JCall.JReturn.ReturnWrapper;
+import bridje.runtime.JSignature.JReturn.ReturnWrapper;
+import bridje.runtime.JSignature;
 import bridje.util.Pair;
 import org.pcollections.*;
 
@@ -58,16 +58,16 @@ public abstract class Type {
         return alphaEquivalentTo(type.apply(unify(vectorOf(new TypeEquation(this, type)))));
     }
 
-    public JCall.JSignature javaSignature() {
-        return new JCall.JSignature(Empty.vector(), javaReturn());
+    public JSignature javaSignature() {
+        return new JSignature(Empty.vector(), javaReturn());
     }
 
-    public JCall.JParam javaParam() {
-        return new JCall.JParam(javaType);
+    public JSignature.JParam javaParam() {
+        return new JSignature.JParam(javaType);
     }
 
-    public JCall.JReturn javaReturn() {
-        return new JCall.JReturn(javaType, Empty.vector());
+    public JSignature.JReturn javaReturn() {
+        return new JSignature.JReturn(javaType, Empty.vector());
     }
 
     public static abstract class SimpleType extends Type {
@@ -374,8 +374,8 @@ public abstract class Type {
         }
 
         @Override
-        public JCall.JSignature javaSignature() {
-            return new JCall.JSignature(
+        public JSignature javaSignature() {
+            return new JSignature(
                 paramTypes.stream().map(Type::javaParam).collect(toPVector()),
                 returnType.javaReturn());
         }
@@ -552,10 +552,10 @@ public abstract class Type {
         }
 
         @Override
-        public JCall.JReturn javaReturn() {
+        public JSignature.JReturn javaReturn() {
             if (appliedType.equals(IO.IO_TYPE)) {
-                JCall.JReturn jReturn = typeParams.get(0).javaReturn();
-                return new JCall.JReturn(jReturn.returnClass, jReturn.wrappers.plus(0, ReturnWrapper.IO));
+                JSignature.JReturn jReturn = typeParams.get(0).javaReturn();
+                return new JSignature.JReturn(jReturn.returnClass, jReturn.wrappers.plus(0, ReturnWrapper.IO));
             } else {
                 return super.javaReturn();
             }
