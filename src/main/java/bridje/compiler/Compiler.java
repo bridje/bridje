@@ -421,20 +421,35 @@ public class Compiler {
                             typeLocals -> loadType(expr.typeDef, typeLocals))));
             }
 
-            private Instructions callInstructions(JCall call) {
+            private Instructions callInstructions(JCall call, Instructions paramInstructions) {
                 return call.accept(new JCall.JCallVisitor<Instructions>() {
                     @Override
                     public Instructions visit(JCall.StaticMethodCall call) {
-                        return methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name,
-                            call.signature.jReturn.returnClass,
-                            call.signature.jParams.stream().map(p -> p.paramClass).collect(toPVector()));
+                        return mplus(
+                            paramInstructions,
+                            methodCall(fromClass(call.clazz), INVOKE_STATIC, call.name,
+                                call.signature.jReturn.returnClass,
+                                call.signature.jParams.stream().map(p -> p.paramClass).collect(toPVector())));
                     }
 
                     @Override
                     public Instructions visit(JCall.InstanceMethodCall call) {
-                        return methodCall(fromClass(call.clazz), INVOKE_VIRTUAL, call.name,
-                            call.signature.jReturn.returnClass,
-                            call.signature.jParams.stream().map(p -> p.paramClass).collect(toPVector()));
+                        return mplus(paramInstructions,
+                            methodCall(fromClass(call.clazz), INVOKE_VIRTUAL, call.name,
+                                call.signature.jReturn.returnClass,
+                                call.signature.jParams.stream().map(p -> p.paramClass).collect(toPVector())));
+                    }
+
+                    @Override
+                    public Instructions visit(JCall.ConstructorCall call) {
+                        return newObject(fromClass(call.clazz),
+                            call.signature.jParams.stream().map(p -> p.paramClass).collect(toPVector()),
+                            paramInstructions);
+                    }
+
+                    @Override
+                    public Instructions visit(JCall.GetStaticFieldCall call) {
+                        return fieldOp(GET_STATIC, fromClass(call.clazz), call.name, fromClass(call.signature.jReturn.returnClass));
                     }
                 });
             }
@@ -455,7 +470,7 @@ public class Compiler {
                 ClassLike classLike = fromClassName(newClass.name);
 
                 JCall jCall = expr.jCall;
-                JCall.JSignature sig = jCall.signature;
+                JSignature sig = jCall.signature;
                 PVector<ReturnWrapper> returnWrappers = sig.jReturn.wrappers;
 
 
@@ -477,7 +492,7 @@ public class Compiler {
                 Instructions loadParamInstructions = mplus(IntStream.range(0, paramCount).mapToObj(i -> staticParamLocals.get(i).load()).collect(toPVector()));
 
                 // TODO wrap this with other return wrappers
-                Instructions callInstructions = mplus(loadParamInstructions, callInstructions(jCall));
+                Instructions callInstructions = callInstructions(jCall, loadParamInstructions);
 
                 if (isIO) {
                     for (int i = 0; i < paramCount; i++) {
@@ -493,6 +508,7 @@ public class Compiler {
                                 loadThis(), OBJECT_SUPER_CONSTRUCTOR_CALL,
                                 mplus(IntStream.range(0, paramCount)
                                     .mapToObj(i -> mplus(
+                                        loadThis(),
                                         instanceParamLocals.get(i).load(),
                                         fieldOp(PUT_FIELD, classLike, "param$" + i, fromClass(paramTypes.get(i).javaType))))
                                     .collect(toPVector())),
@@ -500,12 +516,12 @@ public class Compiler {
 
                         .withMethod(newMethod(setOf(PUBLIC, FINAL), "runIO", Object.class, Empty.vector(),
                             mplus(
-                                mplus(IntStream.range(0, paramCount)
-                                    .mapToObj(i -> mplus(
-                                        loadThis(),
-                                        fieldOp(GET_FIELD, classLike, "param$" + i, fromClass(paramTypes.get(i).javaType))))
-                                    .collect(toPVector())),
-                                callInstructions,
+                                callInstructions(jCall,
+                                    mplus(IntStream.range(0, paramCount)
+                                        .mapToObj(i -> mplus(
+                                            loadThis(),
+                                            fieldOp(GET_FIELD, classLike, "param$" + i, fromClass(paramTypes.get(i).javaType))))
+                                        .collect(toPVector()))),
                                 box(returnType.javaType),
                                 ret(Object.class))));
 

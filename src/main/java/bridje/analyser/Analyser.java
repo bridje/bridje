@@ -201,10 +201,14 @@ public class Analyser {
                                         try {
                                             JCall call;
                                             String calleeName = calleeNameForm.sym.sym;
-                                            if (calleeName.startsWith(".")) {
-                                                call = JCall.InstanceMethodCall.find(c, calleeNameForm.sym.sym.substring(1), type);
+                                            if (calleeName.equals("new")) {
+                                                call = JCall.ConstructorCall.find(c, type);
+                                            } else if (calleeName.startsWith("-")) {
+                                                call = JCall.GetStaticFieldCall.find(c, calleeName.substring(1), type);
+                                            } else if (calleeName.startsWith(".")) {
+                                                call = JCall.InstanceMethodCall.find(c, calleeName.substring(1), type);
                                             } else {
-                                                call = JCall.StaticMethodCall.find(c, calleeNameForm.sym.sym, type);
+                                                call = JCall.StaticMethodCall.find(c, calleeName, type);
                                             }
 
                                             return parseEnd(new Expr.DefJExpr<>(form.range, null, fqSym(currentNS, nameForm.sym), call, type));

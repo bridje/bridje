@@ -1,16 +1,16 @@
 package bridje.runtime;
 
 import bridje.types.Type;
-import bridje.util.Pair;
+import org.pcollections.Empty;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 
 import java.lang.reflect.Modifier;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Optional;
 
 import static bridje.Util.toPVector;
-import static bridje.util.Pair.zip;
-import static java.util.stream.Collectors.joining;
 
 public abstract class JCall {
 
@@ -18,6 +18,10 @@ public abstract class JCall {
         T visit(StaticMethodCall call);
 
         T visit(InstanceMethodCall call);
+
+        T visit(ConstructorCall call);
+
+        T visit(GetStaticFieldCall call);
     }
 
     public final JSignature signature;
@@ -40,15 +44,29 @@ public abstract class JCall {
         }
     }
 
+    private static JCall singleMatch(PVector<? extends JCall> matches) throws NoMatches, MultipleMatches {
+        switch (matches.size()) {
+            case 1:
+                return matches.get(0);
+            case 0:
+                throw new NoMatches();
+            default:
+                throw new MultipleMatches(matches.stream()
+                    .map(match -> match.signature)
+                    .collect(toPVector()));
+        }
+    }
+
     public static final class StaticMethodCall extends JCall {
 
         public final Class<?> clazz;
         public final String name;
 
-        public static StaticMethodCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
+        public static JCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
             JSignature signature = type.javaSignature();
 
-            PVector<StaticMethodCall> matches = Arrays.stream(clazz.getMethods())
+
+            return singleMatch(Arrays.stream(clazz.getMethods())
                 .filter(m -> m.getName().equals(name))
                 .filter(m -> Modifier.isStatic(m.getModifiers()))
                 .map(m ->
@@ -56,18 +74,7 @@ public abstract class JCall {
                         .map(sig -> new StaticMethodCall(clazz, name, sig))
                         .orElse(null))
                 .filter(Objects::nonNull)
-                .collect(toPVector());
-
-            switch (matches.size()) {
-                case 1:
-                    return matches.get(0);
-                case 0:
-                    throw new NoMatches();
-                default:
-                    throw new MultipleMatches(matches.stream()
-                        .map(match -> match.signature)
-                        .collect(toPVector()));
-            }
+                .collect(toPVector()));
         }
 
         public StaticMethodCall(Class<?> clazz, String name, JSignature signature) {
@@ -106,7 +113,7 @@ public abstract class JCall {
         public final Class<?> clazz;
         public final String name;
 
-        public static InstanceMethodCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
+        public static JCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
             if (!(type instanceof Type.FnType)) {
                 throw new NoMatches();
             }
@@ -123,7 +130,7 @@ public abstract class JCall {
 
             JSignature signature = new JSignature(fnSignature.jParams.minus(0), fnSignature.jReturn);
 
-            PVector<InstanceMethodCall> matches = Arrays.stream(clazz.getMethods())
+            return singleMatch(Arrays.stream(clazz.getMethods())
                 .filter(m -> m.getName().equals(name))
                 .filter(m -> !Modifier.isStatic(m.getModifiers()))
                 .map(m ->
@@ -131,19 +138,7 @@ public abstract class JCall {
                         .map(sig -> new InstanceMethodCall(clazz, name, sig))
                         .orElse(null))
                 .filter(Objects::nonNull)
-                .collect(toPVector());
-
-            switch (matches.size()) {
-                case 1:
-                    return matches.get(0);
-                case 0:
-                    throw new NoMatches();
-                default:
-                    throw new MultipleMatches(matches.stream()
-                        .map(match -> match.signature)
-                        .collect(toPVector()));
-            }
-
+                .collect(toPVector()));
         }
 
         public InstanceMethodCall(Class<?> clazz, String name, JSignature signature) {
@@ -175,6 +170,66 @@ public abstract class JCall {
         @Override
         public String toString() {
             return String.format("(InstanceMethodCall %s/%s %s", clazz.getName(), name, signature);
+        }
+    }
+
+    public static class ConstructorCall extends JCall {
+        public final Class<?> clazz;
+
+        public static JCall find(Class<?> clazz, Type type) throws NoMatches, MultipleMatches {
+            JSignature signature = type.javaSignature();
+
+            return singleMatch(Arrays.stream(clazz.getConstructors())
+                .map(m ->
+                    signature.match(TreePVector.from(Arrays.asList(m.getParameterTypes())), clazz)
+                        .map(sig -> new ConstructorCall(clazz, sig))
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .collect(toPVector()));
+        }
+
+        public ConstructorCall(Class<?> clazz, JSignature signature) {
+            super(signature);
+            this.clazz = clazz;
+        }
+
+        @Override
+        public <T> T accept(JCallVisitor<T> visitor) {
+            return visitor.visit(this);
+        }
+    }
+
+    public static class GetStaticFieldCall extends JCall {
+
+        public final Class<?> clazz;
+        public final String name;
+
+        public static JCall find(Class<?> clazz, String name, Type type) throws NoMatches, MultipleMatches {
+            JSignature signature = type.javaSignature();
+
+            if (!signature.jParams.isEmpty()) {
+                throw new NoMatches();
+            }
+
+            return singleMatch(Arrays.stream(clazz.getFields())
+                .filter(f -> f.getName().equals(name))
+                .map(f ->
+                    signature.match(Empty.vector(), f.getType())
+                        .map(sig -> new GetStaticFieldCall(clazz, name, sig))
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .collect(toPVector()));
+        }
+
+        private GetStaticFieldCall(Class<?> clazz, String name, JSignature signature) {
+            super(signature);
+            this.clazz = clazz;
+            this.name = name;
+        }
+
+        @Override
+        public <T> T accept(JCallVisitor<T> visitor) {
+            return visitor.visit(this);
         }
     }
 }

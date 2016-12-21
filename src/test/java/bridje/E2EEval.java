@@ -10,6 +10,7 @@ import bridje.util.Pair;
 import org.junit.Test;
 import org.pcollections.HashTreePMap;
 
+import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.time.Instant;
 
@@ -257,5 +258,21 @@ public class E2EEval {
         Object ioValue = result.right.value;
         assertTrue(ioValue instanceof IO);
         assertTrue(((IO<?>) ioValue).runIO() instanceof Instant);
+    }
+
+    @Test
+    public void testMoreJavaInterop() throws Exception {
+        NS myNS = ns("my-ns");
+
+        Env env = evalAction(PLUS_ENV, "(ns my-ns {imports {java.io [PrintWriter PrintStream OutputStream], java.lang [System]}})").right.env;
+        env = evalAction(env, myNS, "(defj new-print-writer PrintWriter new (Fn OutputStream (IO PrintWriter)))").right.env;
+        env = evalAction(env, myNS, "(defj system-out System -out PrintStream)").right.env;
+
+        Pair<Expr<Type>, EvalResult> result = evalValue(env, myNS, "(new-print-writer system-out)");
+        assertEquals(result.left.type, new Type.AppliedType(IO.IO_TYPE, vectorOf(new Type.JavaType(PrintWriter.class))));
+
+        Object ioValue = result.right.value;
+        assertTrue(ioValue instanceof IO);
+        assertTrue(((IO<?>) ioValue).runIO() instanceof PrintWriter);
     }
 }
