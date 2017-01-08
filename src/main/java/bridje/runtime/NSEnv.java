@@ -1,6 +1,5 @@
 package bridje.runtime;
 
-import bridje.types.Type;
 import org.pcollections.Empty;
 import org.pcollections.PMap;
 
@@ -35,7 +34,7 @@ public class NSEnv {
         return new NSEnv(ns, declarations.plus(fqSymbol.symbol, fqSymbol), aliases, refers, imports);
     }
 
-    public NSEnv withDataType(DataType<Type> dataType) {
+    public NSEnv withDataType(DataType dataType) {
         return new NSEnv(ns,
             declarations
                 .plus(dataType.sym.symbol, dataType.sym)

@@ -3,7 +3,6 @@ package bridje.compiler;
 import bridje.analyser.Expr;
 import bridje.analyser.LocalVar;
 import bridje.runtime.*;
-import bridje.types.Type;
 import org.junit.Test;
 import org.pcollections.HashTreePMap;
 
@@ -13,55 +12,54 @@ import java.time.Instant;
 import static bridje.Util.setOf;
 import static bridje.Util.vectorOf;
 import static bridje.analyser.ExprUtil.*;
+import static bridje.compiler.Compiler.compile;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.USER;
 import static bridje.runtime.NS.ns;
 import static bridje.runtime.Symbol.symbol;
-import static bridje.runtime.VarUtil.*;
-import static bridje.types.Type.FnType.fnType;
-import static bridje.types.Type.SetType.setType;
-import static bridje.types.Type.SimpleType.*;
-import static bridje.types.Type.VectorType.vectorType;
-import static org.junit.Assert.*;
+import static bridje.runtime.VarUtil.PLUS_ENV;
+import static bridje.runtime.VarUtil.PLUS_VAR;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class CompilerTest {
 
     @Test
     public void compilesBoolean() throws Exception {
-        assertEquals(false, Compiler.compile(Env.env(), boolExpr(BOOL_TYPE, false)).value);
+        assertEquals(false, compile(Env.env(), boolExpr(false)).value);
     }
 
     @Test
     public void compilesString() throws Exception {
-        assertEquals("hello world!", Compiler.compile(Env.env(), stringExpr(STRING_TYPE, "hello world!")).value);
+        assertEquals("hello world!", compile(Env.env(), stringExpr("hello world!")).value);
     }
 
     @Test
     public void compilesInt() throws Exception {
-        assertEquals(513L, Compiler.compile(Env.env(), intExpr(INT_TYPE, 513)).value);
+        assertEquals(513L, compile(Env.env(), intExpr(513)).value);
     }
 
     @Test
     public void compilesVector() throws Exception {
-        assertEquals(vectorOf("Hello", "World!"), Compiler.compile(Env.env(), vectorExpr(vectorType(STRING_TYPE), vectorOf(stringExpr(STRING_TYPE, "Hello"), stringExpr(STRING_TYPE, "World!")))).value);
+        assertEquals(vectorOf(4L, 5L), compile(Env.env(), vectorExpr(vectorOf(intExpr(4), intExpr(5)))).value);
     }
 
     @Test
     public void compilesSet() throws Exception {
-        assertEquals(setOf("Hello", "World!"), Compiler.compile(Env.env(), setExpr(setType(STRING_TYPE), vectorOf(stringExpr(STRING_TYPE, "Hello"), stringExpr(STRING_TYPE, "World!")))).value);
+        assertEquals(setOf("Hello", "World!"), compile(Env.env(), setExpr(vectorOf(stringExpr("Hello"), stringExpr("World!")))).value);
     }
 
     @Test
     public void compilesPlus() throws Exception {
-        assertEquals(3L, Compiler.compile(PLUS_ENV, varCallExpr(INT_TYPE, PLUS_VAR, vectorOf(intExpr(INT_TYPE, 1), intExpr(INT_TYPE, 2)))).value);
+        assertEquals(3L, compile(PLUS_ENV, varCallExpr(PLUS_VAR, vectorOf(intExpr(1), intExpr(2)))).value);
     }
 
     @Test
     public void compilesIf() throws Exception {
-        assertEquals("is false", Compiler.compile(Env.env(), ifExpr(STRING_TYPE,
-            boolExpr(BOOL_TYPE, false),
-            stringExpr(STRING_TYPE, "is true"),
-            stringExpr(STRING_TYPE, "is false"))).value);
+        assertEquals("is false", compile(Env.env(), ifExpr(
+            boolExpr(false),
+            stringExpr("is true"),
+            stringExpr("is false"))).value);
     }
 
     @Test
@@ -69,18 +67,18 @@ public class CompilerTest {
         LocalVar x = new LocalVar(symbol("x"));
         LocalVar y = new LocalVar(symbol("y"));
 
-        Expr.LetExpr<Type> letExpr = letExpr(vectorType(INT_TYPE),
+        Expr.LetExpr letExpr = letExpr(
             vectorOf(
-                letBinding(x, intExpr(INT_TYPE, 4)),
-                letBinding(y, intExpr(INT_TYPE, 3))),
-            vectorExpr(vectorType(INT_TYPE), vectorOf(localVarExpr(INT_TYPE, x), localVarExpr(INT_TYPE, y))));
+                letBinding(x, intExpr(4)),
+                letBinding(y, intExpr(3))),
+            vectorExpr(vectorOf(localVarExpr(x), localVarExpr(y))));
 
-        assertEquals(vectorOf(4L, 3L), Compiler.compile(Env.env(), letExpr).value);
+        assertEquals(vectorOf(4L, 3L), compile(Env.env(), letExpr).value);
     }
 
     @Test
     public void compilesGlobalVar() throws Throwable {
-        MethodHandle handle = (MethodHandle) Compiler.compile(Env.env(), globalVarExpr(PLUS_TYPE, PLUS_VAR)).value;
+        MethodHandle handle = (MethodHandle) compile(Env.env(), globalVarExpr(PLUS_VAR)).value;
 
         assertEquals(3L, handle.invoke(1L, 2L));
     }
@@ -88,7 +86,7 @@ public class CompilerTest {
     @Test
     public void compilesNS() throws Exception {
         Symbol plusSym = symbol("+");
-        EvalResult evalResult = Compiler.compile(PLUS_ENV, new Expr.NSExpr<>(null, ENV_IO, ns("my-ns"),
+        EvalResult evalResult = compile(PLUS_ENV, new Expr.NSExpr(null, ns("my-ns"),
             HashTreePMap.singleton(symbol("u"), ns("user")),
             HashTreePMap.singleton(plusSym, fqSym(USER, plusSym)),
             HashTreePMap.singleton(symbol("Instant"), Instant.class)));
@@ -100,52 +98,49 @@ public class CompilerTest {
 
     @Test
     public void compilesDefValue() throws Exception {
-        EvalResult evalResult = Compiler.compile(PLUS_ENV, defExpr(ENV_IO, symbol("three"),
+        EvalResult evalResult = compile(PLUS_ENV, defExpr(symbol("three"),
             varCallExpr(
-                INT_TYPE,
                 PLUS_VAR,
                 vectorOf(
-                    intExpr(INT_TYPE, 1),
-                    intExpr(INT_TYPE, 2)))));
+                    intExpr(1),
+                    intExpr(2)))));
         assertEquals(3L, ((Var) evalResult.value).valueField.get(null));
 
         Var var = evalResult.env.resolveVar(USER, symbol("three")).orElse(null);
         assertNotNull(var);
-        assertEquals(INT_TYPE, var.inferredType);
 
-        assertEquals(3L, Compiler.compile(evalResult.env, globalVarExpr(INT_TYPE, var)).value);
+        assertEquals(3L, compile(evalResult.env, globalVarExpr(var)).value);
     }
 
     @Test
     public void compilesFirstClassFn() throws Exception {
         LocalVar x = new LocalVar(symbol("x"));
-        assertEquals(3L, Compiler.compile(PLUS_ENV,
-            letExpr(INT_TYPE,
+        assertEquals(3L, compile(PLUS_ENV,
+            letExpr(
                 vectorOf(
-                    letBinding(x, globalVarExpr(PLUS_TYPE, PLUS_VAR))),
+                    letBinding(x, globalVarExpr(PLUS_VAR))),
                 callExpr(
-                    INT_TYPE,
                     vectorOf(
-                        localVarExpr(PLUS_TYPE, x),
-                        intExpr(INT_TYPE, 1),
-                        intExpr(INT_TYPE, 2))))).value);
+                        localVarExpr(x),
+                        intExpr(1),
+                        intExpr(2))))).value);
 
     }
 
     @Test
     public void compilesInlineFn() throws Exception {
         LocalVar x = new LocalVar(symbol("x"));
-        assertEquals(4L, Compiler.compile(PLUS_ENV,
-            callExpr(INT_TYPE,
+        assertEquals(4L, compile(PLUS_ENV,
+            callExpr(
                 vectorOf(
-                    fnExpr(fnType(vectorOf(INT_TYPE), INT_TYPE),
+                    fnExpr(
                         vectorOf(x),
-                        callExpr(INT_TYPE,
+                        callExpr(
                             vectorOf(
-                                globalVarExpr(PLUS_TYPE, PLUS_VAR),
-                                localVarExpr(INT_TYPE, x),
-                                localVarExpr(INT_TYPE, x)))),
-                    intExpr(INT_TYPE, 2)))).value);
+                                globalVarExpr(PLUS_VAR),
+                                localVarExpr(x),
+                                localVarExpr(x)))),
+                    intExpr(2)))).value);
     }
 
     @Test
@@ -154,55 +149,44 @@ public class CompilerTest {
         LocalVar y = new LocalVar(symbol("y"));
         LocalVar addY = new LocalVar(symbol("add-y"));
 
-        assertEquals(5L, Compiler.compile(PLUS_ENV,
-            letExpr(INT_TYPE,
+        assertEquals(5L, compile(PLUS_ENV,
+            letExpr(
                 vectorOf(
-                    letBinding(y, intExpr(INT_TYPE, 3)),
-                    letBinding(addY, fnExpr(fnType(vectorOf(INT_TYPE), INT_TYPE),
+                    letBinding(y, intExpr(3)),
+                    letBinding(addY, fnExpr(
                         vectorOf(x),
-                        callExpr(INT_TYPE,
+                        callExpr(
                             vectorOf(
-                                globalVarExpr(PLUS_TYPE, PLUS_VAR),
-                                localVarExpr(INT_TYPE, x),
-                                localVarExpr(INT_TYPE, y)))))),
+                                globalVarExpr(PLUS_VAR),
+                                localVarExpr(x),
+                                localVarExpr(y)))))),
 
-                callExpr(INT_TYPE,
+                callExpr(
                     vectorOf(
-                        localVarExpr(fnType(vectorOf(INT_TYPE), INT_TYPE), addY),
-                        intExpr(INT_TYPE, 2))))
+                        localVarExpr(addY),
+                        intExpr(2))))
         ).value);
     }
 
     @Test
-    public void compilesTypeDef() throws Exception {
-        Symbol sym = symbol("double");
-        Type doubleType = fnType(vectorOf(INT_TYPE), INT_TYPE);
-        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.TypeDefExpr<>(null, ENV_IO, fqSym(USER, sym), doubleType));
-
-        assertEquals(doubleType, result.env.resolveVar(USER, sym).orElse(null).declaredType);
-
-    }
-
-    @Test
     public void compilesParametricDataType() throws Exception {
-        FQSymbol foo = fqSym(USER, symbol("Foo"));
-        DataTypeType dataTypeType = new DataTypeType(foo, null);
-        TypeVar a = new TypeVar();
+//        FQSymbol foo = fqSym(USER, symbol("Foo"));
+//        DataTypeType dataTypeType = new DataTypeType(foo, null);
+//        TypeVar a = new TypeVar();
+//
+//        AppliedType appliedType = new AppliedType(dataTypeType, vectorOf(a));
+//
+//        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.DefDataExpr(null,
+//            new DataType(foo, vectorOf(a),
+//                vectorOf(
+//                    new DataTypeConstructor.VectorConstructor(
+//                        fqSym(USER, symbol("FooCons")), paramNames)))));
+//
+//        Env newEnv = result.env;
+//
+//        Type type = newEnv.dataTypes.get(foo).constructors.get(0).type;
+//        assertTrue(type.alphaEquivalentTo(fnType(vectorOf(a, appliedType), appliedType)));
 
-        AppliedType appliedType = new AppliedType(dataTypeType, vectorOf(a));
-
-        EvalResult result = Compiler.compile(PLUS_ENV, new Expr.DefDataExpr<>(null,
-            ENV_IO, new DataType<>(appliedType, foo, vectorOf(a),
-            vectorOf(
-                new DataTypeConstructor.VectorConstructor<>(
-                    fnType(vectorOf(a, appliedType), appliedType),
-                    fqSym(USER, symbol("FooCons")),
-                    vectorOf(a))))));
-
-        Env newEnv = result.env;
-
-        Type type = newEnv.dataTypes.get(foo).constructors.get(0).type;
-        assertTrue(type.alphaEquivalentTo(fnType(vectorOf(a, appliedType), appliedType)));
-
+        throw new UnsupportedOperationException();
     }
 }

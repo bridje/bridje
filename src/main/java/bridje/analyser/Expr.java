@@ -2,46 +2,34 @@ package bridje.analyser;
 
 import bridje.reader.Range;
 import bridje.runtime.*;
-import bridje.types.Type;
 import org.pcollections.PMap;
 import org.pcollections.PVector;
 
 import java.util.Objects;
-import java.util.function.Function;
 
-import static bridje.Util.toPVector;
 import static java.util.stream.Collectors.joining;
 
-public abstract class Expr<ET> {
+public abstract class Expr {
 
     public final Range range;
-    public final ET type;
 
-    Expr(Range range, ET type) {
+    Expr(Range range) {
         this.range = range;
-        this.type = type;
     }
 
-    public abstract <V> V accept(ExprVisitor<? super ET, V> visitor);
+    public abstract <V> V accept(ExprVisitor<V> visitor);
 
-    public abstract <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn);
-
-    public static final class BoolExpr<ET> extends Expr<ET> {
+    public static final class BoolExpr extends Expr {
         public final boolean value;
 
-        public BoolExpr(Range range, ET type, boolean value) {
-            super(range, type);
+        public BoolExpr(Range range, boolean value) {
+            super(range);
             this.value = value;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new BoolExpr<>(range, fn.apply(type), value);
         }
 
         @Override
@@ -63,23 +51,18 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class StringExpr<ET> extends Expr<ET> {
+    public static final class StringExpr extends Expr {
 
         public final String string;
 
-        public StringExpr(Range range, ET type, String string) {
-            super(range, type);
+        public StringExpr(Range range, String string) {
+            super(range);
             this.string = string;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new StringExpr<>(range, fn.apply(type), string);
         }
 
         @Override
@@ -101,23 +84,18 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class IntExpr<ET> extends Expr<ET> {
+    public static final class IntExpr extends Expr {
 
         public final long num;
 
-        public IntExpr(Range range, ET type, long num) {
-            super(range, type);
+        public IntExpr(Range range, long num) {
+            super(range);
             this.num = num;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new IntExpr<>(range, fn.apply(type), num);
         }
 
         @Override
@@ -139,22 +117,17 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class VectorExpr<ET> extends Expr<ET> {
-        public final PVector<Expr<ET>> exprs;
+    public static final class VectorExpr extends Expr {
+        public final PVector<Expr> exprs;
 
-        public VectorExpr(Range range, ET type, PVector<Expr<ET>> exprs) {
-            super(range, type);
+        public VectorExpr(Range range, PVector<Expr> exprs) {
+            super(range);
             this.exprs = exprs;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new VectorExpr<>(range, fn.apply(type), exprs.stream().map(e -> e.fmapType(fn)).collect(toPVector()));
         }
 
         @Override
@@ -176,22 +149,17 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class SetExpr<ET> extends Expr<ET> {
-        public final PVector<Expr<ET>> exprs;
+    public static final class SetExpr extends Expr {
+        public final PVector<Expr> exprs;
 
-        public SetExpr(Range range, ET type, PVector<Expr<ET>> exprs) {
-            super(range, type);
+        public SetExpr(Range range, PVector<Expr> exprs) {
+            super(range);
             this.exprs = exprs;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new SetExpr<>(range, fn.apply(type), exprs.stream().map(e -> e.fmapType(fn)).collect(toPVector()));
         }
 
         @Override
@@ -213,13 +181,13 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class MapExpr<ET> extends Expr<ET> {
+    public static final class MapExpr extends Expr {
 
-        public static final class MapEntryExpr<ET> {
+        public static final class MapEntryExpr {
             public final Range range;
-            public final Expr<ET> key, value;
+            public final Expr key, value;
 
-            public MapEntryExpr(Range range, Expr<ET> key, Expr<ET> value) {
+            public MapEntryExpr(Range range, Expr key, Expr value) {
                 this.range = range;
                 this.key = key;
                 this.value = value;
@@ -229,7 +197,7 @@ public abstract class Expr<ET> {
             public boolean equals(Object o) {
                 if (this == o) return true;
                 if (o == null || getClass() != o.getClass()) return false;
-                MapEntryExpr<?> that = (MapEntryExpr<?>) o;
+                MapEntryExpr that = (MapEntryExpr) o;
                 return Objects.equals(key, that.key) &&
                     Objects.equals(value, that.value);
             }
@@ -239,33 +207,25 @@ public abstract class Expr<ET> {
                 return Objects.hash(key, value);
             }
 
-            public <ET_> MapEntryExpr<ET_> fmapType(Function<ET, ET_> fn) {
-                return new MapEntryExpr<>(range, key.fmapType(fn), value.fmapType(fn));
-            }
         }
 
-        public final PVector<MapEntryExpr<ET>> entries;
+        public final PVector<MapEntryExpr> entries;
 
-        public MapExpr(Range range, ET type, PVector<MapEntryExpr<ET>> entries) {
-            super(range, type);
+        public MapExpr(Range range, PVector<MapEntryExpr> entries) {
+            super(range);
             this.entries = entries;
         }
 
         @Override
-        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+        public <V> V accept(ExprVisitor<V> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new MapExpr<>(range, fn.apply(type), entries.stream().map(e -> e.fmapType(fn)).collect(toPVector()));
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            MapExpr<?> mapExpr = (MapExpr<?>) o;
+            MapExpr mapExpr = (MapExpr) o;
             return Objects.equals(entries, mapExpr.entries);
         }
 
@@ -280,23 +240,18 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class CallExpr<ET> extends Expr<ET> {
+    public static final class CallExpr extends Expr {
 
-        public final PVector<Expr<ET>> exprs;
+        public final PVector<Expr> exprs;
 
-        public CallExpr(Range range, ET type, PVector<Expr<ET>> exprs) {
-            super(range, type);
+        public CallExpr(Range range, PVector<Expr> exprs) {
+            super(range);
             this.exprs = exprs;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new CallExpr<>(range, fn.apply(type), exprs.stream().map(e -> e.fmapType(fn)).collect(toPVector()));
         }
 
         @Override
@@ -318,25 +273,20 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class VarCallExpr<ET> extends Expr<ET> {
+    public static final class VarCallExpr extends Expr {
 
         public final Var var;
-        public final PVector<Expr<ET>> params;
+        public final PVector<Expr> params;
 
-        public VarCallExpr(Range range, ET type, Var var, PVector<Expr<ET>> params) {
-            super(range, type);
+        public VarCallExpr(Range range, Var var, PVector<Expr> params) {
+            super(range);
             this.var = var;
             this.params = params;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new VarCallExpr<>(range, fn.apply(type), var, params.stream().map(p -> p.fmapType(fn)).collect(toPVector()));
         }
 
         @Override
@@ -359,19 +309,15 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class LetExpr<ET> extends Expr<ET> {
+    public static final class LetExpr extends Expr {
 
-        public static final class LetBinding<ET> {
+        public static final class LetBinding {
             public final LocalVar localVar;
-            public final Expr<ET> expr;
+            public final Expr expr;
 
-            public LetBinding(LocalVar localVar, Expr<ET> expr) {
+            public LetBinding(LocalVar localVar, Expr expr) {
                 this.localVar = localVar;
                 this.expr = expr;
-            }
-
-            public <ET_> LetBinding<ET_> fmap(Function<ET, ET_> fn) {
-                return new LetBinding<>(localVar, expr.fmapType(fn));
             }
 
             @Override
@@ -394,23 +340,18 @@ public abstract class Expr<ET> {
             }
         }
 
-        public final PVector<LetBinding<ET>> bindings;
-        public final Expr<ET> body;
+        public final PVector<LetBinding> bindings;
+        public final Expr body;
 
-        public LetExpr(Range range, ET type, PVector<LetBinding<ET>> bindings, Expr<ET> body) {
-            super(range, type);
+        public LetExpr(Range range, PVector<LetBinding> bindings, Expr body) {
+            super(range);
             this.bindings = bindings;
             this.body = body;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new LetExpr<>(range, fn.apply(type), bindings.stream().map(b -> b.fmap(fn)).collect(toPVector()), body.fmapType(fn));
         }
 
         @Override
@@ -433,27 +374,22 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class IfExpr<ET> extends Expr<ET> {
+    public static final class IfExpr extends Expr {
 
-        public final Expr<ET> testExpr;
-        public final Expr<ET> thenExpr;
-        public final Expr<ET> elseExpr;
+        public final Expr testExpr;
+        public final Expr thenExpr;
+        public final Expr elseExpr;
 
-        public IfExpr(Range range, ET type, Expr<ET> testExpr, Expr<ET> thenExpr, Expr<ET> elseExpr) {
-            super(range, type);
+        public IfExpr(Range range, Expr testExpr, Expr thenExpr, Expr elseExpr) {
+            super(range);
             this.testExpr = testExpr;
             this.thenExpr = thenExpr;
             this.elseExpr = elseExpr;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new IfExpr<>(range, fn.apply(type), testExpr.fmapType(fn), thenExpr.fmapType(fn), elseExpr.fmapType(fn));
         }
 
         @Override
@@ -477,23 +413,18 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class LocalVarExpr<ET> extends Expr<ET> {
+    public static final class LocalVarExpr extends Expr {
 
         public final LocalVar localVar;
 
-        public LocalVarExpr(Range range, ET type, LocalVar localVar) {
-            super(range, type);
+        public LocalVarExpr(Range range, LocalVar localVar) {
+            super(range);
             this.localVar = localVar;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new LocalVarExpr<>(range, fn.apply(type), localVar);
         }
 
         @Override
@@ -515,23 +446,18 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class GlobalVarExpr<ET> extends Expr<ET> {
+    public static final class GlobalVarExpr extends Expr {
 
         public final Var var;
 
-        public GlobalVarExpr(Range range, ET type, Var var) {
-            super(range, type);
+        public GlobalVarExpr(Range range, Var var) {
+            super(range);
             this.var = var;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new GlobalVarExpr<>(range, fn.apply(type), var);
         }
 
         @Override
@@ -553,13 +479,13 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static final class FnExpr<ET> extends Expr<ET> {
+    public static final class FnExpr extends Expr {
 
         public final PVector<LocalVar> params;
-        public final Expr<ET> body;
+        public final Expr body;
 
-        public FnExpr(Range range, ET type, PVector<LocalVar> params, Expr<ET> body) {
-            super(range, type);
+        public FnExpr(Range range, PVector<LocalVar> params, Expr body) {
+            super(range);
             this.params = params;
             this.body = body;
         }
@@ -568,7 +494,7 @@ public abstract class Expr<ET> {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            FnExpr<?> fnExpr = (FnExpr<?>) o;
+            FnExpr fnExpr = (FnExpr) o;
             return Objects.equals(params, fnExpr.params) &&
                 Objects.equals(body, fnExpr.body);
         }
@@ -584,25 +510,21 @@ public abstract class Expr<ET> {
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
         }
 
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new FnExpr<>(range, fn.apply(type), params, body.fmapType(fn));
-        }
     }
 
-    public static final class NSExpr<ET> extends Expr<ET> {
+    public static final class NSExpr extends Expr {
 
         public final NS ns;
         public final PMap<Symbol, NS> aliases;
         public final PMap<Symbol, FQSymbol> refers;
         public final PMap<Symbol, Class<?>> imports;
 
-        public NSExpr(Range range, ET type, NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers, PMap<Symbol, Class<?>> imports) {
-            super(range, type);
+        public NSExpr(Range range, NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers, PMap<Symbol, Class<?>> imports) {
+            super(range);
             this.ns = ns;
             this.aliases = aliases;
             this.refers = refers;
@@ -610,20 +532,15 @@ public abstract class Expr<ET> {
         }
 
         @Override
-        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+        public <V> V accept(ExprVisitor<V> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new NSExpr<>(range, fn.apply(type), ns, aliases, refers, imports);
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            NSExpr<?> nsExpr = (NSExpr<?>) o;
+            NSExpr nsExpr = (NSExpr) o;
             return Objects.equals(ns, nsExpr.ns) &&
                 Objects.equals(aliases, nsExpr.aliases) &&
                 Objects.equals(refers, nsExpr.refers) &&
@@ -641,25 +558,20 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static class DefExpr<ET> extends Expr<ET> {
+    public static class DefExpr extends Expr {
 
         public final FQSymbol sym;
-        public final Expr<ET> body;
+        public final Expr body;
 
-        public DefExpr(Range range, ET type, FQSymbol sym, Expr<ET> body) {
-            super(range, type);
+        public DefExpr(Range range, FQSymbol sym, Expr body) {
+            super(range);
             this.sym = sym;
             this.body = body;
         }
 
         @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
+        public <T> T accept(ExprVisitor<T> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new DefExpr<>(range, fn.apply(type), sym, body.fmapType(fn));
         }
 
         @Override
@@ -682,114 +594,60 @@ public abstract class Expr<ET> {
         }
     }
 
-    public static class TypeDefExpr<ET> extends Expr<ET> {
-
-        public final FQSymbol sym;
-        public final Type typeDef;
-
-        public TypeDefExpr(Range range, ET type, FQSymbol sym, Type typeDef) {
-            super(range, type);
-            this.sym = sym;
-            this.typeDef = typeDef;
-        }
-
-        @Override
-        public <T> T accept(ExprVisitor<? super ET, T> visitor) {
-            return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new TypeDefExpr<>(range, fn.apply(type), sym, typeDef);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            TypeDefExpr<?> that = (TypeDefExpr<?>) o;
-            return Objects.equals(sym, that.sym) &&
-                Objects.equals(typeDef, that.typeDef);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(sym, typeDef);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("(TypeDefExpr %s %s)", sym, typeDef);
-        }
-    }
-
-    public static class DefJExpr<ET> extends Expr<ET> {
+    public static class DefJExpr extends Expr {
         public final FQSymbol sym;
         public final JCall jCall;
-        public final Type typeDef;
 
-        public DefJExpr(Range range, ET type, FQSymbol sym, JCall jCall, Type typeDef) {
-            super(range, type);
+        public DefJExpr(Range range, FQSymbol sym, JCall jCall) {
+            super(range);
             this.sym = sym;
             this.jCall = jCall;
-            this.typeDef = typeDef;
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            DefJExpr<?> that = (DefJExpr<?>) o;
+            DefJExpr that = (DefJExpr) o;
             return Objects.equals(sym, that.sym) &&
-                Objects.equals(jCall, that.jCall) &&
-                Objects.equals(typeDef, that.typeDef);
+                Objects.equals(jCall, that.jCall);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(sym, jCall, typeDef);
+            return Objects.hash(sym, jCall);
         }
 
         @Override
-        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+        public <V> V accept(ExprVisitor<V> visitor) {
             return visitor.visit(this);
         }
 
         @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new DefJExpr<>(range, fn.apply(type), sym, jCall, typeDef);
-        }
-
-        @Override
         public String toString() {
-            return String.format("(DefJExpr %s (:: %s %s))", sym, jCall, typeDef);
+            return String.format("(DefJExpr %s (:: %s %s))", sym, jCall);
         }
     }
 
-    public static class DefDataExpr<ET> extends Expr<ET> {
+    public static class DefDataExpr extends Expr {
 
-        public final DataType<ET> dataType;
+        public final DataType dataType;
 
-        public DefDataExpr(Range range, ET type, DataType<ET> dataType) {
-            super(range, type);
+        public DefDataExpr(Range range, DataType dataType) {
+            super(range);
             this.dataType = dataType;
         }
 
         @Override
-        public <V> V accept(ExprVisitor<? super ET, V> visitor) {
+        public <V> V accept(ExprVisitor<V> visitor) {
             return visitor.visit(this);
-        }
-
-        @Override
-        public <ET_> Expr<ET_> fmapType(Function<ET, ET_> fn) {
-            return new DefDataExpr<>(range, fn.apply(type), dataType.fmapType(fn));
         }
 
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            DefDataExpr<?> that = (DefDataExpr<?>) o;
+            DefDataExpr that = (DefDataExpr) o;
             return Objects.equals(dataType, that.dataType);
         }
 

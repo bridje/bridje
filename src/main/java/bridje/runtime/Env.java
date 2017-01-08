@@ -1,6 +1,5 @@
 package bridje.runtime;
 
-import bridje.types.Type;
 import org.pcollections.Empty;
 import org.pcollections.PMap;
 
@@ -19,7 +18,7 @@ public class Env {
     public static final Env CORE;
 
     static {
-        CORE = EMPTY.withDataType(IO.DATA_TYPE, IO.class, Empty.map());
+        CORE = EMPTY;
     }
 
     private static volatile Env ENV = CORE;
@@ -59,10 +58,10 @@ public class Env {
 
     public final PMap<NS, NSEnv> nsEnvs;
     public final PMap<FQSymbol, Var> vars;
-    public final PMap<FQSymbol, DataType<Type>> dataTypes;
+    public final PMap<FQSymbol, DataType> dataTypes;
     public final PMap<FQSymbol, Class<?>> dataTypeSuperclasses;
 
-    public Env(PMap<NS, NSEnv> nsEnvs, PMap<FQSymbol, Var> vars, PMap<FQSymbol, DataType<Type>> dataTypes, PMap<FQSymbol, Class<?>> dataTypeSuperclasses) {
+    public Env(PMap<NS, NSEnv> nsEnvs, PMap<FQSymbol, Var> vars, PMap<FQSymbol, DataType> dataTypes, PMap<FQSymbol, Class<?>> dataTypeSuperclasses) {
         this.nsEnvs = nsEnvs;
         this.vars = vars;
         this.dataTypes = dataTypes;
@@ -77,7 +76,7 @@ public class Env {
         return new Env(updateNSEnv(sym.ns, nsEnv -> nsEnv.withVar(sym)), vars.plus(sym, var), dataTypes, dataTypeSuperclasses);
     }
 
-    public Env withDataType(DataType<Type> dataType, Class<?> superclass, PMap<FQSymbol, Var> constructorVars) {
+    public Env withDataType(DataType dataType, Class<?> superclass, PMap<FQSymbol, Var> constructorVars) {
         return new Env(
             updateNSEnv(dataType.sym.ns, nsEnv -> nsEnv.withDataType(dataType)),
             vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType), dataTypeSuperclasses.plus(dataType.sym, superclass));
@@ -121,11 +120,11 @@ public class Env {
         return resolveQSym(ns, qsym, find(vars));
     }
 
-    public Optional<DataType<Type>> resolveDataType(NS ns, Symbol symbol) {
+    public Optional<DataType> resolveDataType(NS ns, Symbol symbol) {
         return resolveSym(ns, symbol, find(dataTypes));
     }
 
-    public Optional<DataType<Type>> resolveDataType(NS ns, QSymbol qsym) {
+    public Optional<DataType> resolveDataType(NS ns, QSymbol qsym) {
         return resolveQSym(ns, qsym, find(dataTypes));
     }
 

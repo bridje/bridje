@@ -27,6 +27,10 @@ public class Util {
         return TreePVector.from(Arrays.asList(ts));
     }
 
+    public static <T, U> PVector<U> fmap(PVector<T> coll, Function<T, U> fn) {
+        return coll.stream().map(fn).collect(toPVector());
+    }
+
     public static <T> Collector<T, List<T>, PVector<T>> toPVector() {
         return new Collector<T, List<T>, PVector<T>>() {
             @Override

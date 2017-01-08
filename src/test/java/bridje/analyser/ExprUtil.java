@@ -9,59 +9,59 @@ import static bridje.runtime.NS.USER;
 
 public class ExprUtil {
 
-    public static <ET> Expr.IntExpr<ET> intExpr(ET type, int value) {
-        return new Expr.IntExpr<>(null, type, value);
+    public static Expr.IntExpr intExpr(int value) {
+        return new Expr.IntExpr(null, value);
     }
 
-    public static <ET> Expr.BoolExpr<ET> boolExpr(ET type, boolean value) {
-        return new Expr.BoolExpr<>(null, type, value);
+    public static Expr.BoolExpr boolExpr(boolean value) {
+        return new Expr.BoolExpr(null, value);
     }
 
-    public static <ET> Expr.StringExpr<ET> stringExpr(ET type, String string) {
-        return new Expr.StringExpr<>(null, type, string);
+    public static Expr.StringExpr stringExpr(String string) {
+        return new Expr.StringExpr(null, string);
     }
 
-    public static <ET> Expr.VectorExpr<ET> vectorExpr(ET type, PVector<Expr<ET>> exprs) {
-        return new Expr.VectorExpr<>(null, type, exprs);
+    public static Expr.VectorExpr vectorExpr(PVector<Expr> exprs) {
+        return new Expr.VectorExpr(null, exprs);
     }
 
-    public static <ET> Expr.SetExpr<ET> setExpr(ET type, PVector<Expr<ET>> exprs) {
-        return new Expr.SetExpr<>(null, type, exprs);
+    public static Expr.SetExpr setExpr(PVector<Expr> exprs) {
+        return new Expr.SetExpr(null, exprs);
     }
 
-    public static <ET> Expr.CallExpr<ET> callExpr(ET type, PVector<Expr<ET>> exprs) {
-        return new Expr.CallExpr<>(null, type, exprs);
+    public static Expr.CallExpr callExpr(PVector<Expr> exprs) {
+        return new Expr.CallExpr(null, exprs);
     }
 
-    public static <ET> Expr.IfExpr<ET> ifExpr(ET type, Expr<ET> testExpr, Expr<ET> thenExpr, Expr<ET> elseExpr) {
-        return new Expr.IfExpr<>(null, type, testExpr, thenExpr, elseExpr);
+    public static Expr.IfExpr ifExpr(Expr testExpr, Expr thenExpr, Expr elseExpr) {
+        return new Expr.IfExpr(null, testExpr, thenExpr, elseExpr);
     }
 
-    public static <ET> Expr.LocalVarExpr<ET> localVarExpr(ET type, LocalVar localVar) {
-        return new Expr.LocalVarExpr<>(null, type, localVar);
+    public static Expr.LocalVarExpr localVarExpr(LocalVar localVar) {
+        return new Expr.LocalVarExpr(null, localVar);
     }
 
-    public static <ET> Expr.VarCallExpr<ET> varCallExpr(ET type, Var var, PVector<Expr<ET>> params) {
-        return new Expr.VarCallExpr<>(null, type, var, params);
+    public static Expr.VarCallExpr varCallExpr(Var var, PVector<Expr> params) {
+        return new Expr.VarCallExpr(null, var, params);
     }
 
-    public static <ET> Expr.GlobalVarExpr<ET> globalVarExpr(ET type, Var var) {
-        return new Expr.GlobalVarExpr<>(null, type, var);
+    public static Expr.GlobalVarExpr globalVarExpr(Var var) {
+        return new Expr.GlobalVarExpr(null, var);
     }
 
-    public static <ET> Expr.LetExpr.LetBinding<ET> letBinding(LocalVar localVar, Expr<ET> expr) {
-        return new Expr.LetExpr.LetBinding<>(localVar, expr);
+    public static Expr.LetExpr.LetBinding letBinding(LocalVar localVar, Expr expr) {
+        return new Expr.LetExpr.LetBinding(localVar, expr);
     }
 
-    public static <ET> Expr.LetExpr<ET> letExpr(ET type, PVector<Expr.LetExpr.LetBinding<ET>> bindings, Expr<ET> body) {
-        return new Expr.LetExpr<>(null, type, bindings, body);
+    public static Expr.LetExpr letExpr(PVector<Expr.LetExpr.LetBinding> bindings, Expr body) {
+        return new Expr.LetExpr(null, bindings, body);
     }
 
-    public static <ET> Expr.DefExpr<ET> defExpr(ET type, Symbol sym, Expr<ET> expr) {
-        return new Expr.DefExpr<>(null, type, fqSym(USER, sym), expr);
+    public static Expr.DefExpr defExpr(Symbol sym, Expr expr) {
+        return new Expr.DefExpr(null, fqSym(USER, sym), expr);
     }
 
-    public static <ET> Expr.FnExpr<ET> fnExpr(ET type, PVector<LocalVar> params, Expr<ET> body) {
-        return new Expr.FnExpr<>(null, type, params, body);
+    public static Expr.FnExpr fnExpr(PVector<LocalVar> params, Expr body) {
+        return new Expr.FnExpr(null, params, body);
     }
 }

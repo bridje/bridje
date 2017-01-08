@@ -1,6 +1,5 @@
 package bridje.runtime;
 
-import bridje.types.Type;
 import org.pcollections.Empty;
 import org.pcollections.HashTreePMap;
 
@@ -11,14 +10,11 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.time.Instant;
 
-import static bridje.Util.vectorOf;
 import static bridje.runtime.Env.CORE;
 import static bridje.runtime.FQSymbol.fqSym;
 import static bridje.runtime.NS.USER;
 import static bridje.runtime.NS.ns;
 import static bridje.runtime.Symbol.symbol;
-import static bridje.types.Type.FnType.fnType;
-import static bridje.types.Type.SimpleType.INT_TYPE;
 
 public class VarUtil {
 
@@ -40,10 +36,7 @@ public class VarUtil {
         }
     }
 
-
-    public static final Type.FnType PLUS_TYPE = fnType(vectorOf(INT_TYPE, INT_TYPE), INT_TYPE);
-
-    public static final Var PLUS_VAR = new Var(PLUS_TYPE, PLUS_TYPE, PLUS_VALUE_FIELD, PLUS_FN_METHOD);
+    public static final Var PLUS_VAR = new Var(PLUS_VALUE_FIELD, PLUS_FN_METHOD);
 
     public static final NS FOO_NS = ns("foo");
 

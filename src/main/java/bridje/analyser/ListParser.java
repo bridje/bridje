@@ -2,9 +2,6 @@ package bridje.analyser;
 
 import bridje.analyser.ParseException.MultipleParseFailsException;
 import bridje.reader.Form;
-import bridje.runtime.Env;
-import bridje.runtime.NS;
-import bridje.types.Type;
 import bridje.util.Pair;
 import org.pcollections.Empty;
 import org.pcollections.PVector;
@@ -153,16 +150,6 @@ interface ListParser<T> {
     ListParser<Form.ListForm> LIST_PARSER = formTypeParser(Form.ListForm.class);
     ListParser<Form.VectorForm> VECTOR_PARSER = formTypeParser(Form.VectorForm.class);
     ListParser<Form.RecordForm> RECORD_PARSER = formTypeParser(Form.RecordForm.class);
-
-    static ListParser<Type> typeParser(Env env, LocalTypeEnv localTypeEnv, NS currentNS) {
-        return oneOf(form -> {
-            try {
-                return success(TypeAnalyser.analyzeType(env, localTypeEnv, currentNS, form));
-            } catch (Exception e) {
-                return fail(new ParseException.TypeParseException(e));
-            }
-        });
-    }
 
     static <T> ListParser<T> oneOf(FormParser<T> formParser) {
         return forms -> {

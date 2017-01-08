@@ -2,8 +2,6 @@ package bridje.compiler;
 
 import bridje.Util;
 import bridje.runtime.*;
-import bridje.types.Type.*;
-import bridje.types.TypeVisitor;
 import bridje.util.Pair;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
@@ -16,15 +14,17 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.function.Function;
 
-import static bridje.Util.*;
+import static bridje.Util.toPVector;
+import static bridje.Util.vectorOf;
 import static bridje.compiler.ClassLike.fromClass;
 import static bridje.compiler.Instructions.FieldOp.GET_STATIC;
 import static bridje.runtime.MethodInvoke.*;
 import static org.objectweb.asm.Opcodes.*;
 
 interface Instructions {
+
+    Type OBJECT_TYPE = Type.getType(Object.class);
 
     void apply(MethodVisitor mv);
 
@@ -68,125 +68,24 @@ interface Instructions {
         return mplus(loadNS(sym.ns), loadSymbol(sym.symbol), methodCall(fromClass(FQSymbol.class), INVOKE_STATIC, "fqSym", FQSymbol.class, vectorOf(NS.class, Symbol.class)));
     }
 
-    static Instructions withTypeLocals(Locals locals, PSet<TypeVar> typeVars, Function<Locals, Instructions> fn) {
-        Locals typeLocals = locals.split();
-        Instructions loadTypeVars = MZERO;
-        for (TypeVar typeVar : typeVars) {
-            typeLocals = typeLocals.withVarLocal(typeVar, TypeVar.class);
-            loadTypeVars = mplus(loadTypeVars, typeLocals.get(typeVar)
-                .store(newObject(fromClass(TypeVar.class), vectorOf(), MZERO)));
-        }
+    static Instructions loadDataType(DataType dataType) {
+        return newObject(fromClass(DataType.class), vectorOf(Object.class, FQSymbol.class, PVector.class, PVector.class), mplus(
+            loadFQSymbol(dataType.sym),
+            loadVector(dataType.constructors.stream()
+                .map(c -> c.accept(new ConstructorVisitor<Instructions>() {
+                    @Override
+                    public Instructions visit(DataTypeConstructor.ValueConstructor constructor) {
+                        return newObject(fromClass(DataTypeConstructor.ValueConstructor.class), vectorOf(Object.class, FQSymbol.class), loadFQSymbol(c.sym));
+                    }
 
-        return mplus(loadTypeVars, fn.apply(typeLocals), typeLocals.clear());
-    }
+                    @Override
+                    public Instructions visit(DataTypeConstructor.VectorConstructor constructor) {
+                        return newObject(fromClass(DataTypeConstructor.VectorConstructor.class), vectorOf(Object.class, FQSymbol.class, PVector.class),
+                            loadFQSymbol(c.sym));
+                    }
+                }))
 
-    static Instructions loadType(bridje.types.Type type, Locals locals) {
-        return type.accept(new TypeVisitor<Instructions>() {
-            @Override
-            public Instructions visitBool() {
-                return fieldOp(GET_STATIC, fromClass(SimpleType.class), "BOOL_TYPE", fromClass(bridje.types.Type.class));
-            }
-
-            @Override
-            public Instructions visitString() {
-                return fieldOp(GET_STATIC, fromClass(SimpleType.class), "STRING_TYPE", fromClass(bridje.types.Type.class));
-            }
-
-            @Override
-            public Instructions visitLong() {
-                return fieldOp(GET_STATIC, fromClass(SimpleType.class), "INT_TYPE", fromClass(bridje.types.Type.class));
-            }
-
-            @Override
-            public Instructions visitEnvIO() {
-                return fieldOp(GET_STATIC, fromClass(SimpleType.class), "ENV_IO", fromClass(bridje.types.Type.class));
-            }
-
-            @Override
-            public Instructions visit(VectorType type) {
-                return newObject(fromClass(VectorType.class), Util.vectorOf(bridje.types.Type.class), type.elemType.accept(this));
-            }
-
-            @Override
-            public Instructions visit(SetType type) {
-                return newObject(fromClass(SetType.class), Util.vectorOf(bridje.types.Type.class), type.elemType.accept(this));
-            }
-
-            @Override
-            public Instructions visit(MapType type) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Instructions visit(FnType type) {
-                return newObject(fromClass(FnType.class), Util.vectorOf(PVector.class, bridje.types.Type.class),
-                    mplus(loadVector(Type.class, type.paramTypes.stream()
-                            .map(t -> t.accept(this)).collect(toPVector())),
-                        type.returnType.accept(this)));
-            }
-
-            @Override
-            public Instructions visit(TypeVar type) {
-                return locals.get(type).load();
-            }
-
-            @Override
-            public Instructions visit(DataTypeType type) {
-                return newObject(fromClass(DataTypeType.class), vectorOf(FQSymbol.class, Class.class),
-                    mplus(
-                        loadFQSymbol(type.name),
-                        type.javaType == null ? loadNull() : loadClass(type.javaType)
-                    ));
-            }
-
-            @Override
-            public Instructions visit(bridje.types.Type.AppliedType type) {
-                return newObject(fromClass(bridje.types.Type.AppliedType.class), Util.vectorOf(bridje.types.Type.class, PVector.class),
-                    mplus(type.appliedType.accept(this),
-                        loadVector(Type.class, type.typeParams.stream()
-                            .map(t -> t.accept(this)).collect(toPVector()))));
-            }
-
-            @Override
-            public Instructions visit(JavaType javaType) {
-                return newObject(fromClass(JavaType.class), Util.vectorOf(Class.class),
-                    loadClass(javaType.clazz));
-            }
-        });
-    }
-
-    static Instructions loadDataType(DataType<? extends bridje.types.Type> dataType, Locals locals) {
-        return withTypeLocals(locals,
-            dataType.constructors.stream()
-                .flatMap(c -> c.typeVars().stream())
-                .collect(toPSet()).plusAll(dataType.typeVars),
-
-            typeLocals -> newObject(fromClass(DataType.class), vectorOf(Object.class, FQSymbol.class, PVector.class, PVector.class), mplus(
-                loadType(dataType.type, typeLocals),
-                loadFQSymbol(dataType.sym),
-                loadVector(TypeVar.class, dataType.typeVars.stream().map(tv -> loadType(tv, typeLocals)).collect(toPVector())),
-                loadVector(DataTypeConstructor.class, dataType.constructors.stream()
-                    .map(c -> c.accept(new ConstructorVisitor<bridje.types.Type, Instructions>() {
-                        @Override
-                        public Instructions visit(DataTypeConstructor.ValueConstructor<? extends bridje.types.Type> constructor) {
-                            return newObject(fromClass(DataTypeConstructor.ValueConstructor.class), vectorOf(Object.class, FQSymbol.class),
-                                mplus(
-                                    loadType(constructor.type, typeLocals),
-                                    loadFQSymbol(c.sym)));
-                        }
-
-                        @Override
-                        public Instructions visit(DataTypeConstructor.VectorConstructor<? extends bridje.types.Type> constructor) {
-                            return newObject(fromClass(DataTypeConstructor.VectorConstructor.class), vectorOf(Object.class, FQSymbol.class, PVector.class),
-                                mplus(
-                                    loadType(constructor.type, typeLocals),
-                                    loadFQSymbol(c.sym),
-                                    loadVector(bridje.types.Type.class, constructor.paramTypes.stream().map(pt -> loadType(pt, typeLocals)).collect(toPVector()))));
-                        }
-                    }))
-
-                    .collect(toPVector()))
-            )));
+                .collect(toPVector()))));
     }
 
     static Instructions loadClass(Class clazz) {
@@ -234,29 +133,54 @@ interface Instructions {
                 methodCall(classLike, INVOKE_SPECIAL, "<init>", Void.TYPE, params));
     }
 
-    static Instructions box(Class<?> clazz) {
-        switch (Type.getType(clazz).getSort()) {
+    static Instructions coerce(Type from, Type to) {
+        int fromSort = from.getSort();
+        int toSort = to.getSort();
+
+        if (fromSort == toSort && fromSort != Type.OBJECT) {
+            return MZERO;
+        }
+
+        switch (fromSort) {
             case Type.OBJECT:
-                return MZERO;
+                switch (toSort) {
+                    case Type.OBJECT:
+                        if (OBJECT_TYPE.equals(to)) {
+                            return MZERO;
+                        } else {
+                            return mv -> mv.visitTypeInsn(CHECKCAST, to.getInternalName());
+                        }
+                }
+
+                break;
+
             case Type.LONG:
-                return methodCall(fromClass(Long.class), INVOKE_STATIC, "valueOf", Long.class, Util.vectorOf(Long.TYPE));
+                switch (toSort) {
+                    case Type.OBJECT:
+                        return methodCall(fromClass(Long.class), INVOKE_STATIC, "valueOf", Long.class, Util.vectorOf(Long.TYPE));
+                }
+                break;
+
             case Type.BOOLEAN:
-                return methodCall(fromClass(Boolean.class), INVOKE_STATIC, "valueOf", Boolean.class, Util.vectorOf(Boolean.TYPE));
+                switch (toSort) {
+                    case Type.OBJECT:
+                        return methodCall(fromClass(Boolean.class), INVOKE_STATIC, "valueOf", Boolean.class, Util.vectorOf(Boolean.TYPE));
+                }
+                break;
         }
 
         throw new UnsupportedOperationException();
     }
 
-    static Instructions arrayOf(Class<?> clazz, PVector<Instructions> instructions) {
+    static Instructions arrayOf(PVector<Instructions> instructions) {
         return mv -> {
             mv.visitLdcInsn(instructions.size());
-            mv.visitTypeInsn(ANEWARRAY, Type.getType(Object.class).getInternalName());
+            mv.visitTypeInsn(ANEWARRAY, OBJECT_TYPE.getInternalName());
 
             for (int i = 0; i < instructions.size(); i++) {
                 mv.visitInsn(DUP);
                 mv.visitLdcInsn(i);
                 instructions.get(i).apply(mv);
-                box(clazz).apply(mv);
                 mv.visitInsn(AASTORE);
             }
         };
@@ -264,31 +188,29 @@ interface Instructions {
 
     Instructions ARRAY_AS_LIST = methodCall(fromClass(Arrays.class), INVOKE_STATIC, "asList", List.class, Util.vectorOf(Object[].class));
 
-    static Instructions loadVector(Class<?> clazz, PVector<Instructions> instructions) {
+    static Instructions loadVector(PVector<Instructions> instructions) {
         return mplus(
-            arrayOf(clazz, instructions),
+            arrayOf(instructions),
             ARRAY_AS_LIST,
             methodCall(fromClass(TreePVector.class), INVOKE_STATIC, "from", TreePVector.class, Util.vectorOf(Collection.class)));
     }
 
-    static Instructions loadSet(Class<?> clazz, PVector<Instructions> instructions) {
+    static Instructions loadSet(PVector<Instructions> instructions) {
         return mplus(
-            arrayOf(clazz, instructions),
+            arrayOf(instructions),
             ARRAY_AS_LIST,
             methodCall(fromClass(HashTreePSet.class), INVOKE_STATIC, "from", MapPSet.class, Util.vectorOf(Collection.class)));
     }
 
-    static Instructions loadMap(Class<?> keyType, Class<?> valueType, PVector<Pair<Instructions, Instructions>> instructions) {
-        Instructions boxKey = box(keyType);
-        Instructions boxValue = box(valueType);
+    static Instructions loadMap(PVector<Pair<Instructions, Instructions>> instructions) {
         return mplus(
             newObject(fromClass(HashMap.class), Empty.vector(), MZERO),
             mplus(instructions.stream()
                 .map(i ->
                     mplus(
                         mv -> mv.visitInsn(DUP),
-                        i.left, boxKey,
-                        i.right, boxValue,
+                        i.left,
+                        i.right,
                         methodCall(fromClass(Map.class), INVOKE_INTERFACE, "put", Object.class, vectorOf(Object.class, Object.class)),
                         mv -> mv.visitInsn(POP)))
                 .collect(toPVector())),
@@ -311,8 +233,7 @@ interface Instructions {
             varInvoke(var));
     }
 
-    static Instructions ret(Class<?> clazz) {
-        Type type = Type.getType(clazz);
+    static Instructions ret(Type type) {
         return mv -> mv.visitInsn(type.getOpcode(IRETURN));
     }
 

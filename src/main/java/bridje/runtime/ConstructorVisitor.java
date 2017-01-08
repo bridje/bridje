@@ -1,7 +1,8 @@
 package bridje.runtime;
 
-public interface ConstructorVisitor<T, U> {
+public interface ConstructorVisitor<U> {
 
-    U visit(DataTypeConstructor.ValueConstructor<? extends T> constructor);
-    U visit(DataTypeConstructor.VectorConstructor<? extends T> constructor);
+    U visit(DataTypeConstructor.ValueConstructor constructor);
+
+    U visit(DataTypeConstructor.VectorConstructor constructor);
 }
