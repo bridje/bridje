@@ -15,7 +15,9 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
+import static bridje.Util.fmap;
 import static bridje.Util.toPVector;
 import static bridje.analyser.ListParser.*;
 import static bridje.analyser.ListParser.ParseResult.fail;
@@ -26,7 +28,12 @@ import static bridje.util.Pair.pair;
 
 public class Analyser {
 
+    static Function<Form, Expr> analyse0(Env env, NS currentNS, LocalEnv localEnv) {
+        return form -> analyse0(env, currentNS, localEnv, form);
+    }
+
     static Expr analyse0(Env env, NS currentNS, LocalEnv localEnv, Form form) {
+        Function<Form, Expr> recur = analyse0(env, currentNS, localEnv);
 
         return form.accept(new FormVisitor<Expr>() {
             @Override
@@ -46,12 +53,12 @@ public class Analyser {
 
             @Override
             public Expr visit(Form.VectorForm form) {
-                return new Expr.VectorExpr(form.range, form.forms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector()));
+                return new Expr.VectorExpr(form.range, fmap(form.forms, recur));
             }
 
             @Override
             public Expr visit(Form.SetForm form) {
-                return new Expr.SetExpr(form.range, form.forms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector()));
+                return new Expr.SetExpr(form.range, fmap(form.forms, recur));
             }
 
             @Override
@@ -81,7 +88,7 @@ public class Analyser {
             }
 
             private ParseResult<Pair<Expr, PVector<Form>>> parseVarCall(Var var, PVector<Form> paramForms) {
-                return success(pair(new Expr.VarCallExpr(form.range, var, paramForms.stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
+                return success(pair(new Expr.VarCallExpr(form.range, var, fmap(paramForms, recur)), Empty.vector()));
             }
 
             private ListParser<Expr> listFormParser(Form.SymbolForm firstSymbolForm) {
@@ -136,7 +143,7 @@ public class Analyser {
 
                                 localVars ->
                                     exprParser(localEnv.withLocals(localVars)).bind(bodyExpr ->
-                                        parseEnd((Expr) new Expr.FnExpr(form.range, localVars, bodyExpr)))));
+                                        parseEnd(new Expr.FnExpr(form.range, localVars, bodyExpr)))));
 
                     case "def": {
                         return anyOf(
@@ -159,7 +166,7 @@ public class Analyser {
 //                        return anyOf(
 //                            SYMBOL_PARSER.bind(nameForm ->
 //                                parseConstructors(fqSym(currentNS, nameForm.sym), Empty.map()).bind(constructors ->
-//                                    parseEnd(new Expr.DefDataExpr(form.range, new DataType<>(fqSym(currentNS, nameForm.sym), Empty.vector(), constructors))))),
+//                                    parseEnd(new Expr.DefDataExpr(form.range, tag, new DataType<>(fqSym(currentNS, nameForm.sym), Empty.vector(), constructors))))),
 //                            LIST_PARSER.bind(nameForm -> {
 //                                Map<Symbol, TypeVar> typeVarMapping = new HashMap<>();
 //                                return nestedListParser(nameForm.forms,
@@ -170,7 +177,7 @@ public class Analyser {
 //                                        })),
 //                                    dataTypeDef ->
 //                                        parseConstructors(dataTypeDef.left, HashTreePMap.from(typeVarMapping)).fmap(constructors ->
-//                                            new Expr.DefDataExpr(form.range,
+//                                            new Expr.DefDataExpr(form.range, tag,
 //                                                new DataType<>(dataTypeDef.left,
 //                                                dataTypeDef.right.stream().map(s -> typeVarMapping.get(s.sym)).collect(toPVector()),
 //                                                constructors))));
@@ -201,7 +208,7 @@ public class Analyser {
 //                                                call = JCall.StaticMethodCall.find(c, calleeName, type);
 //                                            }
 //
-//                                            return parseEnd(new Expr.DefJExpr(form.range, fqSym(currentNS, nameForm.sym), call, type));
+//                                            return parseEnd(new Expr.DefJExpr(form.range, tag, fqSym(currentNS, nameForm.sym), call, type));
 //                                        } catch (JCall.NoMatches | JCall.MultipleMatches e) {
 //                                            throw new RuntimeException(e);
 //                                        }
@@ -362,7 +369,7 @@ public class Analyser {
                                 return parseVarCall(var, paramForms);
                             }
 
-                            return success(pair(new Expr.CallExpr(form.range, paramForms.plus(0, firstSymbolForm).stream().map(f -> analyse0(env, currentNS, localEnv, f)).collect(toPVector())), Empty.vector()));
+                            return success(pair(new Expr.CallExpr(form.range, fmap(paramForms.plus(0, firstSymbolForm), recur)), Empty.vector()));
                         };
                 }
             }

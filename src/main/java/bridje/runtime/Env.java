@@ -14,7 +14,7 @@ import static bridje.runtime.Symbol.symbol;
 
 public class Env {
 
-    public static final Env EMPTY = new Env(Empty.map(), Empty.map(), Empty.map(), Empty.map());
+    public static final Env EMPTY = new Env(Empty.map(), Empty.map(), Empty.map());
     public static final Env CORE;
 
     static {
@@ -59,13 +59,11 @@ public class Env {
     public final PMap<NS, NSEnv> nsEnvs;
     public final PMap<FQSymbol, Var> vars;
     public final PMap<FQSymbol, DataType> dataTypes;
-    public final PMap<FQSymbol, Class<?>> dataTypeSuperclasses;
 
-    public Env(PMap<NS, NSEnv> nsEnvs, PMap<FQSymbol, Var> vars, PMap<FQSymbol, DataType> dataTypes, PMap<FQSymbol, Class<?>> dataTypeSuperclasses) {
+    public Env(PMap<NS, NSEnv> nsEnvs, PMap<FQSymbol, Var> vars, PMap<FQSymbol, DataType> dataTypes) {
         this.nsEnvs = nsEnvs;
         this.vars = vars;
         this.dataTypes = dataTypes;
-        this.dataTypeSuperclasses = dataTypeSuperclasses;
     }
 
     private PMap<NS, NSEnv> updateNSEnv(NS ns, Function<NSEnv, NSEnv> fn) {
@@ -73,17 +71,17 @@ public class Env {
     }
 
     public Env withVar(FQSymbol sym, Var var) {
-        return new Env(updateNSEnv(sym.ns, nsEnv -> nsEnv.withVar(sym)), vars.plus(sym, var), dataTypes, dataTypeSuperclasses);
+        return new Env(updateNSEnv(sym.ns, nsEnv -> nsEnv.withVar(sym)), vars.plus(sym, var), dataTypes);
     }
 
-    public Env withDataType(DataType dataType, Class<?> superclass, PMap<FQSymbol, Var> constructorVars) {
+    public Env withDataType(DataType dataType, PMap<FQSymbol, Var> constructorVars) {
         return new Env(
             updateNSEnv(dataType.sym.ns, nsEnv -> nsEnv.withDataType(dataType)),
-            vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType), dataTypeSuperclasses.plus(dataType.sym, superclass));
+            vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType));
     }
 
     public Env withNS(NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers, PMap<Symbol, Class<?>> imports) {
-        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers, imports)), vars, dataTypes, dataTypeSuperclasses);
+        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers, imports)), vars, dataTypes);
     }
 
     private static <K, V> Optional<V> find(PMap<K, V> map, K key) {
@@ -139,5 +137,10 @@ public class Env {
                     return Optional.empty();
                 }
             });
+    }
+
+    public Env require(NS ns) {
+        System.out.println(getClass().getClassLoader().getResource(ns.name.replace('.', '/') + ".brj"));
+        throw new UnsupportedOperationException();
     }
 }
