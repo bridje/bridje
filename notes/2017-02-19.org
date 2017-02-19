@@ -1,0 +1,31 @@
+* Random musings:
+** Java vs JS
+- Might be easier to start with JS - because the underlying runtime is completely
+  untyped, so we don't have to worry about reflection, etc.
+- Also, none of the trouble with Java's overloaded methods.
+- Would mean re-writing a lot of what I've got already, though
+- That, and /properly/ learning JS.
+** Open questions:
+*** Should we allow ad-hoc requires?
+Benefits:
+- Has been pretty useful in tooling, and for lazy-loading.
+Tradeoffs:
+- Makes the namespace dependency-graph much harder (if not impossible at compile-time?)
+- Requiring namespaces at runtime means that you lose static guarantees.
+*** How should multiple languages work?
+- At the top of each file, in the namespace declaration form, we declare what
+  language the file is written in
+- Each language defines how function application works, including all the
+  special forms required for that language.
+- Languages can be registered into the runtime environment.
+- Can the kernel be registered like this, or does it need special treatment?
+  - Other languages compile themselves to forms, kernel would need to compile
+    itself to bytecode
+  - Maybe an ADT representation of bytecode? still not a form, though.
+  - Maybe there's something simpler than the (current) kernel?
+*** How does the multiple-langs feature work with immutable envs?
+*** Where do we start with this kernel lang?
+- Got a lot of half-working code in this branch currently - want to get this
+  working E2E though, with a proper entry-point/REPL.
+- What's the simplest thing we can get working, in this case?
+  - Probably a REPL, which eval's individual forms.
