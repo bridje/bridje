@@ -14,7 +14,7 @@ import static bridje.runtime.Symbol.symbol;
 
 public class Env {
 
-    public static final Env EMPTY = new Env(Empty.map(), Empty.map(), Empty.map());
+    public static final Env EMPTY = new Env(Empty.map(), Empty.map(), Empty.map(), Empty.map());
     public static final Env CORE;
 
     static {
@@ -56,32 +56,38 @@ public class Env {
         }
     }
 
-    public final PMap<NS, NSEnv> nsEnvs;
+    final PMap<NS, NSEnv> nsEnvs;
     public final PMap<FQSymbol, Var> vars;
     public final PMap<FQSymbol, DataType> dataTypes;
+    public final PMap<FQSymbol, Lang> langs;
 
-    public Env(PMap<NS, NSEnv> nsEnvs, PMap<FQSymbol, Var> vars, PMap<FQSymbol, DataType> dataTypes) {
+    public Env(PMap<NS, NSEnv> nsEnvs, PMap<FQSymbol, Var> vars, PMap<FQSymbol, DataType> dataTypes, PMap<FQSymbol, Lang> langs) {
         this.nsEnvs = nsEnvs;
         this.vars = vars;
         this.dataTypes = dataTypes;
+        this.langs = langs;
     }
 
-    private PMap<NS, NSEnv> updateNSEnv(NS ns, Function<NSEnv, NSEnv> fn) {
-        return nsEnvs.plus(ns, fn.apply(Optional.ofNullable(nsEnvs.get(ns)).orElseGet(() -> NSEnv.empty(ns))));
+    public Env updateNSEnv(NS ns, Function<NSEnv, NSEnv> fn) {
+        return new Env(nsEnvs.plus(ns, fn.apply(Optional.ofNullable(nsEnvs.get(ns)).orElseGet(() -> NSEnv.empty(ns)));
+    }
+
+    public Optional<NSEnv> resolveNS(NS ns) {
+        return Optional.ofNullable(nsEnvs.get(ns));
     }
 
     public Env withVar(FQSymbol sym, Var var) {
-        return new Env(updateNSEnv(sym.ns, nsEnv -> nsEnv.withVar(sym)), vars.plus(sym, var), dataTypes);
+        return new Env(updateNSEnv(sym.ns, nsEnv -> nsEnv.withVar(sym)), vars.plus(sym, var), dataTypes, langs);
     }
 
     public Env withDataType(DataType dataType, PMap<FQSymbol, Var> constructorVars) {
         return new Env(
             updateNSEnv(dataType.sym.ns, nsEnv -> nsEnv.withDataType(dataType)),
-            vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType));
+            vars.plusAll(constructorVars), dataTypes.plus(dataType.sym, dataType), langs);
     }
 
     public Env withNS(NS ns, PMap<Symbol, NS> aliases, PMap<Symbol, FQSymbol> refers, PMap<Symbol, Class<?>> imports) {
-        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers, imports)), vars, dataTypes);
+        return new Env(nsEnvs.plus(ns, NSEnv.fromDeclaration(ns, aliases, refers, imports)), vars, dataTypes, langs);
     }
 
     private static <K, V> Optional<V> find(PMap<K, V> map, K key) {

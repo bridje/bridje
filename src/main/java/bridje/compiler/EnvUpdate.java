@@ -1,10 +1,11 @@
 package bridje.compiler;
 
 import bridje.runtime.Env;
+import bridje.runtime.EvalResult;
 import bridje.util.Pair;
 
 public interface EnvUpdate<T> {
-    Pair<Env, T> updateEnv(Env env);
+    EvalResult<T> updateEnv(Env env);
 
 //    class NSEnvUpdate implements EnvUpdate<NS> {
 //
