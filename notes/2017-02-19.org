@@ -83,6 +83,12 @@ Can have the compilation unit as either namespace or form:
     - per NS? probably the expected behaviour
     - how to clear it out? resync with the 'main' env?
     - how do we apply concurrent updates to the 'main' env to the scratch envs?
+- Having a namespace as the compilation unit allows us to have a multi-pass compiler
+  - opens up simpler, statically linked, mutual recursion (within the NS)
+  - also means that type declarations get loaded 'with' their implementations
+    - can warn/fail against unimplemented typedefs
+  - how much of this do we expose to sub-langs?
+    - all of the above will probably require t-brj knowing about multi-pass.
 ** Kernel Syntax:
 #+BEGIN_SRC clojure
   ;; kernel:
