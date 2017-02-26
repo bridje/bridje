@@ -14,7 +14,7 @@ Tradeoffs:
 - Requiring namespaces at runtime means that you lose static guarantees.
 *** How should multiple languages work?
 - At the top of each file, in the namespace declaration form, we declare what
-  language the file is written in
+  language the file is written in.
 - Each language defines how function application works, including all the
   special forms required for that language.
 - Languages can be registered into the runtime environment.
@@ -33,6 +33,8 @@ Tradeoffs:
 Can have the compilation unit as either namespace or form:
 - LISP seems to use the form as the compilation unit
 - Haskell uses the module, but can create definitions in GHCi.
+  - except you can't - well, you can't influence a running system, so this isn't
+    really a fair comparison.
 - Updating a running system has always been one of the benefits of LISP, so we
   want to preserve this if possible.
 - Getting into typed Bridje - do we need the type declaration and the
@@ -43,34 +45,44 @@ Can have the compilation unit as either namespace or form:
     underneath it needs to point to the new version
   - should we even have the type declaration as a separate form? what would it
     mean to call that before it'd been initialised?
-  - I like the idea of reloading a whole namespace at a time - a lot of the
-    problems that we've had with REPL state in Clojure might not have cropped up
-    if that were the case.
-    - interactive development, though?
-    - can still do a fair bit by recompiling a namespace - danger will come when
-      a change higher up in the NS breaks a type further down. what could the
-      dev do in this case?
-    - when we refresh the system, do we sync from the classpath again? in some
-      cases we want this (if we're developing locally, say) but if we're REPLd
-      into a spacecraft, we probably don't. in that case, though, we'd only
-      reload the parts of the system marked invalid, which /wouldn't/ include
-      the bits we've just changed at the REPL. (although something else /might/)
-    - so let's say that we store the form with the var, so that it can get
-      recompiled from that form instead. syncing with the filesystem is then a
-      separate operation for people who explicitly want it.
-    - so, requirements:
-      - in the REPL, I have a 'current' namespace, which I can change
-      - namespaces can become 'invalid'
-      - if I compile a namespace which has invalid dependents, we try to
-        recompile the dependents before re-compiling
-      - I can eagerly recompile everything that's become invalid from the cached forms
-      - I can sync this namespace from the filesystem
-      - I can sync all namespaces from the filesystem, and all their dependents
-    - let's say we eval an EnvUpdate at the REPL?
-      - we apply the update to the invididual vars. if the namespace is
-        re-compiled, we use the changed form (because it's cached) and
-        downstream NSs will pick up the change when they're reloaded.
-      - the changes will be lost when the namespace is resynced
+- I like the idea of reloading a whole namespace at a time - a lot of the
+  problems that we've had with REPL state in Clojure might not have cropped up
+  if that were the case.
+  - interactive development, though?
+  - can still do a fair bit by recompiling a namespace - danger will come when
+    a change higher up in the NS breaks a type further down. what could the
+    dev do in this case?
+  - when we refresh the system, do we sync from the classpath again? in some
+    cases we want this (if we're developing locally, say) but if we're REPLd
+    into a spacecraft, we probably don't. in that case, though, we'd only
+    reload the parts of the system marked invalid, which /wouldn't/ include
+    the bits we've just changed at the REPL. (although something else /might/)
+  - so let's say that we store the form with the var, so that it can get
+    recompiled from that form instead. syncing with the filesystem is then a
+    separate operation for people who explicitly want it.
+  - so, requirements:
+    - in the REPL, I have a 'current' namespace, which I can change
+    - namespaces and forms can become 'invalid'.
+    - if I compile a namespace which has invalid dependents, we try to
+      recompile the dependents before re-compiling
+    - I can eagerly recompile everything that's become invalid from the cached forms
+    - I can sync this namespace from the filesystem
+    - I can sync all namespaces from the filesystem, and all their dependents
+  - let's say we eval an EnvUpdate at the REPL?
+    - we apply the update to the invididual vars. if the namespace is
+      re-compiled, we use the changed form (because it's cached) and
+      downstream NSs will pick up the change when they're reloaded.
+    - the changes will be lost when the namespace is resynced
+    - verging on too complex - hard to keep track of what's invalid
+- Ok, a proposal:
+  - We use namespaces as the compilation unit
+  - Namespaces can either be compiled as a request to load the namespace from
+    the filesystem, or to load a sequence of forms
+  - Each REPL session then has some form of scratch that invididual forms can be
+    evaluated in
+    - per NS? probably the expected behaviour
+    - how to clear it out? resync with the 'main' env?
+    - how do we apply concurrent updates to the 'main' env to the scratch envs?
 ** Kernel Syntax:
 #+BEGIN_SRC clojure
   ;; kernel:
