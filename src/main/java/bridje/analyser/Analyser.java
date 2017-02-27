@@ -18,7 +18,6 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static bridje.Util.fmap;
-import static bridje.Util.toPVector;
 import static bridje.analyser.ListParser.*;
 import static bridje.analyser.ListParser.ParseResult.fail;
 import static bridje.analyser.ListParser.ParseResult.success;
@@ -59,15 +58,6 @@ public class Analyser {
             @Override
             public Expr visit(Form.SetForm form) {
                 return new Expr.SetExpr(form.range, fmap(form.forms, recur));
-            }
-
-            @Override
-            public Expr visit(Form.MapForm mapForm) {
-                return new Expr.MapExpr(mapForm.range, mapForm.entries.stream()
-                    .map(e -> new Expr.MapExpr.MapEntryExpr(e.range,
-                        analyse0(env, currentNS, localEnv, e.key),
-                        analyse0(env, currentNS, localEnv, e.value)))
-                    .collect(toPVector()));
             }
 
             @Override

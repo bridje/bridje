@@ -25,7 +25,6 @@ import static bridje.compiler.NewClass.newClass;
 import static bridje.compiler.NewMethod.newMethod;
 import static bridje.runtime.MethodInvoke.INVOKE_STATIC;
 import static bridje.runtime.MethodInvoke.INVOKE_VIRTUAL;
-import static bridje.util.Pair.pair;
 import static java.lang.invoke.MethodHandles.publicLookup;
 import static java.lang.invoke.MethodType.methodType;
 
@@ -62,11 +61,6 @@ public class Compiler {
             @Override
             public PSet<LocalVar> visit(Expr.SetExpr expr) {
                 return mapClosedOverVars(expr.exprs);
-            }
-
-            @Override
-            public PSet<LocalVar> visit(Expr.MapExpr expr) {
-                return mapClosedOverVars(expr.entries.stream().flatMap(e -> vectorOf(e.key, e.value).stream()).collect(toPVector()));
             }
 
             @Override
@@ -165,11 +159,6 @@ public class Compiler {
             @Override
             public Instructions visit(Expr.SetExpr expr) {
                 return Instructions.loadSet(fmap(expr.exprs, e -> compileExpr0(locals, e, OBJECT_TYPE)));
-            }
-
-            @Override
-            public Instructions visit(Expr.MapExpr expr) {
-                return Instructions.loadMap(fmap(expr.entries, e -> pair(compileExpr0(locals, e.key, OBJECT_TYPE), compileExpr0(locals, e.value, OBJECT_TYPE))));
             }
 
             @Override

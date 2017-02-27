@@ -12,8 +12,6 @@ public interface ExprVisitor<T> {
 
     T visit(Expr.SetExpr expr);
 
-    T visit(Expr.MapExpr expr);
-
     T visit(Expr.CallExpr expr);
 
     T visit(Expr.VarCallExpr expr);

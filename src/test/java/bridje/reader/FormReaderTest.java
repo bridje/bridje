@@ -87,7 +87,7 @@ public class FormReaderTest {
 
     @Test
     public void readsSet() throws Exception {
-        Form form = FormReader.read(LCReader.fromString("^[\"Hello\", \"world!\"]"));
+        Form form = FormReader.read(LCReader.fromString("#{\"Hello\", \"world!\"}"));
 
         assertNotNull(form);
         assertEquals(setForm(stringForm("Hello"), stringForm("world!")), form);

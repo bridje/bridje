@@ -181,65 +181,6 @@ public abstract class Expr {
         }
     }
 
-    public static final class MapExpr extends Expr {
-
-        public static final class MapEntryExpr {
-            public final Range range;
-            public final Expr key, value;
-
-            public MapEntryExpr(Range range, Expr key, Expr value) {
-                this.range = range;
-                this.key = key;
-                this.value = value;
-            }
-
-            @Override
-            public boolean equals(Object o) {
-                if (this == o) return true;
-                if (o == null || getClass() != o.getClass()) return false;
-                MapEntryExpr that = (MapEntryExpr) o;
-                return Objects.equals(key, that.key) &&
-                    Objects.equals(value, that.value);
-            }
-
-            @Override
-            public int hashCode() {
-                return Objects.hash(key, value);
-            }
-
-        }
-
-        public final PVector<MapEntryExpr> entries;
-
-        public MapExpr(Range range, PVector<MapEntryExpr> entries) {
-            super(range);
-            this.entries = entries;
-        }
-
-        @Override
-        public <V> V accept(ExprVisitor<V> visitor) {
-            return visitor.visit(this);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            MapExpr mapExpr = (MapExpr) o;
-            return Objects.equals(entries, mapExpr.entries);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(entries);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("(MapExpr ^{%s})", entries.stream().map(e -> String.format("%s %s", e.key, e.value)).collect(joining(", ")));
-        }
-    }
-
     public static final class CallExpr extends Expr {
 
         public final PVector<Expr> exprs;
