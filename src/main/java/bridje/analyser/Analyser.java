@@ -207,149 +207,150 @@ public class Analyser {
                     }
 
                     case "ns": {
-                        return SYMBOL_PARSER.bind(nameForm ->
-                            anyOf(
-                                parseEnd(new Expr.NSExpr(form.range, ns(nameForm.sym.sym), Empty.map(), Empty.map(), Empty.map())),
-                                RECORD_PARSER.bind(optsForm -> {
-                                    PMap<Symbol, NS> aliases = Empty.map();
-                                    PMap<Symbol, FQSymbol> refers = Empty.map();
-                                    PMap<Symbol, Class<?>> imports = Empty.map();
-
-                                    for (Form.RecordForm.RecordEntryForm entry : optsForm.entries) {
-                                        switch (entry.key.sym) {
-                                            case "aliases":
-                                                if (!aliases.isEmpty()) {
-                                                    throw new ParseException.MultipleAliasesInNS(form);
-                                                }
-
-                                                if (entry.value instanceof Form.RecordForm) {
-                                                    Form.RecordForm aliasesForm = (Form.RecordForm) entry.value;
-                                                    Map<Symbol, NS> aliases_ = new HashMap<>();
-
-                                                    for (Form.RecordForm.RecordEntryForm aliasEntry : aliasesForm.entries) {
-                                                        if (!(aliasEntry.value instanceof Form.SymbolForm)) {
-                                                            throw new UnexpectedFormTypeException(aliasEntry.value);
-                                                        }
-
-                                                        Symbol alias = aliasEntry.key;
-                                                        NS ns = ns(((Form.SymbolForm) aliasEntry.value).sym.sym);
-
-                                                        if (aliases_.containsKey(alias)) {
-                                                            throw new DuplicateAliasException(form, alias);
-                                                        }
-
-                                                        if (!env.nsEnvs.containsKey(ns)) {
-                                                            throw new UnsupportedOperationException();
-                                                        }
-
-                                                        aliases_.put(alias, ns);
-
-                                                        // TODO should we do a cycle check here?
-                                                    }
-
-                                                    aliases = HashTreePMap.from(aliases_);
-                                                } else {
-                                                    throw new UnexpectedFormTypeException(entry.value);
-                                                }
-
-                                                break;
-
-                                            case "refers":
-                                                if (!refers.isEmpty()) {
-                                                    throw new ParseException.MultipleRefersInNS(form);
-                                                }
-
-                                                if (entry.value instanceof Form.RecordForm) {
-                                                    Map<Symbol, FQSymbol> refers_ = new HashMap<>();
-                                                    Form.RecordForm refersForm = (Form.RecordForm) entry.value;
-
-                                                    for (Form.RecordForm.RecordEntryForm referEntry : refersForm.entries) {
-                                                        NS referredNS = ns(referEntry.key.sym);
-                                                        // TODO should we do a cycle check here?
-
-                                                        if (!env.nsEnvs.containsKey(referredNS)) {
-                                                            throw new UnsupportedOperationException();
-                                                        }
-
-                                                        PSet<Symbol> availableSyms = HashTreePSet.from(env.nsEnvs.get(referredNS).declarations.keySet());
-
-                                                        if (!(referEntry.value instanceof Form.VectorForm)) {
-                                                            throw new UnexpectedFormTypeException(referEntry.value);
-                                                        }
-
-                                                        for (Form referredForm : ((Form.VectorForm) referEntry.value).forms) {
-                                                            if (!(referredForm instanceof Form.SymbolForm)) {
-                                                                throw new UnexpectedFormTypeException(referredForm);
-                                                            }
-
-                                                            Symbol referredSym = ((Form.SymbolForm) referredForm).sym;
-
-                                                            if (refers_.containsKey(referredSym)) {
-                                                                throw new DuplicateReferException(form, referredSym);
-                                                            }
-
-                                                            if (!availableSyms.contains(referredSym)) {
-                                                                throw new UnsupportedOperationException();
-                                                            }
-
-                                                            refers_.put(referredSym, fqSym(referredNS, referredSym));
-                                                        }
-                                                    }
-
-                                                    refers = HashTreePMap.from(refers_);
-                                                }
-
-                                                break;
-
-                                            case "imports":
-                                                if (!imports.isEmpty()) {
-                                                    throw new ParseException.MultipleImportsInNS(form);
-                                                }
-
-                                                if (entry.value instanceof Form.RecordForm) {
-                                                    Map<Symbol, Class<?>> imports_ = new HashMap<>();
-                                                    Form.RecordForm importsForm = (Form.RecordForm) entry.value;
-
-                                                    for (Form.RecordForm.RecordEntryForm importEntry : importsForm.entries) {
-                                                        if (!(importEntry.value instanceof Form.VectorForm)) {
-                                                            throw new UnexpectedFormTypeException(importEntry.value);
-                                                        }
-
-                                                        for (Form classNameForm : ((Form.VectorForm) importEntry.value).forms) {
-                                                            if (!(classNameForm instanceof Form.SymbolForm)) {
-                                                                throw new UnexpectedFormTypeException(classNameForm);
-                                                            }
-
-                                                            Symbol classNameSym = ((Form.SymbolForm) classNameForm).sym;
-
-                                                            if (imports_.containsKey(classNameSym)) {
-                                                                throw new DuplicateReferException(form, classNameSym);
-                                                            }
-
-                                                            Class<?> clazz;
-
-                                                            try {
-                                                                clazz = Class.forName(importEntry.key.sym + "." + classNameSym.sym);
-                                                            } catch (ClassNotFoundException e) {
-                                                                throw new UnsupportedOperationException();
-                                                            }
-
-                                                            imports_.put(classNameSym, clazz);
-                                                        }
-                                                    }
-
-                                                    imports = HashTreePMap.from(imports_);
-                                                }
-
-                                                break;
-
-                                            default:
-                                                throw new UnsupportedOperationException();
-                                        }
-                                    }
-
-                                    return parseEnd(new Expr.NSExpr(form.range, ns(nameForm.sym.sym), aliases, refers, imports));
-                                })));
+//                        return SYMBOL_PARSER.bind(nameForm ->
+//                            anyOf(
+//                                parseEnd(new Expr.NSExpr(form.range, ns(nameForm.sym.sym), Empty.map(), Empty.map(), Empty.map())),
+//                                RECORD_PARSER.bind(optsForm -> {
+//                                    PMap<Symbol, NS> aliases = Empty.map();
+//                                    PMap<Symbol, FQSymbol> refers = Empty.map();
+//                                    PMap<Symbol, Class<?>> imports = Empty.map();
+//
+//                                    for (Form.RecordForm.RecordEntryForm entry : optsForm.entries) {
+//                                        switch (entry.key.sym) {
+//                                            case "aliases":
+//                                                if (!aliases.isEmpty()) {
+//                                                    throw new ParseException.MultipleAliasesInNS(form);
+//                                                }
+//
+//                                                if (entry.value instanceof Form.RecordForm) {
+//                                                    Form.RecordForm aliasesForm = (Form.RecordForm) entry.value;
+//                                                    Map<Symbol, NS> aliases_ = new HashMap<>();
+//
+//                                                    for (Form.RecordForm.RecordEntryForm aliasEntry : aliasesForm.entries) {
+//                                                        if (!(aliasEntry.value instanceof Form.SymbolForm)) {
+//                                                            throw new UnexpectedFormTypeException(aliasEntry.value);
+//                                                        }
+//
+//                                                        Symbol alias = aliasEntry.key;
+//                                                        NS ns = ns(((Form.SymbolForm) aliasEntry.value).sym.sym);
+//
+//                                                        if (aliases_.containsKey(alias)) {
+//                                                            throw new DuplicateAliasException(form, alias);
+//                                                        }
+//
+//                                                        if (!env.nsEnvs.containsKey(ns)) {
+//                                                            throw new UnsupportedOperationException();
+//                                                        }
+//
+//                                                        aliases_.put(alias, ns);
+//
+//                                                        // TODO should we do a cycle check here?
+//                                                    }
+//
+//                                                    aliases = HashTreePMap.from(aliases_);
+//                                                } else {
+//                                                    throw new UnexpectedFormTypeException(entry.value);
+//                                                }
+//
+//                                                break;
+//
+//                                            case "refers":
+//                                                if (!refers.isEmpty()) {
+//                                                    throw new ParseException.MultipleRefersInNS(form);
+//                                                }
+//
+//                                                if (entry.value instanceof Form.RecordForm) {
+//                                                    Map<Symbol, FQSymbol> refers_ = new HashMap<>();
+//                                                    Form.RecordForm refersForm = (Form.RecordForm) entry.value;
+//
+//                                                    for (Form.RecordForm.RecordEntryForm referEntry : refersForm.entries) {
+//                                                        NS referredNS = ns(referEntry.key.sym);
+//                                                        // TODO should we do a cycle check here?
+//
+//                                                        if (!env.nsEnvs.containsKey(referredNS)) {
+//                                                            throw new UnsupportedOperationException();
+//                                                        }
+//
+//                                                        PSet<Symbol> availableSyms = HashTreePSet.from(env.nsEnvs.get(referredNS).declarations.keySet());
+//
+//                                                        if (!(referEntry.value instanceof Form.VectorForm)) {
+//                                                            throw new UnexpectedFormTypeException(referEntry.value);
+//                                                        }
+//
+//                                                        for (Form referredForm : ((Form.VectorForm) referEntry.value).forms) {
+//                                                            if (!(referredForm instanceof Form.SymbolForm)) {
+//                                                                throw new UnexpectedFormTypeException(referredForm);
+//                                                            }
+//
+//                                                            Symbol referredSym = ((Form.SymbolForm) referredForm).sym;
+//
+//                                                            if (refers_.containsKey(referredSym)) {
+//                                                                throw new DuplicateReferException(form, referredSym);
+//                                                            }
+//
+//                                                            if (!availableSyms.contains(referredSym)) {
+//                                                                throw new UnsupportedOperationException();
+//                                                            }
+//
+//                                                            refers_.put(referredSym, fqSym(referredNS, referredSym));
+//                                                        }
+//                                                    }
+//
+//                                                    refers = HashTreePMap.from(refers_);
+//                                                }
+//
+//                                                break;
+//
+//                                            case "imports":
+//                                                if (!imports.isEmpty()) {
+//                                                    throw new ParseException.MultipleImportsInNS(form);
+//                                                }
+//
+//                                                if (entry.value instanceof Form.RecordForm) {
+//                                                    Map<Symbol, Class<?>> imports_ = new HashMap<>();
+//                                                    Form.RecordForm importsForm = (Form.RecordForm) entry.value;
+//
+//                                                    for (Form.RecordForm.RecordEntryForm importEntry : importsForm.entries) {
+//                                                        if (!(importEntry.value instanceof Form.VectorForm)) {
+//                                                            throw new UnexpectedFormTypeException(importEntry.value);
+//                                                        }
+//
+//                                                        for (Form classNameForm : ((Form.VectorForm) importEntry.value).forms) {
+//                                                            if (!(classNameForm instanceof Form.SymbolForm)) {
+//                                                                throw new UnexpectedFormTypeException(classNameForm);
+//                                                            }
+//
+//                                                            Symbol classNameSym = ((Form.SymbolForm) classNameForm).sym;
+//
+//                                                            if (imports_.containsKey(classNameSym)) {
+//                                                                throw new DuplicateReferException(form, classNameSym);
+//                                                            }
+//
+//                                                            Class<?> clazz;
+//
+//                                                            try {
+//                                                                clazz = Class.forName(importEntry.key.sym + "." + classNameSym.sym);
+//                                                            } catch (ClassNotFoundException e) {
+//                                                                throw new UnsupportedOperationException();
+//                                                            }
+//
+//                                                            imports_.put(classNameSym, clazz);
+//                                                        }
+//                                                    }
+//
+//                                                    imports = HashTreePMap.from(imports_);
+//                                                }
+//
+//                                                break;
+//
+//                                            default:
+//                                                throw new UnsupportedOperationException();
+//                                        }
+//                                    }
+//
+//                                    return parseEnd(new Expr.NSExpr(form.range, ns(nameForm.sym.sym), aliases, refers, imports));
+//                                })));
+                        throw new UnsupportedOperationException();
                     }
 
                     default:
@@ -379,31 +380,33 @@ public class Analyser {
 
             @Override
             public Expr visit(Form.ListForm form) {
-                return
-                    anyOf(
-                        SYMBOL_PARSER.bind(this::listFormParser),
-                        QSYMBOL_PARSER.bind(qsymForm -> (paramForms -> {
-                            Var var = env.resolveVar(currentNS, qsymForm.qsym).orElse(null);
-                            if (var != null) {
-                                return parseVarCall(var, paramForms);
-                            }
-
-                            throw new UnsupportedOperationException();
-                        })))
-
-                        .parse(form.forms).orThrow().left;
+//                return
+//                    anyOf(
+//                        SYMBOL_PARSER.bind(this::listFormParser),
+//                        QSYMBOL_PARSER.bind(qsymForm -> (paramForms -> {
+//                            Var var = env.resolveVar(currentNS, qsymForm.qsym).orElse(null);
+//                            if (var != null) {
+//                                return parseVarCall(var, paramForms);
+//                            }
+//
+//                            throw new UnsupportedOperationException();
+//                        })))
+//
+//                        .parse(form.forms).orThrow().left;
+                throw new UnsupportedOperationException();
             }
 
             @Override
             public Expr visit(Form.SymbolForm form) {
-                LocalVar localVar = localEnv.localVars.get(form.sym);
-                if (localVar != null) {
-                    return new LocalVarExpr(form.range, localVar);
-                }
-
-                return env.resolveVar(currentNS, form.sym)
-                    .map(var -> new Expr.GlobalVarExpr(form.range, var))
-                    .orElseThrow(UnsupportedOperationException::new);
+//                LocalVar localVar = localEnv.localVars.get(form.sym);
+//                if (localVar != null) {
+//                    return new LocalVarExpr(form.range, localVar);
+//                }
+//
+//                return env.resolveVar(currentNS, form.sym)
+//                    .map(var -> new Expr.GlobalVarExpr(form.range, var))
+//                    .orElseThrow(UnsupportedOperationException::new);
+                throw new UnsupportedOperationException();
             }
 
             @Override

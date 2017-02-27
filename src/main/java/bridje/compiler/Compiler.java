@@ -627,8 +627,9 @@ public class Compiler {
                 .invoke();
 
             if (result instanceof EnvUpdate) {
-                Pair<Env, ?> envUpdateResult = ((EnvUpdate<?>) result).updateEnv(env);
-                return new EvalResult(envUpdateResult.left, envUpdateResult.right);
+//                Pair<Env, ?> envUpdateResult = ((EnvUpdate<?>) result).updateEnv(env);
+//                return new EvalResult(envUpdateResult.left, envUpdateResult.right);
+                throw new UnsupportedOperationException();
             } else {
                 return new EvalResult(env, result);
             }
