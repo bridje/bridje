@@ -88,7 +88,9 @@ Can have the compilation unit as either namespace or form:
   - also means that type declarations get loaded 'with' their implementations
     - can warn/fail against unimplemented typedefs
   - how much of this do we expose to sub-langs?
-    - all of the above will probably require t-brj knowing about multi-pass.
+    - I don't think we need to expose the multi-pass to users
+    - we still require them to forward declare (with a type-sig if it's t-brj)
+    - compiler then multi-passes behind the scenes, to statically link
 ** Kernel Syntax:
 #+BEGIN_SRC clojure
   ;; kernel:
