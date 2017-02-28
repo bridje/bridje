@@ -1,5 +1,8 @@
 package bridje.runtime;
 
+import org.pcollections.Empty;
+import org.pcollections.PMap;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -8,7 +11,7 @@ import java.util.function.Function;
 import static bridje.runtime.NS.KERNEL;
 
 public class Env {
-    public static final Env EMPTY = new Env();
+    public static final Env EMPTY = new Env(Empty.map());
     public static final Env CORE;
 
     static {
@@ -49,4 +52,11 @@ public class Env {
             throw new RuntimeException(e);
         }
     }
+
+    public final PMap<NS, NSEnv> nsEnvs;
+
+    public Env(PMap<NS, NSEnv> nsEnvs) {
+        this.nsEnvs = nsEnvs;
+    }
+
 }

@@ -1,18 +1,17 @@
 package bridje.analyser;
 
-import bridje.analyser.ParseException.MultipleParseFailsException;
 import bridje.reader.Form;
 import bridje.util.Pair;
 import org.pcollections.Empty;
 import org.pcollections.PVector;
+import org.pcollections.TreePVector;
 
 import java.util.function.Function;
 
-import static bridje.analyser.ListParser.ParseResult.fail;
 import static bridje.analyser.ListParser.ParseResult.success;
 import static bridje.util.Pair.pair;
 
-interface ListParser<T> {
+public interface ListParser<T> {
 
     interface ParseResult<T> {
         <U> ParseResult<U> bind(Function<T, ParseResult<U>> fn);
@@ -126,7 +125,7 @@ interface ListParser<T> {
             if (forms.isEmpty()) {
                 return success(pair(result, forms));
             } else {
-                return fail(new ParseException.ExtraFormsException(forms));
+                return ParseResult.fail(new ParseException.ExtraFormsException(forms));
             }
         };
     }
@@ -140,7 +139,7 @@ interface ListParser<T> {
             if (clazz.isAssignableFrom(form.getClass())) {
                 return success(clazz.cast(form));
             } else {
-                return fail(new ParseException.UnexpectedFormTypeException(form));
+                return ParseResult.fail(new ParseException.UnexpectedFormTypeException(form));
             }
         });
     }
@@ -154,7 +153,7 @@ interface ListParser<T> {
     static <T> ListParser<T> oneOf(FormParser<T> formParser) {
         return forms -> {
             if (forms.isEmpty()) {
-                return fail(new ParseException());
+                return ParseResult.fail(new ParseException());
             } else {
                 return formParser.parseForm(forms.get(0)).fmap(t -> pair(t, forms.minus(0)));
             }
@@ -177,7 +176,7 @@ interface ListParser<T> {
                     result = result.plus(success.left);
                     forms = success.right;
                 } else {
-                    return fail(((ParseResult.Fail) res).error);
+                    return ParseResult.fail(((ParseResult.Fail) res).error);
                 }
             }
 
@@ -198,7 +197,15 @@ interface ListParser<T> {
                 }
             }
 
-            return fail(new MultipleParseFailsException(fails));
+            return ParseResult.fail(new ParseException.MultipleParseFailsException(fails));
         };
+    }
+
+    static <T> ParseResult<Pair<T, PVector<Form>>> parseForm(Form form, ListParser<T> parser) {
+        return parser.parse(TreePVector.singleton(form));
+    }
+
+    static <T> ListParser<T> fail(ParseException e) {
+        return forms -> ParseResult.fail(e);
     }
 }

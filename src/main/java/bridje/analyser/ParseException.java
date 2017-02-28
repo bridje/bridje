@@ -4,7 +4,7 @@ import bridje.reader.Form;
 import bridje.runtime.Symbol;
 import org.pcollections.PVector;
 
-class ParseException extends RuntimeException {
+public class ParseException extends RuntimeException {
 
     ParseException() {
     }
@@ -21,7 +21,16 @@ class ParseException extends RuntimeException {
         super(cause);
     }
 
-    static final class UnexpectedFormTypeException extends ParseException {
+    public static final class UnexpectedFormException extends ParseException {
+        public final Object expected, actual;
+
+        public UnexpectedFormException(Object expected, Object actual) {
+            this.expected = expected;
+            this.actual = actual;
+        }
+    }
+
+    public static final class UnexpectedFormTypeException extends ParseException {
 
         final Form form;
 
@@ -30,14 +39,14 @@ class ParseException extends RuntimeException {
         }
     }
 
-    static final class TypeParseException extends ParseException {
+    public static final class TypeParseException extends ParseException {
 
         public TypeParseException(Exception e) {
             super(e);
         }
     }
 
-    static final class ExtraFormsException extends ParseException {
+    public static final class ExtraFormsException extends ParseException {
         final PVector<Form> extraForms;
 
         ExtraFormsException(PVector<Form> extraForms) {
@@ -45,7 +54,7 @@ class ParseException extends RuntimeException {
         }
     }
 
-    static final class MultipleAliasesInNS extends ParseException {
+    public static final class MultipleAliasesInNS extends ParseException {
         final Form nsForm;
 
         MultipleAliasesInNS(Form nsForm) {
@@ -53,7 +62,7 @@ class ParseException extends RuntimeException {
         }
     }
 
-    static final class DuplicateAliasException extends ParseException {
+    public static final class DuplicateAliasException extends ParseException {
         final Form nsForm;
         final Symbol duplicateAlias;
 
@@ -63,7 +72,7 @@ class ParseException extends RuntimeException {
         }
     }
 
-    static final class DuplicateReferException extends ParseException {
+    public static final class DuplicateReferException extends ParseException {
         final Form nsForm;
         final Symbol duplicateRefer;
 
@@ -74,7 +83,7 @@ class ParseException extends RuntimeException {
     }
 
 
-    static final class MultipleParseFailsException extends ParseException {
+    public static final class MultipleParseFailsException extends ParseException {
         final PVector<ListParser.ParseResult.Fail<?>> fails;
 
         MultipleParseFailsException(PVector<ListParser.ParseResult.Fail<?>> fails) {
@@ -82,7 +91,7 @@ class ParseException extends RuntimeException {
         }
     }
 
-    static class MultipleRefersInNS extends ParseException {
+    public static class MultipleRefersInNS extends ParseException {
         final Form nsForm;
 
         MultipleRefersInNS(Form nsForm) {
@@ -90,7 +99,7 @@ class ParseException extends RuntimeException {
         }
     }
 
-    static class MultipleImportsInNS extends ParseException {
+    public static class MultipleImportsInNS extends ParseException {
         final Form nsForm;
 
         MultipleImportsInNS(Form nsForm) {

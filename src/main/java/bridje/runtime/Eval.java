@@ -1,18 +1,27 @@
 package bridje.runtime;
 
+import bridje.analyser.Expr;
 import bridje.reader.Form;
 import bridje.reader.FormReader;
+import bridje.util.Pair;
 import org.pcollections.PVector;
 
 import java.io.IOException;
 import java.net.URL;
 
 import static bridje.Panic.panic;
+import static bridje.analyser.Analyser.parseNSDeclaration;
 
 public class Eval {
+
+    public static Pair<NSEnv, PVector<Expr>> analyseNS(Env env, NS ns, PVector<Form> forms) {
+        System.out.println(parseNSDeclaration(forms.get(0)));
+        throw new UnsupportedOperationException();
+    }
+
     public static EvalResult<?> loadNS(Env env, NS ns, PVector<Form> forms) {
-        System.out.println(env);
-        System.out.println(forms);
+        Pair<NSEnv, PVector<Expr>> analyseResult = analyseNS(env, ns, forms);
+
         return new EvalResult<>(env, null);
     }
 
