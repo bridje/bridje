@@ -5,6 +5,8 @@ import bridje.runtime.QSymbol;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 
+import java.io.IOException;
+import java.net.URL;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -304,5 +306,27 @@ public class FormReader {
 
     public static Form read(LCReader reader) {
         return read0(reader, null, EOFBehaviour.RETURN);
+    }
+
+    public static PVector<Form> readAll(LCReader reader) {
+        List<Form> forms = new LinkedList<>();
+
+        Form form;
+        do {
+            form = read(reader);
+            forms.add(form);
+        } while (form != null);
+
+        return TreePVector.from(forms);
+    }
+
+    public static PVector<Form> readAll(URL url) throws IOException {
+        try (LCReader reader = LCReader.fromURL(url)) {
+            return readAll(reader);
+        }
+    }
+
+    public static PVector<Form> readAll(String code) {
+        return readAll(LCReader.fromString(code));
     }
 }

@@ -11,7 +11,7 @@ public class HelloWorldTest {
     @Test
     public void evalsHelloWorld() throws Exception {
         NS helloWorldNS = NS.ns("bridje.hello-world");
-        Eval.requireNS(helloWorldNS);
+        Eval.loadNS(helloWorldNS);
         assertEquals(Eval.eval(helloWorldNS, Form.SymbolForm.symbolForm("hello")).value, "Hello world!");
     }
 }

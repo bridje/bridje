@@ -1,6 +1,7 @@
 package bridje.reader;
 
 import java.io.*;
+import java.net.URL;
 import java.util.Stack;
 
 import static bridje.Panic.panic;
@@ -22,6 +23,10 @@ public class LCReader implements Closeable {
 
     public static LCReader fromReader(Reader reader) {
         return new LCReader(reader);
+    }
+
+    public static LCReader fromURL(URL url) throws IOException {
+        return fromReader(new InputStreamReader(url.openStream()));
     }
 
     private final LineNumberReader lineNumberReader;
@@ -69,4 +74,5 @@ public class LCReader implements Closeable {
     public void close() throws IOException {
         lineNumberReader.close();
     }
+
 }
