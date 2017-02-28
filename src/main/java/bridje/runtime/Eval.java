@@ -14,9 +14,15 @@ import static bridje.runtime.Lang.KERNEL;
 import static bridje.util.Pair.pair;
 
 public class Eval {
-    public static void loadNS(NS ns, PVector<Form> forms, Lang lang) {
+    public static EvalResult<?> loadNS(Env env, NS ns, PVector<Form> forms, Lang lang) {
+        System.out.println(env);
         System.out.println(forms);
-        throw new UnsupportedOperationException();
+        System.out.println(lang);
+        return new EvalResult<>(env, null);
+    }
+
+    public static EvalResult<?> loadNS(NS ns, PVector<Form> forms, Lang lang) {
+        return Env.eval(env -> loadNS(env, ns, forms, lang));
     }
 
     private static Pair<URL, Lang> nsURL(NS ns) {
@@ -43,13 +49,17 @@ public class Eval {
         }
     }
 
-    public static void loadNS(NS ns) {
+    public static EvalResult<?> loadNS(Env env, NS ns) {
         Pair<URL, Lang> foundNS = nsURL(ns);
 
-        loadNS(ns, readForms(ns, foundNS.left), foundNS.right);
+        return loadNS(env, ns, readForms(ns, foundNS.left), foundNS.right);
     }
 
-    public static EvalResult eval(NS currentNS, Form form) {
+    public static EvalResult<?> loadNS(NS ns) {
+        return Env.eval(env -> loadNS(env, ns));
+    }
+
+    public static EvalResult eval(Env env, NS currentNS, Form form) {
         throw new UnsupportedOperationException();
     }
 }

@@ -5,6 +5,7 @@ import java.util.Objects;
 public class NS {
 
     public static final NS CORE = ns("bridje.core");
+    public static final NS KERNEL = ns("bridje.kernel");
     public static final NS USER = ns("user");
 
     public final String name;
