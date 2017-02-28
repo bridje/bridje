@@ -95,19 +95,6 @@ public class FormReaderTest {
     }
 
     @Test
-    public void readsMap() throws Exception {
-        Form form = FormReader.read(LCReader.fromString("^{\"Alice\" 4, \"Bob\" 3}"));
-
-        assertNotNull(form);
-        assertEquals(new Form.MapForm(null,
-                vectorOf(
-                    new Form.MapForm.MapEntryForm(null, stringForm("Alice"), intForm(4)),
-                    new Form.MapForm.MapEntryForm(null, stringForm("Bob"), intForm(3)))),
-            form);
-        assertEquals(range(loc(1, 1), loc(1, 22)), form.range);
-    }
-
-    @Test
     public void readsRecord() throws Exception {
         Form form = FormReader.read(LCReader.fromString("{alice 4, bob 3}"));
 
