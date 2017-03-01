@@ -4,7 +4,7 @@ import bridje.reader.Form;
 import bridje.runtime.NS;
 
 import static bridje.analyser.ListParser.*;
-import static bridje.runtime.Language.CORE_LANGUAGE;
+import static bridje.analyser.Language.CORE_LANGUAGE;
 import static bridje.runtime.Symbol.symbol;
 
 public class Analyser {
