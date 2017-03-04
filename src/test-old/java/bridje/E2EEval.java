@@ -1,6 +1,5 @@
 package bridje;
 
-import bridje.analyser.Expr;
 import bridje.reader.Form;
 import bridje.reader.LCReader;
 import bridje.runtime.DataType;

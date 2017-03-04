@@ -1,7 +1,6 @@
 package bridje.compiler;
 
 import bridje.Panic;
-import bridje.analyser.Expr;
 import bridje.analyser.ExprVisitor;
 import bridje.analyser.LocalVar;
 import bridje.runtime.Env;
@@ -318,7 +317,7 @@ public class Compiler {
 //                    .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
 //                        mplus(
 //                            valueInstructions,
-//                            fieldOp(PUT_STATIC, fromClassName(newClass.name), VALUE_FIELD_NAME, fromClass(clazz)),
+//                            fieldOp(PUT_STATIC, fromClassName(newClass.clazz), VALUE_FIELD_NAME, fromClass(clazz)),
 //                            ret(Void.TYPE))));
 //
 //                Class<?> dynClass = defineClass(newClass);
@@ -340,8 +339,8 @@ public class Compiler {
 //                newClass = newClass
 //                    .withField(newField(VALUE_FIELD_NAME, clazz, setOf(STATIC, FINAL, PUBLIC)))
 //                    .withMethod(newMethod(setOf(STATIC), "<clinit>", Void.TYPE, vectorOf(),
-//                        mplus(Instructions.staticMethodHandle(fromClassName(newClass.name), FN_METHOD_NAME, paramTypes, fnMethodType.returnType()),
-//                            fieldOp(PUT_STATIC, fromClassName(newClass.name), VALUE_FIELD_NAME, fromClass(clazz)),
+//                        mplus(Instructions.staticMethodHandle(fromClassName(newClass.clazz), FN_METHOD_NAME, paramTypes, fnMethodType.returnType()),
+//                            fieldOp(PUT_STATIC, fromClassName(newClass.clazz), VALUE_FIELD_NAME, fromClass(clazz)),
 //                            ret(Void.TYPE))))
 //
 //                    .withMethod(newMethod(setOf(STATIC, PUBLIC), FN_METHOD_NAME, fnMethodType.returnType(), paramTypes, fnInstructions));
@@ -360,7 +359,7 @@ public class Compiler {
             public Instructions visit(Expr.DefExpr expr) {
 //                Type type = expr.body.type;
 //
-//                String className = format("%s$$%s$$%d", expr.sym.ns.name, expr.sym.symbol, uniqueInt());
+//                String className = format("%s$$%s$$%d", expr.sym.ns.clazz, expr.sym.symbol, uniqueInt());
 //                NewClass newClass = newClass(className);
 //
 //                if (expr.body instanceof Expr.FnExpr && type instanceof Type.FnType) {
@@ -428,8 +427,8 @@ public class Compiler {
             public Instructions visit(Expr.DefJExpr expr) {
 //                Type typeDef = expr.typeDef;
 //
-//                NewClass newClass = newClass(format("%s$$%s$$%d", expr.sym.ns.name, expr.sym.symbol.sym, uniqueInt()));
-//                ClassLike classLike = fromClassName(newClass.name);
+//                NewClass newClass = newClass(format("%s$$%s$$%d", expr.sym.ns.clazz, expr.sym.symbol.sym, uniqueInt()));
+//                ClassLike classLike = fromClassName(newClass.clazz);
 //
 //                JCall jCall = expr.jCall;
 //                JSignature sig = jCall.signature;
@@ -506,7 +505,7 @@ public class Compiler {
 //                    type = ((Type.AppliedType) type).appliedType;
 //                }
 //
-//                Class<?> superClass = defineClass(newClass(format("%s$$%s$$%d", dataType.sym.ns.name, dataType.sym.symbol, uniqueInt()), setOf(PUBLIC, ABSTRACT))
+//                Class<?> superClass = defineClass(newClass(format("%s$$%s$$%d", dataType.sym.ns.clazz, dataType.sym.symbol, uniqueInt()), setOf(PUBLIC, ABSTRACT))
 //                    .withMethod(newMethod(setOf(PUBLIC), "<init>", Void.TYPE, Empty.vector(),
 //                        mplus(loadThis(), OBJECT_SUPER_CONSTRUCTOR_CALL, ret(Void.TYPE)))));
 //
@@ -518,7 +517,7 @@ public class Compiler {
 //                    .fmapParamTypes(t -> t.applyJavaTypeMapping(classMapping));
 //
 //                for (DataTypeConstructor<? extends Type> constructor : dataType.constructors) {
-//                    String subclassName = format("%s$$%s$$%s$$%d", dataType.sym.ns.name, dataType.sym.symbol, constructor.sym.symbol, uniqueInt());
+//                    String subclassName = format("%s$$%s$$%s$$%d", dataType.sym.ns.clazz, dataType.sym.symbol, constructor.sym.symbol, uniqueInt());
 //
 //                    NewClass newClass = newClass(subclassName).withSuperClass(superClass);
 //                    final NewClass baseNewClass = newClass;

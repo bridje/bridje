@@ -61,11 +61,11 @@ public abstract class JCall {
 //
 //
 //            return singleMatch(Arrays.stream(clazz.getMethods())
-//                .filter(m -> m.getName().equals(name))
+//                .filter(m -> m.getName().equals(clazz))
 //                .filter(m -> Modifier.isStatic(m.getModifiers()))
 //                .map(m ->
 //                    signature.match(TreePVector.from(Arrays.asList(m.getParameterTypes())), m.getReturnType())
-//                        .map(sig -> new StaticMethodCall(clazz, name, sig))
+//                        .map(sig -> new StaticMethodCall(clazz, clazz, sig))
 //                        .orElse(null))
 //                .filter(Objects::nonNull)
 //                .collect(toPVector()));
@@ -126,11 +126,11 @@ public abstract class JCall {
 //            JSignature signature = new JSignature(fnSignature.jParams.minus(0), fnSignature.jReturn);
 //
 //            return singleMatch(Arrays.stream(clazz.getMethods())
-//                .filter(m -> m.getName().equals(name))
+//                .filter(m -> m.getName().equals(clazz))
 //                .filter(m -> !Modifier.isStatic(m.getModifiers()))
 //                .map(m ->
 //                    signature.match(TreePVector.from(Arrays.asList(m.getParameterTypes())), m.getReturnType())
-//                        .map(sig -> new InstanceMethodCall(clazz, name, sig))
+//                        .map(sig -> new InstanceMethodCall(clazz, clazz, sig))
 //                        .orElse(null))
 //                .filter(Objects::nonNull)
 //                .collect(toPVector()));
@@ -209,10 +209,10 @@ public abstract class JCall {
 //            }
 //
 //            return singleMatch(Arrays.stream(clazz.getFields())
-//                .filter(f -> f.getName().equals(name))
+//                .filter(f -> f.getName().equals(clazz))
 //                .map(f ->
 //                    signature.match(Empty.vector(), f.getType())
-//                        .map(sig -> new GetStaticFieldCall(clazz, name, sig))
+//                        .map(sig -> new GetStaticFieldCall(clazz, clazz, sig))
 //                        .orElse(null))
 //                .filter(Objects::nonNull)
 //                .collect(toPVector()));

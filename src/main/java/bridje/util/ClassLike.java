@@ -1,10 +1,10 @@
-package bridje.compiler;
+package bridje.util;
 
 import org.objectweb.asm.Type;
 
 import static bridje.Util.toInternalName;
 
-interface ClassLike {
+public interface ClassLike {
     String getName();
     String getInternalName();
     String getDescriptor();
@@ -25,6 +25,11 @@ interface ClassLike {
             public String getDescriptor() {
                 return Type.getDescriptor(clazz);
             }
+
+            @Override
+            public String toString() {
+                return getName();
+            }
         };
     }
 
@@ -43,6 +48,11 @@ interface ClassLike {
             @Override
             public String getDescriptor() {
                 return String.format("L%s;", getInternalName());
+            }
+
+            @Override
+            public String toString() {
+                return getName();
             }
         };
     }

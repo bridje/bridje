@@ -1,6 +1,7 @@
 package bridje.analyser;
 
 import bridje.reader.Form;
+import bridje.runtime.NS;
 import bridje.runtime.Symbol;
 import org.pcollections.PVector;
 
@@ -82,6 +83,19 @@ public class ParseException extends RuntimeException {
         }
     }
 
+    public static final class MismatchingNSException extends ParseException {
+        public final NS expectedNS;
+        public final Form.SymbolForm symbolForm;
+
+        public static ParseException mismatchedNS(NS expectedNS, Form.SymbolForm symbolForm) {
+            return new MismatchingNSException(expectedNS, symbolForm);
+        }
+
+        MismatchingNSException(NS expectedNS, Form.SymbolForm symbolForm) {
+            this.expectedNS = expectedNS;
+            this.symbolForm = symbolForm;
+        }
+    }
 
     public static final class MultipleParseFailsException extends ParseException {
         final PVector<ListParser.ParseResult.Fail<?>> fails;

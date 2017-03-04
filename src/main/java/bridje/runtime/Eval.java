@@ -1,25 +1,43 @@
 package bridje.runtime;
 
 import bridje.analyser.Expr;
-import bridje.analyser.NSDeclaration;
+import bridje.compiler.Compiler;
 import bridje.reader.Form;
 import bridje.reader.FormReader;
-import bridje.util.Pair;
 import org.pcollections.PVector;
 
 import java.io.IOException;
 import java.net.URL;
 
 import static bridje.Panic.panic;
-import static bridje.analyser.Analyser.analyseNS;
+import static bridje.analyser.Analyser.analyse;
+import static bridje.analyser.Analyser.parseNSDeclaration;
 
 public class Eval {
 
     public static EvalResult<?> loadNS(Env env, NS ns, PVector<Form> forms) {
-        Pair<NSDeclaration, PVector<Expr>> analyseResult = analyseNS(env, ns, forms);
-        System.out.println(analyseResult);
+        if (forms.isEmpty()) {
+            throw panic("Empty NS: '%s'", ns.name);
+        }
 
-        return new EvalResult<>(env, null);
+        env = env.withNSEnv(ns, parseNSDeclaration(forms.get(0), ns));
+        Compiler compiler = new Compiler(ns);
+
+        boolean isKernel = NS.KERNEL.name.equals(ns.name) || ns.name.startsWith(NS.KERNEL.name + ".");
+
+        for (Form form : forms.minus(0)) {
+            Expr expr;
+            if (isKernel)
+                expr = analyse(env, ns, form);
+            else
+                throw new UnsupportedOperationException();
+
+            env = compiler.compile(env, expr).env;
+        }
+
+        compiler.build();
+
+        return new EvalResult<>(env, ns);
     }
 
     public static EvalResult<?> loadNS(NS ns, PVector<Form> forms) {

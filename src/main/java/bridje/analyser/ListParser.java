@@ -145,7 +145,6 @@ public interface ListParser<T> {
     }
 
     ListParser<Form.SymbolForm> SYMBOL_PARSER = formTypeParser(Form.SymbolForm.class);
-    ListParser<Form.QSymbolForm> QSYMBOL_PARSER = formTypeParser(Form.QSymbolForm.class);
     ListParser<Form.ListForm> LIST_PARSER = formTypeParser(Form.ListForm.class);
     ListParser<Form.VectorForm> VECTOR_PARSER = formTypeParser(Form.VectorForm.class);
     ListParser<Form.RecordForm> RECORD_PARSER = formTypeParser(Form.RecordForm.class);
@@ -201,8 +200,12 @@ public interface ListParser<T> {
         };
     }
 
-    static <T> ParseResult<Pair<T, PVector<Form>>> parseForm(Form form, ListParser<T> parser) {
-        return parser.parse(TreePVector.singleton(form));
+    static <T> T parseForm(Form form, ListParser<T> parser) {
+        return parser.parse(TreePVector.singleton(form)).orThrow().left;
+    }
+
+    static <T> T parseForms(PVector<Form> forms, ListParser<T> parser) {
+        return parser.parse(forms).orThrow().left;
     }
 
     static <T> ListParser<T> fail(ParseException e) {

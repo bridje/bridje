@@ -1,4 +1,4 @@
-package bridje.runtime;
+package bridje.runtime.java;
 
 import org.objectweb.asm.Opcodes;
 

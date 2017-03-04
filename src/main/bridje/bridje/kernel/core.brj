@@ -1,5 +1,0 @@
-(ns bridje.kernel.core
-  {lang bridje.kernel})
-
-(def (analyse form)
-  (Expr.String "hello"))

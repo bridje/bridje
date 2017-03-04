@@ -59,4 +59,11 @@ public class Env {
         this.nsEnvs = nsEnvs;
     }
 
+    public Env withNSEnv(NS ns, NSEnv nsEnv) {
+        return new Env(nsEnvs.plus(ns, nsEnv));
+    }
+
+    public Env updateNSEnv(NS ns, Function<NSEnv, NSEnv> f) {
+        return withNSEnv(ns, f.apply(nsEnvs.get(ns)));
+    }
 }

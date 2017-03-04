@@ -11,4 +11,8 @@ public class NSEnv {
     public NSEnv(PMap<Symbol, Var> vars) {
         this.vars = vars;
     }
+
+    public NSEnv withVar(Symbol sym, Var var) {
+        return new NSEnv(vars.plus(sym, var));
+    }
 }

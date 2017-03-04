@@ -1,9 +1,11 @@
 package bridje.runtime;
 
-public class Var {
-    public final Object value;
+import bridje.runtime.java.JavaField;
 
-    public Var(Object value) {
-        this.value = value;
+public class Var {
+    public final JavaField valueField;
+
+    public Var(JavaField valueField) {
+        this.valueField = valueField;
     }
 }

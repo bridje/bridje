@@ -1,6 +1,5 @@
 package bridje.compiler;
 
-import bridje.analyser.Expr;
 import bridje.analyser.LocalVar;
 import bridje.runtime.*;
 import org.junit.Test;

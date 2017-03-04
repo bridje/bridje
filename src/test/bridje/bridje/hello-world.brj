@@ -1,6 +1,0 @@
-(ns bridje.hello-world)
-
-(:: hello Str)
-
-(def hello
-  "Hello world!")
