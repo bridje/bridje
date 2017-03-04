@@ -7,7 +7,6 @@ import static bridje.Util.vectorOf;
 import static bridje.reader.Form.BoolForm.boolForm;
 import static bridje.reader.Form.IntForm.intForm;
 import static bridje.reader.Form.ListForm.listForm;
-import static bridje.reader.Form.QSymbolForm.qSymbolForm;
 import static bridje.reader.Form.SetForm.setForm;
 import static bridje.reader.Form.StringForm.stringForm;
 import static bridje.reader.Form.SymbolForm.symbolForm;
@@ -121,7 +120,7 @@ public class FormReaderTest {
         Form form = FormReader.read(LCReader.fromString("foo/bar"));
 
         assertNotNull(form);
-        assertEquals(qSymbolForm("foo", "bar"), form);
+        assertEquals(symbolForm("foo", "bar"), form);
         assertEquals(range(loc(1, 1), loc(1, 8)), form.range);
     }
 

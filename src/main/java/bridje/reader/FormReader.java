@@ -1,7 +1,6 @@
 package bridje.reader;
 
 import bridje.Panic;
-import bridje.runtime.QSymbol;
 import org.pcollections.PVector;
 import org.pcollections.TreePVector;
 
@@ -244,11 +243,11 @@ public class FormReader {
                 return new Form.BoolForm(range, false);
             default:
                 int slashIndex = token.indexOf('/');
-                if (-1 != slashIndex) {
-                    return new Form.QSymbolForm(range, new QSymbol(token.substring(0, slashIndex), token.substring(slashIndex + 1)));
-                } else {
-                    return new Form.SymbolForm(range, symbol(token));
-                }
+
+                return new Form.SymbolForm(range,
+                    -1 == slashIndex
+                        ? symbol(token)
+                        : symbol(token.substring(0, slashIndex), token.substring(slashIndex + 1)));
         }
     }
 
@@ -312,10 +311,9 @@ public class FormReader {
         List<Form> forms = new LinkedList<>();
 
         Form form;
-        do {
-            form = read(reader);
+        while ((form = read(reader)) != null) {
             forms.add(form);
-        } while (form != null);
+        }
 
         return TreePVector.from(forms);
     }

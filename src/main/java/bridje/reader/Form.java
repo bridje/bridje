@@ -1,6 +1,5 @@
 package bridje.reader;
 
-import bridje.runtime.QSymbol;
 import bridje.runtime.Symbol;
 import org.pcollections.PCollection;
 import org.pcollections.PVector;
@@ -313,6 +312,10 @@ public abstract class Form {
             return new SymbolForm(null, symbol(sym));
         }
 
+        public static SymbolForm symbolForm(String ns, String sym) {
+            return new SymbolForm(null, symbol(ns, sym));
+        }
+
         public SymbolForm(Range range, Symbol sym) {
             super(range);
             this.sym = sym;
@@ -334,42 +337,6 @@ public abstract class Form {
         @Override
         public String toString() {
             return String.format("(SymbolForm \"%s\")", sym);
-        }
-
-        @Override
-        public <T> T accept(FormVisitor<T> visitor) {
-            return visitor.visit(this);
-        }
-    }
-
-    public static final class QSymbolForm extends Form {
-        public final QSymbol qsym;
-
-        public static QSymbolForm qSymbolForm(String ns, String sym) {
-            return new QSymbolForm(null, new QSymbol(ns, sym));
-        }
-
-        public QSymbolForm(Range range, QSymbol qsym) {
-            super(range);
-            this.qsym = qsym;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            QSymbolForm that = (QSymbolForm) o;
-            return Objects.equals(qsym, that.qsym);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(qsym);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("(QSymbolForm %s)", qsym);
         }
 
         @Override

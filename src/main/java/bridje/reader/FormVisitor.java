@@ -17,6 +17,4 @@ public interface FormVisitor<T> {
     T visit(Form.ListForm form);
 
     T visit(Form.SymbolForm form);
-
-    T visit(Form.QSymbolForm form);
 }

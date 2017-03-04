@@ -3,13 +3,19 @@ package bridje.runtime;
 import java.util.Objects;
 
 public class Symbol {
+    public final String ns;
     public final String sym;
 
     public static Symbol symbol(String sym) {
-        return new Symbol(sym);
+        return new Symbol(null, sym);
     }
 
-    public Symbol(String sym) {
+    public static Symbol symbol(String ns, String sym) {
+        return new Symbol(ns, sym);
+    }
+
+    public Symbol(String ns, String sym) {
+        this.ns = ns;
         this.sym = sym;
     }
 
@@ -23,11 +29,11 @@ public class Symbol {
 
     @Override
     public int hashCode() {
-        return Objects.hash(sym);
+        return Objects.hash(ns, sym);
     }
 
     @Override
     public String toString() {
-        return sym;
+        return ns == null ? sym : String.format("%s/%s", ns, sym);
     }
 }
