@@ -2,7 +2,7 @@ var Record = require('immutable').Record;
 var Map = require('immutable').Map;
 var l = require('./location');
 
-var Token = Record({range: null, token: null});
+var Token = Record({range: null, token: null, isString: false});
 
 function readChar(s, loc) {
   if (s !== "") {
@@ -36,6 +36,14 @@ function slurpWhitespace(s, loc) {
 
 var delimiterRegex = /[,\s\(\)\[\]\{\}#]/;
 
+var escapes = {
+  'n': "\n",
+  'r': "\r",
+  't': "\t",
+  '"': '"',
+  "\\": "\\"
+};
+
 function readToken (s, loc) {
   ({s, loc} = slurpWhitespace(s, loc));
 
@@ -52,6 +60,39 @@ function readToken (s, loc) {
         range: l.range(startLoc, nextCh.loc),
         token: nextCh.ch
       });
+    } else if ('"' === nextCh.ch) {
+      var str = "";
+
+      while (s !== "") {
+        ({s, loc} = nextCh);
+        nextCh = readChar(s, loc);
+
+        if ('"' === nextCh.ch) {
+          return {
+            s: nextCh.s,
+            loc: nextCh.loc,
+            token: new Token({
+              range: l.range(startLoc, nextCh.loc),
+              isString: true,
+              token: str
+            })
+          };
+        } else if ('\\' === nextCh.ch) {
+          ({s, loc} = nextCh);
+          nextCh = readChar(s, loc);
+
+          if (nextCh === null) {
+            break; // eof
+          }
+
+          ({s, loc} = nextCh);
+          str = str + escapes[nextCh.ch];
+        } else {
+          str = str + nextCh.ch;
+        }
+      }
+
+      throw new Error(`EOF reading string, at ${loc.toString()}`);
     } else {
       var token = "";
 

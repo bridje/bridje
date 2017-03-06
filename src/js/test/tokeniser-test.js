@@ -30,4 +30,17 @@ describe("tokenising", () => {
     assert.equal(tok.readToken(' -42 bell', newLoc).token.token,
                  "-42");
   });
+
+  it('reads a string', () => {
+    var tokResult = tok.readToken('  "Hello world"', newLoc);
+    assert.equal(tokResult.token.token, 'Hello world');
+    assert(tokResult.token.isString === true);
+  });
+
+  it('reads a string with escapes', () => {
+    var tokResult = tok.readToken('  "Hello\\n world \\\\ "', newLoc);
+    assert.equal(tokResult.token.token, "Hello\n world \\ ");
+    assert(tokResult.token.isString === true);
+  });
+
 });
