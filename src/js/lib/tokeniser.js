@@ -23,6 +23,17 @@ function slurpWhitespace(s, loc) {
 
     if (/[\s,]/.test(next.ch)) {
       ({s, loc} = next);
+    } else if (';' === next.ch) {
+      ({s, loc} = next);
+
+      while (s !== "") {
+        next = readChar(s, loc);
+        ({s, loc} = next);
+
+        if (/[\r\n]/.test(next.ch)) {
+          break;
+        }
+      }
     } else {
       break;
     }
@@ -34,7 +45,7 @@ function slurpWhitespace(s, loc) {
   };
 }
 
-var delimiterRegex = /[,\s\(\)\[\]\{\}#]/;
+var delimiterRegex = /[,\s\(\)\[\]\{\}#;]/;
 
 var escapes = {
   'n': "\n",
@@ -60,6 +71,24 @@ function readToken (s, loc) {
         range: l.range(startLoc, nextCh.loc),
         token: nextCh.ch
       });
+    } else if ('#' === nextCh.ch) {
+      ({s, loc} = nextCh);
+      nextCh = readChar(s, loc);
+
+      if (nextCh === null) {
+        throw new Error(`EOF after reading '#', at ${loc.toString()}`);
+      } else if (/['{]/.test(nextCh.ch)) {
+        return {
+          s: nextCh.s,
+          locl: nextCh.loc,
+          token: new Token({
+            range: l.range(startLoc, nextCh.loc),
+            token: '#' + nextCh.ch
+          })
+        };
+      } else {
+        throw new Error(`Unexpected character '${nextCh.ch}' '#', at ${loc.toString()}`);
+      }
     } else if ('"' === nextCh.ch) {
       var str = "";
 
@@ -82,7 +111,7 @@ function readToken (s, loc) {
           nextCh = readChar(s, loc);
 
           if (nextCh === null) {
-            break; // eof
+            throw new Error(`EOF after reading '\', at ${loc.toString()}`);
           }
 
           ({s, loc} = nextCh);

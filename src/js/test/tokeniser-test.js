@@ -43,4 +43,12 @@ describe("tokenising", () => {
     assert(tokResult.token.isString === true);
   });
 
+  it('reads a #{} open paren', () => {
+    assert.equal(tok.readToken('  #{"Hello world!"}', newLoc).token.token, "#{");
+  });
+
+  it("ignores to EoL after a ';'", () => {
+    assert.equal(tok.readToken("  ;; here's a comment \n 42", newLoc).token.token, "42");
+  });
+
 });
