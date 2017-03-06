@@ -2,6 +2,7 @@ var assert = require('assert');
 var newLoc = require('../lib/location').newLoc;
 var tok = require('../lib/tokeniser');
 var priv = tok.private;
+var Im = require('immutable');
 
 describe("tokenising", () => {
   it('reads a char', () => {
@@ -24,6 +25,12 @@ describe("tokenising", () => {
                        s: 'foo bar',
                        loc: {line: 2, col: 2}
                      });
+  });
+
+
+  it('reads a paren', () => {
+    assert.equal(tok.readToken(' (-42 bell)', newLoc).token.token,
+                 "(");
   });
 
   it('reads an int', () => {
@@ -49,6 +56,39 @@ describe("tokenising", () => {
 
   it("ignores to EoL after a ';'", () => {
     assert.equal(tok.readToken("  ;; here's a comment \n 42", newLoc).token.token, "42");
+  });
+
+  it("tokenises a form", () => {
+    assert.deepEqual(Im.fromJS(tok.tokenise(`
+(def hello
+  ;; A simple hello world!
+  "Hello world!")
+`)).toJS(),
+                     [{
+                       "isString": false,
+                       "range": {"start": {"line": 2, "col": 1}, "end": {"line": 2, "col": 1}},
+                       "token": "("
+                     },
+                      {
+                        "isString": false,
+                        "range": {"start": {"line": 2, "col": 2}, "end": {"line": 2, "col": 4}},
+                        "token": "def"
+                      },
+                      {
+                        "isString": false,
+                        "range": {"start": {"line": 2, "col": 6}, "end": {"line": 2, "col": 10}},
+                        "token": "hello"
+                      },
+                      {
+                        "isString": true,
+                        "range": {"start": {"line": 4, "col": 3}, "end": {"line": 4, "col": 16}},
+                        "token": "Hello world!"
+                      },
+                      {
+                        "isString": false,
+                        "range": {"start": {"line": 4, "col": 17}, "end": {"line": 4, "col": 17}},
+                        "token": ")"
+                      }]);
   });
 
 });

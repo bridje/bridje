@@ -66,11 +66,14 @@ function readToken (s, loc) {
 
     var nextCh = readChar(s, loc);
 
-    if (/\(\)\[\]\{\}/.test(nextCh.ch)) {
-      return new Token({
-        range: l.range(startLoc, nextCh.loc),
-        token: nextCh.ch
-      });
+    if (/[()\[\]{}]/.test(nextCh.ch)) {
+      return {
+        s: nextCh.s,
+        loc: nextCh.loc,
+        token: new Token({
+          range: l.range(startLoc, nextCh.loc),
+          token: nextCh.ch
+        })};
     } else if ('#' === nextCh.ch) {
       ({s, loc} = nextCh);
       nextCh = readChar(s, loc);
@@ -148,12 +151,11 @@ function readToken (s, loc) {
 }
 
 function tokenise(s) {
-  var loc = loc.newLoc;
+  var loc = l.newLoc;
   var tokens = [];
   var token;
   while ((token = readToken(s, loc)) !== null) {
-    s = token.s;
-    loc = token.loc;
+    ({s, loc} = token);
     tokens.push(token.token);
   }
 
