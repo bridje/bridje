@@ -1,5 +1,6 @@
-var Record = require('immutable').Record;
-var Map = require('immutable').Map;
+var im = require('immutable');
+var Record = im.Record;
+var Map = im.Map;
 var l = require('./location');
 
 var Token = Record({range: null, token: null, isString: false});
@@ -152,11 +153,11 @@ function readToken (s, loc) {
 
 function tokenise(s) {
   var loc = l.newLoc;
-  var tokens = [];
+  var tokens = new im.List();
   var token;
   while ((token = readToken(s, loc)) !== null) {
     ({s, loc} = token);
-    tokens.push(token.token);
+    tokens = tokens.push(token.token);
   }
 
   return tokens;
