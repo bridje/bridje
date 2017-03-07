@@ -65,6 +65,14 @@ function parseForms0(tokens, closeParen, onEOF) {
       };
 
       switch (token.token) {
+      case 'true':
+      case 'false':
+        forms = forms.push(new f.Form({
+          range: token.range,
+          form: new f.BoolForm({bool: token.token === 'true'})
+        }));
+        break;
+
       case '(':
         ({forms, tokens} = parseSeq(')', innerForms => new f.ListForm({forms: innerForms})));
         break;

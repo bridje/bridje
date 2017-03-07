@@ -2,6 +2,7 @@ var im = require('immutable');
 var Record = im.Record;
 
 var Form = Record({range: null, form: null});
+var BoolForm = Record({bool: null});
 var StringForm = Record({str: null});
 var IntForm = Record({int: null});
 var FloatForm = Record({float: null});
@@ -13,6 +14,7 @@ var SetForm = Record({forms: null});
 
 Form.prototype.toString = function() {return this.form.toString();};
 
+BoolForm.prototype.toBool = function() {return `(BoolForm "${this.bool}")`;};
 StringForm.prototype.toString = function() {return `(StringForm "${this.str}")`;};
 IntForm.prototype.toString = function() {return `(IntForm ${this.int})`;};
 FloatForm.prototype.toString = function() {return `(FloatForm ${this.float})`;};
@@ -24,6 +26,7 @@ SetForm.prototype.toString = function() {return `(SetForm ${this.forms.join(' ')
 
 module.exports = {
   Form: Form,
+  BoolForm: BoolForm,
   StringForm: StringForm,
   IntForm: IntForm,
   FloatForm: FloatForm,

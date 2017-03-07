@@ -57,9 +57,14 @@ describe('parser', () => {
 
   it('reads a float', () => {
     var res = p.parseForms(tok.tokenise('42.54')).first();
-    console.log(res);
     assert(res.form instanceof f.FloatForm);
     assert.strictEqual(res.form.float, 42.54);
+  });
+
+  it('reads a boolean', () => {
+    var res = p.parseForms(tok.tokenise('false')).first();
+    assert(res.form instanceof f.BoolForm);
+    assert.strictEqual(res.form.bool, false);
   });
 
 });
