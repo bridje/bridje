@@ -4,11 +4,19 @@ var Record = im.Record;
 var Form = Record({range: null, form: null});
 var StringForm = Record({str: null});
 var ListForm = Record({forms: null});
+var VectorForm = Record({forms: null});
+var RecordEntry = Record({key: null, value: null});
+var RecordForm = Record({entries: null});
+var SetForm = Record({forms: null});
 
 Form.prototype.toString = function() {return this.form.toString();};
 
 StringForm.prototype.toString = function() {return `(StringForm "${this.str}")`;};
 ListForm.prototype.toString = function() {return `(ListForm ${this.forms.join(' ')})`;};
+VectorForm.prototype.toString = function() {return `(VectorForm ${this.forms.join(' ')})`;};
+RecordEntry.prototype.toString = function() {return `${this.key} ${this.value}`;};
+RecordForm.prototype.toString = function() {return `(RecordForm ${this.entries.join(', ')})`;};
+SetForm.prototype.toString = function() {return `(SetForm ${this.forms.join(' ')})`;};
 
 var eofBehaviour = {
   Throw: (forms) => {
@@ -44,15 +52,50 @@ function parseForms0(tokens, closeParen, onEOF) {
         form: new StringForm({str: token.token})
       }));
     } else {
+      var parseSeq = (closeParen, makeForm) => {
+        var innerForms;
+
+        ({forms: innerForms, tokens} = parseForms0(tokens, closeParen, eofBehaviour.Throw));
+
+        return {
+          forms: forms.push(new Form({
+            range: token.range,
+            form: makeForm(innerForms)
+          })),
+
+          tokens: tokens
+        };
+      };
+
       switch (token.token) {
       case '(':
-        var innerForms;
-        ({forms: innerForms, tokens} = parseForms0(tokens, ')', eofBehaviour.Throw));
+        ({forms, tokens} = parseSeq(')', innerForms => new ListForm({forms: innerForms})));
+        break;
 
-        forms = forms.push(new Form({
-          range: token.range,
-          form: new ListForm({forms: innerForms})
+      case '[':
+        ({forms, tokens} = parseSeq(']', innerForms => new VectorForm({forms: innerForms})));
+        break;
+
+      case '{':
+        ({forms, tokens} = parseSeq('}', innerForms => {
+          if (innerForms.size % 2 !== 0) {
+            throw new Error(`Even number of forms expected in record at ${token.range}`);
+          }
+
+          var entries = [];
+          innerForms = innerForms.toArray();
+          for (var i = 0; i < innerForms.length; i += 2) {
+            entries.push(new RecordEntry({key: innerForms[i], value: innerForms[i+1]}));
+          }
+
+
+          return new RecordForm({entries: im.fromJS(entries)});
         }));
+
+        break;
+
+      case '#{':
+        ({forms, tokens} = parseSeq('}', innerForms => new SetForm({forms: innerForms})));
         break;
 
       case ')':

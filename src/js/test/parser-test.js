@@ -11,7 +11,15 @@ describe('parser', () => {
 
   it('reads a list', () => {
     var res = p.parseForms(tok.tokenise('("Hello" "world!")')).first();
+    console.log(res);
     // TODO how to test this?
   });
+
+  it('reads a record', () => {
+    var res = p.parseForms(tok.tokenise('{"a" "1", "b" "2"}')).first();
+    console.log(res);
+    // TODO how to test this?
+  });
+
 
 });
