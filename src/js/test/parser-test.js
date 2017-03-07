@@ -6,8 +6,9 @@ var assert = require('assert');
 
 describe('parser', () => {
   it('reads a string', () => {
-    assert(p.parseForms(tok.tokenise('"Hello world!"')).first().delete('range')
-           .equals(new f.Form({form: new f.StringForm({str: "Hello world!"})})));
+    var res = p.parseForms(tok.tokenise('"Hello world!"')).first();
+    assert(res.form instanceof f.StringForm);
+    assert.equal(res.form.str, "Hello world!");
   });
 
   it('reads a list', () => {
@@ -18,10 +19,10 @@ describe('parser', () => {
     assert.equal(forms.size, 2);
 
     assert(forms.get(0).form instanceof f.StringForm);
-    assert.equal(forms.get(0).form.str, "Hello");
+    assert.strictEqual(forms.get(0).form.str, "Hello");
 
     assert(forms.get(1).form instanceof f.StringForm);
-    assert.equal(forms.get(1).form.str, "world!");
+    assert.strictEqual(forms.get(1).form.str, "world!");
   });
 
   it('reads a record', () => {
@@ -36,17 +37,29 @@ describe('parser', () => {
     var entry1 = entries.get(1);
 
     assert(entry0.key.form instanceof f.StringForm);
-    assert.equal(entry0.key.form.str, "a");
+    assert.strictEqual(entry0.key.form.str, "a");
 
     assert(entry0.value.form instanceof f.StringForm);
-    assert.equal(entry0.value.form.str, "1");
+    assert.strictEqual(entry0.value.form.str, "1");
 
     assert(entry1.key.form instanceof f.StringForm);
-    assert.equal(entry1.key.form.str, "b");
+    assert.strictEqual(entry1.key.form.str, "b");
 
     assert(entry1.value.form instanceof f.StringForm);
-    assert.equal(entry1.value.form.str, "2");
+    assert.strictEqual(entry1.value.form.str, "2");
   });
 
+  it('reads an int', () => {
+    var res = p.parseForms(tok.tokenise('-42')).first();
+    assert(res.form instanceof f.IntForm);
+    assert.strictEqual(res.form.int, -42);
+  });
+
+  it('reads a float', () => {
+    var res = p.parseForms(tok.tokenise('42.54')).first();
+    console.log(res);
+    assert(res.form instanceof f.FloatForm);
+    assert.strictEqual(res.form.float, 42.54);
+  });
 
 });

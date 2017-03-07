@@ -35,6 +35,19 @@ function parseForms0(tokens, closeParen, onEOF) {
         range: token.range,
         form: new f.StringForm({str: token.token})
       }));
+
+    } else if (/^[-+]?\d+$/.test(token.token)) {
+      forms = forms.push(new f.Form({
+        range: token.range,
+        form: new f.IntForm({int: parseInt(token.token)})
+      }));
+
+    } else if (/^[-+]?\d+\.\d+$/.test(token.token)) {
+      forms = forms.push(new f.Form({
+        range: token.range,
+        form: new f.FloatForm({float: parseFloat(token.token)})
+      }));
+
     } else {
       var parseSeq = (closeParen, makeForm) => {
         var innerForms;
