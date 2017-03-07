@@ -1,22 +1,6 @@
+var f = require('./form');
 var im = require('immutable');
 var Record = im.Record;
-
-var Form = Record({range: null, form: null});
-var StringForm = Record({str: null});
-var ListForm = Record({forms: null});
-var VectorForm = Record({forms: null});
-var RecordEntry = Record({key: null, value: null});
-var RecordForm = Record({entries: null});
-var SetForm = Record({forms: null});
-
-Form.prototype.toString = function() {return this.form.toString();};
-
-StringForm.prototype.toString = function() {return `(StringForm "${this.str}")`;};
-ListForm.prototype.toString = function() {return `(ListForm ${this.forms.join(' ')})`;};
-VectorForm.prototype.toString = function() {return `(VectorForm ${this.forms.join(' ')})`;};
-RecordEntry.prototype.toString = function() {return `${this.key} ${this.value}`;};
-RecordForm.prototype.toString = function() {return `(RecordForm ${this.entries.join(', ')})`;};
-SetForm.prototype.toString = function() {return `(SetForm ${this.forms.join(' ')})`;};
 
 var eofBehaviour = {
   Throw: (forms) => {
@@ -47,9 +31,9 @@ function parseForms0(tokens, closeParen, onEOF) {
     }
 
     if (token.isString) {
-      forms = forms.push(new Form({
+      forms = forms.push(new f.Form({
         range: token.range,
-        form: new StringForm({str: token.token})
+        form: new f.StringForm({str: token.token})
       }));
     } else {
       var parseSeq = (closeParen, makeForm) => {
@@ -58,7 +42,7 @@ function parseForms0(tokens, closeParen, onEOF) {
         ({forms: innerForms, tokens} = parseForms0(tokens, closeParen, eofBehaviour.Throw));
 
         return {
-          forms: forms.push(new Form({
+          forms: forms.push(new f.Form({
             range: token.range,
             form: makeForm(innerForms)
           })),
@@ -69,11 +53,11 @@ function parseForms0(tokens, closeParen, onEOF) {
 
       switch (token.token) {
       case '(':
-        ({forms, tokens} = parseSeq(')', innerForms => new ListForm({forms: innerForms})));
+        ({forms, tokens} = parseSeq(')', innerForms => new f.ListForm({forms: innerForms})));
         break;
 
       case '[':
-        ({forms, tokens} = parseSeq(']', innerForms => new VectorForm({forms: innerForms})));
+        ({forms, tokens} = parseSeq(']', innerForms => new f.VectorForm({forms: innerForms})));
         break;
 
       case '{':
@@ -85,17 +69,17 @@ function parseForms0(tokens, closeParen, onEOF) {
           var entries = [];
           innerForms = innerForms.toArray();
           for (var i = 0; i < innerForms.length; i += 2) {
-            entries.push(new RecordEntry({key: innerForms[i], value: innerForms[i+1]}));
+            entries.push(new f.RecordEntry({key: innerForms[i], value: innerForms[i+1]}));
           }
 
 
-          return new RecordForm({entries: im.fromJS(entries)});
+          return new f.RecordForm({entries: im.fromJS(entries)});
         }));
 
         break;
 
       case '#{':
-        ({forms, tokens} = parseSeq('}', innerForms => new SetForm({forms: innerForms})));
+        ({forms, tokens} = parseSeq('}', innerForms => new f.SetForm({forms: innerForms})));
         break;
 
       case ')':
@@ -120,8 +104,5 @@ function parseForms(tokens) {
 }
 
 module.exports = {
-  parseForms: parseForms,
-  Form: Form,
-  StringForm: StringForm,
-  ListForm: ListForm
+  parseForms: parseForms
 };
