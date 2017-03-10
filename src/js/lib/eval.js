@@ -1,7 +1,11 @@
-function loadNSEnv(env, ns, forms) {
+var env = require('./env');
+
+function envLoadNS(env, ns, forms) {
 
 }
 
-function loadNS(ns, forms) {
+async function loadNS(ns, forms) {
+  if (typeof forms !== undefined) {
 
+  }
 }
