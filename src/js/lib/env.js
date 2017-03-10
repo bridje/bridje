@@ -15,6 +15,7 @@ function currentEnv() {
 function runQueue() {
   var f = envQueue.shift();
   f();
+
   if (envQueue.length > 0) {
     setTimeout(runQueue, 0);
   } else {
@@ -25,13 +26,14 @@ function runQueue() {
 function updateEnv(f) {
   return new Promise(function (resolve, reject) {
     envQueue.push(function() {
-      // TODO
+      env = f(env);
+      resolve(env);
     });
 
     if (!running) {
+      running = true;
       runQueue();
     }
-
   });
 }
 
