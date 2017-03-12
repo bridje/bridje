@@ -1,44 +1,45 @@
 var im = require('immutable');
 var Record = im.Record;
+var Map = im.Map;
 
-var Env = Record({nsEnvs: {}});
+var Env = Record({nsEnvs: im.Map({})});
 
-var env = new Env({});
+module.exports = function() {
+  var env = new Env({});
 
-var envQueue = [];
-var running = false;
+  var envQueue = [];
+  var running = false;
 
-function currentEnv() {
-  return env;
-}
+  async function runQueue() {
+    var f = envQueue.shift();
+    await f();
 
-function runQueue() {
-  var f = envQueue.shift();
-  f();
-
-  if (envQueue.length > 0) {
-    setTimeout(runQueue, 0);
-  } else {
-    running = false;
-  }
-}
-
-function updateEnv(f) {
-  return new Promise(function (resolve, reject) {
-    envQueue.push(function() {
-      env = f(env);
-      resolve(env);
-    });
-
-    if (!running) {
-      running = true;
-      runQueue();
+    if (envQueue.length > 0) {
+      setTimeout(runQueue, 0);
+    } else {
+      running = false;
     }
-  });
-}
+  }
 
-module.exports = {
-  Env: Env,
-  currentEnv: currentEnv,
-  updateEnv: updateEnv
+  return {
+    currentEnv: function() {
+      return env;
+    },
+
+    updateEnv: function(f) {
+      return new Promise(function (resolve, reject) {
+        envQueue.push(async function() {
+          env = await f(env);
+          resolve(env);
+        });
+
+        if (!running) {
+          running = true;
+          runQueue();
+        }
+      });
+    }
+  };
 };
+
+module.exports.Env = Env;
