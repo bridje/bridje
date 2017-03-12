@@ -1,5 +1,5 @@
 var assert = require('assert');
-var loc = require('../lib/location');
+var loc = require('../../src/js/location');
 
 describe("location handling", () => {
   it('moves loc down', () => {

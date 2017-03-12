@@ -1,6 +1,6 @@
-var tok = require('../lib/tokeniser');
-var p = require('../lib/parser');
-var f = require('../lib/form');
+var tok = require('../../src/js/tokeniser');
+var p = require('../../src/js/parser');
+var f = require('../../src/js/form');
 var im = require('immutable');
 var assert = require('assert');
 

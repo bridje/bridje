@@ -1,4 +1,4 @@
-var e = require('../lib/eval');
+var e = require('../../src/js/eval');
 var assert = require('assert');
 
 describe('eval', () => {

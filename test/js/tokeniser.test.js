@@ -1,6 +1,6 @@
 var assert = require('assert');
-var newLoc = require('../lib/location').newLoc;
-var tok = require('../lib/tokeniser');
+var newLoc = require('../../src/js/location').newLoc;
+var tok = require('../../src/js/tokeniser');
 var priv = tok.private;
 var Im = require('immutable');
 
