@@ -1,6 +1,7 @@
 var im = require('immutable');
 var Record = im.Record;
 var Map = im.Map;
+var Symbol = require('./symbol');
 var l = require('./location');
 var f = require('./form');
 
@@ -277,6 +278,29 @@ function parseForms0(tokens, closeParen, onEOF) {
 } else {
           var expecting = closeParen !== null ? `, expecting '${closeParen}'` : '';
           throw new Error(`Unexpected '${token.token}'${expecting}, at ${token.range.end}`);
+        }
+
+        break;
+
+      default:
+        if (/[a-zA-Z][\w\-.]*(\/[\w\-.]+)?/u.test(token.token)) {
+          let sym;
+          if(token.token.indexOf('/') != -1) {
+            let ns, name;
+            ([ns, name] = token.token.split('/', 1));
+            sym = new Symbol({ns, name});
+          } else {
+            sym = new Symbol({name: token.token});
+          }
+
+          forms = forms.push(new f.Form({
+            range: token.range,
+            form: new f.SymbolForm({
+              sym: sym
+            })
+          }));
+        } else {
+          throw new Error(`Invalid symbol '${token.token}', at ${token.range.start}`);
         }
       }
     }
