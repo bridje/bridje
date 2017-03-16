@@ -11,3 +11,11 @@ Symbol.prototype.toString = function() {
 };
 
 module.exports = Symbol;
+
+module.exports.sym = function(name) {
+  return new Symbol({name});
+};
+
+module.exports.nsSym = function(ns, name) {
+  return new Symbol({ns, name});
+};
