@@ -48,21 +48,23 @@ function Parser(parseForms) {
 }
 
 Parser.prototype.then = function (f) {
-  return new Parser(forms => this.parseForms(forms).then(res => {
-    console.log(f(res.result) instanceof Parser);
-    return f(res.result).parseForms(res.forms);
-  }));
+  return new Parser(forms => {
+    let res = this.parseForms(forms);
+    if (res.result.success) {
+      return f(res.result.result).parseForms(res.forms);
+    } else {
+      return res;
+    }
+  });
 };
 
 Parser.prototype.fmap = function (f) {
   return new Parser(forms => {
     let res = this.parseForms(forms);
-    if (res.success) {
-      return {result: f(res.result),
-              forms: res.forms};
-    } else {
-      return res;
-    }
+    return {
+      result: res.result.fmap(f),
+      forms: res.forms
+    };
   });
 };
 
@@ -73,11 +75,15 @@ function pure(result) {
 function oneOf(formParser) {
   return new Parser(forms => {
     if(forms.isEmpty()) {
-      return failResult('Expected form');
+      return {
+        result: failResult('Expected form'),
+        forms
+      };
     } else {
-      return formParser(forms.first()).fmap(result => {
-        return {result, forms: forms.shift()};
-      });
+      return {
+        result: formParser(forms.first()),
+        forms: forms.shift()
+      };
     }
   });
 }
@@ -142,11 +148,11 @@ var VectorParser = formTypeParser(f.VectorForm);
 var RecordParser = formTypeParser(f.RecordForm);
 
 function isSymbol(sym) {
-  return SymbolParser.fmap(symForm => {
-    if (symForm.sym == sym) {
-      return successResult(sym);
+  return SymbolParser.then(symForm => {
+    if (symForm.form.sym.equals(sym)) {
+      return pure(successResult(sym));
     } else {
-      return failResult(`Expected symbol ${sym}`);
+      return pure(failResult(`Expected symbol ${sym}`));
     }
   });
 }
@@ -162,6 +168,6 @@ function parseForm(form, parser) {
 module.exports = {
   ParseResult, successResult, failResult,
   anyOf, oneOf, manyOf, isSymbol, pure,
-  SymbolParser, ListParser, VectorParser, RecordParser,
+  Parser, SymbolParser, ListParser, VectorParser, RecordParser,
   parseForms, parseForm, innerFormsParser
 };
