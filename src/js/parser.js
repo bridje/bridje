@@ -121,14 +121,31 @@ function anyOf(...parsers) {
   });
 }
 
+function parseEnd(result) {
+  return new Parser(forms => {
+    if (forms.isEmpty()) {
+      return {
+        result: successResult(result),
+        forms
+      };
+    } else {
+      return {
+        result: failResult(`Unexpected forms: ${forms}`),
+        forms
+      };
+    }
+  });
+}
+
 function innerFormsParser(innerForms, innerParser, f) {
   // We parse the inner forms first, then call f to get back to a parser for the outer forms
   return new Parser(forms => {
-    console.log('inner', innerParser.parseForms(innerForms));
-    return innerParser.parseForms(innerForms).then(res => {
-      console.log('res', f(res));
-      return f(res).parseForms(forms);
-    });
+    const inner = innerParser.parseForms(innerForms);
+    if (inner.result.success) {
+      return f(inner.result.result).parseForms(forms);
+    } else {
+      return {result: inner.result, forms};
+    };
   });
 }
 
@@ -158,16 +175,17 @@ function isSymbol(sym) {
 }
 
 function parseForms(forms, parser) {
-  return parser.parseForms(forms);
+  return parser.parseForms(forms).result;
 }
 
 function parseForm(form, parser) {
-  return parseForms(im.List.of(form), parser);
+  return parseForms(im.List.of(form), parser).result;
 }
 
 module.exports = {
   ParseResult, successResult, failResult,
   anyOf, oneOf, manyOf, isSymbol, pure,
+  innerFormsParser, parseEnd,
   Parser, SymbolParser, ListParser, VectorParser, RecordParser,
-  parseForms, parseForm, innerFormsParser
+  parseForms, parseForm
 };

@@ -26,11 +26,10 @@ describe('parsing', () => {
 
   it ('handles a oneOf parser', () => {
     let parser = p.oneOf(form => p.successResult(form));
-    let res = parser.parseForms(im.List.of('foo', 'bar'));
+    let res = p.parseForms(im.List.of('foo', 'bar'), parser);
 
-    assert(res.result.success);
-    assert.equal(res.result.result, 'foo');
-    assert.deepEqual(res.forms.toArray(), ['bar']);
+    assert(res.success);
+    assert.equal(res.result, 'foo');
   });
 
   it ('binds a parser', () => {
@@ -50,34 +49,34 @@ describe('parsing', () => {
       }
     }));
 
-    let res0 = boundParser.parseForms(im.List.of('invalid'));
-    assert(!res0.result.success);
-    assert.equal(res0.result.error, 'boo');
+    let res0 = p.parseForms(im.List.of('invalid'), boundParser);
+    assert(!res0.success);
+    assert.equal(res0.error, 'boo');
 
-    let res1 = boundParser.parseForms(im.List.of('valid', 'invalid'));
-    assert(res1.result.success);
-    assert.equal(res1.result.result, 'valid');
+    let res1 = p.parseForms(im.List.of('valid', 'invalid'), boundParser);
+    assert(res1.success);
+    assert.equal(res1.result, 'valid');
 
-    let res2 = boundParser.parseForms(im.List.of('valid', 'also-valid'));
-    assert(res2.result.success);
-    assert.equal(res2.result.result, 'valid also-valid');
+    let res2 = p.parseForms(im.List.of('valid', 'also-valid'), boundParser);
+    assert(res2.success);
+    assert.equal(res2.result, 'valid also-valid');
   });
 
   it ('parses a symbol', () => {
     let res = p.parseForms(r.readForms('foo'), p.SymbolParser);
-    assert(res.result.success);
+    assert(res.success);
 
-    let symbol = res.result.result.form.sym;
+    let symbol = res.result.form.sym;
     assert(symbol instanceof Symbol);
     assert.equal(symbol.name, 'foo');
   });
 
-  it ('parses an "ns" symbol', () => {
-    let nsSym = Symbol.sym('ns');
+  var nsSym = Symbol.sym('ns');
 
+  it ('parses an "ns" symbol', () => {
     let res0 = p.parseForms(r.readForms('ns'), p.isSymbol(nsSym));
-    assert(res0.result.success);
-    assert.equal(res0.result.result, nsSym);
+    assert(res0.success);
+    assert.equal(res0.result, nsSym);
 
     let res1 = p.parseForms(r.readForms('barf'), p.isSymbol(nsSym));
     assert(!res1.success);
@@ -88,4 +87,28 @@ describe('parsing', () => {
     assert(!res.success);
   });
 
+  it ('parses the end of the list', () => {
+    let parser = p.isSymbol(nsSym).then(p.parseEnd);
+
+    let res0 = p.parseForms(r.readForms('ns'), parser);
+    assert(res0.success);
+    assert.equal(res0.result, nsSym);
+
+    let res1 = p.parseForms(r.readForms('ns and-more'), parser);
+    assert(!res1.success);
+  });
+
+  it('parses innerForms', () => {
+    let parser = p.ListParser.then(listForm => p.innerFormsParser(
+      listForm.form.forms,
+      p.isSymbol(nsSym).then(sym => p.parseEnd({isNS: true})),
+      p.parseEnd));
+
+    let res0 = p.parseForms(r.readForms('(ns)'), parser);
+    assert(res0.success);
+    assert.deepEqual(res0.result, {isNS: true});
+
+    let res1 = p.parseForms(r.readForms('(boo)'), parser);
+    assert(!res1.success);
+  });
 });
