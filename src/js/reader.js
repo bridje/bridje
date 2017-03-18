@@ -86,7 +86,7 @@ function readToken (s, loc) {
       } else if (/['{]/.test(nextCh.ch)) {
         return {
           s: nextCh.s,
-          locl: nextCh.loc,
+          loc: nextCh.loc,
           token: new Token({
             range: l.range(startLoc, nextCh.loc),
             token: '#' + nextCh.ch
