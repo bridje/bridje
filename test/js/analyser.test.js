@@ -32,4 +32,19 @@ describe('analyser', () => {
     assert.equal(vec1Exprs.get(0).expr.int, 42);
     assert.strictEqual(vec1Exprs.get(1).expr.bool, false);
   });
+
+  it ('analyses a record', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('{a 1, b "Hello"}').first()).expr;
+
+    assert.equal(expr.exprType, 'record');
+    assert.equal(expr.entries.size, 2);
+
+    const entry0 = expr.entries.get(0);
+    assert.equal(entry0.key.name, 'a');
+    assert.equal(entry0.value.expr.int, 1);
+
+    const entry1 = expr.entries.get(1);
+    assert.equal(entry1.key.name, 'b');
+    assert.equal(entry1.value.expr.str, 'Hello');
+  });
 });

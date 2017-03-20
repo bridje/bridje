@@ -30,7 +30,7 @@ SetForm.prototype.toString = function() {return `(SetForm ${this.forms.join(' ')
 SetForm.prototype.formType = 'set';
 
 RecordEntry.prototype.toString = function() {return `${this.key} ${this.value}`;};
-RecordForm.prototype.toString = function() {return `(RecordForm ${this.entries.join(', ')})`;};
+RecordForm.prototype.toString = function() {return `(RecordForm {${this.entries.join(', ')})}`;};
 RecordForm.prototype.formType = 'record';
 
 ListForm.prototype.toString = function() {return `(ListForm ${this.forms.join(' ')})`;};

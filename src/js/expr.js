@@ -26,7 +26,7 @@ VectorExpr.prototype.exprType = 'vector';
 SetExpr.prototype.toString = function() {return `(SetExpr ${this.exprs.join(' ')})`;};
 SetExpr.prototype.exprType = 'set';
 RecordEntry.prototype.toString = function() {return `${this.key} ${this.value}`;};
-RecordExpr.prototype.toString = function() {return `(RecordExpr ${this.entries.join(', ')})`;};
+RecordExpr.prototype.toString = function() {return `(RecordExpr {${this.entries.join(', ')})}`;};
 RecordExpr.prototype.exprType = 'record';
 
 

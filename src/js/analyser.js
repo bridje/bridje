@@ -32,6 +32,13 @@ function analyseForm(env, nsEnv, form) {
       return new e.Expr({range, expr: new e.SetExpr({exprs: form.forms.map(f => analyseValueExpr(localEnv, f))})});
 
     case 'record':
+      return new e.Expr({range, expr: new e.RecordExpr({
+        entries: form.entries.map(
+          entry => new e.RecordEntry({
+            key: p.parseForm(entry.key, p.SymbolParser.fmap(symForm => symForm.form.sym)),
+            value: analyseValueExpr(localEnv, entry.value)
+          }))})});
+
     case 'list':
     case 'symbol':
       throw 'NIY';
