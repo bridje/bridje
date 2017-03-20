@@ -195,22 +195,13 @@ function parseForms0(tokens, closeParen, onEOF) {
     }
 
     if (token.isString) {
-      forms = forms.push(new f.Form({
-        range: token.range,
-        form: new f.StringForm({str: token.token})
-      }));
+      forms = forms.push(new f.StringForm({range: token.range, str: token.token}));
 
     } else if (/^[-+]?\d+$/.test(token.token)) {
-      forms = forms.push(new f.Form({
-        range: token.range,
-        form: new f.IntForm({int: parseInt(token.token)})
-      }));
+      forms = forms.push(new f.IntForm({range: token.range, int: parseInt(token.token)}));
 
     } else if (/^[-+]?\d+\.\d+$/.test(token.token)) {
-      forms = forms.push(new f.Form({
-        range: token.range,
-        form: new f.FloatForm({float: parseFloat(token.token)})
-      }));
+      forms = forms.push(new f.FloatForm({range: token.range, float: parseFloat(token.token)}));
 
     } else {
       var parseSeq = (closeParen, makeForm) => {
@@ -219,34 +210,27 @@ function parseForms0(tokens, closeParen, onEOF) {
         ({forms: innerForms, tokens} = parseForms0(tokens, closeParen, eofBehaviour.Throw));
 
         return {
-          forms: forms.push(new f.Form({
-            range: token.range,
-            form: makeForm(innerForms)
-          })),
-
-          tokens: tokens
+          forms: forms.push(makeForm(token.range, innerForms)),
+          tokens
         };
       };
 
       switch (token.token) {
       case 'true':
       case 'false':
-        forms = forms.push(new f.Form({
-          range: token.range,
-          form: new f.BoolForm({bool: token.token === 'true'})
-        }));
+        forms = forms.push(new f.BoolForm({range: token.range, bool: token.token === 'true'}));
         break;
 
       case '(':
-        ({forms, tokens} = parseSeq(')', innerForms => new f.ListForm({forms: innerForms})));
+        ({forms, tokens} = parseSeq(')', (range, innerForms) => new f.ListForm({range, forms: innerForms})));
         break;
 
       case '[':
-        ({forms, tokens} = parseSeq(']', innerForms => new f.VectorForm({forms: innerForms})));
+        ({forms, tokens} = parseSeq(']', (range, innerForms) => new f.VectorForm({range, forms: innerForms})));
         break;
 
       case '{':
-        ({forms, tokens} = parseSeq('}', innerForms => {
+        ({forms, tokens} = parseSeq('}', (range, innerForms) => {
           if (innerForms.size % 2 !== 0) {
             throw new Error(`Even number of forms expected in record at ${token.range}`);
           }
@@ -258,13 +242,13 @@ function parseForms0(tokens, closeParen, onEOF) {
           }
 
 
-          return new f.RecordForm({entries: im.fromJS(entries)});
+          return new f.RecordForm({range, entries: im.fromJS(entries)});
         }));
 
         break;
 
       case '#{':
-        ({forms, tokens} = parseSeq('}', innerForms => new f.SetForm({forms: innerForms})));
+        ({forms, tokens} = parseSeq('}', (range, innerForms) => new f.SetForm({range, forms: innerForms})));
         break;
 
       case ')':
@@ -293,12 +277,7 @@ function parseForms0(tokens, closeParen, onEOF) {
             sym = new Symbol({name: token.token});
           }
 
-          forms = forms.push(new f.Form({
-            range: token.range,
-            form: new f.SymbolForm({
-              sym: sym
-            })
-          }));
+          forms = forms.push(new f.SymbolForm({range: token.range, sym}));
         } else {
           throw new Error(`Invalid symbol '${token.token}', at ${token.range.start}`);
         }

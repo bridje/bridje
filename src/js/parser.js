@@ -149,24 +149,24 @@ function innerFormsParser(innerForms, innerParser, f) {
   });
 }
 
-function formTypeParser(FormType) {
+function formTypeParser(formType) {
   return oneOf(form => {
-    if (form.form instanceof FormType) {
+    if (form.formType === formType) {
       return successResult(form);
     } else {
-      return failResult(`${form} is not a ${FormType}`);
+      return failResult(`${form} is not a ${formType}`);
     }
   });
 }
 
-var SymbolParser = formTypeParser(f.SymbolForm);
-var ListParser = formTypeParser(f.ListForm);
-var VectorParser = formTypeParser(f.VectorForm);
-var RecordParser = formTypeParser(f.RecordForm);
+var SymbolParser = formTypeParser('symbol');
+var ListParser = formTypeParser('list');
+var VectorParser = formTypeParser('vector');
+var RecordParser = formTypeParser('record');
 
 function isSymbol(sym) {
   return SymbolParser.then(symForm => {
-    if (symForm.form.sym.equals(sym)) {
+    if (symForm.sym.equals(sym)) {
       return pure(successResult(sym));
     } else {
       return pure(failResult(`Expected symbol ${sym}`));
@@ -179,7 +179,7 @@ function parseForms(forms, parser) {
 }
 
 function parseForm(form, parser) {
-  return parseForms(im.List.of(form), parser).result;
+  return parseForms(im.List.of(form), parser);
 }
 
 module.exports = {

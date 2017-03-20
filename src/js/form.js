@@ -1,19 +1,16 @@
 var im = require('immutable');
 var Record = im.Record;
 
-var Form = Record({range: null, form: null});
-var BoolForm = Record({bool: null});
-var StringForm = Record({str: null});
-var IntForm = Record({int: null});
-var FloatForm = Record({float: null});
-var VectorForm = Record({forms: null});
-var SetForm = Record({forms: null});
+var BoolForm = Record({range: null, bool: null});
+var StringForm = Record({range: null, str: null});
+var IntForm = Record({range: null, int: null});
+var FloatForm = Record({range: null, float: null});
+var VectorForm = Record({range: null, forms: null});
+var SetForm = Record({range: null, forms: null});
 var RecordEntry = Record({key: null, value: null});
-var RecordForm = Record({entries: null});
-var ListForm = Record({forms: null});
-var SymbolForm = Record({sym: null});
-
-Form.prototype.toString = function() {return this.form.toString();};
+var RecordForm = Record({range: null, entries: null});
+var ListForm = Record({range: null, forms: null});
+var SymbolForm = Record({range: null, sym: null});
 
 BoolForm.prototype.toString = function() {return `(BoolForm "${this.bool}")`;};
 BoolForm.prototype.formType = 'bool';
@@ -39,7 +36,6 @@ SymbolForm.prototype.toString = function() {return `(SymbolForm ${this.sym})`;};
 SymbolForm.prototype.formType = 'symbol';
 
 module.exports = {
-  Form,
   BoolForm, StringForm, IntForm, FloatForm,
   VectorForm, SetForm,
   RecordEntry, RecordForm,

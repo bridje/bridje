@@ -1,17 +1,14 @@
 var im = require('immutable');
 var Record = im.Record;
 
-var Expr = Record({range: null, expr: null});
-var BoolExpr = Record({bool: null});
-var StringExpr = Record({str: null});
-var IntExpr = Record({int: null});
-var FloatExpr = Record({float: null});
-var VectorExpr = Record({exprs: null});
-var SetExpr = Record({exprs: null});
+var BoolExpr = Record({range: null, bool: null});
+var StringExpr = Record({range: null, str: null});
+var IntExpr = Record({range: null, int: null});
+var FloatExpr = Record({range: null, float: null});
+var VectorExpr = Record({range: null, exprs: null});
+var SetExpr = Record({range: null, exprs: null});
 var RecordEntry = Record({key: null, value: null});
-var RecordExpr = Record({entries: null});
-
-Expr.prototype.toString = function() {return this.expr.toString();};
+var RecordExpr = Record({range: null, entries: null});
 
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
 BoolExpr.prototype.exprType = 'bool';
@@ -31,7 +28,6 @@ RecordExpr.prototype.exprType = 'record';
 
 
 module.exports = {
-  Expr,
   BoolExpr, StringExpr, IntExpr, FloatExpr,
   VectorExpr, SetExpr,
   RecordEntry, RecordExpr

@@ -6,38 +6,36 @@ var Symbol = require('./symbol');
 
 function analyseNSForm(env, ns, form) {
   return p.parseForm(form, p.ListParser.then(listForm => {
-    console.log(p.isSymbol(Symbol.sym('ns')).parseForms(listForm.form.forms));
-    return p.innerFormsParser(listForm.form.forms, p.isSymbol(Symbol.sym('ns')), p.pure);
+    return p.innerFormsParser(listForm.forms, p.isSymbol(Symbol.sym('ns')), p.pure);
   }));
 }
 
 function analyseForm(env, nsEnv, form) {
   function analyseValueExpr(localEnv, form) {
     const range = form.range;
-    form = form.form;
 
     switch(form.formType) {
     case 'bool':
-      return new e.Expr({range, expr: new e.BoolExpr({bool: form.bool})});
+      return new e.BoolExpr({range, bool: form.bool});
     case 'string':
-      return new e.Expr({range, expr: new e.StringExpr({str: form.str})});
+      return new e.StringExpr({range, str: form.str});
     case 'int':
-      return new e.Expr({range, expr: new e.IntExpr({int: form.int})});
+      return new e.IntExpr({range, int: form.int});
     case 'float':
-      return new e.Expr({range, expr: new e.FloatExpr({float: form.float})});
+      return new e.FloatExpr({range, float: form.float});
 
     case 'vector':
-      return new e.Expr({range, expr: new e.VectorExpr({exprs: form.forms.map(f => analyseValueExpr(localEnv, f))})});
+      return new e.VectorExpr({range, exprs: form.forms.map(f => analyseValueExpr(localEnv, f))});
     case 'set':
-      return new e.Expr({range, expr: new e.SetExpr({exprs: form.forms.map(f => analyseValueExpr(localEnv, f))})});
+      return new e.SetExpr({range, exprs: form.forms.map(f => analyseValueExpr(localEnv, f))});
 
     case 'record':
-      return new e.Expr({range, expr: new e.RecordExpr({
+      return new e.RecordExpr({
+        range,
         entries: form.entries.map(
           entry => new e.RecordEntry({
-            key: p.parseForm(entry.key, p.SymbolParser.fmap(symForm => symForm.form.sym)),
-            value: analyseValueExpr(localEnv, entry.value)
-          }))})});
+            key: p.parseForm(entry.key, p.SymbolParser.fmap(symForm => symForm.sym)).orThrow(),
+            value: analyseValueExpr(localEnv, entry.value)}))});
 
     case 'list':
     case 'symbol':
@@ -48,7 +46,7 @@ function analyseForm(env, nsEnv, form) {
     }
   };
 
-  if (form.form.formType == 'list') {
+  if (form.formType == 'list') {
     throw 'NIY';
   } else {
     return analyseValueExpr(im.Map(), form);

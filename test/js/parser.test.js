@@ -66,7 +66,7 @@ describe('parsing', () => {
     let res = p.parseForms(r.readForms('foo'), p.SymbolParser);
     assert(res.success);
 
-    let symbol = res.result.form.sym;
+    let symbol = res.result.sym;
     assert(symbol instanceof Symbol);
     assert.equal(symbol.name, 'foo');
   });
@@ -91,7 +91,6 @@ describe('parsing', () => {
     let parser = p.isSymbol(nsSym).then(p.parseEnd);
 
     let res0 = p.parseForms(r.readForms('ns'), parser);
-    assert(res0.success);
     assert.equal(res0.result, nsSym);
 
     let res1 = p.parseForms(r.readForms('ns and-more'), parser);
@@ -100,7 +99,7 @@ describe('parsing', () => {
 
   it('parses innerForms', () => {
     let parser = p.ListParser.then(listForm => p.innerFormsParser(
-      listForm.form.forms,
+      listForm.forms,
       p.isSymbol(nsSym).then(sym => p.parseEnd({isNS: true})),
       p.parseEnd));
 
