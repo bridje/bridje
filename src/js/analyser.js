@@ -44,22 +44,45 @@ function analyseForm(env, nsEnv, form) {
       if (forms.isEmpty()) {
         throw 'NIY';
       } else {
+        const firstForm = forms.first();
+        if (firstForm.formType == 'symbol' && firstForm.sym.ns === null) {
+          switch (firstForm.sym.name) {
+          case 'if':
+            return p.parseForms(forms.shift(), exprParser.then(
+              testExpr => exprParser.then(
+                thenExpr => exprParser.then(
+                  elseExpr => p.parseEnd(new e.IfExpr({range, testExpr, thenExpr, elseExpr})))))).orThrow();
 
-      }
+          case 'let':
+            return p.parseForms(forms.shift(), p.VectorParser.fmap(
+              bindingVecForm => {
+                const bindingVecForms = bindingVecForm.forms;
+                if (bindingVecForms.size % 2 !== 0) {
+                  return p.pure(p.failResult('let binding must have an even number of forms'));
+                } else {
+                  let _localEnv = localEnv;
+                  let bindings = im.List();
 
-      const firstForm = forms.first();
-      if (firstForm.formType == 'symbol' && firstForm.sym.ns === null) {
-        switch (firstForm.sym.name) {
-        case 'if':
-          return p.parseForms(forms.shift(), exprParser.then(
-            testExpr => exprParser.then(
-              thenExpr => exprParser.then(
-                elseExpr => p.parseEnd(new e.IfExpr({range, testExpr, thenExpr, elseExpr})))))).orThrow();
+                  for (let i = 0; i < bindingVecForms.size; i += 2) {
+                    console.log(bindingVecForms.get(i), bindingVecForms.get(i+1));
 
-        default:
-          throw 'NIY';
+                  }
+
+                  return {bindings, _localEnv};
+                }}).then(
+                  ({bindings, localEnv}) => p.oneOf(
+                    bodyForm => p.successResult({bindings, body: analyseValueExpr(localEnv, bodyForm)}).then(
+                      ({bindings, body}) => p.parseEnd(new e.LetExpr({range, bindings, body}))))))
+              .orThrow();
+
+          case 'fn':
+            throw 'NIY';
+          }
         }
+
+        throw 'NIY';
       }
+
 
 
     case 'symbol':
