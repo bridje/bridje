@@ -10,6 +10,8 @@ var SetExpr = Record({range: null, exprs: null});
 var RecordEntry = Record({key: null, value: null});
 var RecordExpr = Record({range: null, entries: null});
 
+var IfExpr = Record({range: null, testExpr: null, thenExpr: null, elseExpr: null});
+
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
 BoolExpr.prototype.exprType = 'bool';
 StringExpr.prototype.toString = function() {return `(StringExpr "${this.str}")`;};
@@ -26,9 +28,14 @@ RecordEntry.prototype.toString = function() {return `${this.key} ${this.value}`;
 RecordExpr.prototype.toString = function() {return `(RecordExpr {${this.entries.join(', ')})}`;};
 RecordExpr.prototype.exprType = 'record';
 
+IfExpr.prototype.toString = function() {return `(IfExpr ${this.testExpr} ${this.thenExpr} ${this.elseExpr})`;};
+IfExpr.prototype.exprType = 'if';
+
+
 
 module.exports = {
   BoolExpr, StringExpr, IntExpr, FloatExpr,
   VectorExpr, SetExpr,
-  RecordEntry, RecordExpr
+  RecordEntry, RecordExpr,
+  IfExpr
 };

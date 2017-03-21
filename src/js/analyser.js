@@ -12,6 +12,7 @@ function analyseNSForm(env, ns, form) {
 
 function analyseForm(env, nsEnv, form) {
   function analyseValueExpr(localEnv, form) {
+    const exprParser = p.oneOf(form => p.successResult(analyseValueExpr(localEnv, form)));
     const range = form.range;
 
     switch(form.formType) {
@@ -38,6 +39,29 @@ function analyseForm(env, nsEnv, form) {
             value: analyseValueExpr(localEnv, entry.value)}))});
 
     case 'list':
+      const forms = form.forms;
+
+      if (forms.isEmpty()) {
+        throw 'NIY';
+      } else {
+
+      }
+
+      const firstForm = forms.first();
+      if (firstForm.formType == 'symbol' && firstForm.sym.ns === null) {
+        switch (firstForm.sym.name) {
+        case 'if':
+          return p.parseForms(forms.shift(), exprParser.then(
+            testExpr => exprParser.then(
+              thenExpr => exprParser.then(
+                elseExpr => p.parseEnd(new e.IfExpr({range, testExpr, thenExpr, elseExpr})))))).orThrow();
+
+        default:
+          throw 'NIY';
+        }
+      }
+
+
     case 'symbol':
       throw 'NIY';
 
@@ -47,7 +71,19 @@ function analyseForm(env, nsEnv, form) {
   };
 
   if (form.formType == 'list') {
-    throw 'NIY';
+    const forms = form.forms;
+    const firstForm = forms.first();
+    if (firstForm.formType == 'symbol') {
+      switch (firstForm.sym) {
+      case 'def':
+      case '::':
+        throw 'NIY';
+
+      default:
+        return analyseValueExpr(im.Map(), form);
+      }
+    }
+
   } else {
     return analyseValueExpr(im.Map(), form);
   };

@@ -45,4 +45,22 @@ describe('analyser', () => {
     assert.equal(entry1.key.name, 'b');
     assert.equal(entry1.value.str, 'Hello');
   });
+
+  it ('analyses an if-expr', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(if false 24 42)').first());
+
+    assert.equal(expr.exprType, 'if');
+
+    const testExpr = expr.testExpr;
+    assert.equal(testExpr.exprType, 'bool');
+    assert.strictEqual(testExpr.bool, false);
+
+    const thenExpr = expr.thenExpr;
+    assert.equal(thenExpr.exprType, 'int');
+    assert.equal(thenExpr.int, 24);
+
+    const elseExpr = expr.elseExpr;
+    assert.equal(elseExpr.exprType, 'int');
+    assert.equal(elseExpr.int, 42);
+  });
 });
