@@ -3,6 +3,7 @@ var p = require('./parser');
 var e = require('./expr');
 var f = require('./form');
 var Symbol = require('./symbol');
+var lv = require('./localVar');
 
 function analyseNSForm(env, ns, form) {
   return p.parseForm(form, p.ListParser.then(listForm => {
@@ -42,6 +43,7 @@ function analyseForm(env, nsEnv, form) {
       const forms = form.forms;
 
       if (forms.isEmpty()) {
+
         throw 'NIY';
       } else {
         const firstForm = forms.first();
@@ -64,15 +66,18 @@ function analyseForm(env, nsEnv, form) {
                   let bindings = im.List();
 
                   for (let i = 0; i < bindingVecForms.size; i += 2) {
-                    console.log(bindingVecForms.get(i), bindingVecForms.get(i+1));
-
+                    let bindingExpr = analyseValueExpr(localEnv, bindingVecForms.get(i + 1));
+                    let name = bindingVecForms.get(i).sym.name;
+                    let localVar = lv(name);
+                    bindings = bindings.push(new e.LetBinding({name, localVar, expr: bindingExpr}));
+                    _localEnv = _localEnv.set(name, localVar);
                   }
 
-                  return {bindings, _localEnv};
+                  return {bindings, localEnv: _localEnv};
                 }}).then(
                   ({bindings, localEnv}) => p.oneOf(
-                    bodyForm => p.successResult({bindings, body: analyseValueExpr(localEnv, bodyForm)}).then(
-                      ({bindings, body}) => p.parseEnd(new e.LetExpr({range, bindings, body}))))))
+                    bodyForm => p.successResult({bindings, body: analyseValueExpr(localEnv, bodyForm)})).then(
+                      ({bindings, body}) => p.parseEnd(new e.LetExpr({range, bindings, body})))))
               .orThrow();
 
           case 'fn':
@@ -83,9 +88,18 @@ function analyseForm(env, nsEnv, form) {
         throw 'NIY';
       }
 
-
-
     case 'symbol':
+      const sym = form.sym;
+      if (sym.ns !== null) {
+        throw 'NIY';
+      } else {
+        const localVar = localEnv.get(sym.name);
+        if (lv !== undefined) {
+          return new e.LocalVarExpr({range, localVar, name: sym.name});
+        } else {
+          throw 'NIY';
+        }
+      }
       throw 'NIY';
 
     default:
@@ -107,9 +121,9 @@ function analyseForm(env, nsEnv, form) {
       }
     }
 
-  } else {
-    return analyseValueExpr(im.Map(), form);
-  };
+  }
+
+  return analyseValueExpr(im.Map(), form);
 };
 
 module.exports = {analyseNSForm, analyseForm};

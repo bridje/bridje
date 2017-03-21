@@ -66,24 +66,23 @@ describe('analyser', () => {
 
   it ('analyses a let-expr', () => {
     const expr = ana.analyseForm(null, null, reader.readForms('(let [x 4, y 5] [x y])').first());
-    console.log(expr);
 
     assert.equal(expr.exprType, 'let');
     assert.equal(expr.bindings.size, 2);
 
     const binding0 = expr.bindings.get(0);
-    assert.equal(binding0.localVar.name = 'x');
+    assert.equal(binding0.localVar.name, 'x');
     const lv0 = binding0.localVar;
     assert.strictEqual(binding0.expr.int, 4);
 
     const binding1 = expr.bindings.get(1);
-    assert.equal(binding0.localVar.name = 'y');
+    assert.equal(binding1.localVar.name, 'y');
     const lv1 = binding1.localVar;
-    assert.strictEqual(binding0.expr.int, 5);
+    assert.strictEqual(binding1.expr.int, 5);
 
     const body = expr.body;
     assert.equal(body.exprType, 'vector');
-    const bodyVecExprs = body.exprType.exprs;
+    const bodyVecExprs = body.exprs;
 
     assert.equal(bodyVecExprs.get(0).localVar, lv0);
     assert.equal(bodyVecExprs.get(1).localVar, lv1);

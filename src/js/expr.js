@@ -11,6 +11,10 @@ var RecordEntry = Record({key: null, value: null});
 var RecordExpr = Record({range: null, entries: null});
 
 var IfExpr = Record({range: null, testExpr: null, thenExpr: null, elseExpr: null});
+var LocalVarExpr = Record({range: null, name: null, localVar: null});
+
+var LetBinding = Record({name: null, localVar: null, expr: null});
+var LetExpr = Record({range: null, bindings: null, body: null});
 
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
 BoolExpr.prototype.exprType = 'bool';
@@ -31,11 +35,18 @@ RecordExpr.prototype.exprType = 'record';
 IfExpr.prototype.toString = function() {return `(IfExpr ${this.testExpr} ${this.thenExpr} ${this.elseExpr})`;};
 IfExpr.prototype.exprType = 'if';
 
+LocalVarExpr.prototype.toString = function() {return `(LocalVarExpr ${this.name})`;};
+LocalVarExpr.prototype.exprType = 'localVar';
+
+LetBinding.prototype.toString = function() {return `${this.name} ${this.expr}`;};
+LetExpr.prototype.toString = function() {return `(LetExpr [${this.bindings.join(', ')}] ${this.body})`;};
+LetExpr.prototype.exprType = 'let';
+
 
 
 module.exports = {
   BoolExpr, StringExpr, IntExpr, FloatExpr,
   VectorExpr, SetExpr,
   RecordEntry, RecordExpr,
-  IfExpr
+  IfExpr, LocalVarExpr, LetExpr, LetBinding
 };
