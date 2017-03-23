@@ -110,9 +110,14 @@ function analyseForm(env, nsEnv, form) {
   if (form.formType == 'list') {
     const forms = form.forms;
     const firstForm = forms.first();
-    if (firstForm.formType == 'symbol') {
-      switch (firstForm.sym) {
+    if (firstForm.formType == 'symbol' && firstForm.sym.ns === null) {
+      switch (firstForm.sym.name) {
       case 'def':
+        return p.parseForms(forms.shift(), p.SymbolParser.then(
+          symForm => p.oneOf(form => p.successResult(analyseValueExpr(im.Map(), form))).then(
+            body => p.parseEnd(new e.DefExpr({range: form.range, sym: symForm.sym, body})))))
+          .orThrow();
+
       case '::':
         throw 'NIY';
 

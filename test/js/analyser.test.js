@@ -87,4 +87,13 @@ describe('analyser', () => {
     assert.equal(bodyVecExprs.get(0).localVar, lv0);
     assert.equal(bodyVecExprs.get(1).localVar, lv1);
   });
+
+  it ('analyses a def constant', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(def hello "hello world!")').first());
+    console.log(expr);
+
+    assert.equal(expr.exprType, 'def');
+    assert.equal(expr.sym.name, 'hello');
+    assert.equal(expr.body.str, 'hello world!');
+  });
 });
