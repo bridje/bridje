@@ -1,3 +1,5 @@
+const vm = require('vm');
+
 function makeSafe(s) {
   return s;
 };
@@ -32,16 +34,31 @@ function compileExpr(env, ns, expr) {
   if (expr.exprType == 'def') {
     const name = makeSafe(expr.sym.name);
     return `
-const ${name} = (function () {${compileExpr0(expr.body)}})();
+      const ${name} = (function () {return ${compileExpr0(expr.body)};})();
 `;
 
   } else {
     return `
-(function() {${compileExpr0(expr)}})()
+      (function() {${compileExpr0(expr)}})()
 `;
   }
 }
 
+function compileNS(env, nsEnv, content) {
+  // TODO: requires in, exports out
+  return `
+(function(brjNS, _im) {
+  return new brjNS({
+    imports: {},
+    f: function(_) {
+      ${content}
+
+      return {};
+    }
+  });
+})`;
+}
+
 module.exports = {
-    compileExpr
+  compileExpr, compileNS
 };
