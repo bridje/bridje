@@ -2,9 +2,10 @@ var reader = require('./reader');
 var path = require('path');
 var fs = require('fs');
 var process = require('process');
+const e = require('./env');
 
 module.exports = function(projectPaths) {
-  var envManager = require('./env')();
+  var envManager = e.envManager();
 
   function readFileAsync(path) {
     return new Promise((resolve, reject) => {

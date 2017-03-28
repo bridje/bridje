@@ -1,10 +1,11 @@
 const vm = require('vm');
+const {List} = require('immutable');
 
 function makeSafe(s) {
-  return s;
+  return s.replace('-', '_');
 };
 
-function compileExpr(env, ns, expr) {
+function compileExpr(env, nsEnv, expr) {
   function compileExpr0(expr) {
     switch(expr.exprType) {
     case 'bool':
@@ -32,28 +33,43 @@ function compileExpr(env, ns, expr) {
   }
 
   if (expr.exprType == 'def') {
-    const name = makeSafe(expr.sym.name);
-    return `
-      const ${name} = (function () {return ${compileExpr0(expr.body)};})();
-`;
+    const name = expr.sym.name;
+    const safeName = makeSafe(name);
+
+    return {
+      nsEnv: nsEnv.setIn(List.of('exports', name), {safeName}),
+      code: `
+      const ${safeName} = (function () {return ${compileExpr0(expr.body)};})();
+`};
 
   } else {
-    return `
+    return {
+      nsEnv,
+      code: `
       (function() {${compileExpr0(expr)}})()
-`;
+`
+    };
   }
 }
 
 function compileNS(env, nsEnv, content) {
-  // TODO: requires in, exports out
+  // TODO: requires in
+
+  const exportEntries = nsEnv.exports
+        .entrySeq()
+        .map(([name, {safeName}]) => `['${name}', ${safeName}]`)
+        .join(', ');
+
+  const exports = `_im.Map(_im.List.of(${exportEntries}))`;
+
   return `
-(function(brjNS, _im) {
-  return new brjNS({
+(function(_brjNS, _im) {
+  return new _brjNS({
     imports: {},
     f: function(_) {
       ${content}
 
-      return {};
+      return {exports: ${exports}};
     }
   });
 })`;

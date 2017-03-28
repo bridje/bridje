@@ -1,10 +1,9 @@
-var im = require('immutable');
-var Record = im.Record;
-var Map = im.Map;
+const {Record, Map} = require('immutable');
 
-var Env = Record({nsEnvs: im.Map({})});
+var Env = Record({nsEnvs: Map({})});
+var NSEnv = Record({exports: Map({})});
 
-module.exports = function() {
+function envManager() {
   var env = new Env({});
 
   var envQueue = [];
@@ -42,4 +41,4 @@ module.exports = function() {
   };
 };
 
-module.exports.Env = Env;
+module.exports = {envManager, Env, NSEnv};
