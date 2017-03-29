@@ -38,16 +38,13 @@ function compileExpr(env, nsEnv, expr) {
 
     return {
       nsEnv: nsEnv.setIn(List.of('exports', name), {safeName}),
-      code: `
-      const ${safeName} = (function () {return ${compileExpr0(expr.body)};})();
-`};
+      code: `\n const ${safeName} = (function () {return ${compileExpr0(expr.body)};})(); \n`
+    };
 
   } else {
     return {
       nsEnv,
-      code: `
-      (function() {${compileExpr0(expr)}})()
-`
+      code: `\n (function() {${compileExpr0(expr)}})() \n`
     };
   }
 }
@@ -55,12 +52,12 @@ function compileExpr(env, nsEnv, expr) {
 function compileNS(env, nsEnv, content) {
   // TODO: requires in
 
-  const exportEntries = nsEnv.exports
+  const varEntries = nsEnv.exports
         .entrySeq()
         .map(([name, {safeName}]) => `['${name}', ${safeName}]`)
         .join(', ');
 
-  const exports = `_im.Map(_im.List.of(${exportEntries}))`;
+  const vars = `_im.Map(_im.List.of(${varEntries}))`;
 
   return `
 (function(_brjNS, _im) {
@@ -69,7 +66,7 @@ function compileNS(env, nsEnv, content) {
     f: function(_) {
       ${content}
 
-      return {exports: ${exports}};
+      return {vars: ${vars}};
     }
   });
 })`;

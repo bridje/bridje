@@ -1,8 +1,13 @@
-var reader = require('./reader');
+const {readForms} = require('./reader');
+const im = require('immutable');
+const {Record, List} = im;
 var path = require('path');
 var fs = require('fs');
 var process = require('process');
 const e = require('./env');
+const a = require('./analyser');
+const c = require('./compiler');
+const vm = require('vm');
 
 module.exports = function(projectPaths) {
   var envManager = e.envManager();
@@ -19,6 +24,7 @@ module.exports = function(projectPaths) {
     });
   }
 
+  /// returns Promise<String>
   function resolveNSAsync(ns) {
     var promise = Promise.reject('No project paths available.');
 
@@ -48,24 +54,43 @@ module.exports = function(projectPaths) {
     });
   }
 
-  async function envRequireAsync(env, ns, str) {
-    if (env.nsEnvs.get(ns) === undefined) {
-      if (str === undefined) {
-        try {
-          str = await resolveNSAsync(ns);
-        } catch (e) {
-          return Promise.reject(e);
-        }
-      }
+  function envRequire(env, ns, str) {
+    const forms = readForms(str);
+    const {nsEnv, codes} = forms.shift().reduce(
+      ({nsEnv, codes}, form) => {
+        const expr = a.analyseForm(env, nsEnv, form);
+        let code;
+        ({nsEnv, code} = c.compileExpr(env, nsEnv, expr));
+        return {nsEnv, codes: codes.push(code)};
+      },
+      {
+        nsEnv: a.analyseNSForm(env, ns, forms.first()),
+        codes: new List()
+      });
 
-      return env.setIn(['nsEnvs', ns], {ns: ns, str: str});
+    const {vars} = new vm.Script(c.compileNS(env, nsEnv, codes.join("\n")))
+          .runInThisContext()(Record({imports: null, f: null}), im).f();
+
+    return env.setIn(['nsEnvs', ns], nsEnv.set('vars', vars));
+  }
+
+  function envRequireAsync(env, ns, str) {
+    // TODO require other namespaces as necessary
+
+    if (env.nsEnvs.get(ns) === undefined) {
+      const strAsync = str !== undefined ? Promise.resolve(str) : resolveNSAsync(ns);
+      return strAsync.then(str => envRequire(env, ns, str));
     } else {
-      return env;
+      return Promise.resolve(env);
     }
   }
 
+  function currentEnv() {
+    return envManager.currentEnv();
+  }
+
   return {
-    envRequireAsync,
+    envRequireAsync, envRequire, currentEnv,
 
     loaded: envManager.updateEnv(async (env) => {
       env = await envRequireAsync(env, 'bridje.kernel');

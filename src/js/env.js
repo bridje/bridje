@@ -1,7 +1,7 @@
 const {Record, Map} = require('immutable');
 
 var Env = Record({nsEnvs: Map({})});
-var NSEnv = Record({exports: Map({})});
+var NSEnv = Record({ns: null, vars: Map({}), exports: Map({})});
 
 function envManager() {
   var env = new Env({});
