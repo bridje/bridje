@@ -2,6 +2,7 @@ var assert = require('assert');
 var ana = require('../../src/js/analyser');
 var reader = require('../../src/js/reader');
 var e = require('../../src/js/expr');
+const {Map} = require('immutable');
 
 describe('analyser', () => {
   // it('reads an NS form', () => {
@@ -95,5 +96,11 @@ describe('analyser', () => {
     assert.equal(expr.exprType, 'def');
     assert.equal(expr.sym.name, 'hello');
     assert.equal(expr.body.str, 'hello world!');
+  });
+
+  it ('resolves a simple ns declaration', () => {
+    const nsEnv = ana.analyseNSForm(null, 'bridje.kernel', reader.readForms('(ns bridje.kernel)').first());
+    assert.equal(nsEnv.ns, 'bridje.kernel');
+    assert(nsEnv.exports.equals(new Map({})));
   });
 });
