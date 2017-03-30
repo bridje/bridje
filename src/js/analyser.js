@@ -106,10 +106,14 @@ function analyseForm(env, nsEnv, form) {
         throw 'NIY';
       } else {
         const localVar = localEnv.get(sym.name);
-        if (lv !== undefined) {
+        const nsEnvVar = localVar === undefined ? nsEnv.exports.get(sym.name) : undefined;
+
+        if (localVar !== undefined) {
           return new e.LocalVarExpr({range, localVar, name: sym.name});
+        } else if (nsEnvVar !== undefined){
+          return new e.VarExpr({range, ns: null, var: nsEnvVar});
         } else {
-          throw 'NIY';
+          throw "NIY - can't find";
         }
       }
       throw 'NIY';

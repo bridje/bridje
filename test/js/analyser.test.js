@@ -3,6 +3,7 @@ var ana = require('../../src/js/analyser');
 var reader = require('../../src/js/reader');
 var e = require('../../src/js/expr');
 const {Map} = require('immutable');
+const {NSEnv, Var} = require('../../src/js/runtime');
 
 describe('analyser', () => {
   // it('reads an NS form', () => {
@@ -102,5 +103,14 @@ describe('analyser', () => {
     const nsEnv = ana.analyseNSForm(null, 'bridje.kernel', reader.readForms('(ns bridje.kernel)').first());
     assert.equal(nsEnv.ns, 'bridje.kernel');
     assert(nsEnv.exports.equals(new Map({})));
+  });
+
+  it ('analyses a var within the namespace', () => {
+    const nsEnvVar = new Var({});
+    const nsEnv = new NSEnv({}).setIn(['exports', 'foo'], nsEnvVar);
+    const expr = ana.analyseForm(null, nsEnv, reader.readForms('foo').first());
+
+    assert.equal(expr.exprType, 'var');
+    assert.equal(expr.var, nsEnvVar);
   });
 });
