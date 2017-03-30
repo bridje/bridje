@@ -1,4 +1,4 @@
-var Record = require('immutable').Record;
+const {Record} = require('immutable');
 
 const LocalVar = Record({name: null});
 

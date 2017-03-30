@@ -81,7 +81,7 @@ function analyseForm(env, nsEnv, form) {
                     let bindingExpr = analyseValueExpr(localEnv, bindingVecForms.get(i + 1));
                     let name = bindingVecForms.get(i).sym.name;
                     let localVar = lv(name);
-                    bindings = bindings.push(new e.LetBinding({name, localVar, expr: bindingExpr}));
+                    bindings = bindings.push(new e.LetBinding({localVar, expr: bindingExpr}));
                     _localEnv = _localEnv.set(name, localVar);
                   }
 

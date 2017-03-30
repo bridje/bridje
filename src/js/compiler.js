@@ -1,5 +1,5 @@
 const vm = require('vm');
-const {List} = require('immutable');
+const {List, Map} = require('immutable');
 const {Var} = require('./runtime');
 
 function makeSafe(s) {
@@ -7,6 +7,24 @@ function makeSafe(s) {
 };
 
 function compileExpr(env, nsEnv, expr) {
+  var localNames = new Map({});
+  var localNameCounts = new Map({});
+
+  function localVarName(localVar) {
+    const localName = localNames.get(localVar);
+
+    if (localName != null) {
+      return localName;
+    } else {
+      const localNameCount = (localNameCounts.get(localVar.name) || 0) + 1;
+      localNameCounts = localNameCounts.set(localVar.name, localNameCount);
+      const newLocalName = `${makeSafe(localVar.name)}_${localNameCount}`;
+
+      localNames = localNames.set(localVar, newLocalName);
+      return newLocalName;
+    }
+  }
+
   function compileExpr0(expr) {
     switch(expr.exprType) {
     case 'bool':
@@ -26,6 +44,13 @@ function compileExpr(env, nsEnv, expr) {
     case 'if':
       return `(${compileExpr0(expr.testExpr)} ? ${compileExpr0(expr.thenExpr)} : ${compileExpr0(expr.elseExpr)})`;
 
+    case 'let':
+      const compiledBindings = expr.bindings.map(binding => `const ${localVarName(binding.localVar)} = ${compileExpr0(binding.expr)};`);
+      return `(function () {${compiledBindings.join(' ')} return ${compileExpr0(expr.body)};})()`;
+
+    case 'localVar':
+      return localNames.get(expr.localVar);
+
     case 'var':
       if (expr.var.ns == nsEnv.ns) {
         return expr.var.safeName;
@@ -34,7 +59,6 @@ function compileExpr(env, nsEnv, expr) {
       }
 
     case 'record':
-    case 'let':
     default:
       throw 'compiler NIY';
     }

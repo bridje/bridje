@@ -15,7 +15,7 @@ const IfExpr = Record({range: null, testExpr: null, thenExpr: null, elseExpr: nu
 const LocalVarExpr = Record({range: null, name: null, localVar: null});
 const VarExpr = Record({range: null, var: null});
 
-const LetBinding = Record({name: null, localVar: null, expr: null});
+const LetBinding = Record({localVar: null, expr: null});
 const LetExpr = Record({range: null, bindings: null, body: null});
 
 const DefExpr = Record({range: null, sym: null, body: null});
