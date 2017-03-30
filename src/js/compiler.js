@@ -26,6 +26,13 @@ function compileExpr(env, nsEnv, expr) {
     case 'if':
       return `(${compileExpr0(expr.testExpr)} ? ${compileExpr0(expr.thenExpr)} : ${compileExpr0(expr.elseExpr)})`;
 
+    case 'var':
+      if (expr.var.ns == nsEnv.ns) {
+        return expr.var.safeName;
+      } else {
+        throw 'global var exprs not supported yet';
+      }
+
     case 'record':
     case 'let':
     default:
@@ -38,7 +45,7 @@ function compileExpr(env, nsEnv, expr) {
     const safeName = makeSafe(name);
 
     return {
-      nsEnv: nsEnv.setIn(List.of('exports', name), new Var({safeName})),
+      nsEnv: nsEnv.setIn(List.of('exports', name), new Var({ns: nsEnv.ns, name, safeName})),
       code: `\n const ${safeName} = (function () {return ${compileExpr0(expr.body)};})(); \n`
     };
 
@@ -55,7 +62,7 @@ function compileNS(env, nsEnv, content) {
 
   const exportEntries = nsEnv.exports
         .entrySeq()
-        .map(([name, {safeName}]) => `['${name}', new _runtime.Var({value: ${safeName}, safeName: '${safeName}'})]`)
+        .map(([name, {safeName}]) => `['${name}', new _runtime.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})]`)
         .join(', ');
 
   const exports = `_im.Map(_im.List.of(${exportEntries}))`;

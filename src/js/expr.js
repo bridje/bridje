@@ -11,8 +11,9 @@ const RecordEntry = Record({key: null, value: null});
 const RecordExpr = Record({range: null, entries: null});
 
 const IfExpr = Record({range: null, testExpr: null, thenExpr: null, elseExpr: null});
+
 const LocalVarExpr = Record({range: null, name: null, localVar: null});
-const VarExpr = Record({range: null, ns: null, var: null});
+const VarExpr = Record({range: null, var: null});
 
 const LetBinding = Record({name: null, localVar: null, expr: null});
 const LetExpr = Record({range: null, bindings: null, body: null});
@@ -41,7 +42,7 @@ IfExpr.prototype.exprType = 'if';
 LocalVarExpr.prototype.toString = function() {return `(LocalVarExpr ${this.name})`;};
 LocalVarExpr.prototype.exprType = 'localVar';
 
-VarExpr.prototype.toString = function() {return `(VarExpr ${this.ns}, )`;};
+VarExpr.prototype.toString = function() {return `(VarExpr ${this.var.ns}/${this.var.name})`;};
 VarExpr.prototype.exprType = 'var';
 
 LetBinding.prototype.toString = function() {return `${this.name} ${this.expr}`;};

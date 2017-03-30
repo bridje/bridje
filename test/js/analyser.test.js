@@ -92,7 +92,6 @@ describe('analyser', () => {
 
   it ('analyses a def constant', () => {
     const expr = ana.analyseForm(null, null, reader.readForms('(def hello "hello world!")').first());
-    console.log(expr);
 
     assert.equal(expr.exprType, 'def');
     assert.equal(expr.sym.name, 'hello');

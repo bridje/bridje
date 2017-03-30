@@ -4,13 +4,14 @@ var assert = require('assert');
 
 describe('eval', () => {
   it ('loads a simple kernel', () => {
-    console.log(e.envRequire(e.currentEnv(), 'bridje.kernel', '(ns bridje.kernel) (def hello ["hello world"])'));
+    const newEnv = e.envRequire(e.currentEnv(), 'bridje.kernel.test', '(ns bridje.kernel.test) (def hello ["hello world"])');
+
+    assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.test').exports.get('hello').value.toJS(), ['hello world']);
   });
 
-  // it ('loads the kernel', async () => {
-  //   var env = await e.loaded;
-  //   console.log(env.toJS());
-  //   assert(env.nsEnvs.get('bridje.kernel') !== undefined);
-  // });
+  it ('loads a double hello', () => {
+    const newEnv = e.envRequire(e.currentEnv(), 'bridje.kernel.test', '(ns bridje.kernel.test) (def hello "hello") (def double [hello hello])');
 
+    assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.test').exports.get('double').value.toJS(), ['hello', 'hello']);
+  });
 });
