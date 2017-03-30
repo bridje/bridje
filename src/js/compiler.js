@@ -1,5 +1,6 @@
 const vm = require('vm');
 const {List} = require('immutable');
+const {Var} = require('./runtime');
 
 function makeSafe(s) {
   return s.replace('-', '_');
@@ -37,7 +38,7 @@ function compileExpr(env, nsEnv, expr) {
     const safeName = makeSafe(name);
 
     return {
-      nsEnv: nsEnv.setIn(List.of('exports', name), {safeName}),
+      nsEnv: nsEnv.setIn(List.of('exports', name), new Var({safeName})),
       code: `\n const ${safeName} = (function () {return ${compileExpr0(expr.body)};})(); \n`
     };
 
@@ -54,7 +55,7 @@ function compileNS(env, nsEnv, content) {
 
   const exportEntries = nsEnv.exports
         .entrySeq()
-        .map(([name, {safeName}]) => `['${name}', new _runtime.Var({value: ${safeName}})]`)
+        .map(([name, {safeName}]) => `['${name}', new _runtime.Var({value: ${safeName}, safeName: '${safeName}'})]`)
         .join(', ');
 
   const exports = `_im.Map(_im.List.of(${exportEntries}))`;
