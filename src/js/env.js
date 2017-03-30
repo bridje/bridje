@@ -1,7 +1,5 @@
 const {Record, Map} = require('immutable');
-
-var Env = Record({nsEnvs: Map({})});
-var NSEnv = Record({ns: null, vars: Map({}), exports: Map({})});
+const {Env} = require('./runtime');
 
 function envManager() {
   var env = new Env({});
@@ -41,4 +39,4 @@ function envManager() {
   };
 };
 
-module.exports = {envManager, Env, NSEnv};
+module.exports = {envManager};

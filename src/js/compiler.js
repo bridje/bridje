@@ -52,23 +52,23 @@ function compileExpr(env, nsEnv, expr) {
 function compileNS(env, nsEnv, content) {
   // TODO: requires in
 
-  const varEntries = nsEnv.exports
+  const exportEntries = nsEnv.exports
         .entrySeq()
-        .map(([name, {safeName}]) => `['${name}', ${safeName}]`)
+        .map(([name, {safeName}]) => `['${name}', new _runtime.Var({value: ${safeName}})]`)
         .join(', ');
 
-  const vars = `_im.Map(_im.List.of(${varEntries}))`;
+  const exports = `_im.Map(_im.List.of(${exportEntries}))`;
 
   return `
-(function(_brjNS, _im) {
-  return new _brjNS({
+(function(_runtime, _im) {
+  return {
     imports: {},
     f: function(_) {
       ${content}
 
-      return {vars: ${vars}};
+      return {exports: ${exports}};
     }
-  });
+  };
 })`;
 }
 

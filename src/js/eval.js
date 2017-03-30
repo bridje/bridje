@@ -8,6 +8,7 @@ const e = require('./env');
 const a = require('./analyser');
 const c = require('./compiler');
 const vm = require('vm');
+const runtime = require('./runtime');
 
 module.exports = function(projectPaths) {
   var envManager = e.envManager();
@@ -68,10 +69,10 @@ module.exports = function(projectPaths) {
         codes: new List()
       });
 
-    const {vars} = new vm.Script(c.compileNS(env, nsEnv, codes.join("\n")))
-          .runInThisContext()(Record({imports: null, f: null}), im).f();
+    const {exports} = new vm.Script(c.compileNS(env, nsEnv, codes.join("\n")))
+          .runInThisContext()(runtime, im).f();
 
-    return env.setIn(['nsEnvs', ns], nsEnv.set('vars', vars));
+    return env.setIn(['nsEnvs', ns], nsEnv.set('exports', exports));
   }
 
   function envRequireAsync(env, ns, str) {
