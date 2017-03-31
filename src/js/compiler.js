@@ -6,6 +6,11 @@ function makeSafe(s) {
   return s.replace('-', '_');
 };
 
+function compileSymbol(sym) {
+  const nsStr = sym.ns == null ? 'null' : `'${sym.ns}'`;
+  return `new _runtime.Symbol({ns: ${nsStr}, name: '${sym.name}'})`;
+}
+
 function compileExpr(env, nsEnv, expr) {
   var localNames = new Map({});
   var localNameCounts = new Map({});
@@ -59,6 +64,12 @@ function compileExpr(env, nsEnv, expr) {
       }
 
     case 'record':
+      // TODO we're going to want to intern the symbols
+      const compiledEntries = expr.entries.map(entry => `[${compileSymbol(entry.key)}, ${compileExpr0(entry.value)}]`);
+
+      return `_im.Map(_im.List.of(${compiledEntries.join(', ')}))`;
+
+
     default:
       throw 'compiler NIY';
     }
@@ -76,7 +87,7 @@ function compileExpr(env, nsEnv, expr) {
   } else {
     return {
       nsEnv,
-      code: `\n (function() {${compileExpr0(expr)}})() \n`
+      code: `(function() {return ${compileExpr0(expr)};})()`
     };
   }
 }
