@@ -1,7 +1,7 @@
 var im = require('immutable');
 var p = require('../../src/js/parser');
 var r = require('../../src/js/reader');
-var Symbol = require('../../src/js/symbol');
+var {sym, Symbol} = require('../../src/js/runtime');
 var assert = require('assert');
 
 describe('parsing', () => {
@@ -71,7 +71,7 @@ describe('parsing', () => {
     assert.equal(symbol.name, 'foo');
   });
 
-  var nsSym = Symbol.sym('ns');
+  var nsSym = sym('ns');
 
   it ('parses an "ns" symbol', () => {
     let res0 = p.parseForms(r.readForms('ns'), p.isSymbol(nsSym));

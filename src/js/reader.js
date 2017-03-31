@@ -1,7 +1,7 @@
 var im = require('immutable');
 var Record = im.Record;
 var Map = im.Map;
-var Symbol = require('./symbol');
+var {Symbol} = require('./runtime');
 var l = require('./location');
 var f = require('./form');
 

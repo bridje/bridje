@@ -1,16 +1,15 @@
 var im = require('immutable');
 var p = require('./parser');
 var e = require('./expr');
-const {NSEnv} = require('./runtime');
+const {NSEnv, sym} = require('./runtime');
 var f = require('./form');
-var Symbol = require('./symbol');
 var lv = require('./localVar');
 
 function analyseNSForm(env, ns, form) {
   return p.parseForm(form, p.ListParser.then(listForm => {
     return p.innerFormsParser(
       listForm.forms,
-      p.isSymbol(Symbol.sym('ns')).then(
+      p.isSymbol(sym('ns')).then(
         _ => p.SymbolParser.then(
           symForm => {
             if (symForm.sym.ns == null && symForm.sym.name === ns) {
