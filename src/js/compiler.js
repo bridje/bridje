@@ -45,6 +45,12 @@ function compileExpr(env, nsEnv, expr) {
     case 'set':
       return `_im.Set.of(${expr.exprs.map(compileExpr0).join(', ')})`;
 
+    case 'record':
+      // TODO we're going to want to intern the symbols
+      const compiledEntries = expr.entries.map(entry => `[${compileSymbol(entry.key)}, ${compileExpr0(entry.value)}]`);
+
+      return `_im.Map(_im.List.of(${compiledEntries.join(', ')}))`;
+
     case 'if':
       return `(${compileExpr0(expr.testExpr)} ? ${compileExpr0(expr.thenExpr)} : ${compileExpr0(expr.elseExpr)})`;
 
@@ -66,12 +72,8 @@ function compileExpr(env, nsEnv, expr) {
         throw 'global var exprs not supported yet';
       }
 
-    case 'record':
-      // TODO we're going to want to intern the symbols
-      const compiledEntries = expr.entries.map(entry => `[${compileSymbol(entry.key)}, ${compileExpr0(entry.value)}]`);
-
-      return `_im.Map(_im.List.of(${compiledEntries.join(', ')}))`;
-
+    case 'call':
+      return `(${compileExpr0(expr.exprs.first())}(${expr.exprs.shift().map(compileExpr0).join(', ')}))`;
 
     default:
       throw 'compiler NIY';

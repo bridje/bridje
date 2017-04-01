@@ -43,4 +43,9 @@ describe('compiler', () => {
     const expr = evalCode(compileForm(`(fn (x y) [y x])`).code);
     assert.deepEqual(expr(3, 4).toJS(), [4, 3]);
   });
+
+  it ('loads a call', () => {
+    const expr = evalCode(compileForm(`((fn (x y) [y x]) 3 4)`).code);
+    assert.deepEqual(expr.toJS(), [4, 3]);
+  });
 });
