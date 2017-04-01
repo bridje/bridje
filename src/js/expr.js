@@ -18,6 +18,8 @@ const LetBinding = Record({localVar: null, expr: null});
 const LetExpr = Record({range: null, bindings: null, body: null});
 
 const FnExpr = Record({range: null, params: null, body: null});
+const CallExpr = Record({range: null, exprs: null});
+
 const DefExpr = Record({range: null, sym: null, params: null, body: null});
 
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
@@ -51,6 +53,9 @@ LetExpr.prototype.exprType = 'let';
 
 FnExpr.prototype.toString = function() {return `(FnExpr (${this.params.map(p => p.name).join(' ')}) ${this.body})`;};
 FnExpr.prototype.exprType = 'fn';
+CallExpr.prototype.toString = function() {return `(CallExpr ${this.exprs.join(' ')})`;};
+CallExpr.prototype.exprType = 'call';
+
 DefExpr.prototype.toString = function() {return `(DefExpr ${this.sym} ${this.body})`;};
 DefExpr.prototype.exprType = 'def';
 
@@ -59,5 +64,5 @@ module.exports = {
   VectorExpr, SetExpr,
   RecordEntry, RecordExpr,
   IfExpr, LocalVarExpr, VarExpr, LetExpr, LetBinding,
-  FnExpr, DefExpr
+  FnExpr, CallExpr, DefExpr
 };

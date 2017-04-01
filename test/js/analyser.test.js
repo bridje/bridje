@@ -123,4 +123,12 @@ describe('analyser', () => {
     assert.equal(bodyExprs.get(0).localVar, expr.params.get(1));
     assert.equal(bodyExprs.get(1).localVar, expr.params.get(0));
   });
+
+  it ('analyses a fn call', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('((fn (x y) [y x]) 3 4)').first());
+    assert.equal(expr.exprType, 'call');
+    assert.equal(expr.exprs.get(0).exprType, 'fn');
+    assert.equal(expr.exprs.get(1).int, 3);
+    assert.equal(expr.exprs.get(2).int, 4);
+  });
 });

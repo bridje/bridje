@@ -120,7 +120,7 @@ function analyseForm(env, nsEnv, form) {
           throw 'nsSym niy';
 
         case 'list':
-          throw 'list call niy';
+          return new e.CallExpr({range, exprs: form.forms.map(form => analyseValueExpr(localEnv, form))});
 
         default:
           throw `unexpected form type ${firstForm.formType}`;
