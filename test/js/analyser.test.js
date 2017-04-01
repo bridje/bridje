@@ -112,4 +112,15 @@ describe('analyser', () => {
     assert.equal(expr.exprType, 'var');
     assert.equal(expr.var, nsEnvVar);
   });
+
+  it ('analyses a fnexpr', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(fn (x y) [y x])').first());
+    assert.equal(expr.exprType, 'fn');
+    assert.equal(expr.params.size, 2);
+
+    assert.equal(expr.body.exprType, 'vector');
+    const bodyExprs = expr.body.exprs;
+    assert.equal(bodyExprs.get(0).localVar, expr.params.get(1));
+    assert.equal(bodyExprs.get(1).localVar, expr.params.get(0));
+  });
 });

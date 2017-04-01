@@ -1,4 +1,5 @@
-var im = require('immutable');
+var {List, Map} = require('immutable');
+
 var p = require('./parser');
 var e = require('./expr');
 const {NSEnv, sym} = require('./runtime');
@@ -74,7 +75,7 @@ function analyseForm(env, nsEnv, form) {
                   return p.pure(p.failResult('let binding must have an even number of forms'));
                 } else {
                   let _localEnv = localEnv;
-                  let bindings = im.List();
+                  let bindings = List();
 
                   for (let i = 0; i < bindingVecForms.size; i += 2) {
                     let bindingExpr = analyseValueExpr(localEnv, bindingVecForms.get(i + 1));
@@ -92,6 +93,20 @@ function analyseForm(env, nsEnv, form) {
               .orThrow();
 
           case 'fn':
+            return p.parseForms(forms.shift(), p.ListParser.then(
+              paramsForm => p.innerFormsParser(
+                paramsForm.forms,
+                p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym)),
+                paramSyms => {
+                  const params = paramSyms.map(sym => lv(sym.name));
+                  const localEnv_ = localEnv.merge(Map(params.map(param => [param.name, param])));
+
+                  return p.oneOf(form => p.successResult(analyseValueExpr(localEnv_, form)))
+                    .then(body => p.parseEnd(new e.FnExpr({range, params, body})));
+                })
+            )).orThrow();
+
+          default:
             throw 'NIY';
           }
         }
@@ -129,7 +144,7 @@ function analyseForm(env, nsEnv, form) {
       switch (firstForm.sym.name) {
       case 'def':
         return p.parseForms(forms.shift(), p.SymbolParser.then(
-          symForm => p.oneOf(form => p.successResult(analyseValueExpr(im.Map(), form))).then(
+          symForm => p.oneOf(form => p.successResult(analyseValueExpr(Map(), form))).then(
             body => p.parseEnd(new e.DefExpr({range: form.range, sym: symForm.sym, body})))))
           .orThrow();
 
@@ -137,13 +152,13 @@ function analyseForm(env, nsEnv, form) {
         throw 'NIY';
 
       default:
-        return analyseValueExpr(im.Map(), form);
+        return analyseValueExpr(Map(), form);
       }
     }
 
   }
 
-  return analyseValueExpr(im.Map(), form);
+  return analyseValueExpr(Map(), form);
 };
 
 module.exports = {analyseNSForm, analyseForm};

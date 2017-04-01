@@ -88,21 +88,27 @@ function oneOf(formParser) {
   });
 }
 
-function manyOf(parser) {
+function atLeastOneOf(parser) {
   return new Parser(forms => {
     var result = im.List();
     while(!forms.isEmpty()) {
       let parseResult;
-      ({result: parseResult, forms} = parser(forms));
+      const unmatchedForms =  forms;
+
+      ({result: parseResult, forms} = parser.parseForms(forms));
 
       if(parseResult.success) {
         result = result.push(parseResult.result);
       } else {
-        return parseResult;
+        if (result.isEmpty()) {
+          return {result: parseResult, forms};
+        } else {
+          return {result, forms: unmatchedForms};
+        }
       }
     }
 
-    return successResult({result, forms});
+    return {result: successResult(result), forms};
   });
 }
 
@@ -184,7 +190,7 @@ function parseForm(form, parser) {
 
 module.exports = {
   ParseResult, successResult, failResult,
-  anyOf, oneOf, manyOf, isSymbol, pure,
+  anyOf, oneOf, atLeastOneOf, isSymbol, pure,
   innerFormsParser, parseEnd,
   Parser, SymbolParser, ListParser, VectorParser, RecordParser,
   parseForms, parseForm

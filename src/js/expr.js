@@ -1,5 +1,4 @@
-const im = require('immutable');
-const Record = im.Record;
+const {Record} = require('immutable');
 
 const BoolExpr = Record({range: null, bool: null});
 const StringExpr = Record({range: null, str: null});
@@ -18,7 +17,8 @@ const VarExpr = Record({range: null, var: null});
 const LetBinding = Record({localVar: null, expr: null});
 const LetExpr = Record({range: null, bindings: null, body: null});
 
-const DefExpr = Record({range: null, sym: null, body: null});
+const FnExpr = Record({range: null, params: null, body: null});
+const DefExpr = Record({range: null, sym: null, params: null, body: null});
 
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
 BoolExpr.prototype.exprType = 'bool';
@@ -49,6 +49,8 @@ LetBinding.prototype.toString = function() {return `${this.name} ${this.expr}`;}
 LetExpr.prototype.toString = function() {return `(LetExpr [${this.bindings.join(', ')}] ${this.body})`;};
 LetExpr.prototype.exprType = 'let';
 
+FnExpr.prototype.toString = function() {return `(FnExpr (${this.params.map(p => p.name).join(' ')}) ${this.body})`;};
+FnExpr.prototype.exprType = 'fn';
 DefExpr.prototype.toString = function() {return `(DefExpr ${this.sym} ${this.body})`;};
 DefExpr.prototype.exprType = 'def';
 
@@ -57,5 +59,5 @@ module.exports = {
   VectorExpr, SetExpr,
   RecordEntry, RecordExpr,
   IfExpr, LocalVarExpr, VarExpr, LetExpr, LetBinding,
-  DefExpr
+  FnExpr, DefExpr
 };
