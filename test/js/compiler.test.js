@@ -17,14 +17,12 @@ function compileForm(form, nsEnv, env) {
 }
 
 describe('compiler', () => {
-  it('compiles a NS', () => {
-    let expr = analyseForm(null, null, readForms('(def foo-bar ["hello world!"])').first());
-    let compileResult = compileExpr(null, new runtime.NSEnv({}), expr);
-    let compiledNS = new vm.Script(compileNS(null, compileResult.nsEnv, compileResult.code)).runInThisContext()(runtime, im).f();
-    assert.deepEqual(compiledNS.exports.getIn(['foo-bar', 'value']).toJS(), ['hello world!']);
+  it('loads a vector', () => {
+    const result = evalCode(compileForm('["hello world!"]').code);
+    assert.deepEqual(result.toJS(), ['hello world!']);
   });
 
-  it('compiles a record', () => {
+  it('loads a record', () => {
     const result = evalCode(compileForm('{a 1, b 2}').code);
     assert.deepEqual(result.toJS(), {a: 1, b: 2});
  });
@@ -39,5 +37,10 @@ describe('compiler', () => {
     const r1 = compileForm(`(def double [hello hello])`, r0.nsEnv);
     const result = evalCode(`(function () {${r0.code}\n${r1.code} \n return double;})()`);
     assert.deepEqual(result.toJS(), ['hello', 'hello']);
+  });
+
+  it ('loads a fn', () => {
+    const expr = evalCode(compileForm(`(fn (x y) [y x])`).code);
+    assert.deepEqual(expr(3, 4).toJS(), [4, 3]);
   });
 });

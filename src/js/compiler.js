@@ -49,12 +49,16 @@ function compileExpr(env, nsEnv, expr) {
     case 'if':
       return `(${compileExpr0(expr.testExpr)} ? ${compileExpr0(expr.thenExpr)} : ${compileExpr0(expr.elseExpr)})`;
 
+    case 'localVar':
+      return localNames.get(expr.localVar);
+
     case 'let':
       const compiledBindings = expr.bindings.map(binding => `const ${localVarName(binding.localVar)} = ${compileExpr0(binding.expr)};`);
       return `(function () {${compiledBindings.join(' ')} return ${compileExpr0(expr.body)};})()`;
 
-    case 'localVar':
-      return localNames.get(expr.localVar);
+    case 'fn':
+      const params = expr.params.map(localVarName);
+      return `(function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})`;
 
     case 'var':
       if (expr.var.ns == nsEnv.ns) {
