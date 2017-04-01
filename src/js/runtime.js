@@ -4,14 +4,11 @@ const Env = Record({nsEnvs: Map({})});
 const NSEnv = Record({ns: null, exports: Map({})});
 const Var = Record({ns: null, name: null, value: undefined, safeName: undefined});
 
-var Symbol = Record({ns: null, name: null});
+var Symbol = Record({name: null});
+var NamespacedSymbol = Record({ns: null, name: null});
 
 Symbol.prototype.toString = function() {
-  if(this.ns !== null) {
-    return `${this.ns}/${this.name}`;
-  } else {
-    return this.name;
-  }
+  return this.name;
 };
 
 function sym(name) {
@@ -19,7 +16,7 @@ function sym(name) {
 };
 
 function nsSym(ns, name) {
-  return new Symbol({ns, name});
+  return new NamespacedSymbol({ns, name});
 };
 
 module.exports = {Env, NSEnv, Var, Symbol, sym, nsSym};

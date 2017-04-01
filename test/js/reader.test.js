@@ -162,5 +162,12 @@ describe('reading', () => {
       assert.strictEqual(res.bool, false);
     });
 
+    it('reads a namespaced symbol', () => {
+      var res = p.parseForms(tok.tokenise('my-ns/my-sym')).first();
+      assert.equal(res.formType, 'namespacedSymbol');
+      assert.equal(res.sym.ns, 'my-ns');
+      assert.equal(res.sym.name, 'my-sym');
+    });
+
   });
 });

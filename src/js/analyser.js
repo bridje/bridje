@@ -13,7 +13,7 @@ function analyseNSForm(env, ns, form) {
       p.isSymbol(sym('ns')).then(
         _ => p.SymbolParser.then(
           symForm => {
-            if (symForm.sym.ns == null && symForm.sym.name === ns) {
+            if (symForm.sym.name === ns) {
               return p.pure(p.successResult(new NSEnv({ns})));
             } else {
               return p.pure(p.failResult(`Unexpected NS, expecting '${ns}', got '${symForm.sym}'`));
@@ -59,7 +59,9 @@ function analyseForm(env, nsEnv, form) {
         throw 'NIY';
       } else {
         const firstForm = forms.first();
-        if (firstForm.formType == 'symbol' && firstForm.sym.ns === null) {
+
+        switch (firstForm.formType) {
+        case 'symbol':
           switch (firstForm.sym.name) {
           case 'if':
             return p.parseForms(forms.shift(), exprParser.then(
@@ -106,31 +108,41 @@ function analyseForm(env, nsEnv, form) {
                 })
             )).orThrow();
 
-          default:
+          case 'case':
+          case '::':
             throw 'NIY';
-          }
-        }
 
-        throw 'NIY';
+          default:
+            throw 'call niy';
+          }
+
+        case 'namespacedSymbol':
+          throw 'nsSym niy';
+
+        case 'list':
+          throw 'list call niy';
+
+        default:
+          throw `unexpected form type ${firstForm.formType}`;
+        }
       }
 
     case 'symbol':
       const sym = form.sym;
-      if (sym.ns !== null) {
-        throw 'NIY';
-      } else {
-        const localVar = localEnv.get(sym.name);
-        const nsEnvVar = localVar === undefined ? nsEnv.exports.get(sym.name) : undefined;
 
-        if (localVar !== undefined) {
-          return new e.LocalVarExpr({range, localVar, name: sym.name});
-        } else if (nsEnvVar !== undefined){
-          return new e.VarExpr({range, ns: null, var: nsEnvVar});
-        } else {
-          throw "NIY - can't find";
-        }
+      const localVar = localEnv.get(sym.name);
+      const nsEnvVar = localVar === undefined ? nsEnv.exports.get(sym.name) : undefined;
+
+      if (localVar !== undefined) {
+        return new e.LocalVarExpr({range, localVar, name: sym.name});
+      } else if (nsEnvVar !== undefined){
+        return new e.VarExpr({range, ns: null, var: nsEnvVar});
+      } else {
+        throw "NIY - can't find";
       }
-      throw 'NIY';
+
+    case 'namespacedSymbol':
+      throw 'nsSym niy';
 
     default:
       throw 'unknown form?';
@@ -140,7 +152,7 @@ function analyseForm(env, nsEnv, form) {
   if (form.formType == 'list') {
     const forms = form.forms;
     const firstForm = forms.first();
-    if (firstForm.formType == 'symbol' && firstForm.sym.ns === null) {
+    if (firstForm.formType == 'symbol') {
       switch (firstForm.sym.name) {
       case 'def':
         return p.parseForms(forms.shift(), p.SymbolParser.then(

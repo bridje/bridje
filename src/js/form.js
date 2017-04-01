@@ -11,6 +11,7 @@ var RecordEntry = Record({key: null, value: null});
 var RecordForm = Record({range: null, entries: null});
 var ListForm = Record({range: null, forms: null});
 var SymbolForm = Record({range: null, sym: null});
+var NamespacedSymbolForm = Record({range: null, sym: null});
 
 BoolForm.prototype.toString = function() {return `(BoolForm "${this.bool}")`;};
 BoolForm.prototype.formType = 'bool';
@@ -32,12 +33,15 @@ RecordForm.prototype.formType = 'record';
 
 ListForm.prototype.toString = function() {return `(ListForm ${this.forms.join(' ')})`;};
 ListForm.prototype.formType = 'list';
+
 SymbolForm.prototype.toString = function() {return `(SymbolForm ${this.sym})`;};
 SymbolForm.prototype.formType = 'symbol';
+NamespacedSymbolForm.prototype.toString = function() {return `(NamespacedSymbolForm ${this.sym})`;};
+NamespacedSymbolForm.prototype.formType = 'namespacedSymbol';
 
 module.exports = {
   BoolForm, StringForm, IntForm, FloatForm,
   VectorForm, SetForm,
   RecordEntry, RecordForm,
-  ListForm, SymbolForm
+  ListForm, SymbolForm, NamespacedSymbolForm
 };

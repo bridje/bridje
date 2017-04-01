@@ -1,7 +1,7 @@
 var im = require('immutable');
 var Record = im.Record;
 var Map = im.Map;
-var {Symbol} = require('./runtime');
+var {sym, nsSym} = require('./runtime');
 var l = require('./location');
 var f = require('./form');
 
@@ -267,20 +267,20 @@ function parseForms0(tokens, closeParen, onEOF) {
         break;
 
       default:
-        if (/[a-zA-Z][\w\-.]*(\/[\w\-.]+)?/u.test(token.token)) {
-          let sym;
-          if(token.token.indexOf('/') != -1) {
-            let ns, name;
-            ([ns, name] = token.token.split('/', 1));
-            sym = new Symbol({ns, name});
-          } else {
-            sym = new Symbol({name: token.token});
-          }
-
-          forms = forms.push(new f.SymbolForm({range: token.range, sym}));
-        } else {
-          throw new Error(`Invalid symbol '${token.token}', at ${token.range.start}`);
+        let symMatch = token.token.match(/^[a-zA-Z][\w\-.]*$/u);
+        if (symMatch) {
+          forms = forms.push(new f.SymbolForm({range: token.range, sym: sym(token.token)}));
+          break;
         }
+
+        let nsSymMatch = token.token.match(/^([a-zA-Z][\w\-.]*)\/([\w\-.]+)$/u);
+        if (nsSymMatch) {
+          let [_, ns, name] = nsSymMatch;
+          forms = forms.push(new f.NamespacedSymbolForm({range: token.range, sym: nsSym(ns, name)}));
+          break;
+        }
+
+        throw new Error(`Invalid symbol '${token.token}', at ${token.range.start}`);
       }
     }
   }

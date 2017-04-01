@@ -7,8 +7,7 @@ function makeSafe(s) {
 };
 
 function compileSymbol(sym) {
-  const nsStr = sym.ns == null ? 'null' : `'${sym.ns}'`;
-  return `new _runtime.Symbol({ns: ${nsStr}, name: '${sym.name}'})`;
+  return `new _runtime.Symbol({name: '${sym.name}'})`;
 }
 
 function compileExpr(env, nsEnv, expr) {
