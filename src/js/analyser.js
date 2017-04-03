@@ -18,9 +18,8 @@ function analyseNSForm(env, ns, form) {
             } else {
               return p.pure(p.failResult(`Unexpected NS, expecting '${ns}', got '${symForm.sym}'`));
             }
-          })).then(p.parseEnd),
-      p.pure);
-  }));
+          })).then(p.parseEnd));
+  })).orThrow();
 }
 
 function analyseForm(env, nsEnv, form) {
