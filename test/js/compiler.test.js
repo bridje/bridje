@@ -48,4 +48,11 @@ describe('compiler', () => {
     const expr = evalCode(compileForm(`((fn (x y) [y x]) 3 4)`).code);
     assert.deepEqual(expr.toJS(), [4, 3]);
   });
+
+  it ('loads a defined function', () => {
+    const def = compileForm(`(def (flip x y) [y x])`, new NSEnv());
+    const expr = compileForm(`(flip 3 4)`, def.nsEnv);
+    const result = evalCode(`(function () {${def.code} \n return ${expr.code};})()`);
+    assert.deepEqual(result.toJS(), [4, 3]);
+  });
 });

@@ -84,9 +84,12 @@ function compileExpr(env, nsEnv, expr) {
     const name = expr.sym.name;
     const safeName = makeSafe(name);
 
+    const params = expr.params ? expr.params.map(localVarName) : new List();
+    const call = params.isEmpty() ? '()' : '';
+
     return {
       nsEnv: nsEnv.setIn(List.of('exports', name), new Var({ns: nsEnv.ns, name, safeName})),
-      code: `\n const ${safeName} = (function () {return ${compileExpr0(expr.body)};})(); \n`
+      code: `\n const ${safeName} = (function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};\n`
     };
 
   } else {

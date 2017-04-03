@@ -111,7 +111,7 @@ function analyseForm(env, nsEnv, form) {
             throw 'NIY';
 
           default:
-            throw 'call niy';
+            return new e.CallExpr({range, exprs: form.forms.map(form => analyseValueExpr(localEnv, form))});
           }
 
         case 'namespacedSymbol':
