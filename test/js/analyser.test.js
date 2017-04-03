@@ -98,6 +98,18 @@ describe('analyser', () => {
     assert.equal(expr.body.str, 'hello world!');
   });
 
+  it ('analyses a def function', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(def (flip x y) [y x])').first());
+    assert.equal(expr.exprType, 'def');
+    assert.equal(expr.sym.name, 'flip');
+    assert.equal(expr.params.size, 2);
+
+    assert.equal(expr.body.exprType, 'vector');
+    const bodyExprs = expr.body.exprs;
+    assert.equal(bodyExprs.get(0).localVar, expr.params.get(1));
+    assert.equal(bodyExprs.get(1).localVar, expr.params.get(0));
+  });
+
   it ('resolves a simple ns declaration', () => {
     const nsEnv = ana.analyseNSForm(null, 'bridje.kernel', reader.readForms('(ns bridje.kernel)').first());
     assert.equal(nsEnv.ns, 'bridje.kernel');

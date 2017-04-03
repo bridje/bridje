@@ -116,7 +116,7 @@ function anyOf(...parsers) {
   return new Parser(forms => {
     for (var i = 0; i < parsers.length; i++) {
       let result, resultForms;
-      ({result, forms: resultForms} = parsers[i](forms));
+      ({result, forms: resultForms} = parsers[i].parseForms(forms));
 
       if (result.success) {
         return {result, forms: resultForms};

@@ -154,9 +154,23 @@ function analyseForm(env, nsEnv, form) {
     if (firstForm.formType == 'symbol') {
       switch (firstForm.sym.name) {
       case 'def':
-        return p.parseForms(forms.shift(), p.SymbolParser.then(
-          symForm => p.oneOf(form => p.successResult(analyseValueExpr(Map(), form))).then(
-            body => p.parseEnd(new e.DefExpr({range: form.range, sym: symForm.sym, body})))))
+        return p.parseForms(
+          forms.shift(),
+          p.anyOf(
+            p.SymbolParser.fmap(symForm => ({params: null, sym: symForm.sym})),
+            p.ListParser.then(paramsForm => {
+              return p.innerFormsParser(
+                paramsForm.forms,
+                p.SymbolParser.then(
+                  nameSymForm => p.atLeastOneOf(p.SymbolParser).then(
+                    paramSymForms => p.parseEnd({params: paramSymForms.map(psf => lv(psf.sym.name)), sym: nameSymForm.sym}))));
+            })).then(
+              ({params, sym}) => p.oneOf(
+                form => {
+                  const fnEnv = params ? Map(params.map(p => [p.name, p])): Map({});
+                  return p.successResult(analyseValueExpr(fnEnv, form));
+              }).then(
+                body => p.parseEnd(new e.DefExpr({range: form.range, sym, params, body})))))
           .orThrow();
 
       case '::':
