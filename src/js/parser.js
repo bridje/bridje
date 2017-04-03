@@ -143,16 +143,8 @@ function parseEnd(result) {
   });
 }
 
-function innerFormsParser(innerForms, innerParser, f = (res => pure(successResult(res)))) {
-  // We parse the inner forms first, then call f to get back to a parser for the outer forms
-  return new Parser(forms => {
-    const inner = innerParser.parseForms(innerForms);
-    if (inner.result.success) {
-      return f(inner.result.result).parseForms(forms);
-    } else {
-      return {result: inner.result, forms};
-    };
-  });
+function innerFormsParser(innerForms, innerParser) {
+  return new Parser(forms => ({result: innerParser.parseForms(innerForms).result, forms}));
 }
 
 function formTypeParser(formType) {

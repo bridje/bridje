@@ -97,15 +97,14 @@ function analyseForm(env, nsEnv, form) {
             return p.parseForms(forms.shift(), p.ListParser.then(
               paramsForm => p.innerFormsParser(
                 paramsForm.forms,
-                p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym)),
-                paramSyms => {
-                  const params = paramSyms.map(sym => lv(sym.name));
-                  const localEnv_ = localEnv.merge(Map(params.map(param => [param.name, param])));
+                p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym))).then(
+                  paramSyms => {
+                    const params = paramSyms.map(sym => lv(sym.name));
+                    const localEnv_ = localEnv.merge(Map(params.map(param => [param.name, param])));
 
-                  return p.oneOf(form => p.successResult(analyseValueExpr(localEnv_, form)))
-                    .then(body => p.parseEnd(new e.FnExpr({range, params, body})));
-                })
-            )).orThrow();
+                    return p.oneOf(form => p.successResult(analyseValueExpr(localEnv_, form)))
+                      .then(body => p.parseEnd(new e.FnExpr({range, params, body})));
+                  }))).orThrow();
 
           case 'case':
           case '::':
