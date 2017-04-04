@@ -37,7 +37,7 @@ module.exports = function(projectPaths) {
         if (isFileError(err) && !isFileNotExistsError(err)) {
           return Promise.reject(err);
         } else {
-          return readFileAsync(path.resolve(process.cwd(), projectPaths[i], ns.replace('.', '/') + '.brj'));
+          return readFileAsync(path.resolve(process.cwd(), projectPaths[i], ns.replace(/\./g, '/') + '.brj'));
         }
       });
     }
@@ -86,12 +86,25 @@ module.exports = function(projectPaths) {
     }
   }
 
+  function runMain(ns, argv) {
+    envManager.updateEnv(env => envRequireAsync(env, ns).then(
+      env => {
+        const mainFn = env.getIn(['nsEnvs', ns, 'exports', 'main', 'value']);
+        mainFn(argv);
+
+        // TODO we have to run an IO action if it's here, even though kernel
+        // shouldn't really know about IO
+
+        return env;
+      }).catch (e => console.log(e)));
+  }
+
   function currentEnv() {
     return envManager.currentEnv();
   }
 
   return {
-    envRequireAsync, envRequire, currentEnv,
+    envRequireAsync, envRequire, currentEnv, runMain,
 
     loaded: envManager.updateEnv(async (env) => {
       env = await envRequireAsync(env, 'bridje.kernel');

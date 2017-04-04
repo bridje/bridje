@@ -1,0 +1,4 @@
+(ns bridje.kernel.hello-world)
+
+(def (main args)
+  (js/console.log "Hello world!"))
