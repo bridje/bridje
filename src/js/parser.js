@@ -1,7 +1,7 @@
-var im = require('immutable');
+var {List, Record} = require('immutable');
 var f = require('./form');
 
-var ParseResult = im.Record({success: null, result: null, error: null});
+var ParseResult = Record({success: null, result: null, error: null});
 
 function successResult(result) {
   return new ParseResult({success: true, result: result});
@@ -90,7 +90,7 @@ function oneOf(formParser) {
 
 function atLeastOneOf(parser) {
   return new Parser(forms => {
-    var result = im.List();
+    var result = List();
     while(!forms.isEmpty()) {
       let parseResult;
       const unmatchedForms =  forms;
@@ -114,16 +114,20 @@ function atLeastOneOf(parser) {
 
 function anyOf(...parsers) {
   return new Parser(forms => {
+    let fails = [];
+
     for (var i = 0; i < parsers.length; i++) {
       let result, resultForms;
       ({result, forms: resultForms} = parsers[i].parseForms(forms));
 
       if (result.success) {
         return {result, forms: resultForms};
+      } else {
+        fails.push(result.error);
       }
     }
 
-    return {result: failResult(), forms};
+    return {result: failResult(fails), forms};
   });
 }
 
@@ -177,7 +181,7 @@ function parseForms(forms, parser) {
 }
 
 function parseForm(form, parser) {
-  return parseForms(im.List.of(form), parser);
+  return parseForms(List.of(form), parser);
 }
 
 module.exports = {
