@@ -6,19 +6,67 @@ const {NSEnv, sym} = require('./runtime');
 var f = require('./form');
 var lv = require('./localVar');
 
+function nsSymParser(ns) {
+  return symForm => {
+    if (symForm.sym.name === ns) {
+      return p.pure(p.successResult(new NSEnv({ns})));
+    } else {
+      return p.pure(p.failResult(`Unexpected NS, expecting '${ns}', got '${symForm.sym}'`));
+    }
+  };
+}
+
+function refersParser(env, nsEnv) {
+  return p.RecordParser.then(
+    refers => p.innerFormsParser(refers.entries, p.atLeastOneOf(p.oneOf(
+      referEntry => p.parseForms(List.of(referEntry.key, referEntry.value), p.SymbolParser.then(
+        nsSymForm => {
+          const referredNS = nsSymForm.sym.name;
+          const referredNSEnv = env.nsEnvs.get(referredNS);
+          if (referredNSEnv === undefined) {
+            return p.pure(p.failResult(`Unknown NS '${referredNS}'`));
+          }
+          return p.VectorParser.then(
+            referredSyms => p.innerFormsParser(referredSyms.forms, p.atLeastOneOf(p.SymbolParser.then(
+              referredSymForm => {
+                const referredSym = referredSymForm.sym.name;
+                const referredExport = referredNSEnv.exports.get(referredSym);
+
+                if (referredExport === undefined) {
+                  return p.pure(p.failResult(`Unknown refer: '${referredNS}/${referredSym}'`));
+                } else {
+                  return p.pure(p.successResult(Map({referredSym, referredExport})));
+                }
+              })))).fmap(nsRefers => Map({referredNS, nsRefers}));
+        }))))));
+}
+
+function nsOptsParser(env, nsEnv) {
+  return recordForm => {
+    return p.innerFormsParser(recordForm.entries, p.atLeastOneOf(p.oneOf(
+      entry => {
+        return p.parseForms(List.of(entry.key, entry.value), p.SymbolParser.then(
+          symForm => {
+            switch(symForm.sym.name) {
+            case 'refers':
+              return refersParser(env, nsEnv);
+
+
+            default:
+              return p.pure(p.failResult(`Unexpected key '${symForm.sym.name}' in NS declaration`));
+            }
+          }));
+      })));
+  };
+}
+
 function analyseNSForm(env, ns, form) {
   return p.parseForm(form, p.ListParser.then(listForm => {
     return p.innerFormsParser(
       listForm.forms,
       p.isSymbol(sym('ns')).then(
-        _ => p.SymbolParser.then(
-          symForm => {
-            if (symForm.sym.name === ns) {
-              return p.pure(p.successResult(new NSEnv({ns})));
-            } else {
-              return p.pure(p.failResult(`Unexpected NS, expecting '${ns}', got '${symForm.sym}'`));
-            }
-          })).then(p.parseEnd));
+        _ => p.SymbolParser.then(nsSymParser(ns)))
+        .then(nsEnv => p.anyOf(p.parseEnd(nsEnv), p.RecordParser.then(nsOptsParser(env, nsEnv)))));
   })).orThrow();
 }
 
