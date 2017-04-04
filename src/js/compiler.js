@@ -75,6 +75,9 @@ function compileExpr(env, nsEnv, expr) {
     case 'call':
       return `(${compileExpr0(expr.exprs.first())}(${expr.exprs.shift().map(compileExpr0).join(', ')}))`;
 
+    case 'jsGlobal':
+      return `(${expr.path.join('.')})`;
+
     default:
       throw 'compiler NIY';
     }

@@ -55,4 +55,9 @@ describe('compiler', () => {
     const result = evalCode(`(function () {${def.code} \n return ${expr.code};})()`);
     assert.deepEqual(result.toJS(), [4, 3]);
   });
+
+  it ('execs a JS global function', () => {
+    const expr = evalCode(compileForm(`(js/process.cwd)`).code);
+    assert.equal(expr, process.cwd());
+  });
 });

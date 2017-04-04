@@ -143,4 +143,14 @@ describe('analyser', () => {
     assert.equal(expr.exprs.get(1).int, 3);
     assert.equal(expr.exprs.get(2).int, 4);
   });
+
+  it ('analyses a JS global call', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms(`(js/process.cwd)`).first());
+    assert.equal(expr.exprType, 'call');
+    assert.equal(expr.exprs.size, 1);
+
+    const jsGlobal = expr.exprs.first();
+    assert.equal(jsGlobal.exprType, 'jsGlobal');
+    assert.deepEqual(jsGlobal.path.toJS(), ['process', 'cwd']);
+  });
 });

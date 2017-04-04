@@ -115,8 +115,6 @@ function analyseForm(env, nsEnv, form) {
           }
 
         case 'namespacedSymbol':
-          throw 'nsSym niy';
-
         case 'list':
           return new e.CallExpr({range, exprs: form.forms.map(form => analyseValueExpr(localEnv, form))});
 
@@ -140,7 +138,11 @@ function analyseForm(env, nsEnv, form) {
       }
 
     case 'namespacedSymbol':
-      throw 'nsSym niy';
+      if (form.sym.ns === 'js') {
+        return new e.JSGlobalExpr({range, path: List(form.sym.name.split('.'))});
+      } else {
+        throw 'nsSym niy';
+      }
 
     default:
       throw 'unknown form?';

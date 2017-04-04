@@ -13,6 +13,7 @@ const IfExpr = Record({range: null, testExpr: null, thenExpr: null, elseExpr: nu
 
 const LocalVarExpr = Record({range: null, name: null, localVar: null});
 const VarExpr = Record({range: null, var: null});
+const JSGlobalExpr = Record({range: null, path: null});
 
 const LetBinding = Record({localVar: null, expr: null});
 const LetExpr = Record({range: null, bindings: null, body: null});
@@ -43,9 +44,10 @@ IfExpr.prototype.exprType = 'if';
 
 LocalVarExpr.prototype.toString = function() {return `(LocalVarExpr ${this.name})`;};
 LocalVarExpr.prototype.exprType = 'localVar';
-
 VarExpr.prototype.toString = function() {return `(VarExpr ${this.var.ns}/${this.var.name})`;};
 VarExpr.prototype.exprType = 'var';
+JSGlobalExpr.prototype.toString = function() {return `(JSGlobal ${this.path.join('.')})`;};
+JSGlobalExpr.prototype.exprType = 'jsGlobal';
 
 LetBinding.prototype.toString = function() {return `${this.name} ${this.expr}`;};
 LetExpr.prototype.toString = function() {return `(LetExpr [${this.bindings.join(', ')}] ${this.body})`;};
@@ -63,6 +65,7 @@ module.exports = {
   BoolExpr, StringExpr, IntExpr, FloatExpr,
   VectorExpr, SetExpr,
   RecordEntry, RecordExpr,
-  IfExpr, LocalVarExpr, VarExpr, LetExpr, LetBinding,
+  IfExpr, LocalVarExpr, VarExpr, JSGlobalExpr,
+  LetExpr, LetBinding,
   FnExpr, CallExpr, DefExpr
 };
