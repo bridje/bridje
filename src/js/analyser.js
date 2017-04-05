@@ -35,29 +35,66 @@ function refersParser(env, nsEnv) {
                 if (referredExport === undefined) {
                   return p.pure(p.failResult(`Unknown refer: '${referredNS}/${referredSym}'`));
                 } else {
-                  return p.pure(p.successResult(Map({referredSym, referredExport})));
+                  return p.pure(p.successResult({referredSym, referredExport}));
                 }
-              })))).fmap(nsRefers => Map({referredNS, nsRefers}));
-        }))))));
+              })))).fmap(nsRefers => ({referredNS, nsRefers}));
+        }))))).then(
+          parsedRefers => {
+            parsedRefers = parsedRefers.toArray();
+            const referredNSs = [];
+            const referredSyms = {};
+
+            for (let i = 0; i < parsedRefers.length; i++) {
+              let {referredNS, nsRefers} = parsedRefers[i];
+              nsRefers = nsRefers.toArray();
+              if (referredNSs.indexOf(referredNS) != -1) {
+                return p.pure(p.failResult(`Duplicate refer for NS '${referredNS}'`));
+              }
+
+              referredNSs.push(referredNS);
+              // TODO check for cycles
+
+              for (let j = 0; j < nsRefers.length; j++) {
+                const {referredSym, referredExport} = nsRefers[i];
+
+                if (referredSyms[referredSym] !== undefined) {
+                  return p.pure(p.failResult(`Duplicate refer for symbol ${referredSym}`));
+                }
+
+                referredSyms[referredSym] = referredExport;
+              }
+            }
+
+            return p.pure(p.successResult(Map(referredSyms)));
+          }));
 }
 
 function nsOptsParser(env, nsEnv) {
-  return recordForm => {
-    return p.innerFormsParser(recordForm.entries, p.atLeastOneOf(p.oneOf(
-      entry => {
-        return p.parseForms(List.of(entry.key, entry.value), p.SymbolParser.then(
-          symForm => {
-            switch(symForm.sym.name) {
-            case 'refers':
-              return refersParser(env, nsEnv);
+  return recordForm => p.innerFormsParser(recordForm.entries, p.atLeastOneOf(p.oneOf(
+    entry => p.parseForms(List.of(entry.key, entry.value), p.SymbolParser.then(
+      symForm => {
+        switch(symForm.sym.name) {
+        case 'refers':
+          return refersParser(env, nsEnv).fmap(refers => ({type: 'refers', value: refers}));
 
+        default:
+          return p.pure(p.failResult(`Unexpected key '${symForm.sym.name}' in NS declaration`));
+        }
+      })))).then(
+        nsOpts => {
+          nsOpts = nsOpts.toArray();
 
-            default:
-              return p.pure(p.failResult(`Unexpected key '${symForm.sym.name}' in NS declaration`));
+          for (let i = 0; i < nsOpts.length; i++) {
+            const {type, value} = nsOpts[i];
+            if (nsEnv.get(type) != null) {
+              return p.pure(p.failResult(`Duplicate '${type}' entry in NS declaration`));
+            } else {
+              nsEnv = nsEnv.set(type, value);
             }
-          }));
-      })));
-  };
+          }
+
+          return p.pure(p.successResult(nsEnv));
+        }));
 }
 
 function analyseNSForm(env, ns, form) {

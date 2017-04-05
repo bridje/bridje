@@ -160,18 +160,20 @@ describe('analyser', () => {
         ns: 'bridje.kernel.foo',
         exports: Map({
           'flip': Var({
+            name: 'flip',
+            ns: 'bridje.kernel.foo',
+            safeName: undefined,
             value: (x, y) => List.of(y, x)
           })
         })
       })
     })});
 
-  it ('refers an export in another file', () => {
-    const nsDecl = '(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}})';
-    const nsEnv = ana.analyseNSForm(fooEnv, 'bridje.kernel.bar', reader.readForms(nsDecl).first());
+  const barNSDecl = '(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}})';
+  const barNSEnv = ana.analyseNSForm(fooEnv, 'bridje.kernel.bar', reader.readForms(barNSDecl).first());
 
-    console.log(nsEnv);
-    assert.deepEqual(nsEnv.refers.toJS(), {flip: fooEnv.nsEnvs.get('bridje.kernel.foo').exports.flip});
+  it ('refers an export in another file', () => {
+    assert.deepEqual(barNSEnv.refers.get('flip').toJS(), fooEnv.nsEnvs.get('bridje.kernel.foo').exports.get('flip').toJS());
   });
 
   it ('resolves an export in another file', () => {
