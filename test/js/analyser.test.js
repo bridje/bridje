@@ -4,6 +4,7 @@ var reader = require('../../src/js/reader');
 var e = require('../../src/js/expr');
 const {List, Map} = require('immutable');
 const {Env, NSEnv, Var} = require('../../src/js/runtime');
+const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./runtime.test');
 
 describe('analyser', () => {
   // it('reads an NS form', () => {
@@ -154,29 +155,13 @@ describe('analyser', () => {
     assert.deepEqual(jsGlobal.path.toJS(), ['process', 'cwd']);
   });
 
-  const fooEnv = new Env({
-    nsEnvs: new Map({
-      'bridje.kernel.foo': new NSEnv({
-        ns: 'bridje.kernel.foo',
-        exports: Map({
-          'flip': Var({
-            name: 'flip',
-            ns: 'bridje.kernel.foo',
-            safeName: undefined,
-            value: (x, y) => List.of(y, x)
-          })
-        })
-      })
-    })});
-
-  const barNSDecl = '(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}})';
-  const barNSEnv = ana.analyseNSForm(fooEnv, 'bridje.kernel.bar', reader.readForms(barNSDecl).first());
-
   it ('refers an export in another file', () => {
-    assert.deepEqual(barNSEnv.refers.get('flip').toJS(), fooEnv.nsEnvs.get('bridje.kernel.foo').exports.get('flip').toJS());
+    assert.deepEqual(barNSEnv.refers.get('flip'), flipVar);
   });
 
   it ('resolves an export in another file', () => {
-
+    const expr = ana.analyseForm(fooEnv, barNSEnv, reader.readForms('flip').first());
+    assert.equal(expr.exprType, 'var');
+    assert.equal(expr.var, flipVar);
   });
 });

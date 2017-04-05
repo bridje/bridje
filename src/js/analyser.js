@@ -212,12 +212,12 @@ function analyseForm(env, nsEnv, form) {
       const sym = form.sym;
 
       const localVar = localEnv.get(sym.name);
-      const nsEnvVar = localVar === undefined ? nsEnv.exports.get(sym.name) : undefined;
+      const globalVar = localVar === undefined ? nsEnv.exports.get(sym.name) || nsEnv.refers.get(sym.name) : undefined;
 
       if (localVar !== undefined) {
         return new e.LocalVarExpr({range, localVar, name: sym.name});
-      } else if (nsEnvVar !== undefined){
-        return new e.VarExpr({range, ns: null, var: nsEnvVar});
+      } else if (globalVar !== undefined){
+        return new e.VarExpr({range, var: globalVar});
       } else {
         throw "NIY - can't find";
       }
