@@ -6,7 +6,7 @@ const {Env, NSEnv, Var} = require('../../src/js/runtime');
 const flipVar = Var({
   name: 'flip',
   ns: 'bridje.kernel.foo',
-  safeName: undefined,
+  safeName: 'flip',
   value: (x, y) => List.of(y, x)
 });
 

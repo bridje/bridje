@@ -1,6 +1,6 @@
 const {readForms} = require('./reader');
 const im = require('immutable');
-const {Record, List} = im;
+const {Record, List, Map} = im;
 var path = require('path');
 var fs = require('fs');
 var process = require('process');
@@ -70,7 +70,7 @@ module.exports = function(projectPaths) {
       });
 
     const {exports} = new vm.Script(c.compileNS(env, nsEnv, codes.join("\n")))
-          .runInThisContext()(runtime, im).f();
+          .runInThisContext()(runtime, im)(nsEnv);
 
     return env.setIn(['nsEnvs', ns], nsEnv.set('exports', exports));
   }

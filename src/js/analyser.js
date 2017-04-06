@@ -86,7 +86,8 @@ function nsOptsParser(env, nsEnv) {
 
           for (let i = 0; i < nsOpts.length; i++) {
             const {type, value} = nsOpts[i];
-            if (nsEnv.get(type) != null) {
+
+            if (!nsEnv.get(type).isEmpty()) {
               return p.pure(p.failResult(`Duplicate '${type}' entry in NS declaration`));
             } else {
               nsEnv = nsEnv.set(type, value);

@@ -4,12 +4,17 @@ const {analyseForm} = require('../../src/js/analyser');
 const runtime = require('../../src/js/runtime');
 const {NSEnv, Env} = runtime;
 const im = require('immutable');
-const {Record} = im;
+const {Map, Record} = im;
 const vm = require('vm');
 const assert = require('assert');
+const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./runtime.test');
 
 function evalCode(code) {
   return new vm.Script(`(function (_runtime, _im) {return ${code};})`).runInThisContext()(runtime, im);
+}
+
+function evalNSCode(code, nsEnv, env) {
+  return new vm.Script(compileNS(env, nsEnv, code)).runInThisContext()(runtime, im);
 }
 
 function compileForm(form, nsEnv, env) {
@@ -59,5 +64,12 @@ describe('compiler', () => {
   it ('execs a JS global function', () => {
     const expr = evalCode(compileForm(`(js/process.cwd)`).code);
     assert.equal(expr, process.cwd());
+  });
+
+  it ('calls a fn referred in from another NS', () => {
+    const result = compileForm(`(def flipped (flip 3 4))`, barNSEnv, fooEnv);
+    const compiledNS = evalNSCode(result.code, result.nsEnv, fooEnv);
+
+    assert.deepEqual(compiledNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
   });
 });

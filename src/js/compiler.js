@@ -6,6 +6,10 @@ function makeSafe(s) {
   return s.replace('-', '_');
 };
 
+function referName(s) {
+  return '_refer_' + s;
+}
+
 function compileSymbol(sym) {
   return `new _runtime.Symbol({name: '${sym.name}'})`;
 }
@@ -69,7 +73,8 @@ function compileExpr(env, nsEnv, expr) {
       if (expr.var.ns == nsEnv.ns) {
         return expr.var.safeName;
       } else {
-        throw 'global var exprs not supported yet';
+        // TODO will need to know whether this comes from a refer or an alias
+        return referName(expr.var.safeName);
       }
 
     case 'call':
@@ -106,6 +111,10 @@ function compileExpr(env, nsEnv, expr) {
 function compileNS(env, nsEnv, content) {
   // TODO: requires in
 
+  const refers = nsEnv.refers.entrySeq()
+        .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`)
+        .join("\n");
+
   const exportEntries = nsEnv.exports
         .entrySeq()
         .map(([name, {safeName}]) => `['${name}', new _runtime.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})]`)
@@ -115,14 +124,14 @@ function compileNS(env, nsEnv, content) {
 
   return `
 (function(_runtime, _im) {
-  return {
-    imports: {},
-    f: function(_) {
+  return function(_nsEnv) {
+      const _refers = _nsEnv.refers;
+      ${refers}
+
       ${content}
 
       return {exports: ${exports}};
-    }
-  };
+    };
 })`;
 }
 

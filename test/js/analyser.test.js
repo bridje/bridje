@@ -7,10 +7,6 @@ const {Env, NSEnv, Var} = require('../../src/js/runtime');
 const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./runtime.test');
 
 describe('analyser', () => {
-  // it('reads an NS form', () => {
-  //   console.log(ana.analyseNSForm(null, 'bridje.kernel', reader.readForms(`(nsa bridje.kernel)`).first()));
-  // });
-
   it('reads a simple value expr', () => {
     let expr = ana.analyseForm(null, null, reader.readForms('#{[3.4 "Hello!"] [42 false]}').first());
 
