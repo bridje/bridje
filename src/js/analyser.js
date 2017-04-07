@@ -1,4 +1,4 @@
-var {List, Map} = require('immutable');
+var {List, Map, Record} = require('immutable');
 
 var p = require('./parser');
 var e = require('./expr');
@@ -6,10 +6,22 @@ const {NSEnv, sym} = require('./runtime');
 var f = require('./form');
 var lv = require('./localVar');
 
+const NSHeader = Record({ns: null, refers: Map({}), aliases: Map({})});
+
 function nsSymParser(ns) {
   return symForm => {
     if (symForm.sym.name === ns) {
       return p.pure(p.successResult(new NSEnv({ns})));
+    } else {
+      return p.pure(p.failResult(`Unexpected NS, expecting '${ns}', got '${symForm.sym}'`));
+    }
+  };
+}
+
+function nsSymParser_(ns) {
+  return symForm => {
+    if (symForm.sym.name === ns) {
+      return p.pure(p.successResult(new NSHeader({ns})));
     } else {
       return p.pure(p.failResult(`Unexpected NS, expecting '${ns}', got '${symForm.sym}'`));
     }
@@ -69,6 +81,42 @@ function refersParser(env, nsEnv) {
           }));
 }
 
+const refersParser_ = p.RecordParser.then(
+  refers => p.innerFormsParser(refers.entries, p.atLeastOneOf(p.oneOf(
+    referEntry => p.parseForms(List.of(referEntry.key, referEntry.value), p.SymbolParser.then(
+      nsSymForm => p.VectorParser.then(
+        referredSymForms => p.innerFormsParser(
+          referredSymForms.forms,
+          p.atLeastOneOf(p.SymbolParser.fmap(referredSymForm => referredSymForm.sym.name)))).fmap(
+            referredSyms => ({referredNS: nsSymForm.sym.name, referredSyms}))))))).then(
+              parsedRefers => {
+                parsedRefers = parsedRefers.toArray();
+                const referredNSs = [];
+                const referredSymsMap = {};
+
+                for (let i = 0; i < parsedRefers.length; i++) {
+                  let {referredNS, referredSyms} = parsedRefers[i];
+                  if (referredNSs.indexOf(referredNS) != -1) {
+                    return p.pure(p.failResult(`Duplicate refer for NS '${referredNS}'`));
+                  }
+
+                  referredNSs.push(referredNS);
+
+                  for (let j = 0; j < referredSyms.length; j++) {
+                    const {referredSym, referredExport} = referredSyms[i];
+
+                    if (referredSymsMap[referredSym] !== undefined) {
+                      return p.pure(p.failResult(`Duplicate refer for symbol ${referredSym}`));
+                    }
+
+                    referredSyms[referredSym] = referredExport;
+                  }
+                }
+
+                return p.pure(p.successResult(Map(referredSymsMap)));
+              }));
+
+
 function nsOptsParser(env, nsEnv) {
   return recordForm => p.innerFormsParser(recordForm.entries, p.atLeastOneOf(p.oneOf(
     entry => p.parseForms(List.of(entry.key, entry.value), p.SymbolParser.then(
@@ -98,6 +146,36 @@ function nsOptsParser(env, nsEnv) {
         }));
 }
 
+
+function nsOptsParser_(nsHeader) {
+  return recordForm => p.innerFormsParser(recordForm.entries, p.atLeastOneOf(p.oneOf(
+    entry => p.parseForms(List.of(entry.key, entry.value), p.SymbolParser.then(
+      symForm => {
+        switch(symForm.sym.name) {
+        case 'refers':
+          return refersParser_.fmap(refers => ({type: 'refers', value: refers}));
+
+        default:
+          return p.pure(p.failResult(`Unexpected key '${symForm.sym.name}' in NS declaration`));
+        }
+      })))).then(
+        nsOpts => {
+          nsOpts = nsOpts.toArray();
+
+          for (let i = 0; i < nsOpts.length; i++) {
+            const {type, value} = nsOpts[i];
+
+            if (!nsHeader.get(type).isEmpty()) {
+              return p.pure(p.failResult(`Duplicate '${type}' entry in NS declaration`));
+            } else {
+              nsHeader = nsHeader.set(type, value);
+            }
+          }
+
+          return p.pure(p.successResult(nsHeader));
+        }));
+}
+
 function analyseNSForm(env, ns, form) {
   return p.parseForm(form, p.ListParser.then(listForm => {
     return p.innerFormsParser(
@@ -106,6 +184,20 @@ function analyseNSForm(env, ns, form) {
         _ => p.SymbolParser.then(nsSymParser(ns)))
         .then(nsEnv => p.anyOf(p.parseEnd(nsEnv), p.RecordParser.then(nsOptsParser(env, nsEnv)))));
   })).orThrow();
+}
+
+function readNSHeader(ns, form) {
+  return p.parseForm(form, p.ListParser.then(listForm => {
+    return p.innerFormsParser(
+      listForm.forms,
+      p.isSymbol(sym('ns')).then(
+        _ => p.SymbolParser.then(nsSymParser_(ns)))
+        .then(nsHeader => p.anyOf(p.parseEnd(nsHeader), p.RecordParser.then(nsOptsParser_(nsHeader)))));
+  })).orThrow();
+}
+
+function resolveNSHeader(env, header) {
+  throw 'niy';
 }
 
 function analyseForm(env, nsEnv, form) {
@@ -273,4 +365,4 @@ function analyseForm(env, nsEnv, form) {
   return analyseValueExpr(Map(), form);
 };
 
-module.exports = {analyseNSForm, analyseForm};
+module.exports = {analyseNSForm, readNSHeader, resolveNSHeader, analyseForm, NSHeader};

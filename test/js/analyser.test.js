@@ -7,6 +7,25 @@ const {Env, NSEnv, Var} = require('../../src/js/runtime');
 const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./runtime.test');
 
 describe('analyser', () => {
+  it('reads an NS header', () => {
+    const nsHeader = ana.readNSHeader('bridje.kernel.bar', reader.readForms(`
+(ns bridje.kernel.bar
+  {refers {bridje.kernel.foo [flip flop]}
+   aliases {baz bridje.kernel.baz}})`).first());
+
+    assert.deepEqual(nsHeader, {
+      ns: 'bridje.kernel.bar',
+      refers: {
+        flip: 'bridje.kernel.foo',
+        flop: 'bridje.kernel.foo'
+      },
+      aliases: {
+        baz: 'bridje.kernel.baz'
+      }
+    });
+
+  });
+
   it('reads a simple value expr', () => {
     let expr = ana.analyseForm(null, null, reader.readForms('#{[3.4 "Hello!"] [42 false]}').first());
 

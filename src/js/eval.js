@@ -55,6 +55,13 @@ module.exports = function(projectPaths) {
     });
   }
 
+  const NSHeader = Record({ns: null, parsedNSForm: null, forms: null});
+
+  function readNSHeader(ns, str) {
+    const forms = readForms(str);
+
+  }
+
   function envRequire(env, ns, str) {
     const forms = readForms(str);
     const {nsEnv, codes} = forms.shift().reduce(
