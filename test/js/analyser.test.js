@@ -13,7 +13,7 @@ describe('analyser', () => {
   {refers {bridje.kernel.foo [flip flop]}
    aliases {baz bridje.kernel.baz}})`).first());
 
-    assert.deepEqual(nsHeader, {
+    assert.deepEqual(nsHeader.toJS(), {
       ns: 'bridje.kernel.bar',
       refers: {
         flip: 'bridje.kernel.foo',

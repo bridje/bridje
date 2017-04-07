@@ -94,28 +94,51 @@ const refersParser_ = p.RecordParser.then(
                 const referredNSs = [];
                 const referredSymsMap = {};
 
-                for (let i = 0; i < parsedRefers.length; i++) {
-                  let {referredNS, referredSyms} = parsedRefers[i];
+                for (const referIdx in parsedRefers) {
+                  let {referredNS, referredSyms} = parsedRefers[referIdx];
+                  referredSyms = referredSyms.toArray();
+
                   if (referredNSs.indexOf(referredNS) != -1) {
                     return p.pure(p.failResult(`Duplicate refer for NS '${referredNS}'`));
                   }
 
-                  referredNSs.push(referredNS);
-
-                  for (let j = 0; j < referredSyms.length; j++) {
-                    const {referredSym, referredExport} = referredSyms[i];
+                  for (const referredSymIdx in referredSyms) {
+                    const referredSym = referredSyms[referredSymIdx];
 
                     if (referredSymsMap[referredSym] !== undefined) {
                       return p.pure(p.failResult(`Duplicate refer for symbol ${referredSym}`));
                     }
 
-                    referredSyms[referredSym] = referredExport;
+                    referredSymsMap[referredSym] = referredNS;
                   }
                 }
 
                 return p.pure(p.successResult(Map(referredSymsMap)));
               }));
 
+
+const aliasesParser = p.RecordParser.then(
+  aliases => p.innerFormsParser(aliases.entries, p.atLeastOneOf(p.oneOf(
+    aliasEntry => p.parseForms(List.of(aliasEntry.key, aliasEntry.value), p.SymbolParser.then(
+      aliasSymForm => p.SymbolParser.fmap(
+        aliasNSForm => ({alias: aliasSymForm.sym.name, aliasedNS: aliasNSForm.sym.name}))))))).then(
+          parsedAliases => {
+            parsedAliases = parsedAliases.toArray();
+            const aliasedNSs = [];
+            const aliasedNSsMap = {};
+
+            for (const aliasIdx in parsedAliases) {
+              let {alias, aliasedNS} = parsedAliases[aliasIdx];
+              if (aliasedNSs.indexOf(aliasedNS) != -1) {
+                return p.pure(p.failResult(`Duplicate alias for NS '${aliasedNS}'`));
+              }
+
+              aliasedNSs.push(aliasedNS);
+              aliasedNSsMap[alias] = aliasedNS;
+            }
+
+            return p.pure(p.successResult(Map(aliasedNSsMap)));
+          }));
 
 function nsOptsParser(env, nsEnv) {
   return recordForm => p.innerFormsParser(recordForm.entries, p.atLeastOneOf(p.oneOf(
@@ -153,7 +176,13 @@ function nsOptsParser_(nsHeader) {
       symForm => {
         switch(symForm.sym.name) {
         case 'refers':
-          return refersParser_.fmap(refers => ({type: 'refers', value: refers}));
+          return refersParser_.fmap(refers => {
+            return ({type: 'refers', value: refers})
+          });
+        case 'aliases':
+          return aliasesParser.fmap(aliases => {
+            return ({type: 'aliases', value: aliases});
+          });
 
         default:
           return p.pure(p.failResult(`Unexpected key '${symForm.sym.name}' in NS declaration`));
