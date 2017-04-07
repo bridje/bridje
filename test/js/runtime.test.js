@@ -23,6 +23,6 @@ const fooEnv = new Env({
   })});
 
 const barNSDecl = '(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}})';
-const barNSEnv = ana.analyseNSForm(fooEnv, 'bridje.kernel.bar', reader.readForms(barNSDecl).first());
+const barNSEnv = ana.resolveNSHeader(fooEnv, ana.readNSHeader('bridje.kernel.bar', reader.readForms(barNSDecl).first()));
 
 module.exports = {flipVar, fooEnv, fooNSEnv, barNSDecl, barNSEnv};

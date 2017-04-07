@@ -141,12 +141,6 @@ describe('analyser', () => {
     assert.equal(bodyExprs.get(1).localVar, expr.params.get(0));
   });
 
-  it ('resolves a simple ns declaration', () => {
-    const nsEnv = ana.analyseNSForm(null, 'bridje.kernel', reader.readForms('(ns bridje.kernel)').first());
-    assert.equal(nsEnv.ns, 'bridje.kernel');
-    assert(nsEnv.exports.equals(new Map({})));
-  });
-
   it ('analyses a var within the namespace', () => {
     const nsEnvVar = new Var({});
     const nsEnv = new NSEnv({}).setIn(['exports', 'foo'], nsEnvVar);

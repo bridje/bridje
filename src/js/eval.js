@@ -72,7 +72,7 @@ module.exports = function(projectPaths) {
         return {nsEnv, codes: codes.push(code)};
       },
       {
-        nsEnv: a.analyseNSForm(env, ns, forms.first()),
+        nsEnv: a.resolveNSHeader(env, a.readNSHeader(ns, forms.first())),
         codes: new List()
       });
 
