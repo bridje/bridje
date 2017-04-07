@@ -226,7 +226,30 @@ function readNSHeader(ns, form) {
 }
 
 function resolveNSHeader(env, header) {
-  throw 'niy';
+  const refers = header.refers.mapEntries(([sym, referredNS]) => {
+    const referredNSEnv = env.nsEnvs.get(referredNS);
+    if (referredNSEnv === undefined) {
+      throw `Can't find referred NS '${referredNS}' from ${header.ns}`;
+    }
+
+    const referExport = referredNSEnv.exports.get(sym);
+    if (referExport === undefined) {
+      throw `Can't find refer: '${referredNS}/${sym}' from '${header.ns}'`;
+    }
+
+    return [sym, referExport];
+  });
+
+  const aliases = header.aliases.mapEntries(([sym, aliasedNS]) => {
+    const aliasedNSEnv = env.nsEnvs.get(aliasedNS);
+    if (aliasedNSEnv === undefined) {
+      throw `Can't find aliased NS '${aliasedNS}' from ${header.ns}`;
+    }
+
+    return [sym, aliasedNSEnv];
+  });
+
+  return new NSEnv({ns: header.ns, refers, aliases});
 }
 
 function analyseForm(env, nsEnv, form) {

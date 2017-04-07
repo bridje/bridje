@@ -4,7 +4,7 @@ var reader = require('../../src/js/reader');
 var e = require('../../src/js/expr');
 const {List, Map} = require('immutable');
 const {Env, NSEnv, Var} = require('../../src/js/runtime');
-const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./runtime.test');
+const {fooEnv, fooNSEnv, flipVar, barNSDecl, barNSEnv} = require('./runtime.test');
 
 describe('analyser', () => {
   it('reads an NS header', () => {
@@ -24,6 +24,21 @@ describe('analyser', () => {
       }
     });
 
+  });
+
+  it('resolves an NS header', () => {
+    const nsEnv = ana.resolveNSHeader(fooEnv, new ana.NSHeader({
+      ns: 'bridje.kernel.bar',
+      refers: Map({
+        flip: 'bridje.kernel.foo'
+      }),
+      aliases: Map({
+        foo: 'bridje.kernel.foo'
+      })
+    }));
+
+    assert.equal(nsEnv.refers.get('flip'), flipVar);
+    assert.equal(nsEnv.aliases.get('foo'), fooNSEnv);
   });
 
   it('reads a simple value expr', () => {
