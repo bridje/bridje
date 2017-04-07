@@ -1,8 +1,6 @@
 const {readForms} = require('./reader');
 const im = require('immutable');
 const {Record, List, Map} = im;
-var path = require('path');
-var fs = require('fs');
 var process = require('process');
 const e = require('./env');
 const a = require('./analyser');
@@ -10,57 +8,8 @@ const c = require('./compiler');
 const vm = require('vm');
 const runtime = require('./runtime');
 
-module.exports = function(projectPaths) {
+module.exports = function(nsLoader) {
   var envManager = e.envManager();
-
-  function readFileAsync(path) {
-    return new Promise((resolve, reject) => {
-      fs.readFile(path, 'utf8', (err, res) => {
-        if (err !== null) {
-          reject(err);
-        } else {
-          resolve(res);
-        }
-      });
-    });
-  }
-
-  /// returns Promise<String>
-  function resolveNSAsync(ns) {
-    var promise = Promise.reject('No project paths available.');
-
-    var isFileError = err => err.syscall == 'open';
-    var isFileNotExistsError = err => err.code == 'ENOENT';
-
-    for (let i = 0; i < projectPaths.length; i++) {
-      promise = promise.catch((err) => {
-        if (isFileError(err) && !isFileNotExistsError(err)) {
-          return Promise.reject(err);
-        } else {
-          return readFileAsync(path.resolve(process.cwd(), projectPaths[i], ns.replace(/\./g, '/') + '.brj'));
-        }
-      });
-    }
-
-    return promise.catch(err => {
-      if (isFileError(err) && isFileNotExistsError(err)) {
-        return Promise.reject({
-          error: 'ENOENT',
-          projectPaths: projectPaths,
-          ns: ns
-        });
-      } else {
-        return Promise.reject(err);
-      }
-    });
-  }
-
-  const NSHeader = Record({ns: null, parsedNSForm: null, forms: null});
-
-  function readNSHeader(ns, str) {
-    const forms = readForms(str);
-
-  }
 
   function envRequire(env, ns, str) {
     const forms = readForms(str);
@@ -86,7 +35,7 @@ module.exports = function(projectPaths) {
     // TODO require other namespaces as necessary
 
     if (env.nsEnvs.get(ns) === undefined) {
-      const strAsync = str !== undefined ? Promise.resolve(str) : resolveNSAsync(ns);
+      const strAsync = str !== undefined ? Promise.resolve(str) : nsLoader.resolveNSAsync(ns);
       return strAsync.then(str => envRequire(env, ns, str));
     } else {
       return Promise.resolve(env);
