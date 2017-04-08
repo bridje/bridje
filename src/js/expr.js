@@ -52,7 +52,7 @@ RecordExpr.prototype.toString = function() {return `(RecordExpr {${this.entries.
 RecordExpr.prototype.exprType = 'record';
 RecordExpr.prototype.subExprs = function() {
   return List.of(this)
-    .concat(this.entries.flatMap(e => e.key.subExprs().concat(e.value.subExprs())));};
+    .concat(this.entries.flatMap(e => e.value.subExprs()));};
 
 IfExpr.prototype.toString = function() {return `(IfExpr ${this.testExpr} ${this.thenExpr} ${this.elseExpr})`;};
 IfExpr.prototype.exprType = 'if';

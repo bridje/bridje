@@ -28,9 +28,10 @@ describe('compiler', () => {
   });
 
   it('loads a record', () => {
-    const result = evalCode(compileForm('{a 1, b 2}').code);
-    assert.deepEqual(result.toJS(), {a: 1, b: 2});
- });
+    const result = compileForm('(def record {a 1, b 2})', barNSEnv);
+    const compiledNS = evalNSCode(result.code, result.nsEnv, fooEnv);
+    assert.deepEqual(compiledNS(result.nsEnv).exports.get('record').value.toJS(), {a: 1, b: 2});
+  });
 
   it ('loads a let', () => {
     const result = evalCode(compileForm(`(let [x 1, y 2] [x y])`).code);
