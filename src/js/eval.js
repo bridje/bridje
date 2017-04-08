@@ -50,7 +50,7 @@ module.exports = function(nsLoader) {
             const {nsHeader, dependentNSs, forms} = readNS(ns, str);
             loadedNSs = loadedNSs.set(ns, Map({nsHeader, forms}));
             nsLoadOrder = nsLoadOrder.unshift(ns);
-            queuedNSs = queuedNSs.delete(ns).union(dependentNSs.subtract(queuedNSs).subtract(preLoadedNSs));
+            queuedNSs = queuedNSs.delete(ns).union(dependentNSs.subtract(queuedNSs, preLoadedNSs));
           });
 
           return resolveQueueAsync({loadedNSs, nsLoadOrder, queuedNSs});

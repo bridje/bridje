@@ -50,17 +50,12 @@ SetExpr.prototype.subExprs = function() {return this.exprs.flatMap(e => e.subExp
 RecordEntry.prototype.toString = function() {return `${this.key} ${this.value}`;};
 RecordExpr.prototype.toString = function() {return `(RecordExpr {${this.entries.join(', ')})}`;};
 RecordExpr.prototype.exprType = 'record';
-RecordExpr.prototype.subExprs = function() {
-  return List.of(this)
-    .concat(this.entries.flatMap(e => e.value.subExprs()));};
+RecordExpr.prototype.subExprs = function() {return List.of(this).concat(this.entries.flatMap(e => e.value.subExprs()));};
 
 IfExpr.prototype.toString = function() {return `(IfExpr ${this.testExpr} ${this.thenExpr} ${this.elseExpr})`;};
 IfExpr.prototype.exprType = 'if';
 IfExpr.prototype.subExprs = function() {
-  return List.of(this)
-    .concat(this.testExpr.subExprs())
-    .concat(this.thenExpr.subExprs())
-    .concat(this.elseExpr.subExprs());
+  return List.of(this).concat(this.testExpr.subExprs(), this.thenExpr.subExprs(), this.elseExpr.subExprs());
 };
 
 LocalVarExpr.prototype.toString = function() {return `(LocalVarExpr ${this.name})`;};
@@ -79,9 +74,7 @@ LetBinding.prototype.toString = function() {return `${this.name} ${this.expr}`;}
 LetExpr.prototype.toString = function() {return `(LetExpr [${this.bindings.join(', ')}] ${this.body})`;};
 LetExpr.prototype.exprType = 'let';
 LetExpr.prototype.subExprs = function() {
-  return List.of(this)
-    .concat(this.bindings.flatMap(e => e.expr.subExprs().concat(e.value.subExprs())))
-    .concat(this.body.subExprs());
+  return List.of(this).concat(this.bindings.flatMap(e => e.expr.subExprs().concat(e.value.subExprs())), this.body.subExprs());
 };
 
 FnExpr.prototype.toString = function() {return `(FnExpr (${this.params.map(p => p.name).join(' ')}) ${this.body})`;};
