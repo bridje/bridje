@@ -23,7 +23,6 @@ describe('analyser', () => {
         baz: 'bridje.kernel.baz'
       }
     });
-
   });
 
   it('resolves an NS header', () => {
@@ -187,5 +186,12 @@ describe('analyser', () => {
     const expr = ana.analyseForm(fooEnv, barNSEnv, reader.readForms('flip').first());
     assert.equal(expr.exprType, 'var');
     assert.equal(expr.var, flipVar);
+  });
+
+  it('resolves a function in another namespace through its alias', () => {
+    const expr = ana.analyseForm(fooEnv, barNSEnv, reader.readForms('foo/flip').first());
+    assert.equal(expr.exprType, 'var');
+    assert.equal(expr.var, flipVar);
+    assert.equal(expr.alias, 'foo');
   });
 });

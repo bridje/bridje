@@ -1,5 +1,5 @@
 const vm = require('vm');
-const {List, Map} = require('immutable');
+const {List, Map, Set} = require('immutable');
 const {Var} = require('./runtime');
 
 function makeSafe(s) {
@@ -8,6 +8,10 @@ function makeSafe(s) {
 
 function referName(s) {
   return '_refer_' + s;
+}
+
+function aliasName(alias, s) {
+  return `_alias_${alias}_${s}`;
 }
 
 function compileSymbol(sym) {
@@ -73,8 +77,11 @@ function compileExpr(env, nsEnv, expr) {
       if (expr.var.ns == nsEnv.ns) {
         return expr.var.safeName;
       } else {
-        // TODO will need to know whether this comes from a refer or an alias
-        return referName(expr.var.safeName);
+        if (expr.alias !== null) {
+          return aliasName(expr.alias, expr.var.safeName);
+        } else {
+          return referName(expr.var.safeName);
+        }
       }
 
     case 'call':
@@ -96,7 +103,7 @@ function compileExpr(env, nsEnv, expr) {
     const call = params.isEmpty() ? '()' : '';
 
     return {
-      nsEnv: nsEnv.setIn(List.of('exports', name), new Var({ns: nsEnv.ns, name, safeName})),
+      nsEnv: nsEnv.setIn(List.of('exports', name), new Var({ns: nsEnv.ns, expr, name, safeName})),
       code: `\n const ${safeName} = (function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};\n`
     };
 
@@ -108,12 +115,17 @@ function compileExpr(env, nsEnv, expr) {
   }
 }
 
-function compileNS(env, nsEnv, content) {
-  // TODO: requires in
-
+function compileNS(env, nsEnv, code) {
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`)
         .join("\n");
+
+  const aliases =
+        new Set(nsEnv.exports.valueSeq()
+                .flatMap(e => e.expr.subExprs())
+                .filter(e => e.exprType == 'var' && e.alias != null))
+        .map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = _aliases.get('${ve.alias}').exports.get('${ve.var.name}').value;`)
+        .join('\n');
 
   const exportEntries = nsEnv.exports
         .entrySeq()
@@ -126,9 +138,12 @@ function compileNS(env, nsEnv, content) {
 (function(_runtime, _im) {
   return function(_nsEnv) {
       const _refers = _nsEnv.refers;
+      const _aliases = _nsEnv.aliases;
       ${refers}
 
-      ${content}
+      ${aliases}
+
+      ${code}
 
       return {exports: ${exports}};
     };

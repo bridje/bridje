@@ -72,4 +72,11 @@ describe('compiler', () => {
 
     assert.deepEqual(compiledNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
   });
+
+  it('calls a function in another namespace through its alias', () => {
+    const result = compileForm(`(def flipped (foo/flip 3 4))`, barNSEnv, fooEnv);
+    const compiledNS = evalNSCode(result.code, result.nsEnv, fooEnv);
+
+    assert.deepEqual(compiledNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
+  });
 });

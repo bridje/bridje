@@ -254,7 +254,7 @@ function analyseForm(env, nsEnv, form) {
 
       if (localVar !== undefined) {
         return new e.LocalVarExpr({range, localVar, name: sym.name});
-      } else if (globalVar !== undefined){
+      } else if (globalVar !== undefined) {
         return new e.VarExpr({range, var: globalVar});
       } else {
         throw "NIY - can't find";
@@ -264,7 +264,19 @@ function analyseForm(env, nsEnv, form) {
       if (form.sym.ns === 'js') {
         return new e.JSGlobalExpr({range, path: List(form.sym.name.split('.'))});
       } else {
-        throw 'nsSym niy';
+        const aliasedNS = nsEnv.aliases.get(form.sym.ns);
+
+        if (aliasedNS === undefined) {
+          throw `No such alias '${form.sym.ns} in NS '${nsEnv.ns}'`;
+        }
+
+        const aliasedVar = aliasedNS.exports.get(form.sym.name);
+
+        if (aliasedVar === undefined) {
+          throw `No such var '${aliasedNS.ns}/${form.sym.name}', referenced from '${nsEnv.ns}'`;
+        }
+
+        return new e.VarExpr({range, var: aliasedVar, alias: form.sym.ns});
       }
 
     default:
