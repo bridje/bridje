@@ -27,7 +27,7 @@ describe('eval', () => {
     assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.bar').exports.get('hello').value.toJS(), [3, 4]);
   });
 
-  it ('runs a main', async () => {
-    console.log(await e(realLoader).runMain('bridje.kernel.hello-world'));
+  it ('runs a main', () => {
+    e(realLoader).runMain('bridje.kernel.hello-world');
   });
 });
