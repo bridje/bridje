@@ -1,14 +1,14 @@
 var e = require('../../src/js/eval');
 var {NSHeader} = require('../../src/js/analyser');
 var {readForms} = require('../../src/js/reader');
-const fakeLoader = require('./fake-ns-loader');
-const realLoader = require('../../src/js/ns-loader')(["src/brj", "test/brj"]);
+const fakeNSIO = require('./fake-nsio');
+const realNSIO = require('../../src/js/nsio')(["src/brj", "test/brj"]);
 
 var assert = require('assert');
 
 describe('eval', () => {
   it ('loads a simple kernel', () => {
-    const eval = e(fakeLoader({
+    const eval = e(fakeNSIO({
       'bridje.kernel': `(ns bridje.kernel)`
     }));
 
@@ -17,7 +17,7 @@ describe('eval', () => {
   });
 
   it ('requires in another namespace', async () => {
-    const eval = e(fakeLoader({
+    const eval = e(fakeNSIO({
       'bridje.kernel': `(ns bridje.kernel)`,
       'bridje.kernel.foo': `(ns bridje.kernel.foo) (def (flip x y) [y x])`,
       'bridje.kernel.bar': `(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}}) (def hello (flip 4 3))`
@@ -28,6 +28,6 @@ describe('eval', () => {
   });
 
   it ('runs a main', () => {
-    e(realLoader).runMain('bridje.kernel.hello-world');
+    e(realNSIO).runMain('bridje.kernel.hello-world');
   });
 });

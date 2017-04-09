@@ -8,7 +8,7 @@ const c = require('./compiler');
 const vm = require('vm');
 const runtime = require('./runtime');
 
-module.exports = function(nsLoader) {
+module.exports = function(nsIO) {
   var envManager = e.envManager();
 
   function envRequire(env, nsHeader, forms) {
@@ -44,7 +44,7 @@ module.exports = function(nsLoader) {
       if (queuedNSs.isEmpty()) {
         return nsLoadOrder.map(ns => loadedNSs.get(ns));
       } else {
-        return Promise.all(queuedNSs.map(ns => nsLoader.resolveNSAsync(ns).then(str => ({ns, str})))).then(results => {
+        return Promise.all(queuedNSs.map(ns => nsIO.resolveNSAsync(ns).then(str => ({ns, str})))).then(results => {
           queuedNSs = Set();
           results.forEach(({ns, str}) => {
             const {nsHeader, dependentNSs, forms} = readNS(ns, str);
