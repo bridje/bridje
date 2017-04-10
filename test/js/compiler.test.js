@@ -68,7 +68,7 @@ describe('compiler', () => {
   });
 
   it ('returns an NSHeader', () => {
-    assert.deepEqual(evalNSCode('', barNSEnv, fooEnv).nsHeader().toJS(), {
+    assert.deepEqual(evalNSCode('', barNSEnv, fooEnv).nsHeader.toJS(), {
       ns: 'bridje.kernel.bar',
       refers: {'flip': 'bridje.kernel.foo'},
       aliases: {'foo': 'bridje.kernel.foo'}

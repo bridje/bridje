@@ -147,12 +147,10 @@ function compileNS(env, nsEnv, code) {
   return `
   (function(_runtime, _im) {
     return {
-      nsHeader: function() {
-        return new _runtime.NSHeader({
+      nsHeader: new _runtime.NSHeader({
           ns: '${nsEnv.ns}',
           refers: ${nsHeaderRefers},
-          aliases: ${nsHeaderAliases}});
-      },
+          aliases: ${nsHeaderAliases}}),
 
       loadNS: function(_nsEnv) {
         const _refers = _nsEnv.refers;
