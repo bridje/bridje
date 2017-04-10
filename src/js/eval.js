@@ -28,8 +28,7 @@ module.exports = function(nsIO) {
     const {loadNS} = new vm.Script(nsCode).runInThisContext()(runtime, im);
 
     return {
-      newEnv: env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv)),
-      nsCode: nsCode
+      nsCode, newEnv: env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv))
     };
   }
 
@@ -79,19 +78,26 @@ module.exports = function(nsIO) {
 
   function envRequireAsync(env, ns, str) {
     if (env.nsEnvs.get(ns) === undefined) {
-      return resolveNSsAsync(env, ns, str).then(loadedNSs => {
-        return loadedNSs.reduce((envAsync, loadedNS) => {
-          return envAsync.then(env => {
-            const {nsHeader, forms} = loadedNS.toObject();
-            const {newEnv, nsCode} = envRequire(env, nsHeader, forms);
-            return nsIO.writeNSAsync(ns, nsCode).then(_ => newEnv);
-          });
-        }, Promise.resolve(env));
-      });
+      return resolveNSsAsync(env, ns, str).then(
+        loadedNSs => loadedNSs.reduce(
+          (envAsync, loadedNS) => envAsync.then(
+            env => {
+              const {nsHeader, forms} = loadedNS.toObject();
+              const {newEnv, nsCode} = envRequire(env, nsHeader, forms);
+              if (nsCode !== undefined) {
+                return nsIO.writeNSAsync(ns, nsCode).then(_ => newEnv);
+              } else {
+                return Promise.resolve(env);
+              }
+            }),
+
+          Promise.resolve(env)));
     } else {
       return Promise.resolve(env);
     }
   }
+
+  const coreEnvAsync = envManager.updateEnv(env => envRequireAsync(env, 'bridje.kernel'));
 
   function runMain(ns, argv) {
     envManager.updateEnv(env => envRequireAsync(env, ns).then(
@@ -106,18 +112,13 @@ module.exports = function(nsIO) {
       }).catch (e => console.log(e)));
   }
 
+  function build(entryNSs) {
+    return entryNSs.reduce((envAsync, entryNS) => envAsync.then(env => envRequireAsync(env, entryNS)), coreEnvAsync);
+  }
+
   function currentEnv() {
     return envManager.currentEnv();
   }
 
-  return {
-    envRequireAsync, envRequire, currentEnv, runMain,
-
-    loaded: envManager.updateEnv(async (env) => {
-      env = await envRequireAsync(env, 'bridje.kernel');
-      // env = await envLoadNS(env, 'bridje.core');
-
-      return env;
-    })
-  };
+  return {envRequireAsync, envRequire, currentEnv, coreEnvAsync, runMain, build};
 };

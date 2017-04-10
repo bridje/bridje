@@ -1,8 +1,10 @@
-var e = require('../../src/js/eval');
-var {NSHeader} = require('../../src/js/runtime');
-var {readForms} = require('../../src/js/reader');
+const e = require('../../src/js/eval');
+const {NSHeader} = require('../../src/js/runtime');
+const {readForms} = require('../../src/js/reader');
+const {List, Set} = require('immutable');
 const fakeNSIO = require('./fake-nsio');
-const realNSIO = require('../../src/js/nsio')(["src/brj", "test/brj"]);
+const nsio = require('../../src/js/nsio');
+const realNSIO = nsio(["src/brj", "test/brj"]);
 
 var assert = require('assert');
 
@@ -23,8 +25,19 @@ describe('eval', () => {
       'bridje.kernel.bar': `(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}}) (def hello (flip 4 3))`
     }));
 
-    const newEnv = await eval.envRequireAsync(await eval.loaded, 'bridje.kernel.bar');
+    const newEnv = await eval.envRequireAsync(await eval.coreEnvAsync, 'bridje.kernel.bar');
     assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.bar').exports.get('hello').value.toJS(), [3, 4]);
+  });
+
+  it ('builds a namespace', () => {
+    const nsIO = fakeNSIO({
+      'bridje.kernel': `(ns bridje.kernel)`,
+      'bridje.kernel.foo': `(ns bridje.kernel.foo) (def (flip x y) [y x])`
+    });
+
+    return e(nsIO).build(Set.of('bridje.kernel.foo')).then(_ => {
+      // console.log(nsIO.writtenNS('bridje.kernel.foo'));
+    });
   });
 
   it ('runs a main', () => {
