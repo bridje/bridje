@@ -1,6 +1,6 @@
 const vm = require('vm');
 const {List, Map, Set} = require('immutable');
-const {Var} = require('./runtime');
+const {Var, NSHeader} = require('./runtime');
 
 function makeSafe(s) {
   return s.replace('-', '_');
@@ -141,23 +141,35 @@ function compileNS(env, nsEnv, code) {
         .join(', ');
 
   const exports = `_im.Map(_im.List.of(${exportEntries}))`;
+  const nsHeaderRefers = `_im.Map(_im.List.of(${nsEnv.refers.entrySeq().map(([k, v]) => `['${k}', '${v.ns}']`).join(', ')}))`;
+  const nsHeaderAliases = `_im.Map(_im.List.of(${nsEnv.aliases.entrySeq().map(([k, v]) => `['${k}', '${v.ns}']`).join(', ')}))`;
 
   return `
-(function(_runtime, _im) {
-  return function(_nsEnv) {
-      const _refers = _nsEnv.refers;
-      const _aliases = _nsEnv.aliases;
-      ${refers}
+  (function(_runtime, _im) {
+    return {
+      nsHeader: function() {
+        return new _runtime.NSHeader({
+          ns: '${nsEnv.ns}',
+          refers: ${nsHeaderRefers},
+          aliases: ${nsHeaderAliases}});
+      },
 
-      ${aliases}
+      loadNS: function(_nsEnv) {
+        const _refers = _nsEnv.refers;
+        const _aliases = _nsEnv.aliases;
+        ${refers}
 
-      ${symbolInterns}
+        ${aliases}
 
-      ${code}
+        ${symbolInterns}
 
-      return {exports: ${exports}};
+        ${code}
+
+        return _nsEnv.set('exports', ${exports});
+      }
     };
-})`;
+  })
+`;
 }
 
 module.exports = {

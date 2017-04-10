@@ -1,5 +1,5 @@
 var e = require('../../src/js/eval');
-var {NSHeader} = require('../../src/js/analyser');
+var {NSHeader} = require('../../src/js/runtime');
 var {readForms} = require('../../src/js/reader');
 const fakeNSIO = require('./fake-nsio');
 const realNSIO = require('../../src/js/nsio')(["src/brj", "test/brj"]);

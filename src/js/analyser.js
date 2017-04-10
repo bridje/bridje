@@ -2,11 +2,9 @@ var {List, Map, Record} = require('immutable');
 
 var p = require('./parser');
 var e = require('./expr');
-const {NSEnv, sym} = require('./runtime');
+const {NSEnv, NSHeader, sym} = require('./runtime');
 var f = require('./form');
 var lv = require('./localVar');
-
-const NSHeader = Record({ns: null, refers: Map({}), aliases: Map({})});
 
 function nsSymParser(ns) {
   return symForm => {

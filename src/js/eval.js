@@ -24,10 +24,10 @@ module.exports = function(nsIO) {
         codes: new List()
       });
 
-    const {exports} = new vm.Script(c.compileNS(env, nsEnv, codes.join("\n")))
-          .runInThisContext()(runtime, im)(nsEnv);
+    const {loadNS} = new vm.Script(c.compileNS(env, nsEnv, codes.join("\n")))
+          .runInThisContext()(runtime, im);
 
-    return env.setIn(['nsEnvs', nsEnv.ns], nsEnv.set('exports', exports));
+    return env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv));
   }
 
   function resolveNSsAsync(env, ns, str) {

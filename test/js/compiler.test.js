@@ -29,8 +29,8 @@ describe('compiler', () => {
 
   it('loads a record', () => {
     const result = compileForm('(def record {a 1, b 2})', barNSEnv);
-    const compiledNS = evalNSCode(result.code, result.nsEnv, fooEnv);
-    assert.deepEqual(compiledNS(result.nsEnv).exports.get('record').value.toJS(), {a: 1, b: 2});
+    const {loadNS} = evalNSCode(result.code, result.nsEnv, fooEnv);
+    assert.deepEqual(loadNS(result.nsEnv).exports.get('record').value.toJS(), {a: 1, b: 2});
   });
 
   it ('loads a let', () => {
@@ -67,17 +67,25 @@ describe('compiler', () => {
     assert.equal(expr, process.cwd());
   });
 
+  it ('returns an NSHeader', () => {
+    assert.deepEqual(evalNSCode('', barNSEnv, fooEnv).nsHeader().toJS(), {
+      ns: 'bridje.kernel.bar',
+      refers: {'flip': 'bridje.kernel.foo'},
+      aliases: {'foo': 'bridje.kernel.foo'}
+    });
+  });
+
   it ('calls a fn referred in from another NS', () => {
     const result = compileForm(`(def flipped (flip 3 4))`, barNSEnv, fooEnv);
-    const compiledNS = evalNSCode(result.code, result.nsEnv, fooEnv);
+    const {loadNS} = evalNSCode(result.code, result.nsEnv, fooEnv);
 
-    assert.deepEqual(compiledNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
+    assert.deepEqual(loadNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
   });
 
   it('calls a function in another namespace through its alias', () => {
     const result = compileForm(`(def flipped (foo/flip 3 4))`, barNSEnv, fooEnv);
-    const compiledNS = evalNSCode(result.code, result.nsEnv, fooEnv);
+    const {loadNS} = evalNSCode(result.code, result.nsEnv, fooEnv);
 
-    assert.deepEqual(compiledNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
+    assert.deepEqual(loadNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
   });
 });
