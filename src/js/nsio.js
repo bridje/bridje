@@ -68,5 +68,5 @@ module.exports = function(projectPaths, targetPath) {
     }
   }
 
-  return {resolveNSAsync};
+  return {resolveNSAsync, writeNSAsync};
 };

@@ -24,10 +24,13 @@ module.exports = function(nsIO) {
         codes: new List()
       });
 
-    const {loadNS} = new vm.Script(c.compileNS(env, nsEnv, codes.join("\n")))
-          .runInThisContext()(runtime, im);
+    const nsCode = c.compileNS(env, nsEnv, codes.join("\n"));
+    const {loadNS} = new vm.Script(nsCode).runInThisContext()(runtime, im);
 
-    return env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv));
+    return {
+      newEnv: env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv)),
+      nsCode: nsCode
+    };
   }
 
   function resolveNSsAsync(env, ns, str) {
@@ -77,10 +80,13 @@ module.exports = function(nsIO) {
   function envRequireAsync(env, ns, str) {
     if (env.nsEnvs.get(ns) === undefined) {
       return resolveNSsAsync(env, ns, str).then(loadedNSs => {
-        return loadedNSs.reduce((env, loadedNS) => {
-          const {nsHeader, forms} = loadedNS.toObject();
-          return envRequire(env, nsHeader, forms);
-        }, env);
+        return loadedNSs.reduce((envAsync, loadedNS) => {
+          return envAsync.then(env => {
+            const {nsHeader, forms} = loadedNS.toObject();
+            const {newEnv, nsCode} = envRequire(env, nsHeader, forms);
+            return nsIO.writeNSAsync(ns, nsCode).then(_ => newEnv);
+          });
+        }, Promise.resolve(env));
       });
     } else {
       return Promise.resolve(env);
