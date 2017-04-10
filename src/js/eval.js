@@ -35,21 +35,32 @@ module.exports = function(nsIO) {
   function resolveNSsAsync(env, ns, str) {
     const preLoadedNSs = Set(env.nsEnvs.keySeq());
 
-    function readNS(ns, str) {
-      const forms = readForms(str);
+    function readNS(ns, brj) {
+      const forms = readForms(brj);
       const nsHeader = a.readNSHeader(ns, forms.first());
       const dependentNSs = Set(nsHeader.aliases.valueSeq()).union(nsHeader.refers.valueSeq().flatten());
       return {nsHeader, dependentNSs, forms: forms.shift()};
+    }
+
+    function resolveNSAsync(ns) {
+      return Promise.all([nsIO.resolveNSAsync(ns).catch(e => null), nsIO.resolveNSJSAsync(ns).catch(e => null)])
+        .then(([brj, js]) => {
+          if (brj == null && js == null) {
+            return Promise.reject(`Can't find namespace '${ns}'`);
+          } else {
+            return {ns, brj, js};
+          }
+        });
     }
 
     function resolveQueueAsync({loadedNSs, nsLoadOrder, queuedNSs}) {
       if (queuedNSs.isEmpty()) {
         return nsLoadOrder.map(ns => loadedNSs.get(ns));
       } else {
-        return Promise.all(queuedNSs.map(ns => nsIO.resolveNSAsync(ns).then(str => ({ns, str})))).then(results => {
+        return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns))).then(results => {
           queuedNSs = Set();
-          results.forEach(({ns, str}) => {
-            const {nsHeader, dependentNSs, forms} = readNS(ns, str);
+          results.forEach(({ns, brj, js}) => {
+            const {nsHeader, dependentNSs, forms} = readNS(ns, brj);
             loadedNSs = loadedNSs.set(ns, Map({nsHeader, forms}));
             nsLoadOrder = nsLoadOrder.unshift(ns);
             queuedNSs = queuedNSs.delete(ns).union(dependentNSs.subtract(queuedNSs, preLoadedNSs));

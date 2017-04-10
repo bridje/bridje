@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 
-module.exports = function(projectPaths, targetPath) {
+module.exports = function({projectPaths, targetPath}) {
   function nsToFilename(ns, ext) {
     return `${ns.replace(/\./g, '/')}.${ext}`;
   }
@@ -37,15 +37,15 @@ module.exports = function(projectPaths, targetPath) {
 
     return promise.catch(err => {
       if (isFileError(err) && isFileNotExistsError(err)) {
-        return Promise.reject({
-          error: 'ENOENT',
-          projectPaths: projectPaths,
-          ns: ns
-        });
+        return Promise.reject({error: 'ENOENT', projectPaths, ns});
       } else {
         return Promise.reject(err);
       }
     });
+  }
+
+  function resolveNSJSAsync(ns) {
+    return Promise.reject();
   }
 
   function writeFileAsync(path, str) {
@@ -68,5 +68,5 @@ module.exports = function(projectPaths, targetPath) {
     }
   }
 
-  return {resolveNSAsync, writeNSAsync};
+  return {resolveNSAsync, resolveNSJSAsync, writeNSAsync};
 };

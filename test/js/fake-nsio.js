@@ -1,4 +1,4 @@
-module.exports = function(nsStrs) {
+module.exports = function({brjNSStrs = {}, jsNSStrs = {}}) {
   const writtenNSs = {};
 
   return {
@@ -12,11 +12,20 @@ module.exports = function(nsStrs) {
     },
 
     resolveNSAsync: function(ns) {
-      const nsStr = nsStrs[ns];
+      const nsStr = brjNSStrs[ns];
       if (nsStr === undefined) {
         return Promise.reject({error: 'ENOENT'});
       } else {
         return Promise.resolve(nsStr);
+      }
+    },
+
+    resolveNSJSAsync: function(ns) {
+      const nsJSStr = jsNSStrs[ns];
+      if (nsJSStr === undefined) {
+        return Promise.reject({error: 'ENOENT'});
+      } else {
+        return Promise.resolve(nsJSStr);
       }
     }
   };
