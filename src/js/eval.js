@@ -32,14 +32,21 @@ module.exports = function(nsIO) {
     };
   }
 
+  function envLoadJS(env, nsHeader, loadNS) {
+    return {newEnv: env.setIn(['nsEnvs', nsHeader.ns], loadNS(a.resolveNSHeader(env, nsHeader)))};
+  }
+
   function resolveNSsAsync(env, ns, str) {
     const preLoadedNSs = Set(env.nsEnvs.keySeq());
 
     function readNS(ns, brj) {
       const forms = readForms(brj);
       const nsHeader = a.readNSHeader(ns, forms.first());
-      const dependentNSs = Set(nsHeader.aliases.valueSeq()).union(nsHeader.refers.valueSeq().flatten());
-      return {nsHeader, dependentNSs, forms: forms.shift()};
+      return {nsHeader, forms: forms.shift()};
+    }
+
+    function nsDependents(nsHeader) {
+      return Set(nsHeader.aliases.valueSeq()).union(nsHeader.refers.valueSeq().flatten());
     }
 
     function resolveNSAsync(ns) {
@@ -53,15 +60,30 @@ module.exports = function(nsIO) {
         });
     }
 
+    function chooseNSInputAsync({ns, brj, js}) {
+      if (js) {
+        const {nsHeader, loadNS} = eval(js)(runtime, im);
+        if (nsHeader && loadNS) {
+          // TODO check hash
+          return {ns, nsHeader, loadNS};
+        } else {
+          return Promise.reject(`Malformed JS for namespace '${ns}'`);
+        }
+      }
+
+      const {nsHeader, forms} = readNS(ns, brj);
+      return {ns, nsHeader, forms};
+    }
+
     function resolveQueueAsync({loadedNSs, nsLoadOrder, queuedNSs}) {
       if (queuedNSs.isEmpty()) {
         return nsLoadOrder.map(ns => loadedNSs.get(ns));
       } else {
-        return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns))).then(results => {
+        return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns).then(chooseNSInputAsync))).then(results => {
           queuedNSs = Set();
-          results.forEach(({ns, brj, js}) => {
-            const {nsHeader, dependentNSs, forms} = readNS(ns, brj);
-            loadedNSs = loadedNSs.set(ns, Map({nsHeader, forms}));
+          results.forEach(({ns, nsHeader, forms, loadNS}) => {
+            const dependentNSs = nsDependents(nsHeader);
+            loadedNSs = loadedNSs.set(ns, Map({nsHeader, loadNS, forms}));
             nsLoadOrder = nsLoadOrder.unshift(ns);
             queuedNSs = queuedNSs.delete(ns).union(dependentNSs.subtract(queuedNSs, preLoadedNSs));
           });
@@ -93,12 +115,13 @@ module.exports = function(nsIO) {
         loadedNSs => loadedNSs.reduce(
           (envAsync, loadedNS) => envAsync.then(
             env => {
-              const {nsHeader, forms} = loadedNS.toObject();
-              const {newEnv, nsCode} = envRequire(env, nsHeader, forms);
+              const {nsHeader, loadNS, forms} = loadedNS.toObject();
+              const {newEnv, nsCode} = loadNS ? envLoadJS(env, nsHeader, loadNS) : envRequire(env, nsHeader, forms);
+
               if (nsCode !== undefined) {
                 return nsIO.writeNSAsync(ns, nsCode).then(_ => newEnv);
               } else {
-                return Promise.resolve(env);
+                return Promise.resolve(newEnv);
               }
             }),
 

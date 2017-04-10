@@ -45,6 +45,7 @@ module.exports = function({projectPaths, targetPath}) {
   }
 
   function resolveNSJSAsync(ns) {
+    // TODO resolve the JS
     return Promise.reject();
   }
 

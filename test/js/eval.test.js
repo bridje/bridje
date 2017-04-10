@@ -43,19 +43,18 @@ describe('eval', () => {
     return e(nsIO).build(Set.of('bridje.kernel.hello')).then(_ => nsIO.writtenNS('bridje.kernel.hello'));
   })();
 
-  it ('builds a namespace', () => {
-    const nsIO = fakeNSIO({
-      brjNSStrs: {
-        'bridje.kernel': `(ns bridje.kernel)`,
-        'bridje.kernel.foo': `(ns bridje.kernel.foo) (def (flip x y) [y x])`
-      }});
-
-    return e(nsIO).build(Set.of('bridje.kernel.foo')).then(_ => {
-      // console.log(nsIO.writtenNS('bridje.kernel.foo'));
-    });
-  });
-
   it ('runs a main', () => {
     e(realNSIO).runMain('bridje.kernel.hello-world');
+  });
+
+  it ('uses compiled JS where possible', async () => {
+    const nsIO = fakeNSIO({
+      brjNSStrs: {'bridje.kernel': `(ns bridje.kernel)`},
+      jsNSStrs: {'bridje.kernel.hello': await simpleNSCodeAsync}
+    });
+
+    const eval = e(nsIO);
+    const newEnv = await eval.envRequireAsync(await eval.coreEnvAsync, 'bridje.kernel.hello');
+    assert.equal(newEnv.nsEnvs.get('bridje.kernel.hello').exports.get('hello').value, 'Hello');
   });
 });
