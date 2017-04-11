@@ -11,7 +11,7 @@ const runtime = require('./runtime');
 module.exports = function(nsIO) {
   var envManager = e.envManager();
 
-  function envRequire(env, nsHeader, forms) {
+  function envRequire(env, nsHeader, {hash, forms}) {
     const {nsEnv, codes} = forms.reduce(
       ({nsEnv, codes}, form) => {
         const expr = a.analyseForm(env, nsEnv, form);
@@ -24,7 +24,7 @@ module.exports = function(nsIO) {
         codes: new List()
       });
 
-    const nsCode = c.compileNS(env, nsEnv, codes.join("\n"));
+    const nsCode = c.compileNS(env, nsEnv, {hash, code: codes.join("\n")});
     const {loadNS} = new vm.Script(nsCode).runInThisContext()(runtime, im);
 
     return {
@@ -81,9 +81,9 @@ module.exports = function(nsIO) {
       } else {
         return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns).then(chooseNSInputAsync))).then(results => {
           queuedNSs = Set();
-          results.forEach(({ns, nsHeader, forms, loadNS}) => {
+          results.forEach(({ns, nsHeader, hash, forms, loadNS}) => {
             const dependentNSs = nsDependents(nsHeader);
-            loadedNSs = loadedNSs.set(ns, Map({nsHeader, loadNS, forms}));
+            loadedNSs = loadedNSs.set(ns, Map({nsHeader, loadNS, hash, forms}));
             nsLoadOrder = nsLoadOrder.unshift(ns);
             queuedNSs = queuedNSs.delete(ns).union(dependentNSs.subtract(queuedNSs, preLoadedNSs));
           });
@@ -115,8 +115,8 @@ module.exports = function(nsIO) {
         loadedNSs => loadedNSs.reduce(
           (envAsync, loadedNS) => envAsync.then(
             env => {
-              const {nsHeader, loadNS, forms} = loadedNS.toObject();
-              const {newEnv, nsCode} = loadNS ? envLoadJS(env, nsHeader, loadNS) : envRequire(env, nsHeader, forms);
+              const {nsHeader, loadNS, hash, forms} = loadedNS.toObject();
+              const {newEnv, nsCode} = loadNS ? envLoadJS(env, nsHeader, loadNS) : envRequire(env, nsHeader, {hash, forms});
 
               if (nsCode !== undefined) {
                 return nsIO.writeNSAsync(ns, nsCode).then(_ => newEnv);

@@ -114,7 +114,7 @@ function compileExpr(env, nsEnv, expr) {
   }
 }
 
-function compileNS(env, nsEnv, code) {
+function compileNS(env, nsEnv, {hash, code}) {
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`)
         .join("\n");
@@ -147,6 +147,7 @@ function compileNS(env, nsEnv, code) {
   return `
   (function(_runtime, _im) {
     return {
+      hash: '${hash}',
       nsHeader: new _runtime.NSHeader({
           ns: '${nsEnv.ns}',
           refers: ${nsHeaderRefers},

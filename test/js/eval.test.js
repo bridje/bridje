@@ -16,7 +16,7 @@ describe('eval', () => {
       }
     }));
 
-    const {newEnv} = eval.envRequire(eval.currentEnv(), NSHeader({ns:'bridje.kernel.test'}), readForms(`(def hello ["hello world"])`));
+    const {newEnv} = eval.envRequire(eval.currentEnv(), NSHeader({ns:'bridje.kernel.test'}), {forms: readForms(`(def hello ["hello world"])`)});
     assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.test').exports.get('hello').value.toJS(), ['hello world']);
   });
 

@@ -14,7 +14,7 @@ function evalCode(code) {
 }
 
 function evalNSCode(code, nsEnv, env) {
-  return new vm.Script(compileNS(env, nsEnv, code)).runInThisContext()(runtime, im);
+  return new vm.Script(compileNS(env, nsEnv, {code})).runInThisContext()(runtime, im);
 }
 
 function compileForm(form, nsEnv, env) {
