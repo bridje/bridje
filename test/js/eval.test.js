@@ -32,7 +32,7 @@ describe('eval', () => {
     assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.bar').exports.get('hello').value.toJS(), [3, 4]);
   });
 
-  const simpleNSCodeAsync = (function() {
+  const aotNSIOAsync = (function() {
     const nsIO = fakeNSIO({
       brjNSStrs: {
         'bridje.kernel': `(ns bridje.kernel)`,
@@ -40,7 +40,10 @@ describe('eval', () => {
       }
     });
 
-    return e(nsIO).build(Set.of('bridje.kernel.hello')).then(_ => nsIO.writtenNS('bridje.kernel.hello'));
+    return e(nsIO).build(Set.of('bridje.kernel.hello')).then(_ => fakeNSIO({
+      brjNSStrs: {'bridje.kernel': `(ns bridje.kernel)`},
+      jsNSStrs: {'bridje.kernel.hello': nsIO.writtenNS('bridje.kernel.hello')}
+    }));
   })();
 
   it ('runs a main', () => {
@@ -48,13 +51,17 @@ describe('eval', () => {
   });
 
   it ('uses compiled JS where possible', async () => {
-    const nsIO = fakeNSIO({
-      brjNSStrs: {'bridje.kernel': `(ns bridje.kernel)`},
-      jsNSStrs: {'bridje.kernel.hello': await simpleNSCodeAsync}
-    });
+    const nsIO = await aotNSIOAsync;
 
     const eval = e(nsIO);
     const newEnv = await eval.envRequireAsync(await eval.coreEnvAsync, 'bridje.kernel.hello');
     assert.equal(newEnv.nsEnvs.get('bridje.kernel.hello').exports.get('hello').value, 'Hello');
+  });
+
+  it("doesn't AoT already AoT'd namespaces", async () => {
+    const nsIO = await aotNSIOAsync;
+    const eval = e(nsIO);
+    const newEnv = await eval.envRequireAsync(await eval.coreEnvAsync, 'bridje.kernel.hello');
+    assert.equal(nsIO.writtenNS('bridje.kernel.hello'), undefined);
   });
 });
