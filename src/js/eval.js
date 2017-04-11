@@ -7,6 +7,7 @@ const a = require('./analyser');
 const c = require('./compiler');
 const vm = require('vm');
 const runtime = require('./runtime');
+const {createHash} = require('crypto');
 
 module.exports = function(nsIO) {
   var envManager = e.envManager();
@@ -39,10 +40,16 @@ module.exports = function(nsIO) {
   function resolveNSsAsync(env, ns, str) {
     const preLoadedNSs = Set(env.nsEnvs.keySeq());
 
+    function hashNS(str) {
+      const hasher = createHash('sha1');
+      hasher.update(str);
+      return hasher.digest('hex');
+    }
+
     function readNS(ns, brj) {
       const forms = readForms(brj);
       const nsHeader = a.readNSHeader(ns, forms.first());
-      return {nsHeader, forms: forms.shift()};
+      return {nsHeader, hash: hashNS(brj), forms: forms.shift()};
     }
 
     function nsDependents(nsHeader) {
@@ -62,17 +69,18 @@ module.exports = function(nsIO) {
 
     function chooseNSInputAsync({ns, brj, js}) {
       if (js) {
-        const {nsHeader, loadNS} = eval(js)(runtime, im);
-        if (nsHeader && loadNS) {
-          // TODO check hash
-          return {ns, nsHeader, loadNS};
+        const {nsHeader, hash, loadNS} = eval(js)(runtime, im);
+        if (nsHeader && hash && loadNS) {
+          if (!brj || hashNS(brj) == hash) {
+            return {ns, nsHeader, loadNS};
+          }
         } else {
           return Promise.reject(`Malformed JS for namespace '${ns}'`);
         }
       }
 
-      const {nsHeader, forms} = readNS(ns, brj);
-      return {ns, nsHeader, forms};
+      const {nsHeader, hash, forms} = readNS(ns, brj);
+      return {ns, nsHeader, hash, forms};
     }
 
     function resolveQueueAsync({loadedNSs, nsLoadOrder, queuedNSs}) {
@@ -94,9 +102,9 @@ module.exports = function(nsIO) {
     }
 
     if (str !== undefined) {
-      const {nsHeader, dependentNSs, forms} = readNS(ns, str);
+      const {nsHeader, dependentNSs, hash, forms} = readNS(ns, str);
       return resolveQueueAsync({
-        loadedNSs: Map({ns: {nsHeader, forms}}),
+        loadedNSs: Map({ns: {nsHeader, hash, forms}}),
         nsLoadOrder: List.of(ns),
         queuedNSs: Set.of(dependentNSs)
       });
