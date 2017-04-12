@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const mkdirp = require('mkdirp');
 
 module.exports = function({projectPaths, targetPath}) {
   function nsToFilename(ns, ext) {
@@ -49,13 +50,19 @@ module.exports = function({projectPaths, targetPath}) {
     return Promise.reject();
   }
 
-  function writeFileAsync(path, str) {
+  function writeFileAsync(filePath, str) {
     return new Promise((resolve, reject) => {
-      fs.writeFile(path, str, 'utf8', (err, res) => {
-        if (err !== null) {
+      mkdirp(path.parse(filePath).dir, err => {
+        if (err) {
           reject(err);
         } else {
-          resolve(res);
+          fs.writeFile(filePath, str, 'utf8', (err, res) => {
+            if (err !== null) {
+              reject(err);
+            } else {
+              resolve(res);
+            }
+          });
         }
       });
     });
@@ -63,7 +70,7 @@ module.exports = function({projectPaths, targetPath}) {
 
   function writeNSAsync(ns, str) {
     if (targetPath !== undefined) {
-      return writeFileAsync(path.resolve(targetPath, nsToFilename(ns, 'js')));
+      return writeFileAsync(path.resolve(targetPath, nsToFilename(ns, 'js')), str);
     } else {
       return Promise.resolve();
     }
