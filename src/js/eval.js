@@ -57,7 +57,7 @@ module.exports = function(nsIO) {
     }
 
     function resolveNSAsync(ns) {
-      return Promise.all([nsIO.resolveNSAsync(ns).catch(e => null), nsIO.resolveNSJSAsync(ns).catch(e => null)])
+      return Promise.all([nsIO.resolveNSAsync(ns, 'brj').catch(e => null), nsIO.resolveNSAsync(ns, 'js').catch(e => null)])
         .then(([brj, js]) => {
           if (brj == null && js == null) {
             return Promise.reject(`Can't find namespace '${ns}'`);

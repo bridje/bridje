@@ -19,35 +19,42 @@ module.exports = function({projectPaths, targetPath}) {
     });
   }
 
-  /// returns Promise<String>
-  function resolveNSAsync(ns) {
-    var promise = Promise.reject('No project paths available.');
+  function possiblePaths(filename) {
+    const paths = projectPaths.map(projectPath => path.resolve(projectPath, filename));
+    if (targetPath) {
+      paths = paths.push(path.resolve(targetPath, filename));
+    }
 
-    var isFileError = err => err.syscall == 'open';
-    var isFileNotExistsError = err => err.code == 'ENOENT';
+    try {
+      paths = paths.push(require.resolve(filename));
+    } catch (e) {}
 
-    for (let i = 0; i < projectPaths.length; i++) {
-      promise = promise.catch((err) => {
+    return paths;
+  }
+
+  function resolveNSAsync(ns, ext) {
+    let promise = Promise.reject('No project paths available.');
+
+    const isFileError = err => err.syscall == 'open';
+    const isFileNotExistsError = err => err.code == 'ENOENT';
+
+    return possiblePaths(nsToFilename(ns, ext)).reduce(
+      (promise, possiblePath) => promise.catch((err) => {
         if (isFileError(err) && !isFileNotExistsError(err)) {
           return Promise.reject(err);
         } else {
-          return readFileAsync(path.resolve(projectPaths[i], nsToFilename(ns, 'brj')));
+          return readFileAsync(possiblePath);
         }
-      });
-    }
+      }), promise)
 
-    return promise.catch(err => {
-      if (isFileError(err) && isFileNotExistsError(err)) {
-        return Promise.reject({error: 'ENOENT', projectPaths, ns});
-      } else {
-        return Promise.reject(err);
-      }
-    });
-  }
-
-  function resolveNSJSAsync(ns) {
-    // TODO resolve the JS
-    return Promise.reject();
+      .catch(
+        err => {
+          if (isFileError(err) && isFileNotExistsError(err)) {
+            return Promise.reject({error: 'ENOENT', projectPaths, ns});
+          } else {
+            return Promise.reject(err);
+          }
+        });
   }
 
   function writeFileAsync(filePath, str) {
@@ -76,5 +83,5 @@ module.exports = function({projectPaths, targetPath}) {
     }
   }
 
-  return {resolveNSAsync, resolveNSJSAsync, writeNSAsync};
+  return {resolveNSAsync, writeNSAsync};
 };

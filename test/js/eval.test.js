@@ -11,7 +11,7 @@ var assert = require('assert');
 describe('eval', () => {
   it ('loads a simple kernel', () => {
     const eval = e(fakeNSIO({
-      brjNSStrs: {
+      brj: {
         'bridje.kernel': `(ns bridje.kernel)`
       }
     }));
@@ -22,7 +22,7 @@ describe('eval', () => {
 
   it ('requires in another namespace', async () => {
     const eval = e(fakeNSIO({
-      brjNSStrs: {
+      brj: {
         'bridje.kernel': `(ns bridje.kernel)`,
         'bridje.kernel.foo': `(ns bridje.kernel.foo) (def (flip x y) [y x])`,
         'bridje.kernel.bar': `(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}}) (def hello (flip 4 3))`
@@ -34,15 +34,15 @@ describe('eval', () => {
 
   const aotNSIOAsync = (function() {
     const nsIO = fakeNSIO({
-      brjNSStrs: {
+      brj: {
         'bridje.kernel': `(ns bridje.kernel)`,
         'bridje.kernel.hello': '(ns bridje.kernel.hello) (def hello "Hello")'
       }
     });
 
     return e(nsIO).build(Set.of('bridje.kernel.hello')).then(_ => fakeNSIO({
-      brjNSStrs: {'bridje.kernel': `(ns bridje.kernel)`},
-      jsNSStrs: {'bridje.kernel.hello': nsIO.writtenNS('bridje.kernel.hello')}
+      brj: {'bridje.kernel': `(ns bridje.kernel)`},
+      js: {'bridje.kernel.hello': nsIO.writtenNS('bridje.kernel.hello')}
     }));
   })();
 
