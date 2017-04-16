@@ -47,52 +47,72 @@ function envQueue() {
   };
 };
 
+function evalJS(js) {
+  return new vm.Script(js).runInThisContext();
+}
+
+function envRequire(env, nsHeader, {hash, forms}) {
+  const {nsEnv, codes} = forms.reduce(
+    ({nsEnv, codes}, form) => {
+      const expr = a.analyseForm(env, nsEnv, form);
+      let code;
+      ({nsEnv, code} = c.compileExpr(env, nsEnv, expr));
+      return {nsEnv, codes: codes.push(code)};
+    },
+    {
+      nsEnv: a.resolveNSHeader(env, nsHeader),
+      codes: new List()
+    });
+
+  const nsCode = c.compileNS(env, nsEnv, {hash, code: codes.join("\n")});
+  const {loadNS} = evalJS(nsCode)(e, im);
+
+  return {
+    nsCode, newEnv: env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv))
+  };
+}
+
+function envLoadJS(env, nsHeader, loadNS) {
+  return {newEnv: env.setIn(['nsEnvs', nsHeader.ns], loadNS(a.resolveNSHeader(env, nsHeader)))};
+}
+
+function hashNS(str) {
+  const hasher = createHash('sha1');
+  hasher.update(str);
+  return hasher.digest('hex');
+}
+
+function readNS(ns, brj) {
+  const forms = readForms(brj);
+  const nsHeader = a.readNSHeader(ns, forms.first());
+  return {nsHeader, hash: hashNS(brj), forms: forms.shift()};
+}
+
+function nsDependents(nsHeader) {
+  return Set(nsHeader.aliases.valueSeq()).union(nsHeader.refers.valueSeq().flatten());
+}
+
+function chooseNSInputAsync({ns, brj, js}) {
+  if (js) {
+    const {nsHeader, hash, loadNS} = evalJS(js)(e, im);
+    if (nsHeader && hash && loadNS) {
+      if (!brj || hashNS(brj) == hash) {
+        return {ns, nsHeader, loadNS};
+      }
+    } else {
+      return Promise.reject(`Malformed JS for namespace '${ns}'`);
+    }
+  }
+
+  const {nsHeader, hash, forms} = readNS(ns, brj);
+  return {ns, nsHeader, hash, forms};
+}
+
 module.exports = function(nsIO) {
   var queue = envQueue();
 
-  function envRequire(env, nsHeader, {hash, forms}) {
-    const {nsEnv, codes} = forms.reduce(
-      ({nsEnv, codes}, form) => {
-        const expr = a.analyseForm(env, nsEnv, form);
-        let code;
-        ({nsEnv, code} = c.compileExpr(env, nsEnv, expr));
-        return {nsEnv, codes: codes.push(code)};
-      },
-      {
-        nsEnv: a.resolveNSHeader(env, nsHeader),
-        codes: new List()
-      });
-
-    const nsCode = c.compileNS(env, nsEnv, {hash, code: codes.join("\n")});
-    const {loadNS} = new vm.Script(nsCode).runInThisContext()(e, im);
-
-    return {
-      nsCode, newEnv: env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv))
-    };
-  }
-
-  function envLoadJS(env, nsHeader, loadNS) {
-    return {newEnv: env.setIn(['nsEnvs', nsHeader.ns], loadNS(a.resolveNSHeader(env, nsHeader)))};
-  }
-
   function resolveNSsAsync(env, ns, str) {
     const preLoadedNSs = Set(env.nsEnvs.keySeq());
-
-    function hashNS(str) {
-      const hasher = createHash('sha1');
-      hasher.update(str);
-      return hasher.digest('hex');
-    }
-
-    function readNS(ns, brj) {
-      const forms = readForms(brj);
-      const nsHeader = a.readNSHeader(ns, forms.first());
-      return {nsHeader, hash: hashNS(brj), forms: forms.shift()};
-    }
-
-    function nsDependents(nsHeader) {
-      return Set(nsHeader.aliases.valueSeq()).union(nsHeader.refers.valueSeq().flatten());
-    }
 
     function resolveNSAsync(ns) {
       return Promise.all([nsIO.resolveNSAsync(ns, 'brj').catch(e => null), nsIO.resolveNSAsync(ns, 'js').catch(e => null)])
@@ -103,22 +123,6 @@ module.exports = function(nsIO) {
             return {ns, brj, js};
           }
         });
-    }
-
-    function chooseNSInputAsync({ns, brj, js}) {
-      if (js) {
-        const {nsHeader, hash, loadNS} = eval(js)(e, im);
-        if (nsHeader && hash && loadNS) {
-          if (!brj || hashNS(brj) == hash) {
-            return {ns, nsHeader, loadNS};
-          }
-        } else {
-          return Promise.reject(`Malformed JS for namespace '${ns}'`);
-        }
-      }
-
-      const {nsHeader, hash, forms} = readNS(ns, brj);
-      return {ns, nsHeader, hash, forms};
     }
 
     function resolveQueueAsync({loadedNSs, nsLoadOrder, queuedNSs}) {
