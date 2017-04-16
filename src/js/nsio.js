@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 
-module.exports = function({projectPaths, targetPath}) {
+module.exports = function({projectPaths}) {
   function nsToFilename(ns, ext) {
     return `${ns.replace(/\./g, '/')}.${ext}`;
   }
@@ -21,9 +21,6 @@ module.exports = function({projectPaths, targetPath}) {
 
   function possiblePaths(filename) {
     const paths = projectPaths.map(projectPath => path.resolve(projectPath, filename));
-    if (targetPath) {
-      paths = paths.push(path.resolve(targetPath, filename));
-    }
 
     try {
       paths = paths.push(require.resolve(filename));
@@ -57,31 +54,5 @@ module.exports = function({projectPaths, targetPath}) {
         });
   }
 
-  function writeFileAsync(filePath, str) {
-    return new Promise((resolve, reject) => {
-      mkdirp(path.parse(filePath).dir, err => {
-        if (err) {
-          reject(err);
-        } else {
-          fs.writeFile(filePath, str, 'utf8', (err, res) => {
-            if (err !== null) {
-              reject(err);
-            } else {
-              resolve(res);
-            }
-          });
-        }
-      });
-    });
-  }
-
-  function writeNSAsync(ns, str) {
-    if (targetPath !== undefined) {
-      return writeFileAsync(path.resolve(targetPath, nsToFilename(ns, 'js')), str);
-    } else {
-      return Promise.resolve();
-    }
-  }
-
-  return {resolveNSAsync, writeNSAsync};
+  return {resolveNSAsync};
 };

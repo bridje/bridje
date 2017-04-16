@@ -5,7 +5,7 @@ var process = require('process');
 const e = require('./env');
 const {Env} = e;
 const a = require('./analyser');
-const c = require('./compiler');
+const {compileExpr, compileNodeNS} = require('./compiler');
 const vm = require('vm');
 const {createHash} = require('crypto');
 
@@ -56,7 +56,7 @@ function envRequire(env, nsHeader, {hash, forms}) {
     ({nsEnv, codes}, form) => {
       const expr = a.analyseForm(env, nsEnv, form);
       let code;
-      ({nsEnv, code} = c.compileExpr(env, nsEnv, expr));
+      ({nsEnv, code} = compileExpr(env, nsEnv, expr));
       return {nsEnv, codes: codes.push(code)};
     },
     {
@@ -64,8 +64,8 @@ function envRequire(env, nsHeader, {hash, forms}) {
       codes: new List()
     });
 
-  const nsCode = c.compileNS(env, nsEnv, {hash, code: codes.join("\n")});
-  const {loadNS} = evalJS(nsCode)(e, im);
+  const nsCode = compileNodeNS(env, nsEnv, codes.join("\n"));
+  const loadNS = evalJS(nsCode)(e, im);
 
   return {
     nsCode, newEnv: env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv))
@@ -76,36 +76,14 @@ function envLoadJS(env, nsHeader, loadNS) {
   return {newEnv: env.setIn(['nsEnvs', nsHeader.ns], loadNS(a.resolveNSHeader(env, nsHeader)))};
 }
 
-function hashNS(str) {
-  const hasher = createHash('sha1');
-  hasher.update(str);
-  return hasher.digest('hex');
-}
-
 function readNS(ns, brj) {
   const forms = readForms(brj);
   const nsHeader = a.readNSHeader(ns, forms.first());
-  return {nsHeader, hash: hashNS(brj), forms: forms.shift()};
+  return {nsHeader, forms: forms.shift()};
 }
 
 function nsDependents(nsHeader) {
   return Set(nsHeader.aliases.valueSeq()).union(nsHeader.refers.valueSeq().flatten());
-}
-
-function chooseNSInputAsync({ns, brj, js}) {
-  if (js) {
-    const {nsHeader, hash, loadNS} = evalJS(js)(e, im);
-    if (nsHeader && hash && loadNS) {
-      if (!brj || hashNS(brj) == hash) {
-        return {ns, nsHeader, loadNS};
-      }
-    } else {
-      return Promise.reject(`Malformed JS for namespace '${ns}'`);
-    }
-  }
-
-  const {nsHeader, hash, forms} = readNS(ns, brj);
-  return {ns, nsHeader, hash, forms};
 }
 
 module.exports = function(nsIO) {
@@ -115,12 +93,12 @@ module.exports = function(nsIO) {
     const preLoadedNSs = Set(env.nsEnvs.keySeq());
 
     function resolveNSAsync(ns) {
-      return Promise.all([nsIO.resolveNSAsync(ns, 'brj').catch(e => null), nsIO.resolveNSAsync(ns, 'js').catch(e => null)])
-        .then(([brj, js]) => {
-          if (brj == null && js == null) {
+      return nsIO.resolveNSAsync(ns, 'brj').catch(e => null).then(brj => {
+          if (brj == null) {
             return Promise.reject(`Can't find namespace '${ns}'`);
           } else {
-            return {ns, brj, js};
+            const {nsHeader, forms} = readNS(ns, brj);
+            return {ns, nsHeader, forms};
           }
         });
     }
@@ -129,7 +107,7 @@ module.exports = function(nsIO) {
       if (queuedNSs.isEmpty()) {
         return nsLoadOrder.map(ns => loadedNSs.get(ns));
       } else {
-        return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns).then(chooseNSInputAsync))).then(results => {
+        return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns))).then(results => {
           queuedNSs = Set();
           results.forEach(({ns, nsHeader, hash, forms, loadNS}) => {
             const dependentNSs = nsDependents(nsHeader);
@@ -168,11 +146,7 @@ module.exports = function(nsIO) {
               const {nsHeader, loadNS, hash, forms} = loadedNS.toObject();
               const {newEnv, nsCode} = loadNS ? envLoadJS(env, nsHeader, loadNS) : envRequire(env, nsHeader, {hash, forms});
 
-              if (nsCode !== undefined) {
-                return nsIO.writeNSAsync(ns, nsCode).then(_ => newEnv);
-              } else {
-                return Promise.resolve(newEnv);
-              }
+              return newEnv;
             }),
 
           Promise.resolve(env)));
@@ -196,13 +170,9 @@ module.exports = function(nsIO) {
       }).catch (e => console.log(e)));
   }
 
-  function build(entryNSs) {
-    return entryNSs.reduce((envAsync, entryNS) => envAsync.then(env => envRequireAsync(env, entryNS)), coreEnvAsync);
-  }
-
   function currentEnv() {
     return queue.currentEnv();
   }
 
-  return {envRequireAsync, envRequire, currentEnv, coreEnvAsync, runMain, build};
+  return {envRequireAsync, envRequire, currentEnv, coreEnvAsync, runMain};
 };

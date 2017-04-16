@@ -114,7 +114,7 @@ function compileExpr(env, nsEnv, expr) {
   }
 }
 
-function compileNS(env, nsEnv, {hash, code}) {
+function compileNodeNS(env, nsEnv, code) {
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`)
         .join("\n");
@@ -145,32 +145,25 @@ function compileNS(env, nsEnv, {hash, code}) {
   const nsHeaderAliases = `_im.Map(_im.List.of(${nsEnv.aliases.entrySeq().map(([k, v]) => `['${k}', '${v.ns}']`).join(', ')}))`;
 
   return `
+
   (function(_env, _im) {
-    return {
-      hash: '${hash}',
-      nsHeader: new _env.NSHeader({
-          ns: '${nsEnv.ns}',
-          refers: ${nsHeaderRefers},
-          aliases: ${nsHeaderAliases}}),
+     return function(_nsEnv) {
+       const _refers = _nsEnv.refers;
+       const _aliases = _nsEnv.aliases;
+       ${refers}
 
-      loadNS: function(_nsEnv) {
-        const _refers = _nsEnv.refers;
-        const _aliases = _nsEnv.aliases;
-        ${refers}
+       ${aliases}
 
-        ${aliases}
+       ${symbolInterns}
 
-        ${symbolInterns}
+       ${code}
 
-        ${code}
-
-        return _nsEnv.set('exports', ${exports});
-      }
-    };
-  })
+       return _nsEnv.set('exports', ${exports});
+     }
+   })
 `;
 }
 
 module.exports = {
-  compileExpr, compileNS
+  compileExpr, compileNodeNS
 };

@@ -1,4 +1,4 @@
-const {compileExpr, compileNS} = require('../../src/js/compiler');
+const {compileExpr, compileNodeNS} = require('../../src/js/compiler');
 const {readForms} = require('../../src/js/reader');
 const {analyseForm} = require('../../src/js/analyser');
 const e = require('../../src/js/env');
@@ -14,7 +14,7 @@ function evalCode(code) {
 }
 
 function evalNSCode(code, nsEnv, env) {
-  return new vm.Script(compileNS(env, nsEnv, {code})).runInThisContext()(e, im);
+  return new vm.Script(compileNodeNS(env, nsEnv, code)).runInThisContext()(e, im);
 }
 
 function compileForm(form, nsEnv, env) {
@@ -29,7 +29,7 @@ describe('compiler', () => {
 
   it('loads a record', () => {
     const result = compileForm('(def record {a 1, b 2})', barNSEnv);
-    const {loadNS} = evalNSCode(result.code, result.nsEnv, fooEnv);
+    const loadNS = evalNSCode(result.code, result.nsEnv, fooEnv);
     assert.deepEqual(loadNS(result.nsEnv).exports.get('record').value.toJS(), {a: 1, b: 2});
   });
 
@@ -67,24 +67,16 @@ describe('compiler', () => {
     assert.equal(expr, process.cwd());
   });
 
-  it ('returns an NSHeader', () => {
-    assert.deepEqual(evalNSCode('', barNSEnv, fooEnv).nsHeader.toJS(), {
-      ns: 'bridje.kernel.bar',
-      refers: {'flip': 'bridje.kernel.foo'},
-      aliases: {'foo': 'bridje.kernel.foo'}
-    });
-  });
-
   it ('calls a fn referred in from another NS', () => {
     const result = compileForm(`(def flipped (flip 3 4))`, barNSEnv, fooEnv);
-    const {loadNS} = evalNSCode(result.code, result.nsEnv, fooEnv);
+    const loadNS = evalNSCode(result.code, result.nsEnv, fooEnv);
 
     assert.deepEqual(loadNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
   });
 
   it('calls a function in another namespace through its alias', () => {
     const result = compileForm(`(def flipped (foo/flip 3 4))`, barNSEnv, fooEnv);
-    const {loadNS} = evalNSCode(result.code, result.nsEnv, fooEnv);
+    const loadNS = evalNSCode(result.code, result.nsEnv, fooEnv);
 
     assert.deepEqual(loadNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
   });
