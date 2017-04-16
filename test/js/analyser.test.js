@@ -3,8 +3,8 @@ var ana = require('../../src/js/analyser');
 var reader = require('../../src/js/reader');
 var e = require('../../src/js/expr');
 const {List, Map} = require('immutable');
-const {Env, NSEnv, Var} = require('../../src/js/runtime');
-const {fooEnv, fooNSEnv, flipVar, barNSDecl, barNSEnv} = require('./runtime.test');
+const {Env, NSEnv, Var} = require('../../src/js/env');
+const {fooEnv, fooNSEnv, flipVar, barNSDecl, barNSEnv} = require('./env.test');
 
 describe('analyser', () => {
   it('reads an NS header', () => {

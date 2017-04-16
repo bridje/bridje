@@ -2,7 +2,7 @@ var {List, Map, Record} = require('immutable');
 
 var p = require('./parser');
 var e = require('./expr');
-const {NSEnv, NSHeader, sym} = require('./runtime');
+const {NSEnv, NSHeader, sym} = require('./env');
 var f = require('./form');
 var lv = require('./localVar');
 

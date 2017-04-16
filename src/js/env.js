@@ -1,42 +1,23 @@
 const {Record, Map} = require('immutable');
-const {Env} = require('./runtime');
 
-function envManager() {
-  var env = new Env({});
+const Env = Record({nsEnvs: Map({})});
+const NSEnv = Record({ns: null, exports: Map({}), refers: Map({}), aliases: Map({})});
+const NSHeader = Record({ns: null, refers: Map({}), aliases: Map({})});
+const Var = Record({ns: null, name: null, expr: undefined, value: undefined, safeName: undefined});
 
-  var envQueue = [];
-  var running = false;
+var Symbol = Record({name: null});
+var NamespacedSymbol = Record({ns: null, name: null});
 
-  async function runQueue() {
-    var f = envQueue.shift();
-    await f();
-
-    if (envQueue.length > 0) {
-      setTimeout(runQueue, 0);
-    } else {
-      running = false;
-    }
-  }
-
-  return {
-    currentEnv: function() {
-      return env;
-    },
-
-    updateEnv: function(f) {
-      return new Promise(function (resolve, reject) {
-        envQueue.push(async function() {
-          env = await f(env);
-          resolve(env);
-        });
-
-        if (!running) {
-          running = true;
-          runQueue();
-        }
-      });
-    }
-  };
+Symbol.prototype.toString = function() {
+  return this.name;
 };
 
-module.exports = {envManager};
+function sym(name) {
+  return new Symbol({name});
+};
+
+function nsSym(ns, name) {
+  return new NamespacedSymbol({ns, name});
+};
+
+module.exports = {Env, NSEnv, NSHeader, Var, Symbol, sym, nsSym};

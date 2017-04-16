@@ -1,6 +1,6 @@
 const vm = require('vm');
 const {List, Map, Set} = require('immutable');
-const {Var, NSHeader} = require('./runtime');
+const {Var, NSHeader} = require('./env');
 
 function makeSafe(s) {
   return s.replace('-', '_');
@@ -132,12 +132,12 @@ function compileNS(env, nsEnv, {hash, code}) {
                                 .filter(e => e.exprType == 'record')
                                 .flatMap(r => r.entries)
                                 .map(e => e.key))
-        .map(sym => `const ${internedSymName(sym)} = new _runtime.Symbol({name: '${sym.name}'});`)
+        .map(sym => `const ${internedSymName(sym)} = new _env.Symbol({name: '${sym.name}'});`)
         .join('\n');
 
   const exportEntries = nsEnv.exports
         .entrySeq()
-        .map(([name, {safeName}]) => `['${name}', new _runtime.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})]`)
+        .map(([name, {safeName}]) => `['${name}', new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})]`)
         .join(', ');
 
   const exports = `_im.Map(_im.List.of(${exportEntries}))`;
@@ -145,10 +145,10 @@ function compileNS(env, nsEnv, {hash, code}) {
   const nsHeaderAliases = `_im.Map(_im.List.of(${nsEnv.aliases.entrySeq().map(([k, v]) => `['${k}', '${v.ns}']`).join(', ')}))`;
 
   return `
-  (function(_runtime, _im) {
+  (function(_env, _im) {
     return {
       hash: '${hash}',
-      nsHeader: new _runtime.NSHeader({
+      nsHeader: new _env.NSHeader({
           ns: '${nsEnv.ns}',
           refers: ${nsHeaderRefers},
           aliases: ${nsHeaderAliases}}),

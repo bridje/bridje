@@ -1,7 +1,7 @@
 var im = require('immutable');
 var Record = im.Record;
 var Map = im.Map;
-var {sym, nsSym} = require('./runtime');
+var {sym, nsSym} = require('./env');
 var l = require('./location');
 var f = require('./form');
 

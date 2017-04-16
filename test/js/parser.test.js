@@ -1,7 +1,7 @@
 var im = require('immutable');
 var p = require('../../src/js/parser');
 var r = require('../../src/js/reader');
-var {sym, Symbol} = require('../../src/js/runtime');
+var {sym, Symbol} = require('../../src/js/env');
 var assert = require('assert');
 
 describe('parsing', () => {

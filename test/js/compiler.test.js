@@ -1,20 +1,20 @@
 const {compileExpr, compileNS} = require('../../src/js/compiler');
 const {readForms} = require('../../src/js/reader');
 const {analyseForm} = require('../../src/js/analyser');
-const runtime = require('../../src/js/runtime');
-const {NSEnv, Env} = runtime;
+const e = require('../../src/js/env');
+const {NSEnv, Env} = e;
 const im = require('immutable');
 const {Map, Record} = im;
 const vm = require('vm');
 const assert = require('assert');
-const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./runtime.test');
+const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./env.test');
 
 function evalCode(code) {
-  return new vm.Script(`(function (_runtime, _im) {return ${code};})`).runInThisContext()(runtime, im);
+  return new vm.Script(`(function (_env, _im) {return ${code};})`).runInThisContext()(e, im);
 }
 
 function evalNSCode(code, nsEnv, env) {
-  return new vm.Script(compileNS(env, nsEnv, {code})).runInThisContext()(runtime, im);
+  return new vm.Script(compileNS(env, nsEnv, {code})).runInThisContext()(e, im);
 }
 
 function compileForm(form, nsEnv, env) {
