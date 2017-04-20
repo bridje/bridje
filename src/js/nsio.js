@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 
-module.exports = function({projectPaths}) {
+function nsResolver(projectPaths) {
   function nsToFilename(ns, ext) {
     return `${ns.replace(/\./g, '/')}.${ext}`;
   }
@@ -29,7 +29,7 @@ module.exports = function({projectPaths}) {
     return paths;
   }
 
-  function resolveNSAsync(ns, ext) {
+  return function(ns, ext) {
     let promise = Promise.reject('No project paths available.');
 
     const isFileError = err => err.syscall == 'open';
@@ -52,7 +52,7 @@ module.exports = function({projectPaths}) {
             return Promise.reject(err);
           }
         });
-  }
+  };
+}
 
-  return {resolveNSAsync};
-};
+module.exports = {nsResolver};
