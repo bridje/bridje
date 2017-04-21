@@ -5,7 +5,7 @@ const process = require('process');
 const {loadFormsAsync, compileForms, evalNodeForms} = require('./runtime');
 const {readForms} = require('./reader');
 const {Env} = require('./env');
-const {nsResolver} = require('./nsio')
+const {nsResolver} = require('./nsio');
 const {List, Map} = require('immutable');
 
 const cmd = new cli.Command();

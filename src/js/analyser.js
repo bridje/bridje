@@ -8,8 +8,8 @@ var lv = require('./localVar');
 
 function nsSymParser(ns) {
   return symForm => {
-    if (symForm.sym.name === ns) {
-      return p.pure(p.successResult(new NSHeader({ns})));
+    if (ns === undefined || symForm.sym.name === ns) {
+      return p.pure(p.successResult(new NSHeader({ns: symForm.sym.name})));
     } else {
       return p.pure(p.failResult(`Unexpected NS, expecting '${ns}', got '${symForm.sym}'`));
     }

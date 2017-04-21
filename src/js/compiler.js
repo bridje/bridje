@@ -169,5 +169,5 @@ function compileWebNS(env, nsEnv, compiledForms) {
 }
 
 module.exports = {
-  compileExpr, compileNodeNS
+  compileExpr, compileNodeNS, compileWebNS
 };

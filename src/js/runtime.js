@@ -5,7 +5,7 @@ var process = require('process');
 const e = require('./env');
 const {Env} = e;
 const a = require('./analyser');
-const {compileExpr, compileNodeNS} = require('./compiler');
+const {compileExpr, compileNodeNS, compileWebNS} = require('./compiler');
 const vm = require('vm');
 const {createHash} = require('crypto');
 
@@ -114,4 +114,9 @@ function evalNodeForms(env, {nsEnv, compiledForms}) {
   return env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv));
 }
 
-module.exports = {EnvQueue, loadFormsAsync, compileForms, evalNodeForms};
+function emitWebForms(env, {nsEnv, compiledForms}) {
+  // TODO probably loads more to do here
+  return compileWebNS(env, nsEnv, compiledForms);
+}
+
+module.exports = {EnvQueue, loadFormsAsync, compileForms, evalNodeForms, emitWebForms};
