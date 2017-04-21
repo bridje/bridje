@@ -6,6 +6,18 @@ const {nsResolver} = require('./nsio');
 const {List, Map} = require('immutable');
 const path = require('path');
 
+function isMainNS() {
+  const entryPoints = typeof this.options.entry == 'string' ? [this.options.entry] : this.options.entry;
+
+  for (const entryPoint in entryPoints) {
+    if (this.resourcePath == path.resolve(this.options.context, entryPoints[entryPoint])) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 module.exports = function(input) {
   // TODO creating a new env every time. VERY BAD.
   const env = new Env({});
@@ -16,12 +28,8 @@ module.exports = function(input) {
   const nsHeader = readNSHeader(undefined, forms.first());
   let out = emitWebForms(env, compileForms(env, Map({nsHeader, forms: forms.shift()})));
 
-  const entryPoints = typeof this.options.entry == 'string' ? [this.options.entry] : this.options.entry;
-
-  for (const entryPoint in entryPoints) {
-    if (this.resourcePath == path.resolve(this.options.context, entryPoints[entryPoint])) {
-      out += `main()`;
-    }
+  if (isMainNS.call(this)) {
+    out += `main()`;
   }
 
   return out;
