@@ -97,9 +97,9 @@ function compileForms(env, loadedNS) {
   return forms.reduce(
     ({nsEnv, compiledForms}, form) => {
       const expr = a.analyseForm(env, nsEnv, form);
-      let code;
-      ({nsEnv, code} = compileExpr(env, nsEnv, expr));
-      return {nsEnv, compiledForms: compiledForms.push(code)};
+      let compiledForm;
+      ({nsEnv, compiledForm} = compileExpr(env, nsEnv, expr));
+      return {nsEnv, compiledForms: compiledForms.push(compiledForm)};
     },
     {
       nsEnv: a.resolveNSHeader(env, nsHeader),
@@ -108,7 +108,7 @@ function compileForms(env, loadedNS) {
 }
 
 function evalNodeForms(env, {nsEnv, compiledForms}) {
-  const nsCode = compileNodeNS(env, nsEnv, compiledForms.join('\n'));
+  const nsCode = compileNodeNS(env, nsEnv, compiledForms);
   const loadNS = evalJS(nsCode)(e, im);
 
   return env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv));

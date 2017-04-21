@@ -4,17 +4,17 @@ const {analyseForm} = require('../../src/js/analyser');
 const e = require('../../src/js/env');
 const {NSEnv, Env} = e;
 const im = require('immutable');
-const {Map, Record} = im;
+const {List, Map, Record} = im;
 const vm = require('vm');
 const assert = require('assert');
 const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./env.test');
 
-function evalCode(code) {
-  return new vm.Script(`(function (_env, _im) {return ${code};})`).runInThisContext()(e, im);
+function evalCompiledForm(compiledForm) {
+  return new vm.Script(`(function (_env, _im) {return ${compiledForm};})`).runInThisContext()(e, im);
 }
 
-function evalNSCode(code, nsEnv, env) {
-  return new vm.Script(compileNodeNS(env, nsEnv, code)).runInThisContext()(e, im);
+function evalNSCode(compiledForms, nsEnv, env) {
+  return new vm.Script(compileNodeNS(env, nsEnv, compiledForms)).runInThisContext()(e, im);
 }
 
 function compileForm(form, nsEnv, env) {
@@ -23,60 +23,60 @@ function compileForm(form, nsEnv, env) {
 
 describe('compiler', () => {
   it('loads a vector', () => {
-    const result = evalCode(compileForm('["hello world!"]').code);
+    const result = evalCompiledForm(compileForm('["hello world!"]').compiledForm);
     assert.deepEqual(result.toJS(), ['hello world!']);
   });
 
   it('loads a record', () => {
     const result = compileForm('(def record {a 1, b 2})', barNSEnv);
-    const loadNS = evalNSCode(result.code, result.nsEnv, fooEnv);
+    const loadNS = evalNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv);
     assert.deepEqual(loadNS(result.nsEnv).exports.get('record').value.toJS(), {a: 1, b: 2});
   });
 
   it ('loads a let', () => {
-    const result = evalCode(compileForm(`(let [x 1, y 2] [x y])`).code);
+    const result = evalCompiledForm(compileForm(`(let [x 1, y 2] [x y])`).compiledForm);
     assert.deepEqual(result.toJS(), [1, 2]);
   });
 
   it ('loads a double hello', () => {
     const r0 = compileForm(`(def hello "hello")`, new NSEnv());
     const r1 = compileForm(`(def double [hello hello])`, r0.nsEnv);
-    const result = evalCode(`(function () {${r0.code}\n${r1.code} \n return double;})()`);
+    const result = evalCompiledForm(`(function () {${r0.compiledForm}\n${r1.compiledForm} \n return double;})()`);
     assert.deepEqual(result.toJS(), ['hello', 'hello']);
   });
 
   it ('loads a fn', () => {
-    const expr = evalCode(compileForm(`(fn (x y) [y x])`).code);
+    const expr = evalCompiledForm(compileForm(`(fn (x y) [y x])`).compiledForm);
     assert.deepEqual(expr(3, 4).toJS(), [4, 3]);
   });
 
   it ('loads a call', () => {
-    const expr = evalCode(compileForm(`((fn (x y) [y x]) 3 4)`).code);
+    const expr = evalCompiledForm(compileForm(`((fn (x y) [y x]) 3 4)`).compiledForm);
     assert.deepEqual(expr.toJS(), [4, 3]);
   });
 
   it ('loads a defined function', () => {
     const def = compileForm(`(def (flip x y) [y x])`, new NSEnv());
     const expr = compileForm(`(flip 3 4)`, def.nsEnv);
-    const result = evalCode(`(function () {${def.code} \n return ${expr.code};})()`);
+    const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
     assert.deepEqual(result.toJS(), [4, 3]);
   });
 
   it ('execs a JS global function', () => {
-    const expr = evalCode(compileForm(`(js/process.cwd)`).code);
+    const expr = evalCompiledForm(compileForm(`(js/process.cwd)`).compiledForm);
     assert.equal(expr, process.cwd());
   });
 
   it ('calls a fn referred in from another NS', () => {
     const result = compileForm(`(def flipped (flip 3 4))`, barNSEnv, fooEnv);
-    const loadNS = evalNSCode(result.code, result.nsEnv, fooEnv);
+    const loadNS = evalNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv);
 
     assert.deepEqual(loadNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
   });
 
   it('calls a function in another namespace through its alias', () => {
     const result = compileForm(`(def flipped (foo/flip 3 4))`, barNSEnv, fooEnv);
-    const loadNS = evalNSCode(result.code, result.nsEnv, fooEnv);
+    const loadNS = evalNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv);
 
     assert.deepEqual(loadNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
   });

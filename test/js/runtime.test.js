@@ -3,8 +3,6 @@ const {Env, NSHeader} = require('../../src/js/env');
 const {readForms} = require('../../src/js/reader');
 const {Map, List, Set} = require('immutable');
 const {fakeNSResolver} = require('./fake-nsio');
-const nsio = require('../../src/js/nsio');
-const realNSIO = nsio({projectPaths: ["src/brj", "test/brj"]});
 
 var assert = require('assert');
 

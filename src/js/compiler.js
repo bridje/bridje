@@ -103,18 +103,18 @@ function compileExpr(env, nsEnv, expr) {
 
     return {
       nsEnv: nsEnv.setIn(List.of('exports', name), new Var({ns: nsEnv.ns, expr, name, safeName})),
-      code: `\n const ${safeName} = (function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};\n`
+      compiledForm: `\n const ${safeName} = (function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};\n`
     };
 
   } else {
     return {
       nsEnv,
-      code: `(function() {return ${compileExpr0(expr)};})()`
+      compiledForm: `(function() {return ${compileExpr0(expr)};})()`
     };
   }
 }
 
-function compileNodeNS(env, nsEnv, code) {
+function compileNodeNS(env, nsEnv, compiledForms) {
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`)
         .join("\n");
@@ -156,12 +156,16 @@ function compileNodeNS(env, nsEnv, code) {
 
        ${symbolInterns}
 
-       ${code}
+       ${compiledForms.join('\n')}
 
        return _nsEnv.set('exports', ${exports});
      }
    })
 `;
+}
+
+function compileWebNS(env, nsEnv, compiledForms) {
+  return compiledForms.join('\n');
 }
 
 module.exports = {
