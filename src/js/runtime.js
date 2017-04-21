@@ -66,20 +66,27 @@ function loadFormsAsync(env = new Env({}), ns, {resolveNSAsync, readForms}) {
     if (queuedNSs.isEmpty()) {
       return nsLoadOrder.map(ns => loadedNSs.get(ns));
     } else {
-      return Promise.all(queuedNSs.map(ns => resolveNSAsync_(ns))).then(results => {
-        queuedNSs = Set();
-        results.forEach(({ns, brj}) => {
-          const forms = readForms(brj);
-          const nsHeader = a.readNSHeader(ns, forms.first());
-          const dependentNSs = Set(nsHeader.aliases.valueSeq()).union(nsHeader.refers.valueSeq().flatten());
+      return Promise.all(queuedNSs.map(ns => resolveNSAsync_(ns)))
+        .then(
+          results => results.reduce(
+            ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, brj}) => {
+              const forms = readForms(brj);
+              const nsHeader = a.readNSHeader(ns, forms.first());
+              const dependentNSs =
+                Set(nsHeader.aliases.valueSeq())
+                .union(nsHeader.refers.valueSeq())
+                .delete('bridje.kernel')
+                .flatten();
 
-          loadedNSs = loadedNSs.set(ns, Map({nsHeader, forms: forms.shift()}));
-          nsLoadOrder = nsLoadOrder.unshift(ns);
-          queuedNSs = queuedNSs.delete(ns).delete('bridje.kernel').union(dependentNSs.subtract(queuedNSs, preloadedNSs));
-        });
+              return {
+                loadedNSs: loadedNSs.set(ns, Map({nsHeader, forms: forms.shift()})),
+                nsLoadOrder: nsLoadOrder.unshift(ns),
+                queuedNSs: queuedNSs.delete(ns).union(dependentNSs.subtract(queuedNSs, preloadedNSs))
+              };
+            },
+            {queuedNSs: Set(), loadedNSs, nsLoadOrder}))
 
-        return loadFormsAsync_({loadedNSs, nsLoadOrder, queuedNSs});
-      });
+        .then(loadFormsAsync_);
     }
   }
 
