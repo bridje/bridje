@@ -12,6 +12,7 @@ const flipVar = Var({
 
 const fooNSEnv = new NSEnv({
   ns: 'bridje.kernel.foo',
+  brjFile: '/bridje/kernel/foo.brj',
   exports: Map({
     'flip': flipVar
   })
@@ -23,6 +24,6 @@ const fooEnv = new Env({
   })});
 
 const barNSDecl = '(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}, aliases {foo bridje.kernel.foo}})';
-const barNSEnv = ana.resolveNSHeader(fooEnv, ana.readNSHeader('bridje.kernel.bar', reader.readForms(barNSDecl).first()));
+const barNSEnv = ana.resolveNSHeader(fooEnv, ana.readNSHeader('bridje.kernel.bar', '/bridje/kernel/bar.brj', reader.readForms(barNSDecl).first()));
 
 module.exports = {flipVar, fooEnv, fooNSEnv, barNSDecl, barNSEnv};

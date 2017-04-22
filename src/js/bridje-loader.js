@@ -1,16 +1,15 @@
 const {loadFormsAsync, compileForms, evalNodeForms, emitWebForms} = require('./runtime');
 const {readForms} = require('./reader');
-const {readNSHeader} = require('./analyser');
 const {Env} = require('./env');
 const {nsResolver} = require('./nsio');
 const {List, Map} = require('immutable');
 const path = require('path');
 
-function loadAsync(env, {input, isMainNS}, {resolveNSAsync, brjEnvImport}) {
-  return loadFormsAsync(env, {brj: input}, {resolveNSAsync, readForms}).then(
+function loadAsync(env, {brj, brjFile, isMainNS}, {resolveNSAsync}) {
+  return loadFormsAsync(env, {brj, brjFile}, {resolveNSAsync, readForms}).then(
     loadedNSs => {
       // TODO load more than one NS
-      let out = emitWebForms(env, compileForms(env, loadedNSs.last()), {brjEnvImport});
+      let out = emitWebForms(env, compileForms(env, loadedNSs.last()));
 
       if (isMainNS) {
         out += `main()`;
@@ -40,7 +39,7 @@ module.exports = function(input) {
 
   const done = this.async();
 
-  return loadAsync(env, {input, isMainNS: isMainNS.call(this)}, {
+  return loadAsync(env, {brj: input, brjFile: this.resourcePath, isMainNS: isMainNS.call(this)}, {
     resolveNSAsync: nsResolver(projectPaths)
   }).then(out => done(null, out));
 };

@@ -7,13 +7,13 @@ function nsResolver(projectPaths) {
     return `${ns.replace(/\./g, '/')}.${ext}`;
   }
 
-  function readFileAsync(path) {
+  function readFileAsync(filePath) {
     return new Promise((resolve, reject) => {
-      fs.readFile(path, 'utf8', (err, res) => {
+      fs.readFile(filePath, 'utf8', (err, res) => {
         if (err !== null) {
           reject(err);
         } else {
-          resolve(res);
+          resolve({brj: res, brjFile: filePath});
         }
       });
     });

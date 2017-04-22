@@ -164,7 +164,7 @@ function compileNodeNS(nsEnv, compiledForms) {
 `;
 }
 
-function compileWebNS(nsEnv, compiledForms) {
+function compileWebNS(env, nsEnv, compiledForms) {
   const exportEntries = nsEnv.exports
         .entrySeq()
         .map(([name, {safeName}]) => `'${name}': new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})`);

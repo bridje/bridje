@@ -1,8 +1,8 @@
 const {Record, Map} = require('immutable');
 
 const Env = Record({nsEnvs: Map({})});
-const NSEnv = Record({ns: null, exports: Map({}), refers: Map({}), aliases: Map({})});
-const NSHeader = Record({ns: null, refers: Map({}), aliases: Map({})});
+const NSEnv = Record({ns: null, brjFile: null, exports: Map({}), refers: Map({}), aliases: Map({})});
+const NSHeader = Record({ns: null, brjFile: null, refers: Map({}), aliases: Map({})});
 const Var = Record({ns: null, name: null, expr: undefined, value: undefined, safeName: undefined});
 
 var Symbol = Record({name: null});

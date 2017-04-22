@@ -58,11 +58,11 @@ function loadFormsAsync(env = new Env({}), ns, {resolveNSAsync, readForms}) {
   const preloadedNSs = Set(env.nsEnvs.keySeq());
 
   function resolveNSAsync_(ns) {
-    const brjPromise = typeof ns == 'object' ? Promise.resolve(ns.brj) : resolveNSAsync(ns, 'brj').catch(e => null);
+    const brjPromise = typeof ns == 'object' ? Promise.resolve({brj: ns.brj, brjFile: ns.brjFile}) : resolveNSAsync(ns, 'brj').catch(e => null);
     ns = typeof ns == 'string' ? ns : undefined;
 
     // TODO also pull in from AoT
-    return brjPromise.then(brj => ({ns, brj}));
+    return brjPromise.then(({brj, brjFile}) => ({ns, brj, brjFile}));
   }
 
   function loadFormsAsync_ ({loadedNSs = Map(), nsLoadOrder = List(), queuedNSs}) {
@@ -72,9 +72,9 @@ function loadFormsAsync(env = new Env({}), ns, {resolveNSAsync, readForms}) {
       return Promise.all(queuedNSs.map(ns => resolveNSAsync_(ns)))
         .then(
           results => results.reduce(
-            ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, brj}) => {
+            ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, brj, brjFile}) => {
               const forms = readForms(brj);
-              const nsHeader = a.readNSHeader(ns, forms.first());
+              const nsHeader = a.readNSHeader(ns, brjFile, forms.first());
               ns = nsHeader.ns;
 
               const dependentNSs =
@@ -128,7 +128,7 @@ function evalNodeForms(env, {nsEnv, compiledForms}) {
 
 function emitWebForms(env, {nsEnv, compiledForms}) {
   // TODO probably loads more to do here
-  return compileWebNS(nsEnv, compiledForms);
+  return compileWebNS(env, nsEnv, compiledForms);
 }
 
 module.exports = {EnvQueue, loadFormsAsync, compileForms, evalNodeForms, emitWebForms};

@@ -8,13 +8,14 @@ const {fooEnv, fooNSEnv, flipVar, barNSDecl, barNSEnv} = require('./env.test');
 
 describe('analyser', () => {
   it('reads an NS header', () => {
-    const nsHeader = ana.readNSHeader('bridje.kernel.bar', reader.readForms(`
+    const nsHeader = ana.readNSHeader('bridje.kernel.bar', '/bridje/kernel/bar.brj', reader.readForms(`
 (ns bridje.kernel.bar
   {refers {bridje.kernel.foo [flip flop]}
    aliases {baz bridje.kernel.baz}})`).first());
 
     assert.deepEqual(nsHeader.toJS(), {
       ns: 'bridje.kernel.bar',
+      brjFile: '/bridje/kernel/bar.brj',
       refers: {
         flip: 'bridje.kernel.foo',
         flop: 'bridje.kernel.foo'
@@ -28,6 +29,7 @@ describe('analyser', () => {
   it('resolves an NS header', () => {
     const nsEnv = ana.resolveNSHeader(fooEnv, new ana.NSHeader({
       ns: 'bridje.kernel.bar',
+      brjFile: '/bridje/kernel/bar.brj',
       refers: Map({
         flip: 'bridje.kernel.foo'
       }),

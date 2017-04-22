@@ -4,7 +4,7 @@ function fakeNSResolver(filesByExt) {
     if (nsStr === undefined) {
       return Promise.reject({error: 'ENOENT'});
     } else {
-      return Promise.resolve(nsStr);
+      return Promise.resolve({brj: nsStr, brjFile: `/${ns.split('.').join('/')}.brj`});
     }
   };
 }

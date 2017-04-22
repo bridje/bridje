@@ -8,8 +8,8 @@ const {fakeNSResolver} = require('./fake-nsio');
 const assert = require('assert');
 const {wrapWebJS} = require('./webpack.test.js');
 
-async function requireWebNSAsync(env, {input, isMainNS}, {requires, filesByExt}) {
-  const out = await loadAsync(env, {input, isMainNS}, {
+async function requireWebNSAsync(env, {brj, brjFile, isMainNS}, {requires, filesByExt}) {
+  const out = await loadAsync(env, {brj, brjFile, isMainNS}, {
     resolveNSAsync: fakeNSResolver(filesByExt),
     readForms
   });
@@ -20,7 +20,8 @@ async function requireWebNSAsync(env, {input, isMainNS}, {requires, filesByExt})
 describe ('bridje-loader', () => {
   it ('loads a simple NS', async () => {
     const {exports} = await requireWebNSAsync(await baseEnvAsync, {
-      input: `(ns bridje.kernel.foo) (def hello ["hello world"])`,
+      brj: `(ns bridje.kernel.foo) (def hello ["hello world"])`,
+      brjFile: '/bridje/kernel/foo.brj',
       isMainNS: false
     }, {requires: Map({}), filesByExt: {}});
 

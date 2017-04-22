@@ -18,8 +18,8 @@ function evalNSCode(compiledForms, nsEnv) {
   return new vm.Script(compileNodeNS(nsEnv, compiledForms)).runInThisContext()(e, im);
 }
 
-function evalWebNSCode(compiledForms, nsEnv, requires) {
-  return wrapWebJS(compileWebNS(nsEnv, compiledForms), requires);
+function evalWebNSCode(compiledForms, nsEnv, env, requires) {
+  return wrapWebJS(compileWebNS(env, nsEnv, compiledForms), requires);
 }
 
 function compileForm(form, nsEnv, env) {
@@ -88,7 +88,7 @@ describe('compiler', () => {
 
   it('exports a webpack var', () => {
     const result = compileForm(`(def hello ["hello world"])`, new NSEnv());
-    const webNS = evalWebNSCode(List.of(result.compiledForm), result.nsEnv, Map({}));
+      const webNS = evalWebNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv, Map({}));
 
     assert.deepEqual(webNS.get('hello').value.toJS(), ['hello world']);
   });

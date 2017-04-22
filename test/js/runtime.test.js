@@ -43,14 +43,15 @@ describe('runtime', () => {
   describe ('loadFormsAsync', () => {
     it ('loads an ns from a string', () => {
       const brj = `(ns bridje.kernel.foo) (def hello "hello world!")`;
+      const brjFile = '/bridje/kernel/foo.brj';
 
       return baseEnvAsync.then(
-        env => loadFormsAsync(env, {brj}, {resolveNSAsync: fakeNSResolver({}), readForms}).then(
+        env => loadFormsAsync(env, {brj, brjFile}, {resolveNSAsync: fakeNSResolver({}), readForms}).then(
           loadedNSs => {
             assert.equal(loadedNSs.size, 1);
             const {nsHeader, forms} = loadedNSs.first().toObject();
 
-            assert.deepEqual(nsHeader.toJS(), {ns: 'bridje.kernel.foo', aliases: {}, refers: {}});
+            assert.deepEqual(nsHeader.toJS(), {ns: 'bridje.kernel.foo', brjFile, aliases: {}, refers: {}});
             assert.deepEqual(forms.toJS(), readForms(brj).shift().toJS());
           }));
     });

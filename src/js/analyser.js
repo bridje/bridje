@@ -6,10 +6,10 @@ const {NSEnv, NSHeader, sym} = require('./env');
 var f = require('./form');
 var lv = require('./localVar');
 
-function nsSymParser(ns) {
+function nsSymParser(ns, brjFile) {
   return symForm => {
     if (ns === undefined || symForm.sym.name === ns) {
-      return p.pure(p.successResult(new NSHeader({ns: symForm.sym.name})));
+      return p.pure(p.successResult(new NSHeader({ns: symForm.sym.name, brjFile})));
     } else {
       return p.pure(p.failResult(`Unexpected NS, expecting '${ns}', got '${symForm.sym}'`));
     }
@@ -106,12 +106,12 @@ function nsOptsParser(nsHeader) {
         }));
 }
 
-function readNSHeader(ns, form) {
+function readNSHeader(ns, brjFile, form) {
   return p.parseForm(form, p.ListParser.then(listForm => {
     return p.innerFormsParser(
       listForm.forms,
       p.isSymbol(sym('ns')).then(
-        _ => p.SymbolParser.then(nsSymParser(ns)))
+        _ => p.SymbolParser.then(nsSymParser(ns, brjFile)))
         .then(nsHeader => p.anyOf(p.parseEnd(nsHeader), p.RecordParser.then(nsOptsParser(nsHeader)))));
   })).orThrow();
 }
@@ -140,7 +140,7 @@ function resolveNSHeader(env, header) {
     return [sym, aliasedNSEnv];
   });
 
-  return new NSEnv({ns: header.ns, refers, aliases});
+  return new NSEnv({ns: header.ns, brjFile: header.brjFile, refers, aliases});
 }
 
 function analyseForm(env, nsEnv, form) {
