@@ -6,6 +6,20 @@ const {nsResolver} = require('./nsio');
 const {List, Map} = require('immutable');
 const path = require('path');
 
+function loadAsync(env, {input, isMainNS}, {resolveNSAsync}) {
+  return loadFormsAsync(env, {brj: input}, {resolveNSAsync, readForms}).then(
+    loadedNSs => {
+      // TODO load more than one NS
+      let out = emitWebForms(env, compileForms(env, loadedNSs.last()));
+
+      if (isMainNS) {
+        out += `main()`;
+      }
+
+      return out;
+    });
+}
+
 function isMainNS() {
   const entryPoints = typeof this.options.entry == 'string' ? [this.options.entry] : this.options.entry;
 
@@ -26,18 +40,9 @@ module.exports = function(input) {
 
   const done = this.async();
 
-  loadFormsAsync(env, {brj: input}, {
-    resolveNSAsync: nsResolver(projectPaths),
-    readForms
-  }).then(loadedNSs => {
-    // TODO load more than one NS
-    let out = emitWebForms(env, compileForms(env, loadedNSs.last()));
-
-    if (isMainNS.call(this)) {
-      out += `main()`;
-    }
-
-    done(null, out);
-  });
-
+  return loadAsync(env, {input, isMainNS: isMainNS.call(this)}, {
+    resolveNSAsync: nsResolver(projectPaths)
+  }).then(out => done(null, out));
 };
+
+module.exports.loadAsync = loadAsync;
