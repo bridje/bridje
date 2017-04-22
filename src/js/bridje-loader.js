@@ -6,11 +6,11 @@ const {nsResolver} = require('./nsio');
 const {List, Map} = require('immutable');
 const path = require('path');
 
-function loadAsync(env, {input, isMainNS}, {resolveNSAsync}) {
+function loadAsync(env, {input, isMainNS}, {resolveNSAsync, brjEnvImport}) {
   return loadFormsAsync(env, {brj: input}, {resolveNSAsync, readForms}).then(
     loadedNSs => {
       // TODO load more than one NS
-      let out = emitWebForms(env, compileForms(env, loadedNSs.last()));
+      let out = emitWebForms(env, compileForms(env, loadedNSs.last()), {brjEnvImport});
 
       if (isMainNS) {
         out += `main()`;

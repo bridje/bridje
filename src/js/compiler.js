@@ -165,7 +165,19 @@ function compileNodeNS(env, nsEnv, compiledForms) {
 }
 
 function compileWebNS(env, nsEnv, compiledForms) {
-  return compiledForms.join('\n');
+  const exportEntries = nsEnv.exports
+        .entrySeq()
+        .map(([name, {safeName}]) => `'${name}': new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})`);
+
+
+  return `
+  import _env from '../../../../src/js/env';
+  import _im from 'immutable';
+
+  ${compiledForms.join('\n')}
+
+  export default _im.Map({${exportEntries.join(', ')}});
+`;
 }
 
 module.exports = {

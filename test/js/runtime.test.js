@@ -3,8 +3,7 @@ const {Env, NSHeader} = require('../../src/js/env');
 const {readForms} = require('../../src/js/reader');
 const {Map, List, Set} = require('immutable');
 const {fakeNSResolver} = require('./fake-nsio');
-
-var assert = require('assert');
+const assert = require('assert');
 
 describe('runtime', () => {
   function requireNSAsync(env, ns, filesByExt) {
@@ -56,4 +55,6 @@ describe('runtime', () => {
           }));
     });
   });
+
+  module.exports = {baseEnvAsync};
 });
