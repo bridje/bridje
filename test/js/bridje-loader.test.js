@@ -9,7 +9,7 @@ const assert = require('assert');
 const {wrapWebJS} = require('./webpack.test.js');
 
 async function requireWebNSAsync(env, {brj, brjFile, isMainNS}, {requires, filesByExt}) {
-  const out = await loadAsync(env, {brj, brjFile, isMainNS}, {
+  const {out} = await loadAsync(env, {brj, brjFile, isMainNS}, {
     resolveNSAsync: fakeNSResolver(filesByExt),
     readForms
   });

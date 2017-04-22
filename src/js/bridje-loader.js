@@ -2,7 +2,7 @@ const {loadFormsAsync, compileForms, evalNodeForms, emitWebForms} = require('./r
 const {readForms} = require('./reader');
 const {Env} = require('./env');
 const {nsResolver} = require('./nsio');
-const {List, Map} = require('immutable');
+const {List, Set, Map} = require('immutable');
 const path = require('path');
 
 function loadAsync(env, {brj, brjFile, isMainNS}, {resolveNSAsync}) {
@@ -25,7 +25,7 @@ function loadAsync(env, {brj, brjFile, isMainNS}, {resolveNSAsync}) {
         out += `main()`;
       }
 
-      return out;
+      return {out, nsEnv, env};
     });
 }
 
@@ -47,11 +47,16 @@ module.exports = function(input) {
 
   const {projectPaths} = this.loaders[this.loaderIndex].options;
 
+  this.cacheable();
   const done = this.async();
 
   return loadAsync(env, {brj: input, brjFile: this.resourcePath, isMainNS: isMainNS.call(this)}, {
     resolveNSAsync: nsResolver(projectPaths)
-  }).then(out => done(null, out));
+  }).then(({out, nsEnv, env}) => {
+    Set(nsEnv.refers.valueSeq().map(r => r.ns)).union(Set(nsEnv.aliases.valueSeq()).map(a => a.ns))
+      .forEach(ns => this.addDependency(env.nsEnvs.get(ns).brjFile));
+    done(null, out);
+  });
 };
 
 module.exports.loadAsync = loadAsync;
