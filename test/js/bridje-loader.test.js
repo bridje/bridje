@@ -1,21 +1,12 @@
 const {loadAsync} = require('../../src/js/bridje-loader');
-const brjEnv = require('../../src/js/env');
-const {Env, NSHeader} = brjEnv;
+const {Env, NSHeader} = require('../../src/js/env');
 const {loadFormsAsync, compileForms, evalNodeForms} = require('../../src/js/runtime');
 const {baseEnvAsync} = require('./runtime.test.js');
 const {readForms} = require('../../src/js/reader');
-const im = require('immutable');
-const {Map, List, Set} = im;
+const {Map, List, Set} = require('immutable');
 const {fakeNSResolver} = require('./fake-nsio');
-const babel = require('babel-core');
-const vm = require('vm');
 const assert = require('assert');
-
-function wrapWebJS(code, requires) {
-  code = babel.transform(code, {plugins: ["transform-es2015-modules-commonjs"]}).code;
-  const f = new vm.Script(`(function (require, exports) {${code}; return exports;})`).runInThisContext();
-  return f(req => requires.get(req), {});
-}
+const {wrapWebJS} = require('./webpack.test.js');
 
 async function requireWebNSAsync(env, {input, isMainNS}, {requires, filesByExt}) {
   const out = await loadAsync(env, {input, isMainNS}, {
@@ -23,7 +14,7 @@ async function requireWebNSAsync(env, {input, isMainNS}, {requires, filesByExt})
     readForms
   });
 
-  return {exports: wrapWebJS(out, requires.set('immutable', im).set('../../../../src/js/env', brjEnv)).default};
+  return {exports: wrapWebJS(out, requires).default};
 }
 
 describe ('bridje-loader', () => {
