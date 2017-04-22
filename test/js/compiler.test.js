@@ -8,6 +8,7 @@ const {List, Map, Record} = im;
 const vm = require('vm');
 const assert = require('assert');
 const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./env.test');
+const {wrapWebJS} = require('./webpack.test.js');
 
 function evalCompiledForm(compiledForm) {
   return new vm.Script(`(function (_env, _im) {return ${compiledForm};})`).runInThisContext()(e, im);
@@ -15,6 +16,10 @@ function evalCompiledForm(compiledForm) {
 
 function evalNSCode(compiledForms, nsEnv) {
   return new vm.Script(compileNodeNS(nsEnv, compiledForms)).runInThisContext()(e, im);
+}
+
+function evalWebNSCode(compiledForms, nsEnv, requires) {
+  return wrapWebJS(compileWebNS(nsEnv, compiledForms), requires);
 }
 
 function compileForm(form, nsEnv, env) {
@@ -79,5 +84,12 @@ describe('compiler', () => {
     const loadNS = evalNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv);
 
     assert.deepEqual(loadNS(barNSEnv).exports.get('flipped').value.toJS(), [4, 3]);
+  });
+
+  it('exports a webpack var', () => {
+    const result = compileForm(`(def hello ["hello world"])`, new NSEnv());
+    const webNS = evalWebNSCode(List.of(result.compiledForm), result.nsEnv, Map({}));
+
+    assert.deepEqual(webNS.get('hello').value.toJS(), ['hello world']);
   });
 });
