@@ -141,8 +141,6 @@ function compileNodeNS(nsEnv, compiledForms) {
         .join(', ');
 
   const exports = `_im.Map(_im.List.of(${exportEntries}))`;
-  const nsHeaderRefers = `_im.Map(_im.List.of(${nsEnv.refers.entrySeq().map(([k, v]) => `['${k}', '${v.ns}']`).join(', ')}))`;
-  const nsHeaderAliases = `_im.Map(_im.List.of(${nsEnv.aliases.entrySeq().map(([k, v]) => `['${k}', '${v.ns}']`).join(', ')}))`;
 
   return `
 
@@ -173,11 +171,26 @@ function compileWebNS(env, nsEnv, compiledForms) {
     return `_import_${makeSafe(ns.split('.').join('$'))}`;
   }
 
-  const imports = Set(nsEnv.refers.valueSeq().map(referVar => referVar.ns))
+  const imports = Set(nsEnv.refers.valueSeq().map(referVar => referVar.ns)).union(Set(nsEnv.aliases.valueSeq().map(nsEnv => nsEnv.ns)))
         .map(importNS => `import ${importNSVarName(importNS)} from '${env.nsEnvs.get(importNS).brjFile}';`);
 
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = ${importNSVarName(referVar.ns)}.get('${referVar.name}').value;`);
+
+
+  const subExprs = nsEnv.exports.valueSeq()
+        .flatMap(e => e.expr.subExprs());
+
+  const aliases =
+        new Set(subExprs
+                .filter(e => e.exprType == 'var' && e.alias != null))
+        .map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = ${importNSVarName(ve.var.ns)}.get('${ve.var.name}').value;`);
+
+  const symbolInterns = new Set(subExprs
+                                .filter(e => e.exprType == 'record')
+                                .flatMap(r => r.entries)
+                                .map(e => e.key))
+        .map(sym => `const ${internedSymName(sym)} = new _env.Symbol({name: '${sym.name}'});`);
 
   return `
   import _env from '../../../../src/js/env';
@@ -186,6 +199,9 @@ function compileWebNS(env, nsEnv, compiledForms) {
   ${imports.join('\n')}
 
   ${refers.join('\n')}
+  ${aliases.join('\n')}
+
+  ${symbolInterns.join('\n')};
 
   ${compiledForms.join('\n')}
 
