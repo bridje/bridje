@@ -40,4 +40,20 @@ describe('runtime', () => {
 
     assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.bar').exports.get('hello').value.toJS(), [3, 4]);
   });
+
+  describe ('loadFormsAsync', () => {
+    it ('loads an ns from a string', () => {
+      const brj = `(ns bridje.kernel.foo) (def hello "hello world!")`;
+
+      return baseEnvAsync.then(
+        env => loadFormsAsync(env, {brj}, {resolveNSAsync: fakeNSResolver({}), readForms}).then(
+          loadedNSs => {
+            assert.equal(loadedNSs.size, 1);
+            const {nsHeader, forms} = loadedNSs.first().toObject();
+
+            assert.deepEqual(nsHeader.toJS(), {ns: 'bridje.kernel.foo', aliases: {}, refers: {}});
+            assert.deepEqual(forms.toJS(), readForms(brj).shift().toJS());
+          }));
+    });
+  });
 });

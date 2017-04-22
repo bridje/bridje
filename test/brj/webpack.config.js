@@ -1,3 +1,5 @@
+const path = require('path');
+
 module.exports = {
   entry: "./bridje/kernel/hello-world.brj",
   output: {
@@ -8,7 +10,10 @@ module.exports = {
     rules: [{
       test: /\.brj$/,
       use: {
-        loader: '../../src/js/bridje-loader'
+        loader: '../../src/js/bridje-loader',
+        options: {
+          projectPaths: [__dirname, path.resolve(__dirname, '../../src/brj')]
+        }
       }
     }]
   }

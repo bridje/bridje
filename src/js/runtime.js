@@ -58,8 +58,11 @@ function loadFormsAsync(env = new Env({}), ns, {resolveNSAsync, readForms}) {
   const preloadedNSs = Set(env.nsEnvs.keySeq());
 
   function resolveNSAsync_(ns) {
+    const brjPromise = typeof ns == 'object' ? Promise.resolve(ns.brj) : resolveNSAsync(ns, 'brj').catch(e => null);
+    ns = typeof ns == 'string' ? ns : undefined;
+
     // TODO also pull in from AoT
-    return resolveNSAsync(ns, 'brj').catch(e => null).then(brj => ({ns, brj}));
+    return brjPromise.then(brj => ({ns, brj}));
   }
 
   function loadFormsAsync_ ({loadedNSs = Map(), nsLoadOrder = List(), queuedNSs}) {
@@ -72,6 +75,8 @@ function loadFormsAsync(env = new Env({}), ns, {resolveNSAsync, readForms}) {
             ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, brj}) => {
               const forms = readForms(brj);
               const nsHeader = a.readNSHeader(ns, forms.first());
+              ns = nsHeader.ns;
+
               const dependentNSs =
                 Set(nsHeader.aliases.valueSeq())
                 .union(nsHeader.refers.valueSeq())

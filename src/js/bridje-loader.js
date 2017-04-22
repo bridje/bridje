@@ -22,15 +22,22 @@ module.exports = function(input) {
   // TODO creating a new env every time. VERY BAD.
   const env = new Env({});
 
-  // TODO got to call through to loadFormsAsync to pull in other namespaces
-  const forms = readForms(input);
+  const {projectPaths} = this.loaders[this.loaderIndex].options;
 
-  const nsHeader = readNSHeader(undefined, forms.first());
-  let out = emitWebForms(env, compileForms(env, Map({nsHeader, forms: forms.shift()})));
+  const done = this.async();
 
-  if (isMainNS.call(this)) {
-    out += `main()`;
-  }
+  loadFormsAsync(env, {brj: input}, {
+    resolveNSAsync: nsResolver(projectPaths),
+    readForms
+  }).then(loadedNSs => {
+    // TODO load more than one NS
+    let out = emitWebForms(env, compileForms(env, loadedNSs.last()));
 
-  return out;
+    if (isMainNS.call(this)) {
+      out += `main()`;
+    }
+
+    done(null, out);
+  });
+
 };
