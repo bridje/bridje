@@ -27,4 +27,20 @@ describe ('bridje-loader', () => {
 
     assert.deepEqual(exports.get('hello').value.toJS(), ['hello world']);
   });
+
+  it ('loads multiple namespaces', async () => {
+    const {exports} = await requireWebNSAsync(await baseEnvAsync, {
+      brj: `(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}}) (def flipped (flip "world" "hello"))`,
+      brjFile: '/bridje/kernel/bar.brj',
+      isMainNS: false
+    }, {
+      requires: Map({
+        '/bridje/kernel/foo.brj': Map({flip: {value: (x, y) => List.of(y, x)}})
+      }),
+      filesByExt: {
+        brj: {'bridje.kernel.foo': `(ns bridje.kernel.foo) (def (flip x y) [y x])`}
+      }});
+
+    assert.deepEqual(exports.get('flipped').value.toJS(), ['hello', 'world']);
+  });
 });

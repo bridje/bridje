@@ -116,31 +116,18 @@ function compileExpr(env, nsEnv, expr) {
 
 function compileNodeNS(nsEnv, compiledForms) {
   const refers = nsEnv.refers.entrySeq()
-        .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`)
-        .join("\n");
+        .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`);
 
-  const subExprs = nsEnv.exports.valueSeq()
-        .flatMap(e => e.expr.subExprs());
+  const subExprs = nsEnv.exports.valueSeq().flatMap(e => e.expr.subExprs());
 
-  const aliases =
-        new Set(subExprs
-                .filter(e => e.exprType == 'var' && e.alias != null))
-        .map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = _aliases.get('${ve.alias}').exports.get('${ve.var.name}').value;`)
-        .join('\n');
+  const aliases = new Set(subExprs.filter(e => e.exprType == 'var' && e.alias != null))
+        .map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = _aliases.get('${ve.alias}').exports.get('${ve.var.name}').value;`);
 
-  const symbolInterns = new Set(subExprs
-                                .filter(e => e.exprType == 'record')
-                                .flatMap(r => r.entries)
-                                .map(e => e.key))
-        .map(sym => `const ${internedSymName(sym)} = new _env.Symbol({name: '${sym.name}'});`)
-        .join('\n');
+  const recordKeys = new Set(subExprs.filter(e => e.exprType == 'record').flatMap(r => r.entries).map(e => e.key));
+  const symbolInterns = recordKeys.map(sym => `const ${internedSymName(sym)} = new _env.Symbol({name: '${sym.name}'});`);
 
-  const exportEntries = nsEnv.exports
-        .entrySeq()
-        .map(([name, {safeName}]) => `['${name}', new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})]`)
-        .join(', ');
-
-  const exports = `_im.Map(_im.List.of(${exportEntries}))`;
+  const exportEntries = nsEnv.exports.entrySeq()
+        .map(([name, {safeName}]) => `['${name}', new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})]`);
 
   return `
 
@@ -148,49 +135,42 @@ function compileNodeNS(nsEnv, compiledForms) {
      return function(_nsEnv) {
        const _refers = _nsEnv.refers;
        const _aliases = _nsEnv.aliases;
-       ${refers}
+       ${refers.join('\n')}
 
-       ${aliases}
+       ${aliases.join('\n')}
 
-       ${symbolInterns}
+       ${symbolInterns.join('\n')}
 
        ${compiledForms.join('\n')}
 
-       return _nsEnv.set('exports', ${exports});
+       return _nsEnv.set('exports', _im.Map(_im.List.of(${exportEntries.join(',')})));
      }
    })
 `;
 }
 
 function compileWebNS(env, nsEnv, compiledForms) {
-  const exportEntries = nsEnv.exports
-        .entrySeq()
+  const exportEntries = nsEnv.exports.entrySeq()
         .map(([name, {safeName}]) => `'${name}': new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})`);
 
   function importNSVarName(ns) {
     return `_import_${makeSafe(ns.split('.').join('$'))}`;
   }
 
-  const imports = Set(nsEnv.refers.valueSeq().map(referVar => referVar.ns)).union(Set(nsEnv.aliases.valueSeq().map(nsEnv => nsEnv.ns)))
+  const imports = Set(nsEnv.refers.valueSeq().map(referVar => referVar.ns))
+        .union(Set(nsEnv.aliases.valueSeq().map(nsEnv => nsEnv.ns)))
         .map(importNS => `import ${importNSVarName(importNS)} from '${env.nsEnvs.get(importNS).brjFile}';`);
 
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = ${importNSVarName(referVar.ns)}.get('${referVar.name}').value;`);
 
+  const subExprs = nsEnv.exports.valueSeq().flatMap(e => e.expr.subExprs());
 
-  const subExprs = nsEnv.exports.valueSeq()
-        .flatMap(e => e.expr.subExprs());
+  const aliasedVarExprs = new Set(subExprs.filter(e => e.exprType == 'var' && e.alias != null));
+  const aliases = aliasedVarExprs.map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = ${importNSVarName(ve.var.ns)}.get('${ve.var.name}').value;`);
 
-  const aliases =
-        new Set(subExprs
-                .filter(e => e.exprType == 'var' && e.alias != null))
-        .map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = ${importNSVarName(ve.var.ns)}.get('${ve.var.name}').value;`);
-
-  const symbolInterns = new Set(subExprs
-                                .filter(e => e.exprType == 'record')
-                                .flatMap(r => r.entries)
-                                .map(e => e.key))
-        .map(sym => `const ${internedSymName(sym)} = new _env.Symbol({name: '${sym.name}'});`);
+  const recordKeys = new Set(subExprs.filter(e => e.exprType == 'record').flatMap(r => r.entries).map(e => e.key));
+  const symbolInterns = recordKeys.map(sym => `const ${internedSymName(sym)} = new _env.Symbol({name: '${sym.name}'});`);
 
   return `
   import _env from '../../../../src/js/env';

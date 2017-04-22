@@ -8,8 +8,18 @@ const path = require('path');
 function loadAsync(env, {brj, brjFile, isMainNS}, {resolveNSAsync}) {
   return loadFormsAsync(env, {brj, brjFile}, {resolveNSAsync, readForms}).then(
     loadedNSs => {
+      let nsEnv, compiledForms;
+      ({env, nsEnv, compiledForms} = loadedNSs.reduce(({env}, loadedNS) => {
+        const {nsEnv, compiledForms} = compileForms(env, loadedNS);
+        return {
+          env: env.setIn(['nsEnvs', nsEnv.ns], nsEnv),
+          nsEnv,
+          compiledForms
+        };
+      }, {env}));
+
       // TODO load more than one NS
-      let out = emitWebForms(env, compileForms(env, loadedNSs.last()));
+      let out = emitWebForms(env, {nsEnv, compiledForms});
 
       if (isMainNS) {
         out += `main()`;

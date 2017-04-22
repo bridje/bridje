@@ -1,4 +1,5 @@
-(ns bridje.kernel.hello-world)
+(ns bridje.kernel.hello-world
+  {refers {bridje.kernel.hello-msg [hello]}})
 
 (def (main args)
-  (js/console.log "Hello world!"))
+  (js/console.log hello))

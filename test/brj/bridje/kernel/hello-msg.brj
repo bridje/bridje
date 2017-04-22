@@ -1,0 +1,4 @@
+(ns bridje.kernel.hello-msg)
+
+(def hello
+  "Hello world!")

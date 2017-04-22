@@ -58,18 +58,22 @@ function loadFormsAsync(env = new Env({}), ns, {resolveNSAsync, readForms}) {
   const preloadedNSs = Set(env.nsEnvs.keySeq());
 
   function resolveNSAsync_(ns) {
-    const brjPromise = typeof ns == 'object' ? Promise.resolve({brj: ns.brj, brjFile: ns.brjFile}) : resolveNSAsync(ns, 'brj').catch(e => null);
+    const brjPromise = typeof ns == 'object' ? Promise.resolve({brj: ns.brj, brjFile: ns.brjFile}) : resolveNSAsync(ns, 'brj');
     ns = typeof ns == 'string' ? ns : undefined;
 
     // TODO also pull in from AoT
     return brjPromise.then(({brj, brjFile}) => ({ns, brj, brjFile}));
   }
 
-  function loadFormsAsync_ ({loadedNSs = Map(), nsLoadOrder = List(), queuedNSs}) {
+  function loadFormsAsync_({loadedNSs = Map(), nsLoadOrder = List(), queuedNSs}) {
     if (queuedNSs.isEmpty()) {
       return nsLoadOrder.map(ns => loadedNSs.get(ns));
     } else {
       return Promise.all(queuedNSs.map(ns => resolveNSAsync_(ns)))
+        .catch(err => {
+          console.log('err', err);
+          return Promise.reject(err);
+        })
         .then(
           results => results.reduce(
             ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, brj, brjFile}) => {
