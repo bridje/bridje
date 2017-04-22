@@ -97,5 +97,12 @@ describe('compiler', () => {
 
       assert.deepEqual(webNS.get('hello').value.toJS(), ['hello world']);
     });
+
+    it ('imports a fn referred from another ns', () => {
+      const result = compileForm(`(def flipped (flip 3 4))`, barNSEnv, fooEnv);
+      const webNS = evalWebNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv, Map({'/bridje/kernel/foo.brj': Map({'flip': flipVar})}));
+
+      assert.deepEqual(webNS.get('flipped').value.toJS(), [4, 3]);
+    });
   });
 });

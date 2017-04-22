@@ -169,10 +169,23 @@ function compileWebNS(env, nsEnv, compiledForms) {
         .entrySeq()
         .map(([name, {safeName}]) => `'${name}': new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})`);
 
+  function importNSVarName(ns) {
+    return `_import_${makeSafe(ns.split('.').join('$'))}`;
+  }
+
+  const imports = Set(nsEnv.refers.valueSeq().map(referVar => referVar.ns))
+        .map(importNS => `import ${importNSVarName(importNS)} from '${env.nsEnvs.get(importNS).brjFile}';`);
+
+  const refers = nsEnv.refers.entrySeq()
+        .map(([name, referVar]) => `const ${referName(referVar.safeName)} = ${importNSVarName(referVar.ns)}.get('${referVar.name}').value;`);
 
   return `
   import _env from '../../../../src/js/env';
   import _im from 'immutable';
+
+  ${imports.join('\n')}
+
+  ${refers.join('\n')}
 
   ${compiledForms.join('\n')}
 
