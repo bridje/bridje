@@ -14,7 +14,7 @@ async function requireWebNSAsync(env, {input, isMainNS}, {requires, filesByExt})
     readForms
   });
 
-  return {exports: wrapWebJS(out, requires).default};
+  return {exports: wrapWebJS(out, requires)};
 }
 
 describe ('bridje-loader', () => {

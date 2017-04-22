@@ -1,4 +1,4 @@
-const {compileExpr, compileNodeNS} = require('../../src/js/compiler');
+const {compileExpr, compileNodeNS, compileWebNS} = require('../../src/js/compiler');
 const {readForms} = require('../../src/js/reader');
 const {analyseForm} = require('../../src/js/analyser');
 const e = require('../../src/js/env');
@@ -13,8 +13,8 @@ function evalCompiledForm(compiledForm) {
   return new vm.Script(`(function (_env, _im) {return ${compiledForm};})`).runInThisContext()(e, im);
 }
 
-function evalNSCode(compiledForms, nsEnv, env) {
-  return new vm.Script(compileNodeNS(env, nsEnv, compiledForms)).runInThisContext()(e, im);
+function evalNSCode(compiledForms, nsEnv) {
+  return new vm.Script(compileNodeNS(nsEnv, compiledForms)).runInThisContext()(e, im);
 }
 
 function compileForm(form, nsEnv, env) {
@@ -29,7 +29,7 @@ describe('compiler', () => {
 
   it('loads a record', () => {
     const result = compileForm('(def record {a 1, b 2})', barNSEnv);
-    const loadNS = evalNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv);
+    const loadNS = evalNSCode(List.of(result.compiledForm), result.nsEnv);
     assert.deepEqual(loadNS(result.nsEnv).exports.get('record').value.toJS(), {a: 1, b: 2});
   });
 

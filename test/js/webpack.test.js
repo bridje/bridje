@@ -6,7 +6,7 @@ const vm = require('vm');
 
 function wrapWebJS(code, requires) {
   code = babel.transform(code, {plugins: ["transform-es2015-modules-commonjs"]}).code;
-  const f = new vm.Script(`(function (require, exports) {${code}; return exports;})`).runInThisContext();
+  const f = new vm.Script(`(function (require, exports) {${code}; return exports.default;})`).runInThisContext();
   requires = requires.set('immutable', im).set('../../../../src/js/env', brjEnv);
   return f(req => requires.get(req), {});
 }

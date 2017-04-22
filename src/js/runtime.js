@@ -120,7 +120,7 @@ function compileForms(env, loadedNS) {
 }
 
 function evalNodeForms(env, {nsEnv, compiledForms}) {
-  const nsCode = compileNodeNS(env, nsEnv, compiledForms);
+  const nsCode = compileNodeNS(nsEnv, compiledForms);
   const loadNS = evalJS(nsCode)(e, im);
 
   return env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv));
@@ -128,7 +128,7 @@ function evalNodeForms(env, {nsEnv, compiledForms}) {
 
 function emitWebForms(env, {nsEnv, compiledForms}) {
   // TODO probably loads more to do here
-  return compileWebNS(env, nsEnv, compiledForms);
+  return compileWebNS(nsEnv, compiledForms);
 }
 
 module.exports = {EnvQueue, loadFormsAsync, compileForms, evalNodeForms, emitWebForms};

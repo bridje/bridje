@@ -114,7 +114,7 @@ function compileExpr(env, nsEnv, expr) {
   }
 }
 
-function compileNodeNS(env, nsEnv, compiledForms) {
+function compileNodeNS(nsEnv, compiledForms) {
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`)
         .join("\n");
@@ -164,7 +164,7 @@ function compileNodeNS(env, nsEnv, compiledForms) {
 `;
 }
 
-function compileWebNS(env, nsEnv, compiledForms) {
+function compileWebNS(nsEnv, compiledForms) {
   const exportEntries = nsEnv.exports
         .entrySeq()
         .map(([name, {safeName}]) => `'${name}': new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})`);
