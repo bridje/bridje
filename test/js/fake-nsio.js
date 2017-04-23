@@ -1,7 +1,7 @@
-function fakeNSResolver(fakeFiles) {
+function fakeNSResolver(fakeNSs) {
   return {
     resolveNSAsync: function(ns) {
-      const {brj} = fakeFiles[ns] || {};
+      const {brj} = fakeNSs[ns] || {};
       if (brj === undefined) {
         return Promise.reject({error: 'ENOENT'});
       } else {
@@ -9,8 +9,14 @@ function fakeNSResolver(fakeFiles) {
       }
     },
 
-    resolveCachedNSAsync: function(ns) {
-      return Promise.resolve(undefined);
+    resolveCachedNSAsync: function(ns, hash) {
+      const {cachedNS, hashValid} = fakeNSs[ns] || {};
+
+      if (cachedNS && (!hashValid || hashValid(hash))) {
+        return Promise.resolve(cachedNS);
+      } else {
+        return Promise.resolve(undefined);
+      }
     }
   };
 }

@@ -10,21 +10,23 @@ const {wrapWebJS} = require('./webpack.test.js');
 const {flipVar} = require('./env.test.js');
 
 async function requireWebNSAsync(env, {brj, brjFile, isMainNS}, {requires, fakeNSs}) {
-  const {out} = await loadAsync(env, {brj, brjFile, isMainNS}, {
+  const {nsHeader, nsCode} = await loadAsync(env, {brj, brjFile, isMainNS}, {
     nsResolver: fakeNSResolver(fakeNSs),
     readForms
   });
 
-  return {exports: wrapWebJS(out, requires)};
+  return {nsHeader, nsCode, exports: wrapWebJS(nsCode, requires)};
 }
 
 describe ('bridje-loader', () => {
+  const fooCompileResultAsync = baseEnvAsync.then(env => requireWebNSAsync(env, {
+    brj: `(ns bridje.kernel.foo) (def hello ["hello world"])`,
+    brjFile: '/bridje/kernel/foo.brj',
+    isMainNS: false
+  }, {requires: Map({}), fakeNSs: {}}));
+
   it ('loads a simple NS', async () => {
-    const {exports} = await requireWebNSAsync(await baseEnvAsync, {
-      brj: `(ns bridje.kernel.foo) (def hello ["hello world"])`,
-      brjFile: '/bridje/kernel/foo.brj',
-      isMainNS: false
-    }, {requires: Map({}), filesByExt: {}});
+    const {exports} = await fooCompileResultAsync;
 
     assert.deepEqual(exports.get('hello').value.toJS(), ['hello world']);
   });
@@ -45,5 +47,20 @@ describe ('bridje-loader', () => {
       }});
 
     assert.deepEqual(exports.get('flipped').value.toJS(), ['hello', 'world']);
+  });
+
+  it ('uses cached nsCode if possible', async () => {
+    const {nsHeader, nsCode} = await fooCompileResultAsync;
+
+    const {exports} = await requireWebNSAsync(await baseEnvAsync, {
+      brj: `(ns bridje.kernel.foo) (def hello ["boom!"])`,
+      brjFile: '/bridje/kernel/foo.brj',
+      isMainNS: false
+    }, {requires: Map({}), fakeNSs: {'bridje.kernel.foo': {
+      brj: `(ns bridje.kernel.foo) (def hello ["hello world"])`,
+      cachedNS: {nsHeader, nsCode, exports: {'hello': {ns: 'bridje.kernel.foo', name: 'hello', safeName: 'hello'}}}
+    }}});
+
+    assert.deepEqual(exports.get('hello').value.toJS(), ['hello world']);
   });
 });

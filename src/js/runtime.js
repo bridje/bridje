@@ -1,9 +1,9 @@
 const {readForms} = require('./reader');
 const im = require('immutable');
-const {Record, List, Map, Set} = im;
+const {Record, List, Map, Set, fromJS} = im;
 var process = require('process');
 const e = require('./env');
-const {Env} = e;
+const {Env, NSEnv, NSHeader, Var} = e;
 const a = require('./analyser');
 const {compileExpr, compileNodeNS, compileWebNS} = require('./compiler');
 const vm = require('vm');
@@ -53,6 +53,13 @@ function evalJS(js) {
   return new vm.Script(js).runInThisContext();
 }
 
+function parseCachedNS(cachedNS) {
+  return fromJS(cachedNS)
+    .update('nsHeader', h => new NSHeader(h))
+    .update('exports', e => e.map(v => new Var(v)));
+
+}
+
 function loadFormsAsync(env = new Env({}), ns, {nsResolver, readForms}) {
   // TODO can see this taking options like whether to resync from the fs, etc
   const preloadedNSs = Set(env.nsEnvs.keySeq());
@@ -62,11 +69,15 @@ function loadFormsAsync(env = new Env({}), ns, {nsResolver, readForms}) {
     ns = typeof ns == 'string' ? ns : undefined;
 
     return brjPromise.then(({brj, brjFile}) => {
-      const forms = readForms(brj);
+      let forms = readForms(brj);
       const nsHeader = a.readNSHeader(ns, brjFile, forms.first());
       ns = nsHeader.ns;
+      forms = forms.shift();
 
-      return nsResolver.resolveCachedNSAsync(ns).then(cachedNS => ({ns, nsHeader, forms, cachedNS}));
+      return nsResolver.resolveCachedNSAsync(ns).then(cachedNS => {
+        cachedNS = cachedNS ? parseCachedNS(cachedNS) : undefined;
+        return ({ns, nsHeader, forms, cachedNS});
+      });
     });
   }
 
@@ -88,7 +99,7 @@ function loadFormsAsync(env = new Env({}), ns, {nsResolver, readForms}) {
                     .flatten();
 
               return {
-                loadedNSs: loadedNSs.set(ns, Map({nsHeader, forms: forms.shift()})),
+                loadedNSs: loadedNSs.set(ns, Map({nsHeader, forms, cachedNS})),
                 nsLoadOrder: nsLoadOrder.unshift(ns),
                 queuedNSs: queuedNSs.delete(ns).union(dependentNSs.subtract(queuedNSs, preloadedNSs))
               };
@@ -109,30 +120,41 @@ function loadFormsAsync(env = new Env({}), ns, {nsResolver, readForms}) {
 }
 
 function compileForms(env, loadedNS) {
-  const {nsHeader, forms} = loadedNS.toObject();
-  return forms.reduce(
-    ({nsEnv, compiledForms}, form) => {
-      const expr = a.analyseForm(env, nsEnv, form);
-      let compiledForm;
-      ({nsEnv, compiledForm} = compileExpr(env, nsEnv, expr));
-      return {nsEnv, compiledForms: compiledForms.push(compiledForm)};
-    },
-    {
-      nsEnv: a.resolveNSHeader(env, nsHeader),
-      compiledForms: new List()
-    });
+  const {nsHeader, forms, cachedNS} = loadedNS.toObject();
+
+  if (cachedNS) {
+    const {nsHeader, exports, nsCode} = cachedNS.toObject();
+    return {
+      nsHeader, nsCode,
+      nsEnv: a.resolveNSHeader(env, nsHeader).set('exports', exports)
+    };
+  } else {
+    return forms.reduce(
+      ({nsEnv, compiledForms}, form) => {
+        const expr = a.analyseForm(env, nsEnv, form);
+        let compiledForm;
+        ({nsEnv, compiledForm} = compileExpr(env, nsEnv, expr));
+        return {nsHeader, nsEnv, compiledForms: compiledForms.push(compiledForm)};
+      },
+      {
+        nsHeader,
+        nsEnv: a.resolveNSHeader(env, nsHeader),
+        compiledForms: new List()
+      });
+  }
 }
 
-function evalNodeForms(env, {nsEnv, compiledForms}) {
-  const nsCode = compileNodeNS(nsEnv, compiledForms);
+function evalNodeForms(env, {nsHeader, nsEnv, nsCode, compiledForms}) {
+  nsCode = nsCode || compileNodeNS(nsEnv, compiledForms);
   const loadNS = evalJS(nsCode)(e, im);
 
-  return env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv));
+  return {env: env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv)), nsCode, nsHeader};
 }
 
-function emitWebForms(env, {nsEnv, compiledForms}) {
-  // TODO probably loads more to do here
-  return compileWebNS(env, nsEnv, compiledForms);
+function emitWebForms(env, {nsEnv, nsHeader, nsCode, compiledForms}) {
+  nsCode = nsCode || compileWebNS(env, nsEnv, compiledForms);
+
+  return {nsHeader, nsEnv, nsCode};
 }
 
 module.exports = {EnvQueue, loadFormsAsync, compileForms, evalNodeForms, emitWebForms};

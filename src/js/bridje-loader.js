@@ -8,23 +8,21 @@ const path = require('path');
 function loadAsync(env, {brj, brjFile, isMainNS}, {nsResolver}) {
   return loadFormsAsync(env, {brj, brjFile}, {nsResolver, readForms}).then(
     loadedNSs => {
-      let nsEnv, compiledForms;
-      ({env, nsEnv, compiledForms} = loadedNSs.reduce(({env}, loadedNS) => {
-        const {nsEnv, compiledForms} = compileForms(env, loadedNS);
+      let nsEnv, nsCode, nsHeader;
+
+      ({env, nsEnv, nsCode, nsHeader} = loadedNSs.reduce(({env}, loadedNS) => {
+        const {nsEnv, nsCode, nsHeader} = emitWebForms(env, compileForms(env, loadedNS));
         return {
           env: env.setIn(['nsEnvs', nsEnv.ns], nsEnv),
-          nsEnv,
-          compiledForms
+          nsCode, nsHeader, nsEnv
         };
       }, {env}));
 
-      let out = emitWebForms(env, {nsEnv, compiledForms});
-
       if (isMainNS) {
-        out += `main()`;
+        nsCode += `main()`;
       }
 
-      return {out, nsEnv, env};
+      return {nsCode, nsHeader, nsEnv, env};
     });
 }
 
@@ -51,10 +49,10 @@ module.exports = function(input) {
 
   return loadAsync(env, {brj: input, brjFile: this.resourcePath, isMainNS: isMainNS.call(this)}, {
     nsResolver: nsResolver(projectPaths)
-  }).then(({out, nsEnv, env}) => {
+  }).then(({nsCode, nsEnv, env}) => {
     Set(nsEnv.refers.valueSeq().map(r => r.ns)).union(Set(nsEnv.aliases.valueSeq()).map(a => a.ns))
       .forEach(ns => this.addDependency(env.nsEnvs.get(ns).brjFile));
-    done(null, out);
+    done(null, nsCode);
   });
 };
 

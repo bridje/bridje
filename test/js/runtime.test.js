@@ -1,24 +1,28 @@
 const {loadFormsAsync, compileForms, evalNodeForms} = require('../../src/js/runtime');
-const {Env, NSHeader} = require('../../src/js/env');
+const {Env, NSHeader, NSEnv} = require('../../src/js/env');
 const {readForms} = require('../../src/js/reader');
 const {Map, List, Set} = require('immutable');
 const {fakeNSResolver} = require('./fake-nsio');
 const assert = require('assert');
 
 describe('runtime', () => {
-  function requireNSAsync(env, ns, fakeNSs) {
-    return loadFormsAsync(env, ns, {
+  async function requireNSAsync(env, ns, fakeNSs) {
+    const loadedNSs = await loadFormsAsync(env, ns, {
       nsResolver: fakeNSResolver(fakeNSs),
       readForms
-    }).then(loadedNSs => loadedNSs.reduce((env, loadedNS) => evalNodeForms(env, compileForms(env, loadedNS)), new Env({})));
+    });
+
+    return loadedNSs.reduce(({env}, loadedNS) => {
+      return evalNodeForms(env, compileForms(env, loadedNS));
+    }, {env});
   }
 
-  const baseEnvAsync = requireNSAsync(undefined, 'bridje.kernel', {'bridje.kernel': {brj: `(ns bridje.kernel)`}});
+  const baseEnvAsync = requireNSAsync(new Env({}), 'bridje.kernel', {'bridje.kernel': {brj: `(ns bridje.kernel)`}}).then(({env}) => env);
 
   it ('loads a simple kernel', () => {
     return baseEnvAsync.then(env => {
 
-      const newEnv = evalNodeForms(env, compileForms(env, Map({
+      const {env: newEnv} = evalNodeForms(env, compileForms(env, Map({
         nsHeader: NSHeader({ns:'bridje.kernel.test'}),
         forms: readForms(`(def hello ["hello world"])`)
       })));
@@ -34,9 +38,30 @@ describe('runtime', () => {
       'bridje.kernel.bar': {brj: `(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}}) (def hello (flip 4 3))`}
     };
 
-    const newEnv = await requireNSAsync(await baseEnvAsync, 'bridje.kernel.bar', fakeNSs);
+    const {env: newEnv} = await requireNSAsync(await baseEnvAsync, 'bridje.kernel.bar', fakeNSs);
 
     assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.bar').exports.get('hello').value.toJS(), [3, 4]);
+  });
+
+
+  it ('uses a cached ns if possible', async () => {
+    const ns = 'bridje.kernel.foo';
+    let brj = `(ns ${ns}) (def hello "hello world!")`;
+
+    const {nsCode: compiledFoo} = await requireNSAsync(await baseEnvAsync, ns, {'bridje.kernel.foo': {brj}});
+
+    // we alter it slightly so that we know whether we're using the cached version
+    brj = `(ns ${ns}) (def hello "boom!")`;
+
+    const {env} = await requireNSAsync(await baseEnvAsync, ns, {
+      'bridje.kernel.foo': {brj, cachedNS: {
+        nsHeader: {ns},
+        exports: {'hello': {ns, name: 'hello', safeName: 'hello'}},
+        nsCode: compiledFoo
+      }}
+    });
+
+    assert.equal(env.nsEnvs.get('bridje.kernel.foo').exports.get('hello').value, 'hello world!');
   });
 
   describe ('loadFormsAsync', () => {

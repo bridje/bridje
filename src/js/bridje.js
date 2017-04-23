@@ -21,7 +21,7 @@ cmd.command('run <main-ns> [args...]')
       loadedNSs => {
         const env = loadedNSs.reduce(
           (env, loadedNS) =>
-            evalNodeForms(env, compileForms(env, loadedNS)),
+            evalNodeForms(env, compileForms(env, loadedNS)).env,
           new Env({}));
 
         const mainFn = env.getIn(['nsEnvs', mainNS, 'exports', 'main', 'value']);
