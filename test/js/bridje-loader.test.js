@@ -9,9 +9,9 @@ const assert = require('assert');
 const {wrapWebJS} = require('./webpack.test.js');
 const {flipVar} = require('./env.test.js');
 
-async function requireWebNSAsync(env, {brj, brjFile, isMainNS}, {requires, filesByExt}) {
+async function requireWebNSAsync(env, {brj, brjFile, isMainNS}, {requires, fakeNSs}) {
   const {out} = await loadAsync(env, {brj, brjFile, isMainNS}, {
-    resolveNSAsync: fakeNSResolver(filesByExt),
+    nsResolver: fakeNSResolver(fakeNSs),
     readForms
   });
 
@@ -38,8 +38,10 @@ describe ('bridje-loader', () => {
       requires: Map({
         '/bridje/kernel/foo.brj': Map({flip: flipVar})
       }),
-      filesByExt: {
-        brj: {'bridje.kernel.foo': `(ns bridje.kernel.foo) (def (flip x y) [y x])`}
+      fakeNSs: {
+        'bridje.kernel.foo': {
+          brj: `(ns bridje.kernel.foo) (def (flip x y) [y x])`
+        }
       }});
 
     assert.deepEqual(exports.get('flipped').value.toJS(), ['hello', 'world']);

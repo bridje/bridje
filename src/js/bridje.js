@@ -15,7 +15,7 @@ cmd.command('run <main-ns> [args...]')
   .option('-r, --repl [<host>:]port', 'starts a REPL server on the given interface/port')
   .action(function(mainNS, args, options) {
     return loadFormsAsync(undefined, mainNS, {
-      resolveNSAsync: nsResolver(options.path),
+      nsResolver: nsResolver(options.path),
       readForms
     }).then(
       loadedNSs => {

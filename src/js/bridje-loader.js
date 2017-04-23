@@ -5,8 +5,8 @@ const {nsResolver} = require('./nsio');
 const {List, Set, Map} = require('immutable');
 const path = require('path');
 
-function loadAsync(env, {brj, brjFile, isMainNS}, {resolveNSAsync}) {
-  return loadFormsAsync(env, {brj, brjFile}, {resolveNSAsync, readForms}).then(
+function loadAsync(env, {brj, brjFile, isMainNS}, {nsResolver}) {
+  return loadFormsAsync(env, {brj, brjFile}, {nsResolver, readForms}).then(
     loadedNSs => {
       let nsEnv, compiledForms;
       ({env, nsEnv, compiledForms} = loadedNSs.reduce(({env}, loadedNS) => {
@@ -18,7 +18,6 @@ function loadAsync(env, {brj, brjFile, isMainNS}, {resolveNSAsync}) {
         };
       }, {env}));
 
-      // TODO load more than one NS
       let out = emitWebForms(env, {nsEnv, compiledForms});
 
       if (isMainNS) {
@@ -51,7 +50,7 @@ module.exports = function(input) {
   const done = this.async();
 
   return loadAsync(env, {brj: input, brjFile: this.resourcePath, isMainNS: isMainNS.call(this)}, {
-    resolveNSAsync: nsResolver(projectPaths)
+    nsResolver: nsResolver(projectPaths)
   }).then(({out, nsEnv, env}) => {
     Set(nsEnv.refers.valueSeq().map(r => r.ns)).union(Set(nsEnv.aliases.valueSeq()).map(a => a.ns))
       .forEach(ns => this.addDependency(env.nsEnvs.get(ns).brjFile));

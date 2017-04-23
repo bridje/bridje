@@ -6,14 +6,14 @@ const {fakeNSResolver} = require('./fake-nsio');
 const assert = require('assert');
 
 describe('runtime', () => {
-  function requireNSAsync(env, ns, filesByExt) {
+  function requireNSAsync(env, ns, fakeNSs) {
     return loadFormsAsync(env, ns, {
-      resolveNSAsync: fakeNSResolver(filesByExt),
+      nsResolver: fakeNSResolver(fakeNSs),
       readForms
     }).then(loadedNSs => loadedNSs.reduce((env, loadedNS) => evalNodeForms(env, compileForms(env, loadedNS)), new Env({})));
   }
 
-  const baseEnvAsync = requireNSAsync(undefined, 'bridje.kernel', {brj: {'bridje.kernel': `(ns bridje.kernel)`}});
+  const baseEnvAsync = requireNSAsync(undefined, 'bridje.kernel', {'bridje.kernel': {brj: `(ns bridje.kernel)`}});
 
   it ('loads a simple kernel', () => {
     return baseEnvAsync.then(env => {
@@ -28,14 +28,13 @@ describe('runtime', () => {
   });
 
   it ('requires in another namespace', async () => {
-    const filesByExt = {
-      brj: {
-        'bridje.kernel': `(ns bridje.kernel)`,
-        'bridje.kernel.foo': `(ns bridje.kernel.foo) (def (flip x y) [y x])`,
-        'bridje.kernel.bar': `(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}}) (def hello (flip 4 3))`
-      }};
+    const fakeNSs = {
+      'bridje.kernel': {brj: `(ns bridje.kernel)`},
+      'bridje.kernel.foo': {brj: `(ns bridje.kernel.foo) (def (flip x y) [y x])`},
+      'bridje.kernel.bar': {brj: `(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}}) (def hello (flip 4 3))`}
+    };
 
-    const newEnv = await requireNSAsync(await baseEnvAsync, 'bridje.kernel.bar', filesByExt);
+    const newEnv = await requireNSAsync(await baseEnvAsync, 'bridje.kernel.bar', fakeNSs);
 
     assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.bar').exports.get('hello').value.toJS(), [3, 4]);
   });
@@ -46,7 +45,7 @@ describe('runtime', () => {
       const brjFile = '/bridje/kernel/foo.brj';
 
       return baseEnvAsync.then(
-        env => loadFormsAsync(env, {brj, brjFile}, {resolveNSAsync: fakeNSResolver({}), readForms}).then(
+        env => loadFormsAsync(env, {brj, brjFile}, {nsResolver: fakeNSResolver({}), readForms}).then(
           loadedNSs => {
             assert.equal(loadedNSs.size, 1);
             const {nsHeader, forms} = loadedNSs.first().toObject();

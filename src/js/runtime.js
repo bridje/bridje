@@ -53,39 +53,39 @@ function evalJS(js) {
   return new vm.Script(js).runInThisContext();
 }
 
-function loadFormsAsync(env = new Env({}), ns, {resolveNSAsync, readForms}) {
+function loadFormsAsync(env = new Env({}), ns, {nsResolver, readForms}) {
   // TODO can see this taking options like whether to resync from the fs, etc
   const preloadedNSs = Set(env.nsEnvs.keySeq());
 
-  function resolveNSAsync_(ns) {
-    const brjPromise = typeof ns == 'object' ? Promise.resolve({brj: ns.brj, brjFile: ns.brjFile}) : resolveNSAsync(ns, 'brj');
+  function resolveNSAsync(ns) {
+    const brjPromise = typeof ns == 'object' ? Promise.resolve({brj: ns.brj, brjFile: ns.brjFile}) : nsResolver.resolveNSAsync(ns);
     ns = typeof ns == 'string' ? ns : undefined;
 
-    // TODO also pull in from AoT
-    return brjPromise.then(({brj, brjFile}) => ({ns, brj, brjFile}));
+    return brjPromise.then(({brj, brjFile}) => {
+      const forms = readForms(brj);
+      const nsHeader = a.readNSHeader(ns, brjFile, forms.first());
+      ns = nsHeader.ns;
+
+      return nsResolver.resolveCachedNSAsync(ns).then(cachedNS => ({ns, nsHeader, forms, cachedNS}));
+    });
   }
 
   function loadFormsAsync_({loadedNSs = Map(), nsLoadOrder = List(), queuedNSs}) {
     if (queuedNSs.isEmpty()) {
       return nsLoadOrder.map(ns => loadedNSs.get(ns));
     } else {
-      return Promise.all(queuedNSs.map(ns => resolveNSAsync_(ns)))
+      return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns)))
         .catch(err => {
           console.log('err', err);
           return Promise.reject(err);
         })
         .then(
           results => results.reduce(
-            ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, brj, brjFile}) => {
-              const forms = readForms(brj);
-              const nsHeader = a.readNSHeader(ns, brjFile, forms.first());
-              ns = nsHeader.ns;
-
-              const dependentNSs =
-                Set(nsHeader.aliases.valueSeq())
-                .union(nsHeader.refers.valueSeq())
-                .delete('bridje.kernel')
-                .flatten();
+            ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, nsHeader, forms, cachedNS}) => {
+              const dependentNSs = Set(nsHeader.aliases.valueSeq())
+                    .union(nsHeader.refers.valueSeq())
+                    .delete('bridje.kernel')
+                    .flatten();
 
               return {
                 loadedNSs: loadedNSs.set(ns, Map({nsHeader, forms: forms.shift()})),

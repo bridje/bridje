@@ -29,29 +29,36 @@ function nsResolver(projectPaths) {
     return paths;
   }
 
-  return function(ns, ext) {
-    let promise = Promise.reject('No project paths available.');
+  return {
+    resolveNSAsync: function(ns) {
+      let promise = Promise.reject('No project paths available.');
 
-    const isFileError = err => err.syscall == 'open';
-    const isFileNotExistsError = err => err.code == 'ENOENT';
+      const isFileError = err => err.syscall == 'open';
+      const isFileNotExistsError = err => err.code == 'ENOENT';
 
-    return possiblePaths(nsToFilename(ns, ext)).reduce(
-      (promise, possiblePath) => promise.catch((err) => {
-        if (isFileError(err) && !isFileNotExistsError(err)) {
-          return Promise.reject(err);
-        } else {
-          return readFileAsync(possiblePath);
-        }
-      }), promise)
-
-      .catch(
-        err => {
-          if (isFileError(err) && isFileNotExistsError(err)) {
-            return Promise.reject({error: 'ENOENT', projectPaths, ns});
-          } else {
+      return possiblePaths(nsToFilename(ns, 'brj')).reduce(
+        (promise, possiblePath) => promise.catch((err) => {
+          if (isFileError(err) && !isFileNotExistsError(err)) {
             return Promise.reject(err);
+          } else {
+            return readFileAsync(possiblePath);
           }
-        });
+        }), promise)
+
+        .catch(
+          err => {
+            if (isFileError(err) && isFileNotExistsError(err)) {
+              return Promise.reject({error: 'ENOENT', projectPaths, ns});
+            } else {
+              return Promise.reject(err);
+            }
+          });
+    },
+
+    resolveCachedNSAsync: function(ns) {
+      // TODO
+      return Promise.resolve(undefined);
+    }
   };
 }
 
