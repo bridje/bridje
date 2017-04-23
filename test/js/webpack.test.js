@@ -1,6 +1,6 @@
 const im = require('immutable');
 const brjEnv = require('../../src/js/env');
-const {fakeNSResolver} = require('./fake-nsio');
+const fakeNSIO = require('./fake-nsio');
 const babel = require('babel-core');
 const vm = require('vm');
 

@@ -2,7 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 
-function nsResolver(projectPaths) {
+module.exports = function (projectPaths) {
   function nsToFilename(ns, ext) {
     return `${ns.replace(/\./g, '/')}.${ext}`;
   }
@@ -60,6 +60,4 @@ function nsResolver(projectPaths) {
       return Promise.resolve(undefined);
     }
   };
-}
-
-module.exports = {nsResolver};
+};

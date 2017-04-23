@@ -5,7 +5,7 @@ const process = require('process');
 const {loadFormsAsync, compileForms, evalNodeForms} = require('./runtime');
 const {readForms} = require('./reader');
 const {Env} = require('./env');
-const {nsResolver} = require('./nsio');
+const nsIO = require('./nsio');
 const {List, Map} = require('immutable');
 
 const cmd = new cli.Command();
@@ -15,7 +15,7 @@ cmd.command('run <main-ns> [args...]')
   .option('-r, --repl [<host>:]port', 'starts a REPL server on the given interface/port')
   .action(function(mainNS, args, options) {
     return loadFormsAsync(undefined, mainNS, {
-      nsResolver: nsResolver(options.path),
+      nsIO: nsIO(options.path),
       readForms
     }).then(
       loadedNSs => {

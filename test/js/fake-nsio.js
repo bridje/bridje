@@ -1,4 +1,4 @@
-function fakeNSResolver(fakeNSs) {
+module.exports = function (fakeNSs) {
   return {
     resolveNSAsync: function(ns) {
       const {brj} = fakeNSs[ns] || {};
@@ -19,5 +19,4 @@ function fakeNSResolver(fakeNSs) {
       }
     }
   };
-}
-module.exports = {fakeNSResolver};
+};

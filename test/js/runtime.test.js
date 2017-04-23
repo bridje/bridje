@@ -2,13 +2,13 @@ const {loadFormsAsync, compileForms, evalNodeForms} = require('../../src/js/runt
 const {Env, NSHeader, NSEnv} = require('../../src/js/env');
 const {readForms} = require('../../src/js/reader');
 const {Map, List, Set} = require('immutable');
-const {fakeNSResolver} = require('./fake-nsio');
+const fakeNSIO = require('./fake-nsio');
 const assert = require('assert');
 
 describe('runtime', () => {
   async function requireNSAsync(env, ns, fakeNSs) {
     const loadedNSs = await loadFormsAsync(env, ns, {
-      nsResolver: fakeNSResolver(fakeNSs),
+      nsIO: fakeNSIO(fakeNSs),
       readForms
     });
 
@@ -70,7 +70,7 @@ describe('runtime', () => {
       const brjFile = '/bridje/kernel/foo.brj';
 
       return baseEnvAsync.then(
-        env => loadFormsAsync(env, {brj, brjFile}, {nsResolver: fakeNSResolver({}), readForms}).then(
+        env => loadFormsAsync(env, {brj, brjFile}, {nsIO: fakeNSIO({}), readForms}).then(
           loadedNSs => {
             assert.equal(loadedNSs.size, 1);
             const {nsHeader, forms} = loadedNSs.first().toObject();

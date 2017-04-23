@@ -60,12 +60,12 @@ function parseCachedNS(cachedNS) {
 
 }
 
-function loadFormsAsync(env = new Env({}), ns, {nsResolver, readForms}) {
+function loadFormsAsync(env = new Env({}), ns, {nsIO, readForms}) {
   // TODO can see this taking options like whether to resync from the fs, etc
   const preloadedNSs = Set(env.nsEnvs.keySeq());
 
   function resolveNSAsync(ns) {
-    const brjPromise = typeof ns == 'object' ? Promise.resolve({brj: ns.brj, brjFile: ns.brjFile}) : nsResolver.resolveNSAsync(ns);
+    const brjPromise = typeof ns == 'object' ? Promise.resolve({brj: ns.brj, brjFile: ns.brjFile}) : nsIO.resolveNSAsync(ns);
     ns = typeof ns == 'string' ? ns : undefined;
 
     return brjPromise.then(({brj, brjFile}) => {
@@ -74,7 +74,7 @@ function loadFormsAsync(env = new Env({}), ns, {nsResolver, readForms}) {
       ns = nsHeader.ns;
       forms = forms.shift();
 
-      return nsResolver.resolveCachedNSAsync(ns).then(cachedNS => {
+      return nsIO.resolveCachedNSAsync(ns).then(cachedNS => {
         cachedNS = cachedNS ? parseCachedNS(cachedNS) : undefined;
         return ({ns, nsHeader, forms, cachedNS});
       });

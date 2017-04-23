@@ -4,14 +4,14 @@ const {loadFormsAsync, compileForms, evalNodeForms} = require('../../src/js/runt
 const {baseEnvAsync} = require('./runtime.test.js');
 const {readForms} = require('../../src/js/reader');
 const {Map, List, Set} = require('immutable');
-const {fakeNSResolver} = require('./fake-nsio');
+const fakeNSIO = require('./fake-nsio');
 const assert = require('assert');
 const {wrapWebJS} = require('./webpack.test.js');
 const {flipVar} = require('./env.test.js');
 
 async function requireWebNSAsync(env, {brj, brjFile, isMainNS}, {requires, fakeNSs}) {
   const {nsHeader, nsCode} = await loadAsync(env, {brj, brjFile, isMainNS}, {
-    nsResolver: fakeNSResolver(fakeNSs),
+    nsIO: fakeNSIO(fakeNSs),
     readForms
   });
 
