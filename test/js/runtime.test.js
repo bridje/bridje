@@ -75,7 +75,7 @@ describe('runtime', () => {
             assert.equal(loadedNSs.size, 1);
             const {nsHeader, forms} = loadedNSs.first().toObject();
 
-            assert.deepEqual(nsHeader.toJS(), {ns: 'bridje.kernel.foo', brjFile, aliases: {}, refers: {}});
+            assert.deepEqual(nsHeader.delete('nsHash').toJS(), {ns: 'bridje.kernel.foo', brjFile, nsHash: null, aliases: {}, refers: {}});
             assert.deepEqual(forms.toJS(), readForms(brj).shift().toJS());
           }));
     });

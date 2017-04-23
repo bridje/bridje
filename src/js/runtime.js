@@ -57,27 +57,24 @@ function parseCachedNS(cachedNS) {
   return fromJS(cachedNS)
     .update('nsHeader', h => new NSHeader(h))
     .update('exports', e => e.map(v => new Var(v)));
+}
 
+function nsDependents(nsHeader) {
+  return Set(nsHeader.aliases.valueSeq()).union(nsHeader.refers.valueSeq());
 }
 
 function loadFormsAsync(env = new Env({}), ns, {nsIO, readForms}) {
   // TODO can see this taking options like whether to resync from the fs, etc
   const preloadedNSs = Set(env.nsEnvs.keySeq());
 
-  function resolveNSAsync(ns) {
+  function resolveNSAsync(ns, {loadedNSs}) {
     const brjPromise = typeof ns == 'object' ? Promise.resolve({brj: ns.brj, brjFile: ns.brjFile}) : nsIO.resolveNSAsync(ns);
     ns = typeof ns == 'string' ? ns : undefined;
 
     return brjPromise.then(({brj, brjFile}) => {
       let forms = readForms(brj);
       const nsHeader = a.readNSHeader(ns, brjFile, forms.first());
-      ns = nsHeader.ns;
-      forms = forms.shift();
-
-      return nsIO.resolveCachedNSAsync(ns).then(cachedNS => {
-        cachedNS = cachedNS ? parseCachedNS(cachedNS) : undefined;
-        return ({ns, nsHeader, forms, cachedNS});
-      });
+      return {ns: nsHeader.ns, brj, nsHeader, forms: forms.shift()};
     });
   }
 
@@ -85,21 +82,20 @@ function loadFormsAsync(env = new Env({}), ns, {nsIO, readForms}) {
     if (queuedNSs.isEmpty()) {
       return nsLoadOrder.map(ns => loadedNSs.get(ns));
     } else {
-      return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns)))
+      return Promise.all(queuedNSs.map(ns => resolveNSAsync(ns, {loadedNSs})))
         .catch(err => {
           console.log('err', err);
           return Promise.reject(err);
         })
         .then(
           results => results.reduce(
-            ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, nsHeader, forms, cachedNS}) => {
-              const dependentNSs = Set(nsHeader.aliases.valueSeq())
-                    .union(nsHeader.refers.valueSeq())
+            ({loadedNSs, nsLoadOrder, queuedNSs}, {ns, brj, nsHeader, forms}) => {
+              const dependentNSs = nsDependents(nsHeader)
                     .delete('bridje.kernel')
                     .flatten();
 
               return {
-                loadedNSs: loadedNSs.set(ns, Map({nsHeader, forms, cachedNS})),
+                loadedNSs: loadedNSs.set(ns, Map({ns, brj, nsHeader, forms})),
                 nsLoadOrder: nsLoadOrder.unshift(ns),
                 queuedNSs: queuedNSs.delete(ns).union(dependentNSs.subtract(queuedNSs, preloadedNSs))
               };
@@ -110,13 +106,31 @@ function loadFormsAsync(env = new Env({}), ns, {nsIO, readForms}) {
     }
   }
 
+  function loadCachedNSsAsync(loadedNSs) {
+    const nsHashes = {};
+    const promises = [];
+
+    loadedNSs.forEach(loadedNS => {
+      const {ns, brj, nsHeader, forms} = loadedNS.toObject();
+      const nsHash = fromJS({brj, dependentNSs: nsDependents(nsHeader).map(ns => nsHashes[ns] || env.nsEnvs.get(ns).nsHash || undefined)}).hashCode();
+      nsHashes[ns] = nsHash;
+
+      promises.push(nsIO.resolveCachedNSAsync(ns, nsHash).then(cachedNS => {
+        cachedNS = cachedNS ? parseCachedNS(cachedNS) : undefined;
+        return Map({ns, nsHeader: nsHeader.set('nsHash', nsHash), forms, cachedNS});
+      }));
+    });
+
+    return Promise.all(promises).then(List);
+  }
+
   return loadFormsAsync_({queuedNSs: Set.of(ns)}).then(loadedNSsSeq => {
     if (preloadedNSs.isEmpty() || ns == null) {
       return loadFormsAsync_({queuedNSs: Set.of('bridje.kernel')}).then(coreNSsSeq => coreNSsSeq.concat(loadedNSsSeq));
     } else {
       return loadedNSsSeq;
     }
-  });
+  }).then(loadCachedNSsAsync);
 }
 
 function compileForms(env, loadedNS) {

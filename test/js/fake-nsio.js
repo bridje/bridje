@@ -12,10 +12,10 @@ module.exports = function (fakeNSs) {
       }
     },
 
-    resolveCachedNSAsync: function(ns, hash) {
-      const {cachedNS, hashValid} = fakeNSs[ns] || {};
+    resolveCachedNSAsync: function(ns, nsHash) {
+      const {cachedNS, nsHash: expectedNSHash, hashValid} = fakeNSs[ns] || {};
 
-      if (cachedNS && (!hashValid || hashValid(hash))) {
+      if (cachedNS && (!expectedNSHash || nsHash == expectedNSHash)) {
         return Promise.resolve(cachedNS);
       } else {
         return Promise.resolve(undefined);

@@ -136,7 +136,7 @@ function resolveNSHeader(env, header) {
     return [sym, aliasedNSEnv];
   });
 
-  return new NSEnv({ns: header.ns, brjFile: header.brjFile, refers, aliases});
+  return new NSEnv({ns: header.ns, brjFile: header.brjFile, nsHash: header.nsHash, refers, aliases});
 }
 
 function analyseForm(env, nsEnv, form) {

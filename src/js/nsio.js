@@ -83,7 +83,7 @@ module.exports = function ({projectPaths, targetPath}) {
           });
     },
 
-    resolveCachedNSAsync: function(ns) {
+    resolveCachedNSAsync: function(ns, nsHash) {
       const pathSafeNS = makePathSafe(ns);
       return readFileAsync(pathAPI.resolve(targetPath, `${pathSafeNS}.header.json`))
         .then(headerFile => {
@@ -91,10 +91,15 @@ module.exports = function ({projectPaths, targetPath}) {
 
           const parsedHeaderFile = JSON.parse(headerFile);
 
-          return nsCodeAsync.then(nsCode => {
-            parsedHeaderFile.nsCode = nsCode;
-            return parsedHeaderFile;
-          });
+          if (headerFile.nsHeader.nsHash == nsHash) {
+            return nsCodeAsync.then(nsCode => {
+              parsedHeaderFile.nsCode = nsCode;
+              return parsedHeaderFile;
+            });
+          } else {
+            return undefined;
+          }
+
         })
         .catch(_ => undefined);
     },

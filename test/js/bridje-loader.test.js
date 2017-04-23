@@ -56,8 +56,8 @@ describe ('bridje-loader', () => {
       brj: `(ns bridje.kernel.foo) (def hello ["boom!"])`
     }, {
       requires: Map({}), fakeNSs: {'bridje.kernel.foo': {
-      brj: `(ns bridje.kernel.foo) (def hello ["hello world"])`,
-      cachedNS: {nsHeader, nsCode, exports: {'hello': {ns: 'bridje.kernel.foo', name: 'hello', safeName: 'hello'}}}
+        brj: `(ns bridje.kernel.foo) (def hello ["hello world"])`,
+        cachedNS: {nsHeader, nsCode, exports: {'hello': {ns: 'bridje.kernel.foo', name: 'hello', safeName: 'hello'}}}
     }}});
 
     assert.deepEqual(exports.get('hello').value.toJS(), ['hello world']);

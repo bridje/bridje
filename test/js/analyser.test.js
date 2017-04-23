@@ -16,6 +16,7 @@ describe('analyser', () => {
     assert.deepEqual(nsHeader.toJS(), {
       ns: 'bridje.kernel.bar',
       brjFile: '/bridje/kernel/bar.brj',
+      nsHash: null,
       refers: {
         flip: 'bridje.kernel.foo',
         flop: 'bridje.kernel.foo'
@@ -29,6 +30,7 @@ describe('analyser', () => {
   it('resolves an NS header', () => {
     const nsEnv = ana.resolveNSHeader(fooEnv, new ana.NSHeader({
       ns: 'bridje.kernel.bar',
+      nsHash: 42,
       brjFile: '/bridje/kernel/bar.brj',
       refers: Map({
         flip: 'bridje.kernel.foo'
@@ -40,6 +42,7 @@ describe('analyser', () => {
 
     assert.equal(nsEnv.refers.get('flip'), flipVar);
     assert.equal(nsEnv.aliases.get('foo'), fooNSEnv);
+    assert.equal(nsEnv.nsHash, 42);
   });
 
   it('reads a simple value expr', () => {
