@@ -8,10 +8,16 @@ const path = require('path');
 function loadAsync(env, {brj, brjFile, isMainNS}, {nsIO}) {
   return loadFormsAsync(env, {brj, brjFile}, {nsIO, readForms}).then(
     loadedNSs => {
-      let nsEnv, nsCode, nsHeader;
+      const promises = [];
 
+      let nsEnv, nsCode, nsHeader;
       ({env, nsEnv, nsCode, nsHeader} = loadedNSs.reduce(({env}, loadedNS) => {
         const {nsEnv, nsCode, nsHeader} = emitWebForms(env, compileForms(env, loadedNS));
+
+        if (!loadedNS.get('cachedNS')) {
+          promises.push(nsIO.writeNSAsync(nsHeader.ns, {nsHeader, nsCode, exports: nsEnv.exports}));
+        }
+
         return {
           env: env.setIn(['nsEnvs', nsEnv.ns], nsEnv),
           nsCode, nsHeader, nsEnv
@@ -22,7 +28,7 @@ function loadAsync(env, {brj, brjFile, isMainNS}, {nsIO}) {
         nsCode += `main()`;
       }
 
-      return {nsCode, nsHeader, nsEnv, env};
+      return Promise.all(promises).then(_ => ({nsCode, nsHeader, nsEnv, env}));
     });
 }
 

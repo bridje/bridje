@@ -1,5 +1,8 @@
 module.exports = function (fakeNSs) {
+  let writtenNSs = {};
+
   return {
+    writtenNSs,
     resolveNSAsync: function(ns) {
       const {brj} = fakeNSs[ns] || {};
       if (brj === undefined) {
@@ -17,6 +20,11 @@ module.exports = function (fakeNSs) {
       } else {
         return Promise.resolve(undefined);
       }
+    },
+
+    writeNSAsync: function(ns, cachedNS) {
+      writtenNSs[ns] = cachedNS;
+      return Promise.resolve(undefined);
     }
   };
 };
