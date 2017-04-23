@@ -237,7 +237,7 @@ function parseForms0(tokens, closeParen, onEOF) {
 
           var entries = [];
           innerForms = innerForms.toArray();
-          for (var i = 0; i < innerForms.length; i += 2) {
+          for (let i = 0; i < innerForms.length; i += 2) {
             entries.push(new f.RecordEntry({key: innerForms[i], value: innerForms[i+1]}));
           }
 

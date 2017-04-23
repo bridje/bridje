@@ -32,8 +32,8 @@ function loadAsync(env, {brj, brjFile, isMainNS}, {resolveNSAsync}) {
 function isMainNS() {
   const entryPoints = typeof this.options.entry == 'string' ? [this.options.entry] : this.options.entry;
 
-  for (const entryPoint in entryPoints) {
-    if (this.resourcePath == path.resolve(this.options.context, entryPoints[entryPoint])) {
+  for (const entryPoint of entryPoints) {
+    if (this.resourcePath == path.resolve(this.options.context, entryPoint)) {
       return true;
     }
   }

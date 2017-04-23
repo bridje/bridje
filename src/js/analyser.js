@@ -29,17 +29,14 @@ const refersParser = p.RecordParser.then(
                 const referredNSs = [];
                 const referredSymsMap = {};
 
-                for (const referIdx in parsedRefers) {
-                  let {referredNS, referredSyms} = parsedRefers[referIdx];
+                for (let {referredNS, referredSyms} of parsedRefers) {
                   referredSyms = referredSyms.toArray();
 
                   if (referredNSs.indexOf(referredNS) != -1) {
                     return p.pure(p.failResult(`Duplicate refer for NS '${referredNS}'`));
                   }
 
-                  for (const referredSymIdx in referredSyms) {
-                    const referredSym = referredSyms[referredSymIdx];
-
+                  for (const referredSym of referredSyms) {
                     if (referredSymsMap[referredSym] !== undefined) {
                       return p.pure(p.failResult(`Duplicate refer for symbol ${referredSym}`));
                     }
@@ -62,8 +59,7 @@ const aliasesParser = p.RecordParser.then(
             const aliasedNSs = [];
             const aliasedNSsMap = {};
 
-            for (const aliasIdx in parsedAliases) {
-              let {alias, aliasedNS} = parsedAliases[aliasIdx];
+            for (const {alias, aliasedNS} of parsedAliases) {
               if (aliasedNSs.indexOf(aliasedNS) != -1) {
                 return p.pure(p.failResult(`Duplicate alias for NS '${aliasedNS}'`));
               }

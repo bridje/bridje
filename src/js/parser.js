@@ -116,10 +116,8 @@ function anyOf(...parsers) {
   return new Parser(forms => {
     let fails = [];
 
-    for (var i = 0; i < parsers.length; i++) {
-      let result, resultForms;
-      ({result, forms: resultForms} = parsers[i].parseForms(forms));
-
+    for (const parser of parsers) {
+      const {result, forms: resultForms} = parser.parseForms(forms);
       if (result.success) {
         return {result, forms: resultForms};
       } else {
