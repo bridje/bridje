@@ -7,6 +7,7 @@ const {Map, List, Set} = require('immutable');
 const {fakeNSResolver} = require('./fake-nsio');
 const assert = require('assert');
 const {wrapWebJS} = require('./webpack.test.js');
+const {flipVar} = require('./env.test.js');
 
 async function requireWebNSAsync(env, {brj, brjFile, isMainNS}, {requires, filesByExt}) {
   const {out} = await loadAsync(env, {brj, brjFile, isMainNS}, {
@@ -35,7 +36,7 @@ describe ('bridje-loader', () => {
       isMainNS: false
     }, {
       requires: Map({
-        '/bridje/kernel/foo.brj': Map({flip: {value: (x, y) => List.of(y, x)}})
+        '/bridje/kernel/foo.brj': Map({flip: flipVar})
       }),
       filesByExt: {
         brj: {'bridje.kernel.foo': `(ns bridje.kernel.foo) (def (flip x y) [y x])`}
