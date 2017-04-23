@@ -3,7 +3,8 @@ const {readForms} = require('./reader');
 const {Env} = require('./env');
 const nsIO = require('./nsio');
 const {List, Set, Map} = require('immutable');
-const path = require('path');
+const pathAPI = require('path');
+const brjVersion = require('./version');
 
 function loadAsync(env, {brj, brjFile, isMainNS}, {nsIO}) {
   return loadFormsAsync(env, {brj, brjFile}, {nsIO, readForms}).then(
@@ -36,7 +37,7 @@ function isMainNS() {
   const entryPoints = typeof this.options.entry == 'string' ? [this.options.entry] : this.options.entry;
 
   for (const entryPoint of entryPoints) {
-    if (this.resourcePath == path.resolve(this.options.context, entryPoint)) {
+    if (this.resourcePath == pathAPI.resolve(this.options.context, entryPoint)) {
       return true;
     }
   }
@@ -54,7 +55,7 @@ module.exports = function(input) {
   const done = this.async();
 
   return loadAsync(env, {brj: input, brjFile: this.resourcePath, isMainNS: isMainNS.call(this)}, {
-    nsIO: nsIO(projectPaths)
+    nsIO: nsIO({projectPaths, targetPath: pathAPI.resolve(process.cwd(), 'bridje-stuff', brjVersion, 'web')})
   }).then(({nsCode, nsEnv, env}) => {
     Set(nsEnv.refers.valueSeq().map(r => r.ns)).union(Set(nsEnv.aliases.valueSeq()).map(a => a.ns))
       .forEach(ns => this.addDependency(env.nsEnvs.get(ns).brjFile));

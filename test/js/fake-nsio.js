@@ -8,7 +8,7 @@ module.exports = function (fakeNSs) {
       if (brj === undefined) {
         return Promise.reject({error: 'ENOENT'});
       } else {
-        return Promise.resolve({brj, brjFile: `/${ns.split('.').join('/')}.brj`});
+        return Promise.resolve({brj, brjFile: `/${ns.replace(/\./g, '/')}.brj`});
       }
     },
 

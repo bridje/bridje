@@ -1,8 +1,8 @@
-const path = require('path');
+const pathAPI = require('path');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 
-module.exports = function (projectPaths) {
+module.exports = function ({projectPaths, targetPath}) {
   function nsToFilename(ns, ext) {
     return `${ns.replace(/\./g, '/')}.${ext}`;
   }
@@ -13,20 +13,48 @@ module.exports = function (projectPaths) {
         if (err !== null) {
           reject(err);
         } else {
-          resolve({brj: res, brjFile: filePath});
+          resolve(res);
+        }
+      });
+    });
+  }
+
+  function mkdirAsync(dirPath) {
+    return new Promise((resolve, reject) => {
+      mkdirp(dirPath, (err, res) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(res);
+        }
+      });
+    });
+  }
+
+  function writeFileAsync(filePath, content) {
+    return new Promise((resolve, reject) => {
+      fs.writeFile(filePath, content, 'utf8', (err, res) => {
+        if (err !== null) {
+          reject(err);
+        } else {
+          resolve(res);
         }
       });
     });
   }
 
   function possiblePaths(filename) {
-    const paths = projectPaths.map(projectPath => path.resolve(projectPath, filename));
+    const paths = projectPaths.map(projectPath => pathAPI.resolve(projectPath, filename));
 
     try {
       paths = paths.push(require.resolve(filename));
     } catch (e) {}
 
     return paths;
+  }
+
+  function makePathSafe(s) {
+    return s.replace(/\./g, '_');
   }
 
   return {
@@ -41,7 +69,7 @@ module.exports = function (projectPaths) {
           if (isFileError(err) && !isFileNotExistsError(err)) {
             return Promise.reject(err);
           } else {
-            return readFileAsync(possiblePath);
+            return readFileAsync(possiblePath).then(brj => ({brj, brjFile: possiblePath}));
           }
         }), promise)
 
@@ -56,8 +84,35 @@ module.exports = function (projectPaths) {
     },
 
     resolveCachedNSAsync: function(ns) {
-      // TODO
-      return Promise.resolve(undefined);
+      const pathSafeNS = makePathSafe(ns);
+      return readFileAsync(pathAPI.resolve(targetPath, `${pathSafeNS}.header.json`))
+        .then(headerFile => {
+          const nsCodeAsync = readFileAsync(pathAPI.resolve(targetPath, `${pathSafeNS}.js`));
+
+          const parsedHeaderFile = JSON.parse(headerFile);
+
+          return nsCodeAsync.then(nsCode => {
+            parsedHeaderFile.nsCode = nsCode;
+            return parsedHeaderFile;
+          });
+        })
+        .catch(_ => undefined);
+    },
+
+    writeNSAsync: function(ns, {nsHeader, exports, nsCode}) {
+      const pathSafeNS = makePathSafe(ns);
+      const mkTargetPathAsync = mkdirAsync(targetPath);
+
+      const headerContent = JSON.stringify({
+        nsHeader: nsHeader.toJS(),
+        exports: exports.map(v => v.set('value', undefined).set('expr', undefined))
+      });
+
+      return mkdirAsync(targetPath).then(_ => {
+        const writeHeaderAsync = writeFileAsync(pathAPI.resolve(targetPath, `${pathSafeNS}.header.json`), headerContent);
+
+        return writeHeaderAsync.then(_ => writeFileAsync(pathAPI.resolve(targetPath, `${pathSafeNS}.js`), nsCode));
+      });
     }
   };
 };

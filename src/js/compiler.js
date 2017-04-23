@@ -154,7 +154,7 @@ function compileWebNS(env, nsEnv, compiledForms) {
         .map(([name, {safeName}]) => `'${name}': new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})`);
 
   function importNSVarName(ns) {
-    return `_import_${makeSafe(ns.split('.').join('$'))}`;
+    return `_import_${makeSafe(ns.replace(/\./g, '$'))}`;
   }
 
   const imports = Set(nsEnv.refers.valueSeq().map(referVar => referVar.ns))
@@ -181,7 +181,7 @@ function compileWebNS(env, nsEnv, compiledForms) {
   ${refers.join('\n')}
   ${aliases.join('\n')}
 
-  ${symbolInterns.join('\n')};
+  ${symbolInterns.join('\n')}
 
   ${compiledForms.join('\n')}
 
