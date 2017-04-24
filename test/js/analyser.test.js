@@ -217,4 +217,18 @@ describe('analyser', () => {
     assert.equal(c1.name, 'Nothing');
     assert.equal(c1.type, 'value');
   });
+
+  it('analyses a Person-style defdata form', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(defdata Person (Person #{name, address, phone-number}))').first());
+    assert.equal(expr.exprType, 'defdata');
+    assert.equal(expr.name, 'Person');
+
+    const constructors = expr.constructors;
+    assert.equal(constructors.size, 1);
+
+    const c = expr.constructors.get(0);
+    assert.equal(c.name, 'Person');
+    assert.equal(c.type, 'record');
+    assert.deepEqual(c.keys.toJS(), ['name', 'address', 'phone-number']);
+  });
 });

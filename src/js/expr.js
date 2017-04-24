@@ -23,7 +23,7 @@ const CallExpr = Record({range: null, exprs: null});
 
 const DefExpr = Record({range: null, sym: null, params: null, body: null});
 
-const DataConstructor = Record({range: null, type: null, name: null, params: null});
+const DataConstructor = Record({range: null, type: null, name: null, params: null, keys: null});
 const DefDataExpr = Record({range: null, name: null, constructors: null});
 
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
@@ -96,6 +96,7 @@ DataConstructor.prototype.toString = function() {
   switch(this.type) {
   case 'value': return this.name;
   case 'vector': return `(${this.name} ${this.params.join(' ')})`;
+  case 'record': return `(${this.name} #{${this.keys.join(' ')}})`;
   default: throw('niy');
   }
 };

@@ -311,8 +311,11 @@ function analyseForm(env, nsEnv, form) {
             name => p.atLeastOneOf(p.anyOf(
               p.ListParser.then(
                 cForm => p.innerFormsParser(cForm.forms, p.SymbolParser.then(
-                  cNameForm => p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
-                    params => p.parseEnd(new e.DataConstructor({range: cForm.range, type: 'vector', name: cNameForm.sym.name, params})))))),
+                  cNameForm => p.anyOf(
+                    p.SetParser.then(keySet => p.innerFormsParser(keySet.forms, p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
+                      keys => p.parseEnd(new e.DataConstructor({range: cForm.range, name: cNameForm.sym.name, type: 'record', keys}))))),
+                    p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
+                      params => p.parseEnd(new e.DataConstructor({range: cForm.range, name: cNameForm.sym.name, type: 'vector', params}))))))),
 
               p.SymbolParser.fmap(cNameForm => new e.DataConstructor({range: cNameForm.range, type: 'value', name: cNameForm.sym.name})))).then(
 
