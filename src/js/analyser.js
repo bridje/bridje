@@ -288,13 +288,14 @@ function analyseForm(env, nsEnv, form) {
           forms.shift(),
           p.anyOf(
             p.SymbolParser.fmap(symForm => ({params: null, sym: symForm.sym})),
-            p.ListParser.then(paramsForm => {
-              return p.innerFormsParser(
-                paramsForm.forms,
-                p.SymbolParser.then(
-                  nameSymForm => p.atLeastOneOf(p.SymbolParser).then(
-                    paramSymForms => p.parseEnd({params: paramSymForms.map(psf => lv(psf.sym.name)), sym: nameSymForm.sym}))));
-            })).then(
+            p.ListParser.then(paramsForm => p.innerFormsParser(
+              paramsForm.forms,
+              p.SymbolParser.then(
+                nameSymForm => p.atLeastOneOf(p.SymbolParser).then(
+                  paramSymForms => p.parseEnd({
+                    params: paramSymForms.map(psf => lv(psf.sym.name)),
+                    sym: nameSymForm.sym
+                  })))))).then(
               ({params, sym}) => p.oneOf(
                 form => {
                   const fnEnv = params ? Map(params.map(p => [p.name, p])): Map({});
@@ -302,6 +303,22 @@ function analyseForm(env, nsEnv, form) {
               }).then(
                 body => p.parseEnd(new e.DefExpr({range: form.range, sym, params, body})))))
           .orThrow();
+
+      case 'defdata':
+        return p.parseForms(
+          forms.shift(),
+          p.SymbolParser.fmap(symForm => symForm.sym.name).then(
+            name => {
+              p.atLeastOneOf(p.oneOf(
+                p.ListParser.then(
+                  cForm => p.innerFormsParser(cForm.forms, p.SymbolParser.then(
+                    cNameForm => p.atLeastOneOf(p.SymbolParser).then(
+                      params => p.parseEnd(new e.DataConstructor({range: cForm.range, type: 'vector', name: cNameForm.sym.name})))))),
+
+                p.SymbolParser.fmap(cNameForm => new e.DataConstructor({range: cNameForm.range, type: 'value', name: cNameForm.sym.name}))));
+
+              return forms => console.log(forms);
+            })).orThrow();
 
       case '::':
         throw 'NIY';

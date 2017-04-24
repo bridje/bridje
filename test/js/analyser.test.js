@@ -199,4 +199,22 @@ describe('analyser', () => {
     assert.equal(expr.var, flipVar);
     assert.equal(expr.alias, 'foo');
   });
+
+  it('analyses a Maybe-style defdata form', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(defdata Maybe (Just a) Nothing)').first());
+    assert.equal(expr.exprType, 'defdata');
+    assert.equal(expr.name, 'Maybe');
+
+    const constructors = expr.constructors;
+    assert.equal(constructors.size, 2);
+
+    const c0 = expr.constructors.get(0);
+    assert.equal(c0.name, 'Just');
+    assert.equal(c0.type, 'vector');
+    assert.equal(c0.paramCount, 1);
+
+    const c1 = expr.constructors.get(1);
+    assert.equal(c1.name, 'Nothing');
+    assert.equal(c1.type, 'value');
+  });
 });
