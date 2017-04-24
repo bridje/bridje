@@ -137,10 +137,10 @@ function compileForms(env, loadedNS) {
   const {nsHeader, forms, cachedNS} = loadedNS.toObject();
 
   if (cachedNS) {
-    const {nsHeader, exports, nsCode} = cachedNS.toObject();
+    const {nsHeader: cachedNSHeader, exports, nsCode} = cachedNS.toObject();
     return {
-      nsHeader, nsCode,
-      nsEnv: a.resolveNSHeader(env, nsHeader).set('exports', exports)
+      nsHeader: cachedNSHeader, nsCode,
+      nsEnv: a.resolveNSHeader(env, cachedNSHeader).set('exports', exports)
     };
   } else {
     return forms.reduce(

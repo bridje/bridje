@@ -85,13 +85,14 @@ module.exports = function ({projectPaths, targetPath}) {
 
     resolveCachedNSAsync: function(ns, nsHash) {
       const pathSafeNS = makePathSafe(ns);
+
       return readFileAsync(pathAPI.resolve(targetPath, `${pathSafeNS}.header.json`))
         .then(headerFile => {
           const nsCodeAsync = readFileAsync(pathAPI.resolve(targetPath, `${pathSafeNS}.js`));
 
           const parsedHeaderFile = JSON.parse(headerFile);
 
-          if (headerFile.nsHeader.nsHash == nsHash) {
+          if (parsedHeaderFile.nsHeader.nsHash == nsHash) {
             return nsCodeAsync.then(nsCode => {
               parsedHeaderFile.nsCode = nsCode;
               return parsedHeaderFile;
