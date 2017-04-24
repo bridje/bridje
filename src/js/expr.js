@@ -23,6 +23,9 @@ const CallExpr = Record({range: null, exprs: null});
 
 const DefExpr = Record({range: null, sym: null, params: null, body: null});
 
+const DataConstructor = Record({range: null, type: null, name: null, params: null});
+const DefDataExpr = Record({range: null, name: null, constructors: null});
+
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
 BoolExpr.prototype.exprType = 'bool';
 BoolExpr.prototype.subExprs = function() {return List.of(this);};
@@ -89,11 +92,24 @@ DefExpr.prototype.toString = function() {return `(DefExpr ${this.sym} ${this.bod
 DefExpr.prototype.exprType = 'def';
 DefExpr.prototype.subExprs = function() {return List.of(this).concat(this.body.subExprs());};
 
+DataConstructor.prototype.toString = function() {
+  switch(this.type) {
+  case 'value': return this.name;
+  case 'vector': return `(${this.name} ${this.params.join(' ')})`;
+  default: throw('niy');
+  }
+};
+
+DefDataExpr.prototype.toString = function() {return `(DefDataExpr ${this.name} ${this.constructors.join(' ')})`;};
+DefDataExpr.prototype.exprType = 'defdata';
+DefDataExpr.prototype.subExprs = function() {return List.of(this);};
+
 module.exports = {
   BoolExpr, StringExpr, IntExpr, FloatExpr,
   VectorExpr, SetExpr,
   RecordEntry, RecordExpr,
   IfExpr, LocalVarExpr, VarExpr, JSGlobalExpr,
   LetExpr, LetBinding,
-  FnExpr, CallExpr, DefExpr
+  FnExpr, CallExpr, DefExpr,
+  DataConstructor, DefDataExpr
 };

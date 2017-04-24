@@ -308,17 +308,18 @@ function analyseForm(env, nsEnv, form) {
         return p.parseForms(
           forms.shift(),
           p.SymbolParser.fmap(symForm => symForm.sym.name).then(
-            name => {
-              p.atLeastOneOf(p.oneOf(
-                p.ListParser.then(
-                  cForm => p.innerFormsParser(cForm.forms, p.SymbolParser.then(
-                    cNameForm => p.atLeastOneOf(p.SymbolParser).then(
-                      params => p.parseEnd(new e.DataConstructor({range: cForm.range, type: 'vector', name: cNameForm.sym.name})))))),
+            name => p.atLeastOneOf(p.anyOf(
+              p.ListParser.then(
+                cForm => p.innerFormsParser(cForm.forms, p.SymbolParser.then(
+                  cNameForm => p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
+                    params => p.parseEnd(new e.DataConstructor({range: cForm.range, type: 'vector', name: cNameForm.sym.name, params})))))),
 
-                p.SymbolParser.fmap(cNameForm => new e.DataConstructor({range: cNameForm.range, type: 'value', name: cNameForm.sym.name}))));
+              p.SymbolParser.fmap(cNameForm => new e.DataConstructor({range: cNameForm.range, type: 'value', name: cNameForm.sym.name})))).then(
 
-              return forms => console.log(forms);
-            })).orThrow();
+                constructors =>
+                  p.parseEnd(new e.DefDataExpr({range: form.range, name, constructors}))
+              )
+          )).orThrow();
 
       case '::':
         throw 'NIY';

@@ -211,7 +211,7 @@ describe('analyser', () => {
     const c0 = expr.constructors.get(0);
     assert.equal(c0.name, 'Just');
     assert.equal(c0.type, 'vector');
-    assert.equal(c0.paramCount, 1);
+    assert.deepEqual(c0.params.toJS(), ['a']);
 
     const c1 = expr.constructors.get(1);
     assert.equal(c1.name, 'Nothing');
