@@ -71,6 +71,25 @@ describe('compiler', () => {
       const expr = evalCompiledForm(compileForm(`(js/process.cwd)`).compiledForm);
       assert.equal(expr, process.cwd());
     });
+
+    it ('compiles Maybe constructor functions', () => {
+      const def = compileForm(`(defdata Maybe (Just a) Nothing)`, new NSEnv());
+      const expr = compileForm(`(Just 3)`, def.nsEnv);
+      const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
+      assert.deepEqual(result.toJS(), {_params: [3]});
+    });
+
+    it ('compiles Person constructor functions', () => {
+      const def = compileForm(`(defdata Person (Person #{name, address, phone-number}))`, new NSEnv());
+      const expr = compileForm(`(Person {name "James", address "Foo", phone-number "01234 567890"})`, def.nsEnv);
+      const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
+
+      assert.deepEqual(result.toJS(), {
+        name: "James",
+        address: "Foo",
+        'phone-number': "01234 567890"
+      });
+    });
   });
 
   describe('node namespaces', () => {
