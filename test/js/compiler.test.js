@@ -34,9 +34,8 @@ describe('compiler', () => {
     });
 
     it('loads a record', () => {
-      const result = compileForm('(def record {a 1, b 2})', barNSEnv);
-      const loadNS = evalNSCode(List.of(result.compiledForm), result.nsEnv);
-      assert.deepEqual(loadNS(result.nsEnv).exports.get('record').value.toJS(), {a: 1, b: 2});
+      const result = evalCompiledForm(compileForm('{a 1, b 2}').compiledForm);
+      assert.deepEqual(result.toJS(), {a: 1, b: 2});
     });
 
     it ('loads a let', () => {
