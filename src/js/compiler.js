@@ -108,21 +108,24 @@ function compileExpr(env, nsEnv, expr) {
       const safeName = makeSafe(c.name);
       const recordName = `_constructor_${makeSafe(c.name)}`;
       const constructorVar = new Var({ns: nsEnv.ns, name: c.name, safeName});
+      const constructor = `new _env.ADTConstructor({name: '${c.name}', ns: '${nsEnv.ns}'})`;
 
       switch (c.type) {
       case 'value':
         return {
           constructorVar,
-          compiledConstructor: `const ${safeName} = _im.Map({_constructor: '${c.name}'})`
+          compiledConstructor: `const ${safeName} = ${constructor}`
         };
       case 'vector':
         const paramNames = c.params.map(p => makeSafe(p));
+        const recordParams = `{_params: _im.List([${paramNames.join(', ')}])}`;
 
         return {
           constructorVar,
           compiledConstructor: `
 const ${recordName} = _im.Record({_params: null});
-const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}({_params: _im.List([${paramNames.join(', ')}])})};`
+${recordName}.prototype._constructor = ${constructor};
+const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}(${recordParams})};`
         };
 
       case 'record':
@@ -130,6 +133,7 @@ const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}(
           constructorVar,
           compiledConstructor: `
 const ${recordName} = _im.Record({${c.keys.map(k => `'${k}': undefined`).join(', ')}});
+${recordName}.prototype._constructor = ${constructor};
 const ${safeName} = function(_r){return new ${recordName}(_r)};`
         };
       default:

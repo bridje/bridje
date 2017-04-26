@@ -2,7 +2,7 @@ const {compileExpr, compileNodeNS, compileWebNS} = require('../../src/js/compile
 const {readForms} = require('../../src/js/reader');
 const {analyseForm} = require('../../src/js/analyser');
 const e = require('../../src/js/env');
-const {NSEnv, Env} = e;
+const {NSEnv, Env, ADTConstructor} = e;
 const im = require('immutable');
 const {List, Map, Record} = im;
 const vm = require('vm');
@@ -74,9 +74,17 @@ describe('compiler', () => {
 
     it ('compiles Maybe constructor functions', () => {
       const def = compileForm(`(defdata Maybe (Just a) Nothing)`, new NSEnv());
-      const expr = compileForm(`(Just 3)`, def.nsEnv);
-      const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
-      assert.deepEqual(result.toJS(), {_params: [3]});
+
+      const justExpr = compileForm(`(Just 3)`, def.nsEnv);
+      const justResult = evalCompiledForm(`(function () {${def.compiledForm} \n return ${justExpr.compiledForm};})()`);
+      assert(justResult._constructor instanceof ADTConstructor);
+      assert.equal(justResult._constructor.name, 'Just');
+      assert.deepEqual(justResult.toJS(), {_params: [3]});
+
+      const nothingExpr = compileForm(`Nothing`, def.nsEnv);
+      const nothingResult = evalCompiledForm(`(function () {${def.compiledForm} \n return ${nothingExpr.compiledForm};})()`);
+      assert(nothingResult instanceof ADTConstructor);
+      assert.equal(nothingResult.name, 'Nothing');
     });
 
     it ('compiles Person constructor functions', () => {
@@ -84,6 +92,8 @@ describe('compiler', () => {
       const expr = compileForm(`(Person {name "James", address "Foo", phone-number "01234 567890"})`, def.nsEnv);
       const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
 
+      assert(result._constructor instanceof ADTConstructor);
+      assert.equal(result._constructor.name, 'Person');
       assert.deepEqual(result.toJS(), {
         name: "James",
         address: "Foo",
