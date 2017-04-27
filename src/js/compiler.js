@@ -99,8 +99,11 @@ function compileExpr(env, nsEnv, expr) {
     const call = params.isEmpty() ? '()' : '';
 
     return {
-      nsEnv: nsEnv.setIn(List.of('exports', name), new Var({ns: nsEnv.ns, expr, name, safeName})),
-      compiledForm: `\n const ${safeName} = (function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};\n`
+      nsEnv: nsEnv.setIn(['exports', name], new Var({ns: nsEnv.ns, expr, name, safeName})),
+      compiledForm: `
+const ${safeName} = (function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};
+_exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${safeName}, name: '${name}', safeName: '${safeName}'}));
+`
     };
 
   case 'defdata': {
@@ -164,31 +167,28 @@ function compileNodeNS(nsEnv, compiledForms) {
   const aliases = new Set(subExprs.filter(e => e.exprType == 'var' && e.alias != null))
         .map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = _aliases.get('${ve.alias}').exports.get('${ve.var.name}').value;`);
 
-  const exportEntries = nsEnv.exports.entrySeq()
-        .map(([name, {safeName}]) => `['${name}', new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})]`);
-
   return `
 
   (function(_env, _im) {
      return function(_nsEnv) {
        const _refers = _nsEnv.refers;
        const _aliases = _nsEnv.aliases;
+       let _exports = _im.Map({}).asMutable();
+       let _dataTypes = _im.Map({}).asMutable();
+
        ${refers.join('\n')}
 
        ${aliases.join('\n')}
 
        ${compiledForms.join('\n')}
 
-       return _nsEnv.set('exports', _im.Map(_im.List.of(${exportEntries.join(',')})));
+       return _nsEnv.set('exports', _exports.asImmutable()).set('dataTypes', _dataTypes.asImmutable());
      }
    })
 `;
 }
 
 function compileWebNS(env, nsEnv, compiledForms) {
-  const exportEntries = nsEnv.exports.entrySeq()
-        .map(([name, {safeName}]) => `'${name}': new _env.Var({ns: '${nsEnv.ns}', name: '${name}', value: ${safeName}, safeName: '${safeName}'})`);
-
   function importNSVarName(ns) {
     return `_import_${makeSafe(ns.replace(/\./g, '$'))}`;
   }
@@ -209,6 +209,9 @@ function compileWebNS(env, nsEnv, compiledForms) {
   import _env from '../../../../src/js/env';
   import _im from 'immutable';
 
+  let _exports = _im.Map({}).asMutable();
+  let _dataTypes = _im.Map({}).asMutable();
+
   ${imports.join('\n')}
 
   ${refers.join('\n')}
@@ -216,7 +219,7 @@ function compileWebNS(env, nsEnv, compiledForms) {
 
   ${compiledForms.join('\n')}
 
-  export default _im.Map({${exportEntries.join(', ')}});
+  export default _im.Map(_exports.asImmutable());
 `;
 }
 

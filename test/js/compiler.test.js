@@ -46,7 +46,7 @@ describe('compiler', () => {
     it ('loads a double hello', () => {
       const r0 = compileForm(`(def hello "hello")`, new NSEnv());
       const r1 = compileForm(`(def double [hello hello])`, r0.nsEnv);
-      const result = evalCompiledForm(`(function () {${r0.compiledForm}\n${r1.compiledForm} \n return double;})()`);
+      const result = evalCompiledForm(`(function () {let _exports = _im.Map({}); ${r0.compiledForm}\n${r1.compiledForm} \n return double;})()`);
       assert.deepEqual(result.toJS(), ['hello', 'hello']);
     });
 
@@ -63,7 +63,7 @@ describe('compiler', () => {
     it ('loads a defined function', () => {
       const def = compileForm(`(def (flip x y) [y x])`, new NSEnv());
       const expr = compileForm(`(flip 3 4)`, def.nsEnv);
-      const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
+      const result = evalCompiledForm(`(function () {let _exports = _im.Map({}); ${def.compiledForm} \n return ${expr.compiledForm};})()`);
       assert.deepEqual(result.toJS(), [4, 3]);
     });
 
