@@ -74,9 +74,12 @@ describe('compiler', () => {
 
     it ('compiles a vector-style defdata', () => {
       const def = compileForm(`(defdata (Just a))`, new NSEnv());
+      const resultDataType = def.nsEnv.dataTypes.get('Just');
+      assert(resultDataType instanceof DataType);
+      assert.equal(resultDataType.name, 'Just');
 
       const justExpr = compileForm(`(Just 3)`, def.nsEnv);
-      const justResult = evalCompiledForm(`(function () {${def.compiledForm} \n return ${justExpr.compiledForm};})()`);
+      const justResult = evalCompiledForm(`(function () {let _dataTypes = _im.Map(); ${def.compiledForm} \n return ${justExpr.compiledForm};})()`);
       assert(justResult._brjType instanceof DataType);
       assert.equal(justResult._brjType.name, 'Just');
       assert.deepEqual(justResult.toJS(), {_params: [3]});
@@ -84,17 +87,24 @@ describe('compiler', () => {
 
     it ('compiles a value-style defdata', () => {
       const def = compileForm(`(defdata Nothing)`, new NSEnv());
+      const resultDataType = def.nsEnv.dataTypes.get('Nothing');
+      assert(resultDataType instanceof DataType);
+      assert.equal(resultDataType.name, 'Nothing');
 
       const nothingExpr = compileForm(`Nothing`, def.nsEnv);
-      const nothingResult = evalCompiledForm(`(function () {${def.compiledForm} \n return ${nothingExpr.compiledForm};})()`);
+      const nothingResult = evalCompiledForm(`(function () {let _dataTypes = _im.Map(); ${def.compiledForm} \n return ${nothingExpr.compiledForm};})()`);
       assert(nothingResult._brjType instanceof DataType);
       assert.equal(nothingResult._brjType.name, 'Nothing');
     });
 
     it ('compiles a record-style defdata', () => {
       const def = compileForm(`(defdata (Person #{name, address, phone-number}))`, new NSEnv());
+      const resultDataType = def.nsEnv.dataTypes.get('Person');
+      assert(resultDataType instanceof DataType);
+      assert.equal(resultDataType.name, 'Person');
+
       const expr = compileForm(`(Person {name "James", address "Foo", phone-number "01234 567890"})`, def.nsEnv);
-      const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
+      const result = evalCompiledForm(`(function () {let _dataTypes = _im.Map(); ${def.compiledForm} \n return ${expr.compiledForm};})()`);
 
       assert(result._brjType instanceof DataType);
       assert.equal(result._brjType.name, 'Person');

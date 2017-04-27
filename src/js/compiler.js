@@ -1,6 +1,6 @@
 const vm = require('vm');
 const {List, Map, Set} = require('immutable');
-const {Var, NSHeader} = require('./env');
+const {Var, DataType, NSHeader} = require('./env');
 
 function makeSafe(s) {
   return s.replace('-', '_');
@@ -110,15 +110,17 @@ _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${saf
     const safeName = makeSafe(expr.name);
     const recordName = `_constructor_${makeSafe(expr.name)}`;
     const constructorVar = new Var({ns: nsEnv.ns, name: expr.name, safeName});
-    const dataType = `new _env.DataType({name: '${expr.name}', ns: '${nsEnv.ns}'})`;
+    const dataType = new DataType({name: expr.name, ns: nsEnv.ns});
+    const dataTypeStr = `new _env.DataType({name: '${expr.name}', ns: '${nsEnv.ns}'})`;
 
-    const compiledConstructor = function() {
+    const compiledDataType = function() {
       switch (expr.type) {
       case 'value':
         return `
 const ${recordName} = _im.Record({});
-${recordName}.prototype._brjType = ${dataType};
+${recordName}.prototype._brjType = ${dataTypeStr};
 const ${safeName} = new ${recordName}();
+_dataTypes = _dataTypes.set('${expr.name}', ${recordName}.prototype._brjType);
 `;
 
       case 'vector':
@@ -127,15 +129,17 @@ const ${safeName} = new ${recordName}();
 
         return `
 const ${recordName} = _im.Record({_params: null});
-${recordName}.prototype._brjType = ${dataType};
+${recordName}.prototype._brjType = ${dataTypeStr};
 const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}(${recordParams})};
+_dataTypes = _dataTypes.set('${expr.name}', ${recordName}.prototype._brjType);
 `;
 
       case 'record':
         return `
 const ${recordName} = _im.Record({${expr.keys.map(k => `'${k}': undefined`).join(', ')}});
-${recordName}.prototype._brjType = ${dataType};
+${recordName}.prototype._brjType = ${dataTypeStr};
 const ${safeName} = function(_r){return new ${recordName}(_r)};
+_dataTypes = _dataTypes.set('${expr.name}', ${recordName}.prototype._brjType);
 `;
 
       default:
@@ -145,8 +149,10 @@ const ${safeName} = function(_r){return new ${recordName}(_r)};
     }();
 
     return {
-      nsEnv: nsEnv.setIn(['exports', constructorVar.name], constructorVar),
-      compiledForm: compiledConstructor
+      nsEnv: nsEnv
+        .setIn(['exports', constructorVar.name], constructorVar)
+        .setIn(['dataTypes', expr.name], dataType),
+      compiledForm: compiledDataType
     };
   }
 
