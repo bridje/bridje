@@ -22,9 +22,7 @@ const FnExpr = Record({range: null, params: null, body: null});
 const CallExpr = Record({range: null, exprs: null});
 
 const DefExpr = Record({range: null, sym: null, params: null, body: null});
-
-const DataConstructor = Record({range: null, type: null, name: null, params: null, keys: null});
-const DefDataExpr = Record({range: null, name: null, constructors: null});
+const DefDataExpr = Record({range: null, name: null, type: null, params: null, keys: null});
 
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
 BoolExpr.prototype.exprType = 'bool';
@@ -92,16 +90,14 @@ DefExpr.prototype.toString = function() {return `(DefExpr ${this.sym} ${this.bod
 DefExpr.prototype.exprType = 'def';
 DefExpr.prototype.subExprs = function() {return List.of(this).concat(this.body.subExprs());};
 
-DataConstructor.prototype.toString = function() {
+DefDataExpr.prototype.toString = function() {
   switch(this.type) {
-  case 'value': return this.name;
-  case 'vector': return `(${this.name} ${this.params.join(' ')})`;
-  case 'record': return `(${this.name} #{${this.keys.join(' ')}})`;
-  default: throw('niy');
+  case 'value': return `(DefDataExpr ${this.name})`;
+  case 'vector': return `(DefDataExpr (${this.name} ${this.params.join(' ')}))`;
+  case 'record': return `(DefDataExpr (${this.name} #{${this.keys.join(' ')}}))`;
+  default: throw('invalid defdata type');
   }
 };
-
-DefDataExpr.prototype.toString = function() {return `(DefDataExpr ${this.name} ${this.constructors.join(' ')})`;};
 DefDataExpr.prototype.exprType = 'defdata';
 DefDataExpr.prototype.subExprs = function() {return List.of(this);};
 
@@ -111,6 +107,5 @@ module.exports = {
   RecordEntry, RecordExpr,
   IfExpr, LocalVarExpr, VarExpr, JSGlobalExpr,
   LetExpr, LetBinding,
-  FnExpr, CallExpr, DefExpr,
-  DataConstructor, DefDataExpr
+  FnExpr, CallExpr, DefExpr, DefDataExpr
 };

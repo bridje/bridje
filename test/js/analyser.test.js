@@ -200,35 +200,26 @@ describe('analyser', () => {
     assert.equal(expr.alias, 'foo');
   });
 
-  it('analyses a Maybe-style defdata form', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(defdata Maybe (Just a) Nothing)').first());
+  it('analyses a vector-style defdata form', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(defdata (Just a))').first());
     assert.equal(expr.exprType, 'defdata');
-    assert.equal(expr.name, 'Maybe');
-
-    const constructors = expr.constructors;
-    assert.equal(constructors.size, 2);
-
-    const c0 = expr.constructors.get(0);
-    assert.equal(c0.name, 'Just');
-    assert.equal(c0.type, 'vector');
-    assert.deepEqual(c0.params.toJS(), ['a']);
-
-    const c1 = expr.constructors.get(1);
-    assert.equal(c1.name, 'Nothing');
-    assert.equal(c1.type, 'value');
+    assert.equal(expr.name, 'Just');
+    assert.equal(expr.type, 'vector');
+    assert.deepEqual(expr.params.toJS(), ['a']);
   });
 
-  it('analyses a Person-style defdata form', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(defdata Person (Person #{name, address, phone-number}))').first());
+  it('analyses a value-style defdata form', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(defdata Nothing)').first());
+    assert.equal(expr.exprType, 'defdata');
+    assert.equal(expr.name, 'Nothing');
+    assert.equal(expr.type, 'value');
+  });
+
+  it('analyses a record-style defdata form', () => {
+    const expr = ana.analyseForm(null, null, reader.readForms('(defdata (Person #{name, address, phone-number}))').first());
     assert.equal(expr.exprType, 'defdata');
     assert.equal(expr.name, 'Person');
-
-    const constructors = expr.constructors;
-    assert.equal(constructors.size, 1);
-
-    const c = expr.constructors.get(0);
-    assert.equal(c.name, 'Person');
-    assert.equal(c.type, 'record');
-    assert.deepEqual(c.keys.toJS(), ['name', 'address', 'phone-number']);
+    assert.equal(expr.type, 'record');
+    assert.deepEqual(expr.keys.toJS(), ['name', 'address', 'phone-number']);
   });
 });

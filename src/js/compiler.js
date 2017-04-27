@@ -103,53 +103,49 @@ function compileExpr(env, nsEnv, expr) {
       compiledForm: `\n const ${safeName} = (function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};\n`
     };
 
-  case 'defdata':
-    const constructors = expr.constructors.map(c => {
-      const safeName = makeSafe(c.name);
-      const recordName = `_constructor_${makeSafe(c.name)}`;
-      const constructorVar = new Var({ns: nsEnv.ns, name: c.name, safeName});
-      const constructor = `new _env.ADTConstructor({name: '${c.name}', ns: '${nsEnv.ns}'})`;
+  case 'defdata': {
+    const safeName = makeSafe(expr.name);
+    const recordName = `_constructor_${makeSafe(expr.name)}`;
+    const constructorVar = new Var({ns: nsEnv.ns, name: expr.name, safeName});
+    const dataType = `new _env.DataType({name: '${expr.name}', ns: '${nsEnv.ns}'})`;
 
-      switch (c.type) {
+    const compiledConstructor = function() {
+      switch (expr.type) {
       case 'value':
-        return {
-          constructorVar,
-          compiledConstructor: `
+        return `
 const ${recordName} = _im.Record({});
-${recordName}.prototype._brjConstructor = ${constructor};
+${recordName}.prototype._brjType = ${dataType};
 const ${safeName} = new ${recordName}();
-`
+`;
 
-        };
       case 'vector':
-        const paramNames = c.params.map(p => makeSafe(p));
+        const paramNames = expr.params.map(p => makeSafe(p));
         const recordParams = `{_params: _im.List([${paramNames.join(', ')}])}`;
 
-        return {
-          constructorVar,
-          compiledConstructor: `
+        return `
 const ${recordName} = _im.Record({_params: null});
-${recordName}.prototype._brjConstructor = ${constructor};
-const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}(${recordParams})};`
-        };
+${recordName}.prototype._brjType = ${dataType};
+const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}(${recordParams})};
+`;
 
       case 'record':
-        return {
-          constructorVar,
-          compiledConstructor: `
-const ${recordName} = _im.Record({${c.keys.map(k => `'${k}': undefined`).join(', ')}});
-${recordName}.prototype._brjConstructor = ${constructor};
-const ${safeName} = function(_r){return new ${recordName}(_r)};`
-        };
+        return `
+const ${recordName} = _im.Record({${expr.keys.map(k => `'${k}': undefined`).join(', ')}});
+${recordName}.prototype._brjType = ${dataType};
+const ${safeName} = function(_r){return new ${recordName}(_r)};
+`;
+
       default:
-        throw 'unknown constructor type';
+        throw 'unknown defdata type';
       }
-    });
+
+    }();
 
     return {
-      nsEnv: constructors.reduce((nsEnv, {constructorVar}) => nsEnv.setIn(['exports', constructorVar.name], constructorVar), nsEnv),
-      compiledForm: `${constructors.map(c => `${c.compiledConstructor}`).join('\n')}`
+      nsEnv: nsEnv.setIn(['exports', constructorVar.name], constructorVar),
+      compiledForm: compiledConstructor
     };
+  }
 
   default:
     return {

@@ -307,22 +307,18 @@ function analyseForm(env, nsEnv, form) {
       case 'defdata':
         return p.parseForms(
           forms.shift(),
-          p.SymbolParser.fmap(symForm => symForm.sym.name).then(
-            name => p.atLeastOneOf(p.anyOf(
-              p.ListParser.then(
-                cForm => p.innerFormsParser(cForm.forms, p.SymbolParser.then(
-                  cNameForm => p.anyOf(
-                    p.SetParser.then(keySet => p.innerFormsParser(keySet.forms, p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
-                      keys => p.parseEnd(new e.DataConstructor({range: cForm.range, name: cNameForm.sym.name, type: 'record', keys}))))),
-                    p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
-                      params => p.parseEnd(new e.DataConstructor({range: cForm.range, name: cNameForm.sym.name, type: 'vector', params}))))))),
+          p.anyOf(
+            p.SymbolParser.fmap(symForm => symForm.sym.name).then(
+              name => p.parseEnd(new e.DefDataExpr({range: form.range, type: 'value', name}))),
 
-              p.SymbolParser.fmap(cNameForm => new e.DataConstructor({range: cNameForm.range, type: 'value', name: cNameForm.sym.name})))).then(
-
-                constructors =>
-                  p.parseEnd(new e.DefDataExpr({range: form.range, name, constructors}))
-              )
-          )).orThrow();
+            p.ListParser.then(
+              listForm => p.innerFormsParser(listForm.forms, p.SymbolParser.then(
+                nameForm => p.anyOf(
+                  p.SetParser.then(keySet => p.innerFormsParser(keySet.forms, p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
+                    keys => p.parseEnd(new e.DefDataExpr({range: form.range, name: nameForm.sym.name, type: 'record', keys}))))),
+                  p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
+                    params => p.parseEnd(new e.DefDataExpr({range: form.range, name: nameForm.sym.name, type: 'vector', params})))
+                )))))).orThrow();
 
       case '::':
         throw 'NIY';

@@ -2,7 +2,7 @@ const {compileExpr, compileNodeNS, compileWebNS} = require('../../src/js/compile
 const {readForms} = require('../../src/js/reader');
 const {analyseForm} = require('../../src/js/analyser');
 const e = require('../../src/js/env');
-const {NSEnv, Env, ADTConstructor, ADTValue} = e;
+const {NSEnv, Env, DataType} = e;
 const im = require('immutable');
 const {List, Map, Record} = im;
 const vm = require('vm');
@@ -72,28 +72,32 @@ describe('compiler', () => {
       assert.equal(expr, process.cwd());
     });
 
-    it ('compiles Maybe constructor functions', () => {
-      const def = compileForm(`(defdata Maybe (Just a) Nothing)`, new NSEnv());
+    it ('compiles a vector-style defdata', () => {
+      const def = compileForm(`(defdata (Just a))`, new NSEnv());
 
       const justExpr = compileForm(`(Just 3)`, def.nsEnv);
       const justResult = evalCompiledForm(`(function () {${def.compiledForm} \n return ${justExpr.compiledForm};})()`);
-      assert(justResult._brjConstructor instanceof ADTConstructor);
-      assert.equal(justResult._brjConstructor.name, 'Just');
+      assert(justResult._brjType instanceof DataType);
+      assert.equal(justResult._brjType.name, 'Just');
       assert.deepEqual(justResult.toJS(), {_params: [3]});
+    });
+
+    it ('compiles a value-style defdata', () => {
+      const def = compileForm(`(defdata Nothing)`, new NSEnv());
 
       const nothingExpr = compileForm(`Nothing`, def.nsEnv);
       const nothingResult = evalCompiledForm(`(function () {${def.compiledForm} \n return ${nothingExpr.compiledForm};})()`);
-      assert(nothingResult._brjConstructor instanceof ADTConstructor);
-      assert.equal(nothingResult._brjConstructor.name, 'Nothing');
+      assert(nothingResult._brjType instanceof DataType);
+      assert.equal(nothingResult._brjType.name, 'Nothing');
     });
 
-    it ('compiles Person constructor functions', () => {
-      const def = compileForm(`(defdata Person (Person #{name, address, phone-number}))`, new NSEnv());
+    it ('compiles a record-style defdata', () => {
+      const def = compileForm(`(defdata (Person #{name, address, phone-number}))`, new NSEnv());
       const expr = compileForm(`(Person {name "James", address "Foo", phone-number "01234 567890"})`, def.nsEnv);
       const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
 
-      assert(result._brjConstructor instanceof ADTConstructor);
-      assert.equal(result._brjConstructor.name, 'Person');
+      assert(result._brjType instanceof DataType);
+      assert.equal(result._brjType.name, 'Person');
       assert.deepEqual(result.toJS(), {
         name: "James",
         address: "Foo",
