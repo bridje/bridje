@@ -18,12 +18,12 @@ function nsSymParser(ns, brjFile) {
 
 const refersParser = p.RecordParser.then(
   refers => p.innerFormsParser(refers.entries, p.atLeastOneOf(p.oneOf(
-    referEntry => p.parseForms(List.of(referEntry.key, referEntry.value), p.SymbolParser.then(
-      nsSymForm => p.VectorParser.then(
+    referEntry => p.parseForms(List.of(referEntry.key, referEntry.value), p.SymbolNameParser.then(
+      referredNS => p.VectorParser.then(
         referredSymForms => p.innerFormsParser(
           referredSymForms.forms,
-          p.atLeastOneOf(p.SymbolParser.fmap(referredSymForm => referredSymForm.sym.name)))).fmap(
-            referredSyms => ({referredNS: nsSymForm.sym.name, referredSyms}))))))).then(
+          p.atLeastOneOf(p.SymbolNameParser))).fmap(
+            referredSyms => ({referredNS, referredSyms}))))))).then(
               parsedRefers => {
                 parsedRefers = parsedRefers.toArray();
                 const referredNSs = [];
@@ -51,9 +51,9 @@ const refersParser = p.RecordParser.then(
 
 const aliasesParser = p.RecordParser.then(
   aliases => p.innerFormsParser(aliases.entries, p.atLeastOneOf(p.oneOf(
-    aliasEntry => p.parseForms(List.of(aliasEntry.key, aliasEntry.value), p.SymbolParser.then(
-      aliasSymForm => p.SymbolParser.fmap(
-        aliasNSForm => ({alias: aliasSymForm.sym.name, aliasedNS: aliasNSForm.sym.name}))))))).then(
+    aliasEntry => p.parseForms(List.of(aliasEntry.key, aliasEntry.value), p.SymbolNameParser.then(
+      alias => p.SymbolNameParser.fmap(
+        aliasedNS => ({alias, aliasedNS}))))))).then(
           parsedAliases => {
             parsedAliases = parsedAliases.toArray();
             const aliasedNSs = [];
@@ -73,16 +73,16 @@ const aliasesParser = p.RecordParser.then(
 
 function nsOptsParser(nsHeader) {
   return recordForm => p.innerFormsParser(recordForm.entries, p.atLeastOneOf(p.oneOf(
-    entry => p.parseForms(List.of(entry.key, entry.value), p.SymbolParser.then(
-      symForm => {
-        switch(symForm.sym.name) {
+    entry => p.parseForms(List.of(entry.key, entry.value), p.SymbolNameParser.then(
+      entryType => {
+        switch(entryType) {
         case 'refers':
           return refersParser.fmap(refers => ({type: 'refers', value: refers}));
         case 'aliases':
           return aliasesParser.fmap(aliases => ({type: 'aliases', value: aliases}));
 
         default:
-          return p.pure(p.failResult(`Unexpected key '${symForm.sym.name}' in NS declaration`));
+          return p.pure(p.failResult(`Unexpected key '${entryType}' in NS declaration`));
         }
       })))).then(
         nsOpts => {
@@ -291,9 +291,9 @@ function analyseForm(env, nsEnv, form) {
             p.ListParser.then(paramsForm => p.innerFormsParser(
               paramsForm.forms,
               p.SymbolParser.then(
-                nameSymForm => p.atLeastOneOf(p.SymbolParser).then(
-                  paramSymForms => p.parseEnd({
-                    params: paramSymForms.map(psf => lv(psf.sym.name)),
+                nameSymForm => p.atLeastOneOf(p.SymbolNameParser).then(
+                  params => p.parseEnd({
+                    params: params.map(lv),
                     sym: nameSymForm.sym
                   })))))).then(
               ({params, sym}) => p.oneOf(
@@ -308,17 +308,16 @@ function analyseForm(env, nsEnv, form) {
         return p.parseForms(
           forms.shift(),
           p.anyOf(
-            p.SymbolParser.fmap(symForm => symForm.sym.name).then(
+            p.SymbolNameParser.then(
               name => p.parseEnd(new e.DefDataExpr({range: form.range, type: 'value', name}))),
 
             p.ListParser.then(
-              listForm => p.innerFormsParser(listForm.forms, p.SymbolParser.then(
-                nameForm => p.anyOf(
-                  p.SetParser.then(keySet => p.innerFormsParser(keySet.forms, p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
-                    keys => p.parseEnd(new e.DefDataExpr({range: form.range, name: nameForm.sym.name, type: 'record', keys}))))),
-                  p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym.name)).then(
-                    params => p.parseEnd(new e.DefDataExpr({range: form.range, name: nameForm.sym.name, type: 'vector', params})))
-                )))))).orThrow();
+              listForm => p.innerFormsParser(listForm.forms, p.SymbolNameParser.then(
+                name => p.anyOf(
+                  p.SetParser.then(keySet => p.innerFormsParser(keySet.forms, p.atLeastOneOf(p.SymbolNameParser).then(
+                    keys => p.parseEnd(new e.DefDataExpr({range: form.range, name, type: 'record', keys}))))),
+                  p.atLeastOneOf(p.SymbolNameParser).then(
+                    params => p.parseEnd(new e.DefDataExpr({range: form.range, name, type: 'vector', params}))))))))).orThrow();
 
       case '::':
         throw 'NIY';

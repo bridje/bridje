@@ -160,6 +160,7 @@ function formTypeParser(formType) {
 }
 
 var SymbolParser = formTypeParser('symbol');
+var SymbolNameParser = SymbolParser.fmap(symForm => symForm.sym.name);
 var ListParser = formTypeParser('list');
 var VectorParser = formTypeParser('vector');
 var RecordParser = formTypeParser('record');
@@ -187,6 +188,6 @@ module.exports = {
   ParseResult, successResult, failResult,
   anyOf, oneOf, atLeastOneOf, isSymbol, pure,
   innerFormsParser, parseEnd,
-  Parser, SymbolParser, ListParser, VectorParser, RecordParser, SetParser,
+  Parser, SymbolParser, SymbolNameParser, ListParser, VectorParser, RecordParser, SetParser,
   parseForms, parseForm
 };
