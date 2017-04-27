@@ -2,7 +2,7 @@ const {compileExpr, compileNodeNS, compileWebNS} = require('../../src/js/compile
 const {readForms} = require('../../src/js/reader');
 const {analyseForm} = require('../../src/js/analyser');
 const e = require('../../src/js/env');
-const {NSEnv, Env, ADTConstructor} = e;
+const {NSEnv, Env, ADTConstructor, ADTValue} = e;
 const im = require('immutable');
 const {List, Map, Record} = im;
 const vm = require('vm');
@@ -77,14 +77,14 @@ describe('compiler', () => {
 
       const justExpr = compileForm(`(Just 3)`, def.nsEnv);
       const justResult = evalCompiledForm(`(function () {${def.compiledForm} \n return ${justExpr.compiledForm};})()`);
-      assert(justResult._constructor instanceof ADTConstructor);
-      assert.equal(justResult._constructor.name, 'Just');
+      assert(justResult._brjConstructor instanceof ADTConstructor);
+      assert.equal(justResult._brjConstructor.name, 'Just');
       assert.deepEqual(justResult.toJS(), {_params: [3]});
 
       const nothingExpr = compileForm(`Nothing`, def.nsEnv);
       const nothingResult = evalCompiledForm(`(function () {${def.compiledForm} \n return ${nothingExpr.compiledForm};})()`);
-      assert(nothingResult instanceof ADTConstructor);
-      assert.equal(nothingResult.name, 'Nothing');
+      assert(nothingResult._brjConstructor instanceof ADTConstructor);
+      assert.equal(nothingResult._brjConstructor.name, 'Nothing');
     });
 
     it ('compiles Person constructor functions', () => {
@@ -92,8 +92,8 @@ describe('compiler', () => {
       const expr = compileForm(`(Person {name "James", address "Foo", phone-number "01234 567890"})`, def.nsEnv);
       const result = evalCompiledForm(`(function () {${def.compiledForm} \n return ${expr.compiledForm};})()`);
 
-      assert(result._constructor instanceof ADTConstructor);
-      assert.equal(result._constructor.name, 'Person');
+      assert(result._brjConstructor instanceof ADTConstructor);
+      assert.equal(result._brjConstructor.name, 'Person');
       assert.deepEqual(result.toJS(), {
         name: "James",
         address: "Foo",

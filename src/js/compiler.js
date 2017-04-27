@@ -114,7 +114,12 @@ function compileExpr(env, nsEnv, expr) {
       case 'value':
         return {
           constructorVar,
-          compiledConstructor: `const ${safeName} = ${constructor}`
+          compiledConstructor: `
+const ${recordName} = _im.Record({});
+${recordName}.prototype._brjConstructor = ${constructor};
+const ${safeName} = new ${recordName}();
+`
+
         };
       case 'vector':
         const paramNames = c.params.map(p => makeSafe(p));
@@ -124,7 +129,7 @@ function compileExpr(env, nsEnv, expr) {
           constructorVar,
           compiledConstructor: `
 const ${recordName} = _im.Record({_params: null});
-${recordName}.prototype._constructor = ${constructor};
+${recordName}.prototype._brjConstructor = ${constructor};
 const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}(${recordParams})};`
         };
 
@@ -133,7 +138,7 @@ const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}(
           constructorVar,
           compiledConstructor: `
 const ${recordName} = _im.Record({${c.keys.map(k => `'${k}': undefined`).join(', ')}});
-${recordName}.prototype._constructor = ${constructor};
+${recordName}.prototype._brjConstructor = ${constructor};
 const ${safeName} = function(_r){return new ${recordName}(_r)};`
         };
       default:
