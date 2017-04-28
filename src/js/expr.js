@@ -21,6 +21,9 @@ const LetExpr = Record({range: null, bindings: null, body: null});
 const FnExpr = Record({range: null, params: null, body: null});
 const CallExpr = Record({range: null, exprs: null});
 
+const MatchClause = Record({range: null, dataType: null, expr: null});
+const MatchExpr = Record({range: null, expr: null, clauses: null});
+
 const DefExpr = Record({range: null, sym: null, params: null, body: null});
 const DefDataExpr = Record({range: null, name: null, type: null, params: null, keys: null});
 
@@ -86,6 +89,11 @@ CallExpr.prototype.toString = function() {return `(CallExpr ${this.exprs.join(' 
 CallExpr.prototype.exprType = 'call';
 CallExpr.prototype.subExprs = function() {return this.exprs.flatMap(e => e.subExprs());};
 
+MatchClause.prototype.toString = function() {return `${this.dataType.ns}/${this.dataType.name} ${this.expr}`;};
+MatchExpr.prototype.toString = function() {return `(MatchExpr ${this.expr} ${this.clauses.join(' ')})`;};
+MatchExpr.prototype.exprType = 'match';
+MatchExpr.prototype.subExprs = function() {return this.expr.subExprs.union(this.clauses.map(c => c.expr.subExprs()));};
+
 DefExpr.prototype.toString = function() {return `(DefExpr ${this.sym} ${this.body})`;};
 DefExpr.prototype.exprType = 'def';
 DefExpr.prototype.subExprs = function() {return List.of(this).concat(this.body.subExprs());};
@@ -107,5 +115,7 @@ module.exports = {
   RecordEntry, RecordExpr,
   IfExpr, LocalVarExpr, VarExpr, JSGlobalExpr,
   LetExpr, LetBinding,
-  FnExpr, CallExpr, DefExpr, DefDataExpr
+  FnExpr, CallExpr,
+  MatchClause, MatchExpr,
+  DefExpr, DefDataExpr
 };

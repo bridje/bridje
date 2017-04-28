@@ -223,7 +223,18 @@ function analyseForm(env, nsEnv, form) {
                       .then(body => p.parseEnd(new e.FnExpr({range, params, body})));
                   }))).orThrow();
 
-          case 'case':
+          case 'match':
+            return p.parseForms(forms.shift(), exprParser.then(
+              matchExpr => p.atLeastOneOf(p.SymbolNameParser.then(
+                dataTypeName => {
+                  const dataType = nsEnv.dataTypes.get(dataTypeName);
+                  if (dataType) {
+                    return exprParser.then(expr => p.pure(p.successResult(new e.MatchClause({dataType, expr}))));
+                  } else {
+                    return p.pure(p.failResult(`can't find data type '${dataTypeName}'`));
+                  }
+                })).then(clauses => p.parseEnd(new e.MatchExpr({range: form.range, expr: matchExpr, clauses}))))).orThrow();
+
           case '::':
             throw 'NIY';
 
