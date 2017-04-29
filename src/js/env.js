@@ -9,7 +9,7 @@ const NSEnv = Record({
 
 const NSHeader = Record({ns: null, brjFile: null, nsHash: null, refers: Map({}), aliases: Map({})});
 const Var = Record({ns: null, name: null, expr: undefined, value: undefined, safeName: undefined});
-const DataType = Record({ns: null, name: null});
+const DataType = Record({ns: null, name: null, dataTypeName: null});
 
 var Symbol = Record({name: null});
 var NamespacedSymbol = Record({ns: null, name: null});

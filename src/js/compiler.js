@@ -85,6 +85,11 @@ function compileExpr(env, nsEnv, expr) {
     case 'jsGlobal':
       return `(${expr.path.join('.')})`;
 
+    case 'match':
+      // TODO this should work when the data types are in another NS
+      const cases = expr.clauses.map(c => `case ${c.dataType.dataTypeName}: return ${compileExpr0(c.expr)};`);
+      return `(function () {switch (${compileExpr0(expr.expr)}._brjType) {${cases.join(' ')}}})()`;
+
     default:
       throw 'compiler NIY';
     }
@@ -109,50 +114,50 @@ _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${saf
   case 'defdata': {
     const safeName = makeSafe(expr.name);
     const recordName = `_constructor_${makeSafe(expr.name)}`;
+    const dataTypeName = `_dataType_${makeSafe(expr.name)}`;
     const constructorVar = new Var({ns: nsEnv.ns, name: expr.name, safeName});
-    const dataType = new DataType({name: expr.name, ns: nsEnv.ns});
-    const dataTypeStr = `new _env.DataType({name: '${expr.name}', ns: '${nsEnv.ns}'})`;
+    const dataType = new DataType({name: expr.name, ns: nsEnv.ns, dataTypeName});
+    const dataTypeStr = `new _env.DataType({name: '${expr.name}', ns: '${nsEnv.ns}', dataTypeName: '${dataTypeName}'})`;
 
-    const compiledDataType = function() {
+    const {compiledRecord, compiledConstructor} = function() {
       switch (expr.type) {
       case 'value':
-        return `
-const ${recordName} = _im.Record({});
-${recordName}.prototype._brjType = ${dataTypeStr};
-const ${safeName} = new ${recordName}();
-_dataTypes = _dataTypes.set('${expr.name}', ${recordName}.prototype._brjType);
-`;
+        return {
+          compiledRecord: `_im.Record({})`,
+          compiledConstructor: `new ${recordName}()`
+        };
 
       case 'vector':
         const paramNames = expr.params.map(p => makeSafe(p));
         const recordParams = `{_params: _im.List([${paramNames.join(', ')}])}`;
 
-        return `
-const ${recordName} = _im.Record({_params: null});
-${recordName}.prototype._brjType = ${dataTypeStr};
-const ${safeName} = function(${paramNames.join(', ')}){return new ${recordName}(${recordParams})};
-_dataTypes = _dataTypes.set('${expr.name}', ${recordName}.prototype._brjType);
-`;
+        return {
+          compiledRecord: `_im.Record({_params: null})`,
+          compiledConstructor: `function(${paramNames.join(', ')}){return new ${recordName}(${recordParams})}`
+        };
 
       case 'record':
-        return `
-const ${recordName} = _im.Record({${expr.keys.map(k => `'${k}': undefined`).join(', ')}});
-${recordName}.prototype._brjType = ${dataTypeStr};
-const ${safeName} = function(_r){return new ${recordName}(_r)};
-_dataTypes = _dataTypes.set('${expr.name}', ${recordName}.prototype._brjType);
-`;
+        return {
+          compiledRecord: `_im.Record({${expr.keys.map(k => `'${k}': undefined`).join(', ')}})`,
+          compiledConstructor: `function(_r){return new ${recordName}(_r)}`
+        };
 
       default:
         throw 'unknown defdata type';
       }
-
     }();
 
     return {
       nsEnv: nsEnv
         .setIn(['exports', constructorVar.name], constructorVar)
         .setIn(['dataTypes', expr.name], dataType),
-      compiledForm: compiledDataType
+      compiledForm: `
+const ${dataTypeName} = ${dataTypeStr};
+const ${recordName} = ${compiledRecord};
+const ${safeName} = ${compiledConstructor};
+${recordName}.prototype._brjType = ${dataTypeName};
+_dataTypes = _dataTypes.set('${expr.name}', ${dataTypeName});
+`
     };
   }
 

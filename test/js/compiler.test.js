@@ -114,6 +114,15 @@ describe('compiler', () => {
         'phone-number': "01234 567890"
       });
     });
+
+    it ('switches based on a datatype', () => {
+      const defJust = compileForm(`(defdata (Just a))`, new NSEnv());
+      const defNothing = compileForm(`(defdata Nothing)`, defJust.nsEnv);
+
+      const expr = compileForm(`(match (Just 3) Nothing "oh no" Just "aww yiss") `, defNothing.nsEnv);
+      const result = evalCompiledForm(`(function () {let _dataTypes = new _im.Map({}).asMutable(); ${defJust.compiledForm} \n ${defNothing.compiledForm} \n return ${expr.compiledForm};})()`);
+      assert.equal(result, 'aww yiss');
+    });
   });
 
   describe('node namespaces', () => {
