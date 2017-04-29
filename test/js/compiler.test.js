@@ -14,6 +14,10 @@ function evalCompiledForm(compiledForm) {
   return new vm.Script(`(function (_env, _im) {return ${compiledForm};})`).runInThisContext()(e, im);
 }
 
+function evalCompiledForms(compiledForms) {
+  return evalCompiledForm(`(function() {let _exports = _im.Map({}); let _dataTypes = _im.Map({}); ${compiledForms.join(' ')}})()`);
+}
+
 function evalNSCode(compiledForms, nsEnv) {
   return new vm.Script(compileNodeNS(nsEnv, compiledForms)).runInThisContext()(e, im);
 }
@@ -46,7 +50,8 @@ describe('compiler', () => {
     it ('loads a double hello', () => {
       const r0 = compileForm(`(def hello "hello")`, new NSEnv());
       const r1 = compileForm(`(def double [hello hello])`, r0.nsEnv);
-      const result = evalCompiledForm(`(function () {let _exports = _im.Map({}); ${r0.compiledForm}\n${r1.compiledForm} \n return double;})()`);
+      const result = evalCompiledForms(List.of(r0.compiledForm, r1.compiledForm, `return double;`));
+
       assert.deepEqual(result.toJS(), ['hello', 'hello']);
     });
 
@@ -63,7 +68,7 @@ describe('compiler', () => {
     it ('loads a defined function', () => {
       const def = compileForm(`(def (flip x y) [y x])`, new NSEnv());
       const expr = compileForm(`(flip 3 4)`, def.nsEnv);
-      const result = evalCompiledForm(`(function () {let _exports = _im.Map({}); ${def.compiledForm} \n return ${expr.compiledForm};})()`);
+      const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
       assert.deepEqual(result.toJS(), [4, 3]);
     });
 
@@ -78,11 +83,11 @@ describe('compiler', () => {
       assert(resultDataType instanceof DataType);
       assert.equal(resultDataType.name, 'Just');
 
-      const justExpr = compileForm(`(Just 3)`, def.nsEnv);
-      const justResult = evalCompiledForm(`(function () {let _dataTypes = _im.Map(); ${def.compiledForm} \n return ${justExpr.compiledForm};})()`);
-      assert(justResult._brjType instanceof DataType);
-      assert.equal(justResult._brjType.name, 'Just');
-      assert.deepEqual(justResult.toJS(), {_params: [3]});
+      const expr = compileForm(`(Just 3)`, def.nsEnv);
+      const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
+      assert(result._brjType instanceof DataType);
+      assert.equal(result._brjType.name, 'Just');
+      assert.deepEqual(result.toJS(), {_params: [3]});
     });
 
     it ('compiles a value-style defdata', () => {
@@ -91,10 +96,10 @@ describe('compiler', () => {
       assert(resultDataType instanceof DataType);
       assert.equal(resultDataType.name, 'Nothing');
 
-      const nothingExpr = compileForm(`Nothing`, def.nsEnv);
-      const nothingResult = evalCompiledForm(`(function () {let _dataTypes = _im.Map(); ${def.compiledForm} \n return ${nothingExpr.compiledForm};})()`);
-      assert(nothingResult._brjType instanceof DataType);
-      assert.equal(nothingResult._brjType.name, 'Nothing');
+      const expr = compileForm(`Nothing`, def.nsEnv);
+      const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
+      assert(result._brjType instanceof DataType);
+      assert.equal(result._brjType.name, 'Nothing');
     });
 
     it ('compiles a record-style defdata', () => {
@@ -104,7 +109,7 @@ describe('compiler', () => {
       assert.equal(resultDataType.name, 'Person');
 
       const expr = compileForm(`(Person {name "James", address "Foo", phone-number "01234 567890"})`, def.nsEnv);
-      const result = evalCompiledForm(`(function () {let _dataTypes = _im.Map(); ${def.compiledForm} \n return ${expr.compiledForm};})()`);
+      const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
 
       assert(result._brjType instanceof DataType);
       assert.equal(result._brjType.name, 'Person');
@@ -120,7 +125,7 @@ describe('compiler', () => {
       const defNothing = compileForm(`(defdata Nothing)`, defJust.nsEnv);
 
       const expr = compileForm(`(match (Just 3) Nothing "oh no" Just "aww yiss") `, defNothing.nsEnv);
-      const result = evalCompiledForm(`(function () {let _dataTypes = new _im.Map({}).asMutable(); ${defJust.compiledForm} \n ${defNothing.compiledForm} \n return ${expr.compiledForm};})()`);
+      const result = evalCompiledForms(List.of(defJust.compiledForm, defNothing.compiledForm, `return ${expr.compiledForm}`));
       assert.equal(result, 'aww yiss');
     });
   });

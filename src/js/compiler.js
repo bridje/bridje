@@ -156,6 +156,7 @@ const ${dataTypeName} = ${dataTypeStr};
 const ${recordName} = ${compiledRecord};
 const ${safeName} = ${compiledConstructor};
 ${recordName}.prototype._brjType = ${dataTypeName};
+_exports = _exports.set('${expr.name}', ${safeName});
 _dataTypes = _dataTypes.set('${expr.name}', ${dataTypeName});
 `
     };
