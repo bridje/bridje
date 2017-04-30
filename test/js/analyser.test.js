@@ -4,7 +4,7 @@ var reader = require('../../src/js/reader');
 var e = require('../../src/js/expr');
 const {List, Map} = require('immutable');
 const {Env, NSEnv, Var} = require('../../src/js/env');
-const {fooEnv, fooNSEnv, flipVar, barNSEnv, bazNSEnv, JustDataType, NothingDataType} = require('./env.test');
+const {fooEnv, fooNSEnv, flipVar, barNSEnv, JustDataType, NothingDataType} = require('./env.test');
 
 describe('analyser', () => {
   it('reads an NS header', () => {
@@ -224,7 +224,7 @@ describe('analyser', () => {
   });
 
   it('analyses a match', () => {
-    const expr = ana.analyseForm(fooEnv, bazNSEnv, reader.readForms('(match (Just 4) Nothing "oh no", Just "aww yiss")').first());
+    const expr = ana.analyseForm(fooEnv, fooNSEnv, reader.readForms('(match (Just 4) Nothing "oh no", Just "aww yiss")').first());
     assert.equal(expr.exprType, 'match');
     assert.equal(expr.clauses.size, 2);
 

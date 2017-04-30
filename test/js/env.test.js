@@ -10,11 +10,37 @@ const flipVar = Var({
   value: (x, y) => List.of(y, x)
 });
 
+const JustDataType = new DataType({ns: 'bridje.kernel.foo', name: 'Just'});
+const JustRecord = Record({_params: ['a']});
+JustRecord.prototype._brjType = JustDataType;
+const JustVar = new Var({
+  name: 'Just',
+  ns: 'bridje.kernel.foo',
+  safeName: 'Just',
+  value: (a) => new JustRecord({_params: List.of(a)})
+});
+
+const NothingDataType = new DataType({ns: 'bridje.kernel.foo', name: 'Nothing'});
+const NothingRecord = Record({});
+NothingRecord.prototype._brjType = NothingDataType;
+const NothingVar = new Var({
+  name: 'Nothing',
+  ns: 'bridje.kernel.foo',
+  safeName: 'Nothing',
+  value: new NothingRecord({})
+});
+
 const fooNSEnv = new NSEnv({
   ns: 'bridje.kernel.foo',
   brjFile: '/bridje/kernel/foo.brj',
   exports: Map({
-    'flip': flipVar
+    'flip': flipVar,
+    Just: JustVar,
+    Nothing: NothingVar
+  }),
+  dataTypes: Map({
+    Just: JustDataType,
+    Nothing: NothingDataType
   })
 });
 
@@ -26,36 +52,4 @@ const fooEnv = new Env({
 const barNSDecl = '(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}, aliases {foo bridje.kernel.foo}})';
 const barNSEnv = ana.resolveNSHeader(fooEnv, ana.readNSHeader('bridje.kernel.bar', '/bridje/kernel/bar.brj', reader.readForms(barNSDecl).first()));
 
-const JustDataType = new DataType({ns: 'bridje.kernel.baz', name: 'Just'});
-const JustRecord = Record({_params: ['a']});
-JustRecord.prototype._brjType = JustDataType;
-const JustVar = new Var({
-  name: 'Just',
-  ns: 'bridje.kernel.baz',
-  safeName: 'Just',
-  value: (a) => new JustRecord({_params: List.of(a)})
-});
-
-const NothingDataType = new DataType({ns: 'bridje.kernel.baz', name: 'Nothing'});
-const NothingRecord = Record({});
-NothingRecord.prototype._brjType = NothingDataType;
-const NothingVar = new Var({
-  name: 'Nothing',
-  ns: 'bridje.kernel.baz',
-  safeName: 'Nothing',
-  value: new NothingRecord({})
-});
-
-
-const bazNSDecl = '(ns bridje.kernel.baz)';
-const bazNSEnv = ana.resolveNSHeader(fooEnv, ana.readNSHeader('bridje.kernel.baz', '/bridje/kernel/baz.brj', reader.readForms(bazNSDecl).first()))
-      .set('dataTypes', Map({
-        Just: JustDataType,
-        Nothing: NothingDataType
-      }))
-      .set('exports', Map({
-        Just: JustVar,
-        Nothing: NothingVar
-      }));
-
-module.exports = {flipVar, fooEnv, fooNSEnv, barNSDecl, barNSEnv, bazNSEnv, JustDataType, NothingDataType};
+module.exports = {flipVar, fooEnv, fooNSEnv, barNSDecl, barNSEnv, JustDataType, NothingDataType};
