@@ -39,7 +39,7 @@ ParseResult.prototype.orThrow = function() {
   if (this.success) {
     return this.result;
   } else {
-    throw this.error;
+    throw new Error(this.error);
   }
 };
 
@@ -161,6 +161,8 @@ function formTypeParser(formType) {
 
 var SymbolParser = formTypeParser('symbol');
 var SymbolNameParser = SymbolParser.fmap(symForm => symForm.sym.name);
+var NamespacedSymbolParser = formTypeParser('namespacedSymbol');
+var NamespacedSymbolSymParser = SymbolParser.fmap(symForm => symForm.sym);
 var ListParser = formTypeParser('list');
 var VectorParser = formTypeParser('vector');
 var RecordParser = formTypeParser('record');
@@ -188,6 +190,6 @@ module.exports = {
   ParseResult, successResult, failResult,
   anyOf, oneOf, atLeastOneOf, isSymbol, pure,
   innerFormsParser, parseEnd,
-  Parser, SymbolParser, SymbolNameParser, ListParser, VectorParser, RecordParser, SetParser,
+  Parser, SymbolParser, SymbolNameParser, NamespacedSymbolParser, NamespacedSymbolSymParser, ListParser, VectorParser, RecordParser, SetParser,
   parseForms, parseForm
 };
