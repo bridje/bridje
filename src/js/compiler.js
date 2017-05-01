@@ -86,8 +86,22 @@ function compileExpr(env, nsEnv, expr) {
       return `(${expr.path.join('.')})`;
 
     case 'match':
-      // TODO this should work when the data types are in another NS
-      const cases = expr.clauses.map(c => `case ${c.dataType.dataTypeName}: return ${compileExpr0(c.expr)};`);
+      const cases = expr.clauses.map(c => {
+        const dataTypeName = (function() {
+          // TODO copy pasta
+          if (c.var.ns == nsEnv.ns) {
+            return c.var.safeName;
+          } else {
+            if (c.alias !== null) {
+              return aliasName(c.alias, c.var.safeName);
+            } else {
+              return referName(c.var.safeName);
+            }
+          }
+        })();
+
+        return `case ${dataTypeName}: return ${compileExpr0(c.expr)};`;
+      });
       return `(function () {switch (${compileExpr0(expr.expr)}._brjType) {${cases.join(' ')}}})()`;
 
     default:
@@ -113,18 +127,13 @@ _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${saf
 
   case 'defdata': {
     const safeName = makeSafe(expr.name);
-    const recordName = `_constructor_${makeSafe(expr.name)}`;
-    const dataTypeName = `_dataType_${makeSafe(expr.name)}`;
-    const constructorVar = new Var({ns: nsEnv.ns, name: expr.name, safeName});
-    const dataType = new DataType({name: expr.name, ns: nsEnv.ns, dataTypeName});
-    const dataTypeStr = `new _env.DataType({name: '${expr.name}', ns: '${nsEnv.ns}', dataTypeName: '${dataTypeName}'})`;
 
     const {compiledRecord, compiledConstructor} = function() {
       switch (expr.type) {
       case 'value':
         return {
           compiledRecord: `_im.Record({})`,
-          compiledConstructor: `new ${recordName}()`
+          compiledConstructor: `new _record()`
         };
 
       case 'vector':
@@ -133,13 +142,13 @@ _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${saf
 
         return {
           compiledRecord: `_im.Record({_params: null})`,
-          compiledConstructor: `function(${paramNames.join(', ')}){return new ${recordName}(${recordParams})}`
+          compiledConstructor: `function(${paramNames.join(', ')}){return new _record(${recordParams})}`
         };
 
       case 'record':
         return {
           compiledRecord: `_im.Record({${expr.keys.map(k => `'${k}': undefined`).join(', ')}})`,
-          compiledConstructor: `function(_r){return new ${recordName}(_r)}`
+          compiledConstructor: `function(_r){return new _record(_r)}`
         };
 
       default:
@@ -149,15 +158,17 @@ _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${saf
 
     return {
       nsEnv: nsEnv
-        .setIn(['exports', constructorVar.name], constructorVar)
-        .setIn(['dataTypes', expr.name], dataType),
+        .setIn(['exports', expr.name], new Var({name: expr.name, ns: nsEnv.ns, safeName})),
+
       compiledForm: `
-const ${dataTypeName} = ${dataTypeStr};
-const ${recordName} = ${compiledRecord};
-const ${safeName} = ${compiledConstructor};
-${recordName}.prototype._brjType = ${dataTypeName};
-_exports = _exports.set('${expr.name}', ${safeName});
-_dataTypes = _dataTypes.set('${expr.name}', ${dataTypeName});
+const ${safeName} = (function() {
+  const _record = ${compiledRecord};
+  const _val = ${compiledConstructor};
+  const _var = new _env.Var({name: '${expr.name}', ns: '${nsEnv.ns}', safeName: '${safeName}', value: _val});
+  _record.prototype._brjType = _val;
+  _exports = _exports.set('${expr.name}', _var);
+  return _val;
+})();
 `
     };
   }
@@ -180,13 +191,11 @@ function compileNodeNS(nsEnv, compiledForms) {
         .map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = _aliases.get('${ve.alias}').exports.get('${ve.var.name}').value;`);
 
   return `
-
   (function(_env, _im) {
      return function(_nsEnv) {
        const _refers = _nsEnv.refers;
        const _aliases = _nsEnv.aliases;
        let _exports = _im.Map({}).asMutable();
-       let _dataTypes = _im.Map({}).asMutable();
 
        ${refers.join('\n')}
 
@@ -194,7 +203,7 @@ function compileNodeNS(nsEnv, compiledForms) {
 
        ${compiledForms.join('\n')}
 
-       return _nsEnv.set('exports', _exports.asImmutable()).set('dataTypes', _dataTypes.asImmutable());
+       return _nsEnv.set('exports', _exports.asImmutable());
      }
    })
 `;
@@ -214,15 +223,15 @@ function compileWebNS(env, nsEnv, compiledForms) {
 
   const subExprs = nsEnv.exports.valueSeq().flatMap(e => e.expr ? e.expr.subExprs() : []);
 
-  const aliasedVarExprs = new Set(subExprs.filter(e => e.exprType == 'var' && e.alias != null));
-  const aliases = aliasedVarExprs.map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = ${importNSVarName(ve.var.ns)}.get('${ve.var.name}').value;`);
+  // TODO got to include from match exprs too
+  const aliasedExprs = new Set(subExprs.filter(e => e.exprType == 'var' && e.alias != null));
+  const aliases = aliasedExprs.map(expr => `const ${aliasName(expr.alias, expr.var.safeName)} = ${importNSVarName(expr.var.ns)}.get('${expr.var.name}').value;`);
 
   return `
   import _env from '../../../../src/js/env';
   import _im from 'immutable';
 
   let _exports = _im.Map({}).asMutable();
-  let _dataTypes = _im.Map({}).asMutable();
 
   ${imports.join('\n')}
 

@@ -2,12 +2,12 @@ const {compileExpr, compileNodeNS, compileWebNS} = require('../../src/js/compile
 const {readForms} = require('../../src/js/reader');
 const {analyseForm} = require('../../src/js/analyser');
 const e = require('../../src/js/env');
-const {NSEnv, Env, DataType} = e;
+const {NSEnv, Env} = e;
 const im = require('immutable');
 const {List, Map, Record} = im;
 const vm = require('vm');
 const assert = require('assert');
-const {fooEnv, flipEnv, flipVar, barNSDecl, barNSEnv} = require('./env.test');
+const {fooEnv, flipEnv, flipVar, JustVar, NothingVar, barNSDecl, barNSEnv} = require('./env.test');
 const {wrapWebJS} = require('./webpack.test.js');
 
 function evalCompiledForm(compiledForm) {
@@ -15,7 +15,7 @@ function evalCompiledForm(compiledForm) {
 }
 
 function evalCompiledForms(compiledForms) {
-  return evalCompiledForm(`(function() {let _exports = _im.Map({}); let _dataTypes = _im.Map({}); ${compiledForms.join(' ')}})()`);
+  return evalCompiledForm(`(function() {let _exports = _im.Map({}); ${compiledForms.join(' ')}})()`);
 }
 
 function evalNSCode(compiledForms, nsEnv) {
@@ -79,40 +79,24 @@ describe('compiler', () => {
 
     it ('compiles a vector-style defdata', () => {
       const def = compileForm(`(defdata (Just a))`, new NSEnv());
-      const resultDataType = def.nsEnv.dataTypes.get('Just');
-      assert(resultDataType instanceof DataType);
-      assert.equal(resultDataType.name, 'Just');
-
       const expr = compileForm(`(Just 3)`, def.nsEnv);
       const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
-      assert(result._brjType instanceof DataType);
-      assert.equal(result._brjType.name, 'Just');
       assert.deepEqual(result.toJS(), {_params: [3]});
     });
 
     it ('compiles a value-style defdata', () => {
       const def = compileForm(`(defdata Nothing)`, new NSEnv());
-      const resultDataType = def.nsEnv.dataTypes.get('Nothing');
-      assert(resultDataType instanceof DataType);
-      assert.equal(resultDataType.name, 'Nothing');
 
       const expr = compileForm(`Nothing`, def.nsEnv);
       const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
-      assert(result._brjType instanceof DataType);
-      assert.equal(result._brjType.name, 'Nothing');
     });
 
     it ('compiles a record-style defdata', () => {
       const def = compileForm(`(defdata (Person #{name, address, phone-number}))`, new NSEnv());
-      const resultDataType = def.nsEnv.dataTypes.get('Person');
-      assert(resultDataType instanceof DataType);
-      assert.equal(resultDataType.name, 'Person');
 
       const expr = compileForm(`(Person {name "James", address "Foo", phone-number "01234 567890"})`, def.nsEnv);
       const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
 
-      assert(result._brjType instanceof DataType);
-      assert.equal(result._brjType.name, 'Person');
       assert.deepEqual(result.toJS(), {
         name: "James",
         address: "Foo",
@@ -156,14 +140,14 @@ describe('compiler', () => {
 
     it ('imports a fn referred from another ns', () => {
       const result = compileForm(`(def flipped (flip 3 4))`, barNSEnv, fooEnv);
-      const webNS = evalWebNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv, Map({'/bridje/kernel/foo.brj': Map({'flip': flipVar})}));
+      const webNS = evalWebNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv, Map({'/bridje/kernel/foo.brj': Map({'flip': flipVar, Just: JustVar, Nothing: NothingVar})}));
 
       assert.deepEqual(webNS.get('flipped').value.toJS(), [4, 3]);
     });
 
     it('imports a function in another namespace through its alias', () => {
       const result = compileForm(`(def flipped {flipped (foo/flip 3 4)})`, barNSEnv, fooEnv);
-      const webNS = evalWebNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv, Map({'/bridje/kernel/foo.brj': Map({'flip': flipVar})}));
+      const webNS = evalWebNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv, Map({'/bridje/kernel/foo.brj': Map({'flip': flipVar, Just: JustVar, Nothing: NothingVar})}));
 
       assert.deepEqual(webNS.get('flipped').value.toJS(), {flipped: [4, 3]});
     });

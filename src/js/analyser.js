@@ -225,15 +225,37 @@ function analyseForm(env, nsEnv, form) {
 
           case 'match':
             return p.parseForms(forms.shift(), exprParser.then(
-              matchExpr => p.atLeastOneOf(p.SymbolNameParser.then(
-                dataTypeName => {
-                  const dataType = nsEnv.dataTypes.get(dataTypeName);
-                  if (dataType) {
-                    return exprParser.then(expr => p.pure(p.successResult(new e.MatchClause({dataType, expr}))));
-                  } else {
-                    return p.pure(p.failResult(`can't find data type '${dataTypeName}'`));
-                  }
-                })).then(clauses => p.parseEnd(new e.MatchExpr({range: form.range, expr: matchExpr, clauses}))))).orThrow();
+              matchExpr => p.atLeastOneOf(p.anyOf(
+                p.SymbolNameParser.then(
+                  dataTypeName => {
+                    const dataType = nsEnv.exports.get(dataTypeName);
+                    if (dataType) {
+                      return p.pure(p.successResult({dataType}));
+                    } else {
+                      const dataType = nsEnv.refers.get(dataTypeName);
+                      if (dataType) {
+                        return p.pure(p.successResult({dataType}));
+                      }
+
+                      return p.pure(p.failResult(`can't find data type '${dataTypeName}'`));
+                    }
+                  }),
+                p.NamespacedSymbolParser.then(
+                  nsSymForm => {
+                    const aliasNSEnv = nsEnv.aliases.get(nsSymForm.sym.ns);
+                    if (aliasNSEnv) {
+                      const dataType = aliasNSEnv.exports.get(nsSymForm.sym.name);
+                      if (dataType) {
+                        return p.pure(p.successResult({dataType, alias: nsSymForm.sym.ns}));
+                      }
+                    }
+
+                    return p.pure(p.failResult(`can't find data type '${nsSymForm.sym.ns}/${nsSymForm.sym.name}'`));
+                  })).then(
+                    ({dataType, alias}) => exprParser.then(
+                      expr => p.pure(p.successResult(new e.MatchClause({var: dataType, alias, expr}))))))
+
+                .then(clauses => p.parseEnd(new e.MatchExpr({range: form.range, expr: matchExpr, clauses}))))).orThrow();
 
           case '::':
             throw 'NIY';
@@ -243,6 +265,7 @@ function analyseForm(env, nsEnv, form) {
           }
 
         case 'namespacedSymbol':
+          // fall through - this will then call through to the top level namespacedSymbol handling
         case 'list':
           return new e.CallExpr({range, exprs: form.forms.map(form => analyseValueExpr(localEnv, form))});
 

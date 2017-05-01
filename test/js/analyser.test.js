@@ -4,7 +4,7 @@ var reader = require('../../src/js/reader');
 var e = require('../../src/js/expr');
 const {List, Map} = require('immutable');
 const {Env, NSEnv, Var} = require('../../src/js/env');
-const {fooEnv, fooNSEnv, flipVar, barNSEnv, JustDataType, NothingDataType} = require('./env.test');
+const {fooEnv, fooNSEnv, flipVar, barNSEnv, JustVar, NothingVar} = require('./env.test');
 
 describe('analyser', () => {
   it('reads an NS header', () => {
@@ -229,11 +229,25 @@ describe('analyser', () => {
     assert.equal(expr.clauses.size, 2);
 
     const c0 = expr.clauses.get(0);
-    assert.equal(c0.dataType, NothingDataType);
+    assert.equal(c0.var, NothingVar);
     assert.equal(c0.expr.str, 'oh no');
 
     const c1 = expr.clauses.get(1);
-    assert.equal(c1.dataType, JustDataType);
+    assert.equal(c1.var, JustVar);
+    assert.equal(c1.expr.str, 'aww yiss');
+  });
+
+  it('analyses a match in another ns', () => {
+    const expr = ana.analyseForm(fooEnv, barNSEnv, reader.readForms('(match (foo/Just 4) foo/Nothing "oh no", Just "aww yiss")').first());
+    assert.equal(expr.exprType, 'match');
+    assert.equal(expr.clauses.size, 2);
+
+    const c0 = expr.clauses.get(0);
+    assert.equal(c0.var, NothingVar);
+    assert.equal(c0.expr.str, 'oh no');
+
+    const c1 = expr.clauses.get(1);
+    assert.equal(c1.var, JustVar);
     assert.equal(c1.expr.str, 'aww yiss');
   });
 });

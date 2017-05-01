@@ -21,7 +21,7 @@ const LetExpr = Record({range: null, bindings: null, body: null});
 const FnExpr = Record({range: null, params: null, body: null});
 const CallExpr = Record({range: null, exprs: null});
 
-const MatchClause = Record({range: null, dataType: null, expr: null});
+const MatchClause = Record({range: null, var: null, alias: null, expr: null});
 const MatchExpr = Record({range: null, expr: null, clauses: null});
 
 const DefExpr = Record({range: null, sym: null, params: null, body: null});
@@ -89,7 +89,7 @@ CallExpr.prototype.toString = function() {return `(CallExpr ${this.exprs.join(' 
 CallExpr.prototype.exprType = 'call';
 CallExpr.prototype.subExprs = function() {return this.exprs.flatMap(e => e.subExprs());};
 
-MatchClause.prototype.toString = function() {return `${this.dataType.ns}/${this.dataType.name} ${this.expr}`;};
+MatchClause.prototype.toString = function() {return `${this.var.ns}/${this.var.name} ${this.expr}`;};
 MatchExpr.prototype.toString = function() {return `(MatchExpr ${this.expr} ${this.clauses.join(' ')})`;};
 MatchExpr.prototype.exprType = 'match';
 MatchExpr.prototype.subExprs = function() {return this.expr.subExprs.union(this.clauses.map(c => c.expr.subExprs()));};

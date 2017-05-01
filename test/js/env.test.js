@@ -1,7 +1,7 @@
 var ana = require('../../src/js/analyser');
 var reader = require('../../src/js/reader');
 const {Record, List, Map} = require('immutable');
-const {Env, NSEnv, Var, DataType} = require('../../src/js/env');
+const {Env, NSEnv, Var} = require('../../src/js/env');
 
 const flipVar = Var({
   name: 'flip',
@@ -10,9 +10,7 @@ const flipVar = Var({
   value: (x, y) => List.of(y, x)
 });
 
-const JustDataType = new DataType({ns: 'bridje.kernel.foo', name: 'Just'});
 const JustRecord = Record({_params: ['a']});
-JustRecord.prototype._brjType = JustDataType;
 const JustVar = new Var({
   name: 'Just',
   ns: 'bridje.kernel.foo',
@@ -20,27 +18,24 @@ const JustVar = new Var({
   value: (a) => new JustRecord({_params: List.of(a)})
 });
 
-const NothingDataType = new DataType({ns: 'bridje.kernel.foo', name: 'Nothing'});
+JustRecord.prototype._brjType = JustVar.value;
+
 const NothingRecord = Record({});
-NothingRecord.prototype._brjType = NothingDataType;
 const NothingVar = new Var({
   name: 'Nothing',
   ns: 'bridje.kernel.foo',
   safeName: 'Nothing',
   value: new NothingRecord({})
 });
+NothingRecord.prototype._brjType = NothingVar.value;
 
 const fooNSEnv = new NSEnv({
   ns: 'bridje.kernel.foo',
   brjFile: '/bridje/kernel/foo.brj',
   exports: Map({
     'flip': flipVar,
-    Just: JustVar,
-    Nothing: NothingVar
-  }),
-  dataTypes: Map({
-    Just: JustDataType,
-    Nothing: NothingDataType
+    'Just': JustVar,
+    'Nothing': NothingVar
   })
 });
 
@@ -49,7 +44,7 @@ const fooEnv = new Env({
     'bridje.kernel.foo': fooNSEnv
   })});
 
-const barNSDecl = '(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip]}, aliases {foo bridje.kernel.foo}})';
+const barNSDecl = '(ns bridje.kernel.bar {refers {bridje.kernel.foo [flip Just]}, aliases {foo bridje.kernel.foo}})';
 const barNSEnv = ana.resolveNSHeader(fooEnv, ana.readNSHeader('bridje.kernel.bar', '/bridje/kernel/bar.brj', reader.readForms(barNSDecl).first()));
 
-module.exports = {flipVar, fooEnv, fooNSEnv, barNSDecl, barNSEnv, JustDataType, NothingDataType};
+module.exports = {flipVar, fooEnv, fooNSEnv, barNSDecl, barNSEnv, JustVar, NothingVar};
