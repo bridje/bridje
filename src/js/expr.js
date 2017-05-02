@@ -1,4 +1,4 @@
-const {Record, List} = require('immutable');
+const {Map, Record, List} = require('immutable');
 
 const BoolExpr = Record({range: null, bool: null});
 const StringExpr = Record({range: null, str: null});

@@ -1,5 +1,6 @@
 const {loadFormsAsync, compileForms, evalNodeForms} = require('../../src/js/runtime');
 const {Env, NSHeader, NSEnv} = require('../../src/js/env');
+const {BoolExpr} = require('../../src/js/expr');
 const {readForms} = require('../../src/js/reader');
 const {Map, List, Set} = require('immutable');
 const fakeNSIO = require('./fake-nsio');
@@ -79,6 +80,13 @@ describe('runtime', () => {
             assert.deepEqual(forms.toJS(), readForms(brj).shift().toJS());
           }));
     });
+  });
+
+  it ('has built-in kernel exports', async () => {
+    const kernelExports = (await baseEnvAsync).nsEnvs.get('bridje.kernel').exports;
+    const boolResult = kernelExports.get('BoolExpr').value({bool: true});
+    assert(boolResult instanceof BoolExpr);
+    assert.strictEqual(boolResult.bool, true);
   });
 
   module.exports = {baseEnvAsync};

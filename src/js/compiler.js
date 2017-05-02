@@ -206,7 +206,7 @@ function compileNodeNS(nsEnv, compiledForms) {
      return function(_nsEnv) {
        const _refers = _nsEnv.refers;
        const _aliases = _nsEnv.aliases;
-       let _exports = _im.Map({}).asMutable();
+       let _exports = ${nsEnv.ns == 'bridje.kernel' ? `_env.kernelExports` : `_im.Map({})`}.asMutable();
 
        ${refers.join('\n')}
 
@@ -240,7 +240,7 @@ function compileWebNS(env, nsEnv, compiledForms) {
   import _env from '../../../../src/js/env';
   import _im from 'immutable';
 
-  let _exports = _im.Map({}).asMutable();
+  let _exports = ${nsEnv.ns == 'bridje.kernel' ? `_env.kernelExports` : `_im.Map({})`}.asMutable();
 
   ${imports.join('\n')}
 

@@ -136,11 +136,19 @@ function loadFormsAsync(env = new Env({}), ns, {nsIO, readForms}) {
 function compileForms(env, loadedNS) {
   const {nsHeader, forms, cachedNS} = loadedNS.toObject();
 
+  function withKernelExports(nsEnv) {
+    if (nsEnv.ns == 'bridje.kernel') {
+      return nsEnv.set('exports', e.kernelExports);
+    } else {
+      return nsEnv;
+    }
+  }
+
   if (cachedNS) {
     const {nsHeader: cachedNSHeader, exports, nsCode} = cachedNS.toObject();
     return {
       nsHeader: cachedNSHeader, nsCode,
-      nsEnv: a.resolveNSHeader(env, cachedNSHeader).set('exports', exports)
+      nsEnv: withKernelExports(a.resolveNSHeader(env, cachedNSHeader).set('exports', exports))
     };
   } else {
     return forms.reduce(
@@ -152,7 +160,7 @@ function compileForms(env, loadedNS) {
       },
       {
         nsHeader,
-        nsEnv: a.resolveNSHeader(env, nsHeader),
+        nsEnv: withKernelExports(a.resolveNSHeader(env, nsHeader)),
         compiledForms: new List()
       });
   }

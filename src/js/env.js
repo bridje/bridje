@@ -1,4 +1,5 @@
-const {Record, Map} = require('immutable');
+const {List, Record, Map} = require('immutable');
+const expr = require('./expr');
 
 const Env = Record({nsEnvs: Map({})});
 const NSEnv = Record({
@@ -25,4 +26,23 @@ function nsSym(ns, name) {
   return new NamespacedSymbol({ns, name});
 };
 
-module.exports = {Env, NSEnv, NSHeader, Var, Symbol, sym, nsSym};
+const kernelExports = (function() {
+  function makeDataType(name) {
+    const RecordConstructor = expr[name];
+    const value = (m) => new RecordConstructor(m);
+    RecordConstructor.prototype._brjType = value;
+    return [name, new Var({ns: 'bridje.kernel', name, safeName: name, value})];
+  }
+
+  return Map(List.of('BoolExpr', 'StringExpr', 'IntExpr', 'FloatExpr',
+                     'VectorExpr', 'SetExpr',
+                     'RecordEntry', 'RecordExpr',
+                     'IfExpr', 'LocalVarExpr', 'VarExpr', 'JSGlobalExpr',
+                     'LetExpr', 'LetBinding',
+                     'FnExpr', 'CallExpr',
+                     'MatchClause', 'MatchExpr',
+                     'DefExpr', 'DefDataExpr')
+             .map(makeDataType));
+})();
+
+module.exports = {Env, NSEnv, NSHeader, Var, Symbol, kernelExports, sym, nsSym};
