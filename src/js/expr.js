@@ -92,7 +92,7 @@ CallExpr.prototype.subExprs = function() {return this.exprs.flatMap(e => e.subEx
 MatchClause.prototype.toString = function() {return `${this.var.ns}/${this.var.name} ${this.expr}`;};
 MatchExpr.prototype.toString = function() {return `(MatchExpr ${this.expr} ${this.clauses.join(' ')})`;};
 MatchExpr.prototype.exprType = 'match';
-MatchExpr.prototype.subExprs = function() {return this.expr.subExprs.union(this.clauses.map(c => c.expr.subExprs()));};
+MatchExpr.prototype.subExprs = function() {return List.of(this).concat(this.expr.subExprs, this.clauses.map(c => c.expr.subExprs()));};
 
 DefExpr.prototype.toString = function() {return `(DefExpr ${this.sym} ${this.body})`;};
 DefExpr.prototype.exprType = 'def';
