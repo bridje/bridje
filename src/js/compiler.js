@@ -181,14 +181,25 @@ const ${safeName} = (function() {
   }
 }
 
+function aliasedVars(subExprs) {
+  const aliasedExprs = new Set(subExprs.filter(e => e.exprType == 'var' && e.alias != null));
+  const aliasedMatchExprs = new Set(subExprs.filter(e => e.exprType == 'match').flatMap(e => e.clauses).filter(e => e.alias != null));
+
+  return aliasedExprs.union(aliasedMatchExprs).map(e => ({
+    ns: e.var.ns,
+    name: e.var.name,
+    safeName: e.var.safeName,
+    alias: e.alias
+  }));
+}
+
 function compileNodeNS(nsEnv, compiledForms) {
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`);
 
   const subExprs = nsEnv.exports.valueSeq().flatMap(e => e.expr ? e.expr.subExprs() : []);
 
-  const aliases = new Set(subExprs.filter(e => e.exprType == 'var' && e.alias != null))
-        .map(ve => `const ${aliasName(ve.alias, ve.var.safeName)} = _aliases.get('${ve.alias}').exports.get('${ve.var.name}').value;`);
+  const aliases = aliasedVars(subExprs).map(a => `const ${aliasName(a.alias, a.safeName)} = _aliases.get('${a.alias}').exports.get('${a.name}').value;`);
 
   return `
   (function(_env, _im) {
@@ -223,9 +234,7 @@ function compileWebNS(env, nsEnv, compiledForms) {
 
   const subExprs = nsEnv.exports.valueSeq().flatMap(e => e.expr ? e.expr.subExprs() : []);
 
-  // TODO got to include from match exprs too
-  const aliasedExprs = new Set(subExprs.filter(e => e.exprType == 'var' && e.alias != null));
-  const aliases = aliasedExprs.map(expr => `const ${aliasName(expr.alias, expr.var.safeName)} = ${importNSVarName(expr.var.ns)}.get('${expr.var.name}').value;`);
+  const aliases = aliasedVars(subExprs).map(a => `const ${aliasName(a.alias, a.safeName)} = ${importNSVarName(a.ns)}.get('${a.name}').value;`);
 
   return `
   import _env from '../../../../src/js/env';
