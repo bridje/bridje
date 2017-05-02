@@ -1,5 +1,6 @@
 const {List, Record, Map} = require('immutable');
 const expr = require('./expr');
+const form = require('./form');
 
 const Env = Record({nsEnvs: Map({})});
 const NSEnv = Record({
@@ -27,22 +28,28 @@ function nsSym(ns, name) {
 };
 
 const kernelExports = (function() {
-  function makeDataType(name) {
-    const RecordConstructor = expr[name];
+  function makeDataType(name, module) {
+    const RecordConstructor = module[name];
     const value = (m) => new RecordConstructor(m);
     RecordConstructor.prototype._brjType = value;
-    return [name, new Var({ns: 'bridje.kernel', name, safeName: name, value})];
+    return new Var({ns: 'bridje.kernel', name, safeName: name, value});
   }
 
-  return Map(List.of('BoolExpr', 'StringExpr', 'IntExpr', 'FloatExpr',
-                     'VectorExpr', 'SetExpr',
-                     'RecordEntry', 'RecordExpr',
-                     'IfExpr', 'LocalVarExpr', 'VarExpr', 'JSGlobalExpr',
-                     'LetExpr', 'LetBinding',
-                     'FnExpr', 'CallExpr',
-                     'MatchClause', 'MatchExpr',
-                     'DefExpr', 'DefDataExpr')
-             .map(makeDataType));
+  const formExports = List.of('BoolForm', 'StringForm', 'IntForm', 'FloatForm',
+                              'VectorForm', 'SetForm', 'RecordEntry', 'RecordForm',
+                              'ListForm', 'SymbolForm', 'NamespacedSymbolForm')
+        .map(name => [name, makeDataType(name, form)]);
+
+  const exprExports = List.of('BoolExpr', 'StringExpr', 'IntExpr', 'FloatExpr',
+                              'VectorExpr', 'SetExpr', 'RecordEntry', 'RecordExpr',
+                              'IfExpr', 'LocalVarExpr', 'VarExpr', 'JSGlobalExpr',
+                              'LetExpr', 'LetBinding',
+                              'FnExpr', 'CallExpr',
+                              'MatchClause', 'MatchExpr',
+                              'DefExpr', 'DefDataExpr')
+        .map(name => [name, makeDataType(name, expr)]);
+
+  return Map(formExports).merge(exprExports);
 })();
 
 module.exports = {Env, NSEnv, NSHeader, Var, Symbol, kernelExports, sym, nsSym};
