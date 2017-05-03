@@ -84,6 +84,13 @@ describe('compiler', () => {
       assert.deepEqual(result.toJS(), {_params: [3]});
     });
 
+    it ('accesses a vector-style defdata', () => {
+      const def = compileForm(`(defdata (Just a))`, new NSEnv());
+      const expr = compileForm(`(Just.a (Just 3))`, def.nsEnv);
+      const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
+      assert.deepEqual(result, 3);
+    });
+
     it ('compiles a value-style defdata', () => {
       const def = compileForm(`(defdata Nothing)`, new NSEnv());
 
@@ -102,6 +109,15 @@ describe('compiler', () => {
         address: "Foo",
         'phone-number': "01234 567890"
       });
+    });
+
+    it ('compiles a record-style defdata', () => {
+      const def = compileForm(`(defdata (Person #{name, address, phone-number}))`, new NSEnv());
+
+      const expr = compileForm(`(Person.address (Person {name "James", address "Foo", phone-number "01234 567890"}))`, def.nsEnv);
+      const result = evalCompiledForms(List.of(def.compiledForm, `return ${expr.compiledForm}`));
+
+      assert.deepEqual(result, "Foo");
     });
 
     it ('switches based on a datatype', () => {

@@ -1,9 +1,9 @@
 const vm = require('vm');
-const {List, Map, Set} = require('immutable');
+const {Range, List, Map, Set} = require('immutable');
 const {Var, DataType, NSHeader, kernelExports} = require('./env');
 
 function makeSafe(s) {
-  return s.replace('-', '_');
+  return s.replace('-', '_').replace('.', '$');
 };
 
 function referName(s) {
@@ -128,12 +128,13 @@ _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${saf
   case 'defdata': {
     const safeName = makeSafe(expr.name);
 
-    const {compiledRecord, compiledConstructor} = function() {
+    const {compiledRecord, compiledConstructor, accessors} = function() {
       switch (expr.type) {
       case 'value':
         return {
           compiledRecord: `_im.Record({})`,
-          compiledConstructor: `new _record()`
+          compiledConstructor: `new _record()`,
+          accessors: List()
         };
 
       case 'vector':
@@ -142,13 +143,25 @@ _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${saf
 
         return {
           compiledRecord: `_im.Record({_params: null})`,
-          compiledConstructor: `function(${paramNames.join(', ')}){return new _record(${recordParams})}`
+          compiledConstructor: `function(${paramNames.join(', ')}){return new _record(${recordParams})}`,
+          accessors: expr.params.zip(Range(0, expr.params.size)).map(([p, idx]) => {
+            return {
+              param: p,
+              compiledAccessor: `(obj => obj._params.get(${idx}))`
+            };
+          })
         };
 
       case 'record':
         return {
           compiledRecord: `_im.Record({${expr.keys.map(k => `'${k}': undefined`).join(', ')}})`,
-          compiledConstructor: `function(_r){return new _record(_r)}`
+          compiledConstructor: `function(_r){return new _record(_r)}`,
+          accessors: expr.keys.map(p => {
+            return {
+              param: p,
+              compiledAccessor: `(obj => obj['${p}'])`
+            };
+          })
         };
 
       default:
@@ -156,11 +169,23 @@ _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${saf
       }
     }();
 
+    const compiledAccessors = accessors.map(({param, compiledAccessor}) => {
+      const accessorName = `${expr.name}.${param}`;
+      const accessorSafeName = makeSafe(accessorName);
+      nsEnv = nsEnv.setIn(['exports', accessorName], new Var({name: accessorName, ns: nsEnv.ns, safeName: accessorSafeName}));
+
+      return `
+const ${accessorSafeName} = ${compiledAccessor};
+_exports = _exports.set('${accessorName}', new _env.Var({name: '${accessorName}', ns: '${nsEnv.ns}', safeName: '${accessorSafeName}', value: ${accessorSafeName}}))
+`;});
+
     return {
       nsEnv: nsEnv
         .setIn(['exports', expr.name], new Var({name: expr.name, ns: nsEnv.ns, safeName})),
 
       compiledForm: `
+${compiledAccessors.join('\n')}
+
 const ${safeName} = (function() {
   const _record = ${compiledRecord};
   const _val = ${compiledConstructor};
