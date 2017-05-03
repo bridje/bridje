@@ -250,4 +250,36 @@ describe('analyser', () => {
     assert.equal(c1.var, JustVar);
     assert.equal(c1.expr.str, 'aww yiss');
   });
+
+  it('analyses a loop-recur', async () => {
+    const expr = ana.analyseForm(fooEnv, barNSEnv, reader.readForms('(loop [x 5, res []] (if false (recur 4 []) x))').first());
+    assert.equal(expr.exprType, 'loop');
+    assert.equal(expr.bindings.size, 2);
+
+    const binding0 = expr.bindings.get(0);
+    assert.equal(binding0.localVar.name, 'x');
+    const lv0 = binding0.localVar;
+    assert.strictEqual(binding0.expr.int, 5);
+
+    const binding1 = expr.bindings.get(1);
+    assert.equal(binding1.localVar.name, 'res');
+    const lv1 = binding1.localVar;
+    assert(binding1.expr.exprs.isEmpty());
+
+    const body = expr.body;
+    assert.equal(body.exprType, 'if');
+    assert.strictEqual(body.elseExpr.localVar, lv0);
+
+    const thenExpr = body.thenExpr;
+    assert.equal(thenExpr.exprType, 'recur');
+    assert.equal(thenExpr.bindings.size, 2);
+
+    const recur0 = thenExpr.bindings.get(0);
+    assert.strictEqual(recur0.localVar, lv0);
+    assert.equal(recur0.expr.int, 4);
+
+    const recur1 = thenExpr.bindings.get(1);
+    assert.strictEqual(recur1.localVar, lv1);
+    assert.equal(recur1.expr.exprType, 'vector');
+  });
 });

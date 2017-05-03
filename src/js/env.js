@@ -55,7 +55,7 @@ const kernelExports = (function() {
   const exprExports = List.of('BoolExpr', 'StringExpr', 'IntExpr', 'FloatExpr',
                               'VectorExpr', 'SetExpr', 'RecordEntry', 'RecordExpr',
                               'IfExpr', 'LocalVarExpr', 'VarExpr', 'JSGlobalExpr',
-                              'LetExpr', 'LetBinding',
+                              'LetExpr', 'BindingPair',
                               'FnExpr', 'CallExpr',
                               'MatchClause', 'MatchExpr',
                               'DefExpr', 'DefDataExpr')

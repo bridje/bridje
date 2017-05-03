@@ -15,8 +15,10 @@ const LocalVarExpr = Record({range: null, name: null, localVar: null});
 const VarExpr = Record({range: null, var: null, alias: null});
 const JSGlobalExpr = Record({range: null, path: null});
 
-const LetBinding = Record({localVar: null, expr: null});
+const BindingPair = Record({localVar: null, expr: null});
 const LetExpr = Record({range: null, bindings: null, body: null});
+const LoopExpr = Record({range: null, bindings: null, body: null});
+const RecurExpr = Record({range: null, bindings: null});
 
 const FnExpr = Record({range: null, params: null, body: null});
 const CallExpr = Record({range: null, exprs: null});
@@ -74,12 +76,26 @@ JSGlobalExpr.prototype.toString = function() {return `(JSGlobal ${this.path.join
 JSGlobalExpr.prototype.exprType = 'jsGlobal';
 JSGlobalExpr.prototype.subExprs = function() {return List.of(this);};
 
-LetBinding.prototype.toString = function() {return `${this.name} ${this.expr}`;};
+BindingPair.prototype.toString = function() {return `${this.localVar.name} ${this.expr}`;};
+
 LetExpr.prototype.toString = function() {return `(LetExpr [${this.bindings.join(', ')}] ${this.body})`;};
 LetExpr.prototype.exprType = 'let';
 LetExpr.prototype.subExprs = function() {
   return List.of(this).concat(this.bindings.flatMap(e => e.expr.subExprs()), this.body.subExprs());
 };
+
+LoopExpr.prototype.toString = function() {return `(LoopExpr [${this.bindings.join(', ')}] ${this.body})`;};
+LoopExpr.prototype.exprType = 'loop';
+LoopExpr.prototype.subExprs = function() {
+  return List.of(this).concat(this.bindings.flatMap(e => e.expr.subExprs()), this.body.subExprs());
+};
+
+RecurExpr.prototype.toString = function() {return `(RecurExpr ${this.bindings.join(', ')})`;};
+RecurExpr.prototype.exprType = 'recur';
+RecurExpr.prototype.subExprs = function() {
+  return List.of(this).concat(this.bindings.flatMap(e => e.expr.subExprs()));
+};
+
 
 FnExpr.prototype.toString = function() {return `(FnExpr (${this.params.map(p => p.name).join(' ')}) ${this.body})`;};
 FnExpr.prototype.exprType = 'fn';
@@ -114,7 +130,8 @@ module.exports = {
   VectorExpr, SetExpr,
   RecordEntry, RecordExpr,
   IfExpr, LocalVarExpr, VarExpr, JSGlobalExpr,
-  LetExpr, LetBinding,
+  LetExpr, BindingPair,
+  LoopExpr, RecurExpr,
   FnExpr, CallExpr,
   MatchClause, MatchExpr,
   DefExpr, DefDataExpr
