@@ -1,6 +1,7 @@
 (ns bridje.kernel)
 
 (def (compile env ns-env form)
-  (match form
-    BoolForm (BoolExpr {bool true})
-    StringForm (StringExpr {str (StringForm.str form)})))
+  (let [range (Form.range form)]
+    (match form
+      BoolForm (BoolExpr {range range, bool true})
+      StringForm (StringExpr {range range, str (StringForm.str form)}))))

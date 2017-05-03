@@ -55,7 +55,7 @@ const kernelExports = (function() {
         .map(name => [name, makeDataType(name, expr)]);
 
   return Map(
-    List.of(['form-range', form => form.range],
+    List.of(['Form.range', form => form.range],
             ['StringForm.str', form => form.str])
       .map(([name, value]) => [name, makeVar(name, value)]))
     .merge(formExports, exprExports);

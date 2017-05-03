@@ -78,7 +78,7 @@ LetBinding.prototype.toString = function() {return `${this.name} ${this.expr}`;}
 LetExpr.prototype.toString = function() {return `(LetExpr [${this.bindings.join(', ')}] ${this.body})`;};
 LetExpr.prototype.exprType = 'let';
 LetExpr.prototype.subExprs = function() {
-  return List.of(this).concat(this.bindings.flatMap(e => e.expr.subExprs().concat(e.value.subExprs())), this.body.subExprs());
+  return List.of(this).concat(this.bindings.flatMap(e => e.expr.subExprs()), this.body.subExprs());
 };
 
 FnExpr.prototype.toString = function() {return `(FnExpr (${this.params.map(p => p.name).join(' ')}) ${this.body})`;};
