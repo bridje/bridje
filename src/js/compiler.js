@@ -1,10 +1,6 @@
 const vm = require('vm');
 const {Range, List, Map, Set} = require('immutable');
-const {Var, DataType, NSHeader, kernelExports} = require('./env');
-
-function makeSafe(s) {
-  return s.replace('-', '_').replace('.', '$');
-};
+const {Var, DataType, NSHeader, makeSafe, kernelExports} = require('./env');
 
 function referName(s) {
   return '_refer_' + s;

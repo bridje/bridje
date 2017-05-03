@@ -2,6 +2,11 @@ const {List, Record, Map} = require('immutable');
 const expr = require('./expr');
 const form = require('./form');
 
+function makeSafe(s) {
+  return s.replace(/[\-.<>]/g, m => ({'-': '__', '_': '_us', '.': '_dot',
+                                      '<': '_lt', '>': '_gt', '=': '_eq'}[m]));
+};
+
 const Env = Record({nsEnvs: Map({})});
 const NSEnv = Record({
   ns: null, brjFile: null, nsHash: null,
@@ -27,9 +32,10 @@ function nsSym(ns, name) {
   return new NamespacedSymbol({ns, name});
 };
 
+
 const kernelExports = (function() {
   function makeVar(name, value) {
-    return new Var({ns: 'bridje.kernel', name, safeName: name.replace('-', '_').replace('.', '$'), value});
+    return new Var({ns: 'bridje.kernel', name, safeName: makeSafe(name), value});
   }
 
   function makeDataType(name, module) {
@@ -65,4 +71,4 @@ const kernelExports = (function() {
 
 })();
 
-module.exports = {Env, NSEnv, NSHeader, Var, Symbol, kernelExports, sym, nsSym};
+module.exports = {Env, NSEnv, NSHeader, Var, Symbol, kernelExports, makeSafe, sym, nsSym};
