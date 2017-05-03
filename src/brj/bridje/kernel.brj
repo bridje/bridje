@@ -3,4 +3,4 @@
 (def (compile env ns-env form)
   (match form
     BoolForm (BoolExpr {bool true})
-    StringForm (StringExpr {str "Hello world!"})))
+    StringForm (StringExpr {str (StringForm.str form)})))

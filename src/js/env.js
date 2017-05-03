@@ -28,12 +28,17 @@ function nsSym(ns, name) {
 };
 
 const kernelExports = (function() {
+  function makeVar(name, value) {
+    return new Var({ns: 'bridje.kernel', name, safeName: name.replace('-', '_').replace('.', '$'), value});
+  }
+
   function makeDataType(name, module) {
     const RecordConstructor = module[name];
     const value = (m) => new RecordConstructor(m);
     RecordConstructor.prototype._brjType = value;
-    return new Var({ns: 'bridje.kernel', name, safeName: name, value});
+    return makeVar(name, value);
   }
+
 
   const formExports = List.of('BoolForm', 'StringForm', 'IntForm', 'FloatForm',
                               'VectorForm', 'SetForm', 'RecordEntry', 'RecordForm',
@@ -49,7 +54,12 @@ const kernelExports = (function() {
                               'DefExpr', 'DefDataExpr')
         .map(name => [name, makeDataType(name, expr)]);
 
-  return Map(formExports).merge(exprExports);
+  return Map(
+    List.of(['form-range', form => form.range],
+            ['StringForm.str', form => form.str])
+      .map(([name, value]) => [name, makeVar(name, value)]))
+    .merge(formExports, exprExports);
+
 })();
 
 module.exports = {Env, NSEnv, NSHeader, Var, Symbol, kernelExports, sym, nsSym};

@@ -285,7 +285,7 @@ function analyseForm(env, nsEnv, form) {
       } else if (globalVar !== undefined) {
         return new e.VarExpr({range, var: globalVar});
       } else {
-        throw "NIY - can't find";
+        throw `NIY - can't find '${form.sym}'`;
       }
 
     case 'namespacedSymbol':

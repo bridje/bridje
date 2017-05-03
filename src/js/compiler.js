@@ -218,6 +218,8 @@ function aliasedVars(subExprs) {
   }));
 }
 
+const importKernelExports = `const {${kernelExports.keySeq().map(k => `'${k}': ${makeSafe(k)}`).join(', ')}} = _env.kernelExports.map(v => v.value).toObject();`;
+
 function compileNodeNS(nsEnv, compiledForms) {
   const refers = nsEnv.refers.entrySeq()
         .map(([name, referVar]) => `const ${referName(referVar.safeName)} = _refers.get('${referVar.name}').value;`);
@@ -233,7 +235,7 @@ function compileNodeNS(nsEnv, compiledForms) {
        const _refers = _nsEnv.refers;
        const _aliases = _nsEnv.aliases;
        let _exports = ${isKernel ? `_env.kernelExports` : `_im.Map({})`}.asMutable();
-       ${isKernel ? `const {${kernelExports.keySeq().join(', ')}} = _env.kernelExports.map(v => v.value).toObject();` : ''}
+       ${isKernel ? importKernelExports : ''}
 
        ${refers.join('\n')}
 
@@ -270,7 +272,7 @@ function compileWebNS(env, nsEnv, compiledForms) {
   import _im from 'immutable';
 
   let _exports = ${isKernel ? `_env.kernelExports` : `_im.Map({})`}.asMutable();
-  ${isKernel ? `const {${kernelExports.keySeq().join(', ')}} = _env.kernelExports.map(v => v.value).toObject();` : ''}
+  ${isKernel ? importKernelExports : ''}
 
   ${imports.join('\n')}
 
