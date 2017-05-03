@@ -3,5 +3,5 @@
 (def (compile env ns-env form)
   (let [range (Form.range form)]
     (match form
-      BoolForm (BoolExpr {range range, bool true})
+      BoolForm (BoolExpr {range range, bool (BoolForm.bool form)})
       StringForm (StringExpr {range range, str (StringForm.str form)}))))
