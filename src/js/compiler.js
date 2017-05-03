@@ -1,6 +1,6 @@
 const vm = require('vm');
 const {List, Map, Set} = require('immutable');
-const {Var, DataType, NSHeader} = require('./env');
+const {Var, DataType, NSHeader, kernelExports} = require('./env');
 
 function makeSafe(s) {
   return s.replace('-', '_');
@@ -200,13 +200,15 @@ function compileNodeNS(nsEnv, compiledForms) {
   const subExprs = nsEnv.exports.valueSeq().flatMap(e => e.expr ? e.expr.subExprs() : []);
 
   const aliases = aliasedVars(subExprs).map(a => `const ${aliasName(a.alias, a.safeName)} = _aliases.get('${a.alias}').exports.get('${a.name}').value;`);
+  const isKernel = nsEnv.ns == 'bridje.kernel';
 
   return `
   (function(_env, _im) {
      return function(_nsEnv) {
        const _refers = _nsEnv.refers;
        const _aliases = _nsEnv.aliases;
-       let _exports = ${nsEnv.ns == 'bridje.kernel' ? `_env.kernelExports` : `_im.Map({})`}.asMutable();
+       let _exports = ${isKernel ? `_env.kernelExports` : `_im.Map({})`}.asMutable();
+       ${isKernel ? `const {${kernelExports.keySeq().join(', ')}} = _env.kernelExports.map(v => v.value).toObject();` : ''}
 
        ${refers.join('\n')}
 
@@ -236,11 +238,14 @@ function compileWebNS(env, nsEnv, compiledForms) {
 
   const aliases = aliasedVars(subExprs).map(a => `const ${aliasName(a.alias, a.safeName)} = ${importNSVarName(a.ns)}.get('${a.name}').value;`);
 
+  const isKernel = nsEnv.ns == 'bridje.kernel';
+
   return `
   import _env from '../../../../src/js/env';
   import _im from 'immutable';
 
-  let _exports = ${nsEnv.ns == 'bridje.kernel' ? `_env.kernelExports` : `_im.Map({})`}.asMutable();
+  let _exports = ${isKernel ? `_env.kernelExports` : `_im.Map({})`}.asMutable();
+  ${isKernel ? `const {${kernelExports.keySeq().join(', ')}} = _env.kernelExports.map(v => v.value).toObject();` : ''}
 
   ${imports.join('\n')}
 

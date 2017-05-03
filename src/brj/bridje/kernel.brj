@@ -1,2 +1,6 @@
 (ns bridje.kernel)
 
+(def (compile env ns-env form)
+  (match form
+    BoolForm (BoolExpr {bool true})
+    StringForm (StringExpr {str "Hello world!"})))

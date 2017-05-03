@@ -151,9 +151,13 @@ function compileForms(env, loadedNS) {
       nsEnv: withKernelExports(a.resolveNSHeader(env, cachedNSHeader).set('exports', exports))
     };
   } else {
+    const isKernel = nsHeader.ns == 'bridje.kernel';
+    const isKernelNS = isKernel || nsHeader.ns.startsWith('bridje.kernel.');
+    const kernelCompile = !isKernel ? env.nsEnvs.get('bridje.kernel').exports.get('compile').value : undefined;
+
     return forms.reduce(
       ({nsEnv, compiledForms}, form) => {
-        const expr = a.analyseForm(env, nsEnv, form);
+        const expr = isKernelNS ? a.analyseForm(env, nsEnv, form) : kernelCompile(env, nsEnv, form);
         let compiledForm;
         ({nsEnv, compiledForm} = compileExpr(env, nsEnv, expr));
         return {nsHeader, nsEnv, compiledForms: compiledForms.push(compiledForm)};

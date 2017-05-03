@@ -5,6 +5,7 @@ const {readForms} = require('../../src/js/reader');
 const {Map, List, Set} = require('immutable');
 const fakeNSIO = require('./fake-nsio');
 const assert = require('assert');
+const fs = require('fs');
 
 describe('runtime', () => {
   async function requireNSAsync(env, ns, fakeNSs) {
@@ -18,7 +19,17 @@ describe('runtime', () => {
     }, {env});
   }
 
-  const baseEnvAsync = requireNSAsync(new Env({}), 'bridje.kernel', {'bridje.kernel': {brj: `(ns bridje.kernel)`}}).then(({env}) => env);
+  const kernelBrjAsync = new Promise((resolve, reject) => {
+    fs.readFile(require.resolve('../../src/brj/bridje/kernel.brj'), 'utf8', (err, res) => {
+      if (err !== null) {
+        reject(err);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+
+  const baseEnvAsync = kernelBrjAsync.then(brj => requireNSAsync(new Env({}), 'bridje.kernel', {'bridje.kernel': {brj}}).then(({env}) => env));
 
   it ('loads a simple kernel', () => {
     return baseEnvAsync.then(env => {
@@ -44,6 +55,14 @@ describe('runtime', () => {
     assert.deepEqual(newEnv.nsEnvs.get('bridje.kernel.bar').exports.get('hello').value.toJS(), [3, 4]);
   });
 
+  it ('uses b.k/compile for non kernel namespaces', async () => {
+    const fakeNSs = {
+      'bridje.foo': {brj: `(ns bridje.foo) "bell"`}
+    };
+    const result = await requireNSAsync(await baseEnvAsync, 'bridje.foo', fakeNSs);
+
+    // TODO when `def` works, update this test
+  });
 
   it ('uses a cached ns if possible', async () => {
     const ns = 'bridje.kernel.foo';
