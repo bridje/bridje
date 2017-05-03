@@ -3,7 +3,8 @@ const expr = require('./expr');
 const form = require('./form');
 
 function makeSafe(s) {
-  return s.replace(/[\-.<>]/g, m => ({'-': '__', '_': '_us', '.': '_dot',
+  return s.replace(/[\-.<>?!]/g, m => ({'-': '__', '_': '_us', '.': '_dot',
+                                      '?': '_qm', '!': '_ex',
                                       '<': '_lt', '>': '_gt', '=': '_eq'}[m]));
 };
 

@@ -267,13 +267,13 @@ function parseForms0(tokens, closeParen, onEOF) {
         break;
 
       default:
-        let symMatch = token.token.match(/^[\w\-<>\.]+$/u);
+        let symMatch = token.token.match(/^[\w\-<>\.?!]+$/u);
         if (symMatch) {
           forms = forms.push(new f.SymbolForm({range: token.range, sym: sym(token.token)}));
           break;
         }
 
-        let nsSymMatch = token.token.match(/^[\w\-<>\.]+\/[\w\-<>\.]+$/u);
+        let nsSymMatch = token.token.match(/^[\w\-<>\.?!]+\/[\w\-<>\.?!]+$/u);
         if (nsSymMatch) {
           let [_, ns, name] = nsSymMatch;
           forms = forms.push(new f.NamespacedSymbolForm({range: token.range, sym: nsSym(ns, name)}));
