@@ -4,4 +4,6 @@
   (let [range (Form.range form)]
     (match form
       BoolForm (BoolExpr {range range, bool (BoolForm.bool form)})
-      StringForm (StringExpr {range range, str (StringForm.str form)}))))
+      StringForm (StringExpr {range range, str (StringForm.str form)})
+      IntForm (IntExpr {range range, int (IntForm.int form)})
+      FloatForm (FloatExpr {range range, float (FloatForm.float form)}))))
