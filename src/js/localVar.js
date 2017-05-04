@@ -1,5 +1,7 @@
 const {Record} = require('immutable');
 
-const LocalVar = Record({name: null});
+let nextIdx = 0;
 
-module.exports = name => new LocalVar({name});
+const LocalVar = Record({name: null, idx: null});
+
+module.exports = name => new LocalVar({name, idx: nextIdx++});
