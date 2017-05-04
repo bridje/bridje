@@ -1,32 +1,21 @@
 var ana = require('../../src/js/analyser');
 var reader = require('../../src/js/reader');
 const {Record, List, Map} = require('immutable');
-const {Env, NSEnv, Var} = require('../../src/js/env');
+const {Env, NSEnv, Var, makeSafe} = require('../../src/js/env');
 
-const flipVar = Var({
-  name: 'flip',
-  ns: 'bridje.kernel.foo',
-  safeName: 'flip',
-  value: (x, y) => List.of(y, x)
-});
+function fooVar(name, value) {
+  return new Var({ns: 'bridje.kernel.foo', name, safeName: makeSafe(name), value});
+}
+
+const flipVar = fooVar('flip', (x, y) => List.of(y, x));
 
 const JustRecord = Record({_params: ['a']});
-const JustVar = new Var({
-  name: 'Just',
-  ns: 'bridje.kernel.foo',
-  safeName: 'Just',
-  value: (a) => new JustRecord({_params: List.of(a)})
-});
+const JustVar = fooVar('Just', (a) => new JustRecord({_params: List.of(a)}));
 
 JustRecord.prototype._brjType = JustVar.value;
 
 const NothingRecord = Record({});
-const NothingVar = new Var({
-  name: 'Nothing',
-  ns: 'bridje.kernel.foo',
-  safeName: 'Nothing',
-  value: new NothingRecord({})
-});
+const NothingVar = fooVar('Nothing', new NothingRecord({}));
 NothingRecord.prototype._brjType = NothingVar.value;
 
 const fooNSEnv = new NSEnv({
@@ -35,7 +24,10 @@ const fooNSEnv = new NSEnv({
   exports: Map({
     'flip': flipVar,
     'Just': JustVar,
-    'Nothing': NothingVar
+    'Nothing': NothingVar,
+    'pos?': fooVar('pos?', x => x > 0),
+    'dec': fooVar('dec', x => x - 1),
+    'push': fooVar('push', (coll, el) => coll.push(el))
   })
 });
 

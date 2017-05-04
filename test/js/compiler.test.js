@@ -65,6 +65,12 @@ describe('compiler', () => {
       assert.deepEqual(expr.toJS(), [4, 3]);
     });
 
+    it ('compiles a loop-recur', () => {
+      const result = compileForm('(def res (loop [x 5, res []] (if (foo/pos? x) (recur (foo/dec x) (foo/push res x)) res)))', barNSEnv, fooEnv);
+      const loadNS = evalNSCode(List.of(result.compiledForm), result.nsEnv, fooEnv);
+      assert.deepEqual(loadNS(barNSEnv).exports.get('res').value.toJS(), [5, 4, 3, 2, 1]);
+    });
+
     it ('loads a defined function', () => {
       const def = compileForm(`(def (flip x y) [y x])`, new NSEnv());
       const expr = compileForm(`(flip 3 4)`, def.nsEnv);

@@ -78,6 +78,17 @@ function compileExpr(env, nsEnv, expr) {
     case 'call':
       return `(${compileExpr0(expr.exprs.first())}(${expr.exprs.shift().map(compileExpr0).join(', ')}))`;
 
+    case 'loop':
+      const init = expr.bindings.map(binding => `let ${localVarName(binding.localVar)} = ${compileExpr0(binding.expr)};`);
+      const body = compileExpr0(expr.body);
+      return `(function() {${init.join('\n')} \n let _continue = true; while(_continue) {_continue = false; const _res = ${body}; if (!_continue) return _res;}})()`;
+
+    case 'recur':
+      const localVarNames = expr.bindings.map(binding => localVarName(binding.localVar));
+      const exprs = expr.bindings.map(binding => compileExpr0(binding.expr));
+      return `(function() {[${localVarNames.join(', ')}] = [${exprs.join(', ')}] \n _continue = true;})()`;
+
+
     case 'jsGlobal':
       return `(${expr.path.join('.')})`;
 
