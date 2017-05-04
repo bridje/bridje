@@ -15,6 +15,10 @@ describe('runtime', () => {
     });
 
     return loadedNSs.reduce(({env}, loadedNS) => {
+      // if (ns == 'bridje.kernel') {
+      //   console.log(compileForms(env, loadedNS).compiledForms.join('\n\n'));
+      // }
+
       return evalNodeForms(env, compileForms(env, loadedNS));
     }, {env});
   }
@@ -57,9 +61,10 @@ describe('runtime', () => {
 
   it ('uses b.k/compile for non kernel namespaces', async () => {
     const fakeNSs = {
-      'bridje.foo': {brj: `(ns bridje.foo) "bell"`}
+      'bridje.foo': {brj: `(ns bridje.foo) ["bell"]`}
     };
     const result = await requireNSAsync(await baseEnvAsync, 'bridje.foo', fakeNSs);
+    // console.log(result.nsCode);
 
     // TODO when `def` works, update this test
   });

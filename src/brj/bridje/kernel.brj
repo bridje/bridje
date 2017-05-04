@@ -1,9 +1,53 @@
 (ns bridje.kernel)
 
+(def (->vec xf coll)
+  "TODO")
+
+(def (->set xf coll)
+  "TODO")
+
+(def (reduce f init coll)
+  (loop [coll coll
+         acc init]
+    (if (empty? coll)
+      acc
+      (recur (tail coll) (f acc (head coll))))))
+
+(def (map f coll)
+  (reduce (fn (acc el)
+            (conj acc (f el)))
+          [] coll))
+
+(def (mapcat f coll)
+  (reduce (fn (acc el)
+            (reduce conj acc (f el)))
+          [] coll))
+
+(def (filter f coll)
+  (reduce (fn (acc el)
+            (if (f el)
+              (conj acc el)
+              acc))
+          [] coll))
+
 (def (compile env ns-env form)
   (let [range (Form.range form)]
     (match form
       BoolForm (BoolExpr {range range, bool (BoolForm.bool form)})
       StringForm (StringExpr {range range, str (StringForm.str form)})
       IntForm (IntExpr {range range, int (IntForm.int form)})
-      FloatForm (FloatExpr {range range, float (FloatForm.float form)}))))
+      FloatForm (FloatExpr {range range, float (FloatForm.float form)})
+
+      VectorForm (VectorExpr {range range,
+                              exprs (map (fn (form)
+                                           (compile env ns-env form))
+                                         (VectorForm.forms form))})
+
+      SetForm (SetExpr {range range
+                        exprs (map (fn (form)
+                                     (compile env ns-env form))
+                                   (SetForm.forms form))})
+
+      RecordForm (RecordExpr {range range})
+
+      )))
