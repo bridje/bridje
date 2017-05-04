@@ -66,7 +66,15 @@ const kernelExports = (function() {
             ['BoolForm.bool', form => form.bool],
             ['StringForm.str', form => form.str],
             ['IntForm.int', form => form.int],
-            ['FloatForm.float', form => form.float])
+            ['FloatForm.float', form => form.float],
+            ['VectorForm.forms', form => form.forms],
+            ['SetForm.forms', form => form.forms],
+            ['>2', (x, y) => x > y],
+            ['seq', coll => coll.toSeq()],
+            ['conj', (coll, el) => coll.push(el)],
+            ['head', coll => coll.first()],
+            ['tail', coll => coll.shift()],
+            ['empty?', coll => coll.isEmpty()])
       .map(([name, value]) => [name, makeVar(name, value)]))
     .merge(formExports, exprExports);
 
