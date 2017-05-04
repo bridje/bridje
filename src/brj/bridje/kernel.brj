@@ -30,7 +30,7 @@
               acc))
           [] coll))
 
-(def (compile env ns-env form)
+(def (analyse env ns-env form)
   (let [range (Form.range form)]
     (match form
       BoolForm (BoolExpr {range range, bool (BoolForm.bool form)})
@@ -40,12 +40,12 @@
 
       VectorForm (VectorExpr {range range,
                               exprs (map (fn (form)
-                                           (compile env ns-env form))
+                                           (analyse env ns-env form))
                                          (VectorForm.forms form))})
 
       SetForm (SetExpr {range range
                         exprs (map (fn (form)
-                                     (compile env ns-env form))
+                                     (analyse env ns-env form))
                                    (SetForm.forms form))})
 
       RecordForm (RecordExpr {range range})
