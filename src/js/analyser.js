@@ -140,221 +140,227 @@ function resolveNSHeader(env, header) {
 }
 
 function analyseForm(env, nsEnv, form) {
-  function analyseValueExpr(form, opts) {
+  function valueExprParser(opts) {
     const {localEnv, loopLVs, isTail} = opts;
 
-    function exprParser({localEnv = opts.localEnv, loopLVs = opts.loopLVs, isTail = opts.isTail}) {
-      return p.oneOf(form => p.successResult(analyseValueExpr(form, {localEnv, loopLVs, isTail})));
+    function resolveSymbolParser(sym) {
+
+    }
+
+    function resolveNSSymbolParser(nsSym) {
+
+    }
+
+    function recursiveExprParser({localEnv = opts.localEnv, loopLVs = opts.loopLVs, isTail = opts.isTail}) {
+      return valueExprParser({localEnv, loopLVs, isTail});
     };
 
-    const range = form.range;
-    const optsNoTail = {localEnv, isTail: false};
+    return p.oneOf(form => {
+      const range = form.range;
 
-    switch(form.formType) {
-    case 'bool':
-      return new e.BoolExpr({range, bool: form.bool});
-    case 'string':
-      return new e.StringExpr({range, str: form.str});
-    case 'int':
-      return new e.IntExpr({range, int: form.int});
-    case 'float':
-      return new e.FloatExpr({range, float: form.float});
+      switch(form.formType) {
+      case 'bool':
+        return p.successResult(new e.BoolExpr({range, bool: form.bool}));
+      case 'string':
+        return p.successResult(new e.StringExpr({range, str: form.str}));
+      case 'int':
+        return p.successResult(new e.IntExpr({range, int: form.int}));
+      case 'float':
+        return p.successResult(new e.FloatExpr({range, float: form.float}));
+      case 'vector':
+        return p.parseForms(form.forms, p.atLeastOneOf(recursiveExprParser({isTail: false})).then(exprs => p.parseEnd(new e.VectorExpr({range, exprs}))));
+      case 'set':
+        return p.parseForms(form.forms, p.atLeastOneOf(recursiveExprParser({isTail: false})).then(exprs => p.parseEnd(new e.SetExpr({range, exprs}))));
 
-    case 'vector':
-      return new e.VectorExpr({range, exprs: form.forms.map(f => analyseValueExpr(f, optsNoTail))});
-    case 'set':
-      return new e.SetExpr({range, exprs: form.forms.map(f => analyseValueExpr(f, optsNoTail))});
+      case 'record':
+        return p.parseForms(form.entries, p.atLeastOneOf(p.oneOf(
+          entry => p.parseForms(List.of(entry.key, entry.value), p.SymbolNameParser.then(
+            key => recursiveExprParser({isTail: false}).fmap(
+              value => new e.RecordEntry({key, value})))))).fmap(
+                entries => new e.RecordExpr({range, entries})));
 
-    case 'record':
-      return new e.RecordExpr({
-        range,
-        entries: form.entries.map(
-          entry => new e.RecordEntry({
-            key: p.parseForm(entry.key, p.SymbolParser.fmap(symForm => symForm.sym)).orThrow(),
-            value: analyseValueExpr(entry.value, optsNoTail)}))});
+      case 'list':
+        const forms = form.forms;
 
-    case 'list':
-      const forms = form.forms;
+        if (forms.isEmpty()) {
+          throw 'NIY';
+        } else {
+          const firstForm = forms.first();
 
-      if (forms.isEmpty()) {
+          switch (firstForm.formType) {
+          case 'symbol':
+            switch (firstForm.sym.name) {
+            case 'if':
+              return p.parseForms(forms.shift(), recursiveExprParser({}).then(
+                testExpr => recursiveExprParser({}).then(
+                  thenExpr => recursiveExprParser({}).then(
+                    elseExpr => p.parseEnd(new e.IfExpr({range, testExpr, thenExpr, elseExpr}))))));
 
-        throw 'NIY';
-      } else {
-        const firstForm = forms.first();
+            case 'let':
+              return p.parseForms(forms.shift(), p.VectorParser.then(
+                bindingVecForm => {
+                  const bindingVecForms = bindingVecForm.forms;
+                  if (bindingVecForms.size % 2 !== 0) {
+                    return p.pure(p.failResult('let binding must have an even number of forms'));
+                  } else {
+                    return p.innerFormsParser(
+                      bindingVecForms,
+                      p.atLeastOneOf(p.SymbolNameParser.then(
+                        param => recursiveExprParser({isTail: false}).fmap(
+                          expr => new e.BindingPair({
+                            localVar: lv(param),
+                            expr
+                          }))
+                      )).then(p.parseEnd));
+                  }}).then(
+                    bindings => recursiveExprParser({
+                      localEnv: bindings.reduce((localEnv, binding) => localEnv.set(binding.localVar.name, binding.localVar), localEnv)
+                    }).then(
+                      body => p.parseEnd(new e.LetExpr({range, bindings, body})))));
 
-        switch (firstForm.formType) {
-        case 'symbol':
-          switch (firstForm.sym.name) {
-          case 'if':
-            return p.parseForms(forms.shift(), exprParser({}).then(
-              testExpr => exprParser({}).then(
-                thenExpr => exprParser({}).then(
-                  elseExpr => p.parseEnd(new e.IfExpr({range, testExpr, thenExpr, elseExpr})))))).orThrow();
+            case 'loop': {
+              return p.parseForms(forms.shift(), p.VectorParser.then(
+                bindingsForm => {
 
-          case 'let':
-            return p.parseForms(forms.shift(), p.VectorParser.then(
-              bindingVecForm => {
-                const bindingVecForms = bindingVecForm.forms;
-                if (bindingVecForms.size % 2 !== 0) {
-                  return p.pure(p.failResult('let binding must have an even number of forms'));
-                } else {
-                  return p.innerFormsParser(
-                    bindingVecForms,
-                    p.atLeastOneOf(p.SymbolNameParser.then(
-                      param => exprParser({isTail: false}).fmap(
-                        expr => new e.BindingPair({
-                          localVar: lv(param),
-                          expr
-                        }))
-                    )).then(p.parseEnd));
-                }}).then(
-                  bindings => exprParser({
-                    localEnv: bindings.reduce((localEnv, binding) => localEnv.set(binding.localVar.name, binding.localVar), localEnv)
-                  }).then(
-                    body => p.parseEnd(new e.LetExpr({range, bindings, body})))))
-              .orThrow();
-
-          case 'loop': {
-            return p.parseForms(forms.shift(), p.VectorParser.then(
-              bindingsForm => {
-
-                if (bindingsForm.forms.size % 2 == 0) {
-                  return p.innerFormsParser(
-                    bindingsForm.forms,
-                    p.atLeastOneOf(p.SymbolNameParser.then(
-                      param => exprParser({isTail: false}).fmap(
-                        initialBindingExpr => new e.BindingPair({
-                          localVar: lv(param),
-                          expr: initialBindingExpr
-                        })))).then(p.parseEnd));
-                } else {
-                  return p.pure(p.failResult('loop binding must have an even number of forms'));
-                }
-              }).then(
-                bindings => {
-                  return p.oneOf(form => p.successResult(analyseValueExpr(form, {
-                    localEnv: bindings.reduce(
-                      (localEnv, binding) => localEnv.set(binding.localVar.name, binding.localVar), localEnv),
-                    loopLVs: bindings.map(b => b.localVar),
-                    isTail: true
-                  }))).then(
-                    body => p.parseEnd(new e.LoopExpr({range: form.range, bindings, body})));
-                })).orThrow();
-          }
-
-          case 'recur':
-            if (!loopLVs) {
-              throw 'recur not in loop';
-            } else if (!isTail) {
-              throw 'recur not in tail position';
-            } else if (forms.shift().size != loopLVs.size) {
-              throw `wrong number of forms in recur - got ${forms.shift().size}, expecting ${loopLVs.size}`;
-            } else {
-              return p.parseForms(forms.shift(), p.atLeastOneOf(exprParser({isTail: false, loopLVs: null})).then(
-                recurExprs => p.parseEnd(new e.RecurExpr({
-                  range: form.range,
-                  bindings: loopLVs.zip(recurExprs).map(([localVar, expr]) => e.BindingPair({localVar, expr}))
-                })))).orThrow();
+                  if (bindingsForm.forms.size % 2 == 0) {
+                    return p.innerFormsParser(
+                      bindingsForm.forms,
+                      p.atLeastOneOf(p.SymbolNameParser.then(
+                        param => recursiveExprParser({isTail: false}).fmap(
+                          initialBindingExpr => new e.BindingPair({localVar: lv(param), expr: initialBindingExpr})))).then(p.parseEnd));
+                  } else {
+                    return p.pure(p.failResult('loop binding must have an even number of forms'));
+                  }
+                }).then(
+                  bindings => {
+                    return recursiveExprParser({
+                      localEnv: bindings.reduce(
+                        (localEnv, binding) => localEnv.set(binding.localVar.name, binding.localVar), localEnv),
+                      loopLVs: bindings.map(b => b.localVar),
+                      isTail: true
+                    }).then(
+                      body => p.parseEnd(new e.LoopExpr({range, bindings, body})));
+                  }));
             }
 
-          case 'fn':
-            return p.parseForms(forms.shift(), p.ListParser.then(
-              paramsForm => p.innerFormsParser(
-                paramsForm.forms,
-                p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym))).then(
-                  paramSyms => {
-                    const params = paramSyms.map(sym => lv(sym.name));
-                    const localEnv_ = localEnv.merge(Map(params.map(param => [param.name, param])));
+            case 'recur':
+              if (!loopLVs) {
+                throw 'recur not in loop';
+              } else if (!isTail) {
+                throw 'recur not in tail position';
+              } else if (forms.shift().size != loopLVs.size) {
+                throw `wrong number of forms in recur - got ${forms.shift().size}, expecting ${loopLVs.size}`;
+              } else {
+                return p.parseForms(forms.shift(), p.atLeastOneOf(recursiveExprParser({isTail: false, loopLVs: null})).then(
+                  recurExprs => p.parseEnd(new e.RecurExpr({
+                    range,
+                    bindings: loopLVs.zip(recurExprs).map(([localVar, expr]) => e.BindingPair({localVar, expr}))
+                  }))));
+              }
 
-                    return p.oneOf(form => p.successResult(analyseValueExpr(form, {localEnv: localEnv_})))
-                      .then(body => p.parseEnd(new e.FnExpr({range, params, body})));
-                  }))).orThrow();
+            case 'fn':
+              return p.parseForms(forms.shift(), p.ListParser.then(
+                paramsForm => p.innerFormsParser(
+                  paramsForm.forms,
+                  p.atLeastOneOf(p.SymbolParser.fmap(symForm => symForm.sym))).then(
+                    paramSyms => {
+                      const params = paramSyms.map(sym => lv(sym.name));
 
-          case 'match':
-            return p.parseForms(forms.shift(), exprParser({isTail: false}).then(
-              matchExpr => p.atLeastOneOf(p.anyOf(
-                p.SymbolNameParser.then(
-                  dataTypeName => {
-                    const dataType = nsEnv.exports.get(dataTypeName);
-                    if (dataType) {
-                      return p.pure(p.successResult({dataType}));
-                    } else {
-                      const dataType = nsEnv.refers.get(dataTypeName);
+                      return recursiveExprParser({
+                        localEnv: localEnv.merge(Map(params.map(param => [param.name, param]))),
+                        loopLVs: null,
+                        isTail: true
+                      }).then(body => p.parseEnd(new e.FnExpr({range, params, body})));
+                    })));
+
+            case 'match':
+              return p.parseForms(forms.shift(), recursiveExprParser({isTail: false}).then(
+                matchExpr => p.atLeastOneOf(p.anyOf(
+                  p.SymbolNameParser.then(
+                    dataTypeName => {
+                      const dataType = nsEnv.exports.get(dataTypeName);
                       if (dataType) {
                         return p.pure(p.successResult({dataType}));
+                      } else {
+                        const dataType = nsEnv.refers.get(dataTypeName);
+                        if (dataType) {
+                          return p.pure(p.successResult({dataType}));
+                        }
+
+                        return p.pure(p.failResult(`can't find data type '${dataTypeName}'`));
+                      }
+                    }),
+                  p.NamespacedSymbolParser.then(
+                    nsSymForm => {
+                      const aliasNSEnv = nsEnv.aliases.get(nsSymForm.sym.ns);
+                      if (aliasNSEnv) {
+                        const dataType = aliasNSEnv.exports.get(nsSymForm.sym.name);
+                        if (dataType) {
+                          return p.pure(p.successResult({dataType, alias: nsSymForm.sym.ns}));
+                        }
                       }
 
-                      return p.pure(p.failResult(`can't find data type '${dataTypeName}'`));
-                    }
-                  }),
-                p.NamespacedSymbolParser.then(
-                  nsSymForm => {
-                    const aliasNSEnv = nsEnv.aliases.get(nsSymForm.sym.ns);
-                    if (aliasNSEnv) {
-                      const dataType = aliasNSEnv.exports.get(nsSymForm.sym.name);
-                      if (dataType) {
-                        return p.pure(p.successResult({dataType, alias: nsSymForm.sym.ns}));
-                      }
-                    }
+                      return p.pure(p.failResult(`can't find data type '${nsSymForm.sym.ns}/${nsSymForm.sym.name}'`));
+                    })).then(
+                      ({dataType, alias}) => recursiveExprParser({}).then(
+                        expr => p.pure(p.successResult(new e.MatchClause({var: dataType, alias, expr}))))))
 
-                    return p.pure(p.failResult(`can't find data type '${nsSymForm.sym.ns}/${nsSymForm.sym.name}'`));
-                  })).then(
-                    ({dataType, alias}) => exprParser({}).then(
-                      expr => p.pure(p.successResult(new e.MatchClause({var: dataType, alias, expr}))))))
+                  .then(clauses => p.parseEnd(new e.MatchExpr({range, expr: matchExpr, clauses})))));
 
-                .then(clauses => p.parseEnd(new e.MatchExpr({range: form.range, expr: matchExpr, clauses}))))).orThrow();
+            default:
+              return p.parseForms(form.forms, p.atLeastOneOf(recursiveExprParser({})).then(
+                exprs => p.parseEnd(new e.CallExpr({range, exprs}))));
+            }
+
+          case 'namespacedSymbol':
+            // fall through - this will then call through to the top level namespacedSymbol handling
+          case 'list':
+            return p.parseForms(form.forms, p.atLeastOneOf(recursiveExprParser({})).then(
+              exprs => p.parseEnd(new e.CallExpr({range, exprs}))));
 
           default:
-            return new e.CallExpr({range, exprs: form.forms.map(form => analyseValueExpr(form, {localEnv}))});
+            throw `unexpected form type ${firstForm.formType}`;
+          }
+        }
+
+      case 'symbol':
+        const sym = form.sym;
+
+        const localVar = localEnv.get(sym.name);
+        if (localVar !== undefined) {
+          return p.successResult(new e.LocalVarExpr({range, localVar, name: sym.name}));
+        }
+
+        const globalVar = nsEnv.exports.get(sym.name) || nsEnv.refers.get(sym.name);
+        if (globalVar) {
+          return p.successResult(new e.VarExpr({range, var: globalVar}));
+        }
+
+        throw `NIY - can't find '${form.sym}'`;
+
+      case 'namespacedSymbol':
+        if (form.sym.ns === 'js') {
+          return p.successResult(new e.JSGlobalExpr({range, path: List(form.sym.name.split('.'))}));
+        } else {
+          const aliasedNS = nsEnv.aliases.get(form.sym.ns);
+
+          if (aliasedNS === undefined) {
+            throw `No such alias '${form.sym.ns} in NS '${nsEnv.ns}'`;
           }
 
-        case 'namespacedSymbol':
-          // fall through - this will then call through to the top level namespacedSymbol handling
-        case 'list':
-          return new e.CallExpr({range, exprs: form.forms.map(form => analyseValueExpr(form, {localEnv}))});
+          const aliasedVar = aliasedNS.exports.get(form.sym.name);
 
-        default:
-          throw `unexpected form type ${firstForm.formType}`;
-        }
-      }
+          if (aliasedVar === undefined) {
+            throw `No such var '${aliasedNS.ns}/${form.sym.name}', referenced from '${nsEnv.ns}'`;
+          }
 
-    case 'symbol':
-      const sym = form.sym;
-
-      const localVar = localEnv.get(sym.name);
-      if (localVar !== undefined) {
-        return new e.LocalVarExpr({range, localVar, name: sym.name});
-      }
-
-      const globalVar = nsEnv.exports.get(sym.name) || nsEnv.refers.get(sym.name);
-      if (globalVar) {
-        return new e.VarExpr({range, var: globalVar});
-      }
-
-      throw `NIY - can't find '${form.sym}'`;
-
-    case 'namespacedSymbol':
-      if (form.sym.ns === 'js') {
-        return new e.JSGlobalExpr({range, path: List(form.sym.name.split('.'))});
-      } else {
-        const aliasedNS = nsEnv.aliases.get(form.sym.ns);
-
-        if (aliasedNS === undefined) {
-          throw `No such alias '${form.sym.ns} in NS '${nsEnv.ns}'`;
+          return p.successResult(new e.VarExpr({range, var: aliasedVar, alias: form.sym.ns}));
         }
 
-        const aliasedVar = aliasedNS.exports.get(form.sym.name);
-
-        if (aliasedVar === undefined) {
-          throw `No such var '${aliasedNS.ns}/${form.sym.name}', referenced from '${nsEnv.ns}'`;
-        }
-
-        return new e.VarExpr({range, var: aliasedVar, alias: form.sym.ns});
+      default:
+        throw 'unknown form?';
       }
-
-    default:
-      throw 'unknown form?';
-    }
+    });
   };
 
   if (form.formType == 'list') {
@@ -375,14 +381,13 @@ function analyseForm(env, nsEnv, form) {
                     params: params.map(lv),
                     sym: nameSymForm.sym
                   })))))).then(
-              ({params, sym}) => p.oneOf(
-                form => {
-                  const fnEnv = params ? Map(params.map(p => [p.name, p])): Map({});
-                  nsEnv = nsEnv.setIn(['exports', sym.name], new Var({ns: nsEnv.ns, name: sym.name, safeName: makeSafe(sym.name)}));
-                  return p.successResult(analyseValueExpr(form, {localEnv: fnEnv, loopLVs: null, isTail: true}));
-              }).then(
-                body => p.parseEnd(new e.DefExpr({range: form.range, sym, params, body})))))
-          .orThrow();
+                    ({params, sym}) => {
+                      const fnEnv = params ? Map(params.map(p => [p.name, p])): Map({});
+                      nsEnv = nsEnv.setIn(['exports', sym.name], new Var({ns: nsEnv.ns, name: sym.name, safeName: makeSafe(sym.name)}));
+
+                      return valueExprParser({localEnv: fnEnv, loopLVs: null, isTail: true}).then(
+                        body => p.parseEnd(new e.DefExpr({range: form.range, sym, params, body})));
+                    })).orThrow();
 
       case 'defdata':
         return p.parseForms(
@@ -403,13 +408,12 @@ function analyseForm(env, nsEnv, form) {
         throw 'NIY';
 
       default:
-        return analyseValueExpr(form, {localEnv: Map(), isTail: true});
+        return p.parseForm(form, valueExprParser({localEnv: Map(), isTail: true})).orThrow();
       }
     }
-
   }
 
-  return analyseValueExpr(form, {localEnv: Map()});
+  return p.parseForm(form, valueExprParser({localEnv: Map(), isTail: true})).orThrow();
 };
 
 module.exports = {readNSHeader, resolveNSHeader, analyseForm, NSHeader};

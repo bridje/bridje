@@ -75,11 +75,11 @@ describe('analyser', () => {
     assert.equal(expr.entries.size, 2);
 
     const entry0 = expr.entries.get(0);
-    assert.equal(entry0.key.name, 'a');
+    assert.equal(entry0.key, 'a');
     assert.equal(entry0.value.int, 1);
 
     const entry1 = expr.entries.get(1);
-    assert.equal(entry1.key.name, 'b');
+    assert.equal(entry1.key, 'b');
     assert.equal(entry1.value.str, 'Hello');
   });
 

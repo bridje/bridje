@@ -12,34 +12,30 @@ describe('reading', () => {
     it('reads a char', () => {
       var res = tok.readChar('hello world', newLoc);
       res.loc = res.loc.toJS();
-      assert.deepEqual(res,
-                       {
-                         ch: 'h',
-                         s: 'ello world',
-                         loc: {line: 1, col: 2}
-                       });
+      assert.deepEqual(res, {
+        ch: 'h',
+        s: 'ello world',
+        loc: {line: 1, col: 2}
+      });
     });
 
     it('slurps whitespace', () => {
       var res = tok.slurpWhitespace("   \n foo bar", newLoc);
       res.loc = res.loc.toJS();
 
-      assert.deepEqual(res,
-                       {
-                         s: 'foo bar',
-                         loc: {line: 2, col: 2}
-                       });
+      assert.deepEqual(res, {
+        s: 'foo bar',
+        loc: {line: 2, col: 2}
+      });
     });
 
 
     it('reads a paren', () => {
-      assert.equal(tok.readToken(' (-42 bell)', newLoc).token.token,
-                   "(");
+      assert.equal(tok.readToken(' (-42 bell)', newLoc).token.token, "(");
     });
 
     it('reads an int', () => {
-      assert.equal(tok.readToken(' -42 bell', newLoc).token.token,
-                   "-42");
+      assert.equal(tok.readToken(' -42 bell', newLoc).token.token, "-42");
     });
 
     it('reads a string', () => {
@@ -67,37 +63,29 @@ describe('reading', () => {
 (def hello
   ;; A simple hello world!
   "Hello world!")
-`)).toJS(),
-                       [{
-                         "isString": false,
-                         "range": {"start": {"line": 2, "col": 1}, "end": {"line": 2, "col": 1}},
-                         "token": "("
-                       },
-                        {
-                          "isString": false,
-                          "range": {"start": {"line": 2, "col": 2}, "end": {"line": 2, "col": 4}},
-                          "token": "def"
-                        },
-                        {
-                          "isString": false,
-                          "range": {"start": {"line": 2, "col": 6}, "end": {"line": 2, "col": 10}},
-                          "token": "hello"
-                        },
-                        {
-                          "isString": true,
-                          "range": {"start": {"line": 4, "col": 3}, "end": {"line": 4, "col": 16}},
-                          "token": "Hello world!"
-                        },
-                        {
-                          "isString": false,
-                          "range": {"start": {"line": 4, "col": 17}, "end": {"line": 4, "col": 17}},
-                          "token": ")"
-                        }]);
+`)).toJS(), [{
+  "isString": false,
+  "range": {"start": {"line": 2, "col": 1}, "end": {"line": 2, "col": 1}},
+  "token": "("
+}, {
+  "isString": false,
+  "range": {"start": {"line": 2, "col": 2}, "end": {"line": 2, "col": 4}},
+  "token": "def"
+}, {
+  "isString": false,
+  "range": {"start": {"line": 2, "col": 6}, "end": {"line": 2, "col": 10}},
+  "token": "hello"
+}, {
+  "isString": true,
+  "range": {"start": {"line": 4, "col": 3}, "end": {"line": 4, "col": 16}},
+  "token": "Hello world!"
+}, {
+  "isString": false,
+  "range": {"start": {"line": 4, "col": 17}, "end": {"line": 4, "col": 17}},
+  "token": ")"
+}]);
     });
-
   });
-
-
 
   describe('parser', () => {
     it('reads a string', () => {
