@@ -2,7 +2,7 @@ var {List, Map, Record} = require('immutable');
 
 var p = require('./parser');
 var e = require('./expr');
-const {NSEnv, NSHeader, sym} = require('./env');
+const {NSEnv, NSHeader, Var, makeSafe, sym} = require('./env');
 var f = require('./form');
 var lv = require('./localVar');
 
@@ -378,6 +378,7 @@ function analyseForm(env, nsEnv, form) {
               ({params, sym}) => p.oneOf(
                 form => {
                   const fnEnv = params ? Map(params.map(p => [p.name, p])): Map({});
+                  nsEnv = nsEnv.setIn(['exports', sym.name], new Var({ns: nsEnv.ns, name: sym.name, safeName: makeSafe(sym.name)}));
                   return p.successResult(analyseValueExpr(form, {localEnv: fnEnv, loopLVs: null, isTail: true}));
               }).then(
                 body => p.parseEnd(new e.DefExpr({range: form.range, sym, params, body})))))

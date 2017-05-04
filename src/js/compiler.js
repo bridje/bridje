@@ -127,7 +127,7 @@ function compileExpr(env, nsEnv, expr) {
     return {
       nsEnv: nsEnv.setIn(['exports', name], new Var({ns: nsEnv.ns, expr, name, safeName})),
       compiledForm: `
-const ${safeName} = (function (${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};
+const ${safeName} = (function ${safeName}(${params.join(', ')}) {return ${compileExpr0(expr.body)};})${call};
 _exports = _exports.set('${name}', new _env.Var({ns: '${nsEnv.ns}', value: ${safeName}, name: '${name}', safeName: '${safeName}'}));
 `
     };

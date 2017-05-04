@@ -126,7 +126,7 @@ describe('analyser', () => {
   });
 
   it ('analyses a def constant', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(def hello "hello world!")').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('(def hello "hello world!")').first());
 
     assert.equal(expr.exprType, 'def');
     assert.equal(expr.sym.name, 'hello');
@@ -134,7 +134,7 @@ describe('analyser', () => {
   });
 
   it ('analyses a def function', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(def (flip x y) [y x])').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('(def (flip x y) [y x])').first());
     assert.equal(expr.exprType, 'def');
     assert.equal(expr.sym.name, 'flip');
     assert.equal(expr.params.size, 2);
@@ -284,5 +284,13 @@ describe('analyser', () => {
     assert.equal(recur1.expr.exprType, 'call');
     assert.equal(recur1.expr.exprs.get(1).localVar, lv1);
     assert.equal(recur1.expr.exprs.get(2).localVar, lv0);
+  });
+
+  it('analyses a recursive call', () => {
+    const expr = ana.analyseForm(fooEnv, barNSEnv, reader.readForms('(def (foo x) (foo x))').first());
+    assert.equal(expr.body.exprType, 'call');
+    const callVar = expr.body.exprs.first().var;
+    assert.equal(callVar.ns, barNSEnv.ns);
+    assert.equal(callVar.name, 'foo');
   });
 });
