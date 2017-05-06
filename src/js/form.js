@@ -1,17 +1,21 @@
-var im = require('immutable');
-var Record = im.Record;
+const im = require('immutable');
+const Record = im.Record;
 
-var BoolForm = Record({range: null, bool: null});
-var StringForm = Record({range: null, str: null});
-var IntForm = Record({range: null, int: null});
-var FloatForm = Record({range: null, float: null});
-var VectorForm = Record({range: null, forms: null});
-var SetForm = Record({range: null, forms: null});
-var RecordEntry = Record({key: null, value: null});
-var RecordForm = Record({range: null, entries: null});
-var ListForm = Record({range: null, forms: null});
-var SymbolForm = Record({range: null, sym: null});
-var NamespacedSymbolForm = Record({range: null, sym: null});
+const BoolForm = Record({range: null, bool: null});
+const StringForm = Record({range: null, str: null});
+const IntForm = Record({range: null, int: null});
+const FloatForm = Record({range: null, float: null});
+const VectorForm = Record({range: null, forms: null});
+const SetForm = Record({range: null, forms: null});
+const RecordEntry = Record({key: null, value: null});
+const RecordForm = Record({range: null, entries: null});
+const ListForm = Record({range: null, forms: null});
+const SymbolForm = Record({range: null, sym: null});
+const NamespacedSymbolForm = Record({range: null, sym: null});
+const QuotedForm = Record({range: null, form: null});
+const SyntaxQuotedForm = Record({range: null, form: null});
+const UnquotedForm = Record({range: null, form: null});
+const UnquoteSplicedForm = Record({range: null, form: null});
 
 BoolForm.prototype.toString = function() {return `(BoolForm "${this.bool}")`;};
 BoolForm.prototype.formType = 'bool';
@@ -39,9 +43,22 @@ SymbolForm.prototype.formType = 'symbol';
 NamespacedSymbolForm.prototype.toString = function() {return `(NamespacedSymbolForm ${this.sym})`;};
 NamespacedSymbolForm.prototype.formType = 'namespacedSymbol';
 
+QuotedForm.prototype.toString = function() {return `(QuotedForm ${this.form})`;};
+QuotedForm.prototype.formType = 'quoted';
+
+SyntaxQuotedForm.prototype.toString = function() {return `(SyntaxQuotedForm ${this.form})`;};
+SyntaxQuotedForm.prototype.formType = 'syntaxQuoted';
+
+UnquotedForm.prototype.toString = function() {return `(UnquotedForm ${this.form})`;};
+UnquotedForm.prototype.formType = 'unquoted';
+
+UnquoteSplicedForm.prototype.toString = function() {return `(UnquoteSplicedForm ${this.form})`;};
+UnquoteSplicedForm.prototype.formType = 'unquoteSpliced';
+
 module.exports = {
   BoolForm, StringForm, IntForm, FloatForm,
   VectorForm, SetForm,
   RecordEntry, RecordForm,
-  ListForm, SymbolForm, NamespacedSymbolForm
+  ListForm, SymbolForm, NamespacedSymbolForm,
+  QuotedForm, SyntaxQuotedForm, UnquotedForm, UnquoteSplicedForm
 };

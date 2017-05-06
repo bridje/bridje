@@ -1,11 +1,9 @@
-var im = require('immutable');
-var Record = im.Record;
-var Map = im.Map;
-var {sym, nsSym} = require('./env');
-var l = require('./location');
-var f = require('./form');
+const {fromJS, Record, Map, List} = require('immutable');
+const {sym, nsSym} = require('./env');
+const l = require('./location');
+const f = require('./form');
 
-var Token = Record({range: null, token: null, isString: false});
+const Token = Record({range: null, token: null, isString: false});
 
 function readChar(s, loc) {
   if (s !== "") {
@@ -69,7 +67,7 @@ function readToken (s, loc) {
 
     var nextCh = readChar(s, loc);
 
-    if (/[()\[\]{}]/.test(nextCh.ch)) {
+    if (/[`'()\[\]{}]/.test(nextCh.ch)) {
       return {
         s: nextCh.s,
         loc: nextCh.loc,
@@ -94,6 +92,24 @@ function readToken (s, loc) {
         };
       } else {
         throw new Error(`Unexpected character '${nextCh.ch}' '#', at ${loc.toString()}`);
+      }
+    } else if ('~' === nextCh.ch) {
+      ({s, loc} = nextCh);
+      nextCh = readChar(s, loc);
+
+      if (nextCh === null) {
+        throw new Error(`EOF after reading '~', at ${loc.toString()}`);
+      } else if (nextCh.ch == '@') {
+        return {
+          s: nextCh.s,
+          loc: nextCh.loc,
+          token: new Token({
+            range: l.range(startLoc, nextCh.loc),
+            token: '~' + nextCh.ch
+          })
+        };
+      } else {
+        return {s, loc, token: new Token({token: '~', range: l.range(startLoc, startLoc)})};
       }
     } else if ('"' === nextCh.ch) {
       var str = "";
@@ -155,7 +171,7 @@ function readToken (s, loc) {
 
 function tokenise(s) {
   var loc = l.newLoc;
-  var tokens = new im.List();
+  var tokens = new List();
   var token;
   while ((token = readToken(s, loc)) !== null) {
     ({s, loc} = token);
@@ -167,11 +183,11 @@ function tokenise(s) {
 
 
 var eofBehaviour = {
-  Throw: (forms) => {
+  Throw: () => {
     throw new Error(`EOF while reading`);
   },
-  Return: (forms) => {
-    return forms;
+  Return: () => {
+    return null;
   }
 };
 
@@ -182,112 +198,135 @@ function nextToken(tokens) {
   };
 }
 
-function parseForms0(tokens, closeParen, onEOF) {
-  var forms = im.List();
+function parseForm(tokens, closeParen, onEOF) {
 
-  var token;
+}
 
-  while (true) {
-    ({token, tokens} = nextToken(tokens));
+function parseForm(tokens, closeParen, onEOF) {
+  let token;
+  ({token, tokens} = nextToken(tokens));
 
-    if (token === undefined) {
-      return {forms: onEOF(forms)};
+  if (token === undefined) {
+    return onEOF();
+  }
+
+  if (token.isString) {
+    return {tokens, form: new f.StringForm({range: token.range, str: token.token})};
+
+  } else if (/^[-+]?\d+$/.test(token.token)) {
+    return {tokens, form: new f.IntForm({range: token.range, int: parseInt(token.token)})};
+
+  } else if (/^[-+]?\d+\.\d+$/.test(token.token)) {
+    return {tokens, form: new f.FloatForm({range: token.range, float: parseFloat(token.token)})};
+
+  } else {
+    const parseSeq = (closeParen, makeForm) => {
+      let innerForms = new List();
+
+      while(true) {
+        let form;
+        ({form, tokens} = parseForm(tokens, closeParen, eofBehaviour.Throw));
+        if (form) {
+          innerForms = innerForms.push(form);
+        } else {
+          return {tokens, form: makeForm(token.range, innerForms)};
+        }
+      }
+    };
+
+    switch (token.token) {
+    case 'true':
+    case 'false':
+      return {tokens, form: new f.BoolForm({range: token.range, bool: token.token === 'true'})};
+
+    case '(':
+      return parseSeq(')', (range, innerForms) => new f.ListForm({range, forms: innerForms}));
+
+    case '[':
+      return parseSeq(']', (range, innerForms) => new f.VectorForm({range, forms: innerForms}));
+
+    case '{':
+      return parseSeq('}', (range, innerForms) => {
+        if (innerForms.size % 2 !== 0) {
+          throw new Error(`Even number of forms expected in record at ${token.range}`);
+        }
+
+        let entries = [];
+        innerForms = innerForms.toArray();
+        for (let i = 0; i < innerForms.length; i += 2) {
+          entries.push(new f.RecordEntry({key: innerForms[i], value: innerForms[i+1]}));
+        }
+
+        return new f.RecordForm({range, entries: List(entries)});
+      });
+
+    case '#{':
+      return parseSeq('}', (range, innerForms) => new f.SetForm({range, forms: innerForms}));
+
+    case ')':
+    case '}':
+    case ']':
+      if (token.token === closeParen) {
+        return {tokens};
+      } else {
+        const expecting = closeParen !== null ? `, expecting '${closeParen}'` : '';
+        throw new Error(`Unexpected '${token.token}'${expecting}, at ${token.range.end}`);
+      }
+
+    case "'": {
+      let form;
+      ({form, tokens} = parseForm(tokens, null, eofBehaviour.Throw));
+      return {tokens, form: new f.QuotedForm({range: token.range, form})};
     }
 
-    if (token.isString) {
-      forms = forms.push(new f.StringForm({range: token.range, str: token.token}));
+    case '`': {
+      let form;
+      ({form, tokens} = parseForm(tokens, null, eofBehaviour.Throw));
+      return {tokens, form: new f.SyntaxQuotedForm({range: token.range, form})};
+    }
 
-    } else if (/^[-+]?\d+$/.test(token.token)) {
-      forms = forms.push(new f.IntForm({range: token.range, int: parseInt(token.token)}));
+    case '~': {
+      let form;
+      ({form, tokens} = parseForm(tokens, null, eofBehaviour.Throw));
+      return {tokens, form: new f.UnquotedForm({range: token.range, form})};
+    }
 
-    } else if (/^[-+]?\d+\.\d+$/.test(token.token)) {
-      forms = forms.push(new f.FloatForm({range: token.range, float: parseFloat(token.token)}));
+    case '~@': {
+      let form;
+      ({form, tokens} = parseForm(tokens, null, eofBehaviour.Throw));
+      return {tokens, form: new f.UnquoteSplicedForm({range: token.range, form})};
+    }
 
-    } else {
-      var parseSeq = (closeParen, makeForm) => {
-        var innerForms;
-
-        ({forms: innerForms, tokens} = parseForms0(tokens, closeParen, eofBehaviour.Throw));
-
-        return {
-          forms: forms.push(makeForm(token.range, innerForms)),
-          tokens
-        };
-      };
-
-      switch (token.token) {
-      case 'true':
-      case 'false':
-        forms = forms.push(new f.BoolForm({range: token.range, bool: token.token === 'true'}));
-        break;
-
-      case '(':
-        ({forms, tokens} = parseSeq(')', (range, innerForms) => new f.ListForm({range, forms: innerForms})));
-        break;
-
-      case '[':
-        ({forms, tokens} = parseSeq(']', (range, innerForms) => new f.VectorForm({range, forms: innerForms})));
-        break;
-
-      case '{':
-        ({forms, tokens} = parseSeq('}', (range, innerForms) => {
-          if (innerForms.size % 2 !== 0) {
-            throw new Error(`Even number of forms expected in record at ${token.range}`);
-          }
-
-          var entries = [];
-          innerForms = innerForms.toArray();
-          for (let i = 0; i < innerForms.length; i += 2) {
-            entries.push(new f.RecordEntry({key: innerForms[i], value: innerForms[i+1]}));
-          }
-
-
-          return new f.RecordForm({range, entries: im.fromJS(entries)});
-        }));
-
-        break;
-
-      case '#{':
-        ({forms, tokens} = parseSeq('}', (range, innerForms) => new f.SetForm({range, forms: innerForms})));
-        break;
-
-      case ')':
-      case '}':
-      case ']':
-        if (token.token === closeParen) {
-          return {
-            forms: forms,
-            tokens: tokens
-          };
-} else {
-          var expecting = closeParen !== null ? `, expecting '${closeParen}'` : '';
-          throw new Error(`Unexpected '${token.token}'${expecting}, at ${token.range.end}`);
-        }
-
-        break;
-
-      default:
-        let symMatch = token.token.match(/^([\w\-<>\.?!]+)$/u);
-        if (symMatch) {
-          forms = forms.push(new f.SymbolForm({range: token.range, sym: sym(token.token)}));
-          break;
-        }
-
-        let nsSymMatch = token.token.match(/^([\w\-<>\.?!]+)\/([\w\-<>\.?!]+)$/u);
-        if (nsSymMatch) {
-          let [_, ns, name] = nsSymMatch;
-          forms = forms.push(new f.NamespacedSymbolForm({range: token.range, sym: nsSym(ns, name)}));
-          break;
-        }
-
-        throw new Error(`Invalid symbol '${token.token}', at ${token.range.start}`);
+    default:
+      let symMatch = token.token.match(/^([\w\-<>\.?!]+)$/u);
+      if (symMatch) {
+        return {tokens, form: new f.SymbolForm({range: token.range, sym: sym(token.token)})};
       }
+
+      let nsSymMatch = token.token.match(/^([\w\-<>\.?!]+)\/([\w\-<>\.?!]+)$/u);
+      if (nsSymMatch) {
+        let [_, ns, name] = nsSymMatch;
+        return {tokens, form: new f.NamespacedSymbolForm({range: token.range, sym: nsSym(ns, name)})};
+      }
+
+      throw new Error(`Invalid symbol '${token.token}', at ${token.range.start}`);
     }
   }
 }
 
 function parseForms(tokens) {
-  return parseForms0(tokens, null, eofBehaviour.Return).forms;
+  let forms = List();
+  while(true) {
+    let form;
+    ({form, tokens} = parseForm(tokens, null, eofBehaviour.Return));
+    if (form) {
+      forms = forms.push(form);
+    }
+
+    if (tokens.isEmpty()){
+      return forms;
+    }
+  }
 }
 
 module.exports = {
