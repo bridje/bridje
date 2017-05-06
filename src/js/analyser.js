@@ -357,8 +357,16 @@ function analyseForm(env, nsEnv, form) {
           return p.successResult(new e.VarExpr({range, var: aliasedVar, alias: form.sym.ns}));
         }
 
+      case 'quoted':
+        return p.successResult(new e.QuotedExpr({range, form: form.form}));
+
+      case 'syntaxQuoted':
+      case 'unquoted':
+      case 'unquoteSpliced':
+        throw `${form.formType} niy`;
+
       default:
-        throw 'unknown form?';
+        throw `unknown form '${form.formType}'?`;
       }
     });
   };
@@ -387,6 +395,25 @@ function analyseForm(env, nsEnv, form) {
 
                       return valueExprParser({localEnv: fnEnv, loopLVs: null, isTail: true}).then(
                         body => p.parseEnd(new e.DefExpr({range: form.range, sym, params, body})));
+                    })).orThrow();
+
+      case 'defmacro':
+        return p.parseForms(
+          forms.shift(),
+          p.ListParser.then(paramsForm => p.innerFormsParser(
+            paramsForm.forms,
+            p.SymbolParser.then(
+              nameSymForm => p.atLeastOneOf(p.SymbolNameParser).then(
+                params => p.parseEnd({
+                  params: params.map(lv),
+                  sym: nameSymForm.sym
+                }))))).then(
+                    ({params, sym}) => {
+                      const fnEnv = params ? Map(params.map(p => [p.name, p])): Map({});
+                      nsEnv = nsEnv.setIn(['exports', sym.name], new Var({ns: nsEnv.ns, name: sym.name, safeName: makeSafe(sym.name), isMacro: true}));
+
+                      return valueExprParser({localEnv: fnEnv, loopLVs: null, isTail: true}).then(
+                        body => p.parseEnd(new e.DefMacroExpr({range: form.range, sym, params, body})));
                     })).orThrow();
 
       case 'defdata':

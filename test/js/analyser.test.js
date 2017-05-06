@@ -145,6 +145,19 @@ describe('analyser', () => {
     assert.equal(bodyExprs.get(1).localVar, expr.params.get(0));
   });
 
+  it ('analyses a defmacro', () => {
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms(`(defmacro (simple-macro a b) '["hello" "world"])`).first());
+    assert.equal(expr.exprType, 'defmacro');
+    assert.equal(expr.sym.name, 'simple-macro');
+    assert.equal(expr.params.size, 2);
+
+    assert.equal(expr.body.exprType, 'quoted');
+    assert.equal(expr.body.form.formType, 'vector');
+    const bodyForms = expr.body.form.forms;
+    assert.equal(bodyForms.get(0).str, 'hello');
+    assert.equal(bodyForms.get(1).str, 'world');
+  });
+
   it ('analyses a var within the namespace', () => {
     const nsEnvVar = new Var({});
     const nsEnv = new NSEnv({}).setIn(['exports', 'foo'], nsEnvVar);

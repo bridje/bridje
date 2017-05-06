@@ -26,7 +26,10 @@ const CallExpr = Record({range: null, exprs: null});
 const MatchClause = Record({range: null, var: null, alias: null, expr: null});
 const MatchExpr = Record({range: null, expr: null, clauses: null});
 
+const QuotedExpr = Record({range: null, form: null});
+
 const DefExpr = Record({range: null, sym: null, params: null, body: null});
+const DefMacroExpr = Record({range: null, sym: null, params: null, body: null});
 const DefDataExpr = Record({range: null, name: null, type: null, params: null, keys: null});
 
 BoolExpr.prototype.toString = function() {return `(BoolExpr ${this.bool})`;};
@@ -110,9 +113,17 @@ MatchExpr.prototype.toString = function() {return `(MatchExpr ${this.expr} ${thi
 MatchExpr.prototype.exprType = 'match';
 MatchExpr.prototype.subExprs = function() {return List.of(this).concat(this.expr.subExprs, this.clauses.map(c => c.expr.subExprs()));};
 
+QuotedExpr.prototype.toString = function() {return `(QuotedExpr ${this.form})`;};
+QuotedExpr.prototype.exprType = 'quoted';
+QuotedExpr.prototype.subExprs = function() {return List.of(this);};
+
 DefExpr.prototype.toString = function() {return `(DefExpr ${this.sym} ${this.body})`;};
 DefExpr.prototype.exprType = 'def';
 DefExpr.prototype.subExprs = function() {return List.of(this).concat(this.body.subExprs());};
+
+DefMacroExpr.prototype.toString = function() {return `(DefMacroExpr (${this.sym} ${this.params.map(lv => lv.name).join(' ')}) ${this.body})`;};
+DefMacroExpr.prototype.exprType = 'defmacro';
+DefMacroExpr.prototype.subExprs = function() {return List.of(this).concat(this.body.subExprs());};
 
 DefDataExpr.prototype.toString = function() {
   switch(this.type) {
@@ -134,5 +145,6 @@ module.exports = {
   LoopExpr, RecurExpr,
   FnExpr, CallExpr,
   MatchClause, MatchExpr,
-  DefExpr, DefDataExpr
+  QuotedExpr,
+  DefExpr, DefMacroExpr, DefDataExpr
 };
