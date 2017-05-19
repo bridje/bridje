@@ -408,13 +408,13 @@ function analyseForm(env, nsEnv, form) {
                   params: params.map(lv),
                   sym: nameSymForm.sym
                 }))))).then(
-                    ({params, sym}) => {
-                      const fnEnv = params ? Map(params.map(p => [p.name, p])): Map({});
-                      nsEnv = nsEnv.setIn(['exports', sym.name], new Var({ns: nsEnv.ns, name: sym.name, safeName: makeSafe(sym.name), isMacro: true}));
+                  ({params, sym}) => {
+                    const fnEnv = params ? Map(params.map(p => [p.name, p])): Map({});
+                    nsEnv = nsEnv.setIn(['exports', sym.name], new Var({ns: nsEnv.ns, name: sym.name, safeName: makeSafe(sym.name), isMacro: true}));
 
-                      return valueExprParser({localEnv: fnEnv, loopLVs: null, isTail: true}).then(
-                        body => p.parseEnd(new e.DefMacroExpr({range: form.range, sym, params, body})));
-                    })).orThrow();
+                    return valueExprParser({localEnv: fnEnv, loopLVs: null, isTail: true}).then(
+                      body => p.parseEnd(new e.DefMacroExpr({range: form.range, sym, params, body})));
+                  })).orThrow();
 
       case 'defdata':
         return p.parseForms(
