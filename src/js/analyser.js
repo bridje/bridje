@@ -360,11 +360,6 @@ function analyseForm(env, nsEnv, form) {
       case 'quoted':
         return p.successResult(new e.QuotedExpr({range, form: form.form}));
 
-      case 'syntaxQuoted':
-      case 'unquoted':
-      case 'unquoteSpliced':
-        throw `${form.formType} niy`;
-
       default:
         throw `unknown form '${form.formType}'?`;
       }

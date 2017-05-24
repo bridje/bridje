@@ -166,23 +166,41 @@ describe('reading', () => {
 
     it('reads a syntax-quoted symbol', () => {
       const res = reader.readForms('`(f a b)').first();
-      assert.equal(res.formType, 'syntaxQuoted');
-      assert.equal(res.form.formType, 'list');
-      assert.equal(res.form.forms.first().sym, 'f');
+      assert.equal(res.formType, 'list');
+
+      const first = res.forms.first();
+      assert.equal(first.sym.ns, 'bridje.kernel');
+      assert.equal(first.sym.name, 'syntax-quote');
+
+      const list = res.forms.get(1);
+      assert.equal(list.formType, 'list');
+      assert.equal(list.forms.first().sym, 'f');
     });
 
     it('reads a unquoted symbol', () => {
       const res = reader.readForms('~(f a b)').first();
-      assert.equal(res.formType, 'unquoted');
-      assert.equal(res.form.formType, 'list');
-      assert.equal(res.form.forms.first().sym, 'f');
+      assert.equal(res.formType, 'list');
+
+      const first = res.forms.first();
+      assert.equal(first.sym.ns, 'bridje.kernel');
+      assert.equal(first.sym.name, 'syntax-unquote');
+
+      const list = res.forms.get(1);
+      assert.equal(list.formType, 'list');
+      assert.equal(list.forms.first().sym, 'f');
     });
 
     it('reads an unquote-spliced symbol', () => {
       const res = reader.readForms('~@[f a b]').first();
-      assert.equal(res.formType, 'unquoteSpliced');
-      assert.equal(res.form.formType, 'vector');
-      assert.equal(res.form.forms.first().sym, 'f');
+      assert.equal(res.formType, 'list');
+
+      const first = res.forms.first();
+      assert.equal(first.sym.ns, 'bridje.kernel');
+      assert.equal(first.sym.name, 'syntax-unquote-splice');
+
+      const list = res.forms.get(1);
+      assert.equal(list.formType, 'vector');
+      assert.equal(list.forms.first().sym, 'f');
     });
 
   });

@@ -282,19 +282,28 @@ function parseForm(tokens, closeParen, onEOF) {
     case '`': {
       let form;
       ({form, tokens} = parseForm(tokens, null, eofBehaviour.Throw));
-      return {tokens, form: new f.SyntaxQuotedForm({range: token.range, form})};
+      return {tokens, form: new f.ListForm({
+        range: l.Range({start: token.range.start, end: form.range.end}),
+        forms: List.of(new f.NamespacedSymbolForm({range: token.range, sym: nsSym('bridje.kernel', 'syntax-quote')}), form)
+      })};
     }
 
     case '~': {
       let form;
       ({form, tokens} = parseForm(tokens, null, eofBehaviour.Throw));
-      return {tokens, form: new f.UnquotedForm({range: token.range, form})};
+      return {tokens, form: new f.ListForm({
+        range: l.Range({start: token.range.start, end: form.range.end}),
+        forms: List.of(new f.NamespacedSymbolForm({range: token.range, sym: nsSym('bridje.kernel', 'syntax-unquote')}), form)
+      })};
     }
 
     case '~@': {
       let form;
       ({form, tokens} = parseForm(tokens, null, eofBehaviour.Throw));
-      return {tokens, form: new f.UnquoteSplicedForm({range: token.range, form})};
+      return {tokens, form: new f.ListForm({
+        range: l.Range({start: token.range.start, end: form.range.end}),
+        forms: List.of(new f.NamespacedSymbolForm({range: token.range, sym: nsSym('bridje.kernel', 'syntax-unquote-splice')}), form)
+      })};
     }
 
     default:

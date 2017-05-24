@@ -13,9 +13,6 @@ const ListForm = Record({range: null, forms: null});
 const SymbolForm = Record({range: null, sym: null});
 const NamespacedSymbolForm = Record({range: null, sym: null});
 const QuotedForm = Record({range: null, form: null});
-const SyntaxQuotedForm = Record({range: null, form: null});
-const UnquotedForm = Record({range: null, form: null});
-const UnquoteSplicedForm = Record({range: null, form: null});
 
 BoolForm.prototype.toString = function() {return `(BoolForm "${this.bool}")`;};
 BoolForm.prototype.formType = 'bool';
@@ -46,19 +43,10 @@ NamespacedSymbolForm.prototype.formType = 'namespacedSymbol';
 QuotedForm.prototype.toString = function() {return `(QuotedForm ${this.form})`;};
 QuotedForm.prototype.formType = 'quoted';
 
-SyntaxQuotedForm.prototype.toString = function() {return `(SyntaxQuotedForm ${this.form})`;};
-SyntaxQuotedForm.prototype.formType = 'syntaxQuoted';
-
-UnquotedForm.prototype.toString = function() {return `(UnquotedForm ${this.form})`;};
-UnquotedForm.prototype.formType = 'unquoted';
-
-UnquoteSplicedForm.prototype.toString = function() {return `(UnquoteSplicedForm ${this.form})`;};
-UnquoteSplicedForm.prototype.formType = 'unquoteSpliced';
-
 module.exports = {
   BoolForm, StringForm, IntForm, FloatForm,
   VectorForm, SetForm,
   RecordEntry, RecordForm,
   ListForm, SymbolForm, NamespacedSymbolForm,
-  QuotedForm, SyntaxQuotedForm, UnquotedForm, UnquoteSplicedForm
+  QuotedForm
 };
