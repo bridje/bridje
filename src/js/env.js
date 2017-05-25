@@ -1,4 +1,4 @@
-const {List, Record, Map} = require('immutable');
+const {List, Record, Map, Range} = require('immutable');
 const expr = require('./expr');
 const form = require('./form');
 
@@ -35,22 +35,36 @@ function nsSym(ns, name) {
 
 
 const kernelExports = (function() {
+
   function makeVar(name, value) {
     return new Var({ns: 'bridje.kernel', name, safeName: makeSafe(name), value});
   }
 
-  function makeDataType(name, module) {
+  function makeVectorDataType(name, params) {
+    const RecordConstructor = Record({_params: null});
+    const value = ((...args) => new RecordConstructor({_params: List(args)}));
+    RecordConstructor.prototype._brjType = value;
+    return makeVar(name, value);
+  };
+
+  function makeRecordDataType(name, keys) {
+    const RecordConstructor = Record(Map(List(keys).zip(Range(0, keys.size).map(_ => null))));
+    const value = ((m) => new RecordConstructor(m));
+    RecordConstructor.prototype._brjType = value;
+    return makeVar(name, value);
+  };
+
+  function importRecordDataType(name, module) {
     const RecordConstructor = module[name];
     const value = (m) => new RecordConstructor(m);
     RecordConstructor.prototype._brjType = value;
     return makeVar(name, value);
   }
 
-
   const formExports = List.of('BoolForm', 'StringForm', 'IntForm', 'FloatForm',
                               'VectorForm', 'SetForm', 'RecordEntry', 'RecordForm',
                               'ListForm', 'SymbolForm', 'NamespacedSymbolForm')
-        .map(name => [name, makeDataType(name, form)]);
+        .map(name => [name, importRecordDataType(name, form)]);
 
   const exprExports = List.of('BoolExpr', 'StringExpr', 'IntExpr', 'FloatExpr',
                               'VectorExpr', 'SetExpr', 'RecordEntry', 'RecordExpr',
@@ -59,23 +73,30 @@ const kernelExports = (function() {
                               'FnExpr', 'CallExpr',
                               'MatchClause', 'MatchExpr',
                               'DefExpr', 'DefDataExpr')
-        .map(name => [name, makeDataType(name, expr)]);
+        .map(name => [name, importRecordDataType(name, expr)]);
+
+  const formAccessors = List.of(['Form.range', form => form.range],
+                                ['BoolForm.bool', form => form.bool],
+                                ['StringForm.str', form => form.str],
+                                ['IntForm.int', form => form.int],
+                                ['FloatForm.float', form => form.float],
+                                ['VectorForm.forms', form => form.forms],
+                                ['SetForm.forms', form => form.forms]);
+
+  const seqFns = List.of(['seq', coll => coll.toSeq()],
+                         ['conj', (coll, el) => coll.push(el)],
+                         ['head', coll => coll.first()],
+                         ['tail', coll => coll.shift()],
+                         ['empty?', coll => coll.isEmpty()]);
+
+  const either = List.of(['Left', makeVectorDataType('Left', ['left'])],
+                         ['Right', makeVectorDataType('Right', ['right'])],
+                         ['Left.left', makeVar('Left.left', l => l.left)],
+                         ['Right.right', makeVar('Right.right', r => r.right)]);
 
   return Map(
-    List.of(['Form.range', form => form.range],
-            ['BoolForm.bool', form => form.bool],
-            ['StringForm.str', form => form.str],
-            ['IntForm.int', form => form.int],
-            ['FloatForm.float', form => form.float],
-            ['VectorForm.forms', form => form.forms],
-            ['SetForm.forms', form => form.forms],
-            ['>2', (x, y) => x > y],
-            ['seq', coll => coll.toSeq()],
-            ['conj', (coll, el) => coll.push(el)],
-            ['head', coll => coll.first()],
-            ['tail', coll => coll.shift()],
-            ['empty?', coll => coll.isEmpty()])
-      .map(([name, value]) => [name, makeVar(name, value)]))
+    formAccessors.concat(seqFns).map(([name, value]) => [name, makeVar(name, value)]))
+    .merge(either)
     .merge(formExports, exprExports);
 
 })();
