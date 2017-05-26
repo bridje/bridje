@@ -1,0 +1,40 @@
+* Macros
+Things to consider:
+- the current compiler emits a namespace at a time - with macros, we'd need to
+  eval the macro definition ahead of other definitions in the same namespace
+  that depend on the macro
+  - Racket has a separate compilation phase, where it compiles everything
+    required at macro-expansion time.
+    - they also have a separate =require= for code required at compile-time - do
+      we need this?
+- we've got two compilation targets to think of, here
+  - macros likely need to run on the server side as part of the compilation,
+    because it'd be prohibitively slow to macro-expand in the browser as part of
+    page load.
+  - so we're going to have to emit certain namespaces in Node too - either if
+    they have macros, or they're required in by other namespaces that use them
+    for macros.
+  - maybe a separate =refer-for-syntax= would help for the time being
+    - means that we can incorporate that information into the require dependency ordering
+    - we can look into inferring it in the long run
+- when we hit the main lang, we'll have to consider giving the macros type-level
+  info too - although I think types being first class here will help a lot
+- think we have to return a Form from a quote regardless of what it is, because
+  we don't have homoiconicity
+  - Clojure can return =4= from ='4=, but think we have to return =(IntForm 4)=
+    because of nesting
+  - ='(foo 4)= can't return =(ListForm (SymbolForm "foo") 4)= - has to return
+    =(ListForm (SymbolForm "Foo") (IntForm 4))=
+
+Plan:
+- Easier to start off with a macro in the same namespace, or one in a different namespace?
+- Got to:
+  - Analyse out refer-for-syntax, alias-for-syntax
+  - incorporate those into the loading order
+  - in node, the namespaces are loaded already, in the same env - good times
+  - in web, the namespaces will need to get pulled into a separate node env
+    - so we'll need to keep the expressions around, in case they're used from a
+      subsequent ns in a macro :/
+  - so maybe it's easier to do same-namespace first.
+    - as we're analysing the namespace, we pull out all the =def-for-syntax=
+      blocks, return those back to whatever's calling the analyser with a flag
