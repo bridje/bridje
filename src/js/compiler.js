@@ -10,6 +10,61 @@ function aliasName(alias, s) {
   return `_alias_${alias}_${s}`;
 }
 
+function emitForm(form) {
+  function emitForm_({formType, formMapEntries = [], literalFields = [], formSeqFields = []}) {
+    const rangeStart = `new _loc.Location(${JSON.stringify(form.range.start)})`;
+    const rangeEnd = `new _loc.Location(${JSON.stringify(form.range.end)})`;
+
+    formMapEntries.push(`range: (${rangeStart}, ${rangeEnd})`);
+
+    literalFields.forEach(field => formMapEntries.push(`${field}: ${form[field]}`));
+    formSeqFields.forEach(field => {
+      let nestedForms = form[field].map(emitForm);
+
+      formMapEntries.push(`${field}: _im.List.of(${nestedForms.join(', ')})`);
+    });
+
+    return `new _form.${formType}({${formMapEntries.join(', ')}})`;
+  }
+
+  switch(form.formType) {
+  case 'bool': return emitForm_({formType: 'BoolForm', literalFields: ['bool']});
+  case 'int': return emitForm_({formType: 'IntForm', literalFields: ['int']});
+  case 'string': return emitForm_({formType: 'StringForm', literalFields: ['str']});
+  case 'float': return emitForm_({formType: 'FloatForm', literalFields: ['float']});
+
+  case 'vector': return emitForm_({formType: 'VectorForm', formSeqFields: ['forms']});
+  case 'set': return emitForm_({formType: 'SetForm', formSeqFields: ['forms']});
+  case 'list': return emitForm_({formType: 'ListForm', formSeqFields: ['forms']});
+
+  case 'record':
+    const entries = form.entries.map(e => `new _form.RecordEntry({key: ${emitForm(e.key)}, value: ${emitForm(e.value)}})`);
+
+    return emitForm_({
+      formType: 'RecordForm',
+      formMapEntries: [`entries: _im.List.of(${entries.join(', ')})`]
+    });
+
+  case 'symbol':
+    return emitForm_({
+      formType: 'SymbolForm',
+      formMapEntries: [`sym: _env.sym('${form.sym.name}')`]
+    });
+
+  case 'namespacedSymbol':
+    return emitForm_({
+      formType: 'NamespacedSymbolForm',
+      formMapEntries: [`sym: _env.nsSym('${form.sym.ns}', '${form.sym.name}')`]
+    });
+
+  case 'quoted': return emitForm_({formType: 'QuotedForm', formMapEntries: [`form: ${emitForm(form.form)}`]});
+
+  default:
+    throw 'emitForm NIY';
+  }
+  console.log(form);
+}
+
 function compileExpr(env, nsEnv, expr) {
   var localNames = new Map({});
   var localNameCounts = new Map({});
@@ -110,6 +165,9 @@ function compileExpr(env, nsEnv, expr) {
         return `case ${dataTypeName}: return ${compileExpr0(c.expr)};`;
       });
       return `(function () {switch (${compileExpr0(expr.expr)}._brjType) {${cases.join(' ')}}})()`;
+
+    case 'quoted':
+      return emitForm(expr.form);
 
     default:
       throw 'compiler NIY';
@@ -237,7 +295,7 @@ function compileNodeNS(nsEnv, compiledForms) {
   const isKernel = nsEnv.ns == 'bridje.kernel';
 
   return `
-  (function(_env, _im) {
+  (function({_env, _im, _form, _loc}) {
      return function(_nsEnv) {
        const _refers = _nsEnv.refers;
        const _aliases = _nsEnv.aliases;
@@ -275,6 +333,8 @@ function compileWebNS(env, nsEnv, compiledForms) {
   const isKernel = nsEnv.ns == 'bridje.kernel';
 
   return `
+  import _form from '../../../../src/js/form';
+  import _loc from '../../../../src/js/location';
   import _env from '../../../../src/js/env';
   import _im from 'immutable';
 

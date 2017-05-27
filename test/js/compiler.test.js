@@ -2,6 +2,8 @@ const {compileExpr, compileNodeNS, compileWebNS} = require('../../src/js/compile
 const {readForms} = require('../../src/js/reader');
 const {analyseForm} = require('../../src/js/analyser');
 const e = require('../../src/js/env');
+const f = require('../../src/js/form');
+const loc = require('../../src/js/location');
 const {NSEnv, Env} = e;
 const im = require('immutable');
 const {List, Map, Record} = im;
@@ -10,8 +12,11 @@ const assert = require('assert');
 const {fooEnv, flipEnv, flipVar, JustVar, NothingVar, barNSDecl, barNSEnv} = require('./env.test');
 const {wrapWebJS} = require('./webpack.test.js');
 
+const brjRequires = {_env: e, _im: im, _form: f, _loc: loc};
+
 function evalCompiledForm(compiledForm) {
-  return new vm.Script(`(function (_env, _im) {return ${compiledForm};})`).runInThisContext()(e, im);
+  return new vm.Script(`(function ({_env, _im, _form, _loc}) {return ${compiledForm};})`)
+    .runInThisContext()(brjRequires);
 }
 
 function evalCompiledForms(compiledForms) {
@@ -19,7 +24,7 @@ function evalCompiledForms(compiledForms) {
 }
 
 function evalNSCode(compiledForms, nsEnv) {
-  return new vm.Script(compileNodeNS(nsEnv, compiledForms)).runInThisContext()(e, im);
+  return new vm.Script(compileNodeNS(nsEnv, compiledForms)).runInThisContext()(brjRequires);
 }
 
 function evalWebNSCode(compiledForms, nsEnv, env, requires) {
@@ -133,6 +138,41 @@ describe('compiler', () => {
       const expr = compileForm(`(match (Just 3) Nothing "oh no" Just "aww yiss") `, defNothing.nsEnv);
       const result = evalCompiledForms(List.of(defJust.compiledForm, defNothing.compiledForm, `return ${expr.compiledForm}`));
       assert.equal(result, 'aww yiss');
+    });
+
+    it ('emits a quoted form', () => {
+      function evalForm(form) {
+        return evalCompiledForm(compileForm(form).compiledForm);
+      }
+
+      {
+        const res = evalForm(`'4`);
+        assert.equal(res.formType, 'int');
+        assert.equal(res.int, 4);
+      }
+
+      {
+        const res = evalForm(`'a`);
+        assert.equal(res.formType, 'symbol');
+        assert.equal(res.sym.name, 'a');
+      }
+
+      {
+        const res = evalForm(`'(foo a b)`);
+        assert.equal(res.formType, 'list');
+        assert.equal(res.forms.get(0).sym, 'foo');
+        assert.equal(res.forms.get(1).sym, 'a');
+        assert.equal(res.forms.get(2).sym, 'b');
+      }
+
+      {
+        const res = evalForm(`'{a 1, b 2}`);
+        assert.equal(res.formType, 'record');
+        assert.equal(res.entries.get(0).key.sym.name, 'a');
+        assert.equal(res.entries.get(0).value.int, 1);
+        assert.equal(res.entries.get(1).key.sym.name, 'b');
+        assert.equal(res.entries.get(1).value.int, 2);
+      }
     });
   });
 

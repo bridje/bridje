@@ -3,11 +3,15 @@ const im = require('immutable');
 const {Record, List, Map, Set, fromJS} = im;
 var process = require('process');
 const e = require('./env');
+const f = require('../../src/js/form');
+const loc = require('../../src/js/location');
 const {Env, NSEnv, NSHeader, Var} = e;
 const a = require('./analyser');
 const {compileExpr, compileNodeNS, compileWebNS} = require('./compiler');
 const vm = require('vm');
 const {createHash} = require('crypto');
+
+const brjRequires = {_env: e, _im: im, _form: f, _loc: loc};
 
 function EnvQueue() {
   var env = new Env({});
@@ -172,7 +176,7 @@ function compileForms(env, loadedNS) {
 
 function evalNodeForms(env, {nsHeader, nsEnv, nsCode, compiledForms}) {
   nsCode = nsCode || compileNodeNS(nsEnv, compiledForms);
-  const loadNS = evalJS(nsCode)(e, im);
+  const loadNS = evalJS(nsCode)(brjRequires);
 
   return {env: env.setIn(['nsEnvs', nsEnv.ns], loadNS(nsEnv)), nsCode, nsHeader};
 }
