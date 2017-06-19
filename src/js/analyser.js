@@ -145,14 +145,6 @@ function analyseForm(env, nsEnv, form) {
   function valueExprParser(opts) {
     const {localEnv, loopLVs, isTail} = opts;
 
-    function resolveSymbolParser(sym) {
-
-    }
-
-    function resolveNSSymbolParser(nsSym) {
-
-    }
-
     function recursiveExprParser({localEnv = opts.localEnv, loopLVs = opts.loopLVs, isTail = opts.isTail}) {
       return valueExprParser({localEnv, loopLVs, isTail});
     };
