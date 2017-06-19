@@ -17,6 +17,7 @@ describe('analyser', () => {
       ns: 'bridje.kernel.bar',
       brjFile: '/bridje/kernel/bar.brj',
       nsHash: null,
+      forSyntax: null,
       refers: {
         flip: 'bridje.kernel.foo',
         flop: 'bridje.kernel.foo'
@@ -24,6 +25,20 @@ describe('analyser', () => {
       aliases: {
         baz: 'bridje.kernel.baz'
       }
+    });
+  });
+
+
+  it('reads a for-syntax NS header', () => {
+    const nsHeader = ana.readNSHeader('bridje.kernel.bar', '/bridje/kernel/bar.brj', reader.readForms(`(ns bridje.kernel.bar {for-syntax? true})`).first());
+
+    assert.deepEqual(nsHeader.toJS(), {
+      ns: 'bridje.kernel.bar',
+      brjFile: '/bridje/kernel/bar.brj',
+      nsHash: null,
+      forSyntax: true,
+      refers: {},
+      aliases: {}
     });
   });
 

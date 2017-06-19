@@ -15,7 +15,7 @@ const NSEnv = Record({
   refers: Map({}), aliases: Map({})
 });
 
-const NSHeader = Record({ns: null, brjFile: null, nsHash: null, refers: Map({}), aliases: Map({})});
+const NSHeader = Record({ns: null, brjFile: null, nsHash: null, forSyntax: null, refers: Map({}), aliases: Map({})});
 const Var = Record({ns: null, name: null, expr: undefined, value: undefined, safeName: undefined});
 
 var Symbol = Record({name: null});

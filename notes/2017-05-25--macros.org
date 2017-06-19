@@ -25,6 +25,13 @@ Things to consider:
     because of nesting
   - ='(foo 4)= can't return =(ListForm (SymbolForm "foo") 4)= - has to return
     =(ListForm (SymbolForm "Foo") (IntForm 4))=
+- how do we figure out whether to read a namespace for macros?
+  - possible to have a top-level form that macro-expands to a =defmacro=, so we
+    might need to check the entire namespace before we realise, then pause the
+    analysis to re-read the namespace for node.
+  - maybe returning a =defmacro= to the analyser in web mode pauses the
+    analysis, gets as much as is necessary into the macro-expand env, then
+    returns to analysing the NS
 
 Plan:
 - Easier to start off with a macro in the same namespace, or one in a different namespace?

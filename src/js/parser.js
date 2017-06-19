@@ -162,7 +162,8 @@ function formTypeParser(formType) {
 var SymbolParser = formTypeParser('symbol');
 var SymbolNameParser = SymbolParser.fmap(symForm => symForm.sym.name);
 var NamespacedSymbolParser = formTypeParser('namespacedSymbol');
-var NamespacedSymbolSymParser = SymbolParser.fmap(symForm => symForm.sym);
+var NamespacedSymbolSymParser = NamespacedSymbolParser.fmap(symForm => symForm.sym);
+var BoolParser = formTypeParser('bool');
 var ListParser = formTypeParser('list');
 var VectorParser = formTypeParser('vector');
 var RecordParser = formTypeParser('record');
@@ -190,6 +191,7 @@ module.exports = {
   ParseResult, successResult, failResult,
   anyOf, oneOf, atLeastOneOf, isSymbol, pure,
   innerFormsParser, parseEnd,
-  Parser, SymbolParser, SymbolNameParser, NamespacedSymbolParser, NamespacedSymbolSymParser, ListParser, VectorParser, RecordParser, SetParser,
+  Parser, SymbolParser, SymbolNameParser, NamespacedSymbolParser, NamespacedSymbolSymParser, BoolParser,
+  ListParser, VectorParser, RecordParser, SetParser,
   parseForms, parseForm
 };

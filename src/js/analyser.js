@@ -76,6 +76,8 @@ function nsOptsParser(nsHeader) {
     entry => p.parseForms(List.of(entry.key, entry.value), p.SymbolNameParser.then(
       entryType => {
         switch(entryType) {
+        case 'for-syntax?':
+          return p.BoolParser.fmap(form => ({type: 'forSyntax', value: form.bool}));
         case 'refers':
           return refersParser.fmap(refers => ({type: 'refers', value: refers}));
         case 'aliases':
@@ -91,7 +93,7 @@ function nsOptsParser(nsHeader) {
           for (let i = 0; i < nsOpts.length; i++) {
             const {type, value} = nsOpts[i];
 
-            if (!nsHeader.get(type).isEmpty()) {
+            if (type != 'forSyntax' && !nsHeader.get(type).isEmpty()) {
               return p.pure(p.failResult(`Duplicate '${type}' entry in NS declaration`));
             } else {
               nsHeader = nsHeader.set(type, value);
