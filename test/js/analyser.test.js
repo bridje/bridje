@@ -61,7 +61,7 @@ describe('analyser', () => {
   });
 
   it('reads a simple value expr', () => {
-    let expr = ana.analyseForm(null, null, reader.readForms('#{[3.4 "Hello!"] [42 false]}').first());
+    let expr = ana.analyseForm(null, new NSEnv(), reader.readForms('#{[3.4 "Hello!"] [42 false]}').first());
 
     assert.equal(expr.exprType, 'set');
     const outerSetExprs = expr.exprs;
@@ -84,7 +84,7 @@ describe('analyser', () => {
   });
 
   it ('analyses a record', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('{a 1, b "Hello"}').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('{a 1, b "Hello"}').first());
 
     assert.equal(expr.exprType, 'record');
     assert.equal(expr.entries.size, 2);
@@ -99,7 +99,7 @@ describe('analyser', () => {
   });
 
   it ('analyses an if-expr', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(if false 24 42)').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('(if false 24 42)').first());
 
     assert.equal(expr.exprType, 'if');
 
@@ -117,7 +117,7 @@ describe('analyser', () => {
   });
 
   it ('analyses a let-expr', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(let [x 4, y 5] [x y])').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('(let [x 4, y 5] [x y])').first());
 
     assert.equal(expr.exprType, 'let');
     assert.equal(expr.bindings.size, 2);
@@ -183,7 +183,7 @@ describe('analyser', () => {
   });
 
   it ('analyses a fnexpr', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(fn (x y) [y x])').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('(fn (x y) [y x])').first());
     assert.equal(expr.exprType, 'fn');
     assert.equal(expr.params.size, 2);
 
@@ -194,7 +194,7 @@ describe('analyser', () => {
   });
 
   it ('analyses a fn call', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('((fn (x y) [y x]) 3 4)').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('((fn (x y) [y x]) 3 4)').first());
     assert.equal(expr.exprType, 'call');
     assert.equal(expr.exprs.get(0).exprType, 'fn');
     assert.equal(expr.exprs.get(1).int, 3);
@@ -202,7 +202,7 @@ describe('analyser', () => {
   });
 
   it ('analyses a JS global call', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms(`(js/process.cwd)`).first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms(`(js/process.cwd)`).first());
     assert.equal(expr.exprType, 'call');
     assert.equal(expr.exprs.size, 1);
 
@@ -229,7 +229,7 @@ describe('analyser', () => {
   });
 
   it('analyses a vector-style defdata form', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(defdata (Just a))').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('(defdata (Just a))').first());
     assert.equal(expr.exprType, 'defdata');
     assert.equal(expr.name, 'Just');
     assert.equal(expr.type, 'vector');
@@ -237,14 +237,14 @@ describe('analyser', () => {
   });
 
   it('analyses a value-style defdata form', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(defdata Nothing)').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('(defdata Nothing)').first());
     assert.equal(expr.exprType, 'defdata');
     assert.equal(expr.name, 'Nothing');
     assert.equal(expr.type, 'value');
   });
 
   it('analyses a record-style defdata form', () => {
-    const expr = ana.analyseForm(null, null, reader.readForms('(defdata (Person #{name, address, phone-number}))').first());
+    const expr = ana.analyseForm(null, new NSEnv(), reader.readForms('(defdata (Person #{name, address, phone-number}))').first());
     assert.equal(expr.exprType, 'defdata');
     assert.equal(expr.name, 'Person');
     assert.equal(expr.type, 'record');

@@ -10,7 +10,7 @@ function makeSafe(s) {
 
 const Env = Record({nsEnvs: Map({})});
 const NSEnv = Record({
-  ns: null, brjFile: null, nsHash: null,
+  ns: null, brjFile: null, nsHash: null, forSyntax: null,
   exports: Map({}),
   refers: Map({}), aliases: Map({})
 });

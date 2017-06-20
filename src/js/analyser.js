@@ -142,6 +142,10 @@ function resolveNSHeader(env, header) {
 }
 
 function analyseForm(env, nsEnv, form) {
+  function macroexpand(form) {
+    return form;
+  }
+
   function valueExprParser(opts) {
     const {localEnv, loopLVs, isTail} = opts;
 
@@ -174,6 +178,7 @@ function analyseForm(env, nsEnv, form) {
                 entries => new e.RecordExpr({range, entries})));
 
       case 'list':
+        form = macroexpand(form);
         const forms = form.forms;
 
         if (forms.isEmpty()) {
@@ -360,12 +365,16 @@ function analyseForm(env, nsEnv, form) {
     });
   };
 
+  form = macroexpand(form);
+
   if (form.formType == 'list') {
     const forms = form.forms;
     const firstForm = forms.first();
     if (firstForm.formType == 'symbol') {
       switch (firstForm.sym.name) {
       case 'def':
+        if (nsEnv.forSyntax) break;
+
         return p.parseForms(
           forms.shift(),
           p.anyOf(
@@ -422,14 +431,11 @@ function analyseForm(env, nsEnv, form) {
 
       case '::':
         throw 'NIY';
-
-      default:
-        return p.parseForm(form, valueExprParser({localEnv: Map(), isTail: true})).orThrow();
       }
     }
   }
 
-  return p.parseForm(form, valueExprParser({localEnv: Map(), isTail: true})).orThrow();
+  return nsEnv.forSyntax ? null : p.parseForm(form, valueExprParser({localEnv: Map(), isTail: true})).orThrow();
 };
 
 module.exports = {readNSHeader, resolveNSHeader, analyseForm, NSHeader};
