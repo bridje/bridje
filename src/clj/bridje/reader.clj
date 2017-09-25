@@ -34,65 +34,75 @@
     (or (whitespace? ch)
         (contains? delimiters ch))))
 
+(defn slurp-whitespace [chs]
+  (when-let [[{:keys [ch]} & more-chs] (seq chs)]
+    (cond
+      (whitespace? ch) (recur (drop-while (comp whitespace? :ch) more-chs))
+      (= \; ch) (recur (drop-while (comp (complement newline?) :ch) more-chs))
+      :else chs)))
+
+(defn str-escape [chs]
+  (lazy-seq
+    (when-let [[{:keys [ch loc]} & more-chs] (seq chs)]
+      (case ch
+        \\ (let [[{:keys [ch]} & more-chs] more-chs]
+             (cons {:ch (case ch
+                          \n \newline
+                          \t \tab
+                          \r \return
+                          \\ \\
+                          \" \"
+                          (throw (ex-info "Unexpected escape character in string" {:loc loc})))
+                    :loc loc}
+                   (str-escape more-chs)))
+
+        (cons {:ch ch, :loc loc} (str-escape more-chs))))))
+
+(defn read-string-token [chs]
+  (let [start-loc (:loc (first chs))
+        [sym-chs more-chs] (split-with (comp (complement #{\"}) :ch) (rest chs))]
+    (if (seq more-chs)
+      [{:type :string
+        :token (s/join (map :ch (str-escape sym-chs)))
+        :loc-range (->LocRange start-loc (:loc (first more-chs)))}
+       (rest more-chs)]
+
+      (throw (ex-info "EOF reading string", {:loc (:loc (last sym-chs))})))))
+
+(defn read-symbol-token [chs]
+  (let [start-loc (:loc (first chs))
+        [sym-chs more-chs] (split-with (comp (complement delimiter?) :ch) chs)]
+    [{:type :symbol
+      :token (s/join (map :ch sym-chs))
+      :loc-range (->LocRange start-loc (:loc (last sym-chs)))}
+     more-chs]))
+
+(defn tokenise [chs]
+  (lazy-seq
+    (when-let [[{:keys [ch loc]} & more-chs :as chs] (slurp-whitespace chs)]
+      (case ch
+        (\(\)\[\]\{\}\`\') (cons {:type :delimiter, :token (str ch), :loc-range (->LocRange loc loc)} (tokenise more-chs))
+
+        \# (let [[{:keys [ch], end-loc :loc} & more-chs] more-chs]
+             (case ch
+               (\{) (cons {:type :delimiter, :token (str "#" ch) :loc-range (->LocRange loc end-loc)}
+                          (tokenise more-chs))
+               (throw (ex-info "Unexpected character following '#'" {:ch (str "#" ch) :loc loc}))))
+
+        \" (let [[res more-chs] (read-string-token chs)]
+             (cons res (tokenise more-chs)))
+
+        (let [[res more-chs] (read-symbol-token chs)]
+          (cons res (tokenise more-chs)))))))
+
 (do
-  (defn slurp-whitespace [chs]
-    (when-let [[{:keys [ch]} & more-chs] (seq chs)]
-      (cond
-        (whitespace? ch) (recur (drop-while (comp whitespace? :ch) more-chs))
-        (= \; ch) (recur (drop-while (comp (complement newline?) :ch) more-chs))
-        :else chs)))
+  (defn parse-tokens [tokens]
+    tokens)
 
-  (defn str-escape [chs]
-    (lazy-seq
-      (when-let [[{:keys [ch loc]} & more-chs] (seq chs)]
-        (case ch
-          \\ (let [[{:keys [ch]} & more-chs] more-chs]
-               (cons {:ch (case ch
-                            \n \newline
-                            \t \tab
-                            \r \return
-                            \\ \\
-                            \" \"
-                            (throw (ex-info "Unexpected escape character in string" {:loc loc})))
-                      :loc loc}
-                     (str-escape more-chs)))
+  (defn read-forms [s]
+    (-> s
+        read-chs
+        tokenise
+        parse-tokens))
 
-          (cons {:ch ch, :loc loc} (str-escape more-chs))))))
-
-  (defn read-string-token [chs]
-    (let [start-loc (:loc (first chs))
-          [sym-chs more-chs] (split-with (comp (complement #{\"}) :ch) (rest chs))]
-      (if (seq more-chs)
-        [{:type :string
-          :token (s/join (map :ch (str-escape sym-chs)))
-          :loc-range (->LocRange start-loc (:loc (last sym-chs)))}
-         (rest more-chs)]
-
-        (throw (ex-info "EOF reading string", {:loc (:loc (last sym-chs))})))))
-
-  (defn read-symbol-token [chs]
-    (let [start-loc (:loc (first chs))
-          [sym-chs more-chs] (split-with (comp (complement delimiter?) :ch) chs)]
-      [{:type :symbol
-        :token (s/join (map :ch sym-chs))
-        :loc-range (->LocRange start-loc (:loc (last sym-chs)))}
-       more-chs]))
-
-  (defn tokenise [chs]
-    (lazy-seq
-      (when-let [[{:keys [ch loc]} & more-chs :as chs] (slurp-whitespace chs)]
-        (case ch
-          (\(\)\[\]\{\}\`\') {:type :delimiter, :token (str ch), :range (->LocRange loc loc)}
-
-          \# (throw (ex-info "niy" {}))
-
-          \" (let [[res chs] (read-string-token chs)]
-               (cons res (tokenise chs)))
-
-          (let [[res chs] (read-symbol-token chs)]
-            (cons res (tokenise chs)))))))
-
-  (defn parse [s]
-    (tokenise (read-chs s)))
-
-  (parse "Hello \n \"World \\n String\""))
+  (read-forms "Hello [\"World\" \"More\"]"))
