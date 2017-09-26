@@ -62,7 +62,7 @@
   (let [start-loc (:loc (first chs))
         [sym-chs more-chs] (split-with (comp (complement #{\"}) :ch) (rest chs))]
     (if (seq more-chs)
-      [{:type :string
+      [{:token-type :string
         :token (s/join (map :ch (str-escape sym-chs)))
         :loc-range (->LocRange start-loc (:loc (first more-chs)))}
        (rest more-chs)]
@@ -72,7 +72,7 @@
 (defn read-symbol-token [chs]
   (let [start-loc (:loc (first chs))
         [sym-chs more-chs] (split-with (comp (complement delimiter?) :ch) chs)]
-    [{:type :symbol
+    [{:token-type :symbol
       :token (s/join (map :ch sym-chs))
       :loc-range (->LocRange start-loc (:loc (last sym-chs)))}
      more-chs]))
@@ -81,12 +81,20 @@
   (lazy-seq
     (when-let [[{:keys [ch loc]} & more-chs :as chs] (slurp-whitespace chs)]
       (case ch
-        (\(\)\[\]\{\}\`\') (cons {:type :delimiter, :token (str ch), :loc-range (->LocRange loc loc)} (tokenise more-chs))
+        (\( \[ \{) (cons {:token-type :start-delimiter, :token (str ch), :loc-range (->LocRange loc loc)} (tokenise more-chs))
+        (\) \] \}) (cons {:token-type :end-delimiter, :token (str ch), :loc-range (->LocRange loc loc)} (tokenise more-chs))
+        (\` \') (cons {:token-type :quote, :token (str ch), :loc-range (->LocRange loc loc)} (tokenise more-chs))
 
-        \# (let [[{:keys [ch], end-loc :loc} & more-chs] more-chs]
+        \~ (let [[{:keys [ch], end-loc :loc} & even-more-chs] more-chs]
              (case ch
-               (\{) (cons {:type :delimiter, :token (str "#" ch) :loc-range (->LocRange loc end-loc)}
-                          (tokenise more-chs))
+               (\@) (cons {:token-type :quote, :token "~@" :loc-range (->LocRange loc end-loc)}
+                          (tokenise even-more-chs))
+               (tokenise more-chs)))
+
+        \# (let [[{:keys [ch], end-loc :loc} & even-more-chs] more-chs]
+             (case ch
+               (\{) (cons {:token-type :start-delimiter, :token (str "#{") :loc-range (->LocRange loc end-loc)}
+                          (tokenise even-more-chs))
                (throw (ex-info "Unexpected character following '#'" {:ch (str "#" ch) :loc loc}))))
 
         \" (let [[res more-chs] (read-string-token chs)]
