@@ -140,12 +140,15 @@
 
       :quote (let [[form remaining-tokens] (parse-form more-tokens nil)]
                (if form
-                 [{:form-type (case token
-                                "`" :syntax-quote
-                                "'" :quote
-                                "~" :unquote
-                                "~@" :unquote-splicing)
-                   :form form}
+                 [{:form-type :list
+                   :forms [{:form-type :symbol,
+                            :ns "bridje.kernel"
+                            :sym (case token
+                                   "'" "quote"
+                                   "`" "syntax-quote"
+                                   "~" "unquote"
+                                   "~@" "unquote-splicing")}
+                           form]}
                   remaining-tokens]
                  (throw (ex-info "Unexpected EOF"))))
 
@@ -172,4 +175,4 @@
       parse-forms))
 
 (comment
-  (read-forms "Hello [\"World\" \"More\"]"))
+  (read-forms "Hello '[\"World\" \"More\"]"))
