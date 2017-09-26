@@ -89,7 +89,8 @@
              (case ch
                (\@) (cons {:token-type :quote, :token "~@" :loc-range (->LocRange loc end-loc)}
                           (tokenise even-more-chs))
-               (tokenise more-chs)))
+               (cons {:token-type :quote, :token "~" :loc-range (->LocRange loc loc)}
+                     (tokenise more-chs))))
 
         \# (let [[{:keys [ch], end-loc :loc} & even-more-chs] more-chs]
              (case ch
@@ -137,7 +138,16 @@
                                                                    :found token
                                                                    :loc-range loc-range})))
 
-      :quote (throw (ex-info "niy" {}))
+      :quote (let [[form remaining-tokens] (parse-form more-tokens nil)]
+               (if form
+                 [{:form-type (case token
+                                "`" :syntax-quote
+                                "'" :quote
+                                "~" :unquote
+                                "~@" :unquote-splicing)
+                   :form form}
+                  remaining-tokens]
+                 (throw (ex-info "Unexpected EOF"))))
 
       :string [{:form-type :string, :string token} more-tokens]
 
