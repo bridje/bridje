@@ -10,4 +10,4 @@
           (reader/read-forms s)))
 
 (comment
-  (interpret {} "[\"Hello\" \"world!\"]"))
+  (interpret {} "[{foo \"bar\", baz true} #{\"Hello\" \"world!\"}]"))

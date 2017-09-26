@@ -1,17 +1,19 @@
 (ns bridje.interpreter)
 
-(declare interpret)
-
-(defn interpret-coll [env init exprs]
-  (reduce (fn [{:keys [env value]} expr]
-            (let [{:keys [env], el :value} (interpret env expr)]
-              {:env env, :value (conj value el)}))
-          {:env env, :value init}
-          exprs))
-
-(defn interpret [env {:keys [expr-type exprs] :as expr}]
+(defn interpret-value-expr [env {:keys [expr-type exprs] :as expr}]
   (case expr-type
-    :string {:env env, :value (:string expr)}
-    :bool {:env env, :value (:bool expr)}
-    :vector (interpret-coll env [] exprs)
-    :set (interpret-coll env #{} exprs)))
+    :string (:string expr)
+    :bool (:bool expr)
+    :vector (->> exprs
+                 (into [] (map #(interpret-value-expr env %))))
+
+    :set (->> exprs
+              (into #{} (map #(interpret-value-expr env %))))
+
+    :record (->> (:entries expr)
+                 (into {} (map (fn [[sym expr]]
+                                 [(symbol sym) (interpret-value-expr env expr)]))))))
+
+(defn interpret [env {:keys [expr-type] :as expr}]
+  (case expr-type
+    (:string :bool :vector :set :record) {:env env, :value (interpret-value-expr env expr)}))
