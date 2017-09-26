@@ -103,14 +103,63 @@
         (let [[res more-chs] (read-symbol-token chs)]
           (cons res (tokenise more-chs)))))))
 
-(do
-  (defn parse-tokens [tokens]
-    tokens)
+(defn split-sym [{:keys [token loc-range]}]
+  (let [[ns-or-sym sym & more] (s/split token #"/")]
+    (if (seq more)
+      (throw (ex-info "Multiple '/'s in symbol" {:symbol token, :loc-range loc-range}))
+      {:ns (when sym ns-or-sym)
+       :sym (or sym ns-or-sym)})))
 
-  (defn read-forms [s]
-    (-> s
-        read-chs
-        tokenise
-        parse-tokens))
+(def delimiters
+  {"(" {:end-delimiter ")"
+        :form-type :list}
+   "[" {:end-delimiter "]"
+        :form-type :vector}
+   "{" {:end-delimiter "}"
+        :form-type :record}
+   "#{" {:end-delimiter "}"
+         :form-type :set}})
 
+(defn parse-form [tokens end-delimiter]
+  (if-let [[{:keys [token-type token loc-range]} & more-tokens] (seq tokens)]
+    (case token-type
+      :start-delimiter (let [{:keys [end-delimiter form-type]} (get delimiters token)]
+                         (loop [forms []
+                                tokens more-tokens]
+                           (let [[form remaining-tokens] (parse-form tokens end-delimiter)]
+                             (if form
+                               (recur (conj forms form) remaining-tokens)
+                               [{:form-type form-type, :forms forms} remaining-tokens]))))
+
+      :end-delimiter (if (= end-delimiter token)
+                       [nil more-tokens]
+                       (throw (ex-info "Unexpected end delimiter" {:expected end-delimiter
+                                                                   :found token
+                                                                   :loc-range loc-range})))
+
+      :quote (throw (ex-info "niy" {}))
+
+      :string [{:form-type :string, :string token} more-tokens]
+
+      :symbol (case token
+                ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token)} more-tokens]
+                [(merge {:form-type :symbol}
+                        (split-sym {:token token, :loc-range loc-range}))
+                 more-tokens]))
+
+    (when end-delimiter
+      (throw (ex-info "Unexpected EOF" {:expected end-delimiter})))))
+
+(defn parse-forms [tokens]
+  (lazy-seq
+    (when-let [[form more-tokens] (parse-form tokens nil)]
+      (cons form (parse-forms more-tokens)))))
+
+(defn read-forms [s]
+  (-> s
+      read-chs
+      tokenise
+      parse-forms))
+
+(comment
   (read-forms "Hello [\"World\" \"More\"]"))
