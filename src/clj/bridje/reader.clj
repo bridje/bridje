@@ -126,11 +126,12 @@
     (case token-type
       :start-delimiter (let [{:keys [end-delimiter form-type]} (get delimiters token)]
                          (loop [forms []
-                                tokens more-tokens]
+                                tokens more-tokens
+                                loc-range loc-range]
                            (let [[form remaining-tokens] (parse-form tokens end-delimiter)]
                              (if form
-                               (recur (conj forms form) remaining-tokens)
-                               [{:form-type form-type, :forms forms} remaining-tokens]))))
+                               (recur (conj forms form) remaining-tokens (assoc loc-range :end (get-in form [:loc-range :end])))
+                               [{:form-type form-type, :forms forms, :loc-range loc-range} remaining-tokens]))))
 
       :end-delimiter (if (= end-delimiter token)
                        [nil more-tokens]
@@ -155,8 +156,8 @@
       :string [{:form-type :string, :string token} more-tokens]
 
       :symbol (case token
-                ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token)} more-tokens]
-                [(merge {:form-type :symbol}
+                ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token), :loc-range loc-range} more-tokens]
+                [(merge {:form-type :symbol, :loc-range loc-range}
                         (split-sym {:token token, :loc-range loc-range}))
                  more-tokens]))
 
