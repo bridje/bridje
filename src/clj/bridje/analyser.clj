@@ -21,6 +21,27 @@
       [(p form) more-forms]
       (throw (ex-info "TODO: expected form")))))
 
+(defn form-type-parser [expected-form-type]
+  (first-form-parser (fn [{:keys [form-type loc-range] :as form}]
+                       (if (= expected-form-type form-type)
+                         form
+                         (throw (ex-info "Unexpected form type" {:expected expected-form-type
+                                                                 :actual form-type
+                                                                 :loc-range loc-range}))))))
+
+(defn sym-parser [{:keys [ns-expected?]}]
+  (do-parse [{:keys [loc-range] :as sym-form} (form-type-parser :symbol)]
+    (cond
+      (or (nil? ns-expected?) (= ns-expected? (some? (:ns sym-form)))) (pure sym-form)
+      ns-expected? (throw (ex-info "Expected namespaced symbol" sym-form))
+      :else (throw (ex-info "Unexpected namespaced symbol" sym-form)))))
+
+(defn no-more-forms [value]
+  (fn [forms]
+    (if (seq forms)
+      (throw (ex-info "Unexpected form" {:form (first forms)}))
+      [value []])))
+
 (defn analyse [env ns-env {:keys [form-type forms loc-range] :as form}]
   (merge {:loc-range loc-range}
          (case form-type
@@ -50,7 +71,14 @@
                                                       (pure {:expr-type :if
                                                              :pred-expr pred-expr
                                                              :then-expr then-expr
-                                                             :else-expr else-expr}))))
+                                                             :else-expr else-expr})))
+
+                                   :def (parse-forms more-forms
+                                                     (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
+                                                                body expr-parser]
+                                                       (no-more-forms {:expr-type :def
+                                                                       :sym sym
+                                                                       :body body}))))
 
                                  (throw (ex-info "niy" {})))))
 
