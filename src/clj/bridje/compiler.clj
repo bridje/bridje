@@ -3,13 +3,23 @@
             [bridje.analyser :as analyser]
             [bridje.interpreter :as interpreter]))
 
-(defn interpret [env s]
-  (reduce (fn [{:keys [env]} form]
-            (interpreter/interpret env (analyser/analyse env nil form)))
-          {:env env}
+(defn interpret [s {:keys [global-env ns-sym]}]
+  (reduce (fn [{:keys [global-env]} form]
+            (let [env {:global-env global-env, :ns-sym ns-sym}]
+              (-> form
+                  (analyser/analyse env)
+                  (interpreter/interpret env))))
+          {:global-env global-env}
           (reader/read-forms s)))
 
 (comment
-  (interpret {} "(if false [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)")
-  (analyser/analyse {} {} (first (reader/read-forms "(def foo [\"Hello\" \"World\"])")))
+  (interpret "(if false [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"
+             {:ns-sym 'bridje.foo})
+
+  (-> (first (reader/read-forms "(def foo [\"Hello\" \"World\"])"))
+      (analyser/analyse {:ns-sym 'bridje.foo}))
+
+  (interpret "(def foo [\"Hello\" \"World\"])"
+             {:ns-sym 'bridje.foo})
+
   )

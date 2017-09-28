@@ -42,13 +42,13 @@
       (throw (ex-info "Unexpected form" {:form (first forms)}))
       [value []])))
 
-(defn analyse [env ns-env {:keys [form-type forms loc-range] :as form}]
+(defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [global-env ns-sym] :as env}]
   (merge {:loc-range loc-range}
          (case form-type
            :string {:expr-type :string, :string (:string form)}
            :bool {:expr-type :bool, :bool (:bool form)}
-           :vector {:expr-type :vector, :exprs (map #(analyse env ns-env %) forms)}
-           :set {:expr-type :set, :exprs (map #(analyse env ns-env %) forms)}
+           :vector {:expr-type :vector, :exprs (map #(analyse % env) forms)}
+           :set {:expr-type :set, :exprs (map #(analyse % env) forms)}
            :record (cond
                      (pos? (mod (count forms) 2)) (throw (ex-info "Record requires even number of forms" {:loc-range loc-range}))
                      :else {:expr-type :record
@@ -56,11 +56,11 @@
                                        (cond
                                          (not= :symbol form-type) (throw (ex-info "Expected symbol as key in record" {:loc-range loc-range}))
                                          (some? (:ns k-form)) (throw (ex-info "Unexpected namespaced symbol as key in record" {:loc-range loc-range}))
-                                         :else [(:sym k-form) (analyse env ns-env v-form)]))})
+                                         :else [(:sym k-form) (analyse v-form env)]))})
            :list (if (seq forms)
                    (let [[first-form & more-forms] forms
                          expr-parser (first-form-parser (fn [form]
-                                                          (analyse env ns-env form)))]
+                                                          (analyse form env)))]
                      (case (:form-type first-form)
                        :symbol (if (nil? (:ns first-form))
                                  (case (keyword (:sym first-form))
@@ -75,10 +75,10 @@
 
                                    :def (parse-forms more-forms
                                                      (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
-                                                                body expr-parser]
+                                                                body-expr expr-parser]
                                                        (no-more-forms {:expr-type :def
                                                                        :sym sym
-                                                                       :body body}))))
+                                                                       :body-expr body-expr}))))
 
                                  (throw (ex-info "niy" {})))))
 
