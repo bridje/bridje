@@ -12,8 +12,12 @@
 
     :record (->> (:entries expr)
                  (into {} (map (fn [[sym expr]]
-                                 [(symbol sym) (interpret-value-expr env expr)]))))))
+                                 [(keyword sym) (interpret-value-expr env expr)]))))
+
+    :if `(if ~(interpret-value-expr env (:pred-expr expr))
+           ~(interpret-value-expr env (:then-expr expr))
+           ~(interpret-value-expr env (:else-expr expr)))))
 
 (defn interpret [env {:keys [expr-type] :as expr}]
   (case expr-type
-    (:string :bool :vector :set :record) {:env env, :value (interpret-value-expr env expr)}))
+    (:string :bool :vector :set :record :if) {:env env, :value (eval (interpret-value-expr env expr))}))
