@@ -11,6 +11,5 @@
 
 (comment
   (interpret {} "(if false [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)")
-  ;; TODO loc-ranges not being passed through here
   (analyser/analyse {} {} (first (reader/read-forms "(def foo [\"Hello\" \"World\"])")))
   )

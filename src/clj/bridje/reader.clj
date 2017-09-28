@@ -126,15 +126,19 @@
     (case token-type
       :start-delimiter (let [{:keys [end-delimiter form-type]} (get delimiters token)]
                          (loop [forms []
-                                tokens more-tokens
-                                loc-range loc-range]
+                                tokens more-tokens]
                            (let [[form remaining-tokens] (parse-form tokens end-delimiter)]
                              (if form
-                               (recur (conj forms form) remaining-tokens (assoc loc-range :end (get-in form [:loc-range :end])))
-                               [{:form-type form-type, :forms forms, :loc-range loc-range} remaining-tokens]))))
+                               (recur (conj forms form) remaining-tokens)
+
+                               [{:form-type form-type,
+                                 :forms forms,
+                                 :loc-range (->LocRange (:start loc-range)
+                                                        (:end (:loc-range (first remaining-tokens))))}
+                                (rest remaining-tokens)]))))
 
       :end-delimiter (if (= end-delimiter token)
-                       [nil more-tokens]
+                       [nil tokens]
                        (throw (ex-info "Unexpected end delimiter" {:expected end-delimiter
                                                                    :found token
                                                                    :loc-range loc-range})))
@@ -153,7 +157,7 @@
                   remaining-tokens]
                  (throw (ex-info "Unexpected EOF"))))
 
-      :string [{:form-type :string, :string token} more-tokens]
+      :string [{:form-type :string, :string token, :loc-range loc-range} more-tokens]
 
       :symbol (case token
                 ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token), :loc-range loc-range} more-tokens]
