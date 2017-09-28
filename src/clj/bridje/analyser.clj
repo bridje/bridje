@@ -15,6 +15,42 @@
 
     `(do ~@body)))
 
+(defn or-parser [& parsers]
+  (fn [forms]
+    (loop [[parser & more-parsers] parsers
+           errors []]
+      (if parser
+        (let [{:keys [result error]} (try
+                                       {:result (parser forms)}
+                                       (catch Exception e
+                                         {:error e}))]
+          (or result
+              (recur more-parsers (conj errors error))))
+        (throw (ex-info "No matching parser" {:errors errors}))))))
+
+(defn at-least-one [parser]
+  (fn [forms]
+    (loop [results []
+           forms forms]
+      (if (seq forms)
+        (let [{[result more-forms] :result, :keys [error]} (try
+                                                             {:result (parser forms)}
+                                                             (catch Exception e
+                                                               {:error e}))]
+          (cond
+            result (recur (conj results result) more-forms)
+            error (if (seq results)
+                    [results forms]
+                    (throw error))))
+
+        (if (seq results)
+          [results forms]
+          (throw (ex-info "TODO: expected at-least-one" {})))))))
+
+(defn nested-parser [forms parser]
+  (fn [outer-forms]
+    [(parser forms) outer-forms]))
+
 (defn first-form-parser [p]
   (fn [forms]
     (if-let [[form & more-forms] (seq forms)]
@@ -35,6 +71,13 @@
       (or (nil? ns-expected?) (= ns-expected? (some? (:ns sym-form)))) (pure sym-form)
       ns-expected? (throw (ex-info "Expected namespaced symbol" sym-form))
       :else (throw (ex-info "Unexpected namespaced symbol" sym-form)))))
+
+(defn coll-parser [form-type nested-parser]
+  (do-parse [{:keys [forms]} (form-type-parser form-type)]
+    (pure (first (nested-parser forms)))))
+
+(defn list-parser [nested-parser]
+  (coll-parser :list nested-parser))
 
 (defn no-more-forms [value]
   (fn [forms]
@@ -74,10 +117,15 @@
                                                              :else-expr else-expr})))
 
                                    :def (parse-forms more-forms
-                                                     (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
+                                                     (do-parse [{:keys [sym params]} (or-parser (sym-parser {:ns-expected? false})
+                                                                                                (list-parser (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
+                                                                                                                        params (at-least-one (sym-parser {:ns-expected? false}))]
+                                                                                                               (no-more-forms {:sym sym
+                                                                                                                               :params (map (comp symbol :sym) params)}))))
                                                                 body-expr expr-parser]
                                                        (no-more-forms {:expr-type :def
                                                                        :sym sym
+                                                                       :params params
                                                                        :body-expr body-expr}))))
 
                                  (throw (ex-info "niy" {})))))

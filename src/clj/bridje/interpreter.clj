@@ -18,15 +18,14 @@
            ~(interpret-value-expr (:then-expr expr) env)
            ~(interpret-value-expr (:else-expr expr) env))))
 
-(do
-  (defn interpret [{:keys [expr-type] :as expr} {:keys [global-env ns-sym] :as env}]
-   (case expr-type
-     (:string :bool :vector :set :record :if) {:global-env global-env, :value (eval (interpret-value-expr expr env))}
-     :def (let [{:keys [sym body-expr]} expr]
-            {:global-env (assoc-in global-env [ns-sym :vars (symbol sym)] (interpret-value-expr body-expr env))
-             :value (symbol (name ns-sym) sym)}))
-    )
+(defn interpret [{:keys [expr-type] :as expr} {:keys [global-env ns-sym] :as env}]
+  (case expr-type
+    (:string :bool :vector :set :record :if) {:global-env global-env, :value (eval (interpret-value-expr expr env))}
 
-  #_(-> (first (bridje.reader/read-forms "(def bar [\"Hello\" \"World\"])"))
-      (bridje.analyser/analyse {:ns-sym 'bridje.foo})
-      (interpret {:global-env {}, :ns-sym 'bridje.foo})))
+    :def (let [{:keys [sym params body-expr]} expr]
+           {:global-env (assoc-in global-env [ns-sym :vars (symbol sym)]
+                                  (eval (if (seq params)
+                                          `(fn ~(symbol sym) [~@params]
+                                             ~(interpret-value-expr body-expr env))
+                                          (interpret-value-expr body-expr env))))
+            :value (symbol (name ns-sym) sym)})))
