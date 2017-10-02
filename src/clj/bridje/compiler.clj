@@ -29,9 +29,7 @@
                  {:ns-sym 'bridje.foo})
       (get-in [:global-env 'bridje.foo :vars 'Nothing]))
 
-  (let [{:syms [->Just Just->a]} (-> (interpret "(defdata (Just a))"
-                                                {:ns-sym 'bridje.foo})
-                                     (get-in [:global-env 'bridje.foo :vars]))]
-    (Just->a (->Just :foo)))
+  (interpret "(defdata (Just a)) (->Just \"Hello\")"
+             {:ns-sym 'bridje.foo})
 
   )

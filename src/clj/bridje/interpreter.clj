@@ -1,54 +1,88 @@
 (ns bridje.interpreter)
+(defn expr-leaves [expr]
+  (case (:expr-type expr)
+    (:string :bool :local :global) [expr]
+    (:vector :set :call) (mapcat expr-leaves (:exprs expr))
+    :record (mapcat expr-leaves (vals (:entries expr)))
+    :if (mapcat (comp expr-leaves expr) #{:pred-expr :then-expr :else-expr})
+    :let (concat (mapcat expr-leaves (map second (:bindings expr)))
+                 (expr-leaves (:body-expr expr)))
+    :fn (expr-leaves (:body-expr expr))))
 
-(defn interpret-value-expr [{:keys [expr-type exprs] :as expr} {:keys [global-env ns-sym] :as env}]
-  (case expr-type
-    :string (:string expr)
-    :bool (:bool expr)
-    :vector (->> exprs
-                 (into [] (map #(interpret-value-expr % env))))
+(defn find-globals [expr]
+  (->> (expr-leaves expr)
+       (into {} (comp (filter #(= :global (:expr-type %)))
+                      (map :global)
+                      (distinct)
+                      (map (fn [global]
+                             [global (gensym (name global))]))))))
 
-    :set (->> exprs
-              (into #{} (map #(interpret-value-expr % env))))
+(defn interpret-value-expr [expr {:keys [ns-sym] :as env}]
+  (let [globals (find-globals expr)]
+    (letfn [(interpret-value-expr* [{:keys [expr-type exprs] :as expr}]
+              (case expr-type
+                :string (:string expr)
+                :bool (:bool expr)
+                :vector (->> exprs
+                             (into [] (map interpret-value-expr*)))
 
-    :record (->> (:entries expr)
-                 (into {} (map (fn [[sym expr]]
-                                 [(keyword sym) (interpret-value-expr expr env)]))))
+                :set (->> exprs
+                          (into #{} (map interpret-value-expr*)))
 
-    :if `(if ~(interpret-value-expr (:pred-expr expr) env)
-           ~(interpret-value-expr (:then-expr expr) env)
-           ~(interpret-value-expr (:else-expr expr) env))
+                :record (->> (:entries expr)
+                             (into {} (map (fn [[sym expr]]
+                                             [(keyword sym) (interpret-value-expr* expr)]))))
 
-    :local (:local expr)
+                :if `(if ~(interpret-value-expr* (:pred-expr expr))
+                       ~(interpret-value-expr* (:then-expr expr))
+                       ~(interpret-value-expr* (:else-expr expr)))
 
-    :let (let [{:keys [bindings body-expr]} expr]
-           `(let [~@(mapcat (fn [[local expr]]
-                              [local (interpret-value-expr expr env)])
-                            bindings)]
-              ~(interpret-value-expr body-expr env)))
+                :local (:local expr)
+                :global (get globals (:global expr))
 
-    :fn (let [{:keys [locals body-expr]} expr]
-          `(fn [~@locals]
-             ~(interpret-value-expr body-expr env)))
+                :let (let [{:keys [bindings body-expr]} expr]
+                       `(let [~@(mapcat (fn [[local expr]]
+                                          [local (interpret-value-expr* expr)])
+                                        bindings)]
+                          ~(interpret-value-expr* body-expr)))
 
-    :match (throw (ex-info "niy" {:expr expr}))
+                :fn (let [{:keys [locals body-expr]} expr]
+                      `(fn [~@locals]
+                         ~(interpret-value-expr* body-expr)))
 
-    :loop (throw (ex-info "niy" {:expr expr}))
-    :recur (throw (ex-info "niy" {:expr expr}))))
+                :call `(~@(map interpret-value-expr* exprs))
+
+                :match (throw (ex-info "niy" {:expr expr}))
+
+                :loop (throw (ex-info "niy" {:expr expr}))
+                :recur (throw (ex-info "niy" {:expr expr}))))]
+
+      ((eval `(fn [env#]
+                (let [~@(mapcat (fn [[global global-sym]]
+                                  [global-sym (get-in env [:global-env
+                                                           (symbol (namespace global))
+                                                           :vars
+                                                           (symbol (name global))])])
+                                globals)]
+                  ~(interpret-value-expr* expr))))
+       env))))
 
 (defrecord ADT [adt-type params])
 
 (defn interpret [{:keys [expr-type] :as expr} {:keys [global-env ns-sym] :as env}]
   (case expr-type
-    (:string :bool :vector :set :record :if :local :let :fn :match :loop :recur)
+    (:string :bool :vector :set :record :if :local :let :fn :call :match :loop :recur)
     {:global-env global-env,
-     :value (eval (interpret-value-expr expr env))}
+     :value (interpret-value-expr expr env)}
 
     :def (let [{:keys [sym locals body-expr]} expr]
            {:global-env (assoc-in global-env [ns-sym :vars sym]
-                                  (eval (if (seq locals)
-                                          `(fn ~sym [~@locals]
-                                             ~(interpret-value-expr body-expr env))
-                                          (interpret-value-expr body-expr env))))
+                                  (interpret-value-expr (if (seq locals)
+                                                          {:expr-type :fn
+                                                           :locals locals
+                                                           :body-expr body-expr}
+                                                          body-expr)
+                                                        env))
             :value (symbol (name ns-sym) (name sym))})
 
     :defmacro (throw (ex-info "niy" {:expr expr}))
