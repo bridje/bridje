@@ -35,6 +35,8 @@
     :loop (throw (ex-info "niy" {:expr expr}))
     :recur (throw (ex-info "niy" {:expr expr}))))
 
+(defrecord ADT [adt-type params])
+
 (defn interpret [{:keys [expr-type] :as expr} {:keys [global-env ns-sym] :as env}]
   (case expr-type
     (:string :bool :vector :set :record :if :local :let :fn :match :loop :recur)
@@ -49,6 +51,24 @@
                                           (interpret-value-expr body-expr env))))
             :value (symbol (name ns-sym) (name sym))})
 
-    :defdata (throw (ex-info "niy" {}))))
     :defmacro (throw (ex-info "niy" {:expr expr}))
 
+    :defdata (let [{:keys [sym params]} expr
+                   fq-sym (symbol (name ns-sym) (name sym))]
+               {:global-env (-> global-env
+                                (assoc-in [ns-sym :types sym] {:params params})
+                                (update-in [ns-sym :vars] merge
+                                           (if (seq params)
+                                             (merge {(symbol (str "->" sym)) (eval `(fn [~@params]
+                                                                                      (->ADT '~fq-sym
+                                                                                             ~(into {}
+                                                                                                    (map (fn [param]
+                                                                                                           [(keyword param) param]))
+                                                                                                    params))))}
+                                                    (->> params
+                                                         (into {} (map (fn [param]
+                                                                         [(symbol (str sym "->" param)) (eval `(fn [obj#]
+                                                                                                                 (get-in obj# [:params ~(keyword param)])))])))))
+
+                                             {sym (eval `(->ADT '~fq-sym {}))})))
+                :value fq-sym})))

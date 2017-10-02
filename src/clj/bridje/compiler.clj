@@ -25,4 +25,13 @@
   (interpret "(fn [x] [x x])"
              {:ns-sym 'bridje.foo})
 
+  (-> (interpret "(defdata Nothing)"
+                 {:ns-sym 'bridje.foo})
+      (get-in [:global-env 'bridje.foo :vars 'Nothing]))
+
+  (let [{:syms [->Just Just->a]} (-> (interpret "(defdata (Just a))"
+                                                {:ns-sym 'bridje.foo})
+                                     (get-in [:global-env 'bridje.foo :vars]))]
+    (Just->a (->Just :foo)))
+
   )
