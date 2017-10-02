@@ -140,8 +140,8 @@
                                                                                         (let [[sym expr] (parse-forms pair
                                                                                                                       (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
                                                                                                                                  expr (expr-parser (assoc env :locals locals))]
-                                                                                                                        (pure [(symbol sym) expr])))
-                                                                                              local (gensym (name sym))]
+                                                                                                                        (pure [sym expr])))
+                                                                                              local (gensym sym)]
                                                                                           {:bindings (conj bindings [local expr])
                                                                                            :locals (assoc locals sym local)}))
                                                                                       {:bindings []
@@ -158,7 +158,7 @@
 
                            :fn (parse-forms more-forms
                                             (do-parse [params (vector-parser (do-parse [params (at-least-one (sym-parser {:ns-expected? false}))]
-                                                                               (no-more-forms (map (comp (juxt symbol gensym) :sym) params))))
+                                                                               (no-more-forms (map (comp (juxt identity gensym) :sym) params))))
                                                        body-expr (expr-parser (update env :locals (fnil into {}) params))]
                                               (no-more-forms {:expr-type :fn
                                                               :locals (map second params)
@@ -169,7 +169,7 @@
                                                                                         (list-parser (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
                                                                                                                 params (at-least-one (sym-parser {:ns-expected? false}))]
                                                                                                        (no-more-forms {:sym sym
-                                                                                                                       :params (map (comp (juxt symbol gensym) :sym) params)}))))
+                                                                                                                       :params (map (comp (juxt identity gensym) :sym) params)}))))
                                                         body-expr (expr-parser (update env :locals (fnil into {}) params))]
                                                (no-more-forms {:expr-type :def
                                                                :sym sym
@@ -178,7 +178,15 @@
 
                            :defmacro (throw (ex-info "niy" {}))
 
-                           :defdata (throw (ex-info "niy" {}))
+                           :defdata (parse-forms more-forms
+                                                 (do-parse [{:keys [sym params]} (or-parser (sym-parser {:ns-expected? false})
+                                                                                            (list-parser (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
+                                                                                                                    params (at-least-one (sym-parser {:ns-expected? false}))]
+                                                                                                           (no-more-forms {:sym sym
+                                                                                                                           :params (map :sym params)}))))]
+                                                   (no-more-forms {:expr-type :defdata
+                                                                   :sym sym
+                                                                   :params params})))
                            :match (throw (ex-info "niy" {}))
 
                            :loop (throw (ex-info "niy" {}))
@@ -191,13 +199,12 @@
                (throw (ex-info "niy" {})))
 
              :symbol (or (when (nil? (:ns form))
-                           (when-let [local (get locals (symbol (:sym form)))]
+                           (when-let [local (get locals (:sym form))]
                              {:expr-type :local
                               :local local}))
 
                          (throw (ex-info "thingie niy" {:form form
                                                         :env env}))))))
 
-  (comment
-    (analyse (first (bridje.reader/read-forms "(let [x \"Hello\", y \"World\"] [y x])"))
-             {})))
+  (analyse (first (bridje.reader/read-forms "(defdata (Just v))"))
+           {}))

@@ -13,7 +13,7 @@
           (reader/read-forms s)))
 
 (comment
-  (interpret "(if false [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"
+  (interpret "(if true [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"
              {:ns-sym 'bridje.foo})
 
   (interpret "(def foo [\"Hello\" \"World\"])"

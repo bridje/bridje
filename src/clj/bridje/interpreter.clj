@@ -30,10 +30,10 @@
           `(fn [~@locals]
              ~(interpret-value-expr body-expr env)))
 
-    :match (throw (ex-info "niy" {}))
+    :match (throw (ex-info "niy" {:expr expr}))
 
-    :loop (throw (ex-info "niy" {}))
-    :recur (throw (ex-info "niy" {}))))
+    :loop (throw (ex-info "niy" {:expr expr}))
+    :recur (throw (ex-info "niy" {:expr expr}))))
 
 (defn interpret [{:keys [expr-type] :as expr} {:keys [global-env ns-sym] :as env}]
   (case expr-type
@@ -42,13 +42,13 @@
      :value (eval (interpret-value-expr expr env))}
 
     :def (let [{:keys [sym locals body-expr]} expr]
-           {:global-env (assoc-in global-env [ns-sym :vars (symbol sym)]
+           {:global-env (assoc-in global-env [ns-sym :vars sym]
                                   (eval (if (seq locals)
-                                          `(fn ~(symbol sym) [~@locals]
+                                          `(fn ~sym [~@locals]
                                              ~(interpret-value-expr body-expr env))
                                           (interpret-value-expr body-expr env))))
-            :value (symbol (name ns-sym) sym)})
-
-    :defmacro (throw (ex-info "niy" {}))
+            :value (symbol (name ns-sym) (name sym))})
 
     :defdata (throw (ex-info "niy" {}))))
+    :defmacro (throw (ex-info "niy" {:expr expr}))
+

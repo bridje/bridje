@@ -108,8 +108,13 @@
   (let [[ns-or-sym sym & more] (s/split token #"/")]
     (if (seq more)
       (throw (ex-info "Multiple '/'s in symbol" {:symbol token, :loc-range loc-range}))
-      {:ns (when sym ns-or-sym)
-       :sym (or sym ns-or-sym)})))
+      (if sym
+        {:fq (symbol ns-or-sym sym)
+         :ns (symbol ns-or-sym)
+         :sym (symbol sym)}
+        {:fq (symbol ns-or-sym)
+         :ns nil
+         :sym (symbol ns-or-sym)}))))
 
 (def delimiters
   {"(" {:end-delimiter ")"
