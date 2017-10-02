@@ -16,10 +16,13 @@
   (interpret "(if false [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"
              {:ns-sym 'bridje.foo})
 
-  (-> (first (reader/read-forms "(def foo [\"Hello\" \"World\"])"))
-      (analyser/analyse {:ns-sym 'bridje.foo}))
-
   (interpret "(def foo [\"Hello\" \"World\"])"
+             {:ns-sym 'bridje.foo})
+
+  (interpret "(let [x \"Hello\", y \"World\"] [y x])"
+             {:ns-sym 'bridje.foo})
+
+  (interpret "(fn [x] [x x])"
              {:ns-sym 'bridje.foo})
 
   )
