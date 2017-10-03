@@ -4,7 +4,7 @@
   (case (:expr-type expr)
     (:string :bool :local :global) [expr]
     (:vector :set :call) (mapcat expr-leaves (:exprs expr))
-    :record (mapcat expr-leaves (vals (:entries expr)))
+    :record (mapcat expr-leaves (map second (:entries expr)))
     :if (mapcat (comp expr-leaves expr) #{:pred-expr :then-expr :else-expr})
     :let (concat (mapcat expr-leaves (map second (:bindings expr)))
                  (expr-leaves (:body-expr expr)))
