@@ -58,14 +58,15 @@
                 :loop (throw (ex-info "niy" {:expr expr}))
                 :recur (throw (ex-info "niy" {:expr expr}))))]
 
-      ((eval `(fn [env#]
-                (let [~@(mapcat (fn [[global global-sym]]
-                                  [global-sym (get-in env [:global-env
-                                                           (symbol (namespace global))
-                                                           :vars
-                                                           (symbol (name global))])])
-                                globals)]
-                  ~(interpret-value-expr* expr))))
+      ((eval (let [env-sym (gensym 'env)]
+               `(fn [~env-sym]
+                  (let [~@(mapcat (fn [[global global-sym]]
+                                    [global-sym `(get-in ~env-sym [:global-env
+                                                                   '~(symbol (namespace global))
+                                                                   :vars
+                                                                   '~(symbol (name global))])])
+                                  globals)]
+                    ~(interpret-value-expr* expr)))))
        env))))
 
 (defrecord ADT [adt-type params])
