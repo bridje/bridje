@@ -1,4 +1,5 @@
 (ns bridje.interpreter)
+
 (defn expr-leaves [expr]
   (case (:expr-type expr)
     (:string :bool :local :global) [expr]
@@ -17,7 +18,7 @@
                       (map (fn [global]
                              [global (gensym (name global))]))))))
 
-(defn interpret-value-expr [expr {:keys [ns-sym] :as env}]
+(defn interpret-value-expr [expr {:keys [current-ns] :as env}]
   (let [globals (find-globals expr)]
     (letfn [(interpret-value-expr* [{:keys [expr-type exprs] :as expr}]
               (case expr-type
@@ -69,29 +70,29 @@
 
 (defrecord ADT [adt-type params])
 
-(defn interpret [{:keys [expr-type] :as expr} {:keys [global-env ns-sym] :as env}]
+(defn interpret [{:keys [expr-type] :as expr} {:keys [global-env current-ns] :as env}]
   (case expr-type
     (:string :bool :vector :set :record :if :local :let :fn :call :match :loop :recur)
     {:global-env global-env,
      :value (interpret-value-expr expr env)}
 
     :def (let [{:keys [sym locals body-expr]} expr]
-           {:global-env (assoc-in global-env [ns-sym :vars sym]
+           {:global-env (assoc-in global-env [current-ns :vars sym]
                                   (interpret-value-expr (if (seq locals)
                                                           {:expr-type :fn
                                                            :locals locals
                                                            :body-expr body-expr}
                                                           body-expr)
                                                         env))
-            :value (symbol (name ns-sym) (name sym))})
+            :value (symbol (name current-ns) (name sym))})
 
     :defmacro (throw (ex-info "niy" {:expr expr}))
 
     :defdata (let [{:keys [sym params]} expr
-                   fq-sym (symbol (name ns-sym) (name sym))]
+                   fq-sym (symbol (name current-ns) (name sym))]
                {:global-env (-> global-env
-                                (assoc-in [ns-sym :types sym] {:params params})
-                                (update-in [ns-sym :vars] merge
+                                (assoc-in [current-ns :types sym] {:params params})
+                                (update-in [current-ns :vars] merge
                                            (if (seq params)
                                              (merge {(symbol (str "->" sym)) (eval `(fn [~@params]
                                                                                       (->ADT '~fq-sym

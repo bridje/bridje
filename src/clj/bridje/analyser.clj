@@ -94,13 +94,13 @@
       (parser forms)
       (throw (ex-info "Expected even number of forms" {:form parent-form})))))
 
-(defn env-resolve [{:keys [ns sym]} {:keys [global-env ns-sym]}]
+(defn env-resolve [{:keys [ns sym]} {:keys [global-env current-ns]}]
   ;; TODO got to resolve refers, aliases and fq syms here
   (when-not ns
     (when (contains? (get-in global-env [ns-sym :vars]) sym)
       (symbol (name ns-sym) (name sym)))))
 
-(defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [global-env locals ns-sym] :as env}]
+(defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [global-env locals current-ns] :as env}]
   (merge {:loc-range loc-range}
          (case form-type
            :string {:expr-type :string, :string (:string form)}
@@ -219,4 +219,4 @@
 (comment
   (analyse (first (bridje.reader/read-forms "foo"))
            {:global-env {'the-ns {:vars {'foo 42}}}
-            :ns-sym 'the-ns}))
+            :current-ns 'the-ns}))

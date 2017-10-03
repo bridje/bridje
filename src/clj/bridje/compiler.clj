@@ -3,9 +3,9 @@
             [bridje.analyser :as analyser]
             [bridje.interpreter :as interpreter]))
 
-(defn interpret [s {:keys [global-env ns-sym]}]
+(defn interpret [s {:keys [global-env current-ns]}]
   (reduce (fn [{:keys [global-env]} form]
-            (let [env {:global-env global-env, :ns-sym ns-sym}]
+            (let [env {:global-env global-env, :current-ns current-ns}]
               (-> form
                   (analyser/analyse env)
                   (interpreter/interpret env))))
@@ -14,22 +14,22 @@
 
 (comment
   (interpret "(if true [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"
-             {:ns-sym 'bridje.foo})
+             {:current-ns 'bridje.foo})
 
   (interpret "(def foo [\"Hello\" \"World\"])"
-             {:ns-sym 'bridje.foo})
+             {:current-ns 'bridje.foo})
 
   (interpret "(let [x \"Hello\", y \"World\"] [y x])"
-             {:ns-sym 'bridje.foo})
+             {:current-ns 'bridje.foo})
 
   (interpret "(fn [x] [x x])"
-             {:ns-sym 'bridje.foo})
+             {:current-ns 'bridje.foo})
 
   (-> (interpret "(defdata Nothing)"
-                 {:ns-sym 'bridje.foo})
+                 {:current-ns 'bridje.foo})
       (get-in [:global-env 'bridje.foo :vars 'Nothing]))
 
   (interpret "(defdata (Just a)) (->Just \"Hello\")"
-             {:ns-sym 'bridje.foo})
+             {:current-ns 'bridje.foo})
 
   )
