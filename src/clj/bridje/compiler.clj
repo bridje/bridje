@@ -53,10 +53,9 @@
 
       (when-let [content (slurp-source-file io ns-sym)]
         (when-let [[ns-form & more-forms] (seq (reader/read-forms content))]
-          (let [dep-chain-set (set dep-chain)
-                {:keys [aliases] :as ns-header} (analyser/analyse-ns-form ns-form env)]
+          (let [{:keys [aliases] :as ns-header} (analyser/analyse-ns-form ns-form env)]
             (recur (concat more-dep-chains (let [dep-chain-set (set dep-chain)]
-                                             (for [dep-ns-sym (into #{} (remove ns-content) (vals aliases))]
+                                             (for [dep-ns-sym (into #{} (remove (some-fn ns-content (into #{} (map first) (rest dep-chain)))) (vals aliases))]
                                                (let [dep-chain (cons dep-ns-sym dep-chain)]
                                                  (if-not (contains? dep-chain-set dep-ns-sym)
                                                    dep-chain
@@ -68,20 +67,20 @@
 (defn load-ns [entry-ns {:keys [io env]}]
   (let [{:keys [ns-order ns-content]} (transitive-read-forms [entry-ns] {:io io, :env env})]
     (-> (reduce (fn [env current-ns]
-               (let [{:keys [ns-header forms]} (get ns-content current-ns)]
-                 (reduce (fn [env form]
-                           (let [{:keys [global-env]} (-> form
-                                                          (analyser/analyse env)
-                                                          (interpreter/interpret env))]
-                             (merge env {:global-env global-env})))
+                  (let [{:keys [ns-header forms]} (get ns-content current-ns)]
+                    (reduce (fn [env form]
+                              (let [{:keys [global-env]} (-> form
+                                                             (analyser/analyse env)
+                                                             (interpreter/interpret env))]
+                                (merge env {:global-env global-env})))
 
-                         (-> env
-                             (assoc :current-ns current-ns)
-                             (assoc-in [:global-env current-ns] ns-header))
+                            (-> env
+                                (assoc :current-ns current-ns)
+                                (assoc-in [:global-env current-ns] ns-header))
 
-                         forms)))
-             env
-             ns-order)
+                            forms)))
+                env
+                ns-order)
 
         :global-env)))
 
