@@ -142,10 +142,10 @@
                                           (do-parse [pred-expr (expr-parser)
                                                      then-expr (expr-parser)
                                                      else-expr (expr-parser)]
-                                                    (no-more-forms {:expr-type :if
-                                                                    :pred-expr pred-expr
-                                                                    :then-expr then-expr
-                                                                    :else-expr else-expr})))
+                                            (no-more-forms {:expr-type :if
+                                                            :pred-expr pred-expr
+                                                            :then-expr then-expr
+                                                            :else-expr else-expr})))
 
                          :let (parse-forms more-forms
                                            (do-parse [{:keys [bindings locals]}
@@ -154,7 +154,7 @@
                                                                                       (let [[sym expr] (parse-forms pair
                                                                                                                     (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
                                                                                                                                expr (expr-parser (assoc env :locals locals))]
-                                                                                                                              (pure [sym expr])))
+                                                                                                                      (pure [sym expr])))
                                                                                             local (gensym sym)]
                                                                                         {:bindings (conj bindings [local expr])
                                                                                          :locals (assoc locals sym local)}))
@@ -166,29 +166,29 @@
 
                                                       body-expr (expr-parser (assoc env :locals locals))]
 
-                                                     (no-more-forms {:expr-type :let
-                                                                     :bindings bindings
-                                                                     :body-expr body-expr})))
+                                             (no-more-forms {:expr-type :let
+                                                             :bindings bindings
+                                                             :body-expr body-expr})))
 
                          :fn (parse-forms more-forms
                                           (do-parse [params (vector-parser (do-parse [params (at-least-one (sym-parser {:ns-expected? false}))]
-                                                                                     (no-more-forms (map (comp (juxt identity gensym) :sym) params))))
+                                                                             (no-more-forms (map (comp (juxt identity gensym) :sym) params))))
                                                      body-expr (expr-parser (update env :locals (fnil into {}) params))]
-                                                    (no-more-forms {:expr-type :fn
-                                                                    :locals (map second params)
-                                                                    :body-expr body-expr})))
+                                            (no-more-forms {:expr-type :fn
+                                                            :locals (map second params)
+                                                            :body-expr body-expr})))
 
                          :def (parse-forms more-forms
                                            (do-parse [{:keys [sym params]} (or-parser (sym-parser {:ns-expected? false})
                                                                                       (list-parser (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
                                                                                                               params (at-least-one (sym-parser {:ns-expected? false}))]
-                                                                                                             (no-more-forms {:sym sym
-                                                                                                                             :params (map (comp (juxt identity gensym) :sym) params)}))))
+                                                                                                     (no-more-forms {:sym sym
+                                                                                                                     :params (map (comp (juxt identity gensym) :sym) params)}))))
                                                       body-expr (expr-parser (update env :locals (fnil into {}) params))]
-                                                     (no-more-forms {:expr-type :def
-                                                                     :sym sym
-                                                                     :locals (map second params)
-                                                                     :body-expr body-expr})))
+                                             (no-more-forms {:expr-type :def
+                                                             :sym sym
+                                                             :locals (map second params)
+                                                             :body-expr body-expr})))
 
                          :defmacro (throw (ex-info "niy" {}))
 
@@ -196,11 +196,11 @@
                                                (do-parse [{:keys [sym params]} (or-parser (sym-parser {:ns-expected? false})
                                                                                           (list-parser (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
                                                                                                                   params (at-least-one (sym-parser {:ns-expected? false}))]
-                                                                                                                 (no-more-forms {:sym sym
-                                                                                                                                 :params (map :sym params)}))))]
-                                                         (no-more-forms {:expr-type :defdata
-                                                                         :sym sym
-                                                                         :params params})))
+                                                                                                         (no-more-forms {:sym sym
+                                                                                                                         :params (map :sym params)}))))]
+                                                 (no-more-forms {:expr-type :defdata
+                                                                 :sym sym
+                                                                 :params params})))
                          :match (throw (ex-info "niy" {}))
 
                          :loop (throw (ex-info "niy" {}))
