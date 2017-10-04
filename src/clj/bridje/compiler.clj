@@ -43,11 +43,6 @@
           io/make-parents
           (spit content))))))
 
-(defn fake-file [& forms]
-  (->> forms
-       (map prn-str)
-       s/join))
-
 (defn transitive-read-forms [entry-ns-syms {:keys [io env]}]
   (loop [[[ns-sym :as dep-chain] & more-dep-chains] (map list entry-ns-syms)
          ns-order []
@@ -92,6 +87,11 @@
 
 (comment
   (do
+    (defn fake-file [& forms]
+      (->> forms
+           (map prn-str)
+           s/join))
+
     (defn fake-io [{:keys [source-files compiled-files]}]
       (let [!compiled-files (atom compiled-files)]
         {:!compiled-files !compiled-files
@@ -133,6 +133,4 @@
       (get-in [:global-env 'bridje.foo :vars 'Nothing]))
 
   (interpret "(defdata (Just a)) (->Just \"Hello\")"
-             {:current-ns 'bridje.foo})
-
-  )
+             {:current-ns 'bridje.foo}))
