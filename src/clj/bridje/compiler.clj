@@ -64,6 +64,23 @@
                    (assoc ns-content ns-sym {:ns-header ns-header
                                              :forms more-forms}))))))))
 
+(let [files {:a {:deps #{:b :c}
+                 :forms [:a]}
+             :c {:deps #{:b}
+                 :forms [:c]}
+             :b {:deps #{:d}
+                 :forms [:b]}
+             :d {:deps #{}
+                 :forms [:d]}}]
+  (loop [[{:keys [ns dep-chain]} & more-deps] (for [ns #{:a}]
+                                                {:ns ns, :dep-chain [ns]})
+         stack '()
+         ns-order []
+         ns-content {}]
+    (if-let [ns-deps (seq (get deps ns))]
+      )))
+
+
 (defn load-ns [entry-ns {:keys [io env]}]
   (let [{:keys [ns-order ns-content]} (transitive-read-forms [entry-ns] {:io io, :env env})]
     (-> (reduce (fn [env current-ns]
