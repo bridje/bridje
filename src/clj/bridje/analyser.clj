@@ -82,6 +82,13 @@
 (defn vector-parser [nested-parser]
   (coll-parser :vector nested-parser))
 
+(defn record-parser [nested-parser]
+  (do-parse [{:keys [entries]} (form-type-parser :record)]
+    (pure (first (nested-parser entries)))))
+
+(defn maybe [parser]
+  )
+
 (defn no-more-forms [value]
   (fn [forms]
     (if (seq forms)
@@ -106,8 +113,18 @@
         (when-let [refer-ns (get-in global-env [current-ns :refers sym])]
           (symbol (name refer-ns) (name sym))))))
 
-(defn analyse-ns-form [ns-form {:keys [global-env]}]
-  (throw (ex-info "analyse-ns-form niy" {})))
+(defn analyse-ns-form [{:keys [form-type forms loc-range] :as form} {:keys [global-env locals ns-sym] :as env}]
+  ;; TODO WIP
+  (if-not (and (= :list form-type)
+               (= {:form-type :symbol, :sym 'ns, :ns nil}
+                  (-> (first forms) (select-keys [:form-type :sym :ns]))))
+    (throw (ex-info "Expecting NS form" {:form form}))
+
+    (parse-forms (rest forms)
+                 (do-parse [{ns-sym :sym} (sym-parser {:ns-expected? true})
+                            {:keys [refers aliases]} (maybe (record-parser (fn [entries]
+                                                                             (reduce (fn [acc [{:keys [sym]}]]
+                                                                                       )))))]))))
 
 (defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [global-env locals current-ns] :as env}]
   (merge {:loc-range loc-range}
