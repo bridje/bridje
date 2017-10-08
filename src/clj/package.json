@@ -1,0 +1,30 @@
+{
+  "name": "bridje",
+  "version": "0.0.1",
+  "description": "",
+  "main": "bridje.js",
+  "scripts": {
+    "test": "./node_modules/.bin/mocha --recursive",
+    "test-watch": "./node_modules/.bin/mocha -w --recursive"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jarohen/bridje.git"
+  },
+  "author": "James Henderson",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jarohen/bridje/issues"
+  },
+  "homepage": "https://github.com/jarohen/bridje#readme",
+  "dependencies": {
+    "commander": "^2.9.0",
+    "immutable": "^3.8.1",
+    "mkdirp": "^0.5.1"
+  },
+  "devDependencies": {
+    "babel-core": "^6.24.1",
+    "babel-plugin-transform-es2015-modules-commonjs": "^6.24.1",
+    "mocha": "^3.2.0"
+  }
+}
