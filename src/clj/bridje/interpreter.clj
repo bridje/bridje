@@ -73,7 +73,7 @@
 
 (defn interpret [{:keys [expr-type] :as expr} {:keys [global-env current-ns] :as env}]
   (case expr-type
-    (:string :bool :vector :set :record :if :local :let :fn :call :match :loop :recur)
+    (:string :bool :vector :set :record :if :local :global :let :fn :call :match :loop :recur)
     {:global-env global-env,
      :value (interpret-value-expr expr env)}
 
