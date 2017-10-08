@@ -48,9 +48,10 @@
                     (throw (ex-info "Error reading NS" {:ns ns})))
         [ns-form & more-forms] (or (seq (reader/read-forms content))
                                    (throw (ex-info "Error reading forms in NS" {:ns ns})))
-        {:keys [aliases] :as ns-header} (analyser/analyse-ns-form ns-form)]
+        {:keys [aliases refers] :as ns-header} (analyser/analyse-ns-form ns-form)]
 
-    {:deps (into #{} (vals aliases))
+    {:deps (into #{} (concat (vals aliases)
+                             (keys refers)))
      :content {:ns-header ns-header
                :forms more-forms}}))
 
