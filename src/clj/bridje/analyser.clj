@@ -117,18 +117,6 @@
       (parser forms)
       (throw (ex-info "Expected even number of forms" {:form parent-form})))))
 
-(defn env-resolve [{:keys [ns sym]} {:keys [global-env current-ns]}]
-  (if ns
-    (when-let [alias-ns (get-in global-env [current-ns :aliases ns])]
-      (when (get-in global-env [alias-ns :vars sym])
-        (symbol (name alias-ns) (name sym))))
-
-    (or (when (get-in global-env [current-ns :vars sym])
-          (symbol (name current-ns) (name sym)))
-
-        (when-let [refer-ns (get-in global-env [current-ns :refers sym])]
-          (symbol (name refer-ns) (name sym))))))
-
 (def aliases-parser
   (record-parser
    (do-parse [entries (maybe-many
@@ -172,7 +160,17 @@
                                    :refers refers
                                    :aliases aliases})))))
 
+(defn env-resolve [{:keys [ns sym]} {:keys [global-env current-ns]}]
+  (if ns
+    (when-let [alias-ns (get-in global-env [current-ns :aliases ns])]
+      (when (get-in global-env [alias-ns :vars sym])
+        (symbol (name alias-ns) (name sym))))
 
+    (or (when (get-in global-env [current-ns :vars sym])
+          (symbol (name current-ns) (name sym)))
+
+        (when-let [refer-ns (get-in global-env [current-ns :refers sym])]
+          (symbol (name refer-ns) (name sym))))))
 
 (defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [global-env locals current-ns] :as env}]
   (merge {:loc-range loc-range}
