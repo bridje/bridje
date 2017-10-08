@@ -2,6 +2,7 @@
   (:require [bridje.reader :as reader]
             [bridje.analyser :as analyser]
             [bridje.interpreter :as interpreter]
+            [bridje.emitter :as emitter]
             [clojure.java.io :as io]
             [clojure.string :as s]))
 
@@ -100,6 +101,30 @@
 
         :global-env)))
 
+(defn compile-ns [{:keys [ns ns-header forms]} env]
+  (reduce (fn [{:keys [codes env]} form]
+            (let [{:keys [global-env code]} (-> form
+                                                (analyser/analyse env)
+                                                (emitter/emit-expr env))]
+              {:env (merge env {:global-env global-env})
+               :codes (conj codes code)}))
+
+          {:env (-> env
+                    (assoc :current-ns ns)
+                    (assoc-in [:global-env ns] ns-header))
+           :codes []}
+
+          forms))
+
+(defn compile! [entry-ns {:keys [io env]}]
+  (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
+    (reduce (fn [env {:keys [ns] :as ns-content}]
+              (let [{:keys [env codes]} (compile-ns ns-content env)]
+                (spit-compiled-file io ns (emitter/emit-ns {:codes codes, :ns ns}))
+                env))
+            env
+            ns-order)))
+
 (comment
   (do
     (defn fake-file [& forms]
@@ -120,14 +145,17 @@
                         (spit-compiled-file [_ ns-sym content]
                           (swap! !compiled-files assoc ns-sym content)))}))
 
-    (let [fake-source-files {'bridje.foo (fake-file '(ns bridje.foo) '(defdata (Just value)))
-                             'bridje.bar (fake-file '(ns bridje.bar {aliases {foo bridje.foo}}) '(def just (foo/->Just "Hello")))}
-          {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})
-          global-env (load-ns 'bridje.bar
-                              {:io compiler-io})]
-      (interpret "just"
-                 {:current-ns 'bridje.bar
-                  :global-env global-env}))))
+    (let [fake-source-files {'bridje.foo (fake-file '(ns bridje.foo)
+                                                    '(def (flip x y)
+                                                       [y x]))
+                             'bridje.bar (fake-file '(ns bridje.bar
+                                                       {aliases {foo bridje.foo}})
+
+                                                    '(def flipped
+                                                       (foo/flip "Hello" "World")))}
+          {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})]
+      (compile! 'bridje.bar {:io compiler-io})
+      @!compiled-files)))
 
 (comment
   (interpret "(if true [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"
