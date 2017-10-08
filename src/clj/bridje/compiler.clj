@@ -43,59 +43,57 @@
           io/make-parents
           (spit content))))))
 
-(defn transitive-read-forms [entry-ns-syms {:keys [io env]}]
-  (loop [[[ns-sym :as dep-chain] & more-dep-chains] (map list entry-ns-syms)
+(defn read-ns-content [ns {:keys [io]}]
+  (let [content (or (slurp-source-file io ns)
+                    (throw (ex-info "Error reading NS" {:ns ns})))
+        [ns-form & more-forms] (or (seq (reader/read-forms content))
+                                   (throw (ex-info "Error reading forms in NS" {:ns ns})))
+        {:keys [aliases] :as ns-header} (analyser/analyse-ns-form ns-form)]
+
+    {:deps (into #{} (vals aliases))
+     :content {:ns-header ns-header
+               :forms more-forms}}))
+
+(defn transitive-read-forms [entry-ns-syms {:keys [io]}]
+  (loop [[ns :as dep-queue] (vec entry-ns-syms)
+         chains (into {} (map (juxt identity vector) entry-ns-syms))
          ns-order []
          ns-content {}]
-    (if-not ns-sym
-      {:ns-order ns-order
-       :ns-content ns-content}
+    (cond
+      (nil? ns) (for [ns ns-order]
+                  (merge {:ns ns} (get ns-content ns)))
 
-      (when-let [content (slurp-source-file io ns-sym)]
-        (when-let [[ns-form & more-forms] (seq (reader/read-forms content))]
-          (let [{:keys [aliases] :as ns-header} (analyser/analyse-ns-form ns-form env)]
-            (recur (concat more-dep-chains (let [dep-chain-set (set dep-chain)]
-                                             (for [dep-ns-sym (into #{} (remove (some-fn ns-content (into #{} (map first) (rest dep-chain)))) (vals aliases))]
-                                               (let [dep-chain (cons dep-ns-sym dep-chain)]
-                                                 (if-not (contains? dep-chain-set dep-ns-sym)
-                                                   dep-chain
-                                                   (throw (ex-info "uh oh - cycle" {:cycle (reverse dep-chain)})))))))
-                   (cons ns-sym ns-order)
-                   (assoc ns-content ns-sym {:ns-header ns-header
-                                             :forms more-forms}))))))))
+      (contains? ns-content ns) (recur (subvec dep-queue 1) chains (cons ns ns-order) ns-content)
 
-(let [files {:a {:deps #{:b :c}
-                 :forms [:a]}
-             :c {:deps #{:b}
-                 :forms [:c]}
-             :b {:deps #{:d}
-                 :forms [:b]}
-             :d {:deps #{}
-                 :forms [:d]}}]
-  (loop [[{:keys [ns dep-chain]} & more-deps] (for [ns #{:a}]
-                                                {:ns ns, :dep-chain [ns]})
-         stack '()
-         ns-order []
-         ns-content {}]
-    (if-let [ns-deps (seq (get deps ns))]
-      )))
+      :else (let [{:keys [deps content]} (read-ns-content ns {:io io})
+                  chain (get chains ns)]
+              (if-let [cycle-ns (some (set chain) deps)]
+                (throw (ex-info "cycle" {:cycle (reverse (cons cycle-ns chain))}))
 
+                (recur (conj (into (subvec dep-queue 1)
+                                   (remove (some-fn chains ns-content))
+                                   deps)
+                             ns)
+
+                       (into chains (map (fn [dep-ns] [dep-ns (cons dep-ns chain)]) deps))
+
+                       ns-order
+                       (assoc ns-content ns content)))))))
 
 (defn load-ns [entry-ns {:keys [io env]}]
-  (let [{:keys [ns-order ns-content]} (transitive-read-forms [entry-ns] {:io io, :env env})]
-    (-> (reduce (fn [env current-ns]
-                  (let [{:keys [ns-header forms]} (get ns-content current-ns)]
-                    (reduce (fn [env form]
-                              (let [{:keys [global-env]} (-> form
-                                                             (analyser/analyse env)
-                                                             (interpreter/interpret env))]
-                                (merge env {:global-env global-env})))
+  (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
+    (-> (reduce (fn [env {:keys [ns ns-header forms]}]
+                  (reduce (fn [env form]
+                            (let [{:keys [global-env]} (-> form
+                                                           (analyser/analyse env)
+                                                           (interpreter/interpret env))]
+                              (merge env {:global-env global-env})))
 
-                            (-> env
-                                (assoc :current-ns current-ns)
-                                (assoc-in [:global-env current-ns] ns-header))
+                          (-> env
+                              (assoc :current-ns ns)
+                              (assoc-in [:global-env ns] ns-header))
 
-                            forms)))
+                          forms))
                 env
                 ns-order)
 
@@ -121,15 +119,14 @@
                         (spit-compiled-file [_ ns-sym content]
                           (swap! !compiled-files assoc ns-sym content)))}))
 
-    (with-redefs [analyser/analyse-ns-form (fn [ns-form env]
-                                             (case (->> ns-form :forms second :sym)
-                                               bridje.foo '{}
-                                               bridje.bar '{:aliases {foo bridje.foo}}))]
-      (let [fake-source-files {'bridje.foo (fake-file '(ns bridje.foo) '(defdata (Just value)))
-                               'bridje.bar (fake-file '(ns bridje.bar) '(def just (foo/->Just "Hello")))}
-            {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})]
-        (load-ns 'bridje.bar
-                 {:io compiler-io})))))
+    (let [fake-source-files {'bridje.foo (fake-file '(ns bridje.foo) '(defdata (Just value)))
+                             'bridje.bar (fake-file '(ns bridje.bar {aliases {foo bridje.foo}}) '(def just (foo/->Just "Hello")))}
+          {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})
+          global-env (load-ns 'bridje.bar
+                              {:io compiler-io})]
+      (interpret "just"
+                 {:current-ns 'bridje.bar
+                  :global-env global-env}))))
 
 (comment
   (interpret "(if true [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"

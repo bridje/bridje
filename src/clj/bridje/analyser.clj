@@ -28,7 +28,7 @@
               (recur more-parsers (conj errors error))))
         (throw (ex-info "No matching parser" {:errors errors}))))))
 
-(defn at-least-one [parser]
+(defn maybe-many [parser]
   (fn [forms]
     (loop [results []
            forms forms]
@@ -43,9 +43,13 @@
                     [results forms]
                     (throw error))))
 
-        (if (seq results)
-          [results forms]
-          (throw (ex-info "TODO: expected at-least-one" {})))))))
+        [results forms]))))
+
+(defn at-least-one [parser]
+  (do-parse [results (maybe-many parser)]
+    (if (seq results)
+      (pure results)
+      (throw (ex-info "TODO: expected at-least-one" {})))))
 
 (defn nested-parser [forms parser]
   (fn [outer-forms]
@@ -79,15 +83,27 @@
 (defn list-parser [nested-parser]
   (coll-parser :list nested-parser))
 
+(defn set-parser [nested-parser]
+  (coll-parser :set nested-parser))
+
 (defn vector-parser [nested-parser]
   (coll-parser :vector nested-parser))
 
 (defn record-parser [nested-parser]
-  (do-parse [{:keys [entries]} (form-type-parser :record)]
-    (pure (first (nested-parser entries)))))
+  (do-parse [{:keys [loc-range forms]} (form-type-parser :record)]
+    (cond
+      (pos? (mod (count forms) 2)) (throw (ex-info "Record requires even number of forms" {:loc-range loc-range}))
+      :else (pure (first (nested-parser (for [[{:keys [form-type loc-range] :as k-form} v-form] (partition 2 forms)]
+                                          (cond
+                                            (not= :symbol form-type) (throw (ex-info "Expected symbol as key in record" {:loc-range loc-range}))
+                                            (some? (:ns k-form)) (throw (ex-info "Unexpected namespaced symbol as key in record" {:loc-range loc-range}))
+                                            :else [(:sym k-form) v-form]))))))))
 
-(defn maybe [parser]
-  )
+(defn when-more-forms [parser]
+  (fn [forms]
+    (if (seq forms)
+      (parser forms)
+      [nil []])))
 
 (defn no-more-forms [value]
   (fn [forms]
@@ -113,18 +129,50 @@
         (when-let [refer-ns (get-in global-env [current-ns :refers sym])]
           (symbol (name refer-ns) (name sym))))))
 
-(defn analyse-ns-form [{:keys [form-type forms loc-range] :as form} {:keys [global-env locals ns-sym] :as env}]
-  ;; TODO WIP
+(def aliases-parser
+  (record-parser
+   (do-parse [entries (maybe-many
+                       (first-form-parser
+                        (fn [[alias-sym form]]
+                          (parse-forms [form]
+                                       (do-parse [{aliased-sym :sym} (sym-parser {:ns-expected? false})]
+                                         (pure [alias-sym aliased-sym]))))))]
+     (no-more-forms (into {} entries)))))
+
+(def refers-parser
+  (record-parser
+   (do-parse [entries (maybe-many
+                       (first-form-parser
+                        (fn [[refer-ns form]]
+                          (parse-forms [form]
+                                       (do-parse [referred-sym-forms (set-parser (maybe-many (sym-parser {:ns-expected? false})))]
+                                         (pure [refer-ns (into #{} (map :sym referred-sym-forms))]))))))]
+     (no-more-forms (into {} entries)))))
+
+(defn ns-entries-parser [entries]
+  [(reduce (fn [acc [sym form]]
+             (let [[kw parser] (case sym
+                                 aliases [:aliases aliases-parser]
+                                 refers [:refers refers-parser])]
+               (assoc acc kw (parse-forms [form] parser))))
+           {}
+           entries)
+   nil])
+
+(defn analyse-ns-form [{:keys [form-type forms loc-range] :as form}]
   (if-not (and (= :list form-type)
                (= {:form-type :symbol, :sym 'ns, :ns nil}
                   (-> (first forms) (select-keys [:form-type :sym :ns]))))
     (throw (ex-info "Expecting NS form" {:form form}))
 
     (parse-forms (rest forms)
-                 (do-parse [{ns-sym :sym} (sym-parser {:ns-expected? true})
-                            {:keys [refers aliases]} (maybe (record-parser (fn [entries]
-                                                                             (reduce (fn [acc [{:keys [sym]}]]
-                                                                                       )))))]))))
+                 (do-parse [{ns-sym :sym} (sym-parser {:ns-expected? false})
+                            {:keys [refers aliases]} (when-more-forms (record-parser ns-entries-parser))]
+                   (no-more-forms {:ns ns-sym
+                                   :refers refers
+                                   :aliases aliases})))))
+
+
 
 (defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [global-env locals current-ns] :as env}]
   (merge {:loc-range loc-range}
@@ -134,14 +182,10 @@
            :vector {:expr-type :vector, :exprs (map #(analyse % env) forms)}
            :set {:expr-type :set, :exprs (map #(analyse % env) forms)}
 
-           :record (cond
-                     (pos? (mod (count forms) 2)) (throw (ex-info "Record requires even number of forms" {:loc-range loc-range}))
-                     :else {:expr-type :record
-                            :entries (for [[{:keys [form-type loc-range] :as k-form} v-form] (partition 2 forms)]
-                                       (cond
-                                         (not= :symbol form-type) (throw (ex-info "Expected symbol as key in record" {:loc-range loc-range}))
-                                         (some? (:ns k-form)) (throw (ex-info "Unexpected namespaced symbol as key in record" {:loc-range loc-range}))
-                                         :else [(:sym k-form) (analyse v-form env)]))})
+           :record (record-parser (do-parse [entries (maybe-many (first-form-parser (fn [[sym form]]
+                                                                                      [sym (analyse form env)])))]
+                                    (no-more-forms {:expr-type :record
+                                                    :entries entries})) )
 
            :list
            (if (seq forms)
