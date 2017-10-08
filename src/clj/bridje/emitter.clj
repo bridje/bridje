@@ -122,16 +122,22 @@
                                              {sym (eval `(->ADT '~fq-sym {}))})))
                 :value fq-sym})))
 
-(defn emit-ns [{:keys [codes ns]}]
+(defn emit-ns [{:keys [codes ns ns-header]}]
   (format "
 const _im = require('immutable');
 
 (function (_env) {
+env.require(_im.List.of(%s), function(_env) {
 let _ns = new _im.Map();
 
 %s
 
 return _env.setIn([%s, 'vars'], _ns);
-};)"
+});
+});"
+          (->> (into #{} (concat (vals (:aliases ns-header))
+                                 (keys (:refers ns-header))))
+               (map (comp pr-str name))
+               (s/join ", "))
           (s/join "\n" codes)
           (pr-str (name ns))))

@@ -118,9 +118,9 @@
 
 (defn compile! [entry-ns {:keys [io env]}]
   (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
-    (reduce (fn [env {:keys [ns] :as ns-content}]
+    (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
               (let [{:keys [env codes]} (compile-ns ns-content env)]
-                (spit-compiled-file io ns (emitter/emit-ns {:codes codes, :ns ns}))
+                (spit-compiled-file io ns (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
                 env))
             env
             ns-order)))
