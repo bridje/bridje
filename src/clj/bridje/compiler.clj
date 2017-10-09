@@ -155,7 +155,15 @@
                                                        (foo/flip "Hello" "World")))}
           {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})]
       (compile! 'bridje.bar {:io compiler-io})
-      @!compiled-files)))
+
+      (doseq [[ns content] @!compiled-files]
+        (spit (doto (io/file "bridje-stuff/node"
+                             (-> (name ns)
+                                 (s/split #"\.")
+                                 (->> (s/join "/"))
+                                 (str ".js")))
+                (io/make-parents))
+              content)))))
 
 (comment
   (interpret "(if true [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"

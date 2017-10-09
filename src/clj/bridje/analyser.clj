@@ -183,7 +183,7 @@
            :record (record-parser (do-parse [entries (maybe-many (first-form-parser (fn [[sym form]]
                                                                                       [sym (analyse form env)])))]
                                     (no-more-forms {:expr-type :record
-                                                    :entries entries})) )
+                                                    :entries entries})))
 
            :list
            (if (seq forms)
