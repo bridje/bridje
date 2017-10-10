@@ -67,7 +67,7 @@
                              (emit-value-expr* body-expr)))
 
               :fn (let [{:keys [locals body-expr]} expr]
-                    (format "(function (%s) {return %s};"
+                    (format "(function (%s) {return %s;})"
                             (->> locals (map str) (s/join ", "))
                             (emit-value-expr* body-expr)))
 
@@ -126,15 +126,17 @@
   (format "
 const _im = require('immutable');
 
-(function (_env) {
-env.require(_im.List.of(%s), function(_env) {
-let _ns = new _im.Map();
+return {
+  deps: _im.Set.of(%s),
+  cb: function(_env) {
+    let _ns = new _im.Map();
 
-%s
+    %s
 
-return _env.setIn([%s, 'vars'], _ns);
-});
-});"
+    return _env.setIn([%s, 'vars'], _ns);
+  }
+}
+"
           (->> (into #{} (concat (vals (:aliases ns-header))
                                  (keys (:refers ns-header))))
                (map (comp pr-str name))
