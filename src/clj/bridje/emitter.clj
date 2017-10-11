@@ -29,59 +29,66 @@
                       (map (fn [key-set]
                              [key-set (gensym 'record)]))))))
 
-(defn emit-value-expr [expr {:keys [globals records current-ns] :as env}]
-  (letfn [(emit-value-expr* [{:keys [expr-type exprs] :as expr}]
-            (case expr-type
-              :string (pr-str (:string expr))
-              :bool (pr-str (:bool expr))
-              :vector (format "_im.List.of(%s)"
-                              (->> exprs
-                                   (map emit-value-expr*)
-                                   (s/join ", ")))
+(defn emit-value-expr [expr {:keys [current-ns] :as env}]
+  (let [records (find-records expr)
+        globals (find-globals expr)]
+    (letfn [(emit-value-expr* [{:keys [expr-type exprs] :as expr}]
+              (case expr-type
+                :string (pr-str (:string expr))
+                :bool (pr-str (:bool expr))
+                :vector (format "_im.List.of(%s)"
+                                (->> exprs
+                                     (map emit-value-expr*)
+                                     (s/join ", ")))
 
-              :set (format "_im.Set.of(%s)"
-                           (->> exprs
-                                (map emit-value-expr*)
-                                (s/join ", ")))
+                :set (format "_im.Set.of(%s)"
+                             (->> exprs
+                                  (map emit-value-expr*)
+                                  (s/join ", ")))
 
-              :record (format "(new %s({%s}))"
-                              (get records (into #{} (map first) (:entries expr)))
-                              (->> (:entries expr)
-                                   (map (fn [[sym expr]]
-                                          (format "[%s, %s]"
-                                                  [(str sym) (emit-value-expr* expr)])))))
+                :record (format "(new %s({%s}))"
+                                (get records (into #{} (map first) (:entries expr)))
+                                (->> (:entries expr)
+                                     (map (fn [[sym expr]]
+                                            (format "[%s, %s]"
+                                                    [(str sym) (emit-value-expr* expr)])))))
 
-              :if (format "%s ? %s : %s"
-                          (emit-value-expr* (:pred-expr expr))
-                          (emit-value-expr* (:then-expr expr))
-                          (emit-value-expr* (:else-expr expr)))
+                :if (format "%s ? %s : %s"
+                            (emit-value-expr* (:pred-expr expr))
+                            (emit-value-expr* (:then-expr expr))
+                            (emit-value-expr* (:else-expr expr)))
 
-              :local (str (:local expr))
-              :global (get globals (:global expr))
+                :local (str (:local expr))
+                :global (get globals (:global expr))
 
-              :let (let [{:keys [bindings body-expr]} expr]
-                     (format "{%s%n %s}"
-                             (->> bindings
-                                  (map (fn [[local expr]]
-                                         #(format "let %s = %s;%n" local (emit-value-expr* expr)))))
-                             (emit-value-expr* body-expr)))
+                :let (let [{:keys [bindings body-expr]} expr]
+                       (format "{%s%n %s}"
+                               (->> bindings
+                                    (map (fn [[local expr]]
+                                           #(format "let %s = %s;%n" local (emit-value-expr* expr)))))
+                               (emit-value-expr* body-expr)))
 
-              :fn (let [{:keys [locals body-expr]} expr]
-                    (format "(function (%s) {return %s;})"
-                            (->> locals (map str) (s/join ", "))
-                            (emit-value-expr* body-expr)))
+                :fn (let [{:keys [locals body-expr]} expr]
+                      (format "(function (%s) {return %s;})"
+                              (->> locals (map str) (s/join ", "))
+                              (emit-value-expr* body-expr)))
 
-              :call (let [[call-fn & args] exprs]
-                      (format "%s(%s)"
-                              (emit-value-expr* call-fn)
-                              (->> args (map emit-value-expr*) (s/join ", "))))
+                :call (let [[call-fn & args] exprs]
+                        (format "%s(%s)"
+                                (emit-value-expr* call-fn)
+                                (->> args (map emit-value-expr*) (s/join ", "))))
 
-              :match (throw (ex-info "niy" {:expr expr}))
+                :match (throw (ex-info "niy" {:expr expr}))
 
-              :loop (throw (ex-info "niy" {:expr expr}))
-              :recur (throw (ex-info "niy" {:expr expr}))))]
+                :loop (throw (ex-info "niy" {:expr expr}))
+                :recur (throw (ex-info "niy" {:expr expr}))))]
 
-    (emit-value-expr* expr)))
+      (format "(function () {%s})()"
+              (s/join "\n\n"
+                      [(s/join "\n"
+                               (for [[global global-sym] globals]
+                                 (format "const %s = _env.getIn(['%s', 'vars', '%s']);" (name global-sym) (namespace global) (name global))))
+                       (str "return " (emit-value-expr* expr))])))))
 
 (defn emit-expr [{:keys [expr-type] :as expr} {:keys [global-env current-ns] :as env}]
   (case expr-type
@@ -103,26 +110,26 @@
 
     :defdata (throw (ex-info "niy" {}))
     #_(let [{:keys [sym params]} expr
-                   fq-sym (symbol (name current-ns) (name sym))]
-               {:global-env (-> global-env
-                                (assoc-in [current-ns :types sym] {:params params})
-                                (update-in [current-ns :vars] merge
-                                           (if (seq params)
-                                             (merge {(symbol (str "->" sym)) (eval `(fn [~@params]
-                                                                                      (->ADT '~fq-sym
-                                                                                             ~(into {}
-                                                                                                    (map (fn [param]
-                                                                                                           [(keyword param) param]))
-                                                                                                    params))))}
-                                                    (->> params
-                                                         (into {} (map (fn [param]
-                                                                         [(symbol (str sym "->" param)) (eval `(fn [obj#]
-                                                                                                                 (get-in obj# [:params ~(keyword param)])))])))))
+            fq-sym (symbol (name current-ns) (name sym))]
+        {:global-env (-> global-env
+                         (assoc-in [current-ns :types sym] {:params params})
+                         (update-in [current-ns :vars] merge
+                                    (if (seq params)
+                                      (merge {(symbol (str "->" sym)) (eval `(fn [~@params]
+                                                                               (->ADT '~fq-sym
+                                                                                      ~(into {}
+                                                                                             (map (fn [param]
+                                                                                                    [(keyword param) param]))
+                                                                                             params))))}
+                                             (->> params
+                                                  (into {} (map (fn [param]
+                                                                  [(symbol (str sym "->" param)) (eval `(fn [obj#]
+                                                                                                          (get-in obj# [:params ~(keyword param)])))])))))
 
-                                             {sym (eval `(->ADT '~fq-sym {}))})))
-                :value fq-sym})))
+                                      {sym (eval `(->ADT '~fq-sym {}))})))
+         :value fq-sym})))
 
-(defn emit-ns [{:keys [codes ns ns-header]}]
+(defn emit-ns [{:keys [codes ns ns-header] :as arg}]
   (format "
 const _im = require('immutable');
 
