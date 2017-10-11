@@ -67,10 +67,11 @@
                 :global (get globals (:global expr))
 
                 :let (let [{:keys [bindings body-expr]} expr]
-                       (format "{%s%n %s}"
+                       (format "(function () {%s%n return %s;})()"
                                (->> bindings
                                     (map (fn [[local expr]]
-                                           #(format "let %s = %s;%n" local (emit-value-expr* expr)))))
+                                           (format "let %s = %s;%n" local (emit-value-expr* expr))))
+                                    s/join)
                                (emit-value-expr* body-expr)))
 
                 :fn (let [{:keys [locals body-expr]} expr]
