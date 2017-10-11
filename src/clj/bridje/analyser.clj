@@ -1,4 +1,5 @@
-(ns bridje.analyser)
+(ns bridje.analyser
+  (:require [clojure.string :as s]))
 
 (defn parse-forms [forms parser]
   (first (parser forms)))
@@ -269,6 +270,32 @@
 
                          nil))
 
+                     (when (= 'js (:ns first-form))
+                       (let [sym-str (name (:sym first-form))]
+                         (when (s/starts-with? sym-str ".")
+                           (case (last sym-str)
+                             \? (parse-forms more-forms
+                                             (do-parse [target-expr (expr-parser)]
+                                               (no-more-forms {:expr-type :js-get
+                                                               :field (symbol (subs sym-str 1 (dec (count sym-str))))
+                                                               :target-expr target-expr})))
+
+                             \= (parse-forms more-forms
+                                             (do-parse [target-expr (expr-parser)
+                                                        value-expr (expr-parser)]
+                                               (no-more-forms {:expr-type :js-set
+                                                               :field (symbol (subs sym-str 1 (dec (count sym-str))))
+                                                               :target-expr target-expr
+                                                               :value-expr value-expr})))
+
+                             (parse-forms more-forms
+                                          (do-parse [target-expr (expr-parser)
+                                                     exprs (maybe-many (expr-parser))]
+                                            (no-more-forms {:expr-type :js-call
+                                                            :method (symbol (subs sym-str 1))
+                                                            :target-expr target-expr
+                                                            :exprs exprs})))))))
+
                      {:expr-type :call
                       :exprs (map #(analyse % env) forms)})))
 
@@ -278,6 +305,10 @@
                          (when-let [local (get locals (:sym form))]
                            {:expr-type :local
                             :local local}))
+
+                       (when (= 'js (:ns form))
+                         {:expr-type :js-global
+                          :js-global (:sym form)})
 
                        (when-let [global (env-resolve form env)]
                          {:expr-type :global

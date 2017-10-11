@@ -3,8 +3,10 @@
 
 (defn sub-exprs [expr]
   (conj (case (:expr-type expr)
-          (:string :bool :int :float :big-int :big-float :local :global) []
-          (:vector :set :call) (mapcat sub-exprs (:exprs expr))
+          (:string :bool :int :float :big-int :big-float :local :global :js-global) []
+          (:vector :set :call :js-call) (mapcat sub-exprs (:exprs expr))
+          :js-get (sub-exprs (:target-expr expr))
+          :js-set (mapcat (comp sub-exprs expr) #{:target-expr :value-expr})
           :record (mapcat sub-exprs (map second (:entries expr)))
           :if (mapcat (comp sub-exprs expr) #{:pred-expr :then-expr :else-expr})
           :let (concat (mapcat sub-exprs (map second (:bindings expr)))
@@ -66,6 +68,20 @@
                 :local (str (:local expr))
                 :global (get globals (:global expr))
 
+                :js-global (name (:js-global expr))
+                :js-call (format "%s.%s(%s)"
+                                 (emit-value-expr* (:target-expr expr))
+                                 (name (:method expr))
+                                 (->> exprs
+                                      (map emit-value-expr*)
+                                      (s/join ", ")))
+
+                :js-get (format "%s.%s" (emit-value-expr* (:target-expr expr)) (name (:field expr)))
+                :js-set (format "(function () {const _val = %s; %s.%s = _val; return _val;})()"
+                                (emit-value-expr* (:value-expr expr))
+                                (emit-value-expr* (:target-expr expr))
+                                (name (:field expr)))
+
                 :let (let [{:keys [bindings body-expr]} expr]
                        (format "(function () {%s%n return %s;})()"
                                (->> bindings
@@ -90,7 +106,7 @@
                 :recur (throw (ex-info "niy" {:expr expr}))))]
 
       (format "(function () {%s})()"
-              (s/join "\n\n"
+              (s/join "\n"
                       [(s/join "\n"
                                (for [[global global-sym] globals]
                                  (format "const %s = _env.getIn(['%s', 'vars', '%s']);" (name global-sym) (namespace global) (name global))))
@@ -104,7 +120,7 @@
 
 (defn emit-expr [{:keys [expr-type] :as expr} {:keys [global-env current-ns] :as env}]
   (case expr-type
-    (:string :bool :vector :set :record :if :local :global :let :fn :call :match :loop :recur)
+    (:string :bool :vector :set :record :if :local :global :js-call :js-get :js-set :js-global :let :fn :call :match :loop :recur)
     {:global-env global-env,
      :code (emit-value-expr expr env)}
 
@@ -163,3 +179,8 @@ return {
                (s/join ", "))
           (s/join "\n" codes)
           (pr-str (name ns))))
+
+(comment
+  (-> (first (bridje.reader/read-forms "(js/.isEmpty [])"))
+      (bridje.analyser/analyse {})
+      (emit-expr {})))

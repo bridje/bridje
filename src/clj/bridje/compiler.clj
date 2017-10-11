@@ -181,7 +181,10 @@
                                                        {aliases {foo bridje.foo}})
 
                                                     '(def (main args)
-                                                       {message (foo/flip "World" "Hello")}))}
+                                                       (let [seq ["ohno"]]
+                                                         {message (foo/flip "World" "Hello")
+                                                          seq seq
+                                                          is-empty (js/.isEmpty seq)})))}
 
           {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})]
 
