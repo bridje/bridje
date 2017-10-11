@@ -180,10 +180,11 @@
            :vector {:expr-type :vector, :exprs (map #(analyse % env) forms)}
            :set {:expr-type :set, :exprs (map #(analyse % env) forms)}
 
-           :record (record-parser (do-parse [entries (maybe-many (first-form-parser (fn [[sym form]]
-                                                                                      [sym (analyse form env)])))]
-                                    (no-more-forms {:expr-type :record
-                                                    :entries entries})))
+           :record (parse-forms [form]
+                                (record-parser (do-parse [entries (maybe-many (first-form-parser (fn [[sym form]]
+                                                                                                   [sym (analyse form env)])))]
+                                                 (no-more-forms {:expr-type :record
+                                                                 :entries entries}))))
 
            :list
            (if (seq forms)
