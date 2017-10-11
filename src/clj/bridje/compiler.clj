@@ -146,14 +146,18 @@
                           (swap! !compiled-files assoc ns-sym content)))}))
 
     (let [fake-source-files {'bridje.foo (fake-file '(ns bridje.foo)
+
                                                     '(def (flip x y)
                                                        [y x]))
+
                              'bridje.bar (fake-file '(ns bridje.bar
                                                        {aliases {foo bridje.foo}})
 
-                                                    '(def flipped
-                                                       (foo/flip "Hello" "World")))}
+                                                    '(def (main args)
+                                                       (foo/flip "World" "Hello")))}
+
           {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})]
+
       (compile! 'bridje.bar {:io compiler-io})
 
       (doseq [[ns content] @!compiled-files]

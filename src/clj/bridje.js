@@ -41,7 +41,8 @@ function loadNSAsync(mainNS) {
     }
   }
 
-  return loadNSAsync_(Set.of(mainNS), List(), Set()).then(cbs => cbs.reduce((env, cb) => cb(env), Map()));
+  return loadNSAsync_(Set.of(mainNS), List(), Set())
+    .then(cbs => cbs.reduce((env, cb) => cb(env), Map()));
 }
 
 
@@ -49,13 +50,13 @@ const cmd = new cli.Command();
 
 cmd.command('run <main-ns> [args...]')
   .action(function(mainNS, args, options) {
-    // TODO
-    // let toRead = List.of(mainNS);
-    // let promise = Promise.resolve(List.of());
-    // while (!toRead.isEmpty()) {
+    loadNSAsync(mainNS).then(env => {
+      const mainFn = env.getIn([mainNS, 'vars', 'main']);
 
-    // }
-    loadNSAsync(mainNS).then(out => console.log('out', out));
+      if (mainFn) {
+        console.log(mainFn(List(args)));
+      }
+    });
   });
 
 cmd.parse(process.argv);
