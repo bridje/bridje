@@ -3,7 +3,7 @@
 
 (defn sub-exprs [expr]
   (conj (case (:expr-type expr)
-          (:string :bool :local :global) []
+          (:string :bool :int :float :big-int :big-float :local :global) []
           (:vector :set :call) (mapcat sub-exprs (:exprs expr))
           :record (mapcat sub-exprs (map second (:entries expr)))
           :if (mapcat (comp sub-exprs expr) #{:pred-expr :then-expr :else-expr})
@@ -36,6 +36,9 @@
               (case expr-type
                 :string (pr-str (:string expr))
                 :bool (pr-str (:bool expr))
+                (:int :float) (pr-str (:number expr))
+                (:big-int :big-float) (format "new _BigNumber('%s')" (str (:number expr)))
+
                 :vector (format "_im.List.of(%s)"
                                 (->> exprs
                                      (map emit-value-expr*)
@@ -139,6 +142,7 @@
 
 (defn emit-ns [{:keys [codes ns ns-header] :as arg}]
   (format "
+const _BigNumber = require('bignumber.js');
 const _im = require('immutable');
 
 return {

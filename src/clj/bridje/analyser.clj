@@ -177,6 +177,7 @@
          (case form-type
            :string {:expr-type :string, :string (:string form)}
            :bool {:expr-type :bool, :bool (:bool form)}
+           (:int :float :big-int :big-float) {:expr-type form-type, :number (:number form)}
            :vector {:expr-type :vector, :exprs (map #(analyse % env) forms)}
            :set {:expr-type :set, :exprs (map #(analyse % env) forms)}
 

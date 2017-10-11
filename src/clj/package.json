@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/jarohen/bridje#readme",
   "dependencies": {
+    "bignumber.js": "^4.1.0",
     "commander": "^2.9.0",
     "immutable": "^3.8.1",
     "mkdirp": "^0.5.1"

@@ -77,6 +77,48 @@
       :loc-range (->LocRange start-loc (:loc (last sym-chs)))}
      more-chs]))
 
+(def num-regex
+  #"([-+])?(0x|0)?([\da-fA-F]+)(\.[\da-fA-F]+)?([MN])?")
+
+(defn try-read-number-token [chs]
+  (let [[num-chs more-chs] (split-with (comp (complement delimiter?) :ch) chs)
+        loc-range (->LocRange (:loc (first num-chs)) (:loc (last num-chs)) )
+        num-str (s/join (map :ch num-chs))
+        e-invalid-number (ex-info "Invalid number"
+                                  {:number num-str
+                                   :loc-range loc-range})]
+
+    (when-let [[_ sign base int-part fraction-part suffix] (re-matches num-regex num-str)]
+      (try
+        (when (or base (Character/isDigit (first int-part)))
+          (let [num-str (str sign int-part fraction-part)
+                radix (case base
+                        "0x" 16
+                        "0" 8
+                        10)
+
+                [number-type number] (cond
+                                       suffix (case suffix
+                                                "M" [:big-float (if (= radix 10)
+                                                                  (BigDecimal. num-str)
+                                                                  (throw e-invalid-number))]
+
+                                                "N" [:big-int (clojure.lang.BigInt/fromBigInteger (BigInteger. num-str radix))])
+
+                                       (nil? fraction-part) [:int (Long/parseLong num-str radix)]
+
+                                       :else [:float (if (= radix 10)
+                                                       (Double/parseDouble num-str)
+                                                       (throw e-invalid-number))])]
+            [{:token-type number-type
+              :token number
+              :loc-range loc-range}
+
+             more-chs]))
+
+        (catch Exception e
+          (throw e-invalid-number))))))
+
 (defn tokenise [chs]
   (lazy-seq
     (when-let [[{:keys [ch loc]} & more-chs :as chs] (slurp-whitespace chs)]
@@ -101,7 +143,8 @@
         \" (let [[res more-chs] (read-string-token chs)]
              (cons res (tokenise more-chs)))
 
-        (let [[res more-chs] (read-symbol-token chs)]
+        (let [[res more-chs] (or (try-read-number-token chs)
+                                 (read-symbol-token chs))]
           (cons res (tokenise more-chs)))))))
 
 (defn split-sym [{:keys [token loc-range]}]
@@ -163,6 +206,7 @@
                  (throw (ex-info "Unexpected EOF"))))
 
       :string [{:form-type :string, :string token, :loc-range loc-range} more-tokens]
+      (:int :float :big-int :big-float) [{:form-type token-type, :number token, :loc-range loc-range} more-tokens]
 
       :symbol (case token
                 ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token), :loc-range loc-range} more-tokens]

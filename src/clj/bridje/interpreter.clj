@@ -2,7 +2,7 @@
 
 (defn expr-leaves [expr]
   (case (:expr-type expr)
-    (:string :bool :local :global) [expr]
+    (:string :bool :int :float :big-int :big-float :local :global) [expr]
     (:vector :set :call) (mapcat expr-leaves (:exprs expr))
     :record (mapcat expr-leaves (map second (:entries expr)))
     :if (mapcat (comp expr-leaves expr) #{:pred-expr :then-expr :else-expr})
@@ -24,6 +24,8 @@
               (case expr-type
                 :string (:string expr)
                 :bool (:bool expr)
+                (:int :float :big-int :big-float) (:number expr)
+
                 :vector (->> exprs
                              (into [] (map interpret-value-expr*)))
 
