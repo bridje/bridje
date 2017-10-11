@@ -50,8 +50,10 @@
                                 (get records (into #{} (map first) (:entries expr)))
                                 (->> (:entries expr)
                                      (map (fn [[sym expr]]
-                                            (format "[%s, %s]"
-                                                    [(str sym) (emit-value-expr* expr)])))))
+                                            (format "'%s': %s"
+                                                    (str sym)
+                                                    (emit-value-expr* expr))))
+                                     (s/join ", ")))
 
                 :if (format "%s ? %s : %s"
                             (emit-value-expr* (:pred-expr expr))
@@ -88,6 +90,12 @@
                       [(s/join "\n"
                                (for [[global global-sym] globals]
                                  (format "const %s = _env.getIn(['%s', 'vars', '%s']);" (name global-sym) (namespace global) (name global))))
+                       (s/join "\n"
+                               (for [[key-set record-sym] records]
+                                 (format "const %s = new _im.Record({%s});"
+                                         (name record-sym)
+                                         (->> (map #(format "'%s': null" (name %)) key-set)
+                                              (s/join ", ")))))
                        (str "return " (emit-value-expr* expr))])))))
 
 (defn emit-expr [{:keys [expr-type] :as expr} {:keys [global-env current-ns] :as env}]

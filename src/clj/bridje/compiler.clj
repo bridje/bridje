@@ -181,7 +181,7 @@
                                                        {aliases {foo bridje.foo}})
 
                                                     '(def (main args)
-                                                       (foo/flip "World" "Hello")))}
+                                                       {message (foo/flip "World" "Hello")}))}
 
           {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})]
 
