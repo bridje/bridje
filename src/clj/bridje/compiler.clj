@@ -125,6 +125,33 @@
             env
             ns-order)))
 
+(defn ->io [{:keys [source-paths]}]
+  (let [compile-path (io/file "bridje-stuff" "node")
+        ->file-path (fn [ns-sym file-type]
+                      (str (-> (name ns-sym)
+                               (s/split #"\.")
+                               (->> (s/join "/")))
+                           "."
+                           (name file-type)))
+
+        ->compiled-file (fn [ns-sym]
+                          (io/file compile-path (->file-path ns-sym :js)))]
+
+    (reify CompilerIO
+      (slurp-source-file [_ ns-sym]
+        (when-let [source-file (some #(when (.exists %) %) (map #(io/file % (->file-path ns-sym :brj)) source-paths))]
+          (slurp source-file)))
+
+      (slurp-compiled-file [_ ns-sym]
+        (let [compiled-file (->compiled-file ns-sym)]
+          (when (.exists compiled-file)
+            (slurp compiled-file))))
+
+      (spit-compiled-file [_ ns-sym content]
+        (spit (doto (->compiled-file ns-sym)
+                (io/make-parents))
+              content)))))
+
 (comment
   (do
     (defn fake-file [& forms]
