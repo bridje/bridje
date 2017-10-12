@@ -1,5 +1,6 @@
 (ns bridje.emitter
-  (:require [clojure.string :as s]))
+  (:require [bridje.util :as u]
+            [clojure.string :as s]))
 
 (defn safe-name [sym]
   (-> (name sym)
@@ -11,21 +12,8 @@
       (s/replace #"=" "_EQ_")
       (s/replace #"\?" "_Q_")))
 
-(defn sub-exprs [expr]
-  (conj (case (:expr-type expr)
-          (:string :bool :int :float :big-int :big-float :local :global :js-global) []
-          (:vector :set :call :js-call) (mapcat sub-exprs (:exprs expr))
-          :js-get (sub-exprs (:target-expr expr))
-          :js-set (mapcat (comp sub-exprs expr) #{:target-expr :value-expr})
-          :record (mapcat sub-exprs (map second (:entries expr)))
-          :if (mapcat (comp sub-exprs expr) #{:pred-expr :then-expr :else-expr})
-          :let (concat (mapcat sub-exprs (map second (:bindings expr)))
-                       (sub-exprs (:body-expr expr)))
-          :fn (sub-exprs (:body-expr expr)))
-        expr))
-
 (defn find-globals [expr]
-  (->> (sub-exprs expr)
+  (->> (u/sub-exprs expr)
        (into {} (comp (filter #(= :global (:expr-type %)))
                       (map :global)
                       (distinct)
@@ -33,7 +21,7 @@
                              [global (gensym (safe-name global))]))))))
 
 (defn find-records [expr]
-  (->> (sub-exprs expr)
+  (->> (u/sub-exprs expr)
        (into {} (comp (filter #(= :record (:expr-type %)))
                       (map :entries)
                       (map #(into #{} (map first) %))
