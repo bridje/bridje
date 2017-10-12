@@ -190,6 +190,10 @@
                                                           seq seq
                                                           is-empty (js/.isEmpty seq)
                                                           just just
+                                                          justtype (match just
+                                                                     foo/Just "it's a just"
+                                                                     foo/Nothing "it's nothing"
+                                                                     "it's something else")
                                                           justval (foo/Just->a just)})))}
 
           {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})]

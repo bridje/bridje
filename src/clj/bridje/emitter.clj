@@ -98,7 +98,15 @@
                                 (emit-value-expr* call-fn)
                                 (->> args (map emit-value-expr*) (s/join ", "))))
 
-                :match (throw (ex-info "niy" {:expr expr}))
+                :match (let [{:keys [match-expr clauses default-expr]} expr]
+                         (format "(function () {switch (%s._brjType) {%s \n default: return %s;}})()"
+                                 (emit-value-expr* match-expr)
+                                 (->> (for [[fq-sym expr] clauses]
+                                        (format "case '%s/%s': return %s;"
+                                                (namespace fq-sym) (name fq-sym)
+                                                (emit-value-expr* expr)))
+                                      (s/join "\n"))
+                                 (emit-value-expr* default-expr)))
 
                 :loop (throw (ex-info "niy" {:expr expr}))
                 :recur (throw (ex-info "niy" {:expr expr}))))]
@@ -150,14 +158,17 @@
                                     {sym {}})))
        :code (->> [;; make record
                    (format "const %s = _im.Record({%s});"
-                           (name record-sym)
+                           (safe-name record-sym)
                            (->> params
                                 (map #(format "'%s': null" (name %)))
                                 (s/join ", ")))
 
+                   (format "%s.prototype._brjType = '%s/%s';"
+                           (safe-name record-sym) (name current-ns) (name sym))
+
                    (format "_ns = _ns.setIn(['types', '%s'], _im.Map({type: %s, params: [%s]}));"
                            (name sym)
-                           (name record-sym)
+                           (safe-name record-sym)
                            (->> params (map (comp pr-str name)) (s/join ", ")))
 
                    ;; make constructor functions + add to env

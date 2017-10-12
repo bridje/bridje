@@ -256,21 +256,28 @@
                                                  (no-more-forms {:expr-type :defdata
                                                                  :sym sym
                                                                  :params params})))
-                         :match (parse-forms more-forms
-                                             (do-parse [match-expr (expr-parser)
-                                                        clauses (maybe-many (do-parse [sym (sym-parser {})
-                                                                                       expr (expr-parser)]
-                                                                              (if-let [fq-sym (env-resolve sym :types env)]
-                                                                                (pure [fq-sym expr])
-                                                                                (throw (ex-info "Can't resolve type:"
-                                                                                                {:type (select-keys sym [:ns :sym])
-                                                                                                 :loc-range (:loc-range sym)})))))
-                                                        default-expr (expr-parser)]
 
-                                               (no-more-forms {:expr-type :match
-                                                               :match-expr match-expr
-                                                               :clauses clauses
-                                                               :default-expr default-expr})))
+                         :match (parse-forms more-forms
+                                             (do-parse [match-expr (expr-parser)]
+                                               (fn [forms]
+                                                 (cond
+                                                   (zero? (mod (count forms) 2)) (throw (ex-info "Missing default in 'match'" {:loc-range (:loc-range form)}))
+                                                   :else (let [clauses (parse-forms (butlast forms)
+                                                                                    (do-parse [clauses (maybe-many (do-parse [sym (sym-parser {})
+                                                                                                                              expr (expr-parser)]
+                                                                                                                     (if-let [fq-sym (env-resolve sym :types env)]
+                                                                                                                       (pure [fq-sym expr])
+                                                                                                                       (throw (ex-info "Can't resolve type:"
+                                                                                                                                       {:type (select-keys sym [:ns :sym])
+                                                                                                                                        :loc-range (:loc-range sym)})))))]
+                                                                                      (no-more-forms clauses)))
+                                                               default-expr (analyse (last forms) env)]
+
+                                                           [{:expr-type :match
+                                                             :match-expr match-expr
+                                                             :clauses clauses
+                                                             :default-expr default-expr}
+                                                            []])))))
 
                          :loop (throw (ex-info "niy" {}))
                          :recur (throw (ex-info "niy" {}))
@@ -328,7 +335,10 @@
   (analyse (first (bridje.reader/read-forms (pr-str '(let [seq ["ohno"]
                                                            just (->Just "just")]
                                                        {seq seq
-                                                        justtype (match)
+                                                        justtype (match just
+                                                                   Just "just"
+                                                                   Nothing "nothing"
+                                                                   "something else")
                                                         justval (Just->a just)}))))
            {:global-env {'the-ns {:vars {'foo {}
                                          '->Just {}
