@@ -33,18 +33,11 @@
   (fn [forms]
     (loop [results []
            forms forms]
-      (if (seq forms)
-        (let [{[result more-forms] :result, :keys [error]} (try
-                                                             {:result (parser forms)}
-                                                             (catch Exception e
-                                                               {:error e}))]
-          (cond
-            result (recur (conj results result) more-forms)
-            error (if (seq results)
-                    [results forms]
-                    (throw error))))
-
-        [results forms]))))
+      (let [[result more-forms] (when (seq forms)
+                                  (parser forms))]
+        (if (not= more-forms forms)
+          (recur (conj results result) more-forms)
+          [results forms])))))
 
 (defn at-least-one [parser]
   (do-parse [results (maybe-many parser)]
