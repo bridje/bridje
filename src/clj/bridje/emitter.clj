@@ -1,6 +1,16 @@
 (ns bridje.emitter
   (:require [clojure.string :as s]))
 
+(defn safe-name [sym]
+  (-> (name sym)
+      (s/replace #"_" "_US_")
+      (s/replace #"-" "_DASH_")
+      (s/replace #">" "_GT_")
+      (s/replace #"<" "_LT_")
+      (s/replace #"!" "_BANG_")
+      (s/replace #"=" "_EQ_")
+      (s/replace #"\?" "_Q_")))
+
 (defn sub-exprs [expr]
   (conj (case (:expr-type expr)
           (:string :bool :int :float :big-int :big-float :local :global :js-global) []
@@ -20,7 +30,7 @@
                       (map :global)
                       (distinct)
                       (map (fn [global]
-                             [global (gensym (name global))]))))))
+                             [global (gensym (safe-name global))]))))))
 
 (defn find-records [expr]
   (->> (sub-exprs expr)
@@ -109,10 +119,10 @@
               (s/join "\n"
                       [(s/join "\n"
                                (for [[global global-sym] globals]
-                                 (format "const %s = _env.getIn(['%s', 'vars', '%s']);" (name global-sym) (namespace global) (name global))))
+                                 (format "const %s = _env.getIn(['%s', 'vars', '%s', 'value']);" (name global-sym) (namespace global) (name global))))
                        (s/join "\n"
                                (for [[key-set record-sym] records]
-                                 (format "const %s = new _im.Record({%s});"
+                                 (format "const %s = _im.Record({%s});"
                                          (name record-sym)
                                          (->> (map #(format "'%s': null" (name %)) key-set)
                                               (s/join ", ")))))
@@ -127,8 +137,8 @@
     :def (let [{:keys [sym locals body-expr]} expr]
            {:global-env (assoc-in global-env [current-ns :vars sym] {})
 
-            :code (format "_ns = _ns.set(%s, %s);"
-                          (pr-str (name sym))
+            :code (format "_ns = _ns.setIn(['vars', '%s'], _im.Map({value: %s}));"
+                          (name sym)
                           (emit-value-expr (if (seq locals)
                                              {:expr-type :fn
                                               :locals locals
@@ -136,26 +146,56 @@
                                              body-expr)
                                            env))})
 
-    :defdata (throw (ex-info "niy" {}))
-    #_(let [{:keys [sym params]} expr
-            fq-sym (symbol (name current-ns) (name sym))]
-        {:global-env (-> global-env
-                         (assoc-in [current-ns :types sym] {:params params})
-                         (update-in [current-ns :vars] merge
-                                    (if (seq params)
-                                      (merge {(symbol (str "->" sym)) (eval `(fn [~@params]
-                                                                               (->ADT '~fq-sym
-                                                                                      ~(into {}
-                                                                                             (map (fn [param]
-                                                                                                    [(keyword param) param]))
-                                                                                             params))))}
-                                             (->> params
-                                                  (into {} (map (fn [param]
-                                                                  [(symbol (str sym "->" param)) (eval `(fn [obj#]
-                                                                                                          (get-in obj# [:params ~(keyword param)])))])))))
+    :defdata
+    (let [{:keys [sym params]} expr
+          record-sym (gensym sym)]
+      {:global-env (-> global-env
+                       (assoc-in [current-ns :types sym] {:params params})
+                       (update-in [current-ns :vars] merge
 
-                                      {sym (eval `(->ADT '~fq-sym {}))})))
-         :value fq-sym})))
+                                  (if (seq params)
+                                    (merge {(symbol (str "->" sym)) {}}
+                                           (->> params
+                                                (into {} (map (fn [param]
+                                                                [(symbol (str sym "->" param)) {}])))))
+
+                                    {sym {}})))
+       :code (->> [;; make record
+                   (format "const %s = _im.Record({%s});"
+                           (name record-sym)
+                           (->> params
+                                (map #(format "'%s': null" (name %)))
+                                (s/join ", ")))
+
+                   (format "_ns = _ns.setIn(['types', '%s'], _im.Map({type: %s, params: [%s]}));"
+                           (name sym)
+                           (name record-sym)
+                           (->> params (map (comp pr-str name)) (s/join ", ")))
+
+                   ;; make constructor functions + add to env
+                   (if (seq params)
+                     (format "_ns = _ns.setIn(['vars', '->%s'], _im.Map({value: %s}));"
+                             (name sym)
+                             (format "function (%s) {return new %s({%s});}"
+                                     (->> params (map name) (s/join ", "))
+                                     (name record-sym)
+                                     (->> params
+                                          (map (comp #(format "'%s': %s" % %) name))
+                                          (s/join ", "))))
+                     (format "_ns = _ns.setIn(['vars', '%s'], _im.Map({value: new %s({})}));"
+                             (name sym)
+                             (name record-sym)))
+
+                   ;; make accessor functions and add to env
+                   (when (seq params)
+                     (format "_ns = _ns.update('vars', _vars => _vars.merge(_im.Map({%s})));"
+                             (->> params
+                                  (map (fn [param]
+                                         (format "'%s->%s': _im.Map({value: _obj => _obj.get('%s')})"
+                                                 (name sym) (name param)
+                                                 (name param))))
+                                  (s/join ", "))))]
+                  (s/join "\n"))})))
 
 (defn emit-ns [{:keys [codes ns ns-header] :as arg}]
   (format "
@@ -169,7 +209,7 @@ return {
 
     %s
 
-    return _env.setIn([%s, 'vars'], _ns);
+    return _env.set(%s, _ns);
   }
 }
 "
@@ -181,6 +221,7 @@ return {
           (pr-str (name ns))))
 
 (comment
-  (-> (first (bridje.reader/read-forms "(js/.isEmpty [])"))
+  (-> (first (bridje.reader/read-forms "(defdata Nothing)"))
       (bridje.analyser/analyse {})
-      (emit-expr {})))
+      (emit-expr {})
+      :code))

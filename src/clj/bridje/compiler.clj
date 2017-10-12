@@ -175,16 +175,22 @@
     (let [fake-source-files {'bridje.foo (fake-file '(ns bridje.foo)
 
                                                     '(def (flip x y)
-                                                       [y x]))
+                                                       [y x])
+
+                                                    '(defdata Nothing)
+                                                    '(defdata (Just a)))
 
                              'bridje.bar (fake-file '(ns bridje.bar
                                                        {aliases {foo bridje.foo}})
 
                                                     '(def (main args)
-                                                       (let [seq ["ohno"]]
+                                                       (let [seq ["ohno"]
+                                                             just (foo/->Just "just")]
                                                          {message (foo/flip "World" "Hello")
                                                           seq seq
-                                                          is-empty (js/.isEmpty seq)})))}
+                                                          is-empty (js/.isEmpty seq)
+                                                          just just
+                                                          justval (foo/Just->a just)})))}
 
           {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-source-files})]
 

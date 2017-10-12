@@ -51,7 +51,7 @@ const cmd = new cli.Command();
 cmd.command('run <main-ns> [args...]')
   .action(function(mainNS, args, options) {
     loadNSAsync(mainNS).then(env => {
-      const mainFn = env.getIn([mainNS, 'vars', 'main']);
+      const mainFn = env.getIn([mainNS, 'vars', 'main', 'value']);
 
       if (mainFn) {
         console.log(mainFn(List(args)));
