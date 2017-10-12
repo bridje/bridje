@@ -46,7 +46,14 @@
 
                 :call `(~@(map interpret-value-expr* exprs))
 
-                :match (throw (ex-info "niy" {:expr expr}))
+                :match (let [{:keys [match-expr clauses default-expr]} expr]
+                         `(let [match# ~(interpret-value-expr* match-expr)]
+                            (case (:adt-type match#)
+                              ~@(->> (for [[fq-sym expr] clauses]
+                                       `[~fq-sym ~(interpret-value-expr* expr)])
+                                     (apply concat))
+
+                              ~(interpret-value-expr* default-expr))))
 
                 :loop (throw (ex-info "niy" {:expr expr}))
                 :recur (throw (ex-info "niy" {:expr expr}))))]

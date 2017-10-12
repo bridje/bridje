@@ -60,7 +60,7 @@
   (fn [forms]
     (if-let [[form & more-forms] (seq forms)]
       [(p form) more-forms]
-      (throw (ex-info "TODO: expected form")))))
+      (throw (ex-info "TODO: expected form" {})))))
 
 (defn form-type-parser [expected-form-type]
   (first-form-parser (fn [{:keys [form-type loc-range] :as form}]
@@ -161,13 +161,13 @@
                                    :refers refers
                                    :aliases aliases})))))
 
-(defn env-resolve [{:keys [ns sym]} {:keys [global-env current-ns]}]
+(defn env-resolve [{:keys [ns sym]} resolve-type {:keys [global-env current-ns]}]
   (if ns
     (when-let [alias-ns (get-in global-env [current-ns :aliases ns])]
-      (when (get-in global-env [alias-ns :vars sym])
+      (when (get-in global-env [alias-ns resolve-type sym])
         (symbol (name alias-ns) (name sym))))
 
-    (or (when (get-in global-env [current-ns :vars sym])
+    (or (when (get-in global-env [current-ns resolve-type sym])
           (symbol (name current-ns) (name sym)))
 
         (when-let [refer-ns (get-in global-env [current-ns :refers sym])]
@@ -263,7 +263,21 @@
                                                  (no-more-forms {:expr-type :defdata
                                                                  :sym sym
                                                                  :params params})))
-                         :match (throw (ex-info "niy" {}))
+                         :match (parse-forms more-forms
+                                             (do-parse [match-expr (expr-parser)
+                                                        clauses (maybe-many (do-parse [sym (sym-parser {})
+                                                                                       expr (expr-parser)]
+                                                                              (if-let [fq-sym (env-resolve sym :types env)]
+                                                                                (pure [fq-sym expr])
+                                                                                (throw (ex-info "Can't resolve type:"
+                                                                                                {:type (select-keys sym [:ns :sym])
+                                                                                                 :loc-range (:loc-range sym)})))))
+                                                        default-expr (expr-parser)]
+
+                                               (no-more-forms {:expr-type :match
+                                                               :match-expr match-expr
+                                                               :clauses clauses
+                                                               :default-expr default-expr})))
 
                          :loop (throw (ex-info "niy" {}))
                          :recur (throw (ex-info "niy" {}))
@@ -310,7 +324,7 @@
                          {:expr-type :js-global
                           :js-global (:sym form)})
 
-                       (when-let [global (env-resolve form env)]
+                       (when-let [global (env-resolve form :vars env)]
                          {:expr-type :global
                           :global global})
 
@@ -318,6 +332,14 @@
                                                      :env env}))))))
 
 (comment
-  (analyse (first (bridje.reader/read-forms "foo"))
-           {:global-env {'the-ns {:vars {'foo 42}}}
+  (analyse (first (bridje.reader/read-forms (pr-str '(let [seq ["ohno"]
+                                                           just (->Just "just")]
+                                                       {seq seq
+                                                        justtype (match)
+                                                        justval (Just->a just)}))))
+           {:global-env {'the-ns {:vars {'foo {}
+                                         '->Just {}
+                                         'Just->a {}}
+                                  :types {'Nothing {}
+                                          'Just {}}}}
             :current-ns 'the-ns}))
