@@ -3,6 +3,7 @@
             [bridje.analyser :as analyser]
             [bridje.interpreter :as interpreter]
             [bridje.emitter.node :as emitter.node]
+            [bridje.emitter.jvm :as emitter.jvm]
             [clojure.java.io :as io]
             [clojure.string :as s]))
 
@@ -17,10 +18,10 @@
 
 (defprotocol CompilerIO
   (slurp-source-file [_ ns-sym])
-  (slurp-compiled-file [_ ns-sym])
-  (spit-compiled-file [_ ns-sym content]))
+  (slurp-compiled-file [_ ns-sym file-type])
+  (spit-compiled-file [_ ns-sym file-type content]))
 
-(defn real-io [{:keys [source-paths compile-path compiled-file-type]}]
+(defn real-io [{:keys [source-paths compile-path]}]
   (letfn [(ns-sym->file-name [ns-sym file-type]
             (str (->> (s/split (name ns-sym) #"\.")
                       (s/join "/"))
@@ -34,13 +35,13 @@
                                first)]
             (slurp file))))
 
-      (slurp-compiled-file [_ ns-sym]
-        (let [file (io/file compile-path (ns-sym->file-name ns-sym compiled-file-type))]
+      (slurp-compiled-file [_ ns-sym file-type]
+        (let [file (io/file compile-path (ns-sym->file-name ns-sym file-type))]
           (when (.exists file)
             (slurp file))))
 
-      (spit-compiled-file [_ ns-sym content]
-        (doto (io/file compile-path (ns-sym->file-name ns-sym compiled-file-type))
+      (spit-compiled-file [_ ns-sym file-type content]
+        (doto (io/file compile-path (ns-sym->file-name ns-sym file-type))
           io/make-parents
           (spit content))))))
 
@@ -120,7 +121,7 @@
   (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
     (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
               (let [{:keys [env codes]} (compile-ns ns-content env)]
-                (spit-compiled-file io ns (emitter.node/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
+                (spit-compiled-file io ns :clj (emitter.jvm/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
                 env))
             env
             ns-order)))
@@ -134,21 +135,21 @@
                            "."
                            (name file-type)))
 
-        ->compiled-file (fn [ns-sym]
-                          (io/file compile-path (->file-path ns-sym :js)))]
+        ->compiled-file (fn [ns-sym file-type]
+                          (io/file compile-path (->file-path ns-sym file-type)))]
 
     (reify CompilerIO
       (slurp-source-file [_ ns-sym]
         (when-let [source-file (some #(when (.exists %) %) (map #(io/file % (->file-path ns-sym :brj)) source-paths))]
           (slurp source-file)))
 
-      (slurp-compiled-file [_ ns-sym]
-        (let [compiled-file (->compiled-file ns-sym)]
+      (slurp-compiled-file [_ ns-sym file-type]
+        (let [compiled-file (->compiled-file ns-sym file-type)]
           (when (.exists compiled-file)
             (slurp compiled-file))))
 
-      (spit-compiled-file [_ ns-sym content]
-        (spit (doto (->compiled-file ns-sym)
+      (spit-compiled-file [_ ns-sym file-type content]
+        (spit (doto (->compiled-file ns-sym file-type)
                 (io/make-parents))
               content)))))
 
@@ -166,11 +167,11 @@
                         (slurp-source-file [_ ns-sym]
                           (get source-files ns-sym))
 
-                        (slurp-compiled-file [_ ns-sym]
-                          (get @!compiled-files ns-sym))
+                        (slurp-compiled-file [_ ns-sym file-type]
+                          (get @!compiled-files [ns-sym file-type]))
 
-                        (spit-compiled-file [_ ns-sym content]
-                          (swap! !compiled-files assoc ns-sym content)))}))
+                        (spit-compiled-file [_ ns-sym file-type content]
+                          (swap! !compiled-files assoc [ns-sym file-type] content)))}))
 
     (let [fake-source-files {'bridje.foo (fake-file '(ns bridje.foo)
 
@@ -188,7 +189,7 @@
                                                              just (foo/->Just "just")]
                                                          {message (foo/flip "World" "Hello")
                                                           seq seq
-                                                          is-empty (js/.isEmpty seq)
+                                                          ;; is-empty (js/.isEmpty seq)
                                                           just just
                                                           justtype (match just
                                                                      foo/Just "it's a just"
@@ -200,12 +201,12 @@
 
       (compile! 'bridje.bar {:io compiler-io})
 
-      (doseq [[ns content] @!compiled-files]
-        (spit (doto (io/file "bridje-stuff/node"
+      (doseq [[[ns file-type] content] @!compiled-files]
+        (spit (doto (io/file "bridje-stuff/jvm"
                              (-> (name ns)
                                  (s/split #"\.")
                                  (->> (s/join "/"))
-                                 (str ".js")))
+                                 (str "." (name file-type))))
                 (io/make-parents))
               content)))))
 

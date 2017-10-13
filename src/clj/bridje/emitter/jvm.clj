@@ -1,0 +1,130 @@
+(ns bridje.emitter.jvm
+  (:require [bridje.runtime :as rt]
+            [bridje.util :as u]))
+
+(defn find-globals [expr]
+  (->> (u/sub-exprs expr)
+       (into {} (comp (filter #(= :global (:expr-type %)))
+                      (map :global)
+                      (distinct)
+                      (map (fn [global]
+                             [global (gensym (name global))]))))))
+
+(defn emit-value-expr [expr {:keys [current-ns] :as env}]
+  (let [globals (find-globals expr)]
+    (letfn [(emit-value-expr* [{:keys [expr-type exprs] :as expr}]
+              (case expr-type
+                :string (:string expr)
+                :bool (:bool expr)
+                (:int :float :big-int :big-float) (:number expr)
+
+                :vector (->> exprs
+                             (into [] (map emit-value-expr*)))
+
+                :set (->> exprs
+                          (into #{} (map emit-value-expr*)))
+
+                :record (->> (:entries expr)
+                             (into {} (map (fn [[sym expr]]
+                                             [(keyword sym) (emit-value-expr* expr)]))))
+
+                :if `(if ~(emit-value-expr* (:pred-expr expr))
+                       ~(emit-value-expr* (:then-expr expr))
+                       ~(emit-value-expr* (:else-expr expr)))
+
+                :local (:local expr)
+                :global (get globals (:global expr))
+
+                :let (let [{:keys [bindings body-expr]} expr]
+                       `(let [~@(mapcat (fn [[local expr]]
+                                          [local (emit-value-expr* expr)])
+                                        bindings)]
+                          ~(emit-value-expr* body-expr)))
+
+                :fn (let [{:keys [locals body-expr]} expr]
+                      `(fn [~@locals]
+                         ~(emit-value-expr* body-expr)))
+
+                :call `(~@(map emit-value-expr* exprs))
+
+                :match (let [{:keys [match-expr clauses default-expr]} expr]
+                         `(let [match# ~(emit-value-expr* match-expr)]
+                            (case (:adt-type match#)
+                              ~@(->> (for [[fq-sym expr] clauses]
+                                       `[~fq-sym ~(emit-value-expr* expr)])
+                                     (apply concat))
+
+                              ~(emit-value-expr* default-expr))))
+
+                :loop (throw (ex-info "niy" {:expr expr}))
+                :recur (throw (ex-info "niy" {:expr expr}))))]
+
+      (let [env-sym (gensym 'env)]
+        `(fn [~env-sym]
+           (let [~@(mapcat (fn [[global global-sym]]
+                             [global-sym `(get-in ~env-sym ['~(symbol (namespace global))
+                                                           :vars
+                                                           '~(symbol (name global))
+                                                           :value])])
+                           globals)]
+             ~(emit-value-expr* expr)))))))
+
+(defn emit-expr [{:keys [expr-type] :as expr} {:keys [global-env current-ns] :as env}]
+  (case expr-type
+    :def
+    (let [{:keys [sym locals body-expr]} expr]
+      {:global-env (assoc-in global-env [current-ns :vars sym] {})
+       :code `(fn [ns# env#]
+                (assoc-in ns# [:vars '~sym]
+                          {:value (~(emit-value-expr (if (seq locals)
+                                                       {:expr-type :fn
+                                                        :locals locals
+                                                        :body-expr body-expr}
+                                                       body-expr)
+                                                     env)
+                                   env#)}))})
+
+    :defmacro (throw (ex-info "niy" {:expr expr}))
+
+    :defdata
+    (let [{:keys [sym params]} expr
+          fq-sym (symbol (name current-ns) (name sym))]
+      {:global-env (-> global-env
+                       (assoc-in [current-ns :types sym] {:params params})
+                       (update-in [current-ns :vars] merge
+                                  (if (seq params)
+                                    (merge {(symbol (str "->" (name sym))) {}}
+                                           (into {}
+                                                 (map (fn [param]
+                                                        [(symbol (format "%s->%s" (name sym) (name param))) {}]))
+                                                 params))
+
+                                    {sym {}})))
+       :code `(fn [ns# env#]
+                (-> ns#
+                    (assoc-in [:types '~sym] {:params '[~@params]})
+                    (update :vars merge
+                            ~(if (seq params)
+                               (merge `{'~(symbol (str "->" sym)) {:value (fn [~@params]
+                                                                            (rt/->ADT '~fq-sym
+                                                                                      ~(into {}
+                                                                                             (map (fn [param]
+                                                                                                    [(keyword param) param]))
+                                                                                             params)))}}
+                                      (->> params
+                                           (into {} (map (fn [param]
+                                                           `['~(symbol (str sym "->" param)) {:value (fn [obj#]
+                                                                                                       (get-in obj# [:params ~(keyword param)]))}])))))
+
+                               `{'~sym {:value (rt/->ADT '~fq-sym {})}}))))})))
+
+(defn emit-ns [{:keys [codes ns ns-header] :as arg}]
+  {:deps (into #{} (concat (vals (:aliases ns-header))
+                           (keys (:refers ns-header))))
+
+   :cb `(fn [env#]
+          (assoc env# '~ns
+                 (reduce (fn [ns# code#]
+                           (code# ns# env#))
+                         {}
+                         [~@codes])))})
