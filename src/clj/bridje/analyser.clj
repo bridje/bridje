@@ -189,129 +189,114 @@
                                  ([env]
                                   (first-form-parser (fn [form]
                                                        (analyse form env)))))]
-               (case (:form-type first-form)
-                 :symbol
-                 (or (when (nil? (:ns first-form))
-                       (case (keyword (:sym first-form))
-                         :if (parse-forms more-forms
-                                          (do-parse [pred-expr (expr-parser)
-                                                     then-expr (expr-parser)
-                                                     else-expr (expr-parser)]
-                                            (no-more-forms {:expr-type :if
-                                                            :pred-expr pred-expr
-                                                            :then-expr then-expr
-                                                            :else-expr else-expr})))
+               (or (case (:form-type first-form)
+                     :symbol
+                     (or (when (nil? (:ns first-form))
+                           (case (keyword (:sym first-form))
+                             :if (parse-forms more-forms
+                                              (do-parse [pred-expr (expr-parser)
+                                                         then-expr (expr-parser)
+                                                         else-expr (expr-parser)]
+                                                (no-more-forms {:expr-type :if
+                                                                :pred-expr pred-expr
+                                                                :then-expr then-expr
+                                                                :else-expr else-expr})))
 
-                         :let (parse-forms more-forms
-                                           (do-parse [{:keys [bindings locals]}
-                                                      (vector-parser (-> (fn [forms]
-                                                                           [(reduce (fn [{:keys [bindings locals]} pair]
-                                                                                      (let [[sym expr] (parse-forms pair
-                                                                                                                    (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
-                                                                                                                               expr (expr-parser (assoc env :locals locals))]
-                                                                                                                      (pure [sym expr])))
-                                                                                            local (gensym sym)]
-                                                                                        {:bindings (conj bindings [local expr])
-                                                                                         :locals (assoc locals sym local)}))
-                                                                                    {:bindings []
-                                                                                     :locals locals}
-                                                                                    (partition 2 forms))
-                                                                            []])
-                                                                         (with-ensure-even-forms form)))
+                             :let (parse-forms more-forms
+                                               (do-parse [{:keys [bindings locals]}
+                                                          (vector-parser (-> (fn [forms]
+                                                                               [(reduce (fn [{:keys [bindings locals]} pair]
+                                                                                          (let [[sym expr] (parse-forms pair
+                                                                                                                        (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
+                                                                                                                                   expr (expr-parser (assoc env :locals locals))]
+                                                                                                                          (pure [sym expr])))
+                                                                                                local (gensym sym)]
+                                                                                            {:bindings (conj bindings [local expr])
+                                                                                             :locals (assoc locals sym local)}))
+                                                                                        {:bindings []
+                                                                                         :locals locals}
+                                                                                        (partition 2 forms))
+                                                                                []])
+                                                                             (with-ensure-even-forms form)))
 
-                                                      body-expr (expr-parser (assoc env :locals locals))]
+                                                          body-expr (expr-parser (assoc env :locals locals))]
 
-                                             (no-more-forms {:expr-type :let
-                                                             :bindings bindings
-                                                             :body-expr body-expr})))
+                                                 (no-more-forms {:expr-type :let
+                                                                 :bindings bindings
+                                                                 :body-expr body-expr})))
 
-                         :fn (parse-forms more-forms
-                                          (do-parse [params (vector-parser (do-parse [params (at-least-one (sym-parser {:ns-expected? false}))]
-                                                                             (no-more-forms (map (comp (juxt identity gensym) :sym) params))))
-                                                     body-expr (expr-parser (update env :locals (fnil into {}) params))]
-                                            (no-more-forms {:expr-type :fn
-                                                            :locals (map second params)
-                                                            :body-expr body-expr})))
+                             :fn (parse-forms more-forms
+                                              (do-parse [params (vector-parser (do-parse [params (at-least-one (sym-parser {:ns-expected? false}))]
+                                                                                 (no-more-forms (map (comp (juxt identity gensym) :sym) params))))
+                                                         body-expr (expr-parser (update env :locals (fnil into {}) params))]
+                                                (no-more-forms {:expr-type :fn
+                                                                :locals (map second params)
+                                                                :body-expr body-expr})))
 
-                         :def (parse-forms more-forms
-                                           (do-parse [{:keys [sym params]} (or-parser (sym-parser {:ns-expected? false})
-                                                                                      (list-parser (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
-                                                                                                              params (at-least-one (sym-parser {:ns-expected? false}))]
-                                                                                                     (no-more-forms {:sym sym
-                                                                                                                     :params (map (comp (juxt identity gensym) :sym) params)}))))
-                                                      body-expr (expr-parser (update env :locals (fnil into {}) params))]
-                                             (no-more-forms {:expr-type :def
-                                                             :sym sym
-                                                             :locals (map second params)
-                                                             :body-expr body-expr})))
-
-                         :defmacro (throw (ex-info "niy" {}))
-
-                         :defdata (parse-forms more-forms
+                             :def (parse-forms more-forms
                                                (do-parse [{:keys [sym params]} (or-parser (sym-parser {:ns-expected? false})
                                                                                           (list-parser (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
                                                                                                                   params (at-least-one (sym-parser {:ns-expected? false}))]
                                                                                                          (no-more-forms {:sym sym
-                                                                                                                         :params (map :sym params)}))))]
-                                                 (no-more-forms {:expr-type :defdata
+                                                                                                                         :params (map (comp (juxt identity gensym) :sym) params)}))))
+                                                          body-expr (expr-parser (update env :locals (fnil into {}) params))]
+                                                 (no-more-forms {:expr-type :def
                                                                  :sym sym
-                                                                 :params params})))
+                                                                 :locals (map second params)
+                                                                 :body-expr body-expr})))
 
-                         :match (parse-forms more-forms
-                                             (do-parse [match-expr (expr-parser)]
-                                               (fn [forms]
-                                                 (cond
-                                                   (zero? (mod (count forms) 2)) (throw (ex-info "Missing default in 'match'" {:loc-range (:loc-range form)}))
-                                                   :else (let [clauses (parse-forms (butlast forms)
-                                                                                    (do-parse [clauses (maybe-many (do-parse [sym (sym-parser {})
-                                                                                                                              expr (expr-parser)]
-                                                                                                                     (if-let [fq-sym (env-resolve sym :types env)]
-                                                                                                                       (pure [fq-sym expr])
-                                                                                                                       (throw (ex-info "Can't resolve type:"
-                                                                                                                                       {:type (select-keys sym [:ns :sym])
-                                                                                                                                        :loc-range (:loc-range sym)})))))]
-                                                                                      (no-more-forms clauses)))
-                                                               default-expr (analyse (last forms) env)]
+                             :defmacro (throw (ex-info "niy" {}))
 
-                                                           [{:expr-type :match
-                                                             :match-expr match-expr
-                                                             :clauses clauses
-                                                             :default-expr default-expr}
-                                                            []])))))
+                             :defdata (parse-forms more-forms
+                                                   (do-parse [{:keys [sym params]} (or-parser (sym-parser {:ns-expected? false})
+                                                                                              (list-parser (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
+                                                                                                                      params (at-least-one (sym-parser {:ns-expected? false}))]
+                                                                                                             (no-more-forms {:sym sym
+                                                                                                                             :params (map :sym params)}))))]
+                                                     (no-more-forms {:expr-type :defdata
+                                                                     :sym sym
+                                                                     :params params})))
 
-                         :loop (throw (ex-info "niy" {}))
-                         :recur (throw (ex-info "niy" {}))
+                             :match (parse-forms more-forms
+                                                 (do-parse [match-expr (expr-parser)]
+                                                   (fn [forms]
+                                                     (cond
+                                                       (zero? (mod (count forms) 2)) (throw (ex-info "Missing default in 'match'" {:loc-range (:loc-range form)}))
+                                                       :else (let [clauses (parse-forms (butlast forms)
+                                                                                        (do-parse [clauses (maybe-many (do-parse [sym (sym-parser {})
+                                                                                                                                  expr (expr-parser)]
+                                                                                                                         (if-let [fq-sym (env-resolve sym :types env)]
+                                                                                                                           (pure [fq-sym expr])
+                                                                                                                           (throw (ex-info "Can't resolve type:"
+                                                                                                                                           {:type (select-keys sym [:ns :sym])
+                                                                                                                                            :loc-range (:loc-range sym)})))))]
+                                                                                          (no-more-forms clauses)))
+                                                                   default-expr (analyse (last forms) env)]
 
-                         nil))
+                                                               [{:expr-type :match
+                                                                 :match-expr match-expr
+                                                                 :clauses clauses
+                                                                 :default-expr default-expr}
+                                                                []])))))
 
-                     (when (= 'js (:ns first-form))
-                       (let [sym-str (name (:sym first-form))]
-                         (when (s/starts-with? sym-str ".")
-                           (case (last sym-str)
-                             \? (parse-forms more-forms
-                                             (do-parse [target-expr (expr-parser)]
-                                               (no-more-forms {:expr-type :js-get
-                                                               :field (symbol (subs sym-str 1 (dec (count sym-str))))
-                                                               :target-expr target-expr})))
+                             :loop (throw (ex-info "niy" {}))
+                             :recur (throw (ex-info "niy" {}))
 
-                             \= (parse-forms more-forms
-                                             (do-parse [target-expr (expr-parser)
-                                                        value-expr (expr-parser)]
-                                               (no-more-forms {:expr-type :js-set
-                                                               :field (symbol (subs sym-str 1 (dec (count sym-str))))
-                                                               :target-expr target-expr
-                                                               :value-expr value-expr})))
+                             :clj (parse-forms more-forms
+                                               (do-parse [{:keys [fq]} (sym-parser {})]
+                                                 (no-more-forms {:expr-type :clj-var
+                                                                 :clj-var (symbol (or (namespace fq)
+                                                                                      (name 'clojure.core))
+                                                                                  (name fq))})))
 
-                             (parse-forms more-forms
-                                          (do-parse [target-expr (expr-parser)
-                                                     exprs (maybe-many (expr-parser))]
-                                            (no-more-forms {:expr-type :js-call
-                                                            :method (symbol (subs sym-str 1))
-                                                            :target-expr target-expr
-                                                            :exprs exprs})))))))
+                             ;; fall through to 'call'
+                             nil)))
 
-                     {:expr-type :call
-                      :exprs (map #(analyse % env) forms)})))
+                     ;; fall through to 'call'
+                     :list nil)
+
+                   {:expr-type :call
+                    :exprs (map #(analyse % env) forms)}))
 
              (throw (ex-info "niy" {})))
 
@@ -319,10 +304,6 @@
                          (when-let [local (get locals (:sym form))]
                            {:expr-type :local
                             :local local}))
-
-                       (when (= 'js (:ns form))
-                         {:expr-type :js-global
-                          :js-global (:sym form)})
 
                        (when-let [global (env-resolve form :vars env)]
                          {:expr-type :global
@@ -335,11 +316,13 @@
   (analyse (first (bridje.reader/read-forms (pr-str '(let [seq ["ohno"]
                                                            just (->Just "just")]
                                                        {seq seq
+                                                        empty? ((clj empty?) seq)
                                                         justtype (match just
-                                                                   Just "just"
+                                                                        Just "just"
                                                                    Nothing "nothing"
                                                                    "something else")
                                                         justval (Just->a just)}))))
+
            {:global-env {'the-ns {:vars {'foo {}
                                          '->Just {}
                                          'Just->a {}}

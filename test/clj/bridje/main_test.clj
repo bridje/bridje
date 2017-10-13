@@ -25,6 +25,7 @@
                                       {message (foo/flip "World" "Hello")
                                        seq seq
                                        the-nothing nothing
+                                       empty? ((clj empty?) seq)
                                        just just
                                        justtype (match just
                                                        foo/Just "it's a just"
@@ -41,6 +42,7 @@
 
              {:message ["Hello" "World"],
               :seq ["ohno"],
+              :empty? false
               :the-nothing (rt/->ADT 'bridje.foo/Nothing {}),
               :just (rt/->ADT 'bridje.foo/Just {:a "just"}),
               :justtype "it's a just"

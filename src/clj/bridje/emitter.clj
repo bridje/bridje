@@ -2,16 +2,24 @@
   (:require [bridje.runtime :as rt]
             [bridje.util :as u]))
 
-(defn find-globals [expr]
-  (->> (u/sub-exprs expr)
+(defn find-globals [sub-exprs]
+  (->> sub-exprs
        (into {} (comp (filter #(= :global (:expr-type %)))
                       (map :global)
                       (distinct)
                       (map (fn [global]
                              [global (gensym (name global))]))))))
 
+(defn find-clj-namespaces [sub-exprs]
+  (->> sub-exprs
+       (into #{} (comp (filter #(= :clj-var (:expr-type %)))
+                       (map (comp symbol namespace :clj-var))))))
+
 (defn emit-value-expr [expr {:keys [current-ns] :as env}]
-  (let [globals (find-globals expr)]
+  (let [sub-exprs (u/sub-exprs expr)
+        globals (find-globals sub-exprs)
+        clj-namespaces (find-clj-namespaces sub-exprs)]
+
     (letfn [(emit-value-expr* [{:keys [expr-type exprs] :as expr}]
               (case expr-type
                 :string (:string expr)
@@ -34,6 +42,7 @@
 
                 :local (:local expr)
                 :global (get globals (:global expr))
+                :clj-var (:clj-var expr)
 
                 :let (let [{:keys [bindings body-expr]} expr]
                        `(let [~@(mapcat (fn [[local expr]]
@@ -61,6 +70,10 @@
 
       (let [env-sym (gensym 'env)]
         `(fn [~env-sym]
+           (do
+             ~@(for [clj-ns clj-namespaces]
+                 `(require '~clj-ns)))
+
            (let [~@(mapcat (fn [[global global-sym]]
                              [global-sym `(get-in ~env-sym ['~(symbol (namespace global))
                                                            :vars
