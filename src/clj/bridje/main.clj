@@ -1,6 +1,6 @@
 (ns bridje.main
-  (:require [bridje.compiler :refer [compile! ->io slurp-compiled-file]]
-            [bridje.runtime]
+  (:require [bridje.compiler :refer [compile!]]
+            [bridje.file-io :as file-io]
             [clojure.java.io :as io]
             [clojure.string :as s]
             [clojure.set :as set]
@@ -13,7 +13,7 @@
               (if (empty? to-load)
                 cbs
                 (let [results (map (fn [ns-sym]
-                                     (slurp-compiled-file io ns-sym :clj))
+                                     (file-io/slurp-compiled-file io ns-sym :clj))
                                    to-load)]
                   (recur (set/difference (into #{} (mapcat :deps) results) loaded)
                          (into (into [] (map (comp eval :cb)) results) cbs)
@@ -69,8 +69,8 @@
                                        [["-p" "--source-paths PATHS" "Source paths"
                                          :parse-fn (comp #(map io/file %) #(s/split % #":"))]])
 
-        io (->io {:source-paths (or source-paths
-                                    [(io/file ".")])})]
+        io (file-io/->io {:source-paths (or source-paths
+                                            [(io/file ".")])})]
 
     (case (keyword cmd)
       :compile (compile! (first params) {:env {},

@@ -2,40 +2,10 @@
   (:require [bridje.reader :as reader]
             [bridje.analyser :as analyser]
             [bridje.emitter :as emitter]
-            [clojure.java.io :as io]
-            [clojure.string :as s]))
-
-(defprotocol CompilerIO
-  (slurp-source-file [_ ns-sym])
-  (slurp-compiled-file [_ ns-sym file-type])
-  (spit-compiled-file [_ ns-sym file-type content]))
-
-(defn real-io [{:keys [source-paths compile-path]}]
-  (letfn [(ns-sym->file-name [ns-sym file-type]
-            (str (->> (s/split (name ns-sym) #"\.")
-                      (s/join "/"))
-                 "." (name file-type)))]
-
-    (reify CompilerIO
-      (slurp-source-file [_ ns-sym]
-        (let [file-path (ns-sym->file-name ns-sym :brj)]
-          (when-let [file (->> (map #(io/file % file-path) source-paths)
-                               (filter #(.exists %))
-                               first)]
-            (slurp file))))
-
-      (slurp-compiled-file [_ ns-sym file-type]
-        (let [file (io/file compile-path (ns-sym->file-name ns-sym file-type))]
-          (when (.exists file)
-            (slurp file))))
-
-      (spit-compiled-file [_ ns-sym file-type content]
-        (doto (io/file compile-path (ns-sym->file-name ns-sym file-type))
-          io/make-parents
-          (spit content))))))
+            [bridje.file-io :as file-io]))
 
 (defn read-ns-content [ns {:keys [io]}]
-  (let [content (or (slurp-source-file io ns)
+  (let [content (or (file-io/slurp-source-file io ns)
                     (throw (ex-info "Error reading NS" {:ns ns})))
         [ns-form & more-forms] (or (seq (reader/read-forms content))
                                    (throw (ex-info "Error reading forms in NS" {:ns ns})))
@@ -91,40 +61,16 @@
   (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
     (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
               (let [{:keys [env codes]} (compile-ns ns-content env)]
-                (spit-compiled-file io ns :clj (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
+                (file-io/spit-compiled-file io ns :clj (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
                 env))
             env
             ns-order)))
 
-(defn ->io [{:keys [source-paths]}]
-  (let [compile-path (io/file "bridje-stuff" "node")
-        ->file-path (fn [ns-sym file-type]
-                      (str (-> (name ns-sym)
-                               (s/split #"\.")
-                               (->> (s/join "/")))
-                           "."
-                           (name file-type)))
-
-        ->compiled-file (fn [ns-sym file-type]
-                          (io/file compile-path (->file-path ns-sym file-type)))]
-
-    (reify CompilerIO
-      (slurp-source-file [_ ns-sym]
-        (when-let [source-file (some #(when (.exists %) %) (map #(io/file % (->file-path ns-sym :brj)) source-paths))]
-          (slurp source-file)))
-
-      (slurp-compiled-file [_ ns-sym file-type]
-        (let [compiled-file (->compiled-file ns-sym file-type)]
-          (when (.exists compiled-file)
-            (slurp compiled-file))))
-
-      (spit-compiled-file [_ ns-sym file-type content]
-        (spit (doto (->compiled-file ns-sym file-type)
-                (io/make-parents))
-              content)))))
-
 (comment
   (do
+    (require '[clojure.string :as s]
+             '[clojure.java.io :as io])
+
     (defn fake-file [& forms]
       (->> forms
            (map prn-str)
@@ -133,7 +79,7 @@
     (defn fake-io [{:keys [source-files compiled-files]}]
       (let [!compiled-files (atom compiled-files)]
         {:!compiled-files !compiled-files
-         :compiler-io (reify CompilerIO
+         :compiler-io (reify file-io/FileIO
                         (slurp-source-file [_ ns-sym]
                           (get source-files ns-sym))
 
