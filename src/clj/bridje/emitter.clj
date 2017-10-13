@@ -1,4 +1,4 @@
-(ns bridje.emitter.jvm
+(ns bridje.emitter
   (:require [bridje.runtime :as rt]
             [bridje.util :as u]))
 

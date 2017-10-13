@@ -1,20 +1,9 @@
 (ns bridje.compiler
   (:require [bridje.reader :as reader]
             [bridje.analyser :as analyser]
-            [bridje.interpreter :as interpreter]
-            [bridje.emitter.node :as emitter.node]
-            [bridje.emitter.jvm :as emitter.jvm]
+            [bridje.emitter :as emitter]
             [clojure.java.io :as io]
             [clojure.string :as s]))
-
-(defn interpret [s {:keys [global-env current-ns]}]
-  (reduce (fn [{:keys [global-env]} form]
-            (let [env {:global-env global-env, :current-ns current-ns}]
-              (-> form
-                  (analyser/analyse env)
-                  (interpreter/interpret env))))
-          {:global-env global-env}
-          (reader/read-forms s)))
 
 (defprotocol CompilerIO
   (slurp-source-file [_ ns-sym])
@@ -83,30 +72,11 @@
                        ns-order
                        (assoc ns-content ns content)))))))
 
-(defn load-ns [entry-ns {:keys [io env]}]
-  (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
-    (-> (reduce (fn [env {:keys [ns ns-header forms]}]
-                  (reduce (fn [env form]
-                            (let [{:keys [global-env]} (-> form
-                                                           (analyser/analyse env)
-                                                           (interpreter/interpret env))]
-                              (merge env {:global-env global-env})))
-
-                          (-> env
-                              (assoc :current-ns ns)
-                              (assoc-in [:global-env ns] ns-header))
-
-                          forms))
-                env
-                ns-order)
-
-        :global-env)))
-
 (defn compile-ns [{:keys [ns ns-header forms]} env]
   (reduce (fn [{:keys [codes env]} form]
             (let [{:keys [global-env code]} (-> form
                                                 (analyser/analyse env)
-                                                (emitter.node/emit-expr env))]
+                                                (emitter/emit-expr env))]
               {:env (merge env {:global-env global-env})
                :codes (conj codes code)}))
 
@@ -121,7 +91,7 @@
   (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
     (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
               (let [{:keys [env codes]} (compile-ns ns-content env)]
-                (spit-compiled-file io ns :clj (emitter.jvm/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
+                (spit-compiled-file io ns :clj (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
                 env))
             env
             ns-order)))
@@ -209,23 +179,3 @@
                                  (str "." (name file-type))))
                 (io/make-parents))
               content)))))
-
-(comment
-  (interpret "(if true [{foo \"bar\", baz true} #{\"Hello\" \"world!\"}] false)"
-             {:current-ns 'bridje.foo})
-
-  (interpret "(def foo [\"Hello\" \"World\"])"
-             {:current-ns 'bridje.foo})
-
-  (interpret "(let [x \"Hello\", y \"World\"] [y x])"
-             {:current-ns 'bridje.foo})
-
-  (interpret "(fn [x] [x x])"
-             {:current-ns 'bridje.foo})
-
-  (-> (interpret "(defdata Nothing)"
-                 {:current-ns 'bridje.foo})
-      (get-in [:global-env 'bridje.foo :vars 'Nothing]))
-
-  (interpret "(defdata (Just a)) (->Just \"Hello\")"
-             {:current-ns 'bridje.foo}))
