@@ -2,7 +2,7 @@
   (:require [bridje.reader :as reader]
             [bridje.analyser :as analyser]
             [bridje.interpreter :as interpreter]
-            [bridje.emitter :as emitter]
+            [bridje.emitter.node :as emitter.node]
             [clojure.java.io :as io]
             [clojure.string :as s]))
 
@@ -105,7 +105,7 @@
   (reduce (fn [{:keys [codes env]} form]
             (let [{:keys [global-env code]} (-> form
                                                 (analyser/analyse env)
-                                                (emitter/emit-expr env))]
+                                                (emitter.node/emit-expr env))]
               {:env (merge env {:global-env global-env})
                :codes (conj codes code)}))
 
@@ -120,7 +120,7 @@
   (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
     (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
               (let [{:keys [env codes]} (compile-ns ns-content env)]
-                (spit-compiled-file io ns (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
+                (spit-compiled-file io ns (emitter.node/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
                 env))
             env
             ns-order)))

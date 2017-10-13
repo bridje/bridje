@@ -1,4 +1,4 @@
-(ns bridje.emitter
+(ns bridje.emitter.node
   (:require [bridje.util :as u]
             [clojure.string :as s]))
 
