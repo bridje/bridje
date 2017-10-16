@@ -65,8 +65,13 @@
 
                               ~(emit-value-expr* default-expr))))
 
-                :loop (throw (ex-info "niy" {:expr expr}))
-                :recur (throw (ex-info "niy" {:expr expr}))))]
+                :loop (let [{:keys [bindings body-expr]} expr]
+                        `(loop [~@(mapcat (fn [[local expr]]
+                                            [local (emit-value-expr* expr)])
+                                          bindings)]
+                           ~(emit-value-expr* body-expr)))
+
+                :recur `(recur ~@(map emit-value-expr* exprs))))]
 
       (let [env-sym (gensym 'env)]
         `(fn [~env-sym]

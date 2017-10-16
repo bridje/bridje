@@ -31,6 +31,12 @@
                                                        foo/Just "it's a just"
                                                        foo/Nothing "it's nothing"
                                                        "it's something else")
+                                       loop-rec (loop [x 5
+                                                       res []]
+                                                  (if ((clj zero?) x)
+                                                    res
+                                                    (recur ((clj dec) x)
+                                                           ((clj conj) res x))))
                                        justval (foo/Just->a just)})))}
 
         {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-files})]
@@ -46,4 +52,5 @@
               :the-nothing (rt/->ADT 'bridje.foo/Nothing {}),
               :just (rt/->ADT 'bridje.foo/Just {:a "just"}),
               :justtype "it's a just"
+              :loop-rec [5 4 3 2 1]
               :justval "just"}))))
