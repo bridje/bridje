@@ -1,8 +1,9 @@
 (ns bridje.main-test
   (:require [bridje.main :as sut]
             [bridje.runtime :as rt]
-            [clojure.test :as t]
-            [bridje.fake-io :refer [fake-file fake-io]]))
+            [bridje.fake-io :refer [fake-file fake-io]]
+            [clojure.string :as s]
+            [clojure.test :as t]))
 
 (t/deftest e2e-test
   (let [fake-files {'bridje.foo (fake-file
@@ -10,6 +11,11 @@
 
                                  '(def (flip x y)
                                     [y x])
+
+                                 #_'(defmacro (if-not pred then else)
+                                    `(if ~pred
+                                       ~else
+                                       ~then))
 
                                  '(defdata Nothing)
                                  '(defdata (Just a)))
@@ -54,3 +60,15 @@
               :justtype "it's a just"
               :loop-rec [5 4 3 2 1]
               :justval "just"}))))
+
+(t/deftest quoting-test
+  (let [{:keys [compiler-io !compiled-files]} (fake-io {:source-files {'bridje.foo (s/join "\n" [(pr-str '(ns bridje.baz))
+                                                                                                 "(def simple-quote '(foo 4 [2 3]))"
+                                                                                                 (pr-str '(def (main args)
+                                                                                                            {simple-quote simple-quote}))])}})]
+    (bridje.compiler/compile! 'bridje.foo {:io compiler-io, :env {}})
+
+    (t/is (= (sut/run-main {:main-ns 'bridje.foo}
+                           {:io compiler-io})
+
+             {:simple-quote []}))))

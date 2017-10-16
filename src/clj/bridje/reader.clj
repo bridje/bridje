@@ -192,18 +192,22 @@
                                                                    :loc-range loc-range})))
 
       :quote (let [[form remaining-tokens] (parse-form more-tokens nil)]
-               (if form
-                 [{:form-type :list
-                   :forms [{:form-type :symbol,
-                            :ns "bridje.kernel"
-                            :sym (case token
-                                   "'" "quote"
-                                   "`" "syntax-quote"
-                                   "~" "unquote"
-                                   "~@" "unquote-splicing")}
-                           form]}
-                  remaining-tokens]
-                 (throw (ex-info "Unexpected EOF"))))
+               (if-not form
+                 (throw (ex-info "Unexpected EOF"))
+
+                 [(if (= "'" token)
+                    {:form-type :quote
+                     :form form}
+
+                    {:form-type :list
+                     :forms [{:form-type :symbol,
+                              :ns "bridje.kernel"
+                              :sym (case token
+                                     "`" "syntax-quote"
+                                     "~" "unquote"
+                                     "~@" "unquote-splicing")}
+                             form]})
+                  remaining-tokens]))
 
       :string [{:form-type :string, :string token, :loc-range loc-range} more-tokens]
       (:int :float :big-int :big-float) [{:form-type token-type, :number token, :loc-range loc-range} more-tokens]

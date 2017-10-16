@@ -181,6 +181,8 @@
                                                  (no-more-forms {:expr-type :record
                                                                  :entries entries}))))
 
+           :quote {:expr-type :quote, :form (:form form)}
+
            :list
            (if (seq forms)
              (let [[first-form & more-forms] forms
