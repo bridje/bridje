@@ -208,7 +208,7 @@
                                                                                [(reduce (fn [{:keys [bindings locals]} pair]
                                                                                           (let [[sym expr] (parse-forms pair
                                                                                                                         (do-parse [{:keys [sym]} (sym-parser {:ns-expected? false})
-                                                                                                                                   expr (expr-parser (assoc env :locals locals))]
+                                                                                                                                   expr (expr-parser (update env :locals (fnil into {}) locals))]
                                                                                                                           (pure [sym expr])))
                                                                                                 local (gensym sym)]
                                                                                             {:bindings (conj bindings [local expr])
