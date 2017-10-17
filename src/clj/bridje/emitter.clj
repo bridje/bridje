@@ -16,21 +16,25 @@
        (into #{} (comp (filter #(= :clj-var (:expr-type %)))
                        (map (comp symbol namespace :clj-var))))))
 
-(defn emit-form [{:keys [form-type forms] :as form}]
-  `(rt/->ADT ~(keyword (name :bridje.forms)
-                       (str (or (get {:big-int "BigInt"
-                                      :big-float "BigFloat"}
-                                     form-type)
-                                (s/capitalize (name form-type)))
-                            "Form"))
+(def form-adt-kw
+  (-> (fn [form-type]
+        (let [[_ fst snd] (re-matches #"([a-z]+)(-[a-z]+)*" (name form-type))]
+          (keyword (name :bridje.forms)
+                   (str (s/capitalize fst)
+                        (when snd
+                          (s/capitalize (subs snd 1)))
+                        "Form"))))
+      memoize))
 
-             ~(-> (case form-type
-                    :bool {:bool (:bool form)}
-                    :string {:string (:string form)}
-                    (:int :float :big-int :big-float) {:number (:number form)}
-                    (:list :vector :set :record) {:forms (into [] (map emit-form) forms)}
-                    :quote {:form (emit-form (:form form))}
-                    :symbol `'~(select-keys form [:fq :ns :sym])))))
+(defn emit-form [{:keys [form-type forms] :as form}]
+  `(rt/->ADT ~(form-adt-kw form-type)
+             ~(case form-type
+                :bool {:bool (:bool form)}
+                :string {:string (:string form)}
+                (:int :float :big-int :big-float) {:number (:number form)}
+                (:list :vector :set :record) {:forms (into [] (map emit-form) forms)}
+                (:quote :syntax-quote :unquote :unquote-splicing) {:form (emit-form (:form form))}
+                :symbol `'~(select-keys form [:fq :ns :sym]))))
 
 (defn emit-value-expr [expr {:keys [current-ns] :as env}]
   (let [sub-exprs (u/sub-exprs expr)

@@ -169,63 +169,57 @@
    "#{" {:end-delimiter "}"
          :form-type :set}})
 
-(defn parse-form [tokens end-delimiter]
-  (if-let [[{:keys [token-type token loc-range]} & more-tokens] (seq tokens)]
-    (case token-type
-      :start-delimiter (let [{:keys [end-delimiter form-type]} (get delimiters token)]
-                         (loop [forms []
-                                tokens more-tokens]
-                           (let [[form remaining-tokens] (parse-form tokens end-delimiter)]
-                             (if form
-                               (recur (conj forms form) remaining-tokens)
+(defn parse-form [tokens]
+  (letfn [(parse-form* [tokens end-delimiter]
+            (if-let [[{:keys [token-type token loc-range]} & more-tokens] (seq tokens)]
+              (case token-type
+                :start-delimiter (let [{:keys [end-delimiter form-type]} (get delimiters token)]
+                                   (loop [forms []
+                                          tokens more-tokens]
+                                     (let [[form remaining-tokens] (parse-form* tokens end-delimiter)]
+                                       (if form
+                                         (recur (conj forms form) remaining-tokens)
 
-                               [{:form-type form-type,
-                                 :forms forms,
-                                 :loc-range (->LocRange (:start loc-range)
-                                                        (:end (:loc-range (first remaining-tokens))))}
-                                (rest remaining-tokens)]))))
+                                         [{:form-type form-type,
+                                           :forms forms,
+                                           :loc-range (->LocRange (:start loc-range)
+                                                                  (:end (:loc-range (first remaining-tokens))))}
+                                          (rest remaining-tokens)]))))
 
-      :end-delimiter (if (= end-delimiter token)
-                       [nil tokens]
-                       (throw (ex-info "Unexpected end delimiter" {:expected end-delimiter
-                                                                   :found token
-                                                                   :loc-range loc-range})))
+                :end-delimiter (if (= end-delimiter token)
+                                 [nil tokens]
+                                 (throw (ex-info "Unexpected end delimiter" {:expected end-delimiter
+                                                                             :found token
+                                                                             :loc-range loc-range})))
 
-      :quote (let [[form remaining-tokens] (parse-form more-tokens nil)]
-               (if-not form
-                 (throw (ex-info "Unexpected EOF"))
+                :quote (let [[form remaining-tokens] (parse-form* more-tokens nil)]
+                         (if-not form
+                           (throw (ex-info "Unexpected EOF"))
+                           [{:form-type (case token
+                                          "'" :quote
+                                          "`" :syntax-quote
+                                          "~" :unquote
+                                          "~@" :unquote-splicing)
+                             :form form}
+                            remaining-tokens]))
 
-                 [(if (= "'" token)
-                    {:form-type :quote
-                     :form form}
+                :string [{:form-type :string, :string token, :loc-range loc-range} more-tokens]
+                (:int :float :big-int :big-float) [{:form-type token-type, :number token, :loc-range loc-range} more-tokens]
 
-                    {:form-type :list
-                     :forms [(let [sym (case token
-                                         "`" 'syntax-quote
-                                         "~" 'unquote
-                                         "~@" 'unquote-splicing)]
-                               {:form-type :symbol,
-                                :fq (symbol (name 'bridje.kernel) (name sym))
-                                :ns 'bridje.kernel
-                                :sym sym})
-                             form]})
-                  remaining-tokens]))
+                :symbol (case token
+                          ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token), :loc-range loc-range} more-tokens]
+                          [(merge {:form-type :symbol, :loc-range loc-range}
+                                  (split-sym {:token token, :loc-range loc-range}))
+                           more-tokens]))
 
-      :string [{:form-type :string, :string token, :loc-range loc-range} more-tokens]
-      (:int :float :big-int :big-float) [{:form-type token-type, :number token, :loc-range loc-range} more-tokens]
+              (when end-delimiter
+                (throw (ex-info "Unexpected EOF" {:expected end-delimiter})))))]
 
-      :symbol (case token
-                ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token), :loc-range loc-range} more-tokens]
-                [(merge {:form-type :symbol, :loc-range loc-range}
-                        (split-sym {:token token, :loc-range loc-range}))
-                 more-tokens]))
-
-    (when end-delimiter
-      (throw (ex-info "Unexpected EOF" {:expected end-delimiter})))))
+    (parse-form* tokens nil)))
 
 (defn parse-forms [tokens]
   (lazy-seq
-    (when-let [[form more-tokens] (parse-form tokens nil)]
+    (when-let [[form more-tokens] (parse-form tokens)]
       (cons form (parse-forms more-tokens)))))
 
 (defn read-forms [s]
