@@ -200,12 +200,14 @@
                      :form form}
 
                     {:form-type :list
-                     :forms [{:form-type :symbol,
-                              :ns "bridje.kernel"
-                              :sym (case token
-                                     "`" "syntax-quote"
-                                     "~" "unquote"
-                                     "~@" "unquote-splicing")}
+                     :forms [(let [sym (case token
+                                         "`" 'syntax-quote
+                                         "~" 'unquote
+                                         "~@" 'unquote-splicing)]
+                               {:form-type :symbol,
+                                :fq (symbol (name 'bridje.kernel) (name sym))
+                                :ns 'bridje.kernel
+                                :sym sym})
                              form]})
                   remaining-tokens]))
 
