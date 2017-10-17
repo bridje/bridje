@@ -71,4 +71,8 @@
     (t/is (= (sut/run-main {:main-ns 'bridje.foo}
                            {:io compiler-io})
 
-             {:simple-quote []}))))
+             {:simple-quote (rt/->ADT :bridje.forms/ListForm,
+                                      {:forms [(rt/->ADT :bridje.forms/SymbolForm '{:fq foo, :ns nil, :sym foo})
+                                               (rt/->ADT :bridje.forms/IntForm {:number 4})
+                                               (rt/->ADT :bridje.forms/VectorForm {:forms [(rt/->ADT :bridje.forms/IntForm {:number 2})
+                                                                                           (rt/->ADT :bridje.forms/IntForm {:number 3})]})]})}))))

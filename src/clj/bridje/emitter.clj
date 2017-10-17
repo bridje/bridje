@@ -111,8 +111,8 @@
     :def
     (let [{:keys [sym locals body-expr]} expr]
       {:global-env (assoc-in global-env [current-ns :vars sym] {})
-       :code `(fn [ns# env#]
-                (assoc-in ns# [:vars '~sym]
+       :code `(fn [env#]
+                (assoc-in env# ['~current-ns :vars '~sym]
                           {:value (~(emit-value-expr (if (seq locals)
                                                        {:expr-type :fn
                                                         :locals locals
@@ -137,10 +137,10 @@
                                                  params))
 
                                     {sym {}})))
-       :code `(fn [ns# env#]
-                (-> ns#
-                    (assoc-in [:types '~sym] {:params '[~@params]})
-                    (update :vars merge
+       :code `(fn [env#]
+                (-> env#
+                    (assoc-in ['~current-ns :types '~sym] {:params '[~@params]})
+                    (update-in ['~current-ns :vars] merge
                             ~(if (seq params)
                                (merge `{'~(symbol (str "->" sym)) {:value (fn [~@params]
                                                                             (rt/->ADT '~fq-sym
@@ -160,8 +160,7 @@
                            (keys (:refers ns-header))))
 
    :cb `(fn [env#]
-          (assoc env# '~ns
-                 (reduce (fn [ns# code#]
-                           (code# ns# env#))
-                         {}
-                         [~@codes])))})
+          (reduce (fn [env# code#]
+                    (code# env#))
+                  env#
+                  [~@codes]))})
