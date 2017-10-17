@@ -1,6 +1,7 @@
 (ns bridje.emitter
   (:require [bridje.runtime :as rt]
-            [bridje.util :as u]))
+            [bridje.util :as u]
+            [clojure.string :as s]))
 
 (defn find-globals [sub-exprs]
   (->> sub-exprs
@@ -14,6 +15,22 @@
   (->> sub-exprs
        (into #{} (comp (filter #(= :clj-var (:expr-type %)))
                        (map (comp symbol namespace :clj-var))))))
+
+(defn emit-form [{:keys [form-type forms] :as form}]
+  `(rt/->ADT ~(keyword (name :bridje.forms)
+                       (str (or (get {:big-int "BigInt"
+                                      :big-float "BigFloat"}
+                                     form-type)
+                                (s/capitalize (name form-type)))
+                            "Form"))
+
+             ~(-> (case form-type
+                    :bool {:bool (:bool form)}
+                    :string {:string (:string form)}
+                    (:int :float :big-int :big-float) {:number (:number form)}
+                    (:list :vector :set :record) {:forms (into [] (map emit-form) forms)}
+                    :quote {:form (emit-form (:form form))}
+                    :symbol `'~(select-keys form [:fq :ns :sym])))))
 
 (defn emit-value-expr [expr {:keys [current-ns] :as env}]
   (let [sub-exprs (u/sub-exprs expr)
@@ -43,6 +60,8 @@
                 :local (:local expr)
                 :global (get globals (:global expr))
                 :clj-var (:clj-var expr)
+
+                :quote (emit-form (:form expr))
 
                 :let (let [{:keys [bindings body-expr]} expr]
                        `(let [~@(mapcat (fn [[local expr]]
