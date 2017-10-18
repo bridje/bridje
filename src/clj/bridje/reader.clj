@@ -152,11 +152,10 @@
     (if (seq more)
       (throw (ex-info "Multiple '/'s in symbol" {:symbol token, :loc-range loc-range}))
       (if sym
-        {:fq (symbol ns-or-sym sym)
+        {:form-type :namespaced-symbol
          :ns (symbol ns-or-sym)
          :sym (symbol sym)}
-        {:fq (symbol ns-or-sym)
-         :ns nil
+        {:form-type :symbol
          :sym (symbol ns-or-sym)}))))
 
 (def delimiters
@@ -208,8 +207,7 @@
 
                 :symbol (case token
                           ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token), :loc-range loc-range} more-tokens]
-                          [(merge {:form-type :symbol, :loc-range loc-range}
-                                  (split-sym {:token token, :loc-range loc-range}))
+                          [(split-sym {:token token, :loc-range loc-range})
                            more-tokens]))
 
               (when end-delimiter

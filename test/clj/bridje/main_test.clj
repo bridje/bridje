@@ -72,7 +72,7 @@
                            {:io compiler-io})
 
              {:simple-quote (rt/->ADT :bridje.forms/ListForm,
-                                      {:forms [(rt/->ADT :bridje.forms/SymbolForm '{:fq foo, :ns nil, :sym foo})
+                                      {:forms [(rt/->ADT :bridje.forms/SymbolForm '{:sym foo})
                                                (rt/->ADT :bridje.forms/IntForm {:number 4})
                                                (rt/->ADT :bridje.forms/VectorForm {:forms [(rt/->ADT :bridje.forms/IntForm {:number 2})
                                                                                            (rt/->ADT :bridje.forms/IntForm {:number 3})]})]})}))))
