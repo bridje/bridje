@@ -16,18 +16,8 @@
        (into #{} (comp (filter #(= :clj-var (:expr-type %)))
                        (map (comp symbol namespace :clj-var))))))
 
-(def form-adt-kw
-  (-> (fn [form-type]
-        (let [[_ fst snd] (re-matches #"([a-z]+)(-[a-z]+)*" (name form-type))]
-          (keyword (name :bridje.forms)
-                   (str (s/capitalize fst)
-                        (when snd
-                          (s/capitalize (subs snd 1)))
-                        "Form"))))
-      memoize))
-
 (defn emit-form [{:keys [form-type forms] :as form}]
-  `(rt/->ADT ~(form-adt-kw form-type)
+  `(rt/->ADT ~(u/form-adt-kw form-type)
              ~(case form-type
                 :bool {:bool (:bool form)}
                 :string {:string (:string form)}
