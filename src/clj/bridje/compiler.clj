@@ -45,6 +45,8 @@
 (defn compile-ns [{:keys [ns ns-header forms]} env]
   (reduce (fn [{:keys [codes env]} form]
             (let [{:keys [global-env code]} (-> form
+                                                (analyser/expand-syntax-quotes env)
+                                                analyser/expand-normal-quotes
                                                 (analyser/analyse env)
                                                 (emitter/emit-expr env))]
               {:env (merge env {:global-env global-env})

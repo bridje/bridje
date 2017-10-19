@@ -55,8 +55,6 @@
                 :global (get globals (:global expr))
                 :clj-var (:clj-var expr)
 
-                :quote (emit-form (:form expr))
-
                 :let (let [{:keys [bindings body-expr]} expr]
                        `(let [~@(mapcat (fn [[local expr]]
                                           [local (emit-value-expr* expr)])
