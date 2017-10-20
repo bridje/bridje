@@ -1,0 +1,19 @@
+(ns bridje.kernel.forms)
+
+(defdata (StringForm #{string loc-range}))
+(defdata (BoolForm #{bool loc-range}))
+
+(defdata (IntForm #{number loc-range}))
+(defdata (FloatForm #{number loc-range}))
+(defdata (BigIntForm #{number loc-range}))
+(defdata (BigFloatForm #{number loc-range}))
+
+(defdata (ListForm #{forms loc-range}))
+(defdata (SetForm #{forms loc-range}))
+(defdata (VectorForm #{forms loc-range}))
+(defdata (RecordForm #{forms loc-range}))
+
+(defdata (SymbolForm #{sym loc-range}))
+(defdata (NamespacedSymbolForm #{ns sym loc-range}))
+
+;; Symbol will also be defined in this NS, by the host implementation
