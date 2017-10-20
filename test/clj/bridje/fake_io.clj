@@ -14,7 +14,10 @@
     {:!compiled-files !compiled-files
      :compiler-io (reify file-io/FileIO
                     (slurp-source-file [_ ns-sym]
-                      (get source-files ns-sym))
+                      (or (get source-files ns-sym)
+                          (when (or (= 'bridje.kernel ns-sym)
+                                    (s/starts-with? (name ns-sym) "bridje.kernel."))
+                            (some-> (io/resource (file-io/->file-path ns-sym :brj)) slurp))))
 
                     (slurp-compiled-file [_ ns-sym file-type]
                       (get @!compiled-files [ns-sym file-type]))

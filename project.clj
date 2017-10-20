@@ -2,5 +2,5 @@
   :dependencies [[org.clojure/clojure "1.9.0-beta1"]
                  [org.clojure/tools.cli "0.3.5"]]
 
-  :source-paths ["src/clj"]
+  :source-paths ["src/clj" "src/brj"]
   :test-paths ["test/clj"])

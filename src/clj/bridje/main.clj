@@ -28,14 +28,9 @@
       (main-fn args))))
 
 (defn -main [& args]
-  (let [{[cmd & params] :arguments,
-         {:keys [source-paths]} :options
-         :as cli-opts} (cli/parse-opts args
-                                       [["-p" "--source-paths PATHS" "Source paths"
-                                         :parse-fn (comp #(map io/file %) #(s/split % #":"))]])
+  (let [{[cmd & params] :arguments, :as cli-opts} (cli/parse-opts args [])
 
-        io (file-io/->io {:source-paths (or source-paths
-                                            [(io/file ".")])})]
+        io (file-io/->io {})]
 
     (case (keyword cmd)
       :compile (compile! (first params) {:env {},

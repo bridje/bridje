@@ -7,21 +7,20 @@
   (slurp-compiled-file [_ ns-sym file-type])
   (spit-compiled-file [_ ns-sym file-type content]))
 
-(defn ->io [{:keys [source-paths]}]
-  (let [compile-path (io/file "bridje-stuff" "node")
-        ->file-path (fn [ns-sym file-type]
-                      (str (-> (name ns-sym)
-                               (s/split #"\.")
-                               (->> (s/join "/")))
-                           "."
-                           (name file-type)))
+(defn ->file-path [ns-sym file-type]
+  (str (-> (name ns-sym)
+           (s/split #"\.")
+           (->> (s/join "/")))
+       "."
+       (name file-type)))
 
-        ->compiled-file (fn [ns-sym file-type]
+(defn ->io [{:keys [compile-path] :or {compile-path (io/file "bridje-stuff" "node")}}]
+  (let [->compiled-file (fn [ns-sym file-type]
                           (io/file compile-path (->file-path ns-sym file-type)))]
 
     (reify FileIO
       (slurp-source-file [_ ns-sym]
-        (when-let [source-file (some #(when (.exists %) %) (map #(io/file % (->file-path ns-sym :brj)) source-paths))]
+        (when-let [source-file (io/resource (->file-path ns-sym :brj))]
           (slurp source-file)))
 
       (slurp-compiled-file [_ ns-sym file-type]
