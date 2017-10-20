@@ -18,7 +18,8 @@
                                        ~then))
 
                                  '(defdata Nothing)
-                                 '(defdata (Just a)))
+                                 '(defdata (Just a))
+                                 '(defdata (Mapped #{a b})))
 
                     'bridje.bar (fake-file
                                  '(ns bridje.bar
@@ -30,6 +31,7 @@
                                           nothing foo/Nothing]
                                       {message (foo/flip "World" "Hello")
                                        seq seq
+                                       mapped (foo/->Mapped {a "Hello", b "World"})
                                        the-nothing nothing
                                        empty? ((clj empty?) seq)
                                        just just
@@ -56,6 +58,7 @@
               :seq ["ohno"],
               :empty? false
               :the-nothing (rt/->ADT 'bridje.foo/Nothing {}),
+              :mapped (rt/->ADT 'bridje.foo/Mapped {:a "Hello", :b "World"}),
               :just (rt/->ADT 'bridje.foo/Just {:a "just"}),
               :justtype "it's a just"
               :loop-rec [5 4 3 2 1]

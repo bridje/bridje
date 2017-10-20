@@ -9,6 +9,11 @@
   (fn [forms]
     [v forms]))
 
+(defn fmap [parser f]
+  (fn [forms]
+    (when-let [[res more-forms] (parser forms)]
+      [(f res) more-forms])))
+
 (defmacro do-parse {:style/indent 1} [bindings & body]
   (if-let [[binding value & more-bindings] (seq bindings)]
     `(fn [forms#]
@@ -262,9 +267,12 @@
                            :defdata (parse-forms more-forms
                                                  (do-parse [{:keys [sym params]} (or-parser sym-parser
                                                                                             (list-parser (do-parse [{:keys [sym]} sym-parser
-                                                                                                                    params (at-least-one sym-parser)]
+                                                                                                                    params (or-parser (-> (set-parser (at-least-one sym-parser))
+                                                                                                                                          (fmap #(into #{} (map :sym) %)))
+                                                                                                                                      (-> (at-least-one sym-parser)
+                                                                                                                                          (fmap #(into [] (map :sym) %))))]
                                                                                                            (no-more-forms {:sym sym
-                                                                                                                           :params (map :sym params)}))))]
+                                                                                                                           :params params}))))]
                                                    (no-more-forms {:expr-type :defdata
                                                                    :sym sym
                                                                    :params params})))
