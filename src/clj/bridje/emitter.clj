@@ -23,7 +23,7 @@
                 :string {:string (:string form)}
                 (:int :float :big-int :big-float) {:number (:number form)}
                 (:list :vector :set :record) {:forms (into [] (map emit-form) forms)}
-                (:quote :syntax-quote :unquote :unquote-splicing) {:form (emit-form (:form form))}
+                :quote {:form (emit-form (:form form))}
                 :symbol `'~(select-keys form [:fq :ns :sym]))))
 
 (defn emit-value-expr [expr {:keys [current-ns] :as env}]
@@ -54,6 +54,8 @@
                 :local (:local expr)
                 :global (get globals (:global expr))
                 :clj-var (:clj-var expr)
+
+                :quote (emit-form (:form expr))
 
                 :let (let [{:keys [bindings body-expr]} expr]
                        `(let [~@(mapcat (fn [[local expr]]
