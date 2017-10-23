@@ -47,7 +47,7 @@
   (reduce (fn [{:keys [codes env]} form]
             (let [{:keys [global-env code]} (-> form
                                                 (quoter/expand-syntax-quotes env)
-                                                quoter/expand-normal-quotes
+                                                quoter/expand-quotes
                                                 (analyser/analyse env)
                                                 (emitter/emit-expr env))]
               {:env (merge env {:global-env global-env})

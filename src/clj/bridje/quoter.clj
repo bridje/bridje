@@ -11,7 +11,7 @@
                    :forms (->> params
                                (into [] (mapcat (fn [[k v]]
                                                   [{:form-type :symbol
-                                                    :sym (name k)}
+                                                    :sym k}
                                                    v]))))})]})
 
 (defn expand-syntax-quotes [form {:keys [current-ns] :as env}]
@@ -75,6 +75,37 @@
 
     (expand-sq* form)))
 
+(defn expand-quotes [{:keys [form-type] :as form}]
+  (letfn [(sym-form [sym]
+            {:form-type :symbol
+             :sym sym})
+
+          (quote-form [{:keys [form-type] :as form}]
+            (if (= form-type :quote)
+              (quote-form (quote-form (:form form)))
+
+              (quoted-form form-type
+                           (case form-type
+                             :string {'string (:string form)}
+                             :bool {'bool (:bool form)}
+
+                             (:int :float :big-int :big-float) {'number (:number form)}
+
+                             ;; TODO I have no idea what to do here
+                             ;; :symbol {'sym (:sym form)}
+
+                             :namespaced-symbol {'ns (quote-form {:form-type :symbol
+                                                                  :sym (:ns form)})
+                                                 'sym (quote-form {:form-type :symbol
+                                                                   :sym (:sym form)})}
+
+                             (:list :vector :set :record) {'forms {:form-type :vector,
+                                                                   :forms (mapv quote-form (:forms form))}}))))]
+    (case form-type
+      (:string :bool :int :big-int :float :big-float :symbol :namespaced-symbol) form
+      (:vector :set :list :record) (update form :forms #(mapv expand-quotes %))
+      :quote (quote-form (:form form)))))
+
 (comment
   (let [env {:global-env {'bridje.forms {:vars {'->VectorForm {:value {}}
                                                 '->IntForm {:value {}}
@@ -104,4 +135,7 @@
 
 (comment
   (-> (first (bridje.reader/read-forms "`[1 ~@[2 3 4]]"))
-      (expand-syntax-quotes {})))
+      (expand-syntax-quotes {}))
+
+  (-> (first (bridje.reader/read-forms "'x"))
+      expand-quotes))
