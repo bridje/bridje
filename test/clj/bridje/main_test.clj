@@ -3,7 +3,15 @@
             [bridje.runtime :as rt]
             [bridje.fake-io :refer [fake-file fake-io]]
             [clojure.string :as s]
-            [clojure.test :as t]))
+            [clojure.test :as t]
+            [clojure.walk :as w])
+  (:import [bridje.runtime ADT]))
+
+(defn without-loc [v]
+  (w/postwalk (fn [v]
+                (cond-> v
+                  (instance? ADT v) (update :params dissoc :loc-range)))
+              v))
 
 (t/deftest e2e-test
   (let [fake-files {'bridje.foo (fake-file
@@ -65,17 +73,18 @@
               :justval "just"}))))
 
 (t/deftest quoting-test
-  (let [{:keys [compiler-io !compiled-files]} (fake-io {:source-files {'bridje.foo (s/join "\n" [(pr-str '(ns bridje.baz))
+  (let [{:keys [compiler-io !compiled-files]} (fake-io {:source-files {'bridje.baz (s/join "\n" [(pr-str '(ns bridje.baz))
                                                                                                  "(def simple-quote '(foo 4 [2 3]))"
                                                                                                  (pr-str '(def (main args)
                                                                                                             {simple-quote simple-quote}))])}})]
-    (bridje.compiler/compile! 'bridje.foo {:io compiler-io, :env {}})
 
-    (t/is (= (sut/run-main {:main-ns 'bridje.foo}
-                           {:io compiler-io})
+    (bridje.compiler/compile! 'bridje.baz {:io compiler-io})
 
-             {:simple-quote (rt/->ADT :bridje.forms/ListForm,
-                                      {:forms [(rt/->ADT :bridje.forms/SymbolForm '{:sym foo})
-                                               (rt/->ADT :bridje.forms/IntForm {:number 4})
-                                               (rt/->ADT :bridje.forms/VectorForm {:forms [(rt/->ADT :bridje.forms/IntForm {:number 2})
-                                                                                           (rt/->ADT :bridje.forms/IntForm {:number 3})]})]})}))))
+    (t/is (= (-> (sut/run-main {:main-ns 'bridje.baz} {:io compiler-io})
+                 (without-loc))
+
+             {:simple-quote (rt/->ADT 'bridje.kernel.forms/ListForm,
+                                      {:forms [(rt/->ADT 'bridje.kernel.forms/SymbolForm {:sym 'foo})
+                                               (rt/->ADT 'bridje.kernel.forms/IntForm {:number 4})
+                                               (rt/->ADT 'bridje.kernel.forms/VectorForm {:forms [(rt/->ADT 'bridje.kernel.forms/IntForm {:number 2})
+                                                                                                  (rt/->ADT 'bridje.kernel.forms/IntForm {:number 3})]})]})}))))

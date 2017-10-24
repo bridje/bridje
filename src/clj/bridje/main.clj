@@ -7,7 +7,7 @@
             [clojure.tools.cli :as cli]))
 
 (defn run-main [{:keys [main-ns args]} {:keys [io]}]
-  (let [cbs (loop [to-load #{main-ns}
+  (let [cbs (loop [to-load ['bridje.kernel.forms main-ns]
                    cbs []
                    loaded #{}]
               (if (empty? to-load)
@@ -17,14 +17,14 @@
                                    to-load)]
                   (recur (set/difference (into #{} (mapcat :deps) results) loaded)
                          (into (into [] (map (comp eval :cb)) results) cbs)
-                         (set/union loaded to-load)))))
+                         (set/union loaded (set to-load))))))
 
-        env (reduce (fn [env cb]
-                      (cb env))
-                    {}
-                    cbs)]
+        global-env (reduce (fn [global-env cb]
+                             (cb global-env))
+                           {}
+                           cbs)]
 
-    (when-let [main-fn (get-in env [main-ns :vars 'main :value])]
+    (when-let [main-fn (get-in global-env [main-ns :vars 'main :value])]
       (main-fn args))))
 
 (defn -main [& args]
@@ -33,9 +33,8 @@
         io (file-io/->io {})]
 
     (case (keyword cmd)
-      :compile (compile! (first params) {:env {},
-                                         :io io})
+      :compile (compile! (first params) {:io io})
 
       :run (run-main {:main-ns (symbol (first args))
                       :args (rest args)}
-                     io))))
+                     {:io io}))))

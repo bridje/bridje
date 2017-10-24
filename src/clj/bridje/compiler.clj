@@ -1,5 +1,6 @@
 (ns bridje.compiler
   (:require [bridje.reader :as reader]
+            [bridje.quoter :as quoter]
             [bridje.analyser :as analyser]
             [bridje.emitter :as emitter]
             [bridje.file-io :as file-io]))
@@ -45,8 +46,8 @@
 (defn compile-ns [{:keys [ns ns-header forms]} env]
   (reduce (fn [{:keys [codes env]} form]
             (let [{:keys [global-env code]} (-> form
-                                                (analyser/expand-syntax-quotes env)
-                                                analyser/expand-normal-quotes
+                                                (quoter/expand-syntax-quotes env)
+                                                quoter/expand-quotes
                                                 (analyser/analyse env)
                                                 (emitter/emit-expr env))]
               {:env (merge env {:global-env global-env})
@@ -60,7 +61,10 @@
           forms))
 
 (defn compile! [entry-ns {:keys [io env]}]
-  (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
+  (let [ns-order (transitive-read-forms (concat [entry-ns]
+                                                (when (empty? env)
+                                                  '[bridje.kernel.forms]))
+                                        {:io io, :env env})]
     (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
               (let [{:keys [env codes]} (compile-ns ns-content env)]
                 (file-io/spit-compiled-file io ns :clj (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))

@@ -1,5 +1,11 @@
 (ns bridje.kernel.forms)
 
+(def symbol
+  (clj symbol))
+
+(def (concat seqs)
+  ((clj into) [] ((clj mapcat) (clj identity)) seqs))
+
 (defdata (StringForm #{string loc-range}))
 (defdata (BoolForm #{bool loc-range}))
 
@@ -15,5 +21,3 @@
 
 (defdata (SymbolForm #{sym loc-range}))
 (defdata (NamespacedSymbolForm #{ns sym loc-range}))
-
-;; Symbol will also be defined in this NS, by the host implementation

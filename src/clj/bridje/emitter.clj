@@ -16,16 +16,6 @@
        (into #{} (comp (filter #(= :clj-var (:expr-type %)))
                        (map (comp symbol namespace :clj-var))))))
 
-(defn emit-form [{:keys [form-type forms] :as form}]
-  `(rt/->ADT ~(u/form-adt-kw form-type)
-             ~(case form-type
-                :bool {:bool (:bool form)}
-                :string {:string (:string form)}
-                (:int :float :big-int :big-float) {:number (:number form)}
-                (:list :vector :set :record) {:forms (into [] (map emit-form) forms)}
-                (:quote :syntax-quote :unquote :unquote-splicing) {:form (emit-form (:form form))}
-                :symbol `'~(select-keys form [:fq :ns :sym]))))
-
 (defn emit-value-expr [expr {:keys [current-ns] :as env}]
   (let [sub-exprs (u/sub-exprs expr)
         globals (find-globals sub-exprs)
@@ -91,10 +81,11 @@
                  `(require '~clj-ns)))
 
            (let [~@(mapcat (fn [[global global-sym]]
+
                              [global-sym `(get-in ~env-sym ['~(symbol (namespace global))
-                                                           :vars
-                                                           '~(symbol (name global))
-                                                           :value])])
+                                                            :vars
+                                                            '~(symbol (name global))
+                                                            :value])])
                            globals)]
              ~(emit-value-expr* expr)))))))
 
