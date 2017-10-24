@@ -75,8 +75,12 @@
 (t/deftest quoting-test
   (let [{:keys [compiler-io !compiled-files]} (fake-io {:source-files {'bridje.baz (s/join "\n" [(pr-str '(ns bridje.baz))
                                                                                                  "(def simple-quote '(foo 4 [2 3]))"
+                                                                                                 "(def double-quote ''[foo 3])"
+                                                                                                 "(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"
                                                                                                  (pr-str '(def (main args)
-                                                                                                            {simple-quote simple-quote}))])}})]
+                                                                                                            {simple-quote simple-quote
+                                                                                                             double-quote double-quote
+                                                                                                             syntax-quote syntax-quote}))])}})]
 
     (bridje.compiler/compile! 'bridje.baz {:io compiler-io})
 
@@ -87,4 +91,38 @@
                                       {:forms [(rt/->ADT 'bridje.kernel.forms/SymbolForm {:sym 'foo})
                                                (rt/->ADT 'bridje.kernel.forms/IntForm {:number 4})
                                                (rt/->ADT 'bridje.kernel.forms/VectorForm {:forms [(rt/->ADT 'bridje.kernel.forms/IntForm {:number 2})
-                                                                                                  (rt/->ADT 'bridje.kernel.forms/IntForm {:number 3})]})]})}))))
+                                                                                                  (rt/->ADT 'bridje.kernel.forms/IntForm {:number 3})]})]})
+
+              :double-quote (rt/->ADT 'bridje.kernel.forms/ListForm
+                                      {:forms [(rt/->ADT 'bridje.kernel.forms/NamespacedSymbolForm
+                                                         '{:ns bridje.kernel.forms, :sym ->VectorForm})
+                                               (rt/->ADT 'bridje.kernel.forms/RecordForm
+                                                         {:forms [(rt/->ADT 'bridje.kernel.forms/SymbolForm,
+                                                                            {:sym 'forms})
+                                                                  (rt/->ADT 'bridje.kernel.forms/VectorForm,
+                                                                            {:forms [(rt/->ADT 'bridje.kernel.forms/ListForm,
+                                                                                               {:forms [(rt/->ADT 'bridje.kernel.forms/NamespacedSymbolForm,
+                                                                                                                  '{:ns bridje.kernel.forms, :sym ->SymbolForm})
+                                                                                                        (rt/->ADT 'bridje.kernel.forms/RecordForm,
+                                                                                                                  {:forms [(rt/->ADT 'bridje.kernel.forms/SymbolForm,
+                                                                                                                                     '{:sym sym})
+                                                                                                                           (rt/->ADT 'bridje.kernel.forms/ListForm,
+                                                                                                                                     {:forms [(rt/->ADT 'bridje.kernel.forms/NamespacedSymbolForm,
+                                                                                                                                                        '{:ns bridje.kernel.forms, :sym symbol})
+                                                                                                                                              (rt/->ADT 'bridje.kernel.forms/StringForm,
+                                                                                                                                                        {:string "foo"})]})]})]})
+                                                                                     (rt/->ADT 'bridje.kernel.forms/ListForm,
+                                                                                               {:forms [(rt/->ADT 'bridje.kernel.forms/NamespacedSymbolForm,
+                                                                                                                  '{:ns bridje.kernel.forms, :sym ->IntForm})
+                                                                                                        (rt/->ADT 'bridje.kernel.forms/RecordForm,
+                                                                                                                  {:forms [(rt/->ADT 'bridje.kernel.forms/SymbolForm,
+                                                                                                                                     '{:sym number})
+                                                                                                                           (rt/->ADT 'bridje.kernel.forms/IntForm,
+                                                                                                                                     {:number 3})]})]})]})]})]})
+
+              :syntax-quote (rt/->ADT 'bridje.kernel.forms/VectorForm,
+                                      {:forms [(rt/->ADT 'bridje.kernel.forms/IntForm {:number 1})
+                                               (rt/->ADT 'bridje.kernel.forms/IntForm {:number 2})
+                                               (rt/->ADT 'bridje.kernel.forms/IntForm {:number 3})
+                                               (rt/->ADT 'bridje.kernel.forms/IntForm {:number 4})
+                                               (rt/->ADT 'bridje.kernel.forms/IntForm {:number 5})]})}))))
