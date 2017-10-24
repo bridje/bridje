@@ -68,14 +68,25 @@
   (let [{:keys [compiler-io !compiled-files]} (fake-io {:source-files {'bridje.foo (s/join "\n" [(pr-str '(ns bridje.baz))
                                                                                                  "(def simple-quote '(foo 4 [2 3]))"
                                                                                                  (pr-str '(def (main args)
-                                                                                                            {simple-quote simple-quote}))])}})]
-    (bridje.compiler/compile! 'bridje.foo {:io compiler-io, :env {}})
+                                                                                                            {simple-quote simple-quote}))])}})
+        ->Form (fn [form-type]
+                 (fn [params]
+                   (rt/->ADT (keyword (name 'bridje.forms) (name form-type)) params)))
+
+        global-env {'bridje.forms {:vars (merge {'->Symbol {:value symbol}}
+
+                                                (->> ['VectorForm 'IntForm 'ListForm 'StringForm 'RecordForm 'SymbolForm 'NamespacedSymbolForm]
+                                                     (into {} (map (fn [form-type]
+                                                                     [(symbol (str "->" (name form-type))) {:value (->Form form-type)}])))))}}]
+
+    (bridje.compiler/compile! 'bridje.foo {:io compiler-io,
+                                           :env {:global-env global-env}})
 
     (t/is (= (sut/run-main {:main-ns 'bridje.foo}
-                           {:io compiler-io})
+                           {:io compiler-io, :global-env global-env})
 
              {:simple-quote (rt/->ADT :bridje.forms/ListForm,
-                                      {:forms [(rt/->ADT :bridje.forms/SymbolForm '{:sym foo})
+                                      {:forms [(rt/->ADT :bridje.forms/SymbolForm {:sym 'foo})
                                                (rt/->ADT :bridje.forms/IntForm {:number 4})
                                                (rt/->ADT :bridje.forms/VectorForm {:forms [(rt/->ADT :bridje.forms/IntForm {:number 2})
                                                                                            (rt/->ADT :bridje.forms/IntForm {:number 3})]})]})}))))

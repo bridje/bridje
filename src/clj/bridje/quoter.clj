@@ -7,12 +7,12 @@
    :forms [{:form-type :namespaced-symbol
             :ns 'bridje.forms
             :sym (symbol (str "->" (name (u/form-adt-kw form-type))))}
-           (merge {:form-type :record
-                   :forms (->> params
-                               (into [] (mapcat (fn [[k v]]
-                                                  [{:form-type :symbol
-                                                    :sym k}
-                                                   v]))))})]})
+           {:form-type :record
+            :forms (->> params
+                        (into [] (mapcat (fn [[k v]]
+                                           [{:form-type :symbol
+                                             :sym k}
+                                            v]))))}]})
 
 (defn expand-syntax-quotes [form {:keys [current-ns] :as env}]
   (letfn [(syntax-quote-form [{:keys [form-type forms] :as form} {:keys [splice?]}]
@@ -77,8 +77,12 @@
 
 (defn expand-quotes [{:keys [form-type] :as form}]
   (letfn [(sym-form [sym]
-            {:form-type :symbol
-             :sym sym})
+            {:form-type :list
+             :forms [{:form-type :namespaced-symbol
+                      :ns 'bridje.forms
+                      :sym '->Symbol}
+                     {:form-type :string,
+                      :string (name sym)}]})
 
           (quote-form [{:keys [form-type] :as form}]
             (if (= form-type :quote)
@@ -86,18 +90,15 @@
 
               (quoted-form form-type
                            (case form-type
-                             :string {'string (:string form)}
-                             :bool {'bool (:bool form)}
+                             :string {'string form}
+                             :bool {'bool form}
 
-                             (:int :float :big-int :big-float) {'number (:number form)}
+                             (:int :float :big-int :big-float) {'number form}
 
-                             ;; TODO I have no idea what to do here
-                             ;; :symbol {'sym (:sym form)}
+                             :symbol {'sym (sym-form (:sym form))}
 
-                             :namespaced-symbol {'ns (quote-form {:form-type :symbol
-                                                                  :sym (:ns form)})
-                                                 'sym (quote-form {:form-type :symbol
-                                                                   :sym (:sym form)})}
+                             :namespaced-symbol {'ns (sym-form (:ns form))
+                                                 'sym (sym-form (:sym form))}
 
                              (:list :vector :set :record) {'forms {:form-type :vector,
                                                                    :forms (mapv quote-form (:forms form))}}))))]
@@ -127,9 +128,11 @@
                                                 '->StringForm {:value {}}
                                                 '->RecordForm {:value {}}
                                                 '->SymbolForm {:value {}}
+                                                '->Symbol {:value {}}
                                                 '->NamespacedSymbolForm {:value {}}}}}}]
-    (-> (first (bridje.reader/read-forms "`foo"))
+    (-> (first (bridje.reader/read-forms "''foo"))
         (expand-syntax-quotes env)
+        (expand-quotes)
         (analyser/analyse env)
         (bridje.emitter/emit-value-expr env))))
 

@@ -6,7 +6,7 @@
             [clojure.set :as set]
             [clojure.tools.cli :as cli]))
 
-(defn run-main [{:keys [main-ns args]} {:keys [io]}]
+(defn run-main [{:keys [main-ns args]} {:keys [io global-env]}]
   (let [cbs (loop [to-load #{main-ns}
                    cbs []
                    loaded #{}]
@@ -19,12 +19,12 @@
                          (into (into [] (map (comp eval :cb)) results) cbs)
                          (set/union loaded to-load)))))
 
-        env (reduce (fn [env cb]
-                      (cb env))
-                    {}
-                    cbs)]
+        global-env (reduce (fn [global-env cb]
+                             (cb global-env))
+                           global-env
+                           cbs)]
 
-    (when-let [main-fn (get-in env [main-ns :vars 'main :value])]
+    (when-let [main-fn (get-in global-env [main-ns :vars 'main :value])]
       (main-fn args))))
 
 (defn -main [& args]
