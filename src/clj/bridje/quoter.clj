@@ -5,7 +5,7 @@
 (defn quoted-form [form-type params]
   {:form-type :list
    :forms [{:form-type :namespaced-symbol
-            :ns 'bridje.forms
+            :ns 'bridje.kernel.forms
             :sym (symbol (str "->" (name (u/form-adt-kw form-type))))}
            {:form-type :record
             :forms (->> params
@@ -51,7 +51,7 @@
                                                        (if splice?
                                                          {:form-type :list
                                                           :forms [{:form-type :namespaced-symbol
-                                                                   :ns 'bridje.forms
+                                                                   :ns 'bridje.kernel.forms
                                                                    :sym 'concat}
                                                                   inner-forms]}
 
@@ -79,8 +79,8 @@
   (letfn [(sym-form [sym]
             {:form-type :list
              :forms [{:form-type :namespaced-symbol
-                      :ns 'bridje.forms
-                      :sym '->Symbol}
+                      :ns 'bridje.kernel.forms
+                      :sym 'symbol}
                      {:form-type :string,
                       :string (name sym)}]})
 
@@ -108,28 +108,28 @@
       :quote (quote-form (:form form)))))
 
 (comment
-  (let [env {:global-env {'bridje.forms {:vars {'->VectorForm {:value {}}
-                                                '->IntForm {:value {}}
-                                                '->ListForm {:value {}}
-                                                '->StringForm {:value {}}
-                                                '->RecordForm {:value {}}
-                                                '->SymbolForm {:value {}}
-                                                '->NamespacedSymbolForm {:value {}}}}}}]
+  (let [env {:global-env {'bridje.kernel.forms {:vars {'->VectorForm {:value {}}
+                                                       '->IntForm {:value {}}
+                                                       '->ListForm {:value {}}
+                                                       '->StringForm {:value {}}
+                                                       '->RecordForm {:value {}}
+                                                       '->SymbolForm {:value {}}
+                                                       '->NamespacedSymbolForm {:value {}}}}}}]
     (-> (expand-normal-quotes (first (bridje.reader/read-forms "['[1 '''1]]")))
         (analyser/analyse env)
         (bridje.emitter/emit-value-expr env))))
 
 (comment
   (let [env {:current-ns 'bridje.foo
-             :global-env {'bridje.forms {:vars {'->VectorForm {:value {}}
-                                                '->IntForm {:value {}}
-                                                '->ListForm {:value {}}
-                                                '->QuotedForm {:value {}}
-                                                '->StringForm {:value {}}
-                                                '->RecordForm {:value {}}
-                                                '->SymbolForm {:value {}}
-                                                '->Symbol {:value {}}
-                                                '->NamespacedSymbolForm {:value {}}}}}}]
+             :global-env {'bridje.kernel.forms {:vars {'->VectorForm {:value {}}
+                                                       '->IntForm {:value {}}
+                                                       '->ListForm {:value {}}
+                                                       '->QuotedForm {:value {}}
+                                                       '->StringForm {:value {}}
+                                                       '->RecordForm {:value {}}
+                                                       '->SymbolForm {:value {}}
+                                                       'symbol {:value {}}
+                                                       '->NamespacedSymbolForm {:value {}}}}}}]
     (-> (first (bridje.reader/read-forms "''foo"))
         (expand-syntax-quotes env)
         (expand-quotes)

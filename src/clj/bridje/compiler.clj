@@ -61,7 +61,10 @@
           forms))
 
 (defn compile! [entry-ns {:keys [io env]}]
-  (let [ns-order (transitive-read-forms [entry-ns] {:io io, :env env})]
+  (let [ns-order (transitive-read-forms (concat [entry-ns]
+                                                (when (empty? env)
+                                                  '[bridje.kernel.forms]))
+                                        {:io io, :env env})]
     (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
               (let [{:keys [env codes]} (compile-ns ns-content env)]
                 (file-io/spit-compiled-file io ns :clj (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
