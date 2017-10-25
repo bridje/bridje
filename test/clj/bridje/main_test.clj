@@ -14,77 +14,77 @@
               v))
 
 (t/deftest e2e-test
-  (let [fake-files {'bridje.foo (fake-file
-                                 '(ns bridje.foo)
+  (let [fake-files {'bridje.kernel.foo (fake-file
+                                        '(ns bridje.kernel.foo)
 
-                                 '(def (flip x y)
-                                    [y x])
+                                        '(def (flip x y)
+                                           [y x])
 
-                                 #_'(defmacro (if-not pred then else)
-                                    `(if ~pred
-                                       ~else
-                                       ~then))
+                                        #_'(defmacro (if-not pred then else)
+                                             `(if ~pred
+                                                ~else
+                                                ~then))
 
-                                 '(defdata Nothing)
-                                 '(defdata (Just a))
-                                 '(defdata (Mapped #{a b})))
+                                        '(defdata Nothing)
+                                        '(defdata (Just a))
+                                        '(defdata (Mapped #{a b})))
 
-                    'bridje.bar (fake-file
-                                 '(ns bridje.bar
-                                    {aliases {foo bridje.foo}})
+                    'bridje.kernel.bar (fake-file
+                                        '(ns bridje.kernel.bar
+                                           {aliases {foo bridje.kernel.foo}})
 
-                                 '(def (main args)
-                                    (let [seq ["ohno"]
-                                          just (foo/->Just "just")
-                                          nothing foo/Nothing]
-                                      {message (foo/flip "World" "Hello")
-                                       seq seq
-                                       mapped (foo/->Mapped {a "Hello", b "World"})
-                                       the-nothing nothing
-                                       empty? ((clj empty?) seq)
-                                       just just
-                                       justtype (match just
-                                                       foo/Just "it's a just"
-                                                       foo/Nothing "it's nothing"
-                                                       "it's something else")
-                                       loop-rec (loop [x 5
-                                                       res []]
-                                                  (if ((clj zero?) x)
-                                                    res
-                                                    (recur ((clj dec) x)
-                                                           ((clj conj) res x))))
-                                       justval (foo/Just->a just)})))}
+                                        '(def (main args)
+                                           (let [seq ["ohno"]
+                                                 just (foo/->Just "just")
+                                                 nothing foo/Nothing]
+                                             {message (foo/flip "World" "Hello")
+                                              seq seq
+                                              mapped (foo/->Mapped {a "Hello", b "World"})
+                                              the-nothing nothing
+                                              empty? ((clj empty?) seq)
+                                              just just
+                                              justtype (match just
+                                                         foo/Just "it's a just"
+                                                         foo/Nothing "it's nothing"
+                                                         "it's something else")
+                                              loop-rec (loop [x 5
+                                                              res []]
+                                                         (if ((clj zero?) x)
+                                                           res
+                                                           (recur ((clj dec) x)
+                                                                  ((clj conj) res x))))
+                                              justval (foo/Just->a just)})))}
 
         {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-files})]
 
-    (bridje.compiler/compile! 'bridje.bar {:io compiler-io, :env {}})
+    (bridje.compiler/compile! 'bridje.kernel.bar {:io compiler-io, :env {}})
 
-    (t/is (= (sut/run-main {:main-ns 'bridje.bar}
+    (t/is (= (sut/run-main {:main-ns 'bridje.kernel.bar}
                            {:io compiler-io})
 
              {:message ["Hello" "World"],
               :seq ["ohno"],
               :empty? false
-              :the-nothing (rt/->ADT 'bridje.foo/Nothing {}),
-              :mapped (rt/->ADT 'bridje.foo/Mapped {:a "Hello", :b "World"}),
-              :just (rt/->ADT 'bridje.foo/Just {:a "just"}),
+              :the-nothing (rt/->ADT 'bridje.kernel.foo/Nothing {}),
+              :mapped (rt/->ADT 'bridje.kernel.foo/Mapped {:a "Hello", :b "World"}),
+              :just (rt/->ADT 'bridje.kernel.foo/Just {:a "just"}),
               :justtype "it's a just"
               :loop-rec [5 4 3 2 1]
               :justval "just"}))))
 
 (t/deftest quoting-test
-  (let [{:keys [compiler-io !compiled-files]} (fake-io {:source-files {'bridje.baz (s/join "\n" [(pr-str '(ns bridje.baz))
-                                                                                                 "(def simple-quote '(foo 4 [2 3]))"
-                                                                                                 "(def double-quote ''[foo 3])"
-                                                                                                 "(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"
-                                                                                                 (pr-str '(def (main args)
-                                                                                                            {simple-quote simple-quote
-                                                                                                             double-quote double-quote
-                                                                                                             syntax-quote syntax-quote}))])}})]
+  (let [{:keys [compiler-io !compiled-files]} (fake-io {:source-files {'bridje.kernel.baz (s/join "\n" [(pr-str '(ns bridje.kernel.baz))
+                                                                                                        "(def simple-quote '(foo 4 [2 3]))"
+                                                                                                        "(def double-quote ''[foo 3])"
+                                                                                                        "(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"
+                                                                                                        (pr-str '(def (main args)
+                                                                                                                   {simple-quote simple-quote
+                                                                                                                    double-quote double-quote
+                                                                                                                    syntax-quote syntax-quote}))])}})]
 
-    (bridje.compiler/compile! 'bridje.baz {:io compiler-io})
+    (bridje.compiler/compile! 'bridje.kernel.baz {:io compiler-io})
 
-    (t/is (= (-> (sut/run-main {:main-ns 'bridje.baz} {:io compiler-io})
+    (t/is (= (-> (sut/run-main {:main-ns 'bridje.kernel.baz} {:io compiler-io})
                  (without-loc))
 
              {:simple-quote (rt/->ADT 'bridje.kernel.forms/ListForm,
