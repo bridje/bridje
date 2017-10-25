@@ -320,7 +320,7 @@
                                                                          :loop-locals loop-locals}))))
 
                            :clj (parse-forms more-forms
-                                             (do-parse [{:keys [ns sym]} (or sym-parser ns-sym-parser)]
+                                             (do-parse [{:keys [ns sym]} (or-parser sym-parser ns-sym-parser)]
                                                (no-more-forms {:expr-type :clj-var
                                                                :clj-var (symbol (or (some-> ns name)
                                                                                     (name 'clojure.core))
