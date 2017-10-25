@@ -23,3 +23,7 @@
                           (s/capitalize (subs snd 1)))
                         "Form"))))
       memoize))
+
+(defn kernel? [ns-sym]
+  (or (= 'bridje.kernel ns-sym)
+      (s/starts-with? (name ns-sym) "bridje.kernel.")))

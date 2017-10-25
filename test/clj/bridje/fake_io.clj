@@ -1,5 +1,6 @@
 (ns bridje.fake-io
   (:require [bridje.file-io :as file-io]
+            [bridje.util :as u]
             [clojure.test :as t]
             [clojure.string :as s]
             [clojure.java.io :as io]))
@@ -15,8 +16,7 @@
      :compiler-io (reify file-io/FileIO
                     (slurp-source-file [_ ns-sym]
                       (or (get source-files ns-sym)
-                          (when (or (= 'bridje.kernel ns-sym)
-                                    (s/starts-with? (name ns-sym) "bridje.kernel."))
+                          (when (u/kernel? ns-sym)
                             (some-> (io/resource (file-io/->file-path ns-sym :brj)) slurp))))
 
                     (slurp-compiled-file [_ ns-sym file-type]
