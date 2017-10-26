@@ -159,34 +159,34 @@
                                    :refers refers
                                    :aliases aliases})))))
 
-(defn env-resolve [{:keys [ns sym]} resolve-type {:keys [global-env current-ns]}]
+(defn resolve-sym [{:keys [ns sym]} resolve-type {:keys [env current-ns]}]
   (if ns
-    (or (when-let [alias-ns (get-in global-env [current-ns :aliases ns])]
-          (when (get-in global-env [alias-ns resolve-type sym])
+    (or (when-let [alias-ns (get-in env [current-ns :aliases ns])]
+          (when (get-in env [alias-ns resolve-type sym])
             (symbol (name alias-ns) (name sym))))
 
-        (when (contains? global-env ns)
-          (when (get-in global-env [ns resolve-type sym])
+        (when (contains? env ns)
+          (when (get-in env [ns resolve-type sym])
             (symbol (name ns) (name sym)))))
 
-    (or (when (get-in global-env [current-ns resolve-type sym])
+    (or (when (get-in env [current-ns resolve-type sym])
           (symbol (name current-ns) (name sym)))
 
-        (when-let [refer-ns (get-in global-env [current-ns :refers sym])]
+        (when-let [refer-ns (get-in env [current-ns :refers sym])]
           (symbol (name refer-ns) (name sym))))))
 
-(defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [global-env locals loop-locals current-ns] :as env}]
+(defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [env locals loop-locals current-ns] :as ctx}]
   (merge {:loc-range loc-range}
          (case form-type
            :string {:expr-type :string, :string (:string form)}
            :bool {:expr-type :bool, :bool (:bool form)}
            (:int :float :big-int :big-float) {:expr-type form-type, :number (:number form)}
-           :vector {:expr-type :vector, :exprs (map #(analyse % env) forms)}
-           :set {:expr-type :set, :exprs (map #(analyse % env) forms)}
+           :vector {:expr-type :vector, :exprs (map #(analyse % ctx) forms)}
+           :set {:expr-type :set, :exprs (map #(analyse % ctx) forms)}
 
            :record (parse-forms [form]
                                 (record-parser (do-parse [entries (maybe-many (first-form-parser (fn [[sym form]]
-                                                                                                   [sym (analyse form env)])))]
+                                                                                                   [sym (analyse form ctx)])))]
                                                  (no-more-forms {:expr-type :record
                                                                  :entries entries}))))
 
@@ -194,16 +194,16 @@
            (if (seq forms)
              (let [[first-form & more-forms] forms
                    expr-parser (fn expr-parser
-                                 ([] (expr-parser env))
-                                 ([env]
+                                 ([] (expr-parser ctx))
+                                 ([ctx]
                                   (first-form-parser (fn [form]
-                                                       (analyse form env)))))
+                                                       (analyse form ctx)))))
 
                    bindings-parser (vector-parser (-> (fn [forms]
                                                         [(reduce (fn [{:keys [bindings locals]} pair]
                                                                    (let [[sym expr] (parse-forms pair
                                                                                                  (do-parse [{:keys [sym]} sym-parser
-                                                                                                            expr (expr-parser (-> env
+                                                                                                            expr (expr-parser (-> ctx
                                                                                                                                   (update :locals (fnil into {}) locals)
                                                                                                                                   (dissoc :loop-locals)))]
                                                                                                    (pure [sym expr])))
@@ -220,7 +220,7 @@
                      :symbol
                      (or (case (keyword (:sym first-form))
                            :if (parse-forms more-forms
-                                            (do-parse [pred-expr (expr-parser (dissoc env :loop-locals))
+                                            (do-parse [pred-expr (expr-parser (dissoc ctx :loop-locals))
                                                        then-expr (expr-parser)
                                                        else-expr (expr-parser)]
                                               (no-more-forms {:expr-type :if
@@ -230,7 +230,7 @@
 
                            :let (parse-forms more-forms
                                              (do-parse [{:keys [bindings locals]} bindings-parser
-                                                        body-expr (expr-parser (-> env
+                                                        body-expr (expr-parser (-> ctx
                                                                                    (update :locals (fnil into {}) locals)))]
                                                (no-more-forms {:expr-type :let
                                                                :bindings bindings
@@ -239,7 +239,7 @@
                            :fn (parse-forms more-forms
                                             (do-parse [params (vector-parser (do-parse [params (at-least-one sym-parser)]
                                                                                (no-more-forms (map (comp (juxt identity gensym) :sym) params))))
-                                                       body-expr (expr-parser (-> env
+                                                       body-expr (expr-parser (-> ctx
                                                                                   (update :locals (fnil into {}) params)
                                                                                   (assoc :loop-locals (map second params))))]
                                               (no-more-forms {:expr-type :fn
@@ -252,7 +252,7 @@
                                                                                                                 params (at-least-one sym-parser)]
                                                                                                        (no-more-forms {:sym sym
                                                                                                                        :params (map (comp (juxt identity gensym) :sym) params)}))))
-                                                        body-expr (expr-parser (-> env
+                                                        body-expr (expr-parser (-> ctx
                                                                                    (update :locals (fnil into {}) params)
                                                                                    (assoc :loop-locals (map second params))))]
                                                (no-more-forms {:expr-type :def
@@ -276,20 +276,20 @@
                                                                    :params params})))
 
                            :match (parse-forms more-forms
-                                               (do-parse [match-expr (expr-parser (dissoc env :loop-locals))]
+                                               (do-parse [match-expr (expr-parser (dissoc ctx :loop-locals))]
                                                  (fn [forms]
                                                    (cond
                                                      (zero? (mod (count forms) 2)) (throw (ex-info "Missing default in 'match'" {:loc-range (:loc-range form)}))
                                                      :else (let [clauses (parse-forms (butlast forms)
                                                                                       (do-parse [clauses (maybe-many (do-parse [sym (or-parser sym-parser ns-sym-parser)
                                                                                                                                 expr (expr-parser)]
-                                                                                                                       (if-let [fq-sym (env-resolve sym :types env)]
+                                                                                                                       (if-let [fq-sym (resolve-sym sym :types ctx)]
                                                                                                                          (pure [fq-sym expr])
                                                                                                                          (throw (ex-info "Can't resolve type:"
                                                                                                                                          {:type (select-keys sym [:ns :sym])
                                                                                                                                           :loc-range (:loc-range sym)})))))]
                                                                                         (no-more-forms clauses)))
-                                                                 default-expr (analyse (last forms) env)]
+                                                                 default-expr (analyse (last forms) ctx)]
 
                                                              [{:expr-type :match
                                                                :match-expr match-expr
@@ -299,7 +299,7 @@
 
                            :loop (parse-forms more-forms
                                               (do-parse [{:keys [bindings locals]} bindings-parser
-                                                         body-expr (expr-parser (-> env
+                                                         body-expr (expr-parser (-> ctx
                                                                                     (update :locals (fnil into {}) locals)
                                                                                     (assoc :loop-locals (map second locals))))]
                                                 (no-more-forms {:expr-type :loop
@@ -314,7 +314,7 @@
                                                                                                    :expected (count loop-locals)
                                                                                                    :found (count more-forms)}))
                                     :else (parse-forms more-forms
-                                                       (do-parse [exprs (maybe-many (expr-parser (dissoc env :loop-locals)))]
+                                                       (do-parse [exprs (maybe-many (expr-parser (dissoc ctx :loop-locals)))]
                                                          (no-more-forms {:expr-type :recur
                                                                          :exprs exprs
                                                                          :loop-locals loop-locals}))))
@@ -333,7 +333,7 @@
                      (:list :namespaced-symbol) nil)
 
                    {:expr-type :call
-                    :exprs (map #(analyse % env) forms)}))
+                    :exprs (map #(analyse % ctx) forms)}))
 
              (throw (ex-info "niy" {})))
 
@@ -341,20 +341,20 @@
                          {:expr-type :local
                           :local local})
 
-                       (when-let [global (env-resolve form :vars env)]
+                       (when-let [global (resolve-sym form :vars ctx)]
                          {:expr-type :global
                           :global global})
 
                        (throw (ex-info "Can't find" {:sym (:sym form)
-                                                     :env env})))
+                                                     :ctx ctx})))
 
-           :namespaced-symbol (if-let [global (env-resolve form :vars env)]
+           :namespaced-symbol (if-let [global (resolve-sym form :vars ctx)]
                                 {:expr-type :global
                                  :global global}
 
                                 (throw (ex-info "Can't find" {:ns (:ns form)
                                                               :sym (:sym form)
-                                                              :env env}))))))
+                                                              :ctx ctx}))))))
 
 (comment
   (analyse (first (bridje.reader/read-forms (pr-str '(loop [x 5
@@ -364,9 +364,9 @@
                                                          (recur ((clj dec) x)
                                                                 ((clj conj) res x)))))))
 
-           {:global-env {'the-ns {:vars {'foo {}
-                                         '->Just {}
-                                         'Just->a {}}
-                                  :types {'Nothing {}
-                                          'Just {}}}}
+           {:env {'the-ns {:vars {'foo {}
+                                  '->Just {}
+                                  'Just->a {}}
+                           :types {'Nothing {}
+                                   'Just {}}}}
             :current-ns 'the-ns}))

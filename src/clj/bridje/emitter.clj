@@ -89,11 +89,11 @@
                            globals)]
              ~(emit-value-expr* expr)))))))
 
-(defn emit-expr [{:keys [expr-type] :as expr} {:keys [global-env current-ns] :as env}]
+(defn emit-expr [{:keys [expr-type] :as expr} {:keys [env current-ns]}]
   (case expr-type
     :def
     (let [{:keys [sym locals body-expr]} expr]
-      {:global-env (assoc-in global-env [current-ns :vars sym] {})
+      {:env (assoc-in env [current-ns :vars sym] {})
        :code `(fn [env#]
                 (assoc-in env# ['~current-ns :vars '~sym]
                           {:value (~(emit-value-expr (if (seq locals)
@@ -109,17 +109,17 @@
     :defdata
     (let [{:keys [sym params]} expr
           fq-sym (symbol (name current-ns) (name sym))]
-      {:global-env (-> global-env
-                       (assoc-in [current-ns :types sym] {:params params})
-                       (update-in [current-ns :vars] merge
-                                  (if (seq params)
-                                    (merge {(symbol (str "->" (name sym))) {}}
-                                           (into {}
-                                                 (map (fn [param]
-                                                        [(symbol (format "%s->%s" (name sym) (name param))) {}]))
-                                                 params))
+      {:env (-> env
+                (assoc-in [current-ns :types sym] {:params params})
+                (update-in [current-ns :vars] merge
+                           (if (seq params)
+                             (merge {(symbol (str "->" (name sym))) {}}
+                                    (into {}
+                                          (map (fn [param]
+                                                 [(symbol (format "%s->%s" (name sym) (name param))) {}]))
+                                          params))
 
-                                    {sym {}})))
+                             {sym {}})))
        :code `(fn [env#]
                 (-> env#
                     (assoc-in ['~current-ns :types '~sym] {:params '[~@params]})

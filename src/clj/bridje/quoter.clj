@@ -14,7 +14,7 @@
                                              :sym k}
                                             v]))))}]})
 
-(defn expand-syntax-quotes [form {:keys [current-ns] :as env}]
+(defn expand-syntax-quotes [form {:keys [current-ns] :as ctx}]
   (letfn [(syntax-quote-form [{:keys [form-type forms] :as form} {:keys [splice?]}]
             (let [quoted-form (case form-type
                                 :syntax-quote (-> (:form form)
@@ -33,7 +33,7 @@
                                 (:string :bool :int :float :big-int :big-float) {:form-type :quote,
                                                                                  :form form}
 
-                                (:symbol :namespaced-symbol) (let [{:keys [ns sym]} (or (analyser/env-resolve form :vars env)
+                                (:symbol :namespaced-symbol) (let [{:keys [ns sym]} (or (analyser/resolve-sym form :vars ctx)
                                                                                         {:ns (or (:ns form) current-ns),
                                                                                          :sym (:sym form)})]
                                                                (quoted-form :namespaced-symbol
@@ -108,7 +108,7 @@
       :quote (quote-form (:form form)))))
 
 (comment
-  (let [env {:global-env {'bridje.kernel.forms {:vars {'->VectorForm {:value {}}
+  (let [ctx {:env {'bridje.kernel.forms {:vars {'->VectorForm {:value {}}
                                                        '->IntForm {:value {}}
                                                        '->ListForm {:value {}}
                                                        '->StringForm {:value {}}
@@ -116,25 +116,25 @@
                                                        '->SymbolForm {:value {}}
                                                        '->NamespacedSymbolForm {:value {}}}}}}]
     (-> (expand-normal-quotes (first (bridje.reader/read-forms "['[1 '''1]]")))
-        (analyser/analyse env)
-        (bridje.emitter/emit-value-expr env))))
+        (analyser/analyse ctx)
+        (bridje.emitter/emit-value-expr ctx))))
 
 (comment
-  (let [env {:current-ns 'bridje.foo
-             :global-env {'bridje.kernel.forms {:vars {'->VectorForm {:value {}}
-                                                       '->IntForm {:value {}}
-                                                       '->ListForm {:value {}}
-                                                       '->QuotedForm {:value {}}
-                                                       '->StringForm {:value {}}
-                                                       '->RecordForm {:value {}}
-                                                       '->SymbolForm {:value {}}
-                                                       'symbol {:value {}}
-                                                       '->NamespacedSymbolForm {:value {}}}}}}]
+  (let [ctx {:current-ns 'bridje.foo
+             :env {'bridje.kernel.forms {:vars {'->VectorForm {:value {}}
+                                                '->IntForm {:value {}}
+                                                '->ListForm {:value {}}
+                                                '->QuotedForm {:value {}}
+                                                '->StringForm {:value {}}
+                                                '->RecordForm {:value {}}
+                                                '->SymbolForm {:value {}}
+                                                'symbol {:value {}}
+                                                '->NamespacedSymbolForm {:value {}}}}}}]
     (-> (first (bridje.reader/read-forms "''foo"))
-        (expand-syntax-quotes env)
+        (expand-syntax-quotes ctx)
         (expand-quotes)
-        (analyser/analyse env)
-        (bridje.emitter/emit-value-expr env))))
+        (analyser/analyse ctx)
+        (bridje.emitter/emit-value-expr ctx))))
 
 (comment
   (-> (first (bridje.reader/read-forms "`[1 ~@[2 3 4]]"))

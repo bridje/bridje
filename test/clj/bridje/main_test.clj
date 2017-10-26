@@ -1,6 +1,7 @@
 (ns bridje.main-test
   (:require [bridje.main :as sut]
             [bridje.runtime :as rt]
+            [bridje.compiler :as compiler]
             [bridje.fake-io :refer [fake-file fake-io]]
             [clojure.string :as s]
             [clojure.test :as t]
@@ -55,12 +56,13 @@
                                                                   ((clj conj) res x))))
                                               justval (foo/Just->a just)})))}
 
-        {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-files})]
+        {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-files})
+        bootstrap-env (sut/bootstrap-env {:io compiler-io})]
 
-    (bridje.compiler/compile! 'bridje.kernel.bar {:io compiler-io, :env {}})
+    (compiler/compile! 'bridje.kernel.bar {:io compiler-io, :env bootstrap-env})
 
     (t/is (= (sut/run-main {:main-ns 'bridje.kernel.bar}
-                           {:io compiler-io})
+                           {:io compiler-io, :env bootstrap-env})
 
              {:message ["Hello" "World"],
               :seq ["ohno"],
@@ -80,11 +82,12 @@
                                                                                                         (pr-str '(def (main args)
                                                                                                                    {simple-quote simple-quote
                                                                                                                     double-quote double-quote
-                                                                                                                    syntax-quote syntax-quote}))])}})]
+                                                                                                                    syntax-quote syntax-quote}))])}})
+        bootstrap-env (sut/bootstrap-env {:io compiler-io})]
 
-    (bridje.compiler/compile! 'bridje.kernel.baz {:io compiler-io})
+    (compiler/compile! 'bridje.kernel.baz {:io compiler-io, :env bootstrap-env})
 
-    (t/is (= (-> (sut/run-main {:main-ns 'bridje.kernel.baz} {:io compiler-io})
+    (t/is (= (-> (sut/run-main {:main-ns 'bridje.kernel.baz} {:io compiler-io, :env bootstrap-env})
                  (without-loc))
 
              {:simple-quote (rt/->ADT 'bridje.kernel.forms/ListForm,

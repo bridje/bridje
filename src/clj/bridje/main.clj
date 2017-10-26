@@ -6,8 +6,8 @@
             [clojure.set :as set]
             [clojure.tools.cli :as cli]))
 
-(defn run-main [{:keys [main-ns args]} {:keys [io]}]
-  (let [cbs (loop [to-load ['bridje.kernel.forms main-ns]
+(defn load-ns [ns {:keys [io env]}]
+  (let [cbs (loop [to-load #{ns}
                    cbs []
                    loaded #{}]
               (if (empty? to-load)
@@ -17,14 +17,20 @@
                                    to-load)]
                   (recur (set/difference (into #{} (mapcat :deps) results) loaded)
                          (into (into [] (map (comp eval :cb)) results) cbs)
-                         (set/union loaded (set to-load))))))
+                         (set/union loaded to-load)))))]
 
-        global-env (reduce (fn [global-env cb]
-                             (cb global-env))
-                           {}
-                           cbs)]
+    (reduce (fn [env cb]
+              (cb env))
+            env
+            cbs)))
 
-    (when-let [main-fn (get-in global-env [main-ns :vars 'main :value])]
+(defn bootstrap-env [{:keys [io]}]
+  (compile! 'bridje.kernel.analyser {:io io})
+  (load-ns 'bridje.kernel.analyser {:io io}))
+
+(defn run-main [{:keys [main-ns args]} {:keys [io env]}]
+  (let [env (load-ns main-ns {:io io, :env (or env (bootstrap-env {:io io}))})]
+    (when-let [main-fn (get-in env [main-ns :vars 'main :value])]
       (main-fn args))))
 
 (defn -main [& args]

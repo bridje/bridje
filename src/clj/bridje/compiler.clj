@@ -3,7 +3,9 @@
             [bridje.quoter :as quoter]
             [bridje.analyser :as analyser]
             [bridje.emitter :as emitter]
-            [bridje.file-io :as file-io]))
+            [bridje.file-io :as file-io]
+            [bridje.util :as u]
+            [clojure.set :as set]))
 
 (defn read-ns-content [ns {:keys [io]}]
   (let [content (or (file-io/slurp-source-file io ns)
@@ -43,30 +45,29 @@
                        ns-order
                        (assoc ns-content ns content)))))))
 
-(defn compile-ns [{:keys [ns ns-header forms]} env]
-  (reduce (fn [{:keys [codes env]} form]
-            (let [{:keys [global-env code]} (-> form
-                                                (quoter/expand-syntax-quotes env)
-                                                quoter/expand-quotes
-                                                (analyser/analyse env)
-                                                (emitter/emit-expr env))]
-              {:env (merge env {:global-env global-env})
-               :codes (conj codes code)}))
+(defn compile-ns [{:keys [ns ns-header forms]} {:keys [env]}]
+  (let [analyse (if (u/kernel? ns)
+                  analyser/analyse
+                  (get-in env '[bridje.kernel.analyser :vars analyse :value]))]
+    (reduce (fn [{:keys [codes env]} form]
+              (let [{:keys [env code]} (-> form
+                                           (quoter/expand-syntax-quotes {:env env, :current-ns ns})
+                                           quoter/expand-quotes
+                                           (analyse {:env env, :current-ns ns})
+                                           (emitter/emit-expr {:env env, :current-ns ns}))]
+                {:env env
+                 :codes (conj codes code)}))
 
-          {:env (-> env
-                    (assoc :current-ns ns)
-                    (assoc-in [:global-env ns] ns-header))
-           :codes []}
+            {:env (-> env
+                      (assoc ns ns-header))
+             :codes []}
 
-          forms))
+            forms)))
 
 (defn compile! [entry-ns {:keys [io env]}]
-  (let [ns-order (transitive-read-forms (concat [entry-ns]
-                                                (when (empty? env)
-                                                  '[bridje.kernel.forms]))
-                                        {:io io, :env env})]
+  (let [ns-order (transitive-read-forms [entry-ns] {:io io})]
     (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
-              (let [{:keys [env codes]} (compile-ns ns-content env)]
+              (let [{:keys [env codes]} (compile-ns ns-content {:env env})]
                 (file-io/spit-compiled-file io ns :clj (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
                 env))
             env

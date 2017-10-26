@@ -1,0 +1,5 @@
+(ns bridje.kernel.analyser
+  {aliases {forms bridje.kernel.forms}})
+
+(def (analyse form ctx)
+  ((clj bridje.analyser/analyse) form ctx))
