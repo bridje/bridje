@@ -14,10 +14,10 @@
           :fn (sub-exprs (:body-expr expr)))
         expr))
 
-(def form-adt-kw
+(def form-adt-sym
   (-> (fn [form-type]
         (let [[_ fst snd] (re-matches #"([a-z]+)(-[a-z]+)*" (name form-type))]
-          (keyword (name :bridje.forms)
+          (symbol (name :bridje.kernel.forms)
                    (str (s/capitalize fst)
                         (when snd
                           (s/capitalize (subs snd 1)))

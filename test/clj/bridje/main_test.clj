@@ -36,11 +36,11 @@
 
                                         '(def (main args)
                                            (let [seq ["ohno"]
-                                                 just (foo/->Just "just")
+                                                 just (foo/Just "just")
                                                  nothing foo/Nothing]
                                              {message (foo/flip "World" "Hello")
                                               seq seq
-                                              mapped (foo/->Mapped {a "Hello", b "World"})
+                                              mapped (foo/Mapped {a "Hello", b "World"})
                                               the-nothing nothing
                                               empty? ((clj empty?) seq)
                                               just just
@@ -98,14 +98,14 @@
 
               :double-quote (rt/->ADT 'bridje.kernel.forms/ListForm
                                       {:forms [(rt/->ADT 'bridje.kernel.forms/NamespacedSymbolForm
-                                                         '{:ns bridje.kernel.forms, :sym ->VectorForm})
+                                                         '{:ns bridje.kernel.forms, :sym VectorForm})
                                                (rt/->ADT 'bridje.kernel.forms/RecordForm
                                                          {:forms [(rt/->ADT 'bridje.kernel.forms/SymbolForm,
                                                                             {:sym 'forms})
                                                                   (rt/->ADT 'bridje.kernel.forms/VectorForm,
                                                                             {:forms [(rt/->ADT 'bridje.kernel.forms/ListForm,
                                                                                                {:forms [(rt/->ADT 'bridje.kernel.forms/NamespacedSymbolForm,
-                                                                                                                  '{:ns bridje.kernel.forms, :sym ->SymbolForm})
+                                                                                                                  '{:ns bridje.kernel.forms, :sym SymbolForm})
                                                                                                         (rt/->ADT 'bridje.kernel.forms/RecordForm,
                                                                                                                   {:forms [(rt/->ADT 'bridje.kernel.forms/SymbolForm,
                                                                                                                                      '{:sym sym})
@@ -116,7 +116,7 @@
                                                                                                                                                         {:string "foo"})]})]})]})
                                                                                      (rt/->ADT 'bridje.kernel.forms/ListForm,
                                                                                                {:forms [(rt/->ADT 'bridje.kernel.forms/NamespacedSymbolForm,
-                                                                                                                  '{:ns bridje.kernel.forms, :sym ->IntForm})
+                                                                                                                  '{:ns bridje.kernel.forms, :sym IntForm})
                                                                                                         (rt/->ADT 'bridje.kernel.forms/RecordForm,
                                                                                                                   {:forms [(rt/->ADT 'bridje.kernel.forms/SymbolForm,
                                                                                                                                      '{:sym number})

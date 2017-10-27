@@ -113,7 +113,7 @@
                 (assoc-in [current-ns :types sym] {:params params})
                 (update-in [current-ns :vars] merge
                            (if (seq params)
-                             (merge {(symbol (str "->" (name sym))) {}}
+                             (merge {sym {}}
                                     (into {}
                                           (map (fn [param]
                                                  [(symbol (format "%s->%s" (name sym) (name param))) {}]))
@@ -125,21 +125,21 @@
                     (assoc-in ['~current-ns :types '~sym] {:params '[~@params]})
                     (update-in ['~current-ns :vars] merge
                             ~(if (seq params)
-                               (merge `{'~(symbol (str "->" sym)) {:value ~(cond
-                                                                             (vector? params) `(fn [~@params]
-                                                                                                 (rt/->ADT '~fq-sym
-                                                                                                           ~(into {}
-                                                                                                                  (map (fn [param]
-                                                                                                                         [(keyword param) param]))
-                                                                                                                  params)))
+                               (merge `{'~sym {:value ~(cond
+                                                         (vector? params) `(fn [~@params]
+                                                                             (rt/->ADT '~fq-sym
+                                                                                       ~(into {}
+                                                                                              (map (fn [param]
+                                                                                                     [(keyword param) param]))
+                                                                                              params)))
 
-                                                                             (set? params) (let [params-sym (gensym 'params)]
-                                                                                             `(fn [~params-sym]
-                                                                                                (rt/->ADT '~fq-sym
-                                                                                                          ~(into {}
-                                                                                                                 (map (fn [param]
-                                                                                                                        [(keyword param) `(get ~params-sym ~(keyword param))]))
-                                                                                                                 params)))))}}
+                                                         (set? params) (let [params-sym (gensym 'params)]
+                                                                         `(fn [~params-sym]
+                                                                            (rt/->ADT '~fq-sym
+                                                                                      ~(into {}
+                                                                                             (map (fn [param]
+                                                                                                    [(keyword param) `(get ~params-sym ~(keyword param))]))
+                                                                                             params)))))}}
                                       (->> params
                                            (into {} (map (fn [param]
                                                            `['~(symbol (str sym "->" param)) {:value (fn [obj#]
