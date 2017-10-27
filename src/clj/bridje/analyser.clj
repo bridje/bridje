@@ -1,5 +1,6 @@
 (ns bridje.analyser
-  (:require [bridje.util :as u]
+  (:require [bridje.forms :as f]
+            [bridje.util :as u]
             [clojure.string :as s]))
 
 (defn parse-forms [forms parser]
@@ -175,18 +176,18 @@
         (when-let [refer-ns (get-in env [current-ns :refers sym])]
           (symbol (name refer-ns) (name sym))))))
 
-(defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [env locals loop-locals current-ns] :as ctx}]
+(defn analyse-kernel-expr [{:keys [form-type forms loc-range] :as form} {:keys [env locals loop-locals current-ns] :as ctx}]
   (merge {:loc-range loc-range}
          (case form-type
            :string {:expr-type :string, :string (:string form)}
            :bool {:expr-type :bool, :bool (:bool form)}
            (:int :float :big-int :big-float) {:expr-type form-type, :number (:number form)}
-           :vector {:expr-type :vector, :exprs (map #(analyse % ctx) forms)}
-           :set {:expr-type :set, :exprs (map #(analyse % ctx) forms)}
+           :vector {:expr-type :vector, :exprs (map #(analyse-kernel-expr % ctx) forms)}
+           :set {:expr-type :set, :exprs (map #(analyse-kernel-expr % ctx) forms)}
 
            :record (parse-forms [form]
                                 (record-parser (do-parse [entries (maybe-many (first-form-parser (fn [[sym form]]
-                                                                                                   [sym (analyse form ctx)])))]
+                                                                                                   [sym (analyse-kernel-expr form ctx)])))]
                                                  (no-more-forms {:expr-type :record
                                                                  :entries entries}))))
 
@@ -197,7 +198,7 @@
                                  ([] (expr-parser ctx))
                                  ([ctx]
                                   (first-form-parser (fn [form]
-                                                       (analyse form ctx)))))
+                                                       (analyse-kernel-expr form ctx)))))
 
                    bindings-parser (vector-parser (-> (fn [forms]
                                                         [(reduce (fn [{:keys [bindings locals]} pair]
@@ -289,7 +290,7 @@
                                                                                                                                          {:type (select-keys sym [:ns :sym])
                                                                                                                                           :loc-range (:loc-range sym)})))))]
                                                                                         (no-more-forms clauses)))
-                                                                 default-expr (analyse (last forms) ctx)]
+                                                                 default-expr (analyse-kernel-expr (last forms) ctx)]
 
                                                              [{:expr-type :match
                                                                :match-expr match-expr
@@ -333,7 +334,7 @@
                      (:list :namespaced-symbol) nil)
 
                    {:expr-type :call
-                    :exprs (map #(analyse % ctx) forms)}))
+                    :exprs (map #(analyse-kernel-expr % ctx) forms)}))
 
              (throw (ex-info "niy" {})))
 
@@ -356,17 +357,19 @@
                                                               :sym (:sym form)
                                                               :ctx ctx}))))))
 
-(comment
-  (analyse (first (bridje.reader/read-forms (pr-str '(loop [x 5
-                                                            res []]
-                                                       (if ((clj zero?) x)
-                                                         res
-                                                         (recur ((clj dec) x)
-                                                                ((clj conj) res x)))))))
+(defn analyse [form {:keys [current-ns env] :as ctx}]
+  (if (u/kernel? current-ns)
+    (analyse-kernel-expr form ctx)
 
-           {:env {'the-ns {:vars {'foo {}
-                                  '->Just {}
-                                  'Just->a {}}
-                           :types {'Nothing {}
-                                   'Just {}}}}
-            :current-ns 'the-ns}))
+    (-> form
+        f/wrap-forms
+        ;; TODO needs to pass env through
+        ((get-in env '[bridje.kernel.analyser :vars analyse :value]) {:current-ns current-ns})
+        f/unwrap-exprs)))
+
+(comment
+  (let [ctx {:env (bridje.main/bootstrap-env {:io (:compiler-io (bridje.fake-io/fake-io {}))})
+             :current-ns 'the-ns}]
+    (-> (first (bridje.reader/read-forms (pr-str true)))
+        (analyse ctx)
+        (bridje.emitter/emit-value-expr ctx))))

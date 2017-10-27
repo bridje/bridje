@@ -2,4 +2,8 @@
   {aliases {forms bridje.kernel.forms}})
 
 (def (analyse form ctx)
-  ((clj bridje.analyser/analyse) form ctx))
+  (match form
+    forms/StringForm (forms/StringExpr {string (forms/StringForm->string form)})
+    forms/BoolForm (forms/BoolExpr {bool (forms/BoolForm->bool form)})
+
+    (forms/StringExpr {string "Nope."})))

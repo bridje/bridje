@@ -6,6 +6,9 @@
 (def (concat seqs)
   ((clj into) [] ((clj mapcat) (clj identity)) seqs))
 
+
+;; Forms
+
 (defdata (StringForm #{string loc-range}))
 (defdata (BoolForm #{bool loc-range}))
 
@@ -21,3 +24,32 @@
 
 (defdata (SymbolForm #{sym loc-range}))
 (defdata (NamespacedSymbolForm #{ns sym loc-range}))
+
+
+;; Exprs
+
+(defdata (StringExpr #{string loc-range}))
+(defdata (BoolExpr #{bool loc-range}))
+
+(defdata (IntExpr #{number loc-range}))
+(defdata (FloatExpr #{number loc-range}))
+(defdata (BigIntExpr #{number loc-range}))
+(defdata (BigFloatExpr #{number loc-range}))
+
+(defdata (SetExpr #{exprs loc-range}))
+(defdata (VectorExpr #{exprs loc-range}))
+(defdata (RecordExpr #{exprs loc-range}))
+
+(defdata (LocalExpr #{local loc-range}))
+(defdata (GlobalExpr #{global loc-range}))
+(defdata (CljVarExpr #{clj-var loc-range}))
+
+(defdata (CallExpr #{exprs loc-range}))
+
+(defdata (IfExpr #{pred-expr then-expr else-expr loc-range}))
+(defdata (LetExpr #{bindings body-expr loc-range}))
+(defdata (FnExpr #{bindings body-expr loc-range}))
+(defdata (MatchExpr #{match-expr clauses default-expr loc-range}))
+
+(defdata (LoopExpr #{bindings body-expr loc-range}))
+(defdata (RecurExpr #{exprs loc-range}))

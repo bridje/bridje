@@ -46,23 +46,20 @@
                        (assoc ns-content ns content)))))))
 
 (defn compile-ns [{:keys [ns ns-header forms]} {:keys [env]}]
-  (let [analyse (if (u/kernel? ns)
-                  analyser/analyse
-                  (get-in env '[bridje.kernel.analyser :vars analyse :value]))]
-    (reduce (fn [{:keys [codes env]} form]
-              (let [{:keys [env code]} (-> form
-                                           (quoter/expand-syntax-quotes {:env env, :current-ns ns})
-                                           quoter/expand-quotes
-                                           (analyse {:env env, :current-ns ns})
-                                           (emitter/emit-expr {:env env, :current-ns ns}))]
-                {:env env
-                 :codes (conj codes code)}))
+  (reduce (fn [{:keys [codes env]} form]
+            (let [{:keys [env code]} (-> form
+                                         (quoter/expand-syntax-quotes {:env env, :current-ns ns})
+                                         quoter/expand-quotes
+                                         (analyser/analyse {:env env, :current-ns ns})
+                                         (emitter/emit-expr {:env env, :current-ns ns}))]
+              {:env env
+               :codes (conj codes code)}))
 
-            {:env (-> env
-                      (assoc ns ns-header))
-             :codes []}
+          {:env (-> env
+                    (assoc ns ns-header))
+           :codes []}
 
-            forms)))
+          forms))
 
 (defn compile! [entry-ns {:keys [io env]}]
   (let [ns-order (transitive-read-forms [entry-ns] {:io io})]
