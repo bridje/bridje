@@ -1,13 +1,14 @@
 (ns bridje.quoter
   (:require [bridje.analyser :as analyser]
-            [bridje.util :as u]))
+            [bridje.forms :as f]))
 
 (defn quoted-form [form-type params]
   {:form-type :list
-   :forms [(let [form-adt-sym (u/form-adt-sym form-type)]
+   :forms [(let [form-adt-kw (f/form-adt-kw form-type)]
              {:form-type :namespaced-symbol
-              :ns (symbol (namespace form-adt-sym))
-              :sym (symbol (name form-adt-sym))})
+              :ns (symbol (namespace form-adt-kw))
+              :sym (symbol (name form-adt-kw))})
+
            {:form-type :record
             :forms (->> params
                         (into [] (mapcat (fn [[k v]]
@@ -16,20 +17,20 @@
                                             v]))))}]})
 
 (defn expand-syntax-quotes [form {:keys [current-ns] :as ctx}]
-  (letfn [(syntax-quote-form [{:keys [form-type forms] :as form} {:keys [splice?]}]
+  (letfn [(syntax-quote-form [{:keys [form-type forms], inner-form :form, :as form} {:keys [splice?]}]
             (let [quoted-form (case form-type
-                                :syntax-quote (-> (:form form)
+                                :syntax-quote (-> inner-form
                                                   (syntax-quote-form {:splice? false})
                                                   (syntax-quote-form {:splice? false}))
 
-                                :unquote (:form form)
+                                :unquote inner-form
 
                                 :unquote-splicing (if splice?
-                                                    (:form form)
+                                                    inner-form
                                                     (throw (ex-info "unquote-splicing used outside of collection" {:form form})))
 
                                 :quote {:form-type :quote
-                                        :form (syntax-quote-form (:form form) {:splice? false})}
+                                        :form (syntax-quote-form inner-form {:splice? false})}
 
                                 (:string :bool :int :float :big-int :big-float) {:form-type :quote,
                                                                                  :form form}
