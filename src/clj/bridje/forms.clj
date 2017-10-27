@@ -3,41 +3,58 @@
             [clojure.string :as s]
             [clojure.walk :as w]))
 
-(do
-  (def form-types
-    #{:string :bool
-      :int :float :big-int :big-float
-      :symbol :namespaced-symbol
-      :record :list :set :vector})
+(defn adt-syms [type variants]
+  (into {}
+        (map (fn [variant]
+               (let [[_ fst snd] (re-matches #"([a-z]+)(-[a-z]+)*" (name variant))]
+                 [variant (symbol (name 'bridje.kernel.forms)
+                                  (str (s/capitalize fst)
+                                       (when snd
+                                         (s/capitalize (subs snd 1)))
+                                       (s/capitalize (name type))))])))
+        variants))
 
-  (def form-adt-kw
-    (into {}
-          (map (fn [form-type]
-                 (let [[_ fst snd] (re-matches #"([a-z]+)(-[a-z]+)*" (name form-type))]
-                   [form-type (keyword (name 'bridje.kernel.forms)
-                                       (str (s/capitalize fst)
-                                            (when snd
-                                              (s/capitalize (subs snd 1)))
-                                            "Form"))])))
-          form-types))
+(defn adt-types->kws [adt-type-syms]
+  (into {} (map (fn [[k v]] [v k])) adt-type-syms))
 
-  (def adt-form-type
-    (comp (into {} (map (fn [[k v]] [v k])) form-adt-kw)
-          :adt-type)))
+(defmacro defadt [type variants]
+  (let [type-adt-syms (symbol (str type "-adt-syms"))
+        adt-type->kw (symbol (format "%s-adt-type->kw" (name type)))
+        type-kw (keyword (str type "-type"))]
+    `(let [variants# ~variants]
+       (def ~type-adt-syms
+         (adt-syms '~type variants#))
 
-(defn wrap-forms [obj]
-  (w/postwalk (fn [obj]
-                (if (and (map? obj) (:form-type obj))
-                  (rt/->ADT (form-adt-kw (:form-type obj))
-                            (dissoc obj :form-type))
-                  obj))
-              obj))
+       (def ~adt-type->kw
+         (adt-types->kws ~type-adt-syms))
 
-(defn unwrap-forms [obj]
-  (w/postwalk (fn [obj]
-                (if-let [form-type (adt-form-type obj)]
-                  (merge (:params obj)
-                         {:form-type form-type})
+       (defn ~(symbol (format "wrap-%ss" (name type))) [obj#]
+         (w/postwalk (fn [obj#]
+                       (if (and (map? obj#) (~type-kw obj#))
+                         (rt/->ADT (~type-adt-syms (~type-kw obj#))
+                                   (dissoc obj# ~type-kw))
+                         obj#))
+                     obj#))
 
-                  obj))
-              obj))
+       (defn ~(symbol (format "unwrap-%ss" (name type))) [obj#]
+         (w/postwalk (fn [obj#]
+                       (if-let [variant# (~adt-type->kw (:adt-type obj#))]
+                         (merge (:params obj#)
+                                {~type-kw variant#})
+
+                         obj#))
+                     obj#)))))
+
+(defadt form
+  #{:string :bool
+    :int :float :big-int :big-float
+    :symbol :namespaced-symbol
+    :record :list :set :vector})
+
+(defadt expr
+  #{:string :bool
+    :int :float :big-int :big-float
+    :local :global :clj-var
+    :vector :set :record
+    :if :let :match :fn
+    :loop :recur})

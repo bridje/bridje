@@ -7,7 +7,7 @@
 
 (defn sub-exprs [expr]
   (conj (case (:expr-type expr)
-          (:string :bool :int :float :big-int :big-float :local :global :clj-var :quote) []
+          (:string :bool :int :float :big-int :big-float :local :global :clj-var) []
           (:vector :set :call :recur) (mapcat sub-exprs (:exprs expr))
           :record (mapcat sub-exprs (map second (:entries expr)))
           :if (mapcat (comp sub-exprs expr) #{:pred-expr :then-expr :else-expr})

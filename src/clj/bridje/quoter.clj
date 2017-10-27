@@ -4,7 +4,7 @@
 
 (defn quoted-form [form-type params]
   {:form-type :list
-   :forms [(let [form-adt-kw (f/form-adt-kw form-type)]
+   :forms [(let [form-adt-kw (f/form-adt-syms form-type)]
              {:form-type :namespaced-symbol
               :ns (symbol (namespace form-adt-kw))
               :sym (symbol (name form-adt-kw))})
