@@ -146,13 +146,3 @@
                                                                                                        (get-in obj# [:params ~(keyword param)]))}])))))
 
                                `{'~sym {:value (rt/->ADT '~fq-sym {})}}))))})))
-
-(defn emit-ns [{:keys [codes ns ns-header] :as arg}]
-  {:deps (into #{} (concat (vals (:aliases ns-header))
-                           (keys (:refers ns-header))))
-
-   :cb `(fn [env#]
-          (reduce (fn [env# code#]
-                    (code# env#))
-                  env#
-                  [~@codes]))})

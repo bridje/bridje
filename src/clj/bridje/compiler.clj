@@ -45,27 +45,34 @@
                        ns-order
                        (assoc ns-content ns content)))))))
 
+(defn compile-form [form {:keys [current-ns env]}]
+  (-> form
+      (quoter/expand-syntax-quotes {:env env, :current-ns current-ns})
+      quoter/expand-quotes
+      (analyser/analyse {:env env, :current-ns current-ns})
+      (emitter/emit-expr {:env env, :current-ns current-ns})))
+
 (defn compile-ns [{:keys [ns ns-header forms]} {:keys [env]}]
-  (reduce (fn [{:keys [codes env]} form]
-            (let [{:keys [env code]} (-> form
-                                         (quoter/expand-syntax-quotes {:env env, :current-ns ns})
-                                         quoter/expand-quotes
-                                         (analyser/analyse {:env env, :current-ns ns})
-                                         (emitter/emit-expr {:env env, :current-ns ns}))]
-              {:env env
-               :codes (conj codes code)}))
+  (let [{:keys [env form-codes]} (reduce (fn [{:keys [form-codes env]} form]
+                                           (let [{:keys [env code]} (compile-form form {:current-ns ns, :env env})]
+                                             {:env env
+                                              :form-codes (conj form-codes code)}))
 
-          {:env (-> env
-                    (assoc ns ns-header))
-           :codes []}
+                                         {:env (-> env
+                                                   (assoc ns ns-header))
+                                          :form-codes []}
 
-          forms))
+                                         forms)]
+    {:env env
+     :code `(fn [env#]
+              (reduce (fn [env# code#] (code# env#))
+                      env#
+                      [~@form-codes]))}))
 
-(defn compile! [entry-ns {:keys [io env]}]
-  (let [ns-order (transitive-read-forms [entry-ns] {:io io})]
+(defn load-ns [ns {:keys [io env]}]
+  (let [ns-order (transitive-read-forms [ns] {:io io})]
     (reduce (fn [env {:keys [ns ns-header] :as ns-content}]
-              (let [{:keys [env codes]} (compile-ns ns-content {:env env})]
-                (file-io/spit-compiled-file io ns :clj (emitter/emit-ns {:codes codes, :ns ns, :ns-header ns-header}))
-                env))
+              (let [{:keys [env code]} (compile-ns ns-content {:env env})]
+                ((eval code) env)))
             env
             ns-order)))

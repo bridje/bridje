@@ -56,10 +56,8 @@
                                                                   ((clj conj) res x))))
                                               justval (foo/Just->a just)})))}
 
-        {:keys [compiler-io !compiled-files]} (fake-io {:source-files fake-files})
+        {:keys [compiler-io]} (fake-io {:source-files fake-files})
         bootstrap-env (sut/bootstrap-env {:io compiler-io})]
-
-    (compiler/compile! 'bridje.kernel.bar {:io compiler-io, :env bootstrap-env})
 
     (t/is (= (sut/run-main {:main-ns 'bridje.kernel.bar}
                            {:io compiler-io, :env bootstrap-env})
@@ -84,8 +82,6 @@
                                                                                                                     double-quote double-quote
                                                                                                                     syntax-quote syntax-quote}))])}})
         bootstrap-env (sut/bootstrap-env {:io compiler-io})]
-
-    (compiler/compile! 'bridje.kernel.baz {:io compiler-io, :env bootstrap-env})
 
     (t/is (= (-> (sut/run-main {:main-ns 'bridje.kernel.baz} {:io compiler-io, :env bootstrap-env})
                  (without-loc))
