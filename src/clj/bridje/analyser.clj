@@ -238,12 +238,14 @@
                                                                :body-expr body-expr})))
 
                            :fn (parse-forms more-forms
-                                            (do-parse [params (vector-parser (do-parse [params (at-least-one sym-parser)]
-                                                                               (no-more-forms (map (comp (juxt identity gensym) :sym) params))))
+                                            (do-parse [{:keys [sym params]} (list-parser (do-parse [[name-param & more-params] (at-least-one sym-parser)]
+                                                                                           (no-more-forms {:sym (:sym name-param)
+                                                                                                           :params (map (comp (juxt identity gensym) :sym) more-params)})))
                                                        body-expr (expr-parser (-> ctx
                                                                                   (update :locals (fnil into {}) params)
                                                                                   (assoc :loop-locals (map second params))))]
                                               (no-more-forms {:expr-type :fn
+                                                              :sym sym
                                                               :locals (map second params)
                                                               :body-expr body-expr})))
 

@@ -51,8 +51,8 @@
                                         bindings)]
                           ~(emit-value-expr* body-expr)))
 
-                :fn (let [{:keys [locals body-expr]} expr]
-                      `(fn [~@locals]
+                :fn (let [{:keys [sym locals body-expr]} expr]
+                      `(fn ~sym [~@locals]
                          ~(emit-value-expr* body-expr)))
 
                 :call `(~@(map emit-value-expr* exprs))
@@ -98,6 +98,7 @@
                 (assoc-in env# ['~current-ns :vars '~sym]
                           {:value (~(emit-value-expr (if (seq locals)
                                                        {:expr-type :fn
+                                                        :sym sym
                                                         :locals locals
                                                         :body-expr body-expr}
                                                        body-expr)

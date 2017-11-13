@@ -40,6 +40,7 @@
                                                  nothing foo/Nothing]
                                              {message (foo/flip "World" "Hello")
                                               seq seq
+                                              fn-call ((fn (foo a b) [b a]) "World" "Hello")
                                               mapped (foo/Mapped {a "Hello", b "World"})
                                               the-nothing nothing
                                               empty? ((clj empty?) seq)
@@ -63,6 +64,7 @@
                            {:io compiler-io, :env bootstrap-env})
 
              {:message ["Hello" "World"],
+              :fn-call ["Hello" "World"],
               :seq ["ohno"],
               :empty? false
               :the-nothing (rt/->ADT 'bridje.kernel.foo/Nothing {}),
