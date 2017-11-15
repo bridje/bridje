@@ -1,0 +1,17 @@
+* Spec types?
+ok, so we have a concept of attributes, and a concept of datatypes (maybe?)
+tbh, the name of the type shouldn't really depend on where it's defined - we'd like to move definitions without changing the data
+
+mutually recursive types?
+parameterised types?
+
+#+BEGIN_SRC clojure
+  (defdata
+    #:user{:id UUID
+           :username String}
+
+    #:store{:id UUID
+            :key {:req [:user.id :store.id]}})
+
+  (deftype User (User {:req [:user.id :user.username]}))
+#+END_SRC
