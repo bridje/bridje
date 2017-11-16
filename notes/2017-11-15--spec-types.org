@@ -6,12 +6,33 @@ mutually recursive types?
 parameterised types?
 
 #+BEGIN_SRC clojure
-  (defdata
-    #:user{:id UUID
-           :username String}
+  (defrec
+    (defdata User
+      {:id UUID
+       :username String})
 
-    #:store{:id UUID
-            :key {:req [:user.id :store.id]}})
+    (defdata Store
+      {:id UUID
+       :key {:req #{:User.id :Store.id}}
+       :label String})
 
-  (deftype User (User {:req [:user.id :user.username]}))
+    (defdata (Maybe a)
+      (Just a)
+      Nothing)
+
+    (defdata (Tree a)
+      (Node {:req {:left (Tree a)
+                   :right (Tree a)}})
+
+      (Leaf a)))
+
+  (:james/Store.key store)
+
+  (:james/Node.left tree)
+
+  (Node {:left (Leaf 5)
+         :right (Node {:left (Leaf 10)
+                       :right (Leaf 20)})})
+
+  (:james/Just.1 my-just)
 #+END_SRC
