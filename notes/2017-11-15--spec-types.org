@@ -34,5 +34,29 @@ parameterised types?
          :right (Node {:left (Leaf 10)
                        :right (Leaf 20)})})
 
-  (:james/Just.1 my-just)
+  (:james/Just.0 my-just)
+#+END_SRC
+
+- what's the type of Type?
+
+#+BEGIN_SRC clojure
+  (defrec
+    (defdata Type
+      Int
+      Float
+      BigInt
+      BigFloat
+      String
+      Bool
+      (Vector Type)
+      (Set Type)
+      (Fn [Type] Type)
+      (Record {:opt {:req (Set Attribute)
+                     :opt (Set Attribute)}})
+
+      (TypeVar String)
+
+      ;; more? applied type?
+      ;; keywords as type aliases?
+      ))
 #+END_SRC
