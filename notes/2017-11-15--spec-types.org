@@ -40,6 +40,10 @@ parameterised types?
 - what's the type of Type?
 
 #+BEGIN_SRC clojure
+  (defdata Attribute
+    (Attribute {:req {:sym Symbol
+                      :required? Bool}}))
+
   (defrec
     (defdata Type
       Int
@@ -51,12 +55,23 @@ parameterised types?
       (Vector Type)
       (Set Type)
       (Fn [Type] Type)
+      (AttributeType Attribute)
       (Record {:opt {:req (Set Attribute)
                      :opt (Set Attribute)}})
 
       (TypeVar String)
-
-      ;; more? applied type?
-      ;; keywords as type aliases?
-      ))
+      (AppliedType Symbol [Type])))
 #+END_SRC
+
+- what about the type of =:james/Store.label= (for example).
+  - we'd make two functions - one for req and one for opt: =:?james/Store.label=
+
+- in the kernel lang?
+  - I suspect we still have both - because we're adding the optional version at the form level
+  - do we just wrap it up and not type-check it?
+  - does that mean we can keep =nil= out of the kernel lang?
+    - just need to deal with it on interop, then possibly :)
+
+- we'd also like to look up the type of an attribute at runtime, if possible
+  - so we'd probably want a =(Fn [Env Attribute] (Maybe Type))= - so we'd need an explicit =Attribute= type.
+  - which means we'd want to get that out of an =AttributeForm=, say.
