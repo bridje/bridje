@@ -1,18 +1,12 @@
 (ns bridje.main-test
   (:require [bridje.main :as sut]
+            [bridje.test-util :refer [without-loc fake-file fake-io]]
             [bridje.runtime :as rt]
             [bridje.compiler :as compiler]
-            [bridje.fake-io :refer [fake-file fake-io]]
             [clojure.string :as s]
             [clojure.test :as t]
             [clojure.walk :as w])
   (:import [bridje.runtime ADT]))
-
-(defn without-loc [v]
-  (w/postwalk (fn [v]
-                (cond-> v
-                  (instance? ADT v) (update :params dissoc :loc-range)))
-              v))
 
 (t/deftest e2e-test
   (let [fake-files {'bridje.kernel.foo (fake-file

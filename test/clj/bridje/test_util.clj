@@ -1,9 +1,16 @@
-(ns bridje.fake-io
+(ns bridje.test-util
   (:require [bridje.file-io :as file-io]
             [bridje.util :as u]
             [clojure.test :as t]
             [clojure.string :as s]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clojure.walk :as w]))
+
+(defn without-loc [v]
+  (w/postwalk (fn [v]
+                (cond-> v
+                  (map? v) (dissoc :loc-range)))
+              v))
 
 (defn fake-file [& forms]
   (->> forms
