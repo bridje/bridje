@@ -1,11 +1,13 @@
 (ns bridje.reader-test
   (:require [bridje.reader :as sut]
-            [bridje.test-util :refer [without-loc]]
-            [clojure.test :as t]))
+            [bridje.test-util :refer [without-loc clj->form]]
+            [clojure.test :as t]
+            [clojure.walk :as w]))
 
 (t/deftest testing-reading
-  (t/is (= (-> (sut/read-forms "[\"Hello\" \"World\"]")
-               without-loc)
-           [{:form-type :vector,
-             :forms [{:form-type :string, :string "Hello"}
-                     {:form-type :string, :string "World"}]}])))
+  (t/are [in-str forms] (= (-> (sut/read-forms in-str)
+                               without-loc)
+                           (map clj->form forms))
+
+    "[\"Hello\" \"World\"]" [["Hello" "World"]]
+    "(def (plus a b) (+ a b))" ['(def (plus a b) (+ a b))]))
