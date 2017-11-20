@@ -82,13 +82,18 @@ Algebraic effects - http://www.eff-lang.org/handlers-tutorial.pdf
 
 #+BEGIN_SRC clojure
   (defeffect FileIO
-    {read-file (Fn [File] String)
-     write-file (Fn [File String] Unit)})
+    (: (read-file File) String)
+    (: (write-file File String) Unit))
 
-  (: (copy src dest) (Fn [File File] Unit) #{FileIO})
+  (: (copy File File) Unit #{FileIO})
+
   (def (copy src dest)
     (write-file dest (read-file src)))
 
-  (handle (copy "/tmp/src.edn" "/tmp/dest.edn")
-          #{})
+  (with-handlers (copy "/tmp/src.edn" "/tmp/dest.edn")
+    {FileIO {read-file (fn (_ file-name k)
+                         )
+
+             write-file (fn (_ file-name content k)
+                          )}})
 #+END_SRC
