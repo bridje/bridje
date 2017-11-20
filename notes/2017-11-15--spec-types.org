@@ -1,4 +1,5 @@
 * Spec types?
+** Modelling types
 ok, so we have a concept of attributes, and a concept of datatypes (maybe?)
 tbh, the name of the type shouldn't really depend on where it's defined - we'd like to move definitions without changing the data
 
@@ -75,3 +76,19 @@ parameterised types?
 - we'd also like to look up the type of an attribute at runtime, if possible
   - so we'd probably want a =(Fn [Env Attribute] (Maybe Type))= - so we'd need an explicit =Attribute= type.
   - which means we'd want to get that out of an =AttributeForm=, say.
+
+** Modelling effects
+Algebraic effects - http://www.eff-lang.org/handlers-tutorial.pdf
+
+#+BEGIN_SRC clojure
+  (defeffect FileIO
+    {read-file (Fn [File] String)
+     write-file (Fn [File String] Unit)})
+
+  (: (copy src dest) (Fn [File File] Unit) #{FileIO})
+  (def (copy src dest)
+    (write-file dest (read-file src)))
+
+  (handle (copy "/tmp/src.edn" "/tmp/dest.edn")
+          #{})
+#+END_SRC
