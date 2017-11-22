@@ -9,7 +9,7 @@
   (defn substitute [type subst]
     (case (:type/type type)
       :literal type
-      :type-var (get subst type type)
+      :type-var (get subst (:type/type-var type) type)
       :fn (-> type
               (update :type/param-types (fn [params] (mapv #(substitute % subst) params)))
               (update :type/return-type substitute subst))))
@@ -131,7 +131,7 @@
       (when-let [[result-type subst] (type-expr* expr {:type-env {}})]
         (substitute result-type subst))))
 
-  #_(for [expr (let [identity-fn {:expr-type :fn
+  (for [expr (let [identity-fn {:expr-type :fn
                                 :sym :foo
                                 :locals [::foo-param]
                                 :body-expr {:expr-type :local
@@ -139,22 +139,15 @@
                [{:expr-type :int}
                 identity-fn
 
-               {:expr-type :call,
-                :exprs [identity-fn
-                        {:expr-type :int, :int 4}]}
+                {:expr-type :call,
+                 :exprs [identity-fn
+                         {:expr-type :int, :int 4}]}
 
-               #_{:expr-type :if,
-                  :pred-expr {:expr-type :bool, :bool false}
-                  :then-expr {:expr-type :int, :int 4}
-                  :else-expr {:expr-type :int, :int 5}}])
+                #_{:expr-type :if,
+                   :pred-expr {:expr-type :bool, :bool false}
+                   :then-expr {:expr-type :int, :int 4}
+                   :else-expr {:expr-type :int, :int 5}}])
         ]
-      (type-expr expr {}))
+    (type-expr expr {}))
 
-  (mgu '#:type{:type :fn,
-              :param-types
-              [#:type{:type :type-var, :type-var foo-param24239}],
-              :return-type
-              #:type{:type :type-var, :type-var foo-param24239}}
-       '#:type{:type :fn,
-              :param-types [#:type{:type :literal, :literal-type :int}],
-              :return-type #:type{:type :type-var, :type-var ret24238}}))
+  )
