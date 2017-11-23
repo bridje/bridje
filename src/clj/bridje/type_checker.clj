@@ -42,10 +42,9 @@
       (if-not eq
         mapping
 
-        (let [ex (ex-info "Cannot unify types" {:types #{t1 t2}})]
+        (let [ex (ex-info "Cannot unify types" {:types [t1 t2]})]
           (cond
-            (and (= :type-var t1-type t2-type)
-                 (= t1 t2)) (recur more-eqs mapping)
+            (= t1 t2) (recur more-eqs mapping)
 
             (= :type-var t1-type)
             (let [new-mapping {(:type/type-var t1) t2}]
@@ -113,7 +112,7 @@
                  :local ::foo}
 
                 {:expr-type :vector
-                 :exprs [{:expr-type :local, :local ::x}
+                 :exprs [{:expr-type :int}
                          {:expr-type :int}]}
                 #_identity-fn
 
@@ -124,7 +123,6 @@
                 #_{:expr-type :if,
                    :pred-expr {:expr-type :bool, :bool false}
                    :then-expr {:expr-type :int, :int 4}
-                   :else-expr {:expr-type :int, :int 5}}])
-        ]
-      (type-expr expr {}))
+                   :else-expr {:expr-type :int, :int 5}}])]
+    [(type-expr expr {})])
   )
