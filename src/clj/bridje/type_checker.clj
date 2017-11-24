@@ -67,8 +67,43 @@
             :else (case (:type/type t1)
                     (throw ex)))))))
 
+  (defn mono-env-union [mono-envs]
+    (->> mono-envs
+         (mapcat identity)
+         (reduce (fn [mono-env [local mono-type]]
+                   (if-let [existing-mono-type (get mono-env local)]
+                     (if (= existing-mono-type mono-type)
+                       mono-env
+                       (throw (ex-info "Can't unify types" {:local local
+                                                            :mono-types [mono-type existing-mono-type]})))
+                     (assoc mono-env local mono-type)))
+
+                 {})))
+
   (defn type-expr [expr {:keys [env current-ns]}]
-    (letfn [(type-expr* [{:keys [expr-type] :as expr}]
+    (letfn [(type-coll-expr [{:keys [expr-type] :as expr}]
+              (let [elem-type-var (->type-var :elem)
+                    elem-typings (map type-expr* (:exprs expr))
+                    type-eqs (into (mono-envs->type-equations (map :type/mono-env elem-typings))
+                                   (into []
+                                         (comp (map :type/mono-type)
+                                               (map (fn [elem-type]
+                                                      [elem-type elem-type-var])))
+                                         elem-typings))
+                    mapping (unify-eqs type-eqs)]
+
+                ;; make type equations from all the mono-envs, and each elem type being equal to the elem-type-var
+                ;; unify into a mapping
+                ;; apply the mapping to each of the mono-envs
+                ;; union the mono-envs, result.
+                {:type/mono-env (->> elem-typings
+                                     (map (comp #(mono-env-apply-mapping % mapping)
+                                                :type/mono-env))
+                                     mono-env-union)
+                 :type/mono-type {:type/type expr-type
+                                  :type/elem-type (apply-mapping elem-type-var mapping)}}))
+
+            (type-expr* [{:keys [expr-type] :as expr}]
               (case expr-type
                 (:int :float :big-int :big-float :string :bool)
                 {:type/mono-env {}
@@ -79,24 +114,8 @@
                   {:type/mono-env {(:local expr) type-var}
                    :type/mono-type type-var})
 
-                :vector
-                (let [elem-type-var (->type-var :elem)
-                      elem-typings (map type-expr* (:exprs expr))
-                      type-eqs (into (mono-envs->type-equations (map :type/mono-env elem-typings))
-                                     (into []
-                                           (comp (map :type/mono-type)
-                                                 (map (fn [elem-type]
-                                                        [elem-type elem-type-var])))
-                                           elem-typings))
-                      mapping (unify-eqs type-eqs)]
+                (:vector :set) (type-coll-expr expr)
 
-                  ;; make type equations from all the mono-envs, and each elem type being equal to the elem-type-var
-                  ;; unify into a mapping
-                  ;; apply the mapping to each of the mono-envs
-                  ;; union the mono-envs, result.
-                  {:type/mono-env ::ohno
-                   :type/mono-type {:type/type :vector
-                                    :type/elem-type (apply-mapping elem-type-var mapping)}})
 
                 ))]
 
