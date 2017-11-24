@@ -129,7 +129,38 @@
                                                                     [(:type/mono-type else-typing) type-var]]})]
 
                   {:type/mono-env (:type/mono-env combined-typing)
-                   :type/mono-type (apply-mapping type-var (:type/mapping combined-typing))})))]
+                   :type/mono-type (apply-mapping type-var (:type/mapping combined-typing))})
+
+                :fn
+                (let [{:keys [locals body-expr]} expr
+                      {:keys [type/mono-type type/mono-env]} (type-expr* body-expr)]
+                  {:type/mono-env (apply dissoc mono-env locals)
+                   :type/mono-type {:type/type :fn
+                                    :param-types (into [] (map #(or (get mono-env %) (->type-var %)) locals))
+                                    :return-type mono-type}})
+
+                :call
+                (let [[fn-expr & arg-exprs] (:exprs expr)
+                      [{{:keys [param-types return-type] :as fn-expr-type} :type/mono-type, :as fn-typing}
+                       & param-typings
+                       :as typings] (map type-expr* (:exprs expr))
+
+                      expected-param-count (count param-types)
+                      actual-param-count (count param-typings)]
+
+                  (cond
+                    (not= (:type/type fn-expr-type) :fn)
+                    (throw (ex-info "Expected function" {:type/mono-type fn-expr-type}))
+
+                    (not= expected-param-count actual-param-count)
+                    (throw (ex-info "Wrong number of args passed to fn"
+                                    {:expected expected-param-count
+                                     :actual actual-param-count}))
+
+                    :else (let [{:keys [type/mapping type/mono-env]} (combine-typings {:typings typings
+                                                                                       :extra-eqs (mapv vector param-types (map :type/mono-type param-typings))})]
+                            {:type/mono-env mono-env
+                             :type/mono-type (apply-mapping return-type mapping)})))))]
 
       (type-expr* expr)))
 
@@ -149,11 +180,12 @@
                 {:expr-type :set
                  :exprs [{:expr-type :local, :local ::foo-local}
                          {:expr-type :int}]}
-                #_identity-fn
 
-                #_{:expr-type :call,
-                   :exprs [identity-fn
-                           {:expr-type :int, :int 4}]}
+                identity-fn
+
+                {:expr-type :call,
+                 :exprs [identity-fn
+                         {:expr-type :int, :int 4}]}
 
                 {:expr-type :if,
                  :pred-expr {:expr-type :bool, :bool false}
