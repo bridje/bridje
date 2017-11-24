@@ -84,22 +84,19 @@
     (letfn [(type-coll-expr [{:keys [expr-type] :as expr}]
               (let [elem-type-var (->type-var :elem)
                     elem-typings (map type-expr* (:exprs expr))
-                    type-eqs (into (mono-envs->type-equations (map :type/mono-env elem-typings))
-                                   (into []
-                                         (comp (map :type/mono-type)
-                                               (map (fn [elem-type]
-                                                      [elem-type elem-type-var])))
-                                         elem-typings))
-                    mapping (unify-eqs type-eqs)]
+                    mono-envs (map :type/mono-env elem-typings)
+                    mapping (unify-eqs (into (mono-envs->type-equations mono-envs)
+                                             (into []
+                                                   (comp (map :type/mono-type)
+                                                         (map (fn [elem-type]
+                                                                [elem-type elem-type-var])))
+                                                   elem-typings)))]
 
-                ;; make type equations from all the mono-envs, and each elem type being equal to the elem-type-var
-                ;; unify into a mapping
-                ;; apply the mapping to each of the mono-envs
-                ;; union the mono-envs, result.
                 {:type/mono-env (->> elem-typings
                                      (map (comp #(mono-env-apply-mapping % mapping)
                                                 :type/mono-env))
                                      mono-env-union)
+
                  :type/mono-type {:type/type expr-type
                                   :type/elem-type (apply-mapping elem-type-var mapping)}}))
 
@@ -116,8 +113,18 @@
 
                 (:vector :set) (type-coll-expr expr)
 
-
-                ))]
+                :if
+                (let [type-var (->type-var :if)
+                      [pred-typing then-typing else-typing :as typings] (map (comp type-expr* expr) [:pred-expr :then-expr :else-expr])
+                      mono-envs (map :type/mono-env typings)
+                      mapping (unify-eqs (into (mono-envs->type-equations mono-envs)
+                                               [[(:type/mono-type pred-typing) {:type/type :bool}]
+                                                [(:type/mono-type then-typing) type-var]
+                                                [(:type/mono-type else-typing) type-var]]))]
+                  {:type/mono-type (apply-mapping type-var mapping)
+                   :type/mono-env (->> mono-envs
+                                       (map #(mono-env-apply-mapping % mapping))
+                                       mono-env-union)})))]
 
       (type-expr* expr)))
 
@@ -126,12 +133,16 @@
                                 :locals [::foo-param]
                                 :body-expr {:expr-type :local
                                             :local ::foo-param}}]
-               [#_{:expr-type :int}
-                #_{:expr-type :local
+               [{:expr-type :int}
+                {:expr-type :local
                  :local ::foo}
 
                 {:expr-type :vector
                  :exprs [{:expr-type :int}
+                         {:expr-type :int}]}
+
+                {:expr-type :set
+                 :exprs [{:expr-type :local, :local ::foo-local}
                          {:expr-type :int}]}
                 #_identity-fn
 
@@ -139,9 +150,10 @@
                    :exprs [identity-fn
                            {:expr-type :int, :int 4}]}
 
-                #_{:expr-type :if,
-                   :pred-expr {:expr-type :bool, :bool false}
-                   :then-expr {:expr-type :int, :int 4}
-                   :else-expr {:expr-type :int, :int 5}}])]
+                {:expr-type :if,
+                 :pred-expr {:expr-type :bool, :bool false}
+                 :then-expr {:expr-type :int, :int 4}
+                 :else-expr {:expr-type :int, :int 5}}])]
+
     [(type-expr expr {})])
   )
