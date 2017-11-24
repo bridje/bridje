@@ -80,25 +80,32 @@
 
                  {})))
 
+  (defn combine-typings [{:keys [typings extra-eqs]}]
+    (let [mono-envs (map :type/mono-env typings)
+          mapping (unify-eqs (into (mono-envs->type-equations mono-envs)
+                                   extra-eqs))]
+
+      {:type/mono-env (->> mono-envs
+                           (map #(mono-env-apply-mapping % mapping))
+                           mono-env-union)
+
+       :type/mapping mapping}))
+
   (defn type-expr [expr {:keys [env current-ns]}]
     (letfn [(type-coll-expr [{:keys [expr-type] :as expr}]
               (let [elem-type-var (->type-var :elem)
                     elem-typings (map type-expr* (:exprs expr))
-                    mono-envs (map :type/mono-env elem-typings)
-                    mapping (unify-eqs (into (mono-envs->type-equations mono-envs)
-                                             (into []
-                                                   (comp (map :type/mono-type)
-                                                         (map (fn [elem-type]
-                                                                [elem-type elem-type-var])))
-                                                   elem-typings)))]
+                    combined-typing (combine-typings {:typings elem-typings
+                                                      :extra-eqs (into []
+                                                                       (comp (map :type/mono-type)
+                                                                             (map (fn [elem-type]
+                                                                                    [elem-type elem-type-var])))
+                                                                       elem-typings)})]
 
-                {:type/mono-env (->> elem-typings
-                                     (map (comp #(mono-env-apply-mapping % mapping)
-                                                :type/mono-env))
-                                     mono-env-union)
+                {:type/mono-env (:type/mono-env combined-typing)
 
                  :type/mono-type {:type/type expr-type
-                                  :type/elem-type (apply-mapping elem-type-var mapping)}}))
+                                  :type/elem-type (apply-mapping elem-type-var (:type/mapping combined-typing))}}))
 
             (type-expr* [{:keys [expr-type] :as expr}]
               (case expr-type
@@ -116,15 +123,13 @@
                 :if
                 (let [type-var (->type-var :if)
                       [pred-typing then-typing else-typing :as typings] (map (comp type-expr* expr) [:pred-expr :then-expr :else-expr])
-                      mono-envs (map :type/mono-env typings)
-                      mapping (unify-eqs (into (mono-envs->type-equations mono-envs)
-                                               [[(:type/mono-type pred-typing) {:type/type :bool}]
-                                                [(:type/mono-type then-typing) type-var]
-                                                [(:type/mono-type else-typing) type-var]]))]
-                  {:type/mono-type (apply-mapping type-var mapping)
-                   :type/mono-env (->> mono-envs
-                                       (map #(mono-env-apply-mapping % mapping))
-                                       mono-env-union)})))]
+                      combined-typing (combine-typings {:typings typings
+                                                        :extra-eqs [[(:type/mono-type pred-typing) {:type/type :bool}]
+                                                                    [(:type/mono-type then-typing) type-var]
+                                                                    [(:type/mono-type else-typing) type-var]]})]
+
+                  {:type/mono-env (:type/mono-env combined-typing)
+                   :type/mono-type (apply-mapping type-var (:type/mapping combined-typing))})))]
 
       (type-expr* expr)))
 
