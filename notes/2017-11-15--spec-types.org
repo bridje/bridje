@@ -81,19 +81,57 @@ parameterised types?
 Algebraic effects - http://www.eff-lang.org/handlers-tutorial.pdf
 
 #+BEGIN_SRC clojure
-  (defeffect FileIO
-    (: (read-file File) String)
-    (: (write-file File String) Unit))
+  (defdata Ordering
+    LT EQ GT)
 
-  (: (copy File File) Unit #{FileIO})
+  ;; (for later) declaring
+  (=> (Ord a)
+      (:: (sort [a]) [a]))
 
-  (def (copy src dest)
-    (write-file dest (read-file src)))
+  ;; declaring effects
+  (::! (*read-file* File) String)
+  (::! (*write-file* File String) Unit)
 
-  (with-handlers (copy "/tmp/src.edn" "/tmp/dest.edn")
-    {FileIO {read-file (fn (_ file-name k)
-                         )
+  (:: copy-file (Fn [String String] Unit #{io/*read-file* io/*write-file*}))
+  ;; shorthand?
+  (:: (copy-file String String) Unit #{io/*read-file* io/*write-file*})
 
-             write-file (fn (_ file-name content k)
-                          )}})
+  ;; first class type of an effect-fn
+  (:: (io/*write-file* File String) Unit #{io/*write-file*})
+
+  ;; first class type of a handler?
+  (def my-hdlr
+    (hdlr
+      (fn (init cb)
+        (cb file-map))
+
+      (fn (io/*write-file* file content cb file-map)
+        (cb Unit (assoc file-map file-content)))
+
+      (fn (return x file-map)
+        (T2 x file-map))))
+
+  (:: my-hdlr (Fn [(Fn [] a #{io/*write-file* ..e})]
+                  (T2 a (Map File String))
+                  #{IO ..e}))
+
+  (:: (mock-read-file (Map File String)) (Handler #{io/*read-file*} Unit))
+  (def (mock-read-file map)
+    (hfn
+     (fn (io/*read-file* file)
+       (...))
+
+     (fn (return _)
+       Unit)))
+
+  (hdl (copy "/tmp/src.edn" "/tmp/dest.edn")
+       (hdlr
+         (fn (init cb)
+           (cb a b c))
+
+         (fn (io/*read-file* file cb a b c)
+           (cb "hello" a b c))
+
+         (fn (return unit a b c)
+           (-))))
 #+END_SRC
