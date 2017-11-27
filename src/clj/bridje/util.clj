@@ -1,10 +1,6 @@
 (ns bridje.util
   (:require [clojure.string :as s]))
 
-(defn kernel? [ns-sym]
-  (or (= 'bridje.kernel ns-sym)
-      (s/starts-with? (name ns-sym) "bridje.kernel.")))
-
 (defn sub-exprs [expr]
   (conj (case (:expr-type expr)
           (:string :bool :int :float :big-int :big-float :local :global :clj-var) []
