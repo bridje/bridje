@@ -96,7 +96,6 @@
       :else (pure (first (nested-parser (for [[{:keys [form-type loc-range] :as k-form} v-form] (partition 2 forms)]
                                           (cond
                                             (not= :symbol form-type) (throw (ex-info "Expected symbol as key in record" {:loc-range loc-range}))
-                                            (some? (:ns k-form)) (throw (ex-info "Unexpected namespaced symbol as key in record" {:loc-range loc-range}))
                                             :else [(:sym k-form) v-form]))))))))
 
 (defn when-more-forms [parser]
@@ -117,77 +116,18 @@
       (parser forms)
       (throw (ex-info "Expected even number of forms" {:form parent-form})))))
 
-(def aliases-parser
-  (record-parser
-   (do-parse [entries (maybe-many
-                       (first-form-parser
-                        (fn [[alias-sym form]]
-                          (parse-forms [form]
-                                       (do-parse [{aliased-sym :sym} sym-parser]
-                                         (pure [alias-sym aliased-sym]))))))]
-     (no-more-forms (into {} entries)))))
-
-(def refers-parser
-  (record-parser
-   (do-parse [entries (maybe-many
-                       (first-form-parser
-                        (fn [[refer-ns form]]
-                          (parse-forms [form]
-                                       (do-parse [referred-sym-forms (set-parser (maybe-many sym-parser))]
-                                         (pure [refer-ns (into #{} (map :sym referred-sym-forms))]))))))]
-     (no-more-forms (into {} entries)))))
-
-(defn ns-entries-parser [entries]
-  [(reduce (fn [acc [sym form]]
-             (let [[kw parser] (case sym
-                                 aliases [:aliases aliases-parser]
-                                 refers [:refers refers-parser])]
-               (assoc acc kw (parse-forms [form] parser))))
-           {}
-           entries)
-   nil])
-
-(defn analyse-ns-form [{:keys [form-type forms loc-range] :as form}]
-  (if-not (and (= :list form-type)
-               (= {:form-type :symbol, :sym 'ns}
-                  (-> (first forms) (select-keys [:form-type :sym :ns]))))
-    (throw (ex-info "Expecting NS form" {:form form}))
-
-    (parse-forms (rest forms)
-                 (do-parse [{ns-sym :sym} sym-parser
-                            {:keys [refers aliases]} (when-more-forms (record-parser ns-entries-parser))]
-                   (no-more-forms {:ns ns-sym
-                                   :refers refers
-                                   :aliases aliases})))))
-
-(defn resolve-sym [{:keys [ns sym]} resolve-type {:keys [env current-ns]}]
-  (if ns
-    (or (when-let [alias-ns (get-in env [current-ns :aliases ns])]
-          (when (get-in env [alias-ns resolve-type sym])
-            (symbol (name alias-ns) (name sym))))
-
-        (when (contains? env ns)
-          (when (get-in env [ns resolve-type sym])
-            (symbol (name ns) (name sym)))))
-
-    (or (when (get-in env [current-ns resolve-type sym])
-          (symbol (name current-ns) (name sym)))
-
-        (when-let [refer-ns (get-in env [current-ns :refers sym])]
-          (symbol (name refer-ns) (name sym))))))
-
-(defn analyse-kernel-expr [{:keys [form-type forms loc-range] :as form} {:keys [env locals loop-locals current-ns] :as ctx}]
+(defn analyse [{:keys [form-type forms loc-range] :as form} {:keys [env locals loop-locals] :as ctx}]
   (merge {:loc-range loc-range}
          (case form-type
            :string {:expr-type :string, :string (:string form)}
            :bool {:expr-type :bool, :bool (:bool form)}
            (:int :float :big-int :big-float) {:expr-type form-type, :number (:number form)}
-           :vector {:expr-type :vector, :exprs (map #(analyse-kernel-expr % ctx) forms)}
-           :set {:expr-type :set, :exprs (map #(analyse-kernel-expr % ctx) forms)}
+           :vector {:expr-type :vector, :exprs (map #(analyse % ctx) forms)}
+           :set {:expr-type :set, :exprs (map #(analyse % ctx) forms)}
 
            :record (parse-forms [form]
                                 (record-parser (do-parse [entries (maybe-many (first-form-parser (fn [[sym form]]
-                                                                                                   [sym (analyse-kernel-expr form ctx)])))]
+                                                                                                   [sym (analyse form ctx)])))]
                                                  (no-more-forms {:expr-type :record
                                                                  :entries entries}))))
 
@@ -198,7 +138,7 @@
                                  ([] (expr-parser ctx))
                                  ([ctx]
                                   (first-form-parser (fn [form]
-                                                       (analyse-kernel-expr form ctx)))))
+                                                       (analyse form ctx)))))
 
                    bindings-parser (vector-parser (-> (fn [forms]
                                                         [(reduce (fn [{:keys [bindings locals]} pair]
@@ -284,15 +224,15 @@
                                                    (cond
                                                      (zero? (mod (count forms) 2)) (throw (ex-info "Missing default in 'match'" {:loc-range (:loc-range form)}))
                                                      :else (let [clauses (parse-forms (butlast forms)
-                                                                                      (do-parse [clauses (maybe-many (do-parse [sym (or-parser sym-parser ns-sym-parser)
+                                                                                      (do-parse [clauses (maybe-many (do-parse [{:keys [sym]} sym-parser
                                                                                                                                 expr (expr-parser)]
-                                                                                                                       (if-let [fq-sym (resolve-sym sym :types ctx)]
-                                                                                                                         (pure [fq-sym expr])
+                                                                                                                       (if (contains? (:types env) sym)
+                                                                                                                         (pure [sym expr])
                                                                                                                          (throw (ex-info "Can't resolve type:"
-                                                                                                                                         {:type (select-keys sym [:ns :sym])
+                                                                                                                                         {:type sym
                                                                                                                                           :loc-range (:loc-range sym)})))))]
                                                                                         (no-more-forms clauses)))
-                                                                 default-expr (analyse-kernel-expr (last forms) ctx)]
+                                                                 default-expr (analyse (last forms) ctx)]
 
                                                              [{:expr-type :match
                                                                :match-expr match-expr
@@ -333,45 +273,21 @@
                            nil))
 
                      ;; fall through to 'call'
-                     (:list :namespaced-symbol) nil)
+                     (:list) nil)
 
                    {:expr-type :call
-                    :exprs (map #(analyse-kernel-expr % ctx) forms)}))
+                    :exprs (map #(analyse % ctx) forms)}))
 
              (throw (ex-info "niy" {})))
 
-           :symbol (or (when-let [local (get locals (:sym form))]
-                         {:expr-type :local
-                          :local local})
+           :symbol (let [{:keys [sym]} form]
+                     (or (when-let [local (get locals sym)]
+                           {:expr-type :local
+                            :local local})
 
-                       (when-let [global (resolve-sym form :vars ctx)]
-                         {:expr-type :global
-                          :global global})
+                         (when (contains? (:vars env) sym)
+                           {:expr-type :global
+                            :global (:sym form)})
 
-                       (throw (ex-info "Can't find" {:sym (:sym form)
-                                                     :ctx ctx})))
-
-           :namespaced-symbol (if-let [global (resolve-sym form :vars ctx)]
-                                {:expr-type :global
-                                 :global global}
-
-                                (throw (ex-info "Can't find" {:ns (:ns form)
-                                                              :sym (:sym form)
-                                                              :ctx ctx}))))))
-
-(defn analyse [form {:keys [current-ns env] :as ctx}]
-  (if (u/kernel? current-ns)
-    (analyse-kernel-expr form ctx)
-
-    (-> form
-        f/wrap-forms
-        ;; TODO needs to pass env through
-        ((get-in env '[bridje.kernel.analyser :vars analyse :value]) {:current-ns current-ns})
-        f/unwrap-exprs)))
-
-(comment
-  (let [ctx {:env (bridje.main/bootstrap-env {:io (:compiler-io (bridje.fake-io/fake-io {}))})
-             :current-ns 'the-ns}]
-    (-> (first (bridje.reader/read-forms (pr-str true)))
-        (analyse ctx)
-        (bridje.emitter/emit-value-expr ctx))))
+                         (throw (ex-info "Can't find" {:sym sym
+                                                       :ctx ctx})))))))

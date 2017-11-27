@@ -16,7 +16,7 @@
        (into #{} (comp (filter #(= :clj-var (:expr-type %)))
                        (map (comp symbol namespace :clj-var))))))
 
-(defn emit-value-expr [expr {:keys [current-ns] :as env}]
+(defn emit-value-expr [expr env]
   (let [sub-exprs (u/sub-exprs expr)
         globals (find-globals sub-exprs)
         clj-namespaces (find-clj-namespaces sub-exprs)]
@@ -60,8 +60,8 @@
                 :match (let [{:keys [match-expr clauses default-expr]} expr]
                          `(let [match# ~(emit-value-expr* match-expr)]
                             (case (:adt-type match#)
-                              ~@(->> (for [[fq-sym expr] clauses]
-                                       `[~fq-sym ~(emit-value-expr* expr)])
+                              ~@(->> (for [[sym expr] clauses]
+                                       `[~sym ~(emit-value-expr* expr)])
                                      (apply concat))
 
                               ~(emit-value-expr* default-expr))))
@@ -82,20 +82,20 @@
 
            (let [~@(mapcat (fn [[global global-sym]]
 
-                             [global-sym `(get-in ~env-sym ['~(symbol (namespace global))
-                                                            :vars
+                             [global-sym `(get-in ~env-sym [:vars
                                                             '~(symbol (name global))
                                                             :value])])
                            globals)]
              ~(emit-value-expr* expr)))))))
 
-(defn emit-expr [{:keys [expr-type] :as expr} {:keys [env current-ns]}]
+(defn emit-expr [{:keys [expr-type] :as expr} {:keys [env]}]
+  (prn expr)
   (case expr-type
     :def
     (let [{:keys [sym locals body-expr]} expr]
-      {:env (assoc-in env [current-ns :vars sym] {})
+      {:env (assoc-in env [:vars sym] {})
        :code `(fn [env#]
-                (assoc-in env# ['~current-ns :vars '~sym]
+                (assoc-in env# [:vars '~sym]
                           {:value (~(emit-value-expr (if (seq locals)
                                                        {:expr-type :fn
                                                         :sym sym
@@ -108,11 +108,10 @@
     :defmacro (throw (ex-info "niy" {:expr expr}))
 
     :defdata
-    (let [{:keys [sym params]} expr
-          fq-sym (symbol (name current-ns) (name sym))]
+    (let [{:keys [sym params]} expr]
       {:env (-> env
-                (assoc-in [current-ns :types sym] {:params params})
-                (update-in [current-ns :vars] merge
+                (assoc-in [:types sym] {:params params})
+                (update-in [:vars] merge
                            (if (seq params)
                              (merge {sym {}}
                                     (into {}
@@ -123,12 +122,12 @@
                              {sym {}})))
        :code `(fn [env#]
                 (-> env#
-                    (assoc-in ['~current-ns :types '~sym] {:params '[~@params]})
-                    (update-in ['~current-ns :vars] merge
+                    (assoc-in [:types '~sym] {:params '[~@params]})
+                    (update-in [:vars] merge
                             ~(if (seq params)
                                (merge `{'~sym {:value ~(cond
                                                          (vector? params) `(fn [~@params]
-                                                                             (rt/->ADT '~fq-sym
+                                                                             (rt/->ADT '~sym
                                                                                        ~(into {}
                                                                                               (map (fn [param]
                                                                                                      [(keyword param) param]))
@@ -136,7 +135,7 @@
 
                                                          (set? params) (let [params-sym (gensym 'params)]
                                                                          `(fn [~params-sym]
-                                                                            (rt/->ADT '~fq-sym
+                                                                            (rt/->ADT '~sym
                                                                                       ~(into {}
                                                                                              (map (fn [param]
                                                                                                     [(keyword param) `(get ~params-sym ~(keyword param))]))
@@ -146,4 +145,4 @@
                                                            `['~(symbol (str sym "->" param)) {:value (fn [obj#]
                                                                                                        (get-in obj# [:params ~(keyword param)]))}])))))
 
-                               `{'~sym {:value (rt/->ADT '~fq-sym {})}}))))})))
+                               `{'~sym {:value (rt/->ADT '~sym {})}}))))})))
