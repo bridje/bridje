@@ -1,6 +1,6 @@
 (ns bridje.compiler-test
   (:require [bridje.compiler :as sut]
-            [bridje.test-util :refer [without-loc fake-forms]]
+            [bridje.test-util :refer [fake-forms]]
             [bridje.runtime :as rt]
             [clojure.string :as s]
             [clojure.test :as t]
@@ -68,9 +68,7 @@
                                        syntax-quote syntax-quote}))])
              {})]
 
-    (t/is (= (-> (sut/run-main env)
-                 (without-loc))
-
+    (t/is (= (sut/run-main env)
              {:simple-quote (rt/->ADT 'ListForm,
                                       {:forms [(rt/->ADT 'SymbolForm {:sym 'foo})
                                                (rt/->ADT 'IntForm {:number 4})

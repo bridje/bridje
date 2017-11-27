@@ -1,12 +1,11 @@
 (ns bridje.reader-test
   (:require [bridje.reader :as sut]
-            [bridje.test-util :refer [without-loc clj->form]]
+            [bridje.test-util :refer [clj->form]]
             [clojure.test :as t]
             [clojure.walk :as w]))
 
 (t/deftest testing-reading
-  (t/are [in-str forms] (= (-> (sut/read-forms in-str)
-                               without-loc)
+  (t/are [in-str forms] (= (sut/read-forms in-str)
                            (map clj->form forms))
 
     "[\"Hello\" \"World\"]" [["Hello" "World"]]

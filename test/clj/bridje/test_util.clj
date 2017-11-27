@@ -5,12 +5,6 @@
             [clojure.java.io :as io]
             [clojure.walk :as w]))
 
-(defn without-loc [v]
-  (w/postwalk (fn [v]
-                (cond-> v
-                  (map? v) (dissoc :loc-range)))
-              v))
-
 (defn clj->form [clj]
   (w/postwalk (fn [clj]
                 (cond
