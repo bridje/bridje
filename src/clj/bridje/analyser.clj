@@ -191,7 +191,7 @@
                     :def (parse-forms more-forms
                                       (do-parse [{:keys [sym params]} (or-parser sym-parser
                                                                                  (list-parser (do-parse [{:keys [sym]} sym-parser
-                                                                                                         params (at-least-one sym-parser)]
+                                                                                                         params (maybe-many sym-parser)]
                                                                                                 (no-more-forms {:sym sym
                                                                                                                 :params (map (comp (juxt identity gensym) :sym) params)}))))
                                                  body-expr (expr-parser (-> ctx

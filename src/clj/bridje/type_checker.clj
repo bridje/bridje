@@ -1,5 +1,6 @@
 (ns bridje.type-checker
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [clojure.walk :as w]))
 
 ;; https://gergo.erdi.hu/projects/tandoori/Tandoori-Compositional-Typeclass.pdf
 
@@ -10,12 +11,16 @@
 (defn ftvs [mono-type]
   (case (::type mono-type)
     :type-var #{(::type-var mono-type)}
-    (:int :float :big-int :big-float :string :bool) #{}
+    :primitive #{}
     (:vector :set) (ftvs (::elem-type mono-type))
 
     :fn (into (ftvs (::return-type mono-type))
               (mapcat ftvs)
               (::param-types mono-type))))
+
+(defn instantiate [{:keys [::type-vars ::mono-type]}]
+  (let [tv-mapping (into {} (map (fn [tv] [tv (gensym (name tv))])) type-vars)]
+    (w/postwalk (some-fn tv-mapping identity) mono-type)))
 
 (defn mono-type->poly-type [mono-type]
   {::type-vars (ftvs mono-type)
@@ -37,7 +42,8 @@
 
 (defn apply-mapping [type mapping]
   (case (::type type)
-    (:int :float :big-int :big-float :string :bool) type
+    :primitive type
+    (:vector :set) (-> type (update ::elem-type apply-mapping mapping))
     :type-var (get mapping (::type-var type) type)))
 
 (defn mono-env-apply-mapping [mono-env mapping]
@@ -101,21 +107,26 @@
 
      ::mapping mapping}))
 
-(defn type-expr [expr {:keys [env current-ns]}]
-  (letfn [(type-expr* [{:keys [expr-type] :as expr}]
+(defn type-value-expr [expr {:keys [env]}]
+  (letfn [(type-value-expr* [{:keys [expr-type] :as expr}]
             (case expr-type
               (:int :float :big-int :big-float :string :bool)
               {::mono-env {}
-               ::mono-type {::type expr-type}}
+               ::mono-type {::type :primitive
+                            ::primitive-type expr-type}}
 
               :local
               (let [type-var (->type-var (:local expr))]
                 {::mono-env {(:local expr) type-var}
                  ::mono-type type-var})
 
+              :global
+              {::mono-env {}
+               ::mono-type (instantiate (get-in env [(:global expr) ::poly-type]))}
+
               (:vector :set)
               (let [elem-type-var (->type-var :elem)
-                    elem-typings (map type-expr* (:exprs expr))
+                    elem-typings (map type-value-expr* (:exprs expr))
                     combined-typing (combine-typings {:typings elem-typings
                                                       :extra-eqs (into []
                                                                        (comp (map ::mono-type)
@@ -130,9 +141,10 @@
 
               :if
               (let [type-var (->type-var :if)
-                    [pred-typing then-typing else-typing :as typings] (map (comp type-expr* expr) [:pred-expr :then-expr :else-expr])
+                    [pred-typing then-typing else-typing :as typings] (map (comp type-value-expr* expr) [:pred-expr :then-expr :else-expr])
                     combined-typing (combine-typings {:typings typings
-                                                      :extra-eqs [[(::mono-type pred-typing) {::type :bool}]
+                                                      :extra-eqs [[(::mono-type pred-typing) {::type :primitive
+                                                                                              ::primitive-type :bool}]
                                                                   [(::mono-type then-typing) type-var]
                                                                   [(::mono-type else-typing) type-var]]})]
 
@@ -141,7 +153,7 @@
 
               :fn
               (let [{:keys [locals body-expr]} expr
-                    {:keys [::mono-type ::mono-env]} (type-expr* body-expr)]
+                    {:keys [::mono-type ::mono-env]} (type-value-expr* body-expr)]
                 {::mono-env (apply dissoc mono-env locals)
                  ::mono-type {::type :fn
                               ::param-types (into [] (map #(or (get mono-env %) (->type-var %)) locals))
@@ -149,9 +161,9 @@
 
               :call
               (let [[fn-expr & arg-exprs] (:exprs expr)
-                    [{{:keys [param-types return-type] :as fn-expr-type} ::mono-type, :as fn-typing}
+                    [{{:keys [::param-types ::return-type] :as fn-expr-type} ::mono-type, :as fn-typing}
                      & param-typings
-                     :as typings] (map type-expr* (:exprs expr))
+                     :as typings] (map type-value-expr* (:exprs expr))
 
                     expected-param-count (count param-types)
                     actual-param-count (count param-typings)]
@@ -170,4 +182,20 @@
                           {::mono-env mono-env
                            ::mono-type (apply-mapping return-type mapping)})))))]
 
-    (merge expr {::poly-type (mono-type->poly-type (::mono-type (type-expr* expr)))})))
+    {::poly-type (mono-type->poly-type (::mono-type (type-value-expr* expr)))}))
+
+(defn type-expr [expr {:keys [env]}]
+  (merge expr
+         (case (:expr-type expr)
+           :def
+           (let [{:keys [locals body-expr]} expr]
+             {::poly-type {::mono-type :env-update
+                           ::env-update-type :def
+                           ::def-expr-type (type-value-expr (if locals
+                                                              {:expr-type :fn
+                                                               :locals locals
+                                                               :body-expr body-expr}
+                                                              body-expr)
+                                                            {:env env})}})
+
+           (type-value-expr expr {:env env}))))
