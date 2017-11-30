@@ -122,7 +122,7 @@
 
               :global
               {::mono-env {}
-               ::mono-type (instantiate (get-in env [(:global expr) ::poly-type]))}
+               ::mono-type (instantiate (get-in env [:vars (:global expr) ::poly-type]))}
 
               (:vector :set)
               (let [elem-type-var (->type-var :elem)
@@ -184,7 +184,7 @@
 
     {::poly-type (mono-type->poly-type (::mono-type (type-value-expr* expr)))}))
 
-(defn type-expr [expr {:keys [env]}]
+(defn with-type [expr {:keys [env]}]
   (merge expr
          (case (:expr-type expr)
            :def

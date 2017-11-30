@@ -3,6 +3,7 @@
             [bridje.quoter :as quoter]
             [bridje.analyser :as analyser]
             [bridje.emitter :as emitter]
+            [bridje.type-checker :as tc]
             [bridje.util :as u]
             [clojure.set :as set]))
 
@@ -11,6 +12,7 @@
       (quoter/expand-syntax-quotes {:env env})
       quoter/expand-quotes
       (analyser/analyse {:env env})
+      (tc/with-type {:env env})
       (emitter/emit-expr {:env env})))
 
 (defn compile-str [str {:keys [env]}]

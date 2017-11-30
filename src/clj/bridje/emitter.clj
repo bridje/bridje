@@ -1,5 +1,6 @@
 (ns bridje.emitter
   (:require [bridje.runtime :as rt]
+            [bridje.type-checker :as tc]
             [bridje.util :as u]
             [clojure.string :as s]))
 
@@ -89,11 +90,11 @@
              ~(emit-value-expr* expr)))))))
 
 (defn emit-expr [{:keys [expr-type] :as expr} {:keys [env]}]
-  (prn expr)
   (case expr-type
     :def
-    (let [{:keys [sym locals body-expr]} expr]
-      {:env (assoc-in env [:vars sym] {})
+    (let [{:keys [sym locals body-expr]} expr
+          poly-type (get-in expr [::tc/poly-type ::tc/def-expr-type ::tc/poly-type])]
+      {:env (assoc-in env [:vars sym] {::tc/poly-type poly-type})
        :code `(fn [env#]
                 (assoc-in env# [:vars '~sym]
                           {:value (~(emit-value-expr (if (seq locals)
@@ -103,7 +104,9 @@
                                                         :body-expr body-expr}
                                                        body-expr)
                                                      env)
-                                   env#)}))})
+                                   env#)
+
+                           ::tc/poly-type '~poly-type}))})
 
     :defmacro (throw (ex-info "niy" {:expr expr}))
 

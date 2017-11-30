@@ -17,7 +17,8 @@
                               ;; '(defdata (Mapped #{a b}))
 
                               '(def (main args)
-                                 (let [seq ["ohno"]
+                                 (flip "World" "Hello")
+                                 #_(let [seq ["ohno"]
                                        ;; just (Just "just")
                                        ;; nothing Nothing
                                        ]
@@ -44,8 +45,9 @@
                              {})]
 
     (t/is (= (sut/run-main env)
+             ["Hello" "World"]
 
-             {:message ["Hello" "World"],
+             #_{:message ["Hello" "World"],
               :fn-call ["Hello" "World"],
               :seq ["ohno"],
               :empty? false
