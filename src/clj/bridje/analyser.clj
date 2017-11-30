@@ -1,7 +1,8 @@
 (ns bridje.analyser
   (:require [bridje.forms :as f]
             [bridje.util :as u]
-            [clojure.string :as s]))
+            [clojure.string :as s]
+            [bridje.type-checker :as tc]))
 
 (defn parse-forms [forms parser]
   (first (parser forms)))
@@ -73,6 +74,9 @@
 (def sym-parser
   (form-type-parser :symbol))
 
+(def kw-parser
+  (form-type-parser :keyword))
+
 (def ns-sym-parser
   (form-type-parser :namespaced-symbol))
 
@@ -95,8 +99,9 @@
       (pos? (mod (count forms) 2)) (throw (ex-info "Record requires even number of forms" {}))
       :else (pure (first (nested-parser (for [[{:keys [form-type] :as k-form} v-form] (partition 2 forms)]
                                           (cond
+                                            ;; TODO make this keywords - apparently this branch doesn't have them
                                             (not= :symbol form-type) (throw (ex-info "Expected symbol as key in record" {}))
-                                            :else [(:sym k-form) v-form]))))))))
+                                            :else [(keyword (subs (name (:sym k-form)) 1)) v-form]))))))))
 
 (defn when-more-forms [parser]
   (fn [forms]
@@ -115,6 +120,17 @@
     (if (zero? (mod (count forms) 2))
       (parser forms)
       (throw (ex-info "Expected even number of forms" {:form parent-form})))))
+
+(defn parse-poly-type [{:keys [form-type] :as form} env]
+  ;; TODO need to parse more than just primitives here
+  (case form-type
+    :symbol (if-let [prim-type (get '{String :string, Bool :bool,
+                                      Int :int, Float :float,
+                                      BigInt :big-int, BigFloat :big-float}
+                                    (:sym form))]
+              (tc/mono-type->poly-type (tc/primitive-type prim-type))
+              (throw (ex-info "Unexpected symbol, parsing type" {:form form})))
+    (throw (ex-info "Unexpected form, parsing type" {:form form}))))
 
 (defn analyse [{:keys [form-type forms] :as form} {:keys [env locals loop-locals] :as ctx}]
   (case form-type
@@ -205,17 +221,17 @@
                     :defmacro (throw (ex-info "niy" {}))
 
                     :defdata (parse-forms more-forms
-                                          (do-parse [{:keys [sym params]} (or-parser sym-parser
-                                                                                     (list-parser (do-parse [{:keys [sym]} sym-parser
-                                                                                                             params (or-parser (-> (set-parser (at-least-one sym-parser))
-                                                                                                                                   (fmap #(into #{} (map :sym) %)))
-                                                                                                                               (-> (at-least-one sym-parser)
-                                                                                                                                   (fmap #(into [] (map :sym) %))))]
-                                                                                                    (no-more-forms {:sym sym
-                                                                                                                    :params params}))))]
+                                          (do-parse [{:keys [sym]} sym-parser
+                                                     attributes (record-parser (fn [entries]
+                                                                                 [(into []
+                                                                                        (map (fn [[kw type-form]]
+                                                                                               {:attribute (keyword (format "%s.%s" (name sym) (name kw)))
+                                                                                                ::tc/poly-type (parse-poly-type type-form env)}))
+                                                                                        entries)
+                                                                                  []]))]
                                             (no-more-forms {:expr-type :defdata
                                                             :sym sym
-                                                            :params params})))
+                                                            :attributes attributes})))
 
                     :match (parse-forms more-forms
                                         (do-parse [match-expr (expr-parser (dissoc ctx :loop-locals))]
