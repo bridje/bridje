@@ -8,6 +8,10 @@
   {::type :type-var
    ::type-var (gensym (name s))})
 
+(defn primitive-type [primitive-type]
+  {::type :primitive
+   ::primitive-type primitive-type})
+
 (defn ftvs [mono-type]
   (case (::type mono-type)
     :type-var #{(::type-var mono-type)}
@@ -112,8 +116,7 @@
             (case expr-type
               (:int :float :big-int :big-float :string :bool)
               {::mono-env {}
-               ::mono-type {::type :primitive
-                            ::primitive-type expr-type}}
+               ::mono-type (primitive-type expr-type)}
 
               :local
               (let [type-var (->type-var (:local expr))]

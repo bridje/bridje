@@ -2,29 +2,21 @@
   (:require [bridje.type-checker :as tc]
             [clojure.test :as t]))
 
-(defn primitive [primitive-type]
-  #::tc{:type :primitive
-        :primitive-type primitive-type})
-
 (defn vector-of [elem-type]
   #::tc{:type :vector
         :elem-type elem-type})
 
-(defn mono->poly [mono]
-  #::tc{:type-vars #{}
-        :mono-type mono})
-
 (t/deftest types-basic-exprs
-  (t/are [expr expected-type] (= (::tc/poly-type (tc/with-type expr {:env {:vars {'foo {::tc/poly-type (mono->poly (primitive :float))}}}}))
+  (t/are [expr expected-type] (= (::tc/poly-type (tc/with-type expr {:env {:vars {'foo {::tc/poly-type (tc/mono-type->poly-type (tc/primitive-type :float))}}}}))
                                  expected-type)
-    {:expr-type :int} (mono->poly (primitive :int))
+    {:expr-type :int} (tc/mono-type->poly-type (tc/primitive-type :int))
 
 
     {:expr-type :vector
      :exprs [{:expr-type :float}
              {:expr-type :float}]}
 
-    (mono->poly (vector-of (primitive :float)))
+    (tc/mono-type->poly-type (vector-of (tc/primitive-type :float)))
 
 
     {:expr-type :if,
@@ -32,11 +24,11 @@
      :then-expr {:expr-type :int, :int 4}
      :else-expr {:expr-type :int, :int 5}}
 
-    (mono->poly (primitive :int))
+    (tc/mono-type->poly-type (tc/primitive-type :int))
 
     {:expr-type :global
      :global 'foo}
-    (mono->poly (primitive :float))
+    (tc/mono-type->poly-type (tc/primitive-type :float))
 
     {:expr-type :call
      :exprs [{:expr-type :fn
@@ -46,7 +38,7 @@
                                    :local ::x}]}}
              {:expr-type :big-int
               :big-int 54}]}
-    (mono->poly (vector-of (primitive :big-int)))))
+    (tc/mono-type->poly-type (vector-of (tc/primitive-type :big-int)))))
 
 (t/deftest types-identity-fn
   (let [res (::tc/poly-type (tc/with-type {:expr-type :fn
@@ -74,4 +66,4 @@
            {::tc/type-vars #{}
             ::tc/mono-type {::tc/type :fn
                             ::tc/param-types []
-                            ::tc/return-type (primitive :int)}})))
+                            ::tc/return-type (tc/primitive-type :int)}})))
