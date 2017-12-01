@@ -48,7 +48,7 @@
 (defadt form
   #{:string :bool
     :int :float :big-int :big-float
-    :symbol :namespaced-symbol
+    :symbol
     :record :list :set :vector})
 
 (defadt expr

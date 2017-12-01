@@ -136,17 +136,6 @@
                                  (read-symbol-token chs))]
           (cons res (tokenise more-chs)))))))
 
-(defn split-sym [{:keys [token]}]
-  (let [[ns-or-sym sym & more] (s/split token #"/")]
-    (if (seq more)
-      (throw (ex-info "Multiple '/'s in symbol" {:symbol token}))
-      (if sym
-        {:form-type :namespaced-symbol
-         :ns (symbol ns-or-sym)
-         :sym (symbol sym)}
-        {:form-type :symbol
-         :sym (symbol ns-or-sym)}))))
-
 (def delimiters
   {"(" {:end-delimiter ")"
         :form-type :list}
@@ -195,7 +184,7 @@
 
                 :symbol (case token
                           ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token)} more-tokens]
-                          [(split-sym {:token token})
+                          [{:form-type :symbol, :sym (symbol token)}
                            more-tokens]))
 
               (when end-delimiter

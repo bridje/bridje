@@ -31,23 +31,12 @@
                                 :quote {:form-type :quote
                                         :form (syntax-quote-form inner-form {:splice? false})}
 
-                                (:string :bool :int :float :big-int :big-float) {:form-type :quote,
-                                                                                 :form form}
-
                                 :symbol (quoted-form :symbol
                                                      {'sym {:form-type :quote,
                                                             :form {:form-type :symbol
                                                                    :sym (:sym form)}}})
 
-                                :namespaced-symbol (quoted-form :namespaced-symbol
-                                                                {'ns {:form-type :quote,
-                                                                      :form {:form-type :symbol
-                                                                             :sym (:ns form)}}
-
-                                                                 'sym {:form-type :quote,
-                                                                       :form {:form-type :symbol
-                                                                              :sym (:sym form)}}})
-
+                                (:vector :set :list :record)
                                 (quoted-form form-type
                                              {'forms (let [splice? (some #(= :unquote-splicing (:form-type %)) forms)
                                                            inner-forms {:form-type :vector
@@ -58,7 +47,9 @@
                                                                    :sym 'concat}
                                                                   inner-forms]}
 
-                                                         inner-forms))}))]
+                                                         inner-forms))})
+
+                                {:form-type :quote, :form form})]
 
               (if (and splice? (not= form-type :unquote-splicing))
                 {:form-type :vector
@@ -68,21 +59,21 @@
 
           (expand-sq* [{:keys [form-type] :as form}]
             (case form-type
-              (:string :bool :int :big-int :float :big-float :symbol :namespaced-symbol) form
               (:vector :set :list :record) (update form :forms #(mapv expand-sq* %))
               :quote (update form :form expand-sq*)
 
               :syntax-quote (syntax-quote-form (:form form) {:splice? false})
               :unquote (throw (ex-info "'unquote' outside of 'syntax-quote'" {:form form}))
-              :unquote-splicing (throw (ex-info "'unquote-splicing' outside of 'syntax-quote'" {:form form}))))]
+              :unquote-splicing (throw (ex-info "'unquote-splicing' outside of 'syntax-quote'" {:form form}))
+
+              form))]
 
     (expand-sq* form)))
 
 (defn expand-quotes [{:keys [form-type] :as form}]
   (letfn [(sym-form [sym]
             {:form-type :list
-             :forms [{:form-type :namespaced-symbol
-                      :ns 'bridje.kernel.forms
+             :forms [{:form-type :symbol
                       :sym 'symbol}
                      {:form-type :string,
                       :string (name sym)}]})
@@ -100,15 +91,13 @@
 
                              :symbol {'sym (sym-form (:sym form))}
 
-                             :namespaced-symbol {'ns (sym-form (:ns form))
-                                                 'sym (sym-form (:sym form))}
-
                              (:list :vector :set :record) {'forms {:form-type :vector,
                                                                    :forms (mapv quote-form (:forms form))}}))))]
     (case form-type
-      (:string :bool :int :big-int :float :big-float :symbol :namespaced-symbol) form
       (:vector :set :list :record) (update form :forms #(mapv expand-quotes %))
-      :quote (quote-form (:form form)))))
+      :quote (quote-form (:form form))
+
+      form)))
 
 (comment
   (let [ctx {:env {:vars {'VectorForm {:value {}}
@@ -116,8 +105,7 @@
                           'ListForm {:value {}}
                           'StringForm {:value {}}
                           'RecordForm {:value {}}
-                          'SymbolForm {:value {}}
-                          'NamespacedSymbolForm {:value {}}}}}]
+                          'SymbolForm {:value {}}}}}]
     (-> (expand-quotes (first (bridje.reader/read-forms "['[1 '''1]]")))
         (analyser/analyse ctx)
         (bridje.emitter/emit-value-expr ctx))))
@@ -130,7 +118,6 @@
                           'StringForm {:value {}}
                           'RecordForm {:value {}}
                           'SymbolForm {:value {}}
-                          'NamespacedSymbolForm {:value {}}
                           'symbol {:value {}}}}}]
     (-> (first (bridje.reader/read-forms "''foo"))
         (expand-syntax-quotes ctx)

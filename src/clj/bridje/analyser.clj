@@ -77,9 +77,6 @@
 (def kw-parser
   (form-type-parser :keyword))
 
-(def ns-sym-parser
-  (form-type-parser :namespaced-symbol))
-
 (defn coll-parser [form-type nested-parser]
   (do-parse [{:keys [forms]} (form-type-parser form-type)]
     (pure (first (nested-parser forms)))))
@@ -273,13 +270,6 @@
                                                   (no-more-forms {:expr-type :recur
                                                                   :exprs exprs
                                                                   :loop-locals loop-locals}))))
-
-                    :clj (parse-forms more-forms
-                                      (do-parse [{:keys [ns sym]} (or-parser sym-parser ns-sym-parser)]
-                                        (no-more-forms {:expr-type :clj-var
-                                                        :clj-var (symbol (or (some-> ns name)
-                                                                             (name 'clojure.core))
-                                                                         (name sym))})))
 
                     ;; fall through to 'call'
                     nil))
