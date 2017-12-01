@@ -12,6 +12,8 @@
                                           '(def (flip x y)
                                              [y x])
 
+                                          '(def flipped (flip "World" "Hello"))
+
                                           '(defdata User
                                              {:id Int
                                               :first-name String
@@ -20,49 +22,49 @@
                                           ;; '(defdata (Just a))
                                           ;; '(defdata (Mapped #{a b}))
 
+
+                                          #_
                                           '(def (main args)
-                                             (flip "World" "Hello")
-                                             #_(let [seq ["ohno"]
-                                                     ;; just (Just "just")
-                                                     ;; nothing Nothing
-                                                     ]
-                                                 {message (flip "World" "Hello")
-                                                  seq seq
-                                                  fn-call ((fn (foo a b) [b a]) "World" "Hello")
-                                                  ;; mapped (Mapped {a "Hello", b "World"})
-                                                  ;; the-nothing nothing
-                                                  empty? ((clj empty?) seq)
-                                                  ;; just just
-                                                  ;; justtype (match just
-                                                  ;;                 Just "it's a just"
-                                                  ;;                 Nothing "it's nothing"
-                                                  ;;                 "it's something else")
-                                                  loop-rec (loop [x 5
-                                                                  res []]
-                                                             (if ((clj zero?) x)
-                                                               res
-                                                               (recur ((clj dec) x)
-                                                                      ((clj conj) res x))))
-                                                  ;; justval (Just->a just)
-                                                  })))
 
-                                         {})]
+                                             (let [seq ["ohno"]
+                                                   just (Just "just")
+                                                   nothing Nothing]
+                                               {message (flip "World" "Hello")
+                                                seq seq
+                                                fn-call ((fn (foo a b) [b a]) "World" "Hello")
+                                                mapped (Mapped {a "Hello", b "World"})
+                                                the-nothing nothing
+                                                empty? ((clj empty?) seq)
+                                                just just
+                                                justtype (match just
+                                                           Just "it's a just"
+                                                           Nothing "it's nothing"
+                                                           "it's something else")
+                                                loop-rec (loop [x 5
+                                                                res []]
+                                                           (if ((clj zero?) x)
+                                                             res
+                                                             (recur ((clj dec) x)
+                                                                    ((clj conj) res x))))
+                                                justval (Just->a just)})))
 
+                                         {})
+        {:syms [flipped]} (:vars env)]
+
+    (t/is (= (:value flipped) ["Hello" "World"]))
+
+    #_
     (t/is (= (sut/run-main env)
-             ["Hello" "World"]
-
-             #_
              {:message ["Hello" "World"],
               :fn-call ["Hello" "World"],
               :seq ["ohno"],
               :empty? false
               :loop-rec [5 4 3 2 1]
-              ;; :the-nothing (rt/->ADT 'Nothing {}),
-              ;; :mapped (rt/->ADT 'Mapped {:a "Hello", :b "World"}),
-              ;; :just (rt/->ADT 'Just {:a "just"}),
-              ;; :justtype "it's a just"
-              ;; :justval "just"
-              }))))
+              :the-nothing (rt/->ADT 'Nothing {}),
+              :mapped (rt/->ADT 'Mapped {:a "Hello", :b "World"}),
+              :just (rt/->ADT 'Just {:a "just"}),
+              :justtype "it's a just"
+              :justval "just"}))))
 
 #_
 (t/deftest quoting-test
