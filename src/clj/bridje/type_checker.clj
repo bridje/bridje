@@ -26,7 +26,7 @@
   (let [tv-mapping (into {} (map (fn [tv] [tv (gensym (name tv))])) type-vars)]
     (w/postwalk (some-fn tv-mapping identity) mono-type)))
 
-(defn mono-type->poly-type [mono-type]
+(defn mono->poly [mono-type]
   {::type-vars (ftvs mono-type)
    ::mono-type mono-type})
 
@@ -185,7 +185,7 @@
                           {::mono-env mono-env
                            ::mono-type (apply-mapping return-type mapping)})))))]
 
-    {::poly-type (mono-type->poly-type (::mono-type (type-value-expr* expr)))}))
+    {::poly-type (mono->poly (::mono-type (type-value-expr* expr)))}))
 
 (defn with-type [expr {:keys [env]}]
   (merge expr

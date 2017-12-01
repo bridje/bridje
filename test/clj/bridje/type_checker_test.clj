@@ -7,16 +7,16 @@
         :elem-type elem-type})
 
 (t/deftest types-basic-exprs
-  (t/are [expr expected-type] (= (::tc/poly-type (tc/with-type expr {:env {:vars {'foo {::tc/poly-type (tc/mono-type->poly-type (tc/primitive-type :float))}}}}))
+  (t/are [expr expected-type] (= (::tc/poly-type (tc/with-type expr {:env {:vars {'foo {::tc/poly-type (tc/mono->poly (tc/primitive-type :float))}}}}))
                                  expected-type)
-    {:expr-type :int} (tc/mono-type->poly-type (tc/primitive-type :int))
+    {:expr-type :int} (tc/mono->poly (tc/primitive-type :int))
 
 
     {:expr-type :vector
      :exprs [{:expr-type :float}
              {:expr-type :float}]}
 
-    (tc/mono-type->poly-type (vector-of (tc/primitive-type :float)))
+    (tc/mono->poly (vector-of (tc/primitive-type :float)))
 
 
     {:expr-type :if,
@@ -24,11 +24,11 @@
      :then-expr {:expr-type :int, :int 4}
      :else-expr {:expr-type :int, :int 5}}
 
-    (tc/mono-type->poly-type (tc/primitive-type :int))
+    (tc/mono->poly (tc/primitive-type :int))
 
     {:expr-type :global
      :global 'foo}
-    (tc/mono-type->poly-type (tc/primitive-type :float))
+    (tc/mono->poly (tc/primitive-type :float))
 
     {:expr-type :call
      :exprs [{:expr-type :fn
@@ -38,7 +38,7 @@
                                    :local ::x}]}}
              {:expr-type :big-int
               :big-int 54}]}
-    (tc/mono-type->poly-type (vector-of (tc/primitive-type :big-int)))))
+    (tc/mono->poly (vector-of (tc/primitive-type :big-int)))))
 
 (t/deftest types-identity-fn
   (let [res (::tc/poly-type (tc/with-type {:expr-type :fn

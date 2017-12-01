@@ -124,7 +124,7 @@
                                       Int :int, Float :float,
                                       BigInt :big-int, BigFloat :big-float}
                                     (:sym form))]
-              (tc/mono-type->poly-type (tc/primitive-type prim-type))
+              (tc/mono->poly (tc/primitive-type prim-type))
               (throw (ex-info "Unexpected symbol, parsing type" {:form form})))
     (throw (ex-info "Unexpected form, parsing type" {:form form}))))
 
