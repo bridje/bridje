@@ -8,50 +8,51 @@
   (:import [bridje.runtime ADT]))
 
 (t/deftest e2e-test
-  (let [env (sut/compile-str (fake-forms
-                              '(def (flip x y)
-                                 [y x])
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          '(def (flip x y)
+                                             [y x])
 
-                              '(defdata User
-                                 {:id Int
-                                  :first-name String
-                                  :last-name String})
+                                          '(defdata User
+                                             {:id Int
+                                              :first-name String
+                                              :last-name String})
 
-                              ;; '(defdata (Just a))
-                              ;; '(defdata (Mapped #{a b}))
+                                          ;; '(defdata (Just a))
+                                          ;; '(defdata (Mapped #{a b}))
 
-                              '(def (main args)
-                                 (flip "World" "Hello")
-                                 #_(let [seq ["ohno"]
-                                       ;; just (Just "just")
-                                       ;; nothing Nothing
-                                       ]
-                                   {message (flip "World" "Hello")
-                                    seq seq
-                                    fn-call ((fn (foo a b) [b a]) "World" "Hello")
-                                    ;; mapped (Mapped {a "Hello", b "World"})
-                                    ;; the-nothing nothing
-                                    empty? ((clj empty?) seq)
-                                    ;; just just
-                                    ;; justtype (match just
-                                    ;;                 Just "it's a just"
-                                    ;;                 Nothing "it's nothing"
-                                    ;;                 "it's something else")
-                                    loop-rec (loop [x 5
-                                                    res []]
-                                               (if ((clj zero?) x)
-                                                 res
-                                                 (recur ((clj dec) x)
-                                                        ((clj conj) res x))))
-                                    ;; justval (Just->a just)
-                                    })))
+                                          '(def (main args)
+                                             (flip "World" "Hello")
+                                             #_(let [seq ["ohno"]
+                                                     ;; just (Just "just")
+                                                     ;; nothing Nothing
+                                                     ]
+                                                 {message (flip "World" "Hello")
+                                                  seq seq
+                                                  fn-call ((fn (foo a b) [b a]) "World" "Hello")
+                                                  ;; mapped (Mapped {a "Hello", b "World"})
+                                                  ;; the-nothing nothing
+                                                  empty? ((clj empty?) seq)
+                                                  ;; just just
+                                                  ;; justtype (match just
+                                                  ;;                 Just "it's a just"
+                                                  ;;                 Nothing "it's nothing"
+                                                  ;;                 "it's something else")
+                                                  loop-rec (loop [x 5
+                                                                  res []]
+                                                             (if ((clj zero?) x)
+                                                               res
+                                                               (recur ((clj dec) x)
+                                                                      ((clj conj) res x))))
+                                                  ;; justval (Just->a just)
+                                                  })))
 
-                             {})]
+                                         {})]
 
     (t/is (= (sut/run-main env)
              ["Hello" "World"]
 
-             #_{:message ["Hello" "World"],
+             #_
+             {:message ["Hello" "World"],
               :fn-call ["Hello" "World"],
               :seq ["ohno"],
               :empty? false
@@ -63,16 +64,17 @@
               ;; :justval "just"
               }))))
 
-#_(t/deftest quoting-test
-  (let [env (sut/compile-str
-             (s/join "\n" ["(def simple-quote '(foo 4 [2 3]))"
-                           "(def double-quote ''[foo 3])"
-                           "(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"
-                           (pr-str '(def (main args)
-                                      {simple-quote simple-quote
-                                       double-quote double-quote
-                                       syntax-quote syntax-quote}))])
-             {})]
+#_
+(t/deftest quoting-test
+  (let [{:keys [env]} (sut/interpret-str
+                       (s/join "\n" ["(def simple-quote '(foo 4 [2 3]))"
+                                     "(def double-quote ''[foo 3])"
+                                     "(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"
+                                     (pr-str '(def (main args)
+                                                {simple-quote simple-quote
+                                                 double-quote double-quote
+                                                 syntax-quote syntax-quote}))])
+                       {})]
 
     (t/is (= (sut/run-main env)
              {:simple-quote (rt/->ADT 'ListForm,

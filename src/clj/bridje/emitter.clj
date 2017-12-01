@@ -89,31 +89,21 @@
                            globals)]
              ~(emit-value-expr* expr)))))))
 
-(defn emit-expr [{:keys [expr-type] :as expr} {:keys [env]}]
+(defn interpret-expr [{:keys [expr-type] :as expr} {:keys [env]}]
   (case expr-type
     :def
     (let [{:keys [sym locals body-expr]} expr
           poly-type (get-in expr [::tc/poly-type ::tc/def-expr-type ::tc/poly-type])]
-      {:env (assoc-in env [:vars sym] {::tc/poly-type poly-type})
-       :code `(fn [env#]
-                (assoc-in env# [:vars '~sym]
-                          {:value (~(emit-value-expr (if (seq locals)
-                                                       {:expr-type :fn
-                                                        :sym sym
-                                                        :locals locals
-                                                        :body-expr body-expr}
-                                                       body-expr)
-                                                     env)
-                                   env#)
-
-                           ::tc/poly-type '~poly-type}))})
-
+      {:env (assoc-in env [:vars sym] {::tc/poly-type poly-type
+                                       :value ((eval (emit-value-expr (if (seq locals)
+                                                                        {:expr-type :fn
+                                                                         :sym sym
+                                                                         :locals locals
+                                                                         :body-expr body-expr}
+                                                                        body-expr)
+                                                                      env))
+                                               env)})})
     :defdata
     (let [{:keys [attributes]} expr]
-      (let [attrs-map (into {} (map (juxt :attribute #(select-keys % [::tc/poly-type]))) attributes)]
-        {:env (-> env
-                  (update :attributes merge attrs-map))
-
-         :code `(fn [env#]
-                  (-> env#
-                      (update :attributes merge '~attrs-map)))}))))
+      {:env (-> env
+                (update :attributes (fnil into {}) (map (juxt :attribute #(select-keys % [::tc/poly-type]))) attributes))})))
