@@ -211,7 +211,8 @@
                                                                             (assoc :loop-locals (map second params))))]
                                         (no-more-forms {:expr-type :def
                                                         :sym sym
-                                                        :locals (map second params)
+                                                        :locals (when params
+                                                                  (map second params))
                                                         :body-expr body-expr})))
 
                     :defmacro (throw (ex-info "niy" {}))
