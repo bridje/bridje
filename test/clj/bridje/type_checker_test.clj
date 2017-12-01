@@ -67,3 +67,13 @@
             ::tc/mono-type {::tc/type :fn
                             ::tc/param-types []
                             ::tc/return-type (tc/primitive-type :int)}})))
+
+(t/deftest types-record
+  (t/is (= (-> {:expr-type :record,
+                :entries [[:User.first-name {:expr-type :string, :string "James"}]
+                          [:User.last-name {:expr-type :string, :string "Henderson"}]]}
+               (tc/with-type {:env {:attributes {:User.first-name {::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}
+                                                 :User.last-name {::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}}}})
+               ::tc/poly-type)
+
+           (tc/mono->poly #::tc{:type :record, :base nil, :keys #{:User.last-name :User.first-name}}))))

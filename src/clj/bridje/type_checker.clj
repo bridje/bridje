@@ -15,7 +15,7 @@
 (defn ftvs [mono-type]
   (case (::type mono-type)
     :type-var #{(::type-var mono-type)}
-    :primitive #{}
+    (:primitive :record) #{}
     (:vector :set) (ftvs (::elem-type mono-type))
 
     :fn (into (ftvs (::return-type mono-type))
@@ -141,6 +141,21 @@
 
                  ::mono-type {::type expr-type
                               ::elem-type (apply-mapping elem-type-var (::mapping combined-typing))}})
+
+              :record
+              (let [entry-typings (->> (:entries expr)
+                                       (map (fn [[kw expr]]
+                                              [kw (type-value-expr* expr)])))
+
+                    combined-typing (combine-typings {:typings (map second entry-typings)
+                                                      :extra-eqs (->> entry-typings
+                                                                      (into [] (map (fn [[kw typing]]
+                                                                                      [(instantiate (get-in env [:attributes kw ::poly-type]))
+                                                                                       (::mono-type typing)]))))})]
+                {::mono-env (::mono-env combined-typing)
+                 ::mono-type {::type :record
+                              ::base nil
+                              ::keys (into #{} (map first) entry-typings)}})
 
               :if
               (let [type-var (->type-var :if)

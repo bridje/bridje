@@ -4,7 +4,8 @@
             [bridje.runtime :as rt]
             [clojure.string :as s]
             [clojure.test :as t]
-            [clojure.walk :as w])
+            [clojure.walk :as w]
+            [bridje.type-checker :as tc])
   (:import [bridje.runtime ADT]))
 
 (t/deftest e2e-test
@@ -18,6 +19,10 @@
                                              {:id Int
                                               :first-name String
                                               :last-name String})
+
+                                          '(def james
+                                             {:User.first-name "James"
+                                              :User.last-name "Henderson"})
 
                                           ;; '(defdata (Just a))
                                           ;; '(defdata (Mapped #{a b}))
@@ -49,9 +54,18 @@
                                                 justval (Just->a just)})))
 
                                          {})
-        {:syms [flipped]} (:vars env)]
+        {:syms [flipped james]} (:vars env)
+        {first-name :User.first-name} (:attributes env)]
 
     (t/is (= (:value flipped) ["Hello" "World"]))
+    (t/is (= (::tc/poly-type first-name)
+             (tc/mono->poly (tc/primitive-type :string))))
+
+    (t/is (= james
+             {:value {:User.first-name "James"
+                      :User.last-name "Henderson"}
+              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :base nil, :keys #{:User.last-name :User.first-name}})}))
+
 
     #_
     (t/is (= (sut/run-main env)
