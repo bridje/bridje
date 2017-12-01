@@ -292,4 +292,10 @@
                      :global (:sym form)})
 
                   (throw (ex-info "Can't find" {:sym sym
-                                                :ctx ctx}))))))
+                                                :ctx ctx}))))
+
+    :keyword (if-let [attribute (get-in env [:attributes (:kw form)])]
+               {:expr-type :attribute
+                :attribute attribute}
+
+               (throw (ex-info "Cannot resolve attribute" {:attribute (:kw form)})))))
