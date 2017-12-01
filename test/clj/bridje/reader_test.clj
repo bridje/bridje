@@ -9,4 +9,5 @@
                            (map clj->form forms))
 
     "[\"Hello\" \"World\"]" [["Hello" "World"]]
-    "(def (plus a b) (+ a b))" ['(def (plus a b) (+ a b))]))
+    "(def (plus a b) (+ a b))" ['(def (plus a b) (+ a b))]
+    ":User.first-name" [:User.first-name]))

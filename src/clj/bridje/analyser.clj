@@ -99,9 +99,8 @@
       (pos? (mod (count forms) 2)) (throw (ex-info "Record requires even number of forms" {}))
       :else (pure (first (nested-parser (for [[{:keys [form-type] :as k-form} v-form] (partition 2 forms)]
                                           (cond
-                                            ;; TODO make this keywords - apparently this branch doesn't have them
-                                            (not= :symbol form-type) (throw (ex-info "Expected symbol as key in record" {}))
-                                            :else [(keyword (subs (name (:sym k-form)) 1)) v-form]))))))))
+                                            (not= :keyword form-type) (throw (ex-info "Expected keyword as key in record" {}))
+                                            :else [(:kw k-form) v-form]))))))))
 
 (defn when-more-forms [parser]
   (fn [forms]

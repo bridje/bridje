@@ -128,6 +128,10 @@
         \" (let [[res more-chs] (read-string-token chs)]
              (cons res (tokenise more-chs)))
 
+        \: (when-let [[{:keys [token]} more-chs] (read-symbol-token more-chs)]
+             (cons {:token-type :keyword, :token token}
+                   (tokenise more-chs)))
+
         (let [[res more-chs] (or (try-read-number-token chs)
                                  (read-symbol-token chs))]
           (cons res (tokenise more-chs)))))))
@@ -186,6 +190,8 @@
 
                 :string [{:form-type :string, :string token} more-tokens]
                 (:int :float :big-int :big-float) [{:form-type token-type, :number token} more-tokens]
+
+                :keyword [{:form-type :keyword, :kw (keyword token)} more-tokens]
 
                 :symbol (case token
                           ("true" "false") [{:form-type :bool, :bool (Boolean/valueOf token)} more-tokens]

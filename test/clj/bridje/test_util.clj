@@ -13,6 +13,7 @@
                   (vector? clj) {:form-type :vector, :forms clj}
                   (list? clj) {:form-type :list, :forms clj}
                   (symbol? clj) {:form-type :symbol, :sym clj}
+                  (keyword? clj) {:form-type :keyword, :kw clj}
 
                   :else clj))
               clj))
