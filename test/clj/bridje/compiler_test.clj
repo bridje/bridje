@@ -12,7 +12,11 @@
                               '(def (flip x y)
                                  [y x])
 
-                              ;; '(defdata Nothing)
+                              '(defdata User
+                                 {:id Int
+                                  :first-name String
+                                  :last-name String})
+
                               ;; '(defdata (Just a))
                               ;; '(defdata (Mapped #{a b}))
 

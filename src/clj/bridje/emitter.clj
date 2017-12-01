@@ -108,44 +108,12 @@
 
                            ::tc/poly-type '~poly-type}))})
 
-    :defmacro (throw (ex-info "niy" {:expr expr}))
-
     :defdata
-    (let [{:keys [sym params]} expr]
-      {:env (-> env
-                (assoc-in [:types sym] {:params params})
-                (update-in [:vars] merge
-                           (if (seq params)
-                             (merge {sym {}}
-                                    (into {}
-                                          (map (fn [param]
-                                                 [(symbol (format "%s->%s" (name sym) (name param))) {}]))
-                                          params))
+    (let [{:keys [attributes]} expr]
+      (let [attrs-map (into {} (map (juxt :attribute #(select-keys % [::tc/poly-type]))) attributes)]
+        {:env (-> env
+                  (update :attributes merge attrs-map))
 
-                             {sym {}})))
-       :code `(fn [env#]
-                (-> env#
-                    (assoc-in [:types '~sym] {:params '[~@params]})
-                    (update-in [:vars] merge
-                            ~(if (seq params)
-                               (merge `{'~sym {:value ~(cond
-                                                         (vector? params) `(fn [~@params]
-                                                                             (rt/->ADT '~sym
-                                                                                       ~(into {}
-                                                                                              (map (fn [param]
-                                                                                                     [(keyword param) param]))
-                                                                                              params)))
-
-                                                         (set? params) (let [params-sym (gensym 'params)]
-                                                                         `(fn [~params-sym]
-                                                                            (rt/->ADT '~sym
-                                                                                      ~(into {}
-                                                                                             (map (fn [param]
-                                                                                                    [(keyword param) `(get ~params-sym ~(keyword param))]))
-                                                                                             params)))))}}
-                                      (->> params
-                                           (into {} (map (fn [param]
-                                                           `['~(symbol (str sym "->" param)) {:value (fn [obj#]
-                                                                                                       (get-in obj# [:params ~(keyword param)]))}])))))
-
-                               `{'~sym {:value (rt/->ADT '~sym {})}}))))})))
+         :code `(fn [env#]
+                  (-> env#
+                      (update :attributes merge '~attrs-map)))}))))

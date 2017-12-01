@@ -191,14 +191,18 @@
   (merge expr
          (case (:expr-type expr)
            :def
-           (let [{:keys [locals body-expr]} expr]
-             {::poly-type {::mono-type :env-update
+           {::poly-type (let [{:keys [locals body-expr]} expr]
+                          {::mono-type :env-update
                            ::env-update-type :def
                            ::def-expr-type (type-value-expr (if locals
                                                               {:expr-type :fn
                                                                :locals locals
                                                                :body-expr body-expr}
                                                               body-expr)
-                                                            {:env env})}})
+                                                            {:env env})})}
+
+           :defdata
+           {::poly-type {::mono-type :env-update
+                         ::env-update-type :defdata}}
 
            (type-value-expr expr {:env env}))))
