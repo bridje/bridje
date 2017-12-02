@@ -276,7 +276,7 @@
                     nil))
 
               ;; fall through to 'call'
-              (:list) nil)
+              (:list :keyword) nil)
 
             {:expr-type :call
              :exprs (map #(analyse % ctx) forms)}))
@@ -295,8 +295,9 @@
                   (throw (ex-info "Can't find" {:sym sym
                                                 :ctx ctx}))))
 
-    :keyword (if-let [attribute (get-in env [:attributes (:kw form)])]
-               {:expr-type :attribute
-                :attribute attribute}
+    :keyword (let [{:keys [kw]} form]
+               (if (get-in env [:attributes kw])
+                 {:expr-type :attribute
+                  :attribute kw}
 
-               (throw (ex-info "Cannot resolve attribute" {:attribute (:kw form)})))))
+                 (throw (ex-info "Cannot resolve attribute" {:attribute kw}))))))

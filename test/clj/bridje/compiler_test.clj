@@ -24,6 +24,9 @@
                                              {:User.first-name "James"
                                               :User.last-name "Henderson"})
 
+                                          '(def james-first-name
+                                             (:User.first-name james))
+
                                           ;; '(defdata (Just a))
                                           ;; '(defdata (Mapped #{a b}))
 
@@ -64,7 +67,7 @@
     (t/is (= james
              {:value {:User.first-name "James"
                       :User.last-name "Henderson"}
-              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :base nil, :keys #{:User.last-name :User.first-name}})}))
+              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :keys #{:User.last-name :User.first-name}})}))
 
 
     #_

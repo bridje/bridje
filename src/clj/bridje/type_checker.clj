@@ -48,6 +48,14 @@
   (case (::type type)
     :primitive type
     (:vector :set) (-> type (update ::elem-type apply-mapping mapping))
+    :record (let [{existing-base ::base, existing-keys ::keys} type]
+              (if-let [{new-base ::base, extra-keys ::keys} (get mapping existing-base)]
+                {::type :record
+                 ::base new-base
+                 ::keys (set/union existing-keys extra-keys)}
+
+                type))
+
     :type-var (get mapping (::type-var type) type)))
 
 (defn mono-env-apply-mapping [mono-env mapping]
@@ -55,6 +63,31 @@
         (map (fn [[local mono-type]]
                [local (apply-mapping mono-type mapping)]))
         mono-env))
+
+(defn mapping-apply-mapping [old-mapping new-mapping]
+  (merge (into {}
+               (map (fn [[type-var mono-type]]
+                      [type-var (apply-mapping mono-type new-mapping)]))
+               old-mapping)
+         new-mapping))
+
+(defn unify-records [t1 t2]
+  (let [{t1-base ::base, t1-keys ::keys} t1
+        {t2-base ::base, t2-keys ::keys} t2
+        t1-t2-keys (set/difference t1-keys t2-keys)
+        t2-t1-keys (set/difference t2-keys t1-keys)]
+    (when-not (or (and (nil? t1-base) (seq t2-t1-keys))
+                  (and (nil? t2-base) (seq t1-t2-keys)))
+      (let [new-base (gensym 'r)]
+        (merge (when (and t1-base (seq t2-t1-keys))
+                 {t1-base {::type :record
+                           ::base new-base
+                           ::keys t2-t1-keys}})
+
+               (when (and t2-base (seq t1-t2-keys))
+                 {t2-base {::type :record
+                           ::base new-base
+                           ::keys t1-t2-keys}}))))))
 
 (defn unify-eqs [eqs]
   (loop [[[{t1-type ::type, :as t1} {t2-type ::type, :as t2} :as eq] & more-eqs] eqs
@@ -73,11 +106,7 @@
                            (apply-mapping t2 new-mapping)])
                         more-eqs)
 
-                   (merge (into {}
-                                (map (fn [[type-var mono-type]]
-                                       [type-var (apply-mapping mono-type new-mapping)]))
-                                mapping)
-                          new-mapping)))
+                   (mapping-apply-mapping mapping new-mapping)))
 
           (= :type-var t2-type)
           (recur (cons [t2 t1] more-eqs) mapping)
@@ -85,6 +114,8 @@
           (not= t1-type t2-type) (throw ex)
 
           :else (case (::type t1)
+                  :record (recur more-eqs (mapping-apply-mapping mapping (unify-records t1 t2)))
+
                   (throw ex)))))))
 
 (defn mono-env-union [mono-envs]
@@ -150,12 +181,21 @@
                     combined-typing (combine-typings {:typings (map second entry-typings)
                                                       :extra-eqs (->> entry-typings
                                                                       (into [] (map (fn [[kw typing]]
-                                                                                      [(instantiate (get-in env [:attributes kw ::poly-type]))
+                                                                                      [(get-in env [:attributes kw ::mono-type])
                                                                                        (::mono-type typing)]))))})]
                 {::mono-env (::mono-env combined-typing)
                  ::mono-type {::type :record
-                              ::base nil
                               ::keys (into #{} (map first) entry-typings)}})
+
+              :attribute
+              (let [{:keys [attribute]} expr
+                    {:keys [::mono-type]} (get-in env [:attributes attribute])]
+                {::mono-env {}
+                 ::mono-type {::type :fn
+                              ::param-types [{::type :record
+                                              ::base (gensym 'r)
+                                              ::keys #{attribute}}]
+                              ::return-type mono-type}})
 
               :if
               (let [type-var (->type-var :if)

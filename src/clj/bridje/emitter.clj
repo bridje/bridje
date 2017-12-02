@@ -38,6 +38,8 @@
                              (into {} (map (fn [[sym expr]]
                                              [(keyword sym) (emit-value-expr* expr)]))))
 
+                :attribute (:attribute expr)
+
                 :if `(if ~(emit-value-expr* (:pred-expr expr))
                        ~(emit-value-expr* (:then-expr expr))
                        ~(emit-value-expr* (:else-expr expr)))
