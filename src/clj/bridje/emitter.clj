@@ -106,4 +106,4 @@
     :defdata
     (let [{:keys [attributes]} expr]
       {:env (-> env
-                (update :attributes (fnil into {}) (map (juxt :attribute #(select-keys % [::tc/poly-type]))) attributes))})))
+                (update :attributes (fnil into {}) (map (juxt :attribute #(select-keys % [::tc/mono-type]))) attributes))})))

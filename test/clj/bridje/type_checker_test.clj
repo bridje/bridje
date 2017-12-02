@@ -63,10 +63,9 @@
                                           :int 54}}
                              {})
                (get-in [::tc/poly-type ::tc/def-expr-type ::tc/poly-type]))
-           {::tc/type-vars #{}
-            ::tc/mono-type {::tc/type :fn
-                            ::tc/param-types []
-                            ::tc/return-type (tc/primitive-type :int)}})))
+           (tc/mono->poly {::tc/type :fn
+                           ::tc/param-types []
+                           ::tc/return-type (tc/primitive-type :int)}))))
 
 (t/deftest types-record
   (t/is (= (-> {:expr-type :record,

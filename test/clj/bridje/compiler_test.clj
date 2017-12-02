@@ -58,8 +58,8 @@
         {first-name :User.first-name} (:attributes env)]
 
     (t/is (= (:value flipped) ["Hello" "World"]))
-    (t/is (= (::tc/poly-type first-name)
-             (tc/mono->poly (tc/primitive-type :string))))
+    (t/is (= (::tc/mono-type first-name)
+             (tc/primitive-type :string)))
 
     (t/is (= james
              {:value {:User.first-name "James"

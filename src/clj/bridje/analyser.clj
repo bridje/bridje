@@ -117,14 +117,14 @@
       (parser forms)
       (throw (ex-info "Expected even number of forms" {:form parent-form})))))
 
-(defn parse-poly-type [{:keys [form-type] :as form} env]
+(defn parse-mono-type [{:keys [form-type] :as form} env]
   ;; TODO need to parse more than just primitives here
   (case form-type
     :symbol (if-let [prim-type (get '{String :string, Bool :bool,
                                       Int :int, Float :float,
                                       BigInt :big-int, BigFloat :big-float}
                                     (:sym form))]
-              (tc/mono->poly (tc/primitive-type prim-type))
+              (tc/primitive-type prim-type)
               (throw (ex-info "Unexpected symbol, parsing type" {:form form})))
     (throw (ex-info "Unexpected form, parsing type" {:form form}))))
 
@@ -223,7 +223,7 @@
                                                                                  [(into []
                                                                                         (map (fn [[kw type-form]]
                                                                                                {:attribute (keyword (format "%s.%s" (name sym) (name kw)))
-                                                                                                ::tc/poly-type (parse-poly-type type-form env)}))
+                                                                                                ::tc/mono-type (parse-mono-type type-form env)}))
                                                                                         entries)
                                                                                   []]))]
                                             (no-more-forms {:expr-type :defdata
