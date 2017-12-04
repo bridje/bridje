@@ -143,8 +143,22 @@
      ::mapping mapping}))
 
 (defn type-value-expr [expr {:keys [env]}]
-  (letfn [(type-value-expr* [{:keys [expr-type] :as expr} {:keys [local-mono-env]}]
-            (let [type-value-expr** #(type-value-expr* % {:local-mono-env local-mono-env})]
+  (letfn [(type-value-expr* [{:keys [expr-type] :as expr} {:keys [local-mono-env loop-return-var] :as opts}]
+            (let [type-value-expr** (fn tve
+                                      ([expr]
+                                       (tve expr {}))
+                                      ([expr recur-opts]
+                                       (type-value-expr* expr (merge opts recur-opts))))
+
+                  type-bindings (fn [bindings]
+                                  (reduce (fn [{:keys [local-mono-env typings]} [local binding-expr]]
+                                            (let [{:keys [::mono-type] :as typing} (type-value-expr* binding-expr local-mono-env)]
+                                              {:local-mono-env (assoc local-mono-env local mono-type)
+                                               :typings (conj typings typing)}))
+                                          {:local-mono-env local-mono-env
+                                           :typings []}
+                                          bindings))]
+
               (case expr-type
                 (:int :float :big-int :big-float :string :bool)
                 {::mono-env {}
@@ -215,13 +229,7 @@
                    ::mono-type (apply-mapping type-var (::mapping combined-typing))})
 
                 :let
-                (let [{:keys [local-mono-env typings]} (reduce (fn [{:keys [local-mono-env typings]} [local binding-expr]]
-                                                                 (let [{:keys [::mono-type] :as typing} (type-value-expr* binding-expr local-mono-env)]
-                                                                   {:local-mono-env (assoc local-mono-env local mono-type)
-                                                                    :typings (conj typings typing)}))
-                                                               {:local-mono-env local-mono-env
-                                                                :typings []}
-                                                               (:bindings expr))
+                (let [{:keys [local-mono-env typings]} (type-bindings (:bindings expr))
 
                       body-typing (type-value-expr* (:body-expr expr) {:local-mono-env local-mono-env})
 
@@ -229,6 +237,29 @@
 
                   {::mono-env (::mono-env combined-typing)
                    ::mono-type (apply-mapping (::mono-type body-typing) (::mapping combined-typing))})
+
+                :loop
+                (let [{:keys [local-mono-env typings]} (type-bindings (:bindings expr))
+
+                      loop-return-var (->type-var 'loop-return)
+                      body-typing (type-value-expr* (:body-expr expr) {:local-mono-env local-mono-env
+                                                                       :loop-return-var loop-return-var})
+
+                      combined-typing (combine-typings {:typings (conj typings body-typing)
+                                                        :extra-eqs [[(::mono-type body-typing) loop-return-var]]})]
+
+                  {::mono-env (::mono-env combined-typing)
+                   ::mono-type (apply-mapping loop-return-var (::mapping combined-typing))})
+
+                :recur
+                (let [expr-typings (map type-value-expr** (:exprs expr))
+                      combined-typings (combine-typings {:typings expr-typings
+                                                         :extra-eqs (mapv (fn [expr-typing loop-local]
+                                                                            [(::mono-type expr-typing) (get local-mono-env loop-local)])
+                                                                          expr-typings
+                                                                          (:loop-locals expr))})]
+                  {::mono-env (::mono-env combined-typings)
+                   ::mono-type loop-return-var})
 
                 :fn
                 (let [{:keys [locals body-expr]} expr

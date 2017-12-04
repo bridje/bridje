@@ -100,3 +100,14 @@
                (tc/with-type {})
                ::tc/poly-type)
            (tc/mono->poly (vector-of (tc/primitive-type :string))))))
+
+(t/deftest types-loop-recur
+  (t/is (= (-> {:expr-type :loop
+                :bindings [[::x {:expr-type :int, :int 5}]]
+                :body-expr {:expr-type :if
+                            :pred-expr {:expr-type :bool, :bool false}
+                            :then-expr {:expr-type :recur, :exprs [{:expr-type :local, :local ::x}], :loop-locals [::x]}
+                            :else-expr {:expr-type :local, :local ::x}}}
+               (tc/with-type {})
+               ::tc/poly-type)
+           (tc/mono->poly (tc/primitive-type :int)))))
