@@ -40,13 +40,15 @@
               :big-int 54}]}
     (tc/mono->poly (vector-of (tc/primitive-type :big-int)))))
 
+(def id-fn
+  {:expr-type :fn
+   :sym :foo
+   :locals [::foo-param]
+   :body-expr {:expr-type :local
+               :local ::foo-param}})
+
 (t/deftest types-identity-fn
-  (let [res (::tc/poly-type (tc/with-type {:expr-type :fn
-                                           :sym :foo
-                                           :locals [::foo-param]
-                                           :body-expr {:expr-type :local
-                                                       :local ::foo-param}}
-                                          {}))
+  (let [res (::tc/poly-type (tc/with-type id-fn {}))
         param-type (get-in res [::tc/mono-type ::tc/param-types 0])
         identity-type {::tc/type-vars #{(::tc/type-var param-type)}
                        ::tc/mono-type {::tc/type :fn
@@ -87,3 +89,14 @@
                  ::tc/poly-type)
 
              (tc/mono->poly (tc/primitive-type :string))))))
+
+(t/deftest types-let
+  (t/is (= (-> {:expr-type :let
+                :bindings [[::x {:expr-type :string, :string "world"}]
+                           [::y {:expr-type :string, :string "hello"}]]
+                :body-expr {:expr-type :vector
+                            :exprs [{:expr-type :local, :local ::y}
+                                    {:expr-type :local, :local ::x}]}}
+               (tc/with-type {})
+               ::tc/poly-type)
+           (tc/mono->poly (vector-of (tc/primitive-type :string))))))

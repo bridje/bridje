@@ -27,6 +27,11 @@
                                           '(def james-first-name
                                              (:User.first-name james))
 
+                                          '(def hello-world
+                                             (let [hello "hello"
+                                                   world "world"]
+                                               [hello world]))
+
                                           ;; '(defdata (Just a))
                                           ;; '(defdata (Mapped #{a b}))
 
@@ -57,7 +62,7 @@
                                                 justval (Just->a just)})))
 
                                          {})
-        {:syms [flipped james]} (:vars env)
+        {:syms [flipped james hello-world]} (:vars env)
         {first-name :User.first-name} (:attributes env)]
 
     (t/is (= (:value flipped) ["Hello" "World"]))
@@ -68,6 +73,10 @@
              {:value {:User.first-name "James"
                       :User.last-name "Henderson"}
               ::tc/poly-type (tc/mono->poly #::tc{:type :record, :keys #{:User.last-name :User.first-name}})}))
+
+    (t/is (= hello-world
+             {:value ["hello" "world"]
+              ::tc/poly-type (tc/mono->poly #::tc{:type :vector, :elem-type (tc/primitive-type :string)})}))
 
 
     #_
