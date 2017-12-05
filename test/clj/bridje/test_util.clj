@@ -20,5 +20,7 @@
 
 (defn fake-forms [& forms]
   (->> forms
-       (map prn-str)
+       (map (fn [form]
+              (cond-> form
+                (not (string? form)) prn-str)))
        s/join))

@@ -5,7 +5,8 @@
             [clojure.string :as s]
             [bridje.type-checker :as tc]
             [clojure.walk :as w]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.set :as set]))
 
 (defn type-tv-mapping [form]
   (->> (u/sub-forms form)
@@ -35,6 +36,11 @@
                             (get tv-mapping (:sym form))
 
                             (throw (ex-info "Unexpected symbol, parsing type" {:form form})))
+
+                (:vector :set) (p/parse-forms (:forms form)
+                                              (do-parse [elem-type (p/first-form-parser parse-type*)]
+                                                (p/no-more-forms #::tc{:type form-type
+                                                                       :elem-type elem-type})))
 
                 :list (p/parse-forms (:forms form)
                                      (do-parse [fn-sym (p/literal-sym-parser 'Fn)
@@ -206,6 +212,28 @@
                                               (p/no-more-forms {:expr-type :defdata
                                                                 :sym sym
                                                                 :attributes attributes})))
+
+                    :defclj (p/parse-forms more-forms
+                                           (do-parse [{ns :sym} p/sym-parser
+                                                      clj-fns (p/maybe-many (type-declaration-parser env))]
+                                             (let [clj-vars (try
+                                                              (require ns)
+                                                              (ns-publics ns)
+                                                              (catch Exception e
+                                                                (throw (ex-info "Failed requiring defclj namespace" {:ns ns} e))))]
+
+                                               (when-let [unavailable-syms (seq (set/difference (into #{} (map :sym) clj-fns)
+                                                                                                (set (keys clj-vars))))]
+                                                 (throw (ex-info "Couldn't find CLJ vars" {:ns ns
+                                                                                           :unavailable-syms (set unavailable-syms)})))
+
+                                               (p/no-more-forms {:expr-type :defclj
+                                                                 :clj-fns (->> clj-fns
+                                                                               (into #{} (map (fn [{:keys [sym ::tc/poly-type]}]
+                                                                                                {:ns ns
+                                                                                                 :sym sym
+                                                                                                 ::tc/poly-type poly-type
+                                                                                                 :value @(get clj-vars sym)}))))}))))
 
                     ;; fall through to 'call'
                     nil))

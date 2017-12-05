@@ -27,14 +27,17 @@
                                           '(def james-first-name
                                              (:User.first-name james))
 
+                                          "(defclj bridje.interop
+                                             (: (concat [[a]]) [a])
+                                             (: (++ [String]) String))"
+
                                           '(def hello-world
-                                             (let [hello "hello"
+                                             (let [hello "hello "
                                                    world "world"]
-                                               [hello world]))
+                                               (++ [hello world])))
 
                                           ;; '(defdata (Just a))
                                           ;; '(defdata (Mapped #{a b}))
-
 
                                           #_
                                           '(def (main args)
@@ -75,8 +78,8 @@
               ::tc/poly-type (tc/mono->poly #::tc{:type :record, :keys #{:User.last-name :User.first-name}})}))
 
     (t/is (= hello-world
-             {:value ["hello" "world"]
-              ::tc/poly-type (tc/mono->poly #::tc{:type :vector, :elem-type (tc/primitive-type :string)})}))
+             {:value "hello world"
+              ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))
 
 
     #_

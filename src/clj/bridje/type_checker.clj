@@ -312,4 +312,8 @@
            {::poly-type {::mono-type :env-update
                          ::env-update-type :defdata}}
 
+           :defclj
+           {::poly-type {::mono-type :env-update
+                         :def:env-update-type :defclj}}
+
            (type-value-expr expr {:env env}))))

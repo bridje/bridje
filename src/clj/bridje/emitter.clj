@@ -108,4 +108,12 @@
     :defdata
     (let [{:keys [attributes]} expr]
       {:env (-> env
-                (update :attributes (fnil into {}) (map (juxt :attribute #(select-keys % [::tc/mono-type]))) attributes))})))
+                (update :attributes (fnil into {}) (map (juxt :attribute #(select-keys % [::tc/mono-type]))) attributes))})
+
+    :defclj
+    {:env (reduce (fn [env {:keys [sym value ::tc/poly-type] :as foo}]
+                    (-> env
+                        (assoc-in [:vars sym] {:value value
+                                               ::tc/poly-type poly-type})))
+                  env
+                  (:clj-fns expr))}))
