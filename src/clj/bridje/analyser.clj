@@ -3,17 +3,83 @@
             [bridje.parser :as p :refer [do-parse]]
             [bridje.util :as u]
             [clojure.string :as s]
-            [bridje.type-checker :as tc]))
+            [bridje.type-checker :as tc]
+            [clojure.walk :as w]
+            [clojure.string :as str]))
 
-(defn parse-type [{:keys [form-type] :as form} env]
-  (case form-type
-    :symbol (if-let [prim-type (get '{String :string, Bool :bool,
-                                      Int :int, Float :float,
-                                      BigInt :big-int, BigFloat :big-float}
-                                    (:sym form))]
-              (tc/primitive-type prim-type)
-              (throw (ex-info "Unexpected symbol, parsing type" {:form form})))
-    (throw (ex-info "Unexpected form, parsing type" {:form form}))))
+(defn type-tv-mapping [form]
+  (->> (u/sub-forms form)
+       (into {} (comp (filter (every-pred (comp #{:symbol} :form-type)
+                                          (comp #(Character/isLowerCase %) first name :sym)))
+                      (distinct)
+                      (map (fn [{:keys [sym]}]
+                             {sym (tc/->type-var (name sym))}))))))
+
+(defn type-declaration-tv-mapping [form]
+  (->> (u/sub-forms form)
+       (into {} (comp (keep :sym)
+                      (filter (comp #(Character/isLowerCase %) first name))
+                      (map (fn [sym]
+                             [sym (tc/->type-var sym)]))))))
+
+(defn parse-type [form env]
+  (let [tv-mapping (type-declaration-tv-mapping form)]
+    (letfn [(parse-type* [{:keys [form-type] :as form}]
+              (case form-type
+                :symbol (or (when-let [prim-type (get '{String :string, Bool :bool,
+                                                        Int :int, Float :float,
+                                                        BigInt :big-int, BigFloat :big-float}
+                                                      (:sym form))]
+                              (tc/primitive-type prim-type))
+
+                            (get tv-mapping (:sym form))
+
+                            (throw (ex-info "Unexpected symbol, parsing type" {:form form})))
+
+                :list (p/parse-forms (:forms form)
+                                     (do-parse [fn-sym (p/literal-sym-parser 'Fn)
+                                                param-forms (p/vector-parser (fn [forms] [forms []]))
+                                                return-form p/form-parser]
+                                       (p/pure #::tc{:type :fn
+                                                     :param-types (into [] (map parse-type*) param-forms)
+                                                     :return-type (parse-type* return-form)})))
+                (throw (ex-info "Unexpected form, parsing type" {:form form}))))]
+
+      #::tc{:type-vars (set (vals tv-mapping))
+            :mono-type (parse-type* form)})))
+
+(def colon-sym
+  (symbol ":"))
+
+(def type-declaration-form-parser
+  (p/list-parser (do-parse [colon (p/literal-sym-parser colon-sym)
+
+                            {:keys [sym param-forms]}
+                            (p/or-parser (-> p/sym-parser
+                                             (p/fmap #(select-keys % [:sym])))
+
+                                         (do-parse [{:keys [sym param-forms]}
+                                                    (p/list-parser (do-parse [{:keys [sym]} p/sym-parser
+                                                                              param-forms (p/maybe-many p/form-parser)]
+                                                                     (p/no-more-forms {:sym sym
+                                                                                       :param-forms param-forms})))]
+                                           (p/pure {:sym sym, :param-forms param-forms})))
+
+                            return-form p/form-parser]
+                   (p/no-more-forms {:sym sym, :param-forms param-forms, :return-form return-form}))))
+
+(defn type-declaration-parser [env]
+  (do-parse [{:keys [sym param-forms return-form]} type-declaration-form-parser]
+    (let [tv-mapping (type-declaration-tv-mapping {:param-forms param-forms,
+                                                   :return-form return-form})]
+      (p/pure {:sym sym
+               ::tc/poly-type (parse-type (if param-forms
+                                            {:form-type :list,
+                                             :forms [{:form-type :symbol, :sym 'Fn}
+                                                     {:form-type :vector, :forms param-forms}
+                                                     return-form]}
+                                            return-form)
+                                          env)}))))
 
 (defn bindings-parser [expr-parser ctx]
   (p/vector-parser (-> (fn [forms]
@@ -129,8 +195,12 @@
                                                        attributes (p/record-parser (fn [entries]
                                                                                      [(into []
                                                                                             (map (fn [[kw type-form]]
-                                                                                                   {:attribute (keyword (format "%s.%s" (name sym) (name kw)))
-                                                                                                    ::tc/mono-type (parse-type type-form env)}))
+                                                                                                   (let [{:keys [::tc/mono-type ::tc/type-vars] :as poly-type} (parse-type type-form env)]
+                                                                                                     (if (seq type-vars)
+                                                                                                       (throw (ex-info "Attribute types can't be polymorphic (for now?)"
+                                                                                                                       {::tc/poly-type poly-type}))
+                                                                                                       {:attribute (keyword (format "%s.%s" (name sym) (name kw)))
+                                                                                                        ::tc/mono-type mono-type}))))
                                                                                             entries)
                                                                                       []]))]
                                               (p/no-more-forms {:expr-type :defdata

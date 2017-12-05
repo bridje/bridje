@@ -129,7 +129,9 @@
              (cons res (tokenise more-chs)))
 
         \: (when-let [[{:keys [token]} more-chs] (read-symbol-token more-chs)]
-             (cons {:token-type :keyword, :token token}
+             (cons (if (seq token)
+                     {:token-type :keyword, :token token}
+                     {:token-type :symbol, :token ":"})
                    (tokenise more-chs)))
 
         (let [[res more-chs] (or (try-read-number-token chs)

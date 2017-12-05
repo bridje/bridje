@@ -1,6 +1,14 @@
 (ns bridje.util
   (:require [clojure.string :as s]))
 
+(defn sub-forms [form]
+  (conj (case (:form-type form)
+          (:vector :list :set) (mapcat sub-forms (:forms form))
+          :quote (sub-forms (:form form))
+          :record (mapcat sub-forms (map second (:entries form)))
+          [])
+        form))
+
 (defn sub-exprs [expr]
   (conj (case (:expr-type expr)
           (:vector :set :call :recur) (mapcat sub-exprs (:exprs expr))
