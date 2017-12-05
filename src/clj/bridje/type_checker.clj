@@ -12,6 +12,10 @@
   {::type :primitive
    ::primitive-type primitive-type})
 
+(defn vector-of [elem-type]
+  {::type :vector
+   ::elem-type elem-type})
+
 (defn ftvs [mono-type]
   (case (::type mono-type)
     :type-var #{(::type-var mono-type)}

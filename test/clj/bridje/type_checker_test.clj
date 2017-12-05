@@ -2,10 +2,6 @@
   (:require [bridje.type-checker :as tc]
             [clojure.test :as t]))
 
-(defn vector-of [elem-type]
-  #::tc{:type :vector
-        :elem-type elem-type})
-
 (t/deftest types-basic-exprs
   (t/are [expr expected-type] (= (::tc/poly-type (tc/with-type expr {:env {:vars {'foo {::tc/poly-type (tc/mono->poly (tc/primitive-type :float))}}}}))
                                  expected-type)
@@ -16,7 +12,7 @@
      :exprs [{:expr-type :float}
              {:expr-type :float}]}
 
-    (tc/mono->poly (vector-of (tc/primitive-type :float)))
+    (tc/mono->poly (tc/vector-of (tc/primitive-type :float)))
 
 
     {:expr-type :if,
@@ -38,7 +34,7 @@
                                    :local ::x}]}}
              {:expr-type :big-int
               :big-int 54}]}
-    (tc/mono->poly (vector-of (tc/primitive-type :big-int)))))
+    (tc/mono->poly (tc/vector-of (tc/primitive-type :big-int)))))
 
 (def id-fn
   {:expr-type :fn
@@ -99,7 +95,7 @@
                                     {:expr-type :local, :local ::x}]}}
                (tc/with-type {})
                ::tc/poly-type)
-           (tc/mono->poly (vector-of (tc/primitive-type :string))))))
+           (tc/mono->poly (tc/vector-of (tc/primitive-type :string))))))
 
 (t/deftest types-loop-recur
   (t/is (= (-> {:expr-type :loop
