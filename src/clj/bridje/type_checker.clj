@@ -115,6 +115,7 @@
 
           :else (case (::type t1)
                   :record (recur more-eqs (mapping-apply-mapping mapping (unify-records t1 t2)))
+                  (:vector :set) (recur (cons [(::elem-type t1) (::elem-type t2)] more-eqs) mapping)
 
                   (throw ex)))))))
 
@@ -165,13 +166,10 @@
                  ::mono-type (primitive-type expr-type)}
 
                 :local
-                (or (when-let [mono-type (get local-mono-env (:local expr))]
-                      {::mono-env {}
-                       ::mono-type mono-type})
-
-                    (let [type-var (->type-var (:local expr))]
-                      {::mono-env {(:local expr) type-var}
-                       ::mono-type type-var}))
+                (let [mono-type (or (get local-mono-env (:local expr))
+                                    (->type-var (:local expr)))]
+                  {::mono-env {(:local expr) mono-type}
+                   ::mono-type mono-type})
 
                 :global
                 {::mono-env {}
@@ -259,7 +257,7 @@
                                                                           expr-typings
                                                                           (:loop-locals expr))})]
                   {::mono-env (::mono-env combined-typings)
-                   ::mono-type loop-return-var})
+                   ::mono-type (apply-mapping loop-return-var (::mapping combined-typings))})
 
                 :fn
                 (let [{:keys [locals body-expr]} expr

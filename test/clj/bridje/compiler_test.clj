@@ -31,10 +31,22 @@
                                              (: (concat [[a]]) [a])
                                              (: (++ [String]) String))"
 
+                                          "(defclj clojure.core
+                                             (: (conj [a] a) [a])
+                                             (: (dec Int) Int)
+                                             (: (zero? Int) Bool))"
+
                                           '(def hello-world
                                              (let [hello "hello "
                                                    world "world"]
                                                (++ [hello world])))
+
+                                          '(def loop-recur
+                                             (loop [x 5
+                                                    res []]
+                                               (if (zero? x)
+                                                 res
+                                                 (recur (dec x) (conj res x)))))
 
                                           ;; '(defdata (Just a))
                                           ;; '(defdata (Mapped #{a b}))
@@ -65,7 +77,7 @@
                                                 justval (Just->a just)})))
 
                                          {})
-        {:syms [flipped james hello-world]} (:vars env)
+        {:syms [flipped james hello-world loop-recur]} (:vars env)
         {first-name :User.first-name} (:attributes env)]
 
     (t/is (= (:value flipped) ["Hello" "World"]))
@@ -80,6 +92,10 @@
     (t/is (= hello-world
              {:value "hello world"
               ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))
+
+    (t/is (= loop-recur
+             {:value [5 4 3 2 1]
+              ::tc/poly-type (tc/mono->poly #::tc{:type :vector, :elem-type (tc/primitive-type :int)})}))
 
 
     #_

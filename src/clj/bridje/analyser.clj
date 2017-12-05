@@ -51,7 +51,7 @@
                                                      :return-type (parse-type* return-form)})))
                 (throw (ex-info "Unexpected form, parsing type" {:form form}))))]
 
-      #::tc{:type-vars (set (vals tv-mapping))
+      #::tc{:type-vars (into #{} (map ::tc/type-var) (vals tv-mapping))
             :mono-type (parse-type* form)})))
 
 (def colon-sym
