@@ -8,13 +8,22 @@
             [bridje.type-checker :as tc])
   (:import [bridje.runtime ADT]))
 
-(t/deftest e2e-test
+(t/deftest fn-calls
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           '(def (flip x y)
                                              [y x])
 
-                                          '(def flipped (flip "World" "Hello"))
+                                          '(def flipped (flip "World" "Hello")))
 
+                                         {})
+        {:syms [flipped]} (:vars env)]
+
+    (t/is (= flipped
+             {:value ["Hello" "World"]
+              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/primitive-type :string)))}))))
+
+(t/deftest records
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           '(defdata User
                                              {:id Int
                                               :first-name String
@@ -25,62 +34,12 @@
                                               :User.last-name "Henderson"})
 
                                           '(def james-first-name
-                                             (:User.first-name james))
-
-                                          "(defclj bridje.interop
-                                             (: (concat [[a]]) [a])
-                                             (: (++ [String]) String))"
-
-                                          "(defclj clojure.core
-                                             (: (conj [a] a) [a])
-                                             (: (dec Int) Int)
-                                             (: (zero? Int) Bool))"
-
-                                          '(def hello-world
-                                             (let [hello "hello "
-                                                   world "world"]
-                                               (++ [hello world])))
-
-                                          '(def loop-recur
-                                             (loop [x 5
-                                                    res []]
-                                               (if (zero? x)
-                                                 res
-                                                 (recur (dec x) (conj res x)))))
-
-                                          ;; '(defdata (Just a))
-                                          ;; '(defdata (Mapped #{a b}))
-
-                                          #_
-                                          '(def (main args)
-
-                                             (let [seq ["ohno"]
-                                                   just (Just "just")
-                                                   nothing Nothing]
-                                               {message (flip "World" "Hello")
-                                                seq seq
-                                                fn-call ((fn (foo a b) [b a]) "World" "Hello")
-                                                mapped (Mapped {a "Hello", b "World"})
-                                                the-nothing nothing
-                                                empty? ((clj empty?) seq)
-                                                just just
-                                                justtype (match just
-                                                           Just "it's a just"
-                                                           Nothing "it's nothing"
-                                                           "it's something else")
-                                                loop-rec (loop [x 5
-                                                                res []]
-                                                           (if ((clj zero?) x)
-                                                             res
-                                                             (recur ((clj dec) x)
-                                                                    ((clj conj) res x))))
-                                                justval (Just->a just)})))
+                                             (:User.first-name james)))
 
                                          {})
-        {:syms [flipped james hello-world loop-recur]} (:vars env)
+        {:syms [james james-first-name]} (:vars env)
         {first-name :User.first-name} (:attributes env)]
 
-    (t/is (= (:value flipped) ["Hello" "World"]))
     (t/is (= (::tc/mono-type first-name)
              (tc/primitive-type :string)))
 
@@ -89,27 +48,48 @@
                       :User.last-name "Henderson"}
               ::tc/poly-type (tc/mono->poly #::tc{:type :record, :keys #{:User.last-name :User.first-name}})}))
 
+    (t/is (= james-first-name
+             {:value "James"
+              ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))))
+
+(t/deftest basic-interop
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          "(defclj bridje.interop
+                                             (: (concat [[a]]) [a])
+                                             (: (++ [String]) String))"
+
+                                          '(def hello-world
+                                             (let [hello "hello "
+                                                   world "world"]
+                                               (++ [hello world]))))
+
+                                         {})
+        {:syms [hello-world]} (:vars env)]
+
     (t/is (= hello-world
              {:value "hello world"
-              ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))
+              ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))))
+
+(t/deftest loop-recur
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          "(defclj clojure.core
+                                             (: (conj [a] a) [a])
+                                             (: (dec Int) Int)
+                                             (: (zero? Int) Bool))"
+
+                                          '(def loop-recur
+                                             (loop [x 5
+                                                    res []]
+                                               (if (zero? x)
+                                                 res
+                                                 (recur (dec x) (conj res x))))))
+
+                                         {})
+        {:syms [loop-recur]} (:vars env)]
 
     (t/is (= loop-recur
              {:value [5 4 3 2 1]
-              ::tc/poly-type (tc/mono->poly #::tc{:type :vector, :elem-type (tc/primitive-type :int)})}))
-
-
-    #_
-    (t/is (= (sut/run-main env)
-             {:message ["Hello" "World"],
-              :fn-call ["Hello" "World"],
-              :seq ["ohno"],
-              :empty? false
-              :loop-rec [5 4 3 2 1]
-              :the-nothing (rt/->ADT 'Nothing {}),
-              :mapped (rt/->ADT 'Mapped {:a "Hello", :b "World"}),
-              :just (rt/->ADT 'Just {:a "just"}),
-              :justtype "it's a just"
-              :justval "just"}))))
+              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/primitive-type :int)))}))))
 
 #_
 (t/deftest quoting-test
