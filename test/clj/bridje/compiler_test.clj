@@ -22,6 +22,30 @@
              {:value ["Hello" "World"]
               ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/primitive-type :string)))}))))
 
+(t/deftest basic-interop
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          "(defclj bridje.interop
+                                             (: (concat [[a]]) [a])
+                                             (: (++ [String]) String))"
+
+                                          '(def hello-world
+                                             (let [hello "hello "
+                                                   world "world"]
+                                               (++ [hello world]))))
+
+                                         {})
+        {:syms [hello-world]} (:vars env)]
+
+    (t/is (= hello-world
+             {:value "hello world"
+              ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))))
+
+(def clj-core-interop
+  "(defclj clojure.core
+     (: (conj [a] a) [a])
+     (: (dec Int) Int)
+     (: (zero? Int) Bool))")
+
 (t/deftest records
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           '(defattrs User
@@ -52,30 +76,42 @@
              {:value "James"
               ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))))
 
-(t/deftest basic-interop
+(t/deftest adts
   (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          "(defclj bridje.interop
-                                             (: (concat [[a]]) [a])
-                                             (: (++ [String]) String))"
+                                          clj-core-interop
 
-                                          '(def hello-world
-                                             (let [hello "hello "
-                                                   world "world"]
-                                               (++ [hello world]))))
+                                          '(defadt MaybeInt
+                                             (Just Int)
+                                             Nothing)
+
+                                          '(def (->MaybeInt x)
+                                             (if (zero? x)
+                                               Nothing
+                                               (Just x)))
+
+                                          '(def just-val
+                                             (:Just.0 (Just 5)))
+
+                                          '(def maybes
+                                             [(->MaybeInt 4) (->MaybeInt 0)]))
 
                                          {})
-        {:syms [hello-world]} (:vars env)]
+        {:syms [maybes just-val]} (:vars env)]
 
-    (t/is (= hello-world
-             {:value "hello world"
-              ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))))
+    (t/is (= maybes
+             {:value [{:brj/tag 'Just
+                       :brj/params [4]}
+                      {:brj/tag 'Nothing}]
+              ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :adt
+                                                                :adt-type 'MaybeInt}))}))
+
+    (t/is (= just-val
+             {:value 5
+              ::tc/poly-type (tc/mono->poly (tc/primitive-type :int))}))))
 
 (t/deftest loop-recur
   (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          "(defclj clojure.core
-                                             (: (conj [a] a) [a])
-                                             (: (dec Int) Int)
-                                             (: (zero? Int) Bool))"
+                                          clj-core-interop
 
                                           '(def loop-recur
                                              (loop [x 5
@@ -88,6 +124,40 @@
         {:syms [loop-recur]} (:vars env)]
 
     (t/is (= loop-recur
+             {:value [5 4 3 2 1]
+              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/primitive-type :int)))}))))
+
+#_(t/deftest simple-effects
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          "(defeffect FileIO
+                                             (: (*read-file* File) String)
+                                             (: (*write-file* File String) Unit))" ; eventually there'll be a File type
+
+                                          '(def (copy-file src dest)
+                                             (*write-file* dest (*read-file* src)))
+
+                                          '(def res
+                                             (copy-file "/home/james/foo" "/home/james/bar"))
+
+                                          ;; 1. message passing, 'agent' style
+                                          ;; 2. if the handler's stateful, it's only ever single-threaded, otherwise, it _may_ be run in parallel
+                                          ;; 3. function to update state afterwards
+                                          '(def mocked-res
+                                             (with-handle res
+                                               (handler FileIO
+                                                        (fn (*read-file* src cb)
+                                                          (cb "fake-file" identity))
+
+                                                        (fn (*write-file* dest content cb)
+                                                          (cb Unit)))
+
+                                               (fn (return v cb cnt)
+                                                 v))))
+
+                                         {})
+        {:syms [res]} (:vars env)]
+
+    (t/is (= res
              {:value [5 4 3 2 1]
               ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/primitive-type :int)))}))))
 
