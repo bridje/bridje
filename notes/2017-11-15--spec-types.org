@@ -8,13 +8,13 @@ parameterised types?
 
 #+BEGIN_SRC clojure
   (defrec
-    (defdata User
+    (defattrs User
       {:id UUID
        :username String})
 
-    (defdata Store
+    (defattrs Store
       {:id UUID
-       :key {:req #{:User.id :Store.id}}
+       :key #{:User.id :Store.id}
        :label String})
 
     (defdata (Maybe a)
@@ -22,8 +22,8 @@ parameterised types?
       Nothing)
 
     (defdata (Tree a)
-      (Node {:req {:left (Tree a)
-                   :right (Tree a)}})
+      (Node {:left (Tree a)
+             :right (Tree a)})
 
       (Leaf a)))
 
@@ -42,8 +42,8 @@ parameterised types?
 
 #+BEGIN_SRC clojure
   (defdata Attribute
-    (Attribute {:req {:sym Symbol
-                      :required? Bool}}))
+    (Attribute {:sym Symbol
+                :required? Bool}))
 
   (defrec
     (defdata Type
@@ -57,8 +57,7 @@ parameterised types?
       (Set Type)
       (Fn [Type] Type)
       (AttributeType Attribute)
-      (Record {:opt {:req (Set Attribute)
-                     :opt (Set Attribute)}})
+      (Record (Set Attribute))
 
       (TypeVar String)
       (AppliedType Symbol [Type])))

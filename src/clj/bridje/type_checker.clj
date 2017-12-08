@@ -310,9 +310,9 @@
                                                               body-expr)
                                                             {:env env})})}
 
-           :defdata
+           :defattrs
            {::poly-type {::mono-type :env-update
-                         ::env-update-type :defdata}}
+                         ::env-update-type :defattrs}}
 
            :defclj
            {::poly-type {::mono-type :env-update

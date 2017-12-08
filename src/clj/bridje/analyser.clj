@@ -196,22 +196,22 @@
                                                                       (map second params))
                                                             :body-expr body-expr})))
 
-                    :defdata (p/parse-forms more-forms
-                                            (do-parse [{:keys [sym]} p/sym-parser
-                                                       attributes (p/record-parser (fn [entries]
-                                                                                     [(into []
-                                                                                            (map (fn [[kw type-form]]
-                                                                                                   (let [{:keys [::tc/mono-type ::tc/type-vars] :as poly-type} (parse-type type-form env)]
-                                                                                                     (if (seq type-vars)
-                                                                                                       (throw (ex-info "Attribute types can't be polymorphic (for now?)"
-                                                                                                                       {::tc/poly-type poly-type}))
-                                                                                                       {:attribute (keyword (format "%s.%s" (name sym) (name kw)))
-                                                                                                        ::tc/mono-type mono-type}))))
-                                                                                            entries)
-                                                                                      []]))]
-                                              (p/no-more-forms {:expr-type :defdata
-                                                                :sym sym
-                                                                :attributes attributes})))
+                    :defattrs (p/parse-forms more-forms
+                                             (do-parse [{:keys [sym]} p/sym-parser
+                                                        attributes (p/record-parser (fn [entries]
+                                                                                      [(into []
+                                                                                             (map (fn [[kw type-form]]
+                                                                                                    (let [{:keys [::tc/mono-type ::tc/type-vars] :as poly-type} (parse-type type-form env)]
+                                                                                                      (if (seq type-vars)
+                                                                                                        (throw (ex-info "Attribute types can't be polymorphic (for now?)"
+                                                                                                                        {::tc/poly-type poly-type}))
+                                                                                                        {:attribute (keyword (format "%s.%s" (name sym) (name kw)))
+                                                                                                         ::tc/mono-type mono-type}))))
+                                                                                             entries)
+                                                                                       []]))]
+                                                       (p/no-more-forms {:expr-type :defattrs
+                                                                         :sym sym
+                                                                         :attributes attributes})))
 
                     :defclj (p/parse-forms more-forms
                                            (do-parse [{ns :sym} p/sym-parser

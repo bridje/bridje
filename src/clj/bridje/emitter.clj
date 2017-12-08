@@ -105,7 +105,7 @@
                                                                         body-expr)
                                                                       env))
                                                env)})})
-    :defdata
+    :defattrs
     (let [{:keys [attributes]} expr]
       {:env (-> env
                 (update :attributes (fnil into {}) (map (juxt :attribute #(select-keys % [::tc/mono-type]))) attributes))})

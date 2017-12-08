@@ -24,7 +24,7 @@
 
 (t/deftest records
   (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          '(defdata User
+                                          '(defattrs User
                                              {:id Int
                                               :first-name String
                                               :last-name String})
