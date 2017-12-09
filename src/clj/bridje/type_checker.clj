@@ -16,10 +16,21 @@
   {::type :vector
    ::elem-type elem-type})
 
+(defn record-of [base attributes]
+  {::type :record
+   ::base base
+   ::attributes attributes})
+
+(defn fn-type [param-types return-type]
+  {::type :fn
+   ::param-types param-types
+   ::return-type return-type})
+
 (defn ftvs [mono-type]
   (case (::type mono-type)
     :type-var #{(::type-var mono-type)}
-    (:primitive :record) #{}
+    (:primitive :adt) #{}
+    :record (into #{} (keep ::base) [mono-type])
     (:vector :set) (ftvs (::elem-type mono-type))
 
     :fn (into (ftvs (::return-type mono-type))
@@ -50,13 +61,13 @@
 
 (defn apply-mapping [type mapping]
   (case (::type type)
-    :primitive type
+    (:primitive :adt) type ; TODO adt will need to apply to params once it has them
     (:vector :set) (-> type (update ::elem-type apply-mapping mapping))
-    :record (let [{existing-base ::base, existing-keys ::keys} type]
-              (if-let [{new-base ::base, extra-keys ::keys} (get mapping existing-base)]
+    :record (let [{existing-base ::base, existing-attributes ::attributes} type]
+              (if-let [{new-base ::base, extra-attributes ::attributes} (get mapping existing-base)]
                 {::type :record
                  ::base new-base
-                 ::keys (set/union existing-keys extra-keys)}
+                 ::attributes (set/union existing-attributes extra-attributes)}
 
                 type))
 
@@ -76,22 +87,22 @@
          new-mapping))
 
 (defn unify-records [t1 t2]
-  (let [{t1-base ::base, t1-keys ::keys} t1
-        {t2-base ::base, t2-keys ::keys} t2
-        t1-t2-keys (set/difference t1-keys t2-keys)
-        t2-t1-keys (set/difference t2-keys t1-keys)]
-    (when-not (or (and (nil? t1-base) (seq t2-t1-keys))
-                  (and (nil? t2-base) (seq t1-t2-keys)))
+  (let [{t1-base ::base, t1-attributes ::attributes} t1
+        {t2-base ::base, t2-attributes ::attributes} t2
+        t1-t2-attributes (set/difference t1-attributes t2-attributes)
+        t2-t1-attributes (set/difference t2-attributes t1-attributes)]
+    (when-not (or (and (nil? t1-base) (seq t2-t1-attributes))
+                  (and (nil? t2-base) (seq t1-t2-attributes)))
       (let [new-base (gensym 'r)]
-        (merge (when (and t1-base (seq t2-t1-keys))
+        (merge (when (and t1-base (seq t2-t1-attributes))
                  {t1-base {::type :record
                            ::base new-base
-                           ::keys t2-t1-keys}})
+                           ::attributes t2-t1-attributes}})
 
-               (when (and t2-base (seq t1-t2-keys))
+               (when (and t2-base (seq t1-t2-attributes))
                  {t2-base {::type :record
                            ::base new-base
-                           ::keys t1-t2-keys}}))))))
+                           ::attributes t1-t2-attributes}}))))))
 
 (defn unify-eqs [eqs]
   (loop [[[{t1-type ::type, :as t1} {t2-type ::type, :as t2} :as eq] & more-eqs] eqs
@@ -206,17 +217,16 @@
                                                                                          (::mono-type typing)]))))})]
                   {::mono-env (::mono-env combined-typing)
                    ::mono-type {::type :record
-                                ::keys (into #{} (map first) entry-typings)}})
+                                ::attributes (into #{} (map first) entry-typings)}})
 
                 :attribute
                 (let [{:keys [attribute]} expr
                       {:keys [::mono-type]} (get-in env [:attributes attribute])]
                   {::mono-env {}
-                   ::mono-type {::type :fn
-                                ::param-types [{::type :record
-                                                ::base (gensym 'r)
-                                                ::keys #{attribute}}]
-                                ::return-type mono-type}})
+                   ::mono-type (fn-type [{::type :record
+                                          ::base (gensym 'r)
+                                          ::attributes #{attribute}}]
+                                        mono-type)})
 
                 :if
                 (let [type-var (->type-var :if)
@@ -267,9 +277,7 @@
                 (let [{:keys [locals body-expr]} expr
                       {:keys [::mono-type ::mono-env]} (type-value-expr** body-expr)]
                   {::mono-env (apply dissoc mono-env locals)
-                   ::mono-type {::type :fn
-                                ::param-types (into [] (map #(or (get mono-env %) (->type-var %)) locals))
-                                ::return-type mono-type}})
+                   ::mono-type (fn-type (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type)})
 
                 :call
                 (let [[fn-expr & arg-exprs] (:exprs expr)
@@ -314,8 +322,22 @@
            {::poly-type {::mono-type :env-update
                          ::env-update-type :defattrs}}
 
+           :defadt
+           (let [{:keys [sym constructors]} expr
+                 adt-mono-type {::type :adt, ::adt sym}]
+             {::poly-type {::mono-type :env-update
+                           ::env-update-type :defadt
+                           ::adt-type {::poly-type (mono->poly adt-mono-type)}}
+              :constructors (->> constructors
+                                 (into {} (map (fn [[constructor-sym {:keys [attributes] :as constructor}]]
+                                                 [constructor-sym
+                                                  (merge constructor
+                                                         {::poly-type (mono->poly (if attributes
+                                                                                    (fn-type [(record-of (gensym 'r) attributes)] adt-mono-type)
+                                                                                    adt-mono-type))})]))))})
+
            :defclj
            {::poly-type {::mono-type :env-update
-                         :def:env-update-type :defclj}}
+                         ::env-update-type :defclj}}
 
            (type-value-expr expr {:env env}))))

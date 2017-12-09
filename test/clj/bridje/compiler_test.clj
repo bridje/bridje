@@ -70,7 +70,7 @@
     (t/is (= james
              {:value {:User.first-name "James"
                       :User.last-name "Henderson"}
-              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :keys #{:User.last-name :User.first-name}})}))
+              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :attributes #{:User.last-name :User.first-name}})}))
 
     (t/is (= james-first-name
              {:value "James"
@@ -81,33 +81,26 @@
                                           clj-core-interop
 
                                           '(defadt MaybeInt
-                                             (Just Int)
-                                             Nothing)
+                                             (JustInt {:val Int})
+                                             NothingInt)
 
                                           '(def (->MaybeInt x)
                                              (if (zero? x)
-                                               Nothing
-                                               (Just x)))
-
-                                          '(def just-val
-                                             (:Just.0 (Just 5)))
+                                               NothingInt
+                                               (JustInt {:JustInt.val x})))
 
                                           '(def maybes
                                              [(->MaybeInt 4) (->MaybeInt 0)]))
 
                                          {})
-        {:syms [maybes just-val]} (:vars env)]
+        {:syms [maybes]} (:vars env)]
 
     (t/is (= maybes
-             {:value [{:brj/tag 'Just
-                       :brj/params [4]}
-                      {:brj/tag 'Nothing}]
+             {:value [{:brj/adt 'JustInt
+                       :JustInt.val 4}
+                      {:brj/adt 'NothingInt}]
               ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :adt
-                                                                :adt-type 'MaybeInt}))}))
-
-    (t/is (= just-val
-             {:value 5
-              ::tc/poly-type (tc/mono->poly (tc/primitive-type :int))}))))
+                                                                :adt 'MaybeInt}))}))))
 
 (t/deftest loop-recur
   (let [{:keys [env]} (sut/interpret-str (fake-forms

@@ -108,7 +108,25 @@
     :defattrs
     (let [{:keys [attributes]} expr]
       {:env (-> env
-                (update :attributes (fnil into {}) (map (juxt :attribute #(select-keys % [::tc/mono-type]))) attributes))})
+                (update :attributes merge attributes))})
+
+    :defadt
+    (let [{:keys [sym constructors attributes ::tc/adt-constructor-types ::tc/poly-type]} expr]
+      {:env (-> env
+                (update :adts assoc sym {:constructors (->> constructors
+                                                            (into {} (map (juxt :constructor-sym #(select-keys % [:attributes])))))
+                                         ::tc/poly-type poly-type})
+
+                (update :vars merge (->> constructors
+                                         (into {} (map (fn [[constructor-sym {:keys [attributes ::tc/poly-type]}]]
+                                                         [constructor-sym
+                                                          {:value (if attributes
+                                                                    (fn [v]
+                                                                      (merge v
+                                                                             {:brj/adt constructor-sym}))
+                                                                    {:brj/adt constructor-sym})
+                                                           ::tc/poly-type poly-type}])))))
+                (update :attributes merge attributes))})
 
     :defclj
     {:env (reduce (fn [env {:keys [sym value ::tc/poly-type] :as foo}]

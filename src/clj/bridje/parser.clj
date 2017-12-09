@@ -12,6 +12,11 @@
     (when-let [[res more-forms] (parser forms)]
       [(f res) more-forms])))
 
+(defn then [parser f]
+  (fn [forms]
+    (when-let [[res more-forms] (parser forms)]
+      ((f res) more-forms))))
+
 (defmacro do-parse {:style/indent 1} [bindings & body]
   (if-let [[binding value & more-bindings] (seq bindings)]
     `(fn [forms#]
@@ -19,6 +24,14 @@
          ((do-parse ~more-bindings ~@body) more-forms#)))
 
     `(do ~@body)))
+
+(defn dbg-parser [parser parser-sym]
+  (fn [forms]
+    (let [instance-sym (gensym parser-sym)]
+      (prn :dbg-forms parser-sym instance-sym forms)
+      (let [res (parser forms)]
+        (prn :dbg-res parser-sym instance-sym res)
+        res))))
 
 (defn or-parser [& parsers]
   (fn [forms]

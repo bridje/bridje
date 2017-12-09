@@ -76,7 +76,7 @@
                  (tc/with-type {:env env})
                  ::tc/poly-type)
 
-             (tc/mono->poly #::tc{:type :record, :keys #{:User.last-name :User.first-name}})))
+             (tc/mono->poly #::tc{:type :record, :attributes #{:User.last-name :User.first-name}})))
 
     (t/is (= (-> {:expr-type :call
                   :exprs [{:expr-type :attribute, :attribute :User.first-name}
@@ -85,6 +85,22 @@
                  ::tc/poly-type)
 
              (tc/mono->poly (tc/primitive-type :string))))))
+
+(t/deftest types-adt
+  (let [res (-> {:expr-type :defadt,
+                 :sym 'MaybeInt
+                 :attributes {:JustInt.val {::tc/mono-type (tc/primitive-type :int)}}
+                 :constructors {'JustInt {:attributes #{:JustInt.val}}
+                                'NothingInt {}}}
+                (tc/with-type {:env {}}))
+
+        adt-mono-type #::tc{:type :adt, :adt 'MaybeInt}]
+
+    (t/is (= (get-in res [:constructors 'JustInt ::tc/poly-type ::tc/mono-type ::tc/param-types 0 ::tc/attributes])
+             #{:JustInt.val}))
+
+    (t/is (= (get-in res [:constructors 'NothingInt ::tc/poly-type])
+             (tc/mono->poly adt-mono-type)))))
 
 (t/deftest types-let
   (t/is (= (-> {:expr-type :let
