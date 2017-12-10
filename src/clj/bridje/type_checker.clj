@@ -16,8 +16,9 @@
   {::type :vector
    ::elem-type elem-type})
 
-(defn record-of [base attributes]
+(defn record-of [base adt attributes]
   {::type :record
+   ::adt adt
    ::base base
    ::attributes attributes})
 
@@ -87,12 +88,13 @@
          new-mapping))
 
 (defn unify-records [t1 t2]
-  (let [{t1-base ::base, t1-attributes ::attributes} t1
-        {t2-base ::base, t2-attributes ::attributes} t2
+  (let [{t1-base ::base, t1-adt ::adt, t1-attributes ::attributes} t1
+        {t2-base ::base, t2-adt ::adt, t2-attributes ::attributes} t2
         t1-t2-attributes (set/difference t1-attributes t2-attributes)
         t2-t1-attributes (set/difference t2-attributes t1-attributes)]
     (when-not (or (and (nil? t1-base) (seq t2-t1-attributes))
-                  (and (nil? t2-base) (seq t1-t2-attributes)))
+                  (and (nil? t2-base) (seq t1-t2-attributes))
+                  (not= t1-adt t2-adt))
       (let [new-base (gensym 'r)]
         (merge (when (and t1-base (seq t2-t1-attributes))
                  {t1-base {::type :record
@@ -333,11 +335,9 @@
                                                   (merge constructor
                                                          {::poly-type (let [base (gensym 'r)]
                                                                         (mono->poly (if attributes
-                                                                                      (fn-type [(record-of base attributes)]
-                                                                                               (merge (record-of base attributes)
-                                                                                                      {::adt sym}))
-                                                                                      (merge (record-of nil #{})
-                                                                                             {::adt sym}))))})]))))})
+                                                                                      (fn-type [(record-of base nil attributes)]
+                                                                                               (record-of base sym attributes))
+                                                                                      (record-of nil sym #{}))))})]))))})
 
            :defclj
            {::poly-type {::mono-type :env-update

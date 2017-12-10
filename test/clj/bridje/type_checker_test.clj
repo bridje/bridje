@@ -92,15 +92,15 @@
                  :attributes {:JustInt.val {::tc/mono-type (tc/primitive-type :int)}}
                  :constructors {'JustInt {:attributes #{:JustInt.val}}
                                 'NothingInt {}}}
-                (tc/with-type {:env {}}))]
+                (tc/with-type {:env {}}))
+        just-constructor (get-in res [:constructors 'JustInt])]
 
-    (t/is (= (get-in res [:constructors 'JustInt ::tc/poly-type ::tc/mono-type ::tc/param-types 0 ::tc/attributes])
-             #{:JustInt.val}))
-
-    (t/is (= (-> res
-                 (get-in [:constructors 'JustInt ::tc/poly-type ::tc/mono-type ::tc/return-type])
-                 (select-keys [::tc/adt ::tc/attributes]))
-             #::tc{:adt 'MaybeInt, :attributes #{:JustInt.val}}))
+    (t/is (= (-> (get-in just-constructor [::tc/poly-type ::tc/mono-type])
+                 (update-in [::tc/param-types 0] select-keys [::tc/attributes])
+                 (update ::tc/return-type select-keys [::tc/adt ::tc/attributes]))
+             #::tc{:type :fn
+                   :param-types [{::tc/attributes #{:JustInt.val}}]
+                   :return-type #::tc{:adt 'MaybeInt, :attributes #{:JustInt.val}} }))
 
     (t/is (= (-> res
                  (get-in [:constructors 'NothingInt ::tc/poly-type ::tc/mono-type])
