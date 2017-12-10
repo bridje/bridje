@@ -80,27 +80,29 @@
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           clj-core-interop
 
-                                          '(defadt MaybeInt
-                                             (JustInt {:val Int})
-                                             NothingInt)
-
-                                          '(def (->MaybeInt x)
-                                             (if (zero? x)
-                                               NothingInt
-                                               (JustInt {:JustInt.val x})))
+                                          '(defadt (Maybe a)
+                                             (Just {:val a})
+                                             Nothing)
 
                                           '(def maybes
-                                             [(->MaybeInt 4) (->MaybeInt 0)]))
+                                             [(Just {:Just.val 4}) Nothing])
+
+                                          #_'(def cases
+                                               (case (Just {:Just.val 5})
+                                                 (Just j) (:Just.val j)
+                                                 Nothing 0)))
 
                                          {})
-        {:syms [maybes]} (:vars env)]
+        {:syms [maybes just]} (:vars env)]
 
     (t/is (= (-> maybes
-                 (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] dissoc ::tc/base))
-             {:value [{:brj/adt 'JustInt
-                       :JustInt.val 4}
-                      {:brj/adt 'NothingInt}]
-              ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :record, :adt 'MaybeInt, :attributes #{}}))}))))
+                 (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] select-keys [::tc/type ::tc/attributes ::tc/adt]))
+             {:value [{:brj/adt 'Just, :Just.val 4}
+                      {:brj/adt 'Nothing}]
+              ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :record
+                                                                :adt #::tc{:adt-sym 'Maybe
+                                                                           :adt-type-params [(tc/primitive-type :int)]}
+                                                                :attributes #{}}))}))))
 
 (t/deftest loop-recur
   (let [{:keys [env]} (sut/interpret-str (fake-forms

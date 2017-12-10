@@ -87,25 +87,31 @@
              (tc/mono->poly (tc/primitive-type :string))))))
 
 (t/deftest types-adt
-  (let [res (-> {:expr-type :defadt,
-                 :sym 'MaybeInt
-                 :attributes {:JustInt.val {::tc/mono-type (tc/primitive-type :int)}}
-                 :constructors {'JustInt {:attributes #{:JustInt.val}}
-                                'NothingInt {}}}
+  (let [tv (tc/->type-var 'maybe)
+        res (-> {:expr-type :defadt,
+                 :sym 'Maybe
+                 :type-vars [tv]
+                 :attributes {:Just.val {::tc/mono-type tv}}
+                 :constructors {'Just {:attributes #{:Just.val}}
+                                'Nothing {}}}
                 (tc/with-type {:env {}}))
-        just-constructor (get-in res [:constructors 'JustInt])]
+
+        just-constructor (get-in res [:constructors 'Just])
+        nothing-constructor (get-in res [:constructors 'Nothing])]
 
     (t/is (= (-> (get-in just-constructor [::tc/poly-type ::tc/mono-type])
                  (update-in [::tc/param-types 0] select-keys [::tc/attributes])
                  (update ::tc/return-type select-keys [::tc/adt ::tc/attributes]))
              #::tc{:type :fn
-                   :param-types [{::tc/attributes #{:JustInt.val}}]
-                   :return-type #::tc{:adt 'MaybeInt, :attributes #{:JustInt.val}} }))
+                   :param-types [{::tc/attributes #{:Just.val}}]
+                   :return-type #::tc{:adt #::tc{:adt-sym 'Maybe, :type-vars [tv]}
+                                      :attributes #{:Just.val}}}))
 
-    (t/is (= (-> res
-                 (get-in [:constructors 'NothingInt ::tc/poly-type ::tc/mono-type])
-                 (select-keys [::tc/adt ::tc/attributes]))
-             #::tc{:adt 'MaybeInt, :attributes #{}}))))
+    (t/is (= (-> (get-in nothing-constructor [::tc/poly-type ::tc/mono-type])
+                 (select-keys [::tc/type ::tc/adt ::tc/attributes]))
+             #::tc{:type :record
+                   :adt #::tc{:adt-sym 'Maybe, :type-vars [tv]}
+                   :attributes #{}}))))
 
 (t/deftest types-let
   (t/is (= (-> {:expr-type :let
