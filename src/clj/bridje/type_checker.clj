@@ -16,6 +16,10 @@
   {::type :vector
    ::elem-type elem-type})
 
+(defn ->adt [sym type-vars]
+  {::adt-sym sym
+   ::type-vars type-vars})
+
 (defn record-of [base adt attributes]
   {::type :record
    ::adt adt
@@ -98,12 +102,14 @@
       (let [new-base (gensym 'r)]
         (merge (when (and t1-base (seq t2-t1-attributes))
                  {t1-base {::type :record
-                           ::base new-base
+                           ::base (when t2-base
+                                    new-base)
                            ::attributes t2-t1-attributes}})
 
                (when (and t2-base (seq t1-t2-attributes))
                  {t2-base {::type :record
-                           ::base new-base
+                           ::base (when t1-base
+                                    new-base)
                            ::attributes t1-t2-attributes}}))))))
 
 (defn unify-eqs [eqs]
@@ -326,7 +332,8 @@
                          ::env-update-type :defattrs}}
 
            :defadt
-           (let [{:keys [sym constructors]} expr]
+           (let [{:keys [sym type-vars constructors]} expr
+                 adt (->adt sym type-vars)]
              {::poly-type {::mono-type :env-update
                            ::env-update-type :defadt}
               :constructors (->> constructors
@@ -336,8 +343,8 @@
                                                          {::poly-type (let [base (gensym 'r)]
                                                                         (mono->poly (if attributes
                                                                                       (fn-type [(record-of base nil attributes)]
-                                                                                               (record-of base sym attributes))
-                                                                                      (record-of nil sym #{}))))})]))))})
+                                                                                               (record-of base adt attributes))
+                                                                                      (record-of nil adt #{}))))})]))))})
 
            :defclj
            {::poly-type {::mono-type :env-update
