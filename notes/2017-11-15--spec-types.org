@@ -17,15 +17,34 @@ parameterised types?
        :key #{:User.id :Store.id}
        :label String})
 
-    (defdata (Maybe a)
+    (defadt (Maybe a)
       (Just a)
       Nothing)
 
-    (defdata (Tree a)
+    (defadt (Tree a)
       (Node {:left (Tree a)
              :right (Tree a)})
 
       (Leaf a)))
+
+   (defadt MaybeInt
+     (JustInt {:val Int})
+     NothingInt)
+
+  (let [maybe (Just {:Just.val 4})]
+    (case maybe
+      (Just j) (:Just.val j)
+      Nothing 2))
+
+  (do
+    (def (tree-sum tree)
+      (case tree
+        (Node n) (+ (:Node.val n)
+                    (tree-sum (:Node.left n))
+                    (tree-sum (:Node.right n)))
+        Leaf 0))
+
+    (tree-sum (Node {:Node.val 4, :Node.left Leaf, :Node.right Leaf})))
 
   (:james/Store.key store)
 

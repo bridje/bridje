@@ -70,7 +70,7 @@
     (t/is (= james
              {:value {:User.first-name "James"
                       :User.last-name "Henderson"}
-              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :attributes #{:User.last-name :User.first-name}})}))
+              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :attributes #{:User.first-name :User.last-name}})}))
 
     (t/is (= james-first-name
              {:value "James"
@@ -95,12 +95,12 @@
                                          {})
         {:syms [maybes]} (:vars env)]
 
-    (t/is (= maybes
+    (t/is (= (-> maybes
+                 (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] dissoc ::tc/base))
              {:value [{:brj/adt 'JustInt
                        :JustInt.val 4}
                       {:brj/adt 'NothingInt}]
-              ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :adt
-                                                                :adt 'MaybeInt}))}))))
+              ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :record, :adt 'MaybeInt, :attributes #{}}))}))))
 
 (t/deftest loop-recur
   (let [{:keys [env]} (sut/interpret-str (fake-forms

@@ -29,7 +29,7 @@
 (defn ftvs [mono-type]
   (case (::type mono-type)
     :type-var #{(::type-var mono-type)}
-    (:primitive :adt) #{}
+    :primitive #{}
     :record (into #{} (keep ::base) [mono-type])
     (:vector :set) (ftvs (::elem-type mono-type))
 
@@ -61,7 +61,7 @@
 
 (defn apply-mapping [type mapping]
   (case (::type type)
-    (:primitive :adt) type ; TODO adt will need to apply to params once it has them
+    :primitive type
     (:vector :set) (-> type (update ::elem-type apply-mapping mapping))
     :record (let [{existing-base ::base, existing-attributes ::attributes} type]
               (if-let [{new-base ::base, extra-attributes ::attributes} (get mapping existing-base)]
@@ -208,16 +208,17 @@
                 :record
                 (let [entry-typings (->> (:entries expr)
                                          (map (fn [[kw expr]]
-                                                [kw (type-value-expr** expr)])))
+                                                {:kw kw, :typing (type-value-expr** expr)})))
 
-                      combined-typing (combine-typings {:typings (map second entry-typings)
+                      combined-typing (combine-typings {:typings (map :typing entry-typings)
                                                         :extra-eqs (->> entry-typings
-                                                                        (into [] (map (fn [[kw typing]]
+                                                                        (into [] (map (fn [{:keys [kw typing]}]
                                                                                         [(get-in env [:attributes kw ::mono-type])
                                                                                          (::mono-type typing)]))))})]
                   {::mono-env (::mono-env combined-typing)
                    ::mono-type {::type :record
-                                ::attributes (into #{} (map first) entry-typings)}})
+                                ::attributes (->> entry-typings
+                                                  (into #{} (map :kw)))}})
 
                 :attribute
                 (let [{:keys [attribute]} expr
@@ -323,18 +324,20 @@
                          ::env-update-type :defattrs}}
 
            :defadt
-           (let [{:keys [sym constructors]} expr
-                 adt-mono-type {::type :adt, ::adt sym}]
+           (let [{:keys [sym constructors]} expr]
              {::poly-type {::mono-type :env-update
-                           ::env-update-type :defadt
-                           ::adt-type {::poly-type (mono->poly adt-mono-type)}}
+                           ::env-update-type :defadt}
               :constructors (->> constructors
                                  (into {} (map (fn [[constructor-sym {:keys [attributes] :as constructor}]]
                                                  [constructor-sym
                                                   (merge constructor
-                                                         {::poly-type (mono->poly (if attributes
-                                                                                    (fn-type [(record-of (gensym 'r) attributes)] adt-mono-type)
-                                                                                    adt-mono-type))})]))))})
+                                                         {::poly-type (let [base (gensym 'r)]
+                                                                        (mono->poly (if attributes
+                                                                                      (fn-type [(record-of base attributes)]
+                                                                                               (merge (record-of base attributes)
+                                                                                                      {::adt sym}))
+                                                                                      (merge (record-of nil #{})
+                                                                                             {::adt sym}))))})]))))})
 
            :defclj
            {::poly-type {::mono-type :env-update
