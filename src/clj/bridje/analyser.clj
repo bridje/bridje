@@ -23,8 +23,9 @@
                       (map (fn [sym]
                              [sym (tc/->type-var sym)]))))))
 
-(defn parse-type [form env]
-  (let [tv-mapping (type-declaration-tv-mapping form)]
+(defn parse-type [form {:keys [env tv-mapping]}]
+  (let [tv-mapping (merge (type-declaration-tv-mapping form)
+                          tv-mapping)]
     (letfn [(parse-type* [{:keys [form-type] :as form}]
               (case form-type
                 :symbol (or (when-let [prim-type (get '{String :string, Bool :bool,
@@ -85,7 +86,20 @@
                                                      {:form-type :vector, :forms param-forms}
                                                      return-form]}
                                             return-form)
-                                          env)}))))
+                                          {:env env})}))))
+
+(defn attributes-decl-parser [{:keys [prefix env tv-mapping]}]
+  (p/record-parser
+   (fn [entries]
+     [(into {}
+            (map (fn [[kw type-form]]
+                   (let [{:keys [::tc/mono-type ::tc/type-vars] :as poly-type} (parse-type type-form {:env env, :tv-mapping tv-mapping})]
+                     (if (seq (set/difference type-vars (into #{} (map ::tc/type-var) (vals tv-mapping))))
+                       (throw (ex-info "Attribute types can't be polymorphic (for now?)"
+                                       {::tc/poly-type poly-type}))
+                       [(keyword (format "%s.%s" (name prefix) (name kw))) {::tc/mono-type mono-type}]))))
+            entries)
+      []])))
 
 (defn bindings-parser [expr-parser ctx]
   (p/vector-parser (-> (fn [forms]
@@ -104,19 +118,6 @@
                                   (partition 2 forms))
                           []])
                        p/with-ensure-even-forms)))
-
-(defn attributes-decl-parser [{:keys [prefix env]}]
-  (p/record-parser
-   (fn [entries]
-     [(into {}
-            (map (fn [[kw type-form]]
-                   (let [{:keys [::tc/mono-type ::tc/type-vars] :as poly-type} (parse-type type-form env)]
-                     (if (seq type-vars)
-                       (throw (ex-info "Attribute types can't be polymorphic (for now?)"
-                                       {::tc/poly-type poly-type}))
-                       [(keyword (format "%s.%s" (name prefix) (name kw))) {::tc/mono-type mono-type}]))))
-            entries)
-      []])))
 
 (defn analyse [{:keys [form-type forms] :as form} {:keys [env locals loop-locals] :as ctx}]
   (case form-type
@@ -219,7 +220,13 @@
 
                     :defadt (p/parse-forms
                              more-forms
-                             (do-parse [{:keys [sym]} p/sym-parser
+                             (do-parse [{:keys [sym tvs]} (p/or-parser
+                                                           p/sym-parser
+                                                           (p/list-parser (do-parse [{:keys [sym]} p/sym-parser
+                                                                                     type-param-syms (p/maybe-many p/sym-parser)]
+                                                                            (p/no-more-forms {:sym sym
+                                                                                              :tvs (->> type-param-syms
+                                                                                                        (into [] (map (comp (juxt identity tc/->type-var) :sym))))}))))
                                         constructors (p/maybe-many
                                                       (p/or-parser
                                                        (-> p/sym-parser
@@ -228,11 +235,14 @@
 
                                                        (p/list-parser
                                                         (do-parse [{constructor-sym :sym} p/sym-parser
-                                                                   attributes (attributes-decl-parser {:prefix constructor-sym, :env env})]
+                                                                   attributes (attributes-decl-parser {:prefix constructor-sym
+                                                                                                       :env env
+                                                                                                       :tv-mapping (into {} tvs)})]
                                                           (p/no-more-forms {:constructor-sym constructor-sym
                                                                             :attributes attributes})))))]
                                (p/no-more-forms {:expr-type :defadt
                                                  :sym sym
+                                                 :type-vars (mapv second tvs)
                                                  :attributes (into {} (mapcat :attributes) constructors)
                                                  :constructors (into {} (map (fn [{:keys [constructor-sym attributes]}]
                                                                                [constructor-sym
