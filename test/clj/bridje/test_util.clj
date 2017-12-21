@@ -9,11 +9,11 @@
   (w/postwalk (fn [clj]
                 (cond
                   ;; add more to here as we need it
-                  (string? clj) {:form-type :string, :string clj}
+                  (string? clj) {:form-type :string, :string clj, :forms []}
                   (vector? clj) {:form-type :vector, :forms clj}
                   (list? clj) {:form-type :list, :forms clj}
-                  (symbol? clj) {:form-type :symbol, :sym clj}
-                  (keyword? clj) {:form-type :keyword, :kw clj}
+                  (symbol? clj) {:form-type :symbol, :sym clj, :forms []}
+                  (keyword? clj) {:form-type :keyword, :kw clj, :forms []}
 
                   :else clj))
               clj))

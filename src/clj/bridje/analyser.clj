@@ -1,14 +1,12 @@
 (ns bridje.analyser
-  (:require [bridje.forms :as f]
-            [bridje.parser :as p :refer [do-parse]]
-            [bridje.util :as u]
-            [clojure.string :as s]
+  (:require [bridje.util :as u]
             [bridje.type-checker :as tc]
+            [clojure.spec.alpha :as s]
             [clojure.walk :as w]
             [clojure.string :as str]
             [clojure.set :as set]))
 
-(defn type-tv-mapping [form]
+#_(defn type-tv-mapping [form]
   (->> (u/sub-forms form)
        (into {} (comp (filter (every-pred (comp #{:symbol} :form-type)
                                           (comp #(Character/isLowerCase %) first name :sym)))
@@ -16,14 +14,14 @@
                       (map (fn [{:keys [sym]}]
                              {sym (tc/->type-var (name sym))}))))))
 
-(defn type-declaration-tv-mapping [form]
+#_(defn type-declaration-tv-mapping [form]
   (->> (u/sub-forms form)
        (into {} (comp (keep :sym)
                       (filter (comp #(Character/isLowerCase %) first name))
                       (map (fn [sym]
                              [sym (tc/->type-var sym)]))))))
 
-(defn parse-type [form {:keys [env tv-mapping]}]
+#_(defn parse-type [form {:keys [env tv-mapping]}]
   (let [tv-mapping (merge (type-declaration-tv-mapping form)
                           tv-mapping)]
     (letfn [(parse-type* [{:keys [form-type] :as form}]
@@ -55,10 +53,7 @@
       #::tc{:type-vars (into #{} (map ::tc/type-var) (vals tv-mapping))
             :mono-type (parse-type* form)})))
 
-(def colon-sym
-  (symbol ":"))
-
-(def type-declaration-form-parser
+#_(def type-declaration-form-parser
   (p/list-parser (do-parse [colon (p/literal-sym-parser colon-sym)
 
                             {:keys [sym param-forms]}
@@ -75,7 +70,7 @@
                             return-form p/form-parser]
                    (p/no-more-forms {:sym sym, :param-forms param-forms, :return-form return-form}))))
 
-(defn type-declaration-parser [env]
+#_(defn type-declaration-parser [env]
   (do-parse [{:keys [sym param-forms return-form]} type-declaration-form-parser]
     (let [tv-mapping (type-declaration-tv-mapping {:param-forms param-forms,
                                                    :return-form return-form})]
@@ -88,7 +83,7 @@
                                             return-form)
                                           {:env env})}))))
 
-(defn attributes-decl-parser [{:keys [prefix env tv-mapping]}]
+#_(defn attributes-decl-parser [{:keys [prefix env tv-mapping]}]
   (p/record-parser
    (fn [entries]
      [(into {}
@@ -101,187 +96,176 @@
             entries)
       []])))
 
-(defn bindings-parser [expr-parser ctx]
-  (p/vector-parser (-> (fn [forms]
-                         [(reduce (fn [{:keys [bindings locals]} pair]
-                                    (let [[sym expr] (p/parse-forms pair
-                                                                    (do-parse [{:keys [sym]} p/sym-parser
-                                                                               expr (expr-parser (-> ctx
-                                                                                                     (update :locals (fnil into {}) locals)
-                                                                                                     (dissoc :loop-locals)))]
-                                                                      (p/pure [sym expr])))
-                                          local (gensym sym)]
-                                      {:bindings (conj bindings [local expr])
-                                       :locals (assoc locals sym local)}))
-                                  {:bindings []
-                                   :locals {}}
-                                  (partition 2 forms))
-                          []])
-                       p/with-ensure-even-forms)))
+(defn form-type-spec [form-type]
+  #(= form-type (:form-type %)))
 
-(defn analyse [{:keys [form-type forms] :as form} {:keys [env locals loop-locals] :as ctx}]
+(s/def ::symbol-form
+  (s/and (form-type-spec :symbol)
+         #(symbol? (:sym %))))
+
+(s/def ::keyword-form
+  (s/and (form-type-spec :keyword)
+         #(keyword? (:kw %))))
+
+(s/def ::list-form
+  (form-type-spec :list))
+
+(s/def ::vector-form
+  (form-type-spec :vector))
+
+(declare analyse)
+
+(defmulti analyse-call
+  (fn [form _]
+    (let [{:keys [form-type sym]} (first (:forms form))]
+      (when (= :symbol form-type)
+        (keyword sym))))
+
+  :default ::default)
+
+(defmethod analyse-call :if [{:keys [forms]} ctx]
+  (let [{:keys [pred-form then-form else-form] :as conformed} (s/conform (s/cat :pred-form any?
+                                                                                :then-form any?
+                                                                                :else-form any?))]
+    (if (= ::s/invalid conformed)
+      (throw (ex-info "Invalid if" {}))
+      {:expr-type :if
+       :pred-expr (analyse pred-form (-> ctx (dissoc :loop-locals)))
+       :then-expr (analyse then-form ctx)
+       :else-expr (analyse else-form ctx)})))
+
+(s/def ::bindings-form
+  (s/and ::vector-form
+         (s/conformer #(s/conform (s/* (s/cat :binding-sym-form ::symbol-form
+                                              :binding-form any?))
+                                  (:forms %)))))
+
+(defmethod analyse-call :let [{:keys [forms] :as form} ctx]
+  (let [conformed (s/conform (s/cat :bindings-forms ::bindings-form
+                                    :body-form any?)
+                             (rest forms))]
+    (if (= ::s/invalid conformed)
+      (throw (ex-info "Invalid let" {}))
+      (let [{:keys [bindings-forms body-form]} conformed
+            {:keys [bindings locals]} (reduce (fn [{:keys [bindings locals]} {:keys [binding-sym-form binding-form]}]
+                                                (let [sym (:sym binding-sym-form)
+                                                      local (gensym sym)
+                                                      ctx (-> ctx
+                                                              (update :locals (fnil into {}) locals)
+                                                              (dissoc :loop-locals))]
+                                                  {:bindings (conj bindings [local (analyse binding-form ctx)])
+                                                   :locals (assoc locals sym local)}))
+                                              {:bindings []
+                                               :locals {}}
+                                              bindings-forms)]
+        {:expr-type :let
+         :bindings bindings
+         :body-expr (analyse body-form (-> ctx
+                                           (update :locals (fnil into {}) locals)))}))))
+
+(defmethod analyse-call :loop [{:keys [forms] :as form} ctx]
+  (let [conformed (s/conform (s/cat :bindings-forms ::bindings-form
+                                    :body-form any?)
+                             (rest forms))]
+    (if (= ::s/invalid conformed)
+      (throw (ex-info "Invalid loop" {}))
+      (let [{:keys [bindings-forms body-form]} conformed
+            bindings (for [{:keys [binding-sym-form binding-form]} bindings-forms]
+                       (let [sym (:sym binding-sym-form)
+                             local (gensym sym)]
+                         {:sym sym
+                          :local local
+                          :expr (analyse binding-form (-> ctx (dissoc :loop-locals)))}))]
+        {:expr-type :loop
+         :bindings (map (juxt :local :expr) bindings)
+         :body-expr (analyse body-form (-> ctx
+                                           (update :locals (fnil into {}) (map (juxt :sym :local)) bindings)
+                                           (assoc :loop-locals (map :local bindings))))}))))
+
+(defmethod analyse-call :recur [{[_recur & recur-arg-forms] :forms, :as form} {:keys [loop-locals] :as ctx}]
+  (cond
+    (nil? loop-locals) (throw (ex-info "'recur' called from non-tail position"
+                                       {}))
+    (not= (count loop-locals) (count recur-arg-forms)) (throw (ex-info "'recur' called with wrong number of arguments"
+                                                                       {:expected (count loop-locals)
+                                                                        :found (count recur-arg-forms)}))
+    :else {:expr-type :recur
+           :exprs (mapv #(analyse % (dissoc ctx :loop-locals)) recur-arg-forms)
+           :loop-locals loop-locals}))
+
+(defmethod analyse-call :fn [{:keys [forms] :as form} ctx]
+  (let [conformed (s/conform (s/cat :params-form (s/and ::list-form
+                                                        #(s/conformer (s/conform :sym-form ::symbol-form
+                                                                                 :param-forms (s/* ::symbol-form)
+                                                                                 (:forms %)))),
+                                    :body-form any?)
+                             (rest forms))]
+
+    (if (= ::s/invalid conformed)
+      (throw (ex-info "Invalid fn" {}))
+
+      (let [{:keys [params-form body-form]} conformed
+            {:keys [sym-form param-forms]} params-form
+            local-mapping (->> param-forms (map (comp (juxt identity gensym) :sym)))]
+
+        {:expr-type :fn
+         :sym (:sym sym-form)
+         :locals (map second local-mapping)
+         :body-expr (analyse body-form (-> ctx
+                                           (update :locals (fnil into {}) local-mapping)
+                                           (dissoc :loop-locals)))}))))
+
+(s/def ::def-params
+  (s/or :just-sym ::symbol-form
+        :sym+params (s/and ::list-form
+                           (s/conformer #(s/conform (s/cat :sym-form ::symbol-form
+                                                           :param-forms (s/* ::symbol-form))
+                                                    (:forms %))))))
+
+(defmethod analyse-call :def [{:keys [forms] :as form} ctx]
+  (let [conformed (s/conform (s/cat :params-form ::def-params, :body-form any?)
+                             (rest forms))]
+
+    (if (= ::s/invalid conformed)
+      (throw (ex-info "Invalid def" {}))
+
+      (let [{:keys [params-form body-form]} conformed
+            {:keys [sym-form param-forms]} (case (first params-form)
+                                             :just-sym {:sym-form (second params-form)}
+                                             :sym+params (second params-form))
+            local-mapping (some->> param-forms (map (comp (juxt identity gensym) :sym)))]
+
+        {:expr-type :def
+         :sym (:sym sym-form)
+         :locals (some->> local-mapping (map second))
+         :body-expr (analyse body-form (-> ctx
+                                           (update :locals (fnil into {}) local-mapping)
+                                           (dissoc :loop-locals)))}))))
+
+(defmethod analyse-call ::default [{:keys [forms]} ctx]
+  {:expr-type :call
+   :exprs (mapv #(analyse % ctx) forms)})
+
+(defn analyse [{:keys [form-type forms] :as form} {:keys [env locals] :as ctx}]
   (case form-type
-    :string {:expr-type :string, :string (:string form)}
-    :bool {:expr-type :bool, :bool (:bool form)}
-    (:int :float :big-int :big-float) {:expr-type form-type, :number (:number form)}
-    :vector {:expr-type :vector, :exprs (map #(analyse % ctx) forms)}
-    :set {:expr-type :set, :exprs (map #(analyse % ctx) forms)}
+    (:int :float :big-int :big-float) {:expr-type form-type
+                                       :number (:number form)}
 
-    :record (p/parse-forms [form]
-                           (p/record-parser (do-parse [entries (p/maybe-many (p/first-form-parser (fn [[sym form]]
-                                                                                                    [sym (analyse form ctx)])))]
-                                              (p/no-more-forms {:expr-type :record
-                                                                :entries entries}))))
+    :string {:expr-type :string
+             :string (:string form)}
 
-    :list
-    (if (seq forms)
-      (let [[first-form & more-forms] forms
-            expr-parser (fn expr-parser
-                          ([] (expr-parser ctx))
-                          ([ctx]
-                           (p/first-form-parser (fn [form]
-                                                  (analyse form ctx)))))]
+    (:vector :set) {:expr-type form-type
+                    :exprs (mapv #(analyse % (-> ctx (dissoc :loop-locals))) forms)}
 
-        (or (case (:form-type first-form)
-              :symbol
-              (or (case (keyword (:sym first-form))
-                    :if (p/parse-forms more-forms
-                                       (do-parse [pred-expr (expr-parser (dissoc ctx :loop-locals))
-                                                  then-expr (expr-parser)
-                                                  else-expr (expr-parser)]
-                                         (p/no-more-forms {:expr-type :if
-                                                           :pred-expr pred-expr
-                                                           :then-expr then-expr
-                                                           :else-expr else-expr})))
+    :record (let [conformed (s/assert (s/* (s/cat :k ::keyword-form
+                                                  :v any?))
+                                      forms)]
+              {:expr-type :record
+               :entries (for [{:keys [k v]} conformed]
+                          {:k (:kw k)
+                           :v (analyse v (-> ctx (dissoc :loop-locals)))})})
 
-                    :let (p/parse-forms more-forms
-                                        (do-parse [{:keys [bindings locals]} (bindings-parser expr-parser ctx)
-                                                   body-expr (expr-parser (-> ctx
-                                                                              (update :locals (fnil into {}) locals)))]
-                                          (p/no-more-forms {:expr-type :let
-                                                            :bindings bindings
-                                                            :body-expr body-expr})))
-
-                    :loop (p/parse-forms more-forms
-                                         (do-parse [{:keys [bindings locals]} (bindings-parser expr-parser ctx)
-                                                    body-expr (expr-parser (-> ctx
-                                                                               (update :locals (fnil into {}) locals)
-                                                                               (assoc :loop-locals (map second locals))))]
-                                           (p/no-more-forms {:expr-type :loop
-                                                             :bindings bindings
-                                                             :body-expr body-expr})))
-
-                    :recur (cond
-                             (nil? loop-locals) (throw (ex-info "'recur' called from non-tail position"
-                                                                {}))
-                             (not= (count loop-locals) (count more-forms)) (throw (ex-info "'recur' called with wrong number of arguments"
-                                                                                           {:expected (count loop-locals)
-                                                                                            :found (count more-forms)}))
-                             :else (p/parse-forms more-forms
-                                                  (do-parse [exprs (p/maybe-many (expr-parser (dissoc ctx :loop-locals)))]
-                                                    (p/no-more-forms {:expr-type :recur
-                                                                      :exprs exprs
-                                                                      :loop-locals loop-locals}))))
-
-                    :fn (p/parse-forms more-forms
-                                       (do-parse [{:keys [sym params]} (p/list-parser (do-parse [[name-param & more-params] (p/at-least-one p/sym-parser)]
-                                                                                        (p/no-more-forms {:sym (:sym name-param)
-                                                                                                          :params (map (comp (juxt identity gensym) :sym) more-params)})))
-                                                  body-expr (expr-parser (-> ctx
-                                                                             (update :locals (fnil into {}) params)
-                                                                             (assoc :loop-locals (map second params))))]
-                                         (p/no-more-forms {:expr-type :fn
-                                                           :sym sym
-                                                           :locals (map second params)
-                                                           :body-expr body-expr})))
-
-                    :def (p/parse-forms more-forms
-                                        (do-parse [{:keys [sym params]} (p/or-parser p/sym-parser
-                                                                                     (p/list-parser (do-parse [{:keys [sym]} p/sym-parser
-                                                                                                               params (p/maybe-many p/sym-parser)]
-                                                                                                      (p/no-more-forms {:sym sym
-                                                                                                                        :params (map (comp (juxt identity gensym) :sym) params)}))))
-                                                   body-expr (expr-parser (-> ctx
-                                                                              (update :locals (fnil into {}) params)
-                                                                              (assoc :loop-locals (map second params))))]
-                                          (p/no-more-forms {:expr-type :def
-                                                            :sym sym
-                                                            :locals (when params
-                                                                      (map second params))
-                                                            :body-expr body-expr})))
-
-                    :defattrs (p/parse-forms
-                               more-forms
-                               (do-parse [{:keys [sym]} p/sym-parser
-                                          attributes (attributes-decl-parser {:prefix sym, :env env})]
-                                 (p/no-more-forms {:expr-type :defattrs
-                                                   :sym sym
-                                                   :attributes attributes})))
-
-                    :defadt (p/parse-forms
-                             more-forms
-                             (do-parse [{:keys [sym tvs]} (p/or-parser
-                                                           p/sym-parser
-                                                           (p/list-parser (do-parse [{:keys [sym]} p/sym-parser
-                                                                                     type-param-syms (p/maybe-many p/sym-parser)]
-                                                                            (p/no-more-forms {:sym sym
-                                                                                              :tvs (->> type-param-syms
-                                                                                                        (into [] (map (comp (juxt identity tc/->type-var) :sym))))}))))
-                                        constructors (p/maybe-many
-                                                      (p/or-parser
-                                                       (-> p/sym-parser
-                                                           (p/fmap (fn [{:keys [sym]}]
-                                                                     {:constructor-sym sym})))
-
-                                                       (p/list-parser
-                                                        (do-parse [{constructor-sym :sym} p/sym-parser
-                                                                   attributes (attributes-decl-parser {:prefix constructor-sym
-                                                                                                       :env env
-                                                                                                       :tv-mapping (into {} tvs)})]
-                                                          (p/no-more-forms {:constructor-sym constructor-sym
-                                                                            :attributes attributes})))))]
-                               (p/no-more-forms {:expr-type :defadt
-                                                 :sym sym
-                                                 :type-vars (mapv second tvs)
-                                                 :attributes (into {} (mapcat :attributes) constructors)
-                                                 :constructors (into {} (map (fn [{:keys [constructor-sym attributes]}]
-                                                                               [constructor-sym
-                                                                                {:attributes (when attributes
-                                                                                               (into #{} (keys attributes)))}]))
-                                                                     constructors)})))
-
-                    :defclj (p/parse-forms more-forms
-                                           (do-parse [{ns :sym} p/sym-parser
-                                                      clj-fns (p/maybe-many (type-declaration-parser env))]
-                                             (let [clj-vars (try
-                                                              (require ns)
-                                                              (ns-publics ns)
-                                                              (catch Exception e
-                                                                (throw (ex-info "Failed requiring defclj namespace" {:ns ns} e))))]
-
-                                               (when-let [unavailable-syms (seq (set/difference (into #{} (map :sym) clj-fns)
-                                                                                                (set (keys clj-vars))))]
-                                                 (throw (ex-info "Couldn't find CLJ vars" {:ns ns
-                                                                                           :unavailable-syms (set unavailable-syms)})))
-
-                                               (p/no-more-forms {:expr-type :defclj
-                                                                 :clj-fns (->> clj-fns
-                                                                               (into #{} (map (fn [{:keys [sym ::tc/poly-type]}]
-                                                                                                {:ns ns
-                                                                                                 :sym sym
-                                                                                                 ::tc/poly-type poly-type
-                                                                                                 :value @(get clj-vars sym)}))))}))))
-
-                    ;; fall through to 'call'
-                    nil))
-
-              ;; fall through to 'call'
-              (:list :keyword) nil)
-
-            {:expr-type :call
-             :exprs (map #(analyse % ctx) forms)}))
-
-      (throw (ex-info "niy" {})))
+    :list (analyse-call form ctx)
 
     :symbol (let [{:keys [sym]} form]
               (or (when-let [local (get locals sym)]
