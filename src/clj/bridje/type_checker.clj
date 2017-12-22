@@ -16,6 +16,10 @@
   {::type :vector
    ::elem-type elem-type})
 
+(defn set-of [elem-type]
+  {::type :set
+   ::elem-type elem-type})
+
 (defn ->adt [sym type-vars]
   {::adt-sym sym
    ::type-vars type-vars})

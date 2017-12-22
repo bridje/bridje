@@ -5,7 +5,7 @@
 
 (i/defparser sexp-parser
   "<Forms> = <whitespace>* (Form & delimiter <whitespace>*)*
-   <Form> = num | string | symbol | keyword | coll
+   <Form> = num | bool | string | symbol | keyword | coll
 
    <num> = int | float | big-int | big-float
    int = #'-?\\d+'
@@ -13,12 +13,14 @@
    big-int = #'-?\\d+' <'N'>
    big-float = #'-?\\d+(\\.\\d+)?' <'M'>
 
+   bool = 'true' | 'false'
+
    string = <'\"'> (string-part | string-escape)* <'\"'>
    string-part = #'[^\\\\\"]+'
    string-escape = <'\\\\'> #'[\"\\\\nrt]'
 
    keyword = <':'> symbol
-   symbol = !num #'[^\"#:()\\[\\]{}\\s,]+'
+   symbol = !num !bool #'[^\"#:()\\[\\]{}\\s,]+' | ':'
 
    <coll> = list | vector | set | record
    list = <'('> Forms <')'>
@@ -47,6 +49,7 @@
                                                 \" "\"")))
                            str/join)})
 
+   :bool (fn [b] {:tag :bool, :bool (Boolean/parseBoolean b)})
    :int (fn [i] {:tag :int, :number (Long/parseLong i)})
    :float (fn [f] {:tag :float, :number (Double/parseDouble f)})
    :big-int (fn [i] {:tag :big-int, :number (BigInteger. i)})
