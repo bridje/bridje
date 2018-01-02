@@ -8,43 +8,43 @@ parameterised types?
 
 #+BEGIN_SRC clojure
   (defrec
-    (defattrs User
+    (defdata User
       {:id UUID
        :username String})
 
-    (defattrs Store
+    (defdata Store
       {:id UUID
        :key #{:User.id :Store.id}
        :label String})
 
-    (defadt (Maybe a)
+    (defdata (Maybe a)
       (Just a)
       Nothing)
 
-    (defadt (Tree a)
+    (defdata (Tree a)
       (Node {:left (Tree a)
-             :right (Tree a)})
+             :right (Tree a)
+             :val a})
+      Leaf))
 
-      (Leaf a)))
-
-   (defadt MaybeInt
-     (JustInt {:val Int})
+   (defdata MaybeInt
+     (JustInt Int)
      NothingInt)
 
-  (let [maybe (Just {:Just.val 4})]
+  (let [maybe (Just 4)]
     (case maybe
-      (Just j) (:Just.val j)
+      (Just j) j
       Nothing 2))
 
   (do
     (def (tree-sum tree)
       (case tree
-        (Node n) (+ (:Node.val n)
-                    (tree-sum (:Node.left n))
-                    (tree-sum (:Node.right n)))
+        (Node n) (+ (:Tree.val n)
+                    (tree-sum (:Tree.left n))
+                    (tree-sum (:Tree.right n)))
         Leaf 0))
 
-    (tree-sum (Node {:Node.val 4, :Node.left Leaf, :Node.right Leaf})))
+    (tree-sum (Node {:Tree.val 4, :Tree.left Leaf, :Tree.right Leaf})))
 
   (:james/Store.key store)
 
@@ -57,7 +57,64 @@ parameterised types?
   (:james/Just.0 my-just)
 #+END_SRC
 
+what's happening with polymorphic attributes?
+shall we keep a separate mapping of what types all the poly attrs should be?
+think that's the same as having the ADT mappings
+shall we say each polymorphic attribute can only belong to one ADT?
+actually, it might be simpler than this
+if ADTs own their keys...
+can always make a new key that reuses existing keys
+and we'll say that each record can only be of one ADT type - trying to extract other keys out is an error
+shall we say ADTs can't be extended? if so, they're a different type
+the fields within they are still extensible, if they're record types - that's probably powerful enough
+implication of this is that ADTs have no base
+at this point, they're pretty much a different type...
+
+ok, adts.
+what's the point?
+totality checking, essentially - union types
+polymorphism, also?
+so what do we need from a record system that gives us totality and polymorphism? are the two even related?
+adt serves as a useful grouping mechanism for polymorphic attributes - i.e. 'these two attributes have the _same_ type'
+
+so, for the polymorphism, we need a group of attributes that vary together
+for the totality checking, we need a (possibly polymorphic) value that can be down-cast into a closed set of more specific values
+  - let's say we ignored the polymorphic aspect of adts for a mo - just union types - would we do things differently?
+  - possibly, although adts do work well as a grouping, and as union types
+maybe not even a group - it'd be useful to say that an attribute is of a certain class
+  - although, would this be possible? you'd have to instantiate the type, at which point
+
+which means that polymorphic attributes need to be part of a group
+
 - what's the type of Type?
+
+how's about ignoring adts, and just having explicit unions?
+polymorphism done on a per-tag basis?
+
+#+BEGIN_SRC clojure
+  (defdata (Maybe a)
+    (Just a)
+    Nothing)
+
+  (defdata User
+    {:id Str
+     :username Str
+     :first-name Str})
+
+  (defdata (Tree a)
+    {:left (Tree a)
+     :right (Tree a)
+     :node a}
+
+    (Node {:Tree.left :Tree.right :Tree.val})
+    Leaf)
+
+  (defdata (Either a b)
+    (Left a)
+    (Right b))
+#+END_SRC
+
+
 
 #+BEGIN_SRC clojure
   (defdata Attribute

@@ -20,13 +20,13 @@
   {::type :set
    ::elem-type elem-type})
 
-(defn ->adt [sym type-vars]
-  {::adt-sym sym
-   ::type-vars type-vars})
+(defn ->adt [sym type-params]
+  {::type :adt
+   ::adt-sym sym
+   ::type-params type-params})
 
-(defn record-of [base adt attributes]
+(defn record-of [base attributes]
   {::type :record
-   ::adt adt
    ::base base
    ::attributes attributes})
 
@@ -42,9 +42,9 @@
     :record (into #{} (keep ::base) [mono-type])
     (:vector :set) (ftvs (::elem-type mono-type))
 
-    :fn (into (ftvs (::return-type mono-type))
-              (mapcat ftvs)
-              (::param-types mono-type))))
+    :fn (into (ftvs (::return-type mono-type)) (mapcat ftvs) (::param-types mono-type))
+
+    :adt (into #{} (mapcat ftvs) (::type-params mono-type))))
 
 (defn instantiate [{:keys [::type-vars ::mono-type]}]
   (let [tv-mapping (into {} (map (fn [tv] [tv (gensym (name tv))])) type-vars)]
@@ -80,7 +80,12 @@
 
                 type))
 
-    :type-var (get mapping (::type-var type) type)))
+    :type-var (get mapping (::type-var type) type)
+    :fn (fn [{:keys [::param-types ::return-type]}]
+          {::type :fn
+           ::param-types (map #(apply-mapping % mapping) param-types)
+           ::return-type (apply-mapping return-type mapping)})
+    :applied (-> type (update ::type-params (fn [tps] (map #(apply-mapping % mapping) tps))))))
 
 (defn mono-env-apply-mapping [mono-env mapping]
   (into {}
@@ -96,13 +101,12 @@
          new-mapping))
 
 (defn unify-records [t1 t2]
-  (let [{t1-base ::base, t1-adt ::adt, t1-attributes ::attributes} t1
-        {t2-base ::base, t2-adt ::adt, t2-attributes ::attributes} t2
+  (let [{t1-base ::base, t1-attributes ::attributes} t1
+        {t2-base ::base, t2-attributes ::attributes} t2
         t1-t2-attributes (set/difference t1-attributes t2-attributes)
         t2-t1-attributes (set/difference t2-attributes t1-attributes)]
     (when-not (or (and (nil? t1-base) (seq t2-t1-attributes))
-                  (and (nil? t2-base) (seq t1-t2-attributes))
-                  (not= t1-adt t2-adt))
+                  (and (nil? t2-base) (seq t1-t2-attributes)))
       (let [new-base (gensym 'r)]
         (merge (when (and t1-base (seq t2-t1-attributes))
                  {t1-base {::type :record
@@ -331,24 +335,24 @@
                                                               body-expr)
                                                             {:env env})})}
 
-           :defattrs
-           {::poly-type {::mono-type :env-update
-                         ::env-update-type :defattrs}}
+           ;; :defattrs
+           ;; {::poly-type {::mono-type :env-update
+           ;;               ::env-update-type :defattrs}}
 
-           :defadt
-           (let [{:keys [sym type-vars constructors]} expr
-                 adt (->adt sym type-vars)]
-             {::poly-type {::mono-type :env-update
-                           ::env-update-type :defadt}
-              :constructors (->> constructors
-                                 (into {} (map (fn [[constructor-sym {:keys [attributes] :as constructor}]]
-                                                 [constructor-sym
-                                                  (merge constructor
-                                                         {::poly-type (let [base (gensym 'r)]
-                                                                        (mono->poly (if attributes
-                                                                                      (fn-type [(record-of base nil attributes)]
-                                                                                               (record-of base adt attributes))
-                                                                                      (record-of nil adt #{}))))})]))))})
+           ;; :defadt
+           ;; (let [{:keys [sym type-vars constructors]} expr
+           ;;       adt (->adt sym type-vars)]
+           ;;   {::poly-type {::mono-type :env-update
+           ;;                 ::env-update-type :defadt}
+           ;;    :constructors (->> constructors
+           ;;                       (into {} (map (fn [[constructor-sym {:keys [attributes] :as constructor}]]
+           ;;                                       [constructor-sym
+           ;;                                        (merge constructor
+           ;;                                               {::poly-type (let [base (gensym 'r)]
+           ;;                                                              (mono->poly (if attributes
+           ;;                                                                            (fn-type [(record-of base attributes)]
+           ;;                                                                                     (record-of base attributes))
+           ;;                                                                            (record-of nil #{}))))})]))))})
 
            :defclj
            {::poly-type {::mono-type :env-update

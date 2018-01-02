@@ -48,7 +48,7 @@
 
 (t/deftest records
   (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          '(defattrs User
+                                          '(defdata User
                                              {:id Int
                                               :first-name String
                                               :last-name String})
@@ -80,12 +80,12 @@
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           clj-core-interop
 
-                                          '(defadt (Maybe a)
-                                             (Just {:val a})
+                                          '(defdata (Maybe a)
+                                             (Just a)
                                              Nothing)
 
                                           '(def maybes
-                                             [(Just {:Just.val 4}) Nothing])
+                                             [(Just 4) Nothing])
 
                                           #_'(def cases
                                                (case (Just {:Just.val 5})
@@ -97,7 +97,7 @@
 
     (t/is (= (-> maybes
                  (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] select-keys [::tc/type ::tc/attributes ::tc/adt]))
-             {:value [{:brj/adt 'Just, :Just.val 4}
+             {:value [{:brj/adt 'Just, :Just.0 4}
                       {:brj/adt 'Nothing}]
               ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :record
                                                                 :adt #::tc{:adt-sym 'Maybe

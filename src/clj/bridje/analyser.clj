@@ -175,12 +175,18 @@
         :big-int (exact-sym 'BigInt)
         :big-float (exact-sym 'BigFloat)))
 
+(s/def ::type-var-sym-form
+  (s/and ::symbol-form
+         #(Character/isLowerCase (first (name (:sym %))))))
+
 (s/def ::mono-type-form
   (s/or :primitive ::primitive-type-form
         :vector (nested :vector (s/cat :elem-type-form ::mono-type-form))
         :set (nested :set (s/cat :elem-type-form ::mono-type-form))
-        :type-var (s/and ::symbol-form
-                         #(Character/isLowerCase (first (name (:sym %)))))))
+        :type-var ::type-var-sym-form
+        :record (nested :record (s/* ::keyword-form))
+        :applied (nested :list (s/cat :constructor-sym ::symbol-form
+                                      :param-forms (s/* ::mono-type-form)))))
 
 (defn extract-mono-type [mono-type-form {:keys [->type-var env] :as ctx}]
   (let [[mono-type-type arg] mono-type-form]
@@ -188,7 +194,11 @@
       :primitive (tc/primitive-type (first arg))
       :vector (tc/vector-of (extract-mono-type (:elem-type-form arg) ctx))
       :set (tc/set-of (extract-mono-type (:elem-type-form arg) ctx))
-      :type-var (->type-var (:sym arg)))))
+      :record (tc/record-of (gensym 'r) (into #{} (map :kw) arg))
+      :type-var (->type-var (:sym arg))
+      :applied (tc/->adt (get-in arg [:constructor-sym :sym])
+                         (->> (:param-forms arg)
+                              (into [] (map #(extract-mono-type % ctx))))))))
 
 (s/def ::type-signature-form
   (nested :list
@@ -248,6 +258,47 @@
                                     :value @(get publics sym)
                                     ::tc/poly-type poly-type}))
                         type-sigs)}))))
+
+(defmethod analyse-call :defdata [{:keys [forms]} ctx]
+  (let [conformed (s/conform (s/cat :title-form (s/? (s/or :just-name ::symbol-form
+                                                           :name+params (nested :list (s/cat :name-form ::symbol-form
+                                                                                             :type-var-forms (s/* ::type-var-sym-form)))))
+                                    :attrs-form (s/? (nested :record (s/* (s/cat :k ::keyword-form
+                                                                                 :v ::mono-type-form))))
+
+                                    :constructors-forms (s/* (s/or :value-constructor ::symbol-form
+                                                                   :constructor+params (nested :list (s/cat :constructor-sym ::symbol-form
+                                                                                                            :params-forms (s/* ::mono-type-form))))))
+                             (rest forms))]
+
+    (if (= ::s/invalid conformed)
+      (throw (ex-info "Invalid 'defdata'" {}))
+      (let [{:keys [title-form attrs-form constructors-forms]} conformed
+            ->type-var (memoize tc/->type-var)
+            ctx (merge ctx {:->type-var ->type-var})
+            {:keys [name-sym tvs]} (when-let [[tf-type tf-args] title-form]
+                                     (case tf-type
+                                       :just-name {:name-sym (:sym tf-args)}
+                                       :name+params {:name-sym (get-in tf-args [:name-form :sym])
+                                                     :tvs (->> (:type-var-forms tf-args)
+                                                               (into [] (map (fn [tv-form]
+                                                                               (->type-var (:sym tv-form))))))}))
+            attrs (->> attrs-form
+                       (into [] (map (fn [{:keys [k v]}]
+                                       {:k (:kw k)
+                                        ::tc/mono-type (extract-mono-type v ctx)}))))]
+        {:expr-type :defdata
+         :name-sym name-sym
+         :type-vars tvs
+         :attrs attrs
+         :constructors (->> constructors-forms
+                            (into [] (map (fn [[c-type c-args]]
+                                            (case c-type
+                                              :value-constructor {:constructor-sym (:sym c-args)}
+                                              :constructor+params {:constructor-sym (get-in c-args [:constructor-sym :sym])
+                                                                   :param-mono-types (->> (:params-forms c-args)
+                                                                                          (into [] (map (fn [form]
+                                                                                                          (extract-mono-type form ctx)))))})))))}))))
 
 (defmethod analyse-call ::default [{:keys [forms]} ctx]
   {:expr-type :call
