@@ -7,54 +7,106 @@ mutually recursive types?
 parameterised types?
 
 #+BEGIN_SRC clojure
-  (defrec
-    (defdata User
-      {:id UUID
-       :username String})
+  (ns social.foo
+    {:uses {:social.Maybe {:as :Maybe, :refer [Just Nothing]}}})
 
-    (defdata Store
-      {:id UUID
-       :key #{:User.id :Store.id}
-       :label String})
+  (def :User
+    {:id :UUID
+     :username :String})
 
-    (defdata (Maybe a)
-      (Just a)
-      Nothing)
+  (def :Store
+    {:id :UUID
+     :key {:User/id :Store/id}
+     :label :String})
 
-    (defdata (Tree a)
-      (Node {:left (Tree a)
-             :right (Tree a)
-             :val a})
-      Leaf))
+  (def (:Maybe a)
+    (Just a)
+    Nothing)
 
-   (defdata MaybeInt
-     (JustInt Int)
-     NothingInt)
+  (def {:foo? :Bool})
 
-  (let [maybe (Just 4)]
-    (case maybe
-      (Just j) j
-      Nothing 2))
+  (def (:Tree a)
+    {:left (:Tree a)
+     :right (:Tree a)
+     :val a}
+
+    (Node #:Tree{:left :right :val})
+    Leaf)
+
+  (def (:Countable a)
+    (:: (length a) :Int)
+    (:: (empty? a) :Bool))
+
+  (def *File*
+    (:: (*read-file* :Str) :Str)
+
+    (fn (*read-file* path)
+      "content"))
+
+  (:: countable-tree (:Countable (:Tree a)))
+
+  (:: #{(:Countable b) (:! *File* & e)}
+      (countable-tree (:Tree a)) b)
+
+  (:: #{(:! *File*)}
+      foo #{:Int})
+
+  (:: #{(:Countable b)}
+      (length b) :Int)
+
+  (:: #{(:! & e)}
+      (with-mock-file (Fn (:! *File* & e) [] a))
+      a)
+
+  (def countable-tree
+    (reify
+      (fn (length tree)
+        (case tree
+          (Node {:Tree/keys [val left right]}) (+ 1 (length left) (length right))
+          Leaf 0))
+
+      (fn (empty? tree)
+        (= tree Leaf))))
+
+  (def file-io
+    (reify
+      (fn (*read-file* path)
+        ...)))
 
   (do
-    (def (tree-sum tree)
-      (case tree
-        (Node n) (+ (:Tree.val n)
-                    (tree-sum (:Tree.left n))
-                    (tree-sum (:Tree.right n)))
-        Leaf 0))
+    (def :Form
+      (BoolForm :Bool) (StringForm :Str)
+      (IntForm :Int) (FloatForm :Float) (BigIntForm :BigInt) (BigFloatForm :BigFloat)
+      (ListForm [:Form]) (VectorForm [:Form]) (SetForm [:Form]) (RecordForm [:Form]))
 
-    (tree-sum (Node {:Tree.val 4, :Tree.left Leaf, :Tree.right Leaf})))
+    (def :TypeVar
+      (TypeVar :Symbol))
 
-  (:james/Store.key store)
+    (def :TypeKey
+      (TypeKey :Keyword))
 
-  (:james/Node.left tree)
+    (def :EffectKey
+      (EffectKey :Symbol))
 
-  (Node {:left (Leaf 5)
-         :right (Node {:left (Leaf 10)
-                       :right (Leaf 20)})})
+    (def :Type
+      BoolType StrType
+      IntType FloatType BigIntType BigFloatType
+      (SetType :Type) (VectorType :Type)
+      (FnType [:Type] :Type #{:EffectKey})
+      (AdtType :TypeKey [:TypeVar] (:Map :Symbol [:Type]))
+      (RecordType #{:Keyword} #{:Keyword} (:Maybe :TypeVar))
+      (TypeVarType :TypeVar))
 
-  (:james/Just.0 my-just)
+    (def :TypeConstraint
+      (ClassConstraint :TypeKey [:TypeVar]))
+
+    (def :EffectsConstraint
+      (EffectsConstraint #{:EffectKey} (:Maybe :TypeVar)))
+
+    (def :ConstrainedType
+      (ConstrainedType :EffectsConstraint #{:TypeConstraint} :Type))
+
+    )
 #+END_SRC
 
 what's happening with polymorphic attributes?
