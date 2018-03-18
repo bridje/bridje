@@ -6,105 +6,89 @@ tbh, the name of the type shouldn't really depend on where it's defined - we'd l
 mutually recursive types?
 parameterised types?
 
+idea: type-safe metadata - 'easy' using optional keys?
+
 #+BEGIN_SRC clojure
   (ns social.foo
-    {:uses {:social.Maybe {:as :Maybe, :refer [Just Nothing]}}})
+    {:uses {social {:refer [Tree Node Leaf :User :Node]}}})
 
-  (def :User
-    {:id :UUID
-     :username :String})
+  (:: :User/id UUID)
+  (:: :User/name {:User/first-name :User/last-name})
 
-  (def :Store
-    {:id :UUID
-     :key {:User/id :Store/id}
-     :label :String})
+  (:: :Store/id UUID)
+  (:: :Store/key {:User/id :Store/id})
 
-  (def (:Maybe a)
+  (defadt (Tree a)
+    #{(Ord a)}
+
+    (:: :Node/left (Tree a))
+    (:: :Node/right (Tree a))
+    (:: :Node/val a)
+
+    (Node {:Node/left :Node/right :Node/val})
+    Leaf)
+
+  (defadt (Maybe a)
     (Just a)
     Nothing)
 
-  (def {:foo? :Bool})
+  (defprotocol (Countable a)
+    #{(Ord a)}
 
-  (def (:Tree a)
-    {:left (:Tree a)
-     :right (:Tree a)
-     :val a}
+    (:: (length a) Int)
+    (:: (empty? a) Bool)
 
-    (Node #:Tree{:left :right :val})
-    Leaf)
+    (fn (empty? a)
+      (zero? (length a))))
 
-  (def (:Countable a)
-    (:: (length a) :Int)
-    (:: (empty? a) :Bool))
+  (definstance (Countable (Tree a))
+    #{(Countable a)}
 
-  (def *File*
-    (:: (*read-file* :Str) :Str)
+    (fn (length tree)
+      ...)
+
+    (fn (empty? tree)
+      ...))
+
+  (defeffect *File*
+    (:: (*read-file* Str) Str)
+    (:: (*write-file* Str Str) Unit)
 
     (fn (*read-file* path)
-      "content"))
-
-  (:: countable-tree (:Countable (:Tree a)))
-
-  (:: #{(:Countable b) (:! *File* & e)}
-      (countable-tree (:Tree a)) b)
-
-  (:: #{(:! *File*)}
-      foo #{:Int})
-
-  (:: #{(:Countable b)}
-      (length b) :Int)
-
-  (:: #{(:! & e)}
-      (with-mock-file (Fn (:! *File* & e) [] a))
-      a)
-
-  (def countable-tree
-    (reify
-      (fn (length tree)
-        (case tree
-          (Node {:Tree/keys [val left right]}) (+ 1 (length left) (length right))
-          Leaf 0))
-
-      (fn (empty? tree)
-        (= tree Leaf))))
-
-  (def file-io
-    (reify
-      (fn (*read-file* path)
-        ...)))
+      ...))
 
   (do
-    (def :Form
-      (BoolForm :Bool) (StringForm :Str)
-      (IntForm :Int) (FloatForm :Float) (BigIntForm :BigInt) (BigFloatForm :BigFloat)
-      (ListForm [:Form]) (VectorForm [:Form]) (SetForm [:Form]) (RecordForm [:Form]))
+    (defadt Form
+      (BoolForm Bool) (StringForm Str)
+      (IntForm Int) (FloatForm Float) (BigIntForm BigInt) (BigFloatForm BigFloat)
+      (ListForm [Form]) (VectorForm [Form]) (SetForm [Form]) (RecordForm [Form]))
 
-    (def :TypeVar
-      (TypeVar :Symbol))
+    (defadt TypeVar
+      (TypeVar Symbol))
 
-    (def :TypeKey
-      (TypeKey :Keyword))
+    (defadt TypeKey
+      (TypeKey Symbol))
 
-    (def :EffectKey
-      (EffectKey :Symbol))
+    (defadt EffectKey
+      (EffectKey Symbol))
 
-    (def :Type
+    (defadt Type
       BoolType StrType
       IntType FloatType BigIntType BigFloatType
-      (SetType :Type) (VectorType :Type)
-      (FnType [:Type] :Type #{:EffectKey})
-      (AdtType :TypeKey [:TypeVar] (:Map :Symbol [:Type]))
-      (RecordType #{:Keyword} #{:Keyword} (:Maybe :TypeVar))
-      (TypeVarType :TypeVar))
+      (SetType Type) (VectorType Type)
+      (FnType [Type] Type #{EffectKey})
+      (AdtType TypeKey [TypeVar] (Map Symbol [Type]))
+      (RecordType #{Keyword} #{Keyword} (Maybe TypeVar))
+      (TypeVarType TypeVar))
 
-    (def :TypeConstraint
-      (ClassConstraint :TypeKey [:TypeVar]))
+    (defadt TypeConstraint
+      (ClassConstraint TypeKey [TypeVar]))
 
-    (def :EffectsConstraint
-      (EffectsConstraint #{:EffectKey} (:Maybe :TypeVar)))
+    (defadt EffectsConstraint
+      (EffectsConstraint #{EffectKey} (Maybe TypeVar)))
 
-    (def :ConstrainedType
-      (ConstrainedType :EffectsConstraint #{:TypeConstraint} :Type))
+    (defadt ConstrainedType
+      (ConstrainedType EffectsConstraint #{TypeConstraint} Type))
 
     )
 #+END_SRC
@@ -144,34 +128,6 @@ how's about ignoring adts, and just having explicit unions?
 polymorphism done on a per-tag basis?
 
 #+BEGIN_SRC clojure
-  (defdata (Maybe a)
-    (Just a)
-    Nothing)
-
-  (defdata User
-    {:id Str
-     :username Str
-     :first-name Str})
-
-  (defdata (Tree a)
-    {:left (Tree a)
-     :right (Tree a)
-     :node a}
-
-    (Node {:Tree.left :Tree.right :Tree.val})
-    Leaf)
-
-  (defdata (Either a b)
-    (Left a)
-    (Right b))
-#+END_SRC
-
-
-
-#+BEGIN_SRC clojure
-  (defdata Attribute
-    (Attribute {:sym Symbol
-                :required? Bool}))
 
   (defrec
     (defdata Type
@@ -261,4 +217,8 @@ Algebraic effects - http://www.eff-lang.org/handlers-tutorial.pdf
 
          (fn (return unit a b c)
            (-))))
+#+END_SRC
+
+#+BEGIN_SRC
+
 #+END_SRC
