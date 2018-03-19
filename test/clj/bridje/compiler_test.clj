@@ -25,8 +25,8 @@
 (t/deftest basic-interop
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           "(defclj bridje.interop
-                                             (: (concat [[a]]) [a])
-                                             (: (++ [String]) String))"
+                                             (:: (concat [[a]]) [a])
+                                             (:: (++ [String]) String))"
 
                                           '(def hello-world
                                              (let [hello "hello "

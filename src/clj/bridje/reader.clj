@@ -20,7 +20,7 @@
    string-escape = <'\\\\'> #'[\"\\\\nrt]'
 
    keyword = <':'> symbol
-   symbol = !num !bool #'[^\"#:()\\[\\]{}\\s,]+' | ':'
+   symbol = !num !bool #'[^\"#:()\\[\\]{}\\s,]+' | '::'
 
    <coll> = list | vector | set | record
    list = <'('> Forms <')'>
