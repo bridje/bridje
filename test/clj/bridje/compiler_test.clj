@@ -24,9 +24,9 @@
 
 (t/deftest basic-interop
   (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          "(defclj bridje.interop
-                                             (:: (concat [[a]]) [a])
-                                             (:: (++ [String]) String))"
+                                          '(defclj bridje.interop
+                                             (bridje/typedef-sym (concat [[a]]) [a])
+                                             (bridje/typedef-sym (++ [String]) String))
 
                                           '(def hello-world
                                              (let [hello "hello "
@@ -41,10 +41,10 @@
               ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))))
 
 (def clj-core-interop
-  "(defclj clojure.core
-     (: (conj [a] a) [a])
-     (: (dec Int) Int)
-     (: (zero? Int) Bool))")
+  '(defclj clojure.core
+     (bridje/typedef-sym (conj [a] a) [a])
+     (bridje/typedef-sym (dec Int) Int)
+     (bridje/typedef-sym (zero? Int) Bool)))
 
 (t/deftest records
   (let [{:keys [env]} (sut/interpret-str (fake-forms
@@ -76,7 +76,7 @@
              {:value "James"
               ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))))
 
-(t/deftest adts
+#_(t/deftest adts
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           clj-core-interop
 

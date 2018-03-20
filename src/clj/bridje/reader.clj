@@ -31,9 +31,15 @@
    <whitespace> = #'[\\s,]'
    <delimiter> = whitespace | #'[\\[\\](){}#]' | #'$'")
 
+(def typedef-sym
+  (symbol "::"))
+
 (def transformations
   {:keyword (fn [[_ sym]] [:keyword (keyword sym)])
-   :symbol (fn [sym] [:symbol (symbol sym)])
+   :symbol (fn [sym]
+             [:symbol (if (= "::" sym)
+                        'bridje/typedef-sym
+                        (symbol sym))])
 
    :string (fn [& parts]
              [:string (->> (for [[part-type part] parts]

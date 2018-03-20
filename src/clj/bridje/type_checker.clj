@@ -335,10 +335,6 @@
                                                               body-expr)
                                                             {:env env})})}
 
-           ;; :defattrs
-           ;; {::poly-type {::mono-type :env-update
-           ;;               ::env-update-type :defattrs}}
-
            ;; :defadt
            ;; (let [{:keys [sym type-vars constructors]} expr
            ;;       adt (->adt sym type-vars)]
