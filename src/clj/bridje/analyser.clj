@@ -224,12 +224,6 @@
                                      (tc/fn-type (mapv #(extract-mono-type % ctx) param-type-forms) return-type)
                                      return-type))}))
 
-(defn parse-type-signature [form ctx]
-  (let [conformed (s/conform ::type-signature-form form)]
-    (if (= ::s/invalid conformed)
-      (throw (ex-info "Invalid type signature" {}))
-      (extract-type-signature conformed ctx))))
-
 (defmethod analyse-call :defclj [{:keys [forms] :as form} ctx]
   (let [conformed (s/conform (s/cat :ns-sym-form ::symbol-form
                                     :type-sig-forms (s/* ::type-signature-form))
