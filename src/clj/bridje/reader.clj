@@ -29,17 +29,15 @@
    record = <'{'> Forms <'}'>
 
    <whitespace> = #'[\\s,]'
-   <delimiter> = whitespace | #'[\\[\\](){}#]' | #'$'"
-
-  :output-format :enlive)
+   <delimiter> = whitespace | #'[\\[\\](){}#]' | #'$'")
 
 (def transformations
-  {:keyword (fn [{:keys [sym]}] {:tag :keyword, :kw (keyword sym)})
-   :symbol (fn [sym] {:tag :symbol, :sym (symbol sym)})
+  {:keyword (fn [[_ sym]] [:keyword (keyword sym)])
+   :symbol (fn [sym] [:symbol (symbol sym)])
+
    :string (fn [& parts]
-             {:tag :string,
-              :string (->> (for [{:keys [tag], [part] :content} parts]
-                             (case tag
+             [:string (->> (for [[part-type part] parts]
+                             (case part-type
                                :string-part part
                                :string-escape (case (first part)
                                                 \\ "\\"
@@ -47,13 +45,13 @@
                                                 \t "\t"
                                                 \r "\r"
                                                 \" "\"")))
-                           str/join)})
+                           str/join)])
 
-   :bool (fn [b] {:tag :bool, :bool (Boolean/parseBoolean b)})
-   :int (fn [i] {:tag :int, :number (Long/parseLong i)})
-   :float (fn [f] {:tag :float, :number (Double/parseDouble f)})
-   :big-int (fn [i] {:tag :big-int, :number (BigInteger. i)})
-   :big-float (fn [f] {:tag :big-float, :number (BigDecimal. f)})})
+   :bool (fn [b] [:bool (Boolean/parseBoolean b)])
+   :int (fn [i] [:int (Long/parseLong i)])
+   :float (fn [f] [:float (Double/parseDouble f)])
+   :big-int (fn [i] [:big :number (BigInteger. i)])
+   :big-float (fn [f] [:big-float (BigDecimal. f)])})
 
 (defn read-forms [s]
   (->> (sexp-parser s)
