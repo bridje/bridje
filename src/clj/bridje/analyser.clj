@@ -42,7 +42,7 @@
   (fn [form _]
     (let [{:keys [form-type sym]} (first (:forms form))]
       (when (= :symbol form-type)
-        (keyword sym))))
+        ((some-fn {(symbol "::") ::typedef} keyword) sym))))
 
   :default ::default)
 
@@ -259,7 +259,17 @@
                                     ::tc/poly-type poly-type}))
                         type-sigs)}))))
 
-(defmethod analyse-call :defdata [{:keys [forms]} ctx]
+(defmethod analyse-call ::typedef [{:keys [forms]} ctx]
+  (let [{[subject-type subject-form] :subject, :keys [type-form]} (s/conform (s/cat :subject (s/or :keyword ::keyword-form
+                                                                                                   :symbol ::symbol-form)
+                                                                                    :type-form ::mono-type-form)
+                                                                             (rest forms))]
+    (merge {::tc/poly-type (tc/mono->poly (extract-mono-type type-form ctx))}
+           (case subject-type
+             :keyword {:expr-type :key-def
+                       :key (:kw subject-form)}))))
+
+(defmethod analyse-call :defadt [{:keys [forms]} ctx]
   (let [conformed (s/conform (s/cat :title-form (s/? (s/or :just-name ::symbol-form
                                                            :name+params (nested :list (s/cat :name-form ::symbol-form
                                                                                              :type-var-forms (s/* ::type-var-sym-form)))))
