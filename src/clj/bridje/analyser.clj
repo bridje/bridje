@@ -149,12 +149,13 @@
   (s/and ::symbol-form #{sym}))
 
 (s/def ::primitive-type-form
-  (s/or :string (exact-sym 'String)
-        :bool (exact-sym 'Bool)
-        :int (exact-sym 'Int)
-        :float (exact-sym 'Float)
-        :big-int (exact-sym 'BigInt)
-        :big-float (exact-sym 'BigFloat)))
+  (s/and (s/or :string (exact-sym 'String)
+               :bool (exact-sym 'Bool)
+               :int (exact-sym 'Int)
+               :float (exact-sym 'Float)
+               :big-int (exact-sym 'BigInt)
+               :big-float (exact-sym 'BigFloat))
+         (s/conformer first)))
 
 (s/def ::type-var-sym-form
   (s/and ::symbol-form
@@ -162,13 +163,16 @@
 
 (s/def ::mono-type-form
   (s/or :primitive ::primitive-type-form
-        :vector (s/spec (s/cat :_vector #{:vector}
-                               :elem-type-form ::mono-type-form))
-        :set (s/spec (s/cat :_set #{:set}
-                            :elem-type-form ::mono-type-form))
+        :vector (s/spec (s/and (s/cat :_vector #{:vector}
+                                      :elem-type-form ::mono-type-form)
+                               (s/conformer #(:elem-type-form %))))
+        :set (s/spec (s/and (s/cat :_set #{:set}
+                                   :elem-type-form ::mono-type-form)
+                            (s/conformer #(:elem-type-form %))))
         :type-var ::type-var-sym-form
-        :record (s/spec (s/cat :_record #{:record}
-                               :kws (s/* ::keyword-form)))
+        :record (s/spec (s/and (s/cat :_record #{:record}
+                                      :kws (s/* ::keyword-form))
+                               (s/conformer #(set (:kws %)))))
         :applied (s/spec (s/cat :_list #{:list}
                                 :constructor-sym ::symbol-form
                                 :param-forms (s/* ::mono-type-form)))))
@@ -176,10 +180,10 @@
 (defn extract-mono-type [mono-type-form {:keys [->type-var env] :as ctx}]
   (let [[mono-type-type arg] mono-type-form]
     (case mono-type-type
-      :primitive (tc/primitive-type (first arg))
-      :vector (tc/vector-of (extract-mono-type (:elem-type-form arg) ctx))
-      :set (tc/set-of (extract-mono-type (:elem-type-form arg) ctx))
-      :record (tc/record-of (gensym 'r) (into #{} (map :kw) (:kws arg)))
+      :primitive (tc/primitive-type arg)
+      :vector (tc/vector-of (extract-mono-type arg ctx))
+      :set (tc/set-of (extract-mono-type arg ctx))
+      :record (tc/record-of (gensym 'r) arg)
       :type-var (->type-var arg)
       :applied (tc/->adt (get-in arg [:constructor-sym])
                          (->> (:param-forms arg)
