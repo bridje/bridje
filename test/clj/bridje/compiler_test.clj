@@ -25,8 +25,8 @@
 (t/deftest basic-interop
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           '(defclj bridje.interop
-                                             (bridje/typedef-sym (concat [[a]]) [a])
-                                             (bridje/typedef-sym (++ [String]) String))
+                                             (::_ (concat [[a]]) [a])
+                                             (::_ (++ [String]) String))
 
                                           '(def hello-world
                                              (let [hello "hello "
@@ -42,35 +42,34 @@
 
 (def clj-core-interop
   '(defclj clojure.core
-     (bridje/typedef-sym (conj [a] a) [a])
-     (bridje/typedef-sym (dec Int) Int)
-     (bridje/typedef-sym (zero? Int) Bool)))
+     (::_ (conj [a] a) [a])
+     (::_ (dec Int) Int)
+     (::_ (zero? Int) Bool)))
 
 (t/deftest records
   (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          '(defdata User
-                                             {:id Int
-                                              :first-name String
-                                              :last-name String})
+                                          '(::_ :User/id Int)
+                                          '(::_ :User/first-name String)
+                                          '(::_ :User/last-name String)
 
                                           '(def james
-                                             {:User.first-name "James"
-                                              :User.last-name "Henderson"})
+                                             {:User/first-name "James"
+                                              :User/last-name "Henderson"})
 
                                           '(def james-first-name
-                                             (:User.first-name james)))
+                                             (:User/first-name james)))
 
                                          {})
         {:syms [james james-first-name]} (:vars env)
-        {first-name :User.first-name} (:attributes env)]
+        {first-name :User/first-name} (:attributes env)]
 
     (t/is (= (::tc/mono-type first-name)
              (tc/primitive-type :string)))
 
     (t/is (= james
-             {:value {:User.first-name "James"
-                      :User.last-name "Henderson"}
-              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :attributes #{:User.first-name :User.last-name}})}))
+             {:value {:User/first-name "James"
+                      :User/last-name "Henderson"}
+              ::tc/poly-type (tc/mono->poly #::tc{:type :record, :attributes #{:User/first-name :User/last-name}})}))
 
     (t/is (= james-first-name
              {:value "James"

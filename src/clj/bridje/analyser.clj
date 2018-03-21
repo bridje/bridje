@@ -13,7 +13,7 @@
 
 (s/def ::colon-sym-form
   (s/and ::symbol-form
-         #{'bridje/typedef-sym}))
+         #{(symbol "::")}))
 
 (s/def ::keyword-form
   (s/and (s/cat :_kw #{:keyword}
@@ -214,6 +214,7 @@
   (let [conformed (s/conform (s/cat :ns-sym ::symbol-form
                                     :type-sig-forms (s/* (s/spec ::type-signature-form)))
                              forms)]
+
     (if (= ::s/invalid conformed)
       (throw (ex-info "Invalid defclj" {}))
 

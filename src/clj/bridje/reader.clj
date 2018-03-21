@@ -38,7 +38,7 @@
   {:keyword (fn [[_ sym]] [:keyword (keyword sym)])
    :symbol (fn [sym]
              [:symbol (if (= "::" sym)
-                        'bridje/typedef-sym
+                        typedef-sym
                         (symbol sym))])
 
    :string (fn [& parts]
