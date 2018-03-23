@@ -6,12 +6,13 @@
             [clojure.walk :as w]))
 
 (defn fake-forms [& forms]
-  (->> forms
-       (map (fn [form]
-              (cond-> form
-                (not (string? form)) (-> (->> (w/postwalk (fn [form]
-                                                            (if (and (keyword? form) (= "_" (name form)))
-                                                              (symbol "::")
-                                                              form))))
-                                         prn-str))))
-       s/join))
+  (binding [*print-namespace-maps* false]
+    (->> forms
+         (map (fn [form]
+                (cond-> form
+                  (not (string? form)) (-> (->> (w/postwalk (fn [form]
+                                                              (if (and (keyword? form) (= "_" (name form)))
+                                                                (symbol "::")
+                                                                form))))
+                                           prn-str))))
+         s/join)))
