@@ -35,8 +35,8 @@
                           (into #{} (map emit-value-expr*)))
 
                 :record (->> (:entries expr)
-                             (into {} (map (fn [[sym expr]]
-                                             [(keyword sym) (emit-value-expr* expr)]))))
+                             (into {} (map (fn [{:keys [k v]}]
+                                             [k (emit-value-expr* v)]))))
 
                 :attribute (:attribute expr)
 
@@ -105,28 +105,30 @@
                                                                         body-expr)
                                                                       env))
                                                env)})})
-    :defattrs
-    (let [{:keys [attributes]} expr]
+    :defattribute
+    (let [{:keys [attribute ::tc/mono-type]} expr]
       {:env (-> env
-                (update :attributes merge attributes))})
+                (update :attributes assoc attribute {::tc/mono-type mono-type}))})
 
     :defadt
-    (let [{:keys [sym constructors attributes ::tc/adt-constructor-types ::tc/poly-type]} expr]
+    (let [{:keys [sym constructors]} expr
+          mono-type (tc/->adt sym)]
       {:env (-> env
                 (update :adts assoc sym {:constructors (->> constructors
                                                             (into {} (map (juxt :constructor-sym #(select-keys % [:attributes])))))
-                                         ::tc/poly-type poly-type})
+                                         ::tc/poly-type (tc/mono->poly mono-type)})
 
                 (update :vars merge (->> constructors
-                                         (into {} (map (fn [[constructor-sym {:keys [attributes ::tc/poly-type]}]]
+                                         (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
                                                          [constructor-sym
-                                                          {:value (if attributes
-                                                                    (fn [v]
-                                                                      (merge v
-                                                                             {:brj/adt constructor-sym}))
-                                                                    {:brj/adt constructor-sym})
-                                                           ::tc/poly-type poly-type}])))))
-                (update :attributes merge attributes))})
+                                                          (if param-mono-types
+                                                            {:value (fn [& params]
+                                                                      {:brj/adt constructor-sym
+                                                                       :brj/adt-params params})
+                                                             ::tc/poly-type (tc/mono->poly (tc/fn-type param-mono-types mono-type))}
+
+                                                            {:value {:brj/adt constructor-sym}
+                                                             ::tc/poly-type (tc/mono->poly mono-type)})]))))))})
 
     :defclj
     {:env (reduce (fn [env {:keys [sym value ::tc/poly-type] :as foo}]

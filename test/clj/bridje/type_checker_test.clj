@@ -66,27 +66,27 @@
                            ::tc/return-type (tc/primitive-type :int)}))))
 
 (t/deftest types-record
-  (let [env {:attributes {:User.first-name {::tc/mono-type (tc/primitive-type :string)}
-                          :User.last-name {::tc/mono-type (tc/primitive-type :string)}}}
+  (let [env {:attributes {:User/first-name {::tc/mono-type (tc/primitive-type :string)}
+                          :User/last-name {::tc/mono-type (tc/primitive-type :string)}}}
 
         record-expr {:expr-type :record,
-                     :entries [[:User.first-name {:expr-type :string, :string "James"}]
-                               [:User.last-name {:expr-type :string, :string "Henderson"}]]}]
+                     :entries [{:k :User/first-name, :v {:expr-type :string, :string "James"}}
+                               {:k :User/last-name, :v {:expr-type :string, :string "Henderson"}}]}]
     (t/is (= (-> record-expr
                  (tc/with-type {:env env})
                  ::tc/poly-type)
 
-             (tc/mono->poly #::tc{:type :record, :attributes #{:User.first-name :User.last-name}})))
+             (tc/mono->poly #::tc{:type :record, :attributes #{:User/first-name :User/last-name}})))
 
     (t/is (= (-> {:expr-type :call
-                  :exprs [{:expr-type :attribute, :attribute :User.first-name}
+                  :exprs [{:expr-type :attribute, :attribute :User/first-name}
                           record-expr]}
                  (tc/with-type {:env env})
                  ::tc/poly-type)
 
              (tc/mono->poly (tc/primitive-type :string))))))
 
-(t/deftest types-adt
+#_(t/deftest types-adt
   (let [tv (tc/->type-var 'maybe)
         res (-> {:expr-type :defadt,
                  :sym 'Maybe

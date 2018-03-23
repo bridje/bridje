@@ -73,35 +73,37 @@
 
     (t/is (= james-first-name
              {:value "James"
-              ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))))
+              ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))
+    env))
 
-#_(t/deftest adts
+(t/deftest adts
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           clj-core-interop
 
-                                          '(defdata (Maybe a)
-                                             (Just a)
-                                             Nothing)
+                                          '(defadt SimpleForm
+                                             (BoolForm Bool)
+                                             (IntForm Int)
+                                             SomethingElse)
 
-                                          '(def maybes
-                                             [(Just 4) Nothing])
+                                          '(def forms
+                                             [(BoolForm true) (IntForm 43) SomethingElse])
 
-                                          #_'(def cases
-                                               (case (Just {:Just.val 5})
-                                                 (Just j) (:Just.val j)
-                                                 Nothing 0)))
+                                          #_'(def simple-match
+                                               (case (IntForm 42)
+                                                 (BoolForm b) b
+                                                 (IntForm i) (zero? i)
+                                                 SomethingElse false)))
 
                                          {})
-        {:syms [maybes just]} (:vars env)]
+        {:syms [forms #_simple-match]} (:vars env)]
 
-    (t/is (= (-> maybes
-                 (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] select-keys [::tc/type ::tc/attributes ::tc/adt]))
-             {:value [{:brj/adt 'Just, :Just.0 4}
-                      {:brj/adt 'Nothing}]
-              ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :record
-                                                                :adt #::tc{:adt-sym 'Maybe
-                                                                           :adt-type-params [(tc/primitive-type :int)]}
-                                                                :attributes #{}}))}))))
+    (t/is (= (-> forms
+                 (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] select-keys [::tc/type ::tc/adt-sym]))
+             {:value [{:brj/adt 'BoolForm, :brj/adt-params [true]}
+                      {:brj/adt 'IntForm, :brj/adt-params [43]}
+                      {:brj/adt 'SomethingElse}]
+              ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :adt
+                                                                :adt-sym 'SimpleForm}))}))))
 
 (t/deftest loop-recur
   (let [{:keys [env]} (sut/interpret-str (fake-forms

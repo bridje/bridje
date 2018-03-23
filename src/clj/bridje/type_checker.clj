@@ -20,10 +20,9 @@
   {::type :set
    ::elem-type elem-type})
 
-(defn ->adt [sym type-params]
+(defn ->adt [sym]
   {::type :adt
-   ::adt-sym sym
-   ::type-params type-params})
+   ::adt-sym sym})
 
 (defn record-of [base attributes]
   {::type :record
@@ -85,7 +84,10 @@
           {::type :fn
            ::param-types (map #(apply-mapping % mapping) param-types)
            ::return-type (apply-mapping return-type mapping)})
-    :applied (-> type (update ::type-params (fn [tps] (map #(apply-mapping % mapping) tps))))))
+    :applied (-> type (update ::type-params (fn [tps] (map #(apply-mapping % mapping) tps))))
+
+    ;; TODO will need to change when ADTs have type-vars
+    :adt type))
 
 (defn mono-env-apply-mapping [mono-env mapping]
   (into {}
@@ -223,18 +225,18 @@
 
                 :record
                 (let [entry-typings (->> (:entries expr)
-                                         (map (fn [[kw expr]]
-                                                {:kw kw, :typing (type-value-expr** expr)})))
+                                         (map (fn [{:keys [k v]}]
+                                                {:k k, :typing (type-value-expr** v)})))
 
                       combined-typing (combine-typings {:typings (map :typing entry-typings)
                                                         :extra-eqs (->> entry-typings
-                                                                        (into [] (map (fn [{:keys [kw typing]}]
-                                                                                        [(get-in env [:attributes kw ::mono-type])
+                                                                        (into [] (map (fn [{:keys [k typing]}]
+                                                                                        [(get-in env [:attributes k ::mono-type])
                                                                                          (::mono-type typing)]))))})]
                   {::mono-env (::mono-env combined-typing)
                    ::mono-type {::type :record
                                 ::attributes (->> entry-typings
-                                                  (into #{} (map :kw)))}})
+                                                  (into #{} (map :k)))}})
 
                 :attribute
                 (let [{:keys [attribute]} expr
@@ -335,23 +337,15 @@
                                                               body-expr)
                                                             {:env env})})}
 
-           ;; :defadt
-           ;; (let [{:keys [sym type-vars constructors]} expr
-           ;;       adt (->adt sym type-vars)]
-           ;;   {::poly-type {::mono-type :env-update
-           ;;                 ::env-update-type :defadt}
-           ;;    :constructors (->> constructors
-           ;;                       (into {} (map (fn [[constructor-sym {:keys [attributes] :as constructor}]]
-           ;;                                       [constructor-sym
-           ;;                                        (merge constructor
-           ;;                                               {::poly-type (let [base (gensym 'r)]
-           ;;                                                              (mono->poly (if attributes
-           ;;                                                                            (fn-type [(record-of base attributes)]
-           ;;                                                                                     (record-of base attributes))
-           ;;                                                                            (record-of nil #{}))))})]))))})
+           :defattribute
+           (let [{:keys [kw ::mono-type]} expr]
+             {::poly-type {::mono-type :env-update
+                           ::env-update-type :defattribute}})
 
            :defclj
            {::poly-type {::mono-type :env-update
                          ::env-update-type :defclj}}
+
+           :defadt {}
 
            (type-value-expr expr {:env env}))))
