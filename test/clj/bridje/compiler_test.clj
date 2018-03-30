@@ -25,8 +25,8 @@
 (t/deftest basic-interop
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           '(defclj bridje.interop
-                                             (::_ (concat [[a]]) [a])
-                                             (::_ (++ [String]) String))
+                                             ("::" (concat [[a]]) [a])
+                                             ("::" (++ [String]) String))
 
                                           '(def hello-world
                                              (let [hello "hello "
@@ -42,15 +42,15 @@
 
 (def clj-core-interop
   '(defclj clojure.core
-     (::_ (conj [a] a) [a])
-     (::_ (dec Int) Int)
-     (::_ (zero? Int) Bool)))
+     ("::" (conj [a] a) [a])
+     ("::" (dec Int) Int)
+     ("::" (zero? Int) Bool)))
 
 (t/deftest records
   (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          '(::_ :User/id Int)
-                                          '(::_ :User/first-name String)
-                                          '(::_ :User/last-name String)
+                                          '("::" :User/id Int)
+                                          '("::" :User/first-name String)
+                                          '("::" :User/last-name String)
 
                                           '(def james
                                              {:User/first-name "James"
