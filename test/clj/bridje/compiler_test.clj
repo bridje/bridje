@@ -43,6 +43,7 @@
 (def clj-core-interop
   '(defclj clojure.core
      ("::" (conj [a] a) [a])
+     ("::" (inc Int) Int)
      ("::" (dec Int) Int)
      ("::" (zero? Int) Bool)))
 
@@ -88,22 +89,31 @@
                                           '(def forms
                                              [(BoolForm true) (IntForm 43) SomethingElse])
 
-                                          #_'(def simple-match
-                                               (case (IntForm 42)
-                                                 (BoolForm b) b
-                                                 (IntForm i) (zero? i)
-                                                 SomethingElse false)))
+                                          '(def (simple-match o)
+                                             (case o
+                                               (BoolForm b) (if b -1 -2)
+                                               (IntForm i) (inc i)
+                                               SomethingElse -3))
+
+                                          '(def matches
+                                             [(simple-match (BoolForm false))
+                                              (simple-match (IntForm 42))
+                                              (simple-match SomethingElse)]))
 
                                          {})
-        {:syms [forms #_simple-match]} (:vars env)]
+        {:syms [forms simple-match matches]} (:vars env)]
 
     (t/is (= (-> forms
                  (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] select-keys [::tc/type ::tc/adt-sym]))
-             {:value [{:brj/adt 'BoolForm, :brj/adt-params [true]}
-                      {:brj/adt 'IntForm, :brj/adt-params [43]}
-                      {:brj/adt 'SomethingElse}]
-              ::tc/poly-type (tc/mono->poly (tc/vector-of #::tc{:type :adt
-                                                                :adt-sym 'SimpleForm}))}))))
+             {:value [{:brj/constructor 'BoolForm, :brj/constructor-params [true]}
+                      {:brj/constructor 'IntForm, :brj/constructor-params [43]}
+                      {:brj/constructor 'SomethingElse}]
+              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'SimpleForm)))}))
+
+    (t/is (= (::tc/poly-type simple-match)
+             (tc/mono->poly (tc/fn-type [(tc/->adt 'SimpleForm)] (tc/primitive-type :int)))))
+
+    (t/is (= (:value matches) [-2 43 -3]))))
 
 (t/deftest loop-recur
   (let [{:keys [env]} (sut/interpret-str (fake-forms

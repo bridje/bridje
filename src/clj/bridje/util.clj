@@ -14,6 +14,8 @@
           (:vector :set :call :recur) (mapcat sub-exprs (:exprs expr))
           :record (mapcat sub-exprs (map second (:entries expr)))
           :if (mapcat (comp sub-exprs expr) #{:pred-expr :then-expr :else-expr})
+          :case (concat (sub-exprs (:expr expr))
+                        (mapcat (comp sub-exprs :expr) (:clauses expr)))
           (:let :loop) (concat (mapcat sub-exprs (map second (:bindings expr)))
                                (sub-exprs (:body-expr expr)))
           :match (concat (mapcat (comp sub-exprs second) (:clauses expr))

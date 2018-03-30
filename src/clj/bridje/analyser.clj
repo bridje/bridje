@@ -68,6 +68,52 @@
          :body-expr (analyse body-form (-> ctx
                                            (update :locals (fnil into {}) locals)))}))))
 
+(defmethod analyse-call 'case [[_ & forms] ctx]
+  (let [{:keys [expr-form clause-forms]}
+        (let [conformed (s/conform
+                         (s/cat :expr-form any?
+                                :clause-forms
+                                (s/* (s/cat :constructor-form
+                                            (s/or :constructor-call
+                                                  (s/spec (s/cat :_list #{:list}
+                                                                 :constructor-sym ::symbol-form
+                                                                 :binding-syms (s/* ::symbol-form)))
+                                                  :value-constructor (s/or :default-sym ::type-var-sym-form
+                                                                           :constructor-sym ::symbol-form))
+                                            :expr-form any?)))
+                         forms)]
+          (if (= ::s/invalid conformed)
+            (throw (ex-info "Invalid 'case'" {}))
+            conformed))
+
+        expr (analyse expr-form (-> ctx (dissoc :loop-locals)))
+        clauses (->> clause-forms
+                     (into [] (map (fn [{[clause-type clause-arg] :constructor-form, :keys [expr-form]}]
+                                     (let [{:keys [binding-syms] :as clause} (case clause-type
+                                                                               :constructor-call clause-arg
+                                                                               :value-constructor (let [[sym-type sym] clause-arg]
+                                                                                                    {sym-type sym}))
+                                           locals (map (juxt identity gensym) binding-syms)]
+                                       (merge (select-keys clause [:constructor-sym :default-sym])
+                                              {:bindings (map second locals)
+                                               :expr (analyse expr-form (-> ctx (update :locals into locals)))}))))))
+
+        adt (let [adts (into #{}
+                             (comp (keep :constructor-sym)
+                                   (map (fn [constructor-sym]
+                                          (or (get-in ctx [:env :constructor-syms constructor-sym :adt])
+                                              (throw (ex-info "Unknown constructor" {:constructor-sym constructor-sym}))))))
+                             clauses)]
+              (if (= 1 (count adts))
+                (first adts)
+                (throw (ex-info "Ambiguous constructors" {:constructor-syms (into #{} (keep :constructor-sym) clauses)
+                                                          :adts adts}))))]
+
+    {:expr-type :case
+     :adt adt
+     :expr expr
+     :clauses clauses}))
+
 (defmethod analyse-call 'loop [[_loop & forms] ctx]
   (let [conformed (s/conform (s/cat :bindings-form ::bindings-form
                                     :body-form any?)

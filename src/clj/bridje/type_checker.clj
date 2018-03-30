@@ -269,6 +269,29 @@
                   {::mono-env (::mono-env combined-typing)
                    ::mono-type (apply-mapping (::mono-type body-typing) (::mapping combined-typing))})
 
+                :case
+                (let [{:keys [expr adt clauses]} expr
+                      expr-typing (type-value-expr** expr)
+                      adt-mono-type (->adt adt)
+                      return-type-var (->type-var :case)
+                      clause-typings (for [{:keys [constructor-sym default-sym bindings expr]} clauses]
+                                       (let [param-types (cond
+                                                           constructor-sym
+                                                           (let [{:keys [param-mono-types]} (get-in env [:constructor-syms constructor-sym])]
+                                                             (into {} (map vector bindings param-mono-types)))
+
+                                                           default-sym
+                                                           {(first bindings) adt-mono-type})]
+                                         (type-value-expr** expr {:local-mono-env (merge local-mono-env param-types)})))
+
+                      combined-typing (combine-typings {:typings (into [expr-typing] clause-typings)
+                                                        :extra-eqs (into [[(::mono-type expr-typing) adt-mono-type]]
+                                                                         (map (juxt ::mono-type (constantly return-type-var)))
+                                                                         clause-typings)})]
+
+                  {::mono-env (::mono-env combined-typing)
+                   ::mono-type (apply-mapping return-type-var (::mapping combined-typing))})
+
                 :loop
                 (let [{:keys [local-mono-env typings]} (type-bindings (:bindings expr))
 
@@ -346,6 +369,7 @@
            {::poly-type {::mono-type :env-update
                          ::env-update-type :defclj}}
 
-           :defadt {}
+           :defadt {::poly-type {::mono-type :env-update
+                                 ::env-update-type :defadt}}
 
            (type-value-expr expr {:env env}))))

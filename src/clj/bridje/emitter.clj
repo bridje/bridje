@@ -54,6 +54,22 @@
                                         bindings)]
                           ~(emit-value-expr* body-expr)))
 
+                :case (let [{:keys [expr adt clauses]} expr
+                            expr-sym (gensym 'expr)
+                            constructor (gensym 'constructor)]
+                        `(let [~expr-sym ~(emit-value-expr* expr)
+                               ~constructor (:brj/constructor ~expr-sym)]
+                           (cond
+                             ~@(mapcat (fn [{:keys [constructor-sym default-sym bindings expr]}]
+                                         [(cond
+                                            constructor-sym `(= ~constructor '~constructor-sym)
+                                            default-sym :else)
+                                          `(let [[~@bindings] ~(cond
+                                                                 constructor-sym `(:brj/constructor-params ~expr-sym)
+                                                                 default-sym expr-sym)]
+                                             ~(emit-value-expr* expr))])
+                                       clauses))))
+
                 :fn (let [{:keys [sym locals body-expr]} expr]
                       `(fn ~sym [~@locals]
                          ~(emit-value-expr* body-expr)))
@@ -114,20 +130,25 @@
     (let [{:keys [sym constructors]} expr
           mono-type (tc/->adt sym)]
       {:env (-> env
-                (update :adts assoc sym {:constructors (->> constructors
-                                                            (into {} (map (juxt :constructor-sym #(select-keys % [:attributes])))))
+                (update :adts assoc sym {:constructors (into #{} (map :constructor-sym) constructors)
                                          ::tc/poly-type (tc/mono->poly mono-type)})
+
+                (update :constructor-syms (fnil into {})
+                        (map (juxt :constructor-sym
+                                   #(merge {:adt sym}
+                                           (select-keys % [:param-mono-types]))))
+                        constructors)
 
                 (update :vars merge (->> constructors
                                          (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
                                                          [constructor-sym
                                                           (if param-mono-types
                                                             {:value (fn [& params]
-                                                                      {:brj/adt constructor-sym
-                                                                       :brj/adt-params params})
+                                                                      {:brj/constructor constructor-sym
+                                                                       :brj/constructor-params params})
                                                              ::tc/poly-type (tc/mono->poly (tc/fn-type param-mono-types mono-type))}
 
-                                                            {:value {:brj/adt constructor-sym}
+                                                            {:value {:brj/constructor constructor-sym}
                                                              ::tc/poly-type (tc/mono->poly mono-type)})]))))))})
 
     :defclj
