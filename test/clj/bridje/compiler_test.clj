@@ -133,39 +133,40 @@
              {:value [5 4 3 2 1]
               ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/primitive-type :int)))}))))
 
-#_(t/deftest simple-effects
-  (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          "(defeffect FileIO
-                                             (: (*read-file* File) String)
-                                             (: (*write-file* File String) Unit))" ; eventually there'll be a File type
+(t/deftest simple-effects
+  (let [!printed (atom [])
+        {:keys [env]} (binding [rt/*effect-fns* {'read-line! (constantly "foo")
+                                                 'println! (fn [s]
+                                                             (swap! !printed conj s))}]
 
-                                          '(def (copy-file src dest)
-                                             (*write-file* dest (*read-file* src)))
+                        (sut/interpret-str (fake-forms
+                                            '(defadt Unit Unit)
 
-                                          '(def res
-                                             (copy-file "/home/james/foo" "/home/james/bar"))
+                                            '(defeffect ConsoleIO
+                                               ("::" (read-line!) String)
+                                               ("::" (println! String) Unit))
 
-                                          ;; 1. message passing, 'agent' style
-                                          ;; 2. if the handler's stateful, it's only ever single-threaded, otherwise, it _may_ be run in parallel
-                                          ;; 3. function to update state afterwards
-                                          '(def mocked-res
-                                             (with-handle res
-                                               (handler FileIO
-                                                        (fn (*read-file* src cb)
-                                                          (cb "fake-file" identity))
+                                            '(def echo!
+                                               (println! (read-line!)))
 
-                                                        (fn (*write-file* dest content cb)
-                                                          (cb Unit)))
+                                            #_'(def res
+                                                 (copy-file! (File "/home/james/foo") (File "/home/james/bar")))
 
-                                               (fn (return v cb cnt)
-                                                 v))))
+                                            #_'(def mocked-res
+                                                 (handling res
+                                                           (handler
+                                                            ConsoleIO
+                                                            (fn (read-line!)
+                                                              "fake-file")
 
-                                         {})
-        {:syms [res]} (:vars env)]
+                                                            (fn (println! line)
+                                                              Unit)))))
 
-    (t/is (= res
-             {:value [5 4 3 2 1]
-              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/primitive-type :int)))}))))
+                                           {}))]
+
+    ;; TODO flesh me out pls
+    (t/is false)
+    ))
 
 #_
 (t/deftest quoting-test

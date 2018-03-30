@@ -46,6 +46,7 @@
 
                 :local (:local expr)
                 :global (get globals (:global expr))
+                :effect-fn `(get rt/*effect-fns* '~(:effect-fn expr))
                 :clj-var (:clj-var expr)
 
                 :let (let [{:keys [bindings body-expr]} expr]
@@ -113,7 +114,7 @@
     (let [{:keys [sym locals body-expr]} expr
           poly-type (get-in expr [::tc/poly-type ::tc/def-expr-type ::tc/poly-type])]
       {:env (assoc-in env [:vars sym] {::tc/poly-type poly-type
-                                       :value ((eval (emit-value-expr (if (seq locals)
+                                       :value ((eval (emit-value-expr (if locals
                                                                         {:expr-type :fn
                                                                          :sym sym
                                                                          :locals locals
@@ -150,6 +151,17 @@
 
                                                             {:value {:brj/constructor constructor-sym}
                                                              ::tc/poly-type (tc/mono->poly mono-type)})]))))))})
+
+    :defeffect
+    (let [{:keys [sym definitions]} expr]
+      {:env (-> env
+                (update :effects assoc sym {:definitions (into #{} (map :sym) definitions)})
+
+                (update :effect-fns (fnil into {})
+                        (map (juxt :sym
+                                   #(merge {:effect sym}
+                                           (select-keys % [::tc/poly-type]))))
+                        definitions))})
 
     :defclj
     {:env (reduce (fn [env {:keys [sym value ::tc/poly-type] :as foo}]

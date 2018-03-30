@@ -179,7 +179,7 @@
       (let [{:keys [params-form body-form]} conformed
             {:keys [sym-form param-forms]} (case (first params-form)
                                              :just-sym {:sym-form (second params-form)}
-                                             :sym+params (second params-form))
+                                             :sym+params (merge {:param-forms []} (second params-form)))
             local-mapping (some->> param-forms (map (juxt identity gensym)))]
 
         {:expr-type :def
@@ -217,6 +217,8 @@
         :record (s/spec (s/and (s/cat :_record #{:record}
                                       :kws (s/* ::keyword-form))
                                (s/conformer #(set (:kws %)))))
+        :adt (s/and ::symbol-form
+                    #(Character/isUpperCase (first (name %))))
         :applied (s/spec (s/cat :_list #{:list}
                                 :constructor-sym ::symbol-form
                                 :param-forms (s/* ::mono-type-form)))))
@@ -229,6 +231,7 @@
       :set (tc/set-of (extract-mono-type arg ctx))
       :record (tc/record-of (gensym 'r) arg)
       :type-var (->type-var arg)
+      :adt (tc/->adt arg)
       :applied (tc/->adt (get-in arg [:constructor-sym])
                          (->> (:param-forms arg)
                               (into [] (map #(extract-mono-type % ctx))))))))
@@ -248,7 +251,7 @@
          :keys [return-form]} type-signature-form
         {:keys [sym param-type-forms]} (case param-form-type
                                          :fn-shorthand {:sym (get-in params-form [:name-sym])
-                                                        :param-type-forms (:param-type-forms params-form)}
+                                                        :param-type-forms (or (:param-type-forms params-form) [])}
                                          :just-name {:sym params-form})
         return-type (extract-mono-type return-form ctx)]
 
@@ -299,6 +302,18 @@
            (case subject-type
              :keyword {:expr-type :defattribute
                        :attribute subject-form}))))
+
+(defmethod analyse-call 'defeffect [[_ & forms] ctx]
+  (let [{:keys [sym definitions]} (let [conformed (s/conform (s/cat :sym ::symbol-form
+                                                                    :definitions (s/* (s/spec ::type-signature-form)))
+                                                             forms)]
+                                    (if (= ::s/invalid conformed)
+                                      (throw (ex-info "Invalid 'defeffect'"))
+                                      conformed))]
+    {:expr-type :defeffect
+     :sym sym
+     :definitions (into [] (map #(extract-type-signature % ctx))
+                        definitions)}))
 
 (defmethod analyse-call 'defadt [[_ & forms] ctx]
   (let [conformed (s/conform (s/cat :name-sym ::symbol-form
@@ -359,6 +374,10 @@
                   (when (contains? (:vars env) sym)
                     {:expr-type :global
                      :global sym})
+
+                  (when (contains? (:effect-fns env) sym)
+                    {:expr-type :effect-fn
+                     :effect-fn sym})
 
                   (throw (ex-info "Can't find" {:sym sym
                                                 :ctx ctx}))))

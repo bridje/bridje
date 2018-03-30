@@ -208,6 +208,12 @@
                 {::mono-env {}
                  ::mono-type (instantiate (get-in env [:vars (:global expr) ::poly-type]))}
 
+                :effect-fn
+                (let [{:keys [effect ::poly-type]} (get-in env [:effect-fns (:effect-fn expr)])]
+                  {::mono-env {}
+                   ::mono-type (instantiate poly-type)
+                   ::effects #{effect}})
+
                 (:vector :set)
                 (let [elem-type-var (->type-var :elem)
                       elem-typings (map type-value-expr** (:exprs expr))
@@ -369,7 +375,13 @@
            {::poly-type {::mono-type :env-update
                          ::env-update-type :defclj}}
 
-           :defadt {::poly-type {::mono-type :env-update
-                                 ::env-update-type :defadt}}
+           :defadt
+           {::poly-type {::mono-type :env-update
+                         ::env-update-type :defadt}}
+
+           :defeffect
+           {::poly-type {::mono-type :env-update
+                         ::env-update-type :defeffect}}
+
 
            (type-value-expr expr {:env env}))))
