@@ -366,9 +366,11 @@
                                             (case c-type
                                               :value-constructor {:constructor-sym c-args}
                                               :constructor+params {:constructor-sym (:constructor-sym c-args)
-                                                                   :param-mono-types (->> (:params-forms c-args)
-                                                                                          (into [] (map (fn [form]
-                                                                                                          (extract-mono-type form ctx)))))})))))}))))
+                                                                   :param-mono-types
+                                                                   (->> (:params-forms c-args)
+                                                                        (into [] (map (fn [form]
+                                                                                        (extract-mono-type form (-> ctx
+                                                                                                                    (assoc-in [:env :adts name-sym] {})))))))})))))}))))
 
 (defmethod analyse-call :default [forms ctx]
   {:expr-type :call
@@ -384,6 +386,9 @@
 
     :string {:expr-type :string
              :string form-value}
+
+    :quote {:expr-type :quote
+            :form (first forms)}
 
     (:vector :set) {:expr-type form-type
                     :exprs (mapv #(analyse % (-> ctx (dissoc :loop-locals))) forms)}

@@ -5,8 +5,7 @@
             [clojure.string :as s]
             [clojure.test :as t]
             [clojure.walk :as w]
-            [bridje.type-checker :as tc])
-  (:import [bridje.runtime ADT]))
+            [bridje.type-checker :as tc]))
 
 (t/deftest fn-calls
   (let [{:keys [env]} (sut/interpret-str (fake-forms
@@ -182,51 +181,37 @@
               ::tc/poly-type (tc/mono->poly (tc/->class clojure.lang.Symbol))}
              (get-in env [:vars 'foo])))))
 
-#_(t/deftest quoting-test
+(defn ->ADT [constructor & params]
+  {:brj/constructor constructor
+   :brj/constructor-params (vec params)})
+
+(t/deftest quoting-test
   (let [{:keys [env]} (sut/interpret-str
                        (s/join "\n" ["(def simple-quote '(foo 4 [2 3]))"
-                                     "(def double-quote ''[foo 3])"
-                                     "(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"
-                                     (pr-str '(def (main args)
-                                                {simple-quote simple-quote
-                                                 double-quote double-quote
-                                                 syntax-quote syntax-quote}))])
-                       {})]
+                                     "(def double-quote ''[foo 24])"
+                                     #_"(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"])
+                       {})
+        {:syms [simple-quote double-quote syntax-quote]} (:vars env)]
 
-    (t/is (= (sut/run-main env)
-             {:simple-quote (rt/->ADT 'ListForm,
-                                      {:forms [(rt/->ADT 'SymbolForm {:sym 'foo})
-                                               (rt/->ADT 'IntForm {:number 4})
-                                               (rt/->ADT 'VectorForm {:forms [(rt/->ADT 'IntForm {:number 2})
-                                                                              (rt/->ADT 'IntForm {:number 3})]})]})
+    (t/is (= (->ADT 'ListForm
+                    [(->ADT 'SymbolForm 'foo)
+                     (->ADT 'IntForm 4)
+                     (->ADT 'VectorForm [(->ADT 'IntForm 2) (->ADT 'IntForm 3)])])
+             (:value simple-quote)))
 
-              :double-quote (rt/->ADT 'ListForm
-                                      {:forms [(rt/->ADT 'SymbolForm
-                                                         '{:sym VectorForm})
-                                               (rt/->ADT 'RecordForm
-                                                         {:forms [(rt/->ADT 'SymbolForm,
-                                                                            {:sym 'forms})
-                                                                  (rt/->ADT 'VectorForm,
-                                                                            {:forms [(rt/->ADT 'ListForm,
-                                                                                               {:forms [(rt/->ADT 'SymbolForm '{:sym SymbolForm})
-                                                                                                        (rt/->ADT 'RecordForm,
-                                                                                                                  {:forms [(rt/->ADT 'SymbolForm,
-                                                                                                                                     '{:sym sym})
-                                                                                                                           (rt/->ADT 'ListForm,
-                                                                                                                                     {:forms [(rt/->ADT 'SymbolForm '{:sym symbol})
-                                                                                                                                              (rt/->ADT 'StringForm,
-                                                                                                                                                        {:string "foo"})]})]})]})
-                                                                                     (rt/->ADT 'ListForm,
-                                                                                               {:forms [(rt/->ADT 'SymbolForm '{:sym IntForm})
-                                                                                                        (rt/->ADT 'RecordForm,
-                                                                                                                  {:forms [(rt/->ADT 'SymbolForm,
-                                                                                                                                     '{:sym number})
-                                                                                                                           (rt/->ADT 'IntForm,
-                                                                                                                                     {:number 3})]})]})]})]})]})
+    (t/is (= (->ADT 'QuoteForm
+                    (->ADT 'ListForm [(->ADT 'SymbolForm 'VectorForm)
+                                      (->ADT 'VectorForm [(->ADT 'ListForm [(->ADT 'SymbolForm 'SymbolForm)
+                                                                            (->ADT 'SymbolForm 'foo)])
+                                                          (->ADT 'ListForm [(->ADT 'SymbolForm 'IntForm)
+                                                                            (->ADT 'IntForm 24)])])]))
 
-              :syntax-quote (rt/->ADT 'VectorForm,
-                                      {:forms [(rt/->ADT 'IntForm {:number 1})
-                                               (rt/->ADT 'IntForm {:number 2})
-                                               (rt/->ADT 'IntForm {:number 3})
-                                               (rt/->ADT 'IntForm {:number 4})
-                                               (rt/->ADT 'IntForm {:number 5})]})}))))
+             (:value double-quote)))
+
+    #_(t/is (= (rt/->ADT 'VectorForm,
+                         {:forms [(rt/->ADT 'IntForm {:number 1})
+                                  (rt/->ADT 'IntForm {:number 2})
+                                  (rt/->ADT 'IntForm {:number 3})
+                                  (rt/->ADT 'IntForm {:number 4})
+                                  (rt/->ADT 'IntForm {:number 5})]})
+               (:value syntax-quote)))))

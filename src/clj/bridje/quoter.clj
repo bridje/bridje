@@ -1,21 +1,7 @@
 (ns bridje.quoter
-  (:require [bridje.analyser :as analyser]
-            [bridje.forms :as f]))
+  (:require [clojure.string :as str]))
 
-(defn quoted-form [form-type params]
-  {:form-type :list
-   :forms [(let [form-adt-kw (f/form-adt-syms form-type)]
-             {:form-type :symbol
-              :sym (symbol (name form-adt-kw))})
-
-           {:form-type :record
-            :forms (->> params
-                        (into [] (mapcat (fn [[k v]]
-                                           [{:form-type :symbol
-                                             :sym k}
-                                            v]))))}]})
-
-(defn expand-syntax-quotes [form {:keys [env] :as ctx}]
+#_(defn expand-syntax-quotes [form {:keys [env] :as ctx}]
   (letfn [(syntax-quote-form [{:keys [form-type forms], inner-form :form, :as form} {:keys [splice?]}]
             (let [quoted-form (case form-type
                                 :syntax-quote (-> inner-form
@@ -32,9 +18,9 @@
                                         :form (syntax-quote-form inner-form {:splice? false})}
 
                                 :symbol (quoted-form :symbol
-                                                     {'sym {:form-type :quote,
-                                                            :form {:form-type :symbol
-                                                                   :sym (:sym form)}}})
+                                                     [:quote [:symbol (:sym form)]]
+                                                     :form {:form-type :symbol
+                                                            :sym (:sym form)})
 
                                 (:vector :set :list :record)
                                 (quoted-form form-type
@@ -70,64 +56,9 @@
 
     (expand-sq* form)))
 
-(defn expand-quotes [{:keys [form-type] :as form}]
-  (letfn [(sym-form [sym]
-            {:form-type :list
-             :forms [{:form-type :symbol
-                      :sym 'symbol}
-                     {:form-type :string,
-                      :string (name sym)}]})
-
-          (quote-form [{:keys [form-type] :as form}]
-            (if (= form-type :quote)
-              (quote-form (quote-form (:form form)))
-
-              (quoted-form form-type
-                           (case form-type
-                             :string {'string form}
-                             :bool {'bool form}
-
-                             (:int :float :big-int :big-float) {'number form}
-
-                             :symbol {'sym (sym-form (:sym form))}
-
-                             (:list :vector :set :record) {'forms {:form-type :vector,
-                                                                   :forms (mapv quote-form (:forms form))}}))))]
-    (case form-type
-      (:vector :set :list :record) (update form :forms #(mapv expand-quotes %))
-      :quote (quote-form (:form form))
-
-      form)))
-
-(comment
-  (let [ctx {:env {:vars {'VectorForm {:value {}}
-                          'IntForm {:value {}}
-                          'ListForm {:value {}}
-                          'StringForm {:value {}}
-                          'RecordForm {:value {}}
-                          'SymbolForm {:value {}}}}}]
-    (-> (expand-quotes (first (bridje.reader/read-forms "['[1 '''1]]")))
-        (analyser/analyse ctx)
-        (bridje.emitter/emit-value-expr ctx))))
-
-(comment
-  (let [ctx {:env {:vars {'VectorForm {:value {}}
-                          'IntForm {:value {}}
-                          'ListForm {:value {}}
-                          'QuotedForm {:value {}}
-                          'StringForm {:value {}}
-                          'RecordForm {:value {}}
-                          'SymbolForm {:value {}}
-                          'symbol {:value {}}}}}]
-    (-> (first (bridje.reader/read-forms "''foo"))
-        (expand-syntax-quotes ctx)
-        (expand-quotes)
-        (analyser/analyse ctx)
-        (bridje.emitter/emit-value-expr ctx))))
-
 (comment
   (-> (first (bridje.reader/read-forms "`[1 ~@[2 3 4]]"))
       (expand-syntax-quotes {}))
 
-  (-> (first (bridje.reader/read-forms "'x"))
+  (-> (first (bridje.reader/read-forms "'(foo 4 [2 3])"))
       expand-quotes))

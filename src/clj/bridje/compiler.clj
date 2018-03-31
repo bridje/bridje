@@ -9,8 +9,7 @@
 
 (defn interpret-form [form {:keys [env]}]
   (-> form
-      (quoter/expand-syntax-quotes {:env env})
-      quoter/expand-quotes
+      #_(quoter/expand-syntax-quotes {:env env})
       (analyser/analyse {:env env})
       (tc/with-type {:env env})
       (emitter/interpret-expr {:env env})))
@@ -22,7 +21,3 @@
           {:env env}
 
           (reader/read-forms str)))
-
-(defn run-main [env & args]
-  (when-let [main-fn (get-in env [:vars 'main :value])]
-    (main-fn args)))

@@ -209,6 +209,10 @@
                 {::mono-env {}
                  ::mono-type (primitive-type expr-type)}
 
+                :quote
+                {::mono-env {}
+                 ::mono-type (->adt 'Form)}
+
                 :local
                 (let [mono-type (or (get local-mono-env (:local expr))
                                     (->type-var (:local expr)))]

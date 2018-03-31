@@ -5,7 +5,12 @@
 
 (i/defparser sexp-parser
   "<Forms> = <whitespace>* (Form & delimiter <whitespace>*)*
-   <Form> = num | bool | string | symbol | keyword | coll
+   <Form> = num | bool | string | symbol | keyword | coll | quote | syntax-quote | unquote | unquote-splicing
+
+   quote = <'\\''> Form
+   syntax-quote = <'`'> Form
+   unquote = <'~'> Form
+   unquote-splicing = <'~@'> Form
 
    <num> = int | float | big-int | big-float
    int = #'-?\\d+'
