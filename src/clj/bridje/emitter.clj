@@ -17,28 +17,6 @@
        (into #{} (comp (filter #(= :clj-var (:expr-type %)))
                        (map (comp symbol namespace :clj-var))))))
 
-(def ->form-adt-sym
-  (-> (fn [form-type]
-        (let [base (->> (str/split (name form-type) #"-")
-                        (map str/capitalize)
-                        str/join)]
-          (symbol (str base "Form"))))
-      memoize))
-
-(defn requote-form [[form-type & [first-form :as forms]]]
-  (into [:list [:symbol (->form-adt-sym form-type)]]
-        (case form-type
-          (:string :bool :int :big-int :float :big-float :symbol) [[form-type first-form]]
-          (:vector :list :set :record) [(into [:vector] (mapv requote-form forms))]
-          :quote [(requote-form (requote-form first-form))])))
-
-(defn emit-form [[form-type & [first-form :as forms]]]
-  {:brj/constructor (list 'quote (->form-adt-sym form-type))
-   :brj/constructor-params (case form-type
-                             (:string :bool :int :big-int :float :big-float :symbol) [(list 'quote first-form)]
-                             (:list :vector :set :record) [(mapv emit-form forms)]
-                             :quote [(emit-form (requote-form first-form))])})
-
 (defn emit-value-expr [expr env]
   (let [sub-exprs (u/sub-exprs expr)
         globals (find-globals sub-exprs)
@@ -50,7 +28,7 @@
                 :bool (:bool expr)
                 (:int :float :big-int :big-float) (:number expr)
 
-                :quote (emit-form (:form expr))
+                :symbol (list 'quote (:sym expr))
 
                 :vector (->> exprs
                              (into [] (map emit-value-expr*)))

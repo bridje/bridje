@@ -28,6 +28,15 @@
     (when (= :symbol form-type)
       maybe-sym)))
 
+(defmethod analyse-call 'symbol [[_ & forms] ctx]
+  (let [{:keys [sym]} (let [conformed (s/conform (s/cat :sym ::symbol-form)
+                                                 forms)]
+                        (if (= ::s/invalid conformed)
+                          (throw (ex-info "Invalid 'symbol'" {}))
+                          conformed))]
+    {:expr-type :symbol
+     :sym sym}))
+
 (defmethod analyse-call 'if [[_ & forms] ctx]
   (let [{:keys [pred-form then-form else-form] :as conformed} (s/conform (s/cat :pred-form any?
                                                                                 :then-form any?

@@ -209,9 +209,8 @@
                 {::mono-env {}
                  ::mono-type (primitive-type expr-type)}
 
-                :quote
-                {::mono-env {}
-                 ::mono-type (->adt 'Form)}
+                :symbol {::mono-type (->class clojure.lang.Symbol)
+                         ::mono-env {}}
 
                 :local
                 (let [mono-type (or (get local-mono-env (:local expr))

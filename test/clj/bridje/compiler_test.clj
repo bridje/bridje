@@ -189,7 +189,7 @@
   (let [{:keys [env]} (sut/interpret-str
                        (s/join "\n" ["(def simple-quote '(foo 4 [2 3]))"
                                      "(def double-quote ''[foo 24])"
-                                     #_"(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"])
+                                     "(def syntax-quote `[1 ~'2 ~@['3 '4 '5]])"])
                        {})
         {:syms [simple-quote double-quote syntax-quote]} (:vars env)]
 
@@ -199,19 +199,20 @@
                      (->ADT 'VectorForm [(->ADT 'IntForm 2) (->ADT 'IntForm 3)])])
              (:value simple-quote)))
 
-    (t/is (= (->ADT 'QuoteForm
-                    (->ADT 'ListForm [(->ADT 'SymbolForm 'VectorForm)
-                                      (->ADT 'VectorForm [(->ADT 'ListForm [(->ADT 'SymbolForm 'SymbolForm)
-                                                                            (->ADT 'SymbolForm 'foo)])
-                                                          (->ADT 'ListForm [(->ADT 'SymbolForm 'IntForm)
-                                                                            (->ADT 'IntForm 24)])])]))
+    (t/is (= (->ADT 'ListForm [(->ADT 'SymbolForm 'VectorForm)
+                               (->ADT 'VectorForm [(->ADT 'ListForm [(->ADT 'SymbolForm 'SymbolForm)
+                                                                     (->ADT 'ListForm
+                                                                            [(->ADT 'SymbolForm 'symbol)
+                                                                             (->ADT 'SymbolForm 'foo)])])
+                                                   (->ADT 'ListForm [(->ADT 'SymbolForm 'IntForm)
+                                                                     (->ADT 'IntForm 24)])])])
 
              (:value double-quote)))
 
-    #_(t/is (= (rt/->ADT 'VectorForm,
-                         {:forms [(rt/->ADT 'IntForm {:number 1})
-                                  (rt/->ADT 'IntForm {:number 2})
-                                  (rt/->ADT 'IntForm {:number 3})
-                                  (rt/->ADT 'IntForm {:number 4})
-                                  (rt/->ADT 'IntForm {:number 5})]})
-               (:value syntax-quote)))))
+    (t/is (= (->ADT 'VectorForm,
+                    [(->ADT 'IntForm 1)
+                     (->ADT 'IntForm 2)
+                     (->ADT 'IntForm 3)
+                     (->ADT 'IntForm 4)
+                     (->ADT 'IntForm 5)])
+             (:value syntax-quote)))))
