@@ -56,5 +56,5 @@
     :int :float :big-int :big-float
     :local :global :clj-var
     :vector :set :record
-    :if :let :match :fn
+    :if :let :fn :case
     :loop :recur})

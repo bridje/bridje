@@ -29,10 +29,15 @@
    ::base base
    ::attributes attributes})
 
-(defn fn-type [param-types return-type]
-  {::type :fn
-   ::param-types param-types
-   ::return-type return-type})
+(defn fn-type
+  ([param-types return-type]
+   (fn-type #{} param-types return-type))
+
+  ([effects param-types return-type]
+   {::type :fn
+    ::param-types param-types
+    ::return-type return-type
+    ::effects effects}))
 
 (defn ftvs [mono-type]
   (case (::type mono-type)
@@ -165,16 +170,18 @@
 
                {})))
 
-(defn combine-typings [{:keys [typings extra-eqs]}]
+(defn combine-typings [{:keys [typings return-type extra-eqs]}]
   (let [mono-envs (map ::mono-env typings)
         mapping (unify-eqs (into (mono-envs->type-equations mono-envs)
                                  extra-eqs))]
 
     {::mono-env (->> mono-envs
-                         (map #(mono-env-apply-mapping % mapping))
-                         mono-env-union)
+                     (map #(mono-env-apply-mapping % mapping))
+                     mono-env-union)
 
-     ::mapping mapping}))
+     ::mono-type (apply-mapping return-type mapping)
+
+     ::effects (into #{} (mapcat ::effects) typings)}))
 
 (defn type-value-expr [expr {:keys [env]}]
   (letfn [(type-value-expr* [{:keys [expr-type] :as expr} {:keys [local-mono-env loop-return-var] :as opts}]
@@ -211,38 +218,34 @@
                 :effect-fn
                 (let [{:keys [effect ::poly-type]} (get-in env [:effect-fns (:effect-fn expr)])]
                   {::mono-env {}
-                   ::mono-type (instantiate poly-type)
-                   ::effects #{effect}})
+                   ::mono-type (instantiate poly-type)})
 
                 (:vector :set)
                 (let [elem-type-var (->type-var :elem)
-                      elem-typings (map type-value-expr** (:exprs expr))
-                      combined-typing (combine-typings {:typings elem-typings
-                                                        :extra-eqs (into []
-                                                                         (comp (map ::mono-type)
-                                                                               (map (fn [elem-type]
-                                                                                      [elem-type elem-type-var])))
-                                                                         elem-typings)})]
+                      elem-typings (map type-value-expr** (:exprs expr))]
 
-                  {::mono-env (::mono-env combined-typing)
-
-                   ::mono-type {::type expr-type
-                                ::elem-type (apply-mapping elem-type-var (::mapping combined-typing))}})
+                  (combine-typings {:typings elem-typings
+                                    :extra-eqs (into []
+                                                     (comp (map ::mono-type)
+                                                           (map (fn [elem-type]
+                                                                  [elem-type elem-type-var])))
+                                                     elem-typings)
+                                    :return-type {::type expr-type
+                                                  ::elem-type elem-type-var}}))
 
                 :record
                 (let [entry-typings (->> (:entries expr)
                                          (map (fn [{:keys [k v]}]
-                                                {:k k, :typing (type-value-expr** v)})))
+                                                {:k k, :typing (type-value-expr** v)})))]
 
-                      combined-typing (combine-typings {:typings (map :typing entry-typings)
-                                                        :extra-eqs (->> entry-typings
-                                                                        (into [] (map (fn [{:keys [k typing]}]
-                                                                                        [(get-in env [:attributes k ::mono-type])
-                                                                                         (::mono-type typing)]))))})]
-                  {::mono-env (::mono-env combined-typing)
-                   ::mono-type {::type :record
-                                ::attributes (->> entry-typings
-                                                  (into #{} (map :k)))}})
+                  (combine-typings {:typings (map :typing entry-typings)
+                                    :extra-eqs (->> entry-typings
+                                                    (into [] (map (fn [{:keys [k typing]}]
+                                                                    [(get-in env [:attributes k ::mono-type])
+                                                                     (::mono-type typing)]))))
+                                    :return-type {::type :record
+                                                  ::attributes (->> entry-typings
+                                                                    (into #{} (map :k)))}}))
 
                 :attribute
                 (let [{:keys [attribute]} expr
@@ -255,25 +258,21 @@
 
                 :if
                 (let [type-var (->type-var :if)
-                      [pred-typing then-typing else-typing :as typings] (map (comp type-value-expr** expr) [:pred-expr :then-expr :else-expr])
-                      combined-typing (combine-typings {:typings typings
-                                                        :extra-eqs [[(::mono-type pred-typing) {::type :primitive
-                                                                                                ::primitive-type :bool}]
-                                                                    [(::mono-type then-typing) type-var]
-                                                                    [(::mono-type else-typing) type-var]]})]
+                      [pred-typing then-typing else-typing :as typings] (map (comp type-value-expr** expr) [:pred-expr :then-expr :else-expr])]
 
-                  {::mono-env (::mono-env combined-typing)
-                   ::mono-type (apply-mapping type-var (::mapping combined-typing))})
+                  (combine-typings {:typings typings
+                                    :return-type type-var
+                                    :extra-eqs [[(::mono-type pred-typing) {::type :primitive
+                                                                            ::primitive-type :bool}]
+                                                [(::mono-type then-typing) type-var]
+                                                [(::mono-type else-typing) type-var]]}))
 
                 :let
                 (let [{:keys [local-mono-env typings]} (type-bindings (:bindings expr))
+                      body-typing (type-value-expr* (:body-expr expr) {:local-mono-env local-mono-env})]
 
-                      body-typing (type-value-expr* (:body-expr expr) {:local-mono-env local-mono-env})
-
-                      combined-typing (combine-typings {:typings (conj typings body-typing)})]
-
-                  {::mono-env (::mono-env combined-typing)
-                   ::mono-type (apply-mapping (::mono-type body-typing) (::mapping combined-typing))})
+                  (combine-typings {:typings (conj typings body-typing)
+                                    :return-type (::mono-type body-typing)}))
 
                 :case
                 (let [{:keys [expr adt clauses]} expr
@@ -288,44 +287,39 @@
 
                                                            default-sym
                                                            {(first bindings) adt-mono-type})]
-                                         (type-value-expr** expr {:local-mono-env (merge local-mono-env param-types)})))
+                                         (type-value-expr** expr {:local-mono-env (merge local-mono-env param-types)})))]
 
-                      combined-typing (combine-typings {:typings (into [expr-typing] clause-typings)
-                                                        :extra-eqs (into [[(::mono-type expr-typing) adt-mono-type]]
-                                                                         (map (juxt ::mono-type (constantly return-type-var)))
-                                                                         clause-typings)})]
-
-                  {::mono-env (::mono-env combined-typing)
-                   ::mono-type (apply-mapping return-type-var (::mapping combined-typing))})
+                  (combine-typings {:typings (into [expr-typing] clause-typings)
+                                    :return-type return-type-var
+                                    :extra-eqs (into [[(::mono-type expr-typing) adt-mono-type]]
+                                                     (map (juxt ::mono-type (constantly return-type-var)))
+                                                     clause-typings)}))
 
                 :loop
                 (let [{:keys [local-mono-env typings]} (type-bindings (:bindings expr))
-
                       loop-return-var (->type-var 'loop-return)
                       body-typing (type-value-expr* (:body-expr expr) {:local-mono-env local-mono-env
-                                                                       :loop-return-var loop-return-var})
+                                                                       :loop-return-var loop-return-var})]
 
-                      combined-typing (combine-typings {:typings (conj typings body-typing)
-                                                        :extra-eqs [[(::mono-type body-typing) loop-return-var]]})]
-
-                  {::mono-env (::mono-env combined-typing)
-                   ::mono-type (apply-mapping loop-return-var (::mapping combined-typing))})
+                  (combine-typings {:typings (conj typings body-typing)
+                                    :return-type loop-return-var
+                                    :extra-eqs [[(::mono-type body-typing) loop-return-var]]}))
 
                 :recur
-                (let [expr-typings (map type-value-expr** (:exprs expr))
-                      combined-typings (combine-typings {:typings expr-typings
-                                                         :extra-eqs (mapv (fn [expr-typing loop-local]
-                                                                            [(::mono-type expr-typing) (get local-mono-env loop-local)])
-                                                                          expr-typings
-                                                                          (:loop-locals expr))})]
-                  {::mono-env (::mono-env combined-typings)
-                   ::mono-type (apply-mapping loop-return-var (::mapping combined-typings))})
+                (let [expr-typings (map type-value-expr** (:exprs expr))]
+                  (combine-typings {:typings expr-typings
+                                    :return-type loop-return-var
+                                    :extra-eqs (mapv (fn [expr-typing loop-local]
+                                                       [(::mono-type expr-typing) (get local-mono-env loop-local)])
+                                                     expr-typings
+                                                     (:loop-locals expr))}))
 
                 :fn
                 (let [{:keys [locals body-expr]} expr
-                      {:keys [::mono-type ::mono-env]} (type-value-expr** body-expr)]
+                      {:keys [::mono-type ::mono-env ::effects]} (type-value-expr** body-expr)]
                   {::mono-env (apply dissoc mono-env locals)
-                   ::mono-type (fn-type (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type)})
+                   ::mono-type (merge (fn-type (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type)
+                                      {::effects effects})})
 
                 :call
                 (let [[fn-expr & arg-exprs] (:exprs expr)
@@ -345,10 +339,10 @@
                                     {:expected expected-param-count
                                      :actual actual-param-count}))
 
-                    :else (let [{:keys [::mapping ::mono-env]} (combine-typings {:typings typings
-                                                                                 :extra-eqs (mapv vector param-types (map ::mono-type param-typings))})]
-                            {::mono-env mono-env
-                             ::mono-type (apply-mapping return-type mapping)}))))))]
+                    :else (-> (combine-typings {:typings typings
+                                                :return-type return-type
+                                                :extra-eqs (mapv vector param-types (map ::mono-type param-typings))})
+                              (update ::effects (fnil set/union #{}) (::effects fn-expr-type))))))))]
 
     {::poly-type (mono->poly (::mono-type (type-value-expr* expr {})))}))
 

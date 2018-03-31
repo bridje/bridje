@@ -312,7 +312,8 @@
                                       conformed))]
     {:expr-type :defeffect
      :sym sym
-     :definitions (into [] (map #(extract-type-signature % ctx))
+     :definitions (into [] (comp (map #(extract-type-signature % ctx))
+                                 (map #(assoc-in % [::tc/poly-type ::tc/mono-type ::tc/effects] #{sym})))
                         definitions)}))
 
 (defmethod analyse-call 'defadt [[_ & forms] ctx]

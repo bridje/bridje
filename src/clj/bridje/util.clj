@@ -18,8 +18,6 @@
                         (mapcat (comp sub-exprs :expr) (:clauses expr)))
           (:let :loop) (concat (mapcat sub-exprs (map second (:bindings expr)))
                                (sub-exprs (:body-expr expr)))
-          :match (concat (mapcat (comp sub-exprs second) (:clauses expr))
-                         (mapcat (comp sub-exprs expr) #{:match-expr :default-expr}))
           :fn (sub-exprs (:body-expr expr))
           [])
         expr))

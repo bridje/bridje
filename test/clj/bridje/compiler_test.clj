@@ -146,7 +146,7 @@
                                                ("::" (read-line!) String)
                                                ("::" (println! String) Unit))
 
-                                            '(def echo!
+                                            '(def (echo!)
                                                (println! (read-line!)))
 
                                             #_'(def res
@@ -162,11 +162,10 @@
                                                             (fn (println! line)
                                                               Unit)))))
 
-                                           {}))]
+                                           {}))
+        {:syms [echo!]} (:vars env)]
 
-    ;; TODO flesh me out pls
-    (t/is false)
-    ))
+    (t/is (= #{'ConsoleIO} (get-in echo! [::tc/poly-type ::tc/mono-type ::tc/effects])))))
 
 #_
 (t/deftest quoting-test
