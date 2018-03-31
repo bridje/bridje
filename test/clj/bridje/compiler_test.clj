@@ -167,8 +167,22 @@
 
     (t/is (= #{'ConsoleIO} (get-in echo! [::tc/poly-type ::tc/mono-type ::tc/effects])))))
 
-#_
-(t/deftest quoting-test
+(t/deftest defjava-test
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          '(defjava clojure.lang.Symbol
+                                             ("::" (intern String) Symbol))
+
+                                          '(def foo
+                                             (intern "foo")))
+                                         {})]
+    (t/is (= (tc/mono->poly (tc/fn-type [(tc/primitive-type :string)] (tc/->class clojure.lang.Symbol)))
+             (get-in env [:vars 'intern ::tc/poly-type])))
+
+    (t/is (= {:value 'foo
+              ::tc/poly-type (tc/mono->poly (tc/->class clojure.lang.Symbol))}
+             (get-in env [:vars 'foo])))))
+
+#_(t/deftest quoting-test
   (let [{:keys [env]} (sut/interpret-str
                        (s/join "\n" ["(def simple-quote '(foo 4 [2 3]))"
                                      "(def double-quote ''[foo 3])"

@@ -217,8 +217,8 @@
         :record (s/spec (s/and (s/cat :_record #{:record}
                                       :kws (s/* ::keyword-form))
                                (s/conformer #(set (:kws %)))))
-        :adt (s/and ::symbol-form
-                    #(Character/isUpperCase (first (name %))))
+        :adt-or-class (s/and ::symbol-form
+                             #(Character/isUpperCase (first (name %))))
         :applied (s/spec (s/cat :_list #{:list}
                                 :constructor-sym ::symbol-form
                                 :param-forms (s/* ::mono-type-form)))))
@@ -231,7 +231,14 @@
       :set (tc/set-of (extract-mono-type arg ctx))
       :record (tc/record-of (gensym 'r) arg)
       :type-var (->type-var arg)
-      :adt (tc/->adt arg)
+      :adt-or-class (or (when (get-in env [:adts arg])
+                          (tc/->adt arg))
+
+                        (when-let [{:keys [class]} (get-in env [:classes arg])]
+                          (tc/->class class))
+
+                        (throw (ex-info "Can't find type" {:type arg})))
+
       :applied (tc/->adt (get-in arg [:constructor-sym])
                          (->> (:param-forms arg)
                               (into [] (map #(extract-mono-type % ctx))))))))
@@ -262,36 +269,60 @@
 
 
 (defmethod analyse-call 'defclj [[_defclj & forms] ctx]
-  (let [conformed (s/conform (s/cat :ns-sym ::symbol-form
-                                    :type-sig-forms (s/* (s/spec ::type-signature-form)))
-                             forms)]
+  (let [{:keys [ns-sym type-sig-forms]} (let [conformed (s/conform (s/cat :ns-sym ::symbol-form
+                                                                          :type-sig-forms (s/* (s/spec ::type-signature-form)))
+                                                                   forms)]
+                                          (if (= ::s/invalid conformed)
+                                            (throw (ex-info "Invalid defclj" {}))
+                                            conformed))
 
-    (if (= ::s/invalid conformed)
-      (throw (ex-info "Invalid defclj" {}))
+        type-sigs (map #(extract-type-signature % ctx) type-sig-forms)
+        publics (try
+                  (require ns-sym)
+                  (ns-publics ns-sym)
+                  (catch Exception e
+                    (throw (ex-info "Failed requiring defclj namespace" {:ns ns-sym} e))))]
 
-      (let [{:keys [ns-sym type-sig-forms]} conformed
-            type-sigs (map #(extract-type-signature % ctx) type-sig-forms)
-            publics (try
-                      (require ns-sym)
-                      (ns-publics ns-sym)
-                      (catch Exception e
-                        (throw (ex-info "Failed requiring defclj namespace" {:ns ns-sym} e))))]
+    (when-let [unavailable-syms (seq (set/difference (into #{} (map :sym) type-sigs)
+                                                     (set (keys publics))))]
+      (throw (ex-info "Couldn't find CLJ vars" {:ns ns-sym
+                                                :unavailable-syms (set unavailable-syms)})))
 
-        (when-let [unavailable-syms (seq (set/difference (into #{} (map :sym) type-sigs)
-                                                         (set (keys publics))))]
-          (throw (ex-info "Couldn't find CLJ vars" {:ns ns-sym
-                                                    :unavailable-syms (set unavailable-syms)})))
+    {:expr-type :defclj
+     :clj-fns (into #{} (map (fn [{:keys [sym ::tc/poly-type]}]
+                               {:ns ns-sym
+                                :sym sym
+                                :value @(get publics sym)
+                                ::tc/poly-type poly-type}))
+                    type-sigs)}))
 
-        (set/difference (into #{} (map :sym) type-sigs)
-                        (set (keys publics)))
+(defmethod analyse-call 'defjava [[_defjava & forms] ctx]
+  (let [{:keys [class-name type-sig-forms]} (let [conformed (s/conform (s/cat :class-name ::symbol-form
+                                                                              :type-sig-forms (s/* (s/spec ::type-signature-form)))
+                                                                       forms)]
+                                              (if (= ::s/invalid conformed)
+                                                (throw (ex-info "Invalid defjava" {}))
+                                                conformed))
 
-        {:expr-type :defclj
-         :clj-fns (into #{} (map (fn [{:keys [sym ::tc/poly-type]}]
-                                   {:ns ns-sym
-                                    :sym sym
-                                    :value @(get publics sym)
-                                    ::tc/poly-type poly-type}))
-                        type-sigs)}))))
+        class-basename (symbol (last (str/split (name class-name) #"\.")))
+        class (Class/forName (name class-name))]
+
+    ;; TODO there're loads of checks we can make here
+
+    {:expr-type :defjava
+     :class class
+     :members (->> type-sig-forms
+                   (into [] (comp (let [ctx (-> ctx (assoc-in [:env :classes class-basename] {:class class}))]
+                                    (map #(extract-type-signature % ctx)))
+                                  (map (fn [{:keys [sym ::tc/poly-type]}]
+                                         (let [[_ prefix base suffix] (re-matches #"([.\-]+)?(.+?)(!)?" (name sym))]
+                                           {:sym (symbol base)
+                                            :op (case prefix
+                                                  ".-" (if suffix :put-field :get-field)
+                                                  "-" (if suffix :put-static :get-static)
+                                                  "." :invoke-virtual
+                                                  nil :invoke-static)
+                                            ::tc/poly-type poly-type}))))))}))
 
 (defmethod analyse-call (symbol "::") [[_ & forms] ctx]
   (let [{[subject-type subject-form] :subject, :keys [type-form]} (s/conform (s/cat :subject (s/or :keyword ::keyword-form

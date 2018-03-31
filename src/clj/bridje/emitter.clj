@@ -169,4 +169,27 @@
                         (assoc-in [:vars sym] {:value value
                                                ::tc/poly-type poly-type})))
                   env
-                  (:clj-fns expr))}))
+                  (:clj-fns expr))}
+
+    :defjava
+    {:env (let [{:keys [^Class class members]} expr
+                class-basename (symbol (last (str/split (.getName class) #"\.")))]
+            (-> env
+                (assoc-in [:classes class-basename] {:class class})
+                (update :vars merge (->> members
+                                         (into {} (map (fn [{:keys [sym op ::tc/poly-type]}]
+                                                         (let [mono-type (::tc/mono-type poly-type)
+                                                               param-syms (when (= :fn (::tc/type mono-type))
+                                                                            (repeatedly (count (::tc/param-types mono-type))
+                                                                                        #(gensym 'param)))]
+                                                           [sym {::tc/poly-type poly-type
+                                                                 :value (eval (case op
+                                                                                ;; TODO all the rest
+                                                                                :invoke-virtual
+                                                                                `(fn [~@param-syms]
+                                                                                   (~(symbol (str "." (name sym))) ~@param-syms))
+
+                                                                                :invoke-static
+                                                                                `(fn [~@param-syms]
+                                                                                   (~(symbol (.getName class) (name sym))
+                                                                                    ~@param-syms))))}]))))))))}))

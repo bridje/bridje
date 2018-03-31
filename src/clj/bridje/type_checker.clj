@@ -24,6 +24,10 @@
   {::type :adt
    ::adt-sym sym})
 
+(defn ->class [class]
+  {::type :class
+   ::class class})
+
 (defn record-of [base attributes]
   {::type :record
    ::base base
@@ -42,7 +46,7 @@
 (defn ftvs [mono-type]
   (case (::type mono-type)
     :type-var #{(::type-var mono-type)}
-    :primitive #{}
+    (:primitive :class) #{}
     :record (into #{} (keep ::base) [mono-type])
     (:vector :set) (ftvs (::elem-type mono-type))
 
@@ -74,7 +78,7 @@
 
 (defn apply-mapping [type mapping]
   (case (::type type)
-    :primitive type
+    (:primitive :class) type
     (:vector :set) (-> type (update ::elem-type apply-mapping mapping))
     :record (let [{existing-base ::base, existing-attributes ::attributes} type]
               (if-let [{new-base ::base, extra-attributes ::attributes} (get mapping existing-base)]
@@ -368,6 +372,10 @@
            :defclj
            {::poly-type {::mono-type :env-update
                          ::env-update-type :defclj}}
+
+           :defjava
+           {::poly-type {::mono-type :env-update
+                         ::env-update-type :defjava}}
 
            :defadt
            {::poly-type {::mono-type :env-update
