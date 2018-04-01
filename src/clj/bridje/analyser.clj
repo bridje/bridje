@@ -180,23 +180,44 @@
                                    :param-forms (s/* ::symbol-form)))))
 
 (defmethod analyse-call 'def [[_def & forms] ctx]
-  (let [conformed (s/conform (s/cat :params-form ::def-params, :body-form any?) forms)]
+  (let [{:keys [params-form body-form]} (let [conformed (s/conform (s/cat :params-form ::def-params, :body-form any?) forms)]
 
-    (if (= ::s/invalid conformed)
-      (throw (ex-info "Invalid def" {:forms forms}))
+                                          (if (= ::s/invalid conformed)
+                                            (throw (ex-info "Invalid def" {:forms forms}))
+                                            conformed))
 
-      (let [{:keys [params-form body-form]} conformed
-            {:keys [sym-form param-forms]} (case (first params-form)
-                                             :just-sym {:sym-form (second params-form)}
-                                             :sym+params (merge {:param-forms []} (second params-form)))
-            local-mapping (some->> param-forms (map (juxt identity gensym)))]
+        {:keys [sym-form param-forms]} (case (first params-form)
+                                         :just-sym {:sym-form (second params-form)}
+                                         :sym+params (merge {:param-forms []} (second params-form)))
 
-        {:expr-type :def
-         :sym sym-form
-         :locals (some->> local-mapping (map second))
-         :body-expr (analyse body-form (-> ctx
-                                           (update :locals (fnil into {}) local-mapping)
-                                           (dissoc :loop-locals)))}))))
+        local-mapping (some->> param-forms (map (juxt identity gensym)))]
+
+    {:expr-type :def
+     :sym sym-form
+     :locals (some->> local-mapping (map second))
+     :body-expr (analyse body-form (-> ctx
+                                       (update :locals (fnil into {}) local-mapping)
+                                       (dissoc :loop-locals)))}))
+
+(defmethod analyse-call 'defmacro [[_defmacro & forms] ctx]
+  (let [{:keys [params-form body-form]} (let [conformed (s/conform (s/cat :params-form ::def-params, :body-form any?) forms)]
+
+                                          (if (= ::s/invalid conformed)
+                                            (throw (ex-info "Invalid defmacro" {:forms forms}))
+                                            conformed))
+
+        {:keys [sym-form param-forms]} (case (first params-form)
+                                         :just-sym {:sym-form (second params-form)}
+                                         :sym+params (merge {:param-forms []} (second params-form)))
+
+        local-mapping (some->> param-forms (map (juxt identity gensym)))]
+
+    {:expr-type :defmacro
+     :sym sym-form
+     :locals (some->> local-mapping (map second))
+     :body-expr (analyse body-form (-> ctx
+                                       (update :locals (fnil into {}) local-mapping)
+                                       (dissoc :loop-locals)))}))
 
 (defn exact-sym [sym]
   (s/and ::symbol-form #{sym}))
@@ -381,9 +402,47 @@
                                                                                         (extract-mono-type form (-> ctx
                                                                                                                     (assoc-in [:env :adts name-sym] {})))))))})))))}))))
 
-(defmethod analyse-call :default [forms ctx]
-  {:expr-type :call
-   :exprs (mapv #(analyse % ctx) forms)})
+(def ->form-type-kw
+  (-> (fn [sym]
+        (when sym
+          (->> (name sym)
+               (re-seq #"[A-Z][a-z]*" )
+               butlast
+               (map str/lower-case)
+               (str/join "-")
+               keyword)))
+      memoize))
+
+(defn form-adt->form [{:brj/keys [constructor constructor-params]}]
+  (let [form-type (->form-type-kw constructor)]
+    (case form-type
+      (:vector :list :set :record)
+      (into [form-type] (map form-adt->form) (get-in constructor-params [0]))
+
+      [form-type (first constructor-params)])))
+
+(def ->form-adt-sym
+  (-> (fn [form-type]
+        (let [base (->> (str/split (name form-type) #"-")
+                        (map str/capitalize)
+                        str/join)]
+          (symbol (str base "Form"))))
+      memoize))
+
+(defn form->form-adt [[form-type & [first-form :as forms] :as form]]
+  (case form-type
+    {:brj/constructor (->form-adt-sym form-type)
+     :brj/constructor-params (case form-type
+                               (:vector :list :set :record) [(mapv form->form-adt forms)]
+                               [first-form])}))
+
+(defmethod analyse-call :default [[[form-type form-arg] & more-forms :as forms] {:keys [env] :as ctx}]
+  (or (when (= :symbol form-type)
+        (when-let [{:keys [value]} (get-in env [:macros form-arg])]
+          (analyse (form-adt->form (apply value (map form->form-adt more-forms))) ctx)))
+
+      {:expr-type :call
+       :exprs (mapv #(analyse % ctx) (expand-macros forms ctx))}))
 
 (defn analyse [[form-type & [form-value :as forms]] {:keys [env locals] :as ctx}]
   (case form-type

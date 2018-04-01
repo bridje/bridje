@@ -1,13 +1,6 @@
 (ns bridje.quoter
-  (:require [clojure.string :as str]))
-
-(def ->form-adt-sym
-  (-> (fn [form-type]
-        (let [base (->> (str/split (name form-type) #"-")
-                        (map str/capitalize)
-                        str/join)]
-          (symbol (str base "Form"))))
-      memoize))
+  (:require [clojure.string :as str]
+            [bridje.analyser :refer [->form-adt-sym]]))
 
 (defn expand-quotes [form {:keys [env] :as ctx}]
   (letfn [(quote-form [[form-type & [first-form :as forms] :as form]]

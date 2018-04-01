@@ -124,6 +124,18 @@
                                                                         body-expr)
                                                                       env))
                                                env)})})
+
+    :defmacro
+    (let [{:keys [sym locals body-expr]} expr]
+      {:env (assoc-in env [:macros sym] {:value ((eval (emit-value-expr (if locals
+                                                                          {:expr-type :fn
+                                                                           :sym sym
+                                                                           :locals locals
+                                                                           :body-expr body-expr}
+                                                                          body-expr)
+                                                                        env))
+                                                 env)})})
+
     :defattribute
     (let [{:keys [attribute ::tc/mono-type]} expr]
       {:env (-> env
@@ -148,7 +160,7 @@
                                                           (if param-mono-types
                                                             {:value (fn [& params]
                                                                       {:brj/constructor constructor-sym
-                                                                       :brj/constructor-params params})
+                                                                       :brj/constructor-params (vec params)})
                                                              ::tc/poly-type (tc/mono->poly (tc/fn-type param-mono-types mono-type))}
 
                                                             {:value {:brj/constructor constructor-sym}

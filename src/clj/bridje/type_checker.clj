@@ -353,6 +353,14 @@
 
     {::poly-type (mono->poly (::mono-type (type-value-expr* expr {})))}))
 
+(defn type-defmacro [{:keys [locals body-expr]} {:keys [env]}]
+  (let [form-adt (->adt 'Form)
+        body-typing (type-value-expr body-expr {:env env})]
+    (when (combine-typings {:typings [body-typing {::mono-env (into {} (map (juxt identity (constantly form-adt))) locals)}]
+                            :return-type form-adt})
+      {::poly-type {::mono-type :env-update
+                    ::env-update-type :defmacro}})))
+
 (defn with-type [expr {:keys [env]}]
   (merge expr
          (case (:expr-type expr)
@@ -366,6 +374,9 @@
                                                                :body-expr body-expr}
                                                               body-expr)
                                                             {:env env})})}
+
+           :defmacro
+           (type-defmacro expr {:env env})
 
            :defattribute
            (let [{:keys [kw ::mono-type]} expr]

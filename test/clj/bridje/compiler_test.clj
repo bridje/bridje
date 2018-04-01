@@ -216,3 +216,26 @@
                      (->ADT 'IntForm 4)
                      (->ADT 'IntForm 5)])
              (:value syntax-quote)))))
+
+(def ^:dynamic with-trace)
+
+(t/deftest macro-test
+  (let [!tracer (atom [])]
+    (binding [with-trace (fn [v]
+                           (swap! !tracer conj v)
+                           v)]
+      (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                              clj-core-interop
+                                              '(defclj bridje.compiler-test
+                                                 ("::" (with-trace a) a))
+
+                                              "(defmacro (if-not pred then else)
+                                                `(if ~pred ~else ~then))"
+
+                                              '(def foo
+                                                 (if-not (zero? 5) (with-trace 10) (with-trace 25))))
+                                             {})
+            {:syms [foo]} (:vars env)]
+
+        (t/is (= 10 (:value foo)))
+        (t/is (= [10] @!tracer))))))
