@@ -1,67 +1,61 @@
 (ns bridje.quoter
   (:require [clojure.string :as str]))
 
-;; jfc this needs some tests...
+(def ->form-adt-sym
+  (-> (fn [form-type]
+        (let [base (->> (str/split (name form-type) #"-")
+                        (map str/capitalize)
+                        str/join)]
+          (symbol (str base "Form"))))
+      memoize))
+
 (defn expand-quotes [form {:keys [env] :as ctx}]
-  (letfn [(quote-form [[form-type & [first-form :as forms]]]
+  (letfn [(quote-form [[form-type & [first-form :as forms] :as form]]
             (case form-type
-              :quote (quote-form (quote-form first-form))
-              :splicing (let [[form-type & forms] first-form]
-                          [:list
-                           [:symbol (->form-adt-sym form-type)]
-                           [:list
-                            [:symbol 'concat]
-                            (into [:vector] (map (comp quote-form #(vector :spliced %))) forms)]])
-
-              :spliced (let [[form-type first-form :as form] first-form]
-                         (if (= form-type :unquote-splicing)
-                           (quote-form form)
-                           [:vector (quote-form form)]))
-
-              (:unquote :unquote-splicing) (expand-quotes* first-form)
+              :quote (quote-form (expand-quotes* first-form))
 
               (into [:list [:symbol (->form-adt-sym form-type)]]
                     (case form-type
                       (:vector :list :set :record) [(into [:vector] (map quote-form forms))]
-                      :symbol [[:list [:symbol 'symbol] [:symbol first-form]]]
+                      :symbol [[:list [:symbol 'quote] [:symbol first-form]]]
                       [[form-type first-form]]))))
 
           (expand-syntax-quote [[form-type & [first-form :as forms] :as form] {:keys [splice?]}]
-            (case form-type
-              :unquote [:unquote first-form]
+            (let [expanded-form (case form-type
+                                  :unquote (expand-quotes* first-form)
 
-              :unquote-splicing (if splice?
-                                  [:unquote-splicing first-form]
-                                  (throw (ex-info "unquote-splicing used outside of collection" {:form form})))
+                                  :unquote-splicing (if splice?
+                                                      (expand-quotes* first-form)
+                                                      (throw (ex-info "unquote-splicing used outside of collection" {:form form})))
 
-              (:vector :set :list :record)
-              (let [splice? (some (comp #{:unquote-splicing} first) forms)
-                    inner-form (into [form-type] (map #(expand-syntax-quote % {:splice? splice?})) forms)]
-                (if splice?
-                  [:splicing inner-form]
-                  inner-form))
+                                  (:vector :set :list :record)
+                                  (let [splice? (some (comp #{:unquote-splicing} first) forms)
+                                        inner-forms (into [:vector] (map #(expand-syntax-quote % {:splice? splice?})) forms)]
+                                    [:list
+                                     [:symbol (->form-adt-sym form-type)]
+                                     (if splice?
+                                       [:list [:symbol 'concat] inner-forms]
+                                       inner-forms)])
 
-              :syntax-quote [:quote (expand-syntax-quote first-form {:splice? false})]
+                                  :syntax-quote (-> first-form
+                                                    (expand-syntax-quote {:splice? false})
+                                                    (expand-syntax-quote {:splice? false}))
 
-              :quote [:quote (expand-syntax-quote first-form {:splice? false})]
+                                  :quote (-> first-form
+                                             (expand-syntax-quote {:splice? false})
+                                             quote-form)
 
-              form))
+                                  (quote-form form))]
+              (if (and splice? (not= :unquote-splicing form-type))
+                [:vector expanded-form]
+                expanded-form)))
 
           (expand-quotes* [[form-type & [first-form :as forms] :as form]]
             (case form-type
               (:vector :set :list :record) (into [form-type] (map expand-quotes*) forms)
-              :quote (quote-form first-form)
-              :syntax-quote (quote-form (expand-syntax-quote first-form {:splice? false}))
-              :unquote (throw (ex-info "'unquote' outside of 'syntax-quote'" {:form form}))
-              :unquote-splicing (throw (ex-info "'unquote-splicing' outside of 'syntax-quote'" {:form form}))
+              :quote (quote-form (expand-quotes* first-form))
+              :syntax-quote (expand-syntax-quote first-form {:splice? false})
 
               form))]
 
     (expand-quotes* form)))
-
-(comment
-  (-> (first (bridje.reader/read-forms "`[1 ~@['2 '3 '4]]"))
-      (expand-quotes {}))
-
-  (-> (first (bridje.reader/read-forms "'(foo 4 [2 3])"))
-      (expand-quotes {})))

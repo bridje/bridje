@@ -202,7 +202,7 @@
     (t/is (= (->ADT 'ListForm [(->ADT 'SymbolForm 'VectorForm)
                                (->ADT 'VectorForm [(->ADT 'ListForm [(->ADT 'SymbolForm 'SymbolForm)
                                                                      (->ADT 'ListForm
-                                                                            [(->ADT 'SymbolForm 'symbol)
+                                                                            [(->ADT 'SymbolForm 'quote)
                                                                              (->ADT 'SymbolForm 'foo)])])
                                                    (->ADT 'ListForm [(->ADT 'SymbolForm 'IntForm)
                                                                      (->ADT 'IntForm 24)])])])
