@@ -20,15 +20,72 @@
                 :kw keyword?)
          (s/conformer #(:kw %))))
 
-(declare analyse)
+(def ^:dynamic ^:private *ctx* {})
 
-(ns-unmap *ns* 'analyse-call)
-(defmulti analyse-call
-  (fn [[[form-type maybe-sym] & more-forms :as forms] _]
-    (when (= :symbol form-type)
-      maybe-sym)))
+(defmacro with-ctx-update [update-form & body]
+  `(binding [*ctx* (-> *ctx* ~update-form)]
+     ~@body))
 
-(defmethod analyse-call 'quote [[_ & forms] ctx]
+#_(ns-unmap *ns* 'analyse-expr)
+(defmulti analyse-expr
+  (fn [[form-type params]]
+    form-type)
+  :default ::default)
+
+(defmethod analyse-expr ::default [form]
+  (throw (ex-info "ohno" {:form form})))
+
+(defmethod analyse-expr :bool [[_ {:keys [bool]}]]
+  {:expr-type :bool, :bool bool})
+
+(defmethod analyse-expr :string [[_ {:keys [string]}]]
+  {:expr-type :string, :string string})
+
+(defmethod analyse-expr :number [[_ {:keys [num-type number]}]]
+  {:expr-type num-type, :number number})
+
+(defmethod analyse-expr :symbol [[_ {:keys [sym]}]]
+  (let [{:keys [env locals]} *ctx*]
+    (or (when-let [local (get locals sym)]
+          {:expr-type :local
+           :local local})
+
+        (when (contains? (:vars env) sym)
+          {:expr-type :global
+           :global sym})
+
+        (when (contains? (:effect-fns env) sym)
+          {:expr-type :effect-fn
+           :effect-fn sym})
+
+        (throw (ex-info "Can't find" {:sym sym, :ctx *ctx*})))))
+
+(defmethod analyse-expr :coll [[_ {:keys [coll-type forms]}]]
+  {:expr-type coll-type
+   :exprs (with-ctx-update (dissoc :loop-locals)
+            (mapv analyse-expr forms))})
+
+(s/def ::record-form
+  (s/cat :_record #{:record}
+         :entries (s/* (s/cat :k ::keyword-form, :v (s/spec ::form)))))
+
+(defmethod analyse-expr :record [[_ {:keys [entries]}]]
+  {:expr-type :record
+   :entries (->> entries
+                 (mapv (fn [{:keys [k v]}]
+                         {:k k
+                          :v (with-ctx-update (dissoc :loop-locals)
+                               (analyse-expr v))})))})
+
+(defmethod analyse-expr :keyword [[_ {:keys [kw]}]]
+  (if (get-in *ctx* [:env :attributes kw])
+    {:expr-type :attribute
+     :attribute kw}
+
+    (throw (ex-info "Cannot resolve attribute" {:attribute kw
+                                                :ctx *ctx*}))))
+
+#_(defmethod analyse-call 'quote [[_ & forms] ctx]
   (let [{:keys [sym]} (let [conformed (s/conform (s/cat :sym ::symbol-form)
                                                  forms)]
                         (if (= ::s/invalid conformed)
@@ -37,17 +94,19 @@
     {:expr-type :symbol
      :sym sym}))
 
-(defmethod analyse-call 'if [[_ & forms] ctx]
-  (let [{:keys [pred-form then-form else-form] :as conformed} (s/conform (s/cat :pred-form any?
-                                                                                :then-form any?
-                                                                                :else-form any?)
-                                                                         forms)]
-    (if (= ::s/invalid conformed)
-      (throw (ex-info "Invalid if" {}))
-      {:expr-type :if
-       :pred-expr (analyse pred-form (-> ctx (dissoc :loop-locals)))
-       :then-expr (analyse then-form ctx)
-       :else-expr (analyse else-form ctx)})))
+(s/def ::if-form
+  (s/cat :_list #{:list}
+         :_if (s/and ::symbol-form #{'if})
+         :pred-form (s/spec ::form)
+         :then-form (s/spec ::form)
+         :else-form (s/spec ::form)))
+
+(defmethod analyse-expr :if [[_ {:keys [pred-form then-form else-form]}]]
+  {:expr-type :if
+   :pred-expr (with-ctx-update (dissoc :loop-locals)
+                (analyse-expr pred-form))
+   :then-expr (analyse-expr then-form)
+   :else-expr (analyse-expr else-form)})
 
 (s/def ::bindings-form
   (s/and (s/cat :_vector #{:vector}
@@ -55,7 +114,7 @@
                                       :binding-form any?)))
          (s/conformer #(:bindings %))))
 
-(defmethod analyse-call 'let [[_ & forms] ctx]
+#_(defmethod analyse-call 'let [[_ & forms] ctx]
   (let [conformed (s/conform (s/cat :bindings-form (s/spec ::bindings-form)
                                     :body-form any?)
                              forms)]
@@ -77,7 +136,7 @@
          :body-expr (analyse body-form (-> ctx
                                            (update :locals (fnil into {}) locals)))}))))
 
-(defmethod analyse-call 'case [[_ & forms] ctx]
+#_(defmethod analyse-call 'case [[_ & forms] ctx]
   (let [{:keys [expr-form clause-forms]}
         (let [conformed (s/conform
                          (s/cat :expr-form any?
@@ -123,7 +182,7 @@
      :expr expr
      :clauses clauses}))
 
-(defmethod analyse-call 'loop [[_loop & forms] ctx]
+#_(defmethod analyse-call 'loop [[_loop & forms] ctx]
   (let [conformed (s/conform (s/cat :bindings-form ::bindings-form
                                     :body-form any?)
                              forms)]
@@ -141,18 +200,26 @@
                                            (update :locals (fnil into {}) (map (juxt :sym :local)) bindings)
                                            (assoc :loop-locals (map :local bindings))))}))))
 
-(defmethod analyse-call 'recur [[_recur & recur-arg-forms] {:keys [loop-locals] :as ctx}]
-  (cond
-    (nil? loop-locals) (throw (ex-info "'recur' called from non-tail position"
-                                       {}))
-    (not= (count loop-locals) (count recur-arg-forms)) (throw (ex-info "'recur' called with wrong number of arguments"
-                                                                       {:expected (count loop-locals)
-                                                                        :found (count recur-arg-forms)}))
-    :else {:expr-type :recur
-           :exprs (mapv #(analyse % (dissoc ctx :loop-locals)) recur-arg-forms)
-           :loop-locals loop-locals}))
+(defmethod analyse-expr :recur [[_ {:keys [forms]}]]
+  (let [{:keys [loop-locals]} *ctx*]
+    (cond
+      (nil? loop-locals)
+      (throw (ex-info "'recur' called from non-tail position" {}))
 
-(defmethod analyse-call 'fn [[_fn & forms] ctx]
+      (not= (count loop-locals) (count forms))
+      (throw (ex-info "'recur' called with wrong number of arguments"
+                      {:expected (count loop-locals), :found (count forms)}))
+
+      :else {:expr-type :recur
+             :exprs (with-ctx-update (dissoc :loop-locals)
+                      (mapv analyse-expr forms))
+             :loop-locals loop-locals})))
+
+(defmethod analyse-expr :call [[_ {:keys [forms]}]]
+  {:expr-type :call
+   :exprs (mapv analyse-expr forms)})
+
+#_(defmethod analyse-call 'fn [[_fn & forms] ctx]
   (let [conformed (s/conform (s/cat :params-form (s/spec (s/cat :_list #{:list}
                                                                 :sym-form ::symbol-form
                                                                 :param-forms (s/* ::symbol-form))),
@@ -179,7 +246,7 @@
                                    :sym-form ::symbol-form
                                    :param-forms (s/* ::symbol-form)))))
 
-(defmethod analyse-call 'def [[_def & forms] ctx]
+#_(defmethod analyse-call 'def [[_def & forms] ctx]
   (let [{:keys [params-form body-form]} (let [conformed (s/conform (s/cat :params-form ::def-params, :body-form any?) forms)]
 
                                           (if (= ::s/invalid conformed)
@@ -199,7 +266,7 @@
                                        (update :locals (fnil into {}) local-mapping)
                                        (dissoc :loop-locals)))}))
 
-(defmethod analyse-call 'defmacro [[_defmacro & forms] ctx]
+#_(defmethod analyse-call 'defmacro [[_defmacro & forms] ctx]
   (let [{:keys [params-form body-form]} (let [conformed (s/conform (s/cat :params-form ::def-params, :body-form any?) forms)]
 
                                           (if (= ::s/invalid conformed)
@@ -298,7 +365,7 @@
                                      return-type))}))
 
 
-(defmethod analyse-call 'defclj [[_defclj & forms] ctx]
+#_(defmethod analyse-call 'defclj [[_defclj & forms] ctx]
   (let [{:keys [ns-sym type-sig-forms]} (let [conformed (s/conform (s/cat :ns-sym ::symbol-form
                                                                           :type-sig-forms (s/* (s/spec ::type-signature-form)))
                                                                    forms)]
@@ -326,35 +393,32 @@
                                 ::tc/poly-type poly-type}))
                     type-sigs)}))
 
-(defmethod analyse-call 'defjava [[_defjava & forms] ctx]
-  (let [{:keys [class-name type-sig-forms]} (let [conformed (s/conform (s/cat :class-name ::symbol-form
-                                                                              :type-sig-forms (s/* (s/spec ::type-signature-form)))
-                                                                       forms)]
-                                              (if (= ::s/invalid conformed)
-                                                (throw (ex-info "Invalid defjava" {}))
-                                                conformed))
+(s/def ::defjava-form
+  (s/cat :class-name ::symbol-form
+         :type-sig-forms (s/* (s/spec ::type-signature-form))))
 
-        class-basename (symbol (last (str/split (name class-name) #"\.")))
+(defmethod analyse-expr :defjava [[_ {:keys [class-name type-sig-forms]}]]
+  (let [class-basename (symbol (last (str/split (name class-name) #"\.")))
         class (Class/forName (name class-name))]
 
     ;; TODO there're loads of checks we can make here
 
     {:expr-type :defjava
      :class class
-     :members (->> type-sig-forms
-                   (into [] (comp (let [ctx (-> ctx (assoc-in [:env :classes class-basename] {:class class}))]
-                                    (map #(extract-type-signature % ctx)))
-                                  (map (fn [{:keys [sym ::tc/poly-type]}]
-                                         (let [[_ prefix base suffix] (re-matches #"([.\-]+)?(.+?)(!)?" (name sym))]
-                                           {:sym (symbol base)
-                                            :op (case prefix
-                                                  ".-" (if suffix :put-field :get-field)
-                                                  "-" (if suffix :put-static :get-static)
-                                                  "." :invoke-virtual
-                                                  nil :invoke-static)
-                                            ::tc/poly-type poly-type}))))))}))
+     :members (with-ctx-update (assoc-in [:env :classes class-basename] {:class class})
+                (->> type-sig-forms
+                     (into [] (comp (map extract-type-signature)
+                                    (map (fn [{:keys [sym ::tc/poly-type]}]
+                                           (let [[_ prefix base suffix] (re-matches #"([.\-]+)?(.+?)(!)?" (name sym))]
+                                             {:sym (symbol base)
+                                              :op (case prefix
+                                                    ".-" (if suffix :put-field :get-field)
+                                                    "-" (if suffix :put-static :get-static)
+                                                    "." :invoke-virtual
+                                                    nil :invoke-static)
+                                              ::tc/poly-type poly-type})))))))}))
 
-(defmethod analyse-call (symbol "::") [[_ & forms] ctx]
+#_(defmethod analyse-call (symbol "::") [[_ & forms] ctx]
   (let [{[subject-type subject-form] :subject, :keys [type-form]} (s/conform (s/cat :subject (s/or :keyword ::keyword-form
                                                                                                    :symbol ::symbol-form)
                                                                                     :type-form ::mono-type-form)
@@ -364,7 +428,7 @@
              :keyword {:expr-type :defattribute
                        :attribute subject-form}))))
 
-(defmethod analyse-call 'defeffect [[_ & forms] ctx]
+#_(defmethod analyse-call 'defeffect [[_ & forms] ctx]
   (let [{:keys [sym definitions]} (let [conformed (s/conform (s/cat :sym ::symbol-form
                                                                     :definitions (s/* (s/spec ::type-signature-form)))
                                                              forms)]
@@ -377,30 +441,28 @@
                                  (map #(assoc-in % [::tc/poly-type ::tc/mono-type ::tc/effects] #{sym})))
                         definitions)}))
 
-(defmethod analyse-call 'defadt [[_ & forms] ctx]
-  (let [conformed (s/conform (s/cat :name-sym ::symbol-form
-                                    ;; TODO add attrs in here, will make recursive ADTs much easier
-                                    :constructors-forms (s/* (s/or :value-constructor ::symbol-form
-                                                                   :constructor+params (s/spec (s/cat :_list #{:list}
-                                                                                                      :constructor-sym ::symbol-form
-                                                                                                      :params-forms (s/* ::mono-type-form))))))
-                             forms)]
+(s/def ::defadt-form
+  (s/cat :name-sym ::symbol-form
+         ;; TODO add attrs in here, will make recursive ADTs much easier
+         :constructors-forms (s/* (s/or :value-constructor ::symbol-form
+                                        :constructor+params (s/spec (s/cat :_list #{:list}
+                                                                           :constructor-sym ::symbol-form
+                                                                           :params-forms (s/* ::mono-type-form)))))))
 
-    (if (= ::s/invalid conformed)
-      (throw (ex-info "Invalid 'defadt'" {}))
-      (let [{:keys [name-sym constructors-forms]} conformed]
-        {:expr-type :defadt
-         :sym name-sym
-         :constructors (->> constructors-forms
-                            (into [] (map (fn [[c-type c-args]]
-                                            (case c-type
-                                              :value-constructor {:constructor-sym c-args}
-                                              :constructor+params {:constructor-sym (:constructor-sym c-args)
-                                                                   :param-mono-types
-                                                                   (->> (:params-forms c-args)
-                                                                        (into [] (map (fn [form]
-                                                                                        (extract-mono-type form (-> ctx
-                                                                                                                    (assoc-in [:env :adts name-sym] {})))))))})))))}))))
+(defmethod analyse-expr :defadt [[_ {:keys [name-sym constructors-forms]}]]
+  {:expr-type :defadt
+   :sym name-sym
+   :constructors (->> constructors-forms
+                      (into [] (map (fn [[c-type c-args]]
+                                      (case c-type
+                                        :value-constructor {:constructor-sym c-args}
+                                        :constructor+params {:constructor-sym (:constructor-sym c-args)
+                                                             :param-mono-types
+                                                             (->> (:params-forms c-args)
+                                                                  (into [] (map (fn [form]
+                                                                                  (with-ctx-update (assoc-in [:env :adts name-sym] {})
+
+                                                                                    (extract-mono-type form))))))})))))})
 
 (def ->form-type-kw
   (-> (fn [sym]
@@ -436,60 +498,59 @@
                                (:vector :list :set :record) [(mapv form->form-adt forms)]
                                [first-form])}))
 
-(defmethod analyse-call :default [[[form-type form-arg] & more-forms :as forms] {:keys [env] :as ctx}]
-  (or (when (= :symbol form-type)
-        (when-let [{:keys [value]} (get-in env [:macros form-arg])]
-          (analyse (form-adt->form (apply value (map form->form-adt more-forms))) ctx)))
 
-      {:expr-type :call
-       :exprs (mapv #(analyse % ctx) (expand-macros forms ctx))}))
 
-(defn analyse [[form-type & [form-value :as forms]] {:keys [env locals] :as ctx}]
-  (case form-type
-    (:int :float :big-int :big-float) {:expr-type form-type
-                                       :number form-value}
+(defn call-conformer [{:keys [forms]}]
+  (letfn [(fall-through [forms]
+            (let [conformed-forms (s/conform (s/* ::form) forms)]
+              (if (= ::s/invalid conformed-forms)
+                (do
+                  (s/explain (s/* ::form) forms)
+                  ::s/invalid)
+                {:forms conformed-forms})))]
 
-    :bool {:expr-type :bool
-           :bool form-value}
+    (if (= :symbol (get-in forms [0 0]))
+      (if-let [{eval-macro :value} (get-in *ctx* [:env :macros (get-in forms [0 1])])]
+        ;; TODO arity check
+        (recur {:forms (->> (rest forms)
+                            (into [] (map form->form-adt))
+                            (apply eval-macro)
+                            (into [] (map form-adt->form)))})
 
-    :string {:expr-type :string
-             :string form-value}
+        (fall-through forms))
 
-    :quote {:expr-type :quote
-            :form (first forms)}
+      (fall-through forms))))
 
-    (:vector :set) {:expr-type form-type
-                    :exprs (mapv #(analyse % (-> ctx (dissoc :loop-locals))) forms)}
+(s/def ::form
+  (s/or :bool (s/cat :_bool #{:bool}, :bool boolean?)
+        :string (s/cat :_string #{:string}, :string string?)
+        :number (s/cat :num-type #{:int :float :big-int :big-float}, :number number?)
+        :keyword (s/cat :_keyword #{:keyword}, :kw keyword?)
+        ;; :quote (s/cat :_quote {:quote}, :form (s/spec ::form))
 
-    :record (let [conformed (s/conform (s/* (s/cat :k ::keyword-form
-                                                   :v any?))
-                                       forms)]
-              {:expr-type :record
-               :entries (for [{:keys [k v]} conformed]
-                          {:k k
-                           :v (analyse v (-> ctx (dissoc :loop-locals)))})})
+        :symbol (s/cat :_symbol #{:symbol}, :sym symbol?)
+        :coll (s/cat :coll-type #{:vector :set}, :forms (s/* (s/spec ::form)))
+        :record ::record-form
 
-    :list (analyse-call forms ctx)
+        :recur (s/cat :forms (s/* (s/spec ::form)))
 
-    :symbol (let [[sym] forms]
-              (or (when-let [local (get locals sym)]
-                    {:expr-type :local
-                     :local local})
+        :if ::if-form
 
-                  (when (contains? (:vars env) sym)
-                    {:expr-type :global
-                     :global sym})
+        :defadt ::defadt-form
+        :defjava ::defjava-form
 
-                  (when (contains? (:effect-fns env) sym)
-                    {:expr-type :effect-fn
-                     :effect-fn sym})
+        :call (s/and (s/cat :_list #{:list}
+                            :forms (s/* any?))
+                     (s/conformer call-conformer))))
 
-                  (throw (ex-info "Can't find" {:sym sym
-                                                :ctx ctx}))))
+(defn analyse [form ctx]
+  (binding [*ctx* ctx]
+    (let [conformed (s/conform ::form form)]
+      (if-not (= ::s/invalid conformed)
+        (analyse-expr conformed)
+        (throw (ex-info "Invalid form" {:form form, :explain (s/explain-data ::form form)}))))))
 
-    :keyword (let [[kw] forms]
-               (if (get-in env [:attributes kw])
-                 {:expr-type :attribute
-                  :attribute kw}
-
-                 (throw (ex-info "Cannot resolve attribute" {:attribute kw}))))))
+(analyse [:record
+          [:keyword :foo] [:keyword :foo]
+          [:keyword :bar] [:int 6]]
+         {:env {:attributes {:foo {}}}})
