@@ -494,73 +494,72 @@
                                (:vector :list :set :record) [(mapv form->form-adt forms)]
                                [first-form])}))
 
+(defn call-conformer [{:keys [forms]}]
+  (letfn [(fall-through [conformed-forms]
+            (if (= ::s/invalid conformed-forms)
+              (do
+                (s/explain (s/* ::form) forms)
+                ::s/invalid)
+              {:forms conformed-forms}))]
 
+    (if (= :symbol (get-in forms [0 0]))
+      (if-let [{eval-macro :value} (get-in *ctx* [:env :macros (get-in forms [0 1])])]
+        ;; TODO arity check
+        (let [form (->> (rest forms)
+                        (into [] (map form->form-adt))
+                        (apply eval-macro)
+                        form-adt->form)
+              [[form-type params] :as conformed] (s/conform (s/* ::form) [form])]
+          (if (= :call form-type)
+            (recur params)
+            ;; have to do this so spec doesn't return this as a call
+            (-> (fall-through conformed)
+                (vary-meta assoc ::unwrap-call? true))))
 
-(do
-  (defn call-conformer [{:keys [forms]}]
-    (letfn [(fall-through [forms]
-              (let [conformed-forms (s/conform (s/* ::form) forms)]
-                (if (= ::s/invalid conformed-forms)
-                  (do
-                    (s/explain (s/* ::form) forms)
-                    ::s/invalid)
-                  {:forms conformed-forms})))]
+        (fall-through (s/conform (s/* ::form) forms)))
 
-      (if (= :symbol (get-in forms [0 0]))
-        (if-let [{eval-macro :value} (get-in *ctx* [:env :macros (get-in forms [0 1])])]
-          ;; TODO arity check
-          (let [form (->> (rest forms)
-                          (into [] (map form->form-adt))
-                          (apply eval-macro)
-                          form-adt->form)
-                [form-type params] (s/conform ::form form)]
-            (if (= :call form-type)
-              (recur params)
-              (fall-through [form])))
+      (fall-through (s/conform (s/* ::form) forms)))))
 
-          (fall-through forms))
+(s/def ::form
+  (s/and (s/or :bool (s/cat :_bool #{:bool}, :bool boolean?)
+               :string (s/cat :_string #{:string}, :string string?)
+               :number (s/cat :num-type #{:int :float :big-int :big-float}, :number number?)
+               :keyword (s/cat :_keyword #{:keyword}, :kw keyword?)
 
-        (fall-through forms))))
+               :symbol ::symbol-form
+               :coll (s/cat :coll-type #{:vector :set}, :forms (s/* ::form))
+               :record (s/cat :_record #{:record}, :entries (s/* (s/cat :k ::keyword-form, :v ::form)))
 
-  (s/def ::form
-    (s/or :bool (s/cat :_bool #{:bool}, :bool boolean?)
-          :string (s/cat :_string #{:string}, :string string?)
-          :number (s/cat :num-type #{:int :float :big-int :big-float}, :number number?)
-          :keyword (s/cat :_keyword #{:keyword}, :kw keyword?)
+               :loop ::loop-form
+               :recur (s/cat :_list #{:list}, :_recur (s/and ::symbol-form #{'recur}), :forms (s/* ::form))
 
-          :symbol ::symbol-form
-          :coll (s/cat :coll-type #{:vector :set}, :forms (s/* ::form))
-          :record (s/cat :_record #{:record}, :entries (s/* (s/cat :k ::keyword-form, :v ::form)))
+               :quote ::quote-form
 
-          :loop ::loop-form
-          :recur (s/cat :_list #{:list}, :_recur (s/and ::symbol-form #{'recur}), :forms (s/* ::form))
+               :if ::if-form
+               :let ::let-form
+               :case ::case-form
 
-          :quote ::quote-form
+               :fn ::fn-form
 
-          :if ::if-form
-          :let ::let-form
-          :case ::case-form
+               :def ::def-form
+               :defmacro ::defmacro-form
+               :defadt ::defadt-form
+               :defjava ::defjava-form
+               :defclj ::defclj-form
+               :defeffect ::defeffect-form
+               :typedef ::typedef-form
 
-          :fn ::fn-form
+               :call (s/and (s/cat :_list #{:list}
+                                   :forms (s/* any?))
+                            (s/conformer call-conformer)))
 
-          :def ::def-form
-          :defmacro ::defmacro-form
-          :defadt ::defadt-form
-          :defjava ::defjava-form
-          :defclj ::defclj-form
-          :defeffect ::defeffect-form
-          :typedef ::typedef-form
-
-          :call (s/and (s/cat :_list #{:list}
-                              :forms (s/* any?))
-                       (s/conformer call-conformer))))
-
-  (analyse '[:list [:symbol def] [:symbol foo] [:list [:symbol if-not] [:list [:symbol zero?] [:int 5]] [:list [:symbol with-trace] [:int 10]] [:list [:symbol with-trace] [:int 25]]]]
-           user/foo-ctx))
+         (s/conformer (fn [form]
+                        (cond-> form
+                          (::unwrap-call? (meta (second form))) (get-in [1 :forms 0]))))))
 
 (defn analyse [form ctx]
   (binding [*ctx* ctx]
     (let [conformed (s/conform ::form form)]
       (if-not (= ::s/invalid conformed)
-        (doto (analyse-expr conformed) prn)
+        (analyse-expr conformed)
         (throw (ex-info "Invalid form" {:form form, :explain (comment (s/explain-data ::form form))}))))))
