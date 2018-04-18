@@ -6,6 +6,9 @@
             [clojure.string :as str]
             [clojure.set :as set]))
 
+(defn ^:dynamic gen-local [sym]
+  (gensym sym))
+
 (s/def ::symbol-form
   (s/and (s/cat :_sym #{:symbol}
                 :sym symbol?)
@@ -36,7 +39,7 @@
 (defmethod analyse-expr :bool [[_ {:keys [bool]}]]
   {:expr-type :bool, :bool bool})
 
-(defmethod analyse-expr :string [[_ {:keys [string]}]]
+(defmethod analyse-expr :string [[_ {:keys [string] :as expr}]]
   {:expr-type :string, :string string})
 
 (defmethod analyse-expr :number [[_ {:keys [num-type number]}]]
@@ -116,7 +119,7 @@
 
 (defmethod analyse-expr :let [[_ {:keys [bindings-form body-form]}]]
   (let [{:keys [bindings locals]} (reduce (fn [{:keys [bindings locals]} {:keys [binding-sym binding-form]}]
-                                            (let [local (gensym binding-sym)]
+                                            (let [local (gen-local binding-sym)]
                                               {:bindings (conj bindings [local (with-ctx-update (-> (update :locals (fnil into {}) locals)
                                                                                                     (dissoc :loop-locals))
                                                                                  (analyse-expr binding-form))])
@@ -153,7 +156,7 @@
                                                                                :constructor-call clause-arg
                                                                                :value-constructor (let [[sym-type sym] clause-arg]
                                                                                                     {sym-type sym}))
-                                           locals (map (juxt identity gensym) binding-syms)]
+                                           locals (map (juxt identity gen-local) binding-syms)]
                                        (merge (select-keys clause [:constructor-sym :default-sym])
                                               {:bindings (map second locals)
                                                :expr (with-ctx-update (update :locals into locals)
@@ -183,7 +186,7 @@
 
 (defmethod analyse-expr :loop [[_ {:keys [bindings-form body-form]}]]
   (let [bindings (for [{:keys [binding-sym binding-form]} bindings-form]
-                   (let [local (gensym binding-sym)]
+                   (let [local (gen-local binding-sym)]
                      {:sym binding-sym
                       :local local
                       :expr (with-ctx-update (dissoc :loop-locals)
@@ -209,25 +212,46 @@
                       (mapv analyse-expr forms))
              :loop-locals loop-locals})))
 
+(s/def ::handling-form
+  (s/cat :_list #{:list}
+         :_handling (exact-sym 'handling)
+         :handler-forms (s/spec (s/and (s/cat :_list #{:list}
+                                              :effects (s/* (s/spec (s/cat :_list #{:list}
+                                                                           :effect-sym ::symbol-form
+                                                                           :handler-fns (s/* ::form)))))
+                                       (s/conformer #(:effects %))))
+         :body-form ::form))
+
+(defmethod analyse-expr :handling [[_ {:keys [handler-forms body-form]}]]
+  {:expr-type :handling
+   :handlers (->> handler-forms
+                  (into {} (map (fn [{:keys [effect-sym handler-fns]}]
+                                  (if-let [effect-fns (get-in *ctx* [:env :effects effect-sym])]
+                                    ;; TODO checks around the function names, etc
+                                    {:effect effect-sym
+                                     :handler-exprs (into [] (map analyse-expr) handler-fns)}
+
+                                    (throw (ex-info "Can't find effect" {:effect effect-sym})))))))
+   :body (analyse-expr body-form)})
+
 (defmethod analyse-expr :call [[_ {:keys [forms]}]]
   {:expr-type :call
    :exprs (mapv analyse-expr forms)})
 
 (s/def ::fn-form
   (s/cat :_list #{:list}
-         :_fn (s/and ::symbol-form #{'fn})
-
+         :_fn (exact-sym 'fn)
          :params-form (s/spec (s/cat :_list #{:list}
                                      :sym-form ::symbol-form
                                      :param-forms (s/* ::symbol-form))),
-         :body-form any?))
+         :body-form ::form))
 
 (defmethod analyse-expr :fn [[_ {:keys [params-form body-form]}]]
   (let [{:keys [sym-form param-forms]} params-form
-        local-mapping (->> param-forms (map (comp (juxt identity gensym) :sym)))]
+        local-mapping (->> param-forms (map (juxt identity gen-local)))]
 
     {:expr-type :fn
-     :sym (:sym sym-form)
+     :sym sym-form
      :locals (map second local-mapping)
      :body-expr (with-ctx-update (-> (update :locals (fnil into {}) local-mapping)
                                      (dissoc :loop-locals))
@@ -250,7 +274,7 @@
                                          :just-sym {:sym-form (second params-form)}
                                          :sym+params (merge {:param-forms []} (second params-form)))
 
-        local-mapping (some->> param-forms (map (juxt identity gensym)))]
+        local-mapping (some->> param-forms (map (juxt identity gen-local)))]
 
     {:expr-type :def
      :sym sym-form
@@ -270,7 +294,7 @@
                                          :just-sym {:sym-form (second params-form)}
                                          :sym+params (merge {:param-forms []} (second params-form)))
 
-        local-mapping (some->> param-forms (map (juxt identity gensym)))]
+        local-mapping (some->> param-forms (map (juxt identity gen-local)))]
 
     {:expr-type :defmacro
      :sym sym-form
@@ -540,6 +564,8 @@
                :case ::case-form
 
                :fn ::fn-form
+
+               :handling ::handling-form
 
                :def ::def-form
                :defmacro ::defmacro-form
