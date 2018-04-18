@@ -179,13 +179,14 @@
         mapping (unify-eqs (into (mono-envs->type-equations mono-envs)
                                  extra-eqs))]
 
-    {::mono-env (->> mono-envs
-                     (map #(mono-env-apply-mapping % mapping))
-                     mono-env-union)
+    (merge {::mono-env (->> mono-envs
+                            (map #(mono-env-apply-mapping % mapping))
+                            mono-env-union)
 
-     ::mono-type (apply-mapping return-type mapping)
+            ::effects (into #{} (mapcat ::effects) typings)}
 
-     ::effects (into #{} (mapcat ::effects) typings)}))
+           (when return-type
+             {::mono-type (apply-mapping return-type mapping)}))))
 
 (defn type-value-expr [expr {:keys [env]}]
   (letfn [(type-value-expr* [{:keys [expr-type] :as expr} {:keys [local-mono-env loop-return-var] :as opts}]
@@ -225,7 +226,8 @@
                 :effect-fn
                 (let [{:keys [effect ::poly-type]} (get-in env [:effect-fns (:effect-fn expr)])]
                   {::mono-env {}
-                   ::mono-type (instantiate poly-type)})
+                   ::mono-type (instantiate poly-type)
+                   ::effects #{effect}})
 
                 (:vector :set)
                 (let [elem-type-var (->type-var :elem)
@@ -351,7 +353,9 @@
                                                 :extra-eqs (mapv vector param-types (map ::mono-type param-typings))})
                               (update ::effects (fnil set/union #{}) (::effects fn-expr-type))))))))]
 
-    {::poly-type (mono->poly (::mono-type (type-value-expr* expr {})))}))
+    (let [{::keys [mono-type effects]} (type-value-expr* expr {})]
+      {::poly-type (mono->poly mono-type)
+       ::effects effects})))
 
 (defn type-defmacro [{:keys [locals body-expr]} {:keys [env]}]
   (let [form-adt (->adt 'Form)

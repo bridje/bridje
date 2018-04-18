@@ -49,7 +49,8 @@
         identity-type {::tc/type-vars #{(::tc/type-var param-type)}
                        ::tc/mono-type {::tc/type :fn
                                        ::tc/param-types [param-type]
-                                       ::tc/return-type param-type}}]
+                                       ::tc/return-type param-type
+                                       ::tc/effects nil}}]
 
     (t/is (= res identity-type))))
 
@@ -63,7 +64,8 @@
                (get-in [::tc/poly-type ::tc/def-expr-type ::tc/poly-type]))
            (tc/mono->poly {::tc/type :fn
                            ::tc/param-types []
-                           ::tc/return-type (tc/primitive-type :int)}))))
+                           ::tc/return-type (tc/primitive-type :int)
+                           ::tc/effects nil}))))
 
 (t/deftest types-record
   (let [env {:attributes {:User/first-name {::tc/mono-type (tc/primitive-type :string)}
@@ -134,3 +136,16 @@
                (tc/with-type {})
                ::tc/poly-type)
            (tc/mono->poly (tc/primitive-type :int)))))
+
+(t/deftest types-handling
+  (let [ctx {:env {:effect-fns {'read-file! {:effect 'FileIO
+                                             ::tc/poly-type (tc/mono->poly (tc/fn-type [(tc/primitive-type :string)]
+                                                                                       (tc/primitive-type :string)))}}}}]
+    (t/is (= {::tc/poly-type (tc/mono->poly (tc/primitive-type :string))
+              ::tc/effects #{'FileIO}}
+             (-> '{:expr-type :call,
+                   :exprs
+                   [{:expr-type :effect-fn, :effect-fn read-file!}
+                    {:expr-type :string, :string "/tmp/foo.txt"}]}
+                 (tc/with-type ctx)
+                 (select-keys [::tc/poly-type ::tc/effects]))))))
