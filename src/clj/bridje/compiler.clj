@@ -8,11 +8,6 @@
             [clojure.set :as set]
             [clojure.java.io :as io]))
 
-(def base-env
-  {:vars {'concat {:value #(into [] (mapcat identity) %)
-                   ::tc/poly-type (let [tv (tc/->type-var 'a)]
-                                    (tc/mono->poly (tc/fn-type [(tc/vector-of (tc/vector-of tv))] (tc/vector-of tv))))}}})
-
 (defn interpret-form [form {:keys [env]}]
   (-> form
       (quoter/expand-quotes {:env env})
@@ -20,11 +15,18 @@
       (as-> expr (merge expr (tc/type-expr expr {:env env})))
       (emitter/interpret-expr {:env env})))
 
+(def base-env
+  (->> (reader/read-forms (slurp (io/resource "bridje/core.brj")))
+
+       (reduce (fn [env form]
+                 (:env (interpret-form form {:env env})))
+
+               {})))
+
 (defn interpret-str [str {:keys [env]}]
-  (reduce (fn [{:keys [env]} form]
-            (interpret-form form {:env env}))
+  (->> (reader/read-forms str)
 
-          {:env (or env base-env)}
+       (reduce (fn [{:keys [env]} form]
+                 (interpret-form form {:env env}))
 
-          (concat (reader/read-forms (slurp (io/resource "bridje/forms.brj")))
-                  (reader/read-forms str))))
+               {:env (or env base-env)})))
