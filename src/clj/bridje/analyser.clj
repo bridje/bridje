@@ -459,30 +459,43 @@
                       definitions)})
 
 (s/def ::defadt-form
-  (s/cat :_list #{:list}
-         :_defadt (exact-sym 'defadt)
-         :name-sym ::symbol-form
-         ;; TODO add attrs in here, will make recursive ADTs much easier
-         :constructors-forms (s/* (s/or :value-constructor ::symbol-form
-                                        :constructor+params (s/spec (s/cat :_list #{:list}
-                                                                           :constructor-sym ::symbol-form
-                                                                           :params-forms (s/* ::mono-type-form)))))))
+  (s/and (s/cat :_list #{:list}
+          :_defadt (exact-sym 'defadt)
+          :name-form (s/and (s/or :just-name ::symbol-form
+                                  :name+type-vars (s/spec (s/cat :_list #{:list}
+                                                                 :name-sym ::symbol-form
+                                                                 :type-var-syms (s/* ::symbol-form))))
+                            (s/conformer (fn [[decl-type decl-args]]
+                                           (case decl-type
+                                             :just-name {:name-sym decl-args}
+                                             :name+type-vars decl-args))))
 
-(defmethod analyse-expr :defadt [[_ {:keys [name-sym constructors-forms]}]]
-  {:expr-type :defadt
-   :sym name-sym
-   :constructors (->> constructors-forms
-                      (into [] (map (fn [[c-type c-args]]
-                                      (case c-type
-                                        :value-constructor {:constructor-sym c-args}
-                                        :constructor+params {:constructor-sym (:constructor-sym c-args)
-                                                             :param-mono-types
-                                                             (->> (:params-forms c-args)
-                                                                  (into [] (map (fn [form]
-                                                                                  (with-ctx-update (assoc-in [:env :adts name-sym] {})
+          ;; TODO add attrs in here, will make recursive ADTs much easier
+          :constructors-forms (s/* (s/or :value-constructor ::symbol-form
+                                         :constructor+params (s/spec (s/cat :_list #{:list}
+                                                                            :constructor-sym ::symbol-form
+                                                                            :params-forms (s/* ::mono-type-form))))))
+         (s/conformer (fn [form]
+                        (-> (merge form (:name-form form))
+                            (dissoc :name-form))))))
 
-                                                                                    (extract-mono-type form))))))})))))})
+(defmethod analyse-expr :defadt [[_ {:keys [name-sym type-var-syms constructors-forms]}]]
+  (let [->type-var (memoize tc/->type-var)]
+    {:expr-type :defadt
+     :sym name-sym
+     :type-vars (into [] (map ->type-var) type-var-syms)
+     :constructors (->> constructors-forms
+                        (into [] (map (fn [[c-type c-args]]
+                                        (case c-type
+                                          :value-constructor {:constructor-sym c-args}
+                                          :constructor+params {:constructor-sym (:constructor-sym c-args)
+                                                               :param-mono-types
+                                                               (->> (:params-forms c-args)
+                                                                    (into [] (map (fn [form]
+                                                                                    (with-ctx-update (-> (assoc :->type-var ->type-var)
+                                                                                                         (assoc-in [:env :adts name-sym] {}))
 
+                                                                                      (extract-mono-type form))))))})))))}))
 
 (def ->form-type-kw
   (-> (fn [sym]
