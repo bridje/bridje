@@ -11,13 +11,13 @@
 (t/deftest analyses-handling
   (t/is (= '{:expr-type :handling,
              :handlers
-             {:effect FileIO,
-              :handler-exprs
-              [{:expr-type :fn,
-                :sym read-file!,
-                :locals (file)
-                :body-expr {:expr-type :string, :string "Foo"}}]},
-             :body
+             [{:effect FileIO,
+               :handler-exprs
+               [{:expr-type :fn,
+                 :sym read-file!,
+                 :locals (file)
+                 :body-expr {:expr-type :string, :string "Foo"}}]}],
+             :body-expr
              {:expr-type :call,
               :exprs
               [{:expr-type :effect-fn, :effect-fn read-file!}

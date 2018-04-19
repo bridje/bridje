@@ -225,14 +225,14 @@
 (defmethod analyse-expr :handling [[_ {:keys [handler-forms body-form]}]]
   {:expr-type :handling
    :handlers (->> handler-forms
-                  (into {} (map (fn [{:keys [effect-sym handler-fns]}]
+                  (into [] (map (fn [{:keys [effect-sym handler-fns]}]
                                   (if-let [effect-fns (get-in *ctx* [:env :effects effect-sym])]
                                     ;; TODO checks around the function names, etc
                                     {:effect effect-sym
                                      :handler-exprs (into [] (map analyse-expr) handler-fns)}
 
                                     (throw (ex-info "Can't find effect" {:effect effect-sym})))))))
-   :body (analyse-expr body-form)})
+   :body-expr (analyse-expr body-form)})
 
 (defmethod analyse-expr :call [[_ {:keys [forms]}]]
   {:expr-type :call
