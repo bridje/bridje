@@ -158,6 +158,14 @@
           :else (case (::type t1)
                   :record (recur more-eqs (mapping-apply-mapping mapping (unify-records t1 t2)))
                   (:vector :set) (recur (cons [(::elem-type t1) (::elem-type t2)] more-eqs) mapping)
+                  :fn (let [{t1-param-types ::param-types, t1-return-type ::return-type} t1
+                            {t2-param-types ::param-types, t2-return-type ::return-type} t2]
+                        (cond
+                          (not= (count t1-param-types) (count t2-param-types)) (throw ex)
+                          :else (recur (concat (map vector t1-param-types t2-param-types)
+                                               [[t1-return-type t2-return-type]]
+                                               more-eqs)
+                                       mapping)))
 
                   (throw ex)))))))
 
