@@ -61,11 +61,12 @@
    :bool (fn [b] [:bool (Boolean/parseBoolean b)])
    :int (fn [i] [:int (Long/parseLong i)])
    :float (fn [f] [:float (Double/parseDouble f)])
-   :big-int (fn [i] [:big :number (BigInteger. i)])
+   :big-int (fn [i] [:big-int (BigInteger. i)])
    :big-float (fn [f] [:big-float (BigDecimal. f)])})
 
 (defn read-forms [s]
-  (->> (sexp-parser s)
-       (i/transform transformations)
-       (i/add-line-and-column-info-to-metadata s)
-       (w/postwalk (some-fn {:tag :form-type, :content :forms} identity))))
+  (when-not (str/blank? s)
+    (->> (sexp-parser s)
+         (i/transform transformations)
+         (i/add-line-and-column-info-to-metadata s)
+         (w/postwalk (some-fn {:tag :form-type, :content :forms} identity)))))
