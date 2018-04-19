@@ -133,38 +133,22 @@
               ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/primitive-type :int)))}))))
 
 (t/deftest simple-effects
-  (let [!printed (atom [])
-        {:keys [env]} (binding [rt/*effect-fns* {'read-line! (constantly "foo")
-                                                 'println! (fn [s]
-                                                             (swap! !printed conj s))}]
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          '(defeffect ConsoleIO
+                                             ("::" (read-line!) String))
 
-                        (sut/interpret-str (fake-forms
-                                            '(defadt Unit Unit)
+                                          '(def (res)
+                                             (read-line!))
 
-                                            '(defeffect ConsoleIO
-                                               ("::" (read-line!) String)
-                                               ("::" (println! String) Unit))
+                                          '(def mocked-res
+                                             (handling ((ConsoleIO (fn (read-line!)
+                                                                     "foo")))
+                                               (res))))
 
-                                            '(def (echo!)
-                                               (println! (read-line!)))
+                                         {})
+        {:syms [mocked-res]} (:vars env)]
 
-                                            #_'(def res
-                                                 (copy-file! (File "/home/james/foo") (File "/home/james/bar")))
-
-                                            #_'(def mocked-res
-                                                 (handling res
-                                                           (handler
-                                                            ConsoleIO
-                                                            (fn (read-line!)
-                                                              "fake-file")
-
-                                                            (fn (println! line)
-                                                              Unit)))))
-
-                                           {}))
-        {:syms [echo!]} (:vars env)]
-
-    (t/is (= #{'ConsoleIO} (get-in echo! [::tc/poly-type ::tc/mono-type ::tc/effects])))))
+    (t/is (= "foo" (:value mocked-res)))))
 
 (t/deftest defjava-test
   (let [{:keys [env]} (sut/interpret-str (fake-forms

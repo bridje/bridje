@@ -19,5 +19,7 @@
           (:let :loop) (concat (mapcat sub-exprs (map second (:bindings expr)))
                                (sub-exprs (:body-expr expr)))
           :fn (sub-exprs (:body-expr expr))
+          :handling (concat (into [] (comp (mapcat :handler-exprs) (mapcat sub-exprs)) (:handlers expr))
+                            (sub-exprs (:body-expr expr)))
           [])
         expr))

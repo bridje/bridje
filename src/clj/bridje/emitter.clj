@@ -94,7 +94,16 @@
                                           bindings)]
                            ~(emit-value-expr* body-expr)))
 
-                :recur `(recur ~@(map emit-value-expr* exprs))))]
+                :recur `(recur ~@(map emit-value-expr* exprs))
+
+                :handling (let [{:keys [handlers body-expr]} expr]
+                            `(binding [rt/*effect-fns* (merge rt/*effect-fns*
+                                                              ~(into {}
+                                                                     (comp (mapcat :handler-exprs)
+                                                                           (map (fn [{:keys [sym] :as fn-expr}]
+                                                                                  [`'~sym (emit-value-expr* fn-expr)])))
+                                                                     handlers))]
+                               ~(emit-value-expr* body-expr)))))]
 
       (let [env-sym (gensym 'env)]
         `(fn [~env-sym]
