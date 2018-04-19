@@ -148,4 +148,21 @@
                    [{:expr-type :effect-fn, :effect-fn read-file!}
                     {:expr-type :string, :string "/tmp/foo.txt"}]}
                  (tc/type-expr ctx)
-                 (select-keys [::tc/poly-type ::tc/effects]))))))
+                 (select-keys [::tc/poly-type ::tc/effects]))))
+
+    (t/is (= {::tc/poly-type (tc/mono->poly (tc/primitive-type :string))
+              ::tc/effects #{}}
+             (-> '{:expr-type :handling,
+                   :handlers
+                   [{:effect FileIO,
+                     :handler-exprs
+                     [{:expr-type :fn,
+                       :sym read-file!,
+                       :locals (file)
+                       :body-expr {:expr-type :string, :string "Foo"}}]}],
+                   :body-expr
+                   {:expr-type :call,
+                    :exprs
+                    [{:expr-type :effect-fn, :effect-fn read-file!}
+                     {:expr-type :string, :string "/tmp/foo.txt"}]}}
+                 (tc/type-expr ctx))))))

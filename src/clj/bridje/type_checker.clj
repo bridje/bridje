@@ -331,6 +331,24 @@
                                                      expr-typings
                                                      (:loop-locals expr))}))
 
+                :handling
+                (let [{:keys [handlers body-expr]} expr
+                      handler-typings (for [{:keys [effect handler-exprs]} handlers
+                                            {:keys [expr-type sym] :as handler-expr} handler-exprs]
+                                        (if-not (= :fn expr-type)
+                                          (throw (ex-info "Expected function" {:expr handler-expr}))
+
+                                          (let [handler-typing (type-value-expr** handler-expr)]
+                                            (combine-typings {:typings [handler-typing]
+                                                              :extra-eqs [[(instantiate (get-in env [:effect-fns (:sym handler-expr) ::poly-type]))
+                                                                           (::mono-type handler-typing)]]}))))
+
+                      body-typing (type-value-expr** (:body-expr expr))]
+
+                  (-> (combine-typings {:typings (conj handler-typings body-typing)
+                                        :return-type (::mono-type body-typing)})
+                      (update ::effects set/difference (into #{} (map :effect) handlers))))
+
                 :fn
                 (let [{:keys [locals body-expr]} expr
                       {:keys [::mono-type ::mono-env ::effects]} (type-value-expr** body-expr)]
