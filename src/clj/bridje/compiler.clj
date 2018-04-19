@@ -17,7 +17,7 @@
   (-> form
       (quoter/expand-quotes {:env env})
       (analyser/analyse {:env env})
-      (tc/with-type {:env env})
+      (as-> expr (merge expr (tc/type-expr expr {:env env})))
       (emitter/interpret-expr {:env env})))
 
 (defn interpret-str [str {:keys [env]}]

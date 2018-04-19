@@ -3,7 +3,7 @@
             [clojure.test :as t]))
 
 (t/deftest types-basic-exprs
-  (t/are [expr expected-type] (= (::tc/poly-type (tc/with-type expr {:env {:vars {'foo {::tc/poly-type (tc/mono->poly (tc/primitive-type :float))}}}}))
+  (t/are [expr expected-type] (= (::tc/poly-type (tc/type-expr expr {:env {:vars {'foo {::tc/poly-type (tc/mono->poly (tc/primitive-type :float))}}}}))
                                  expected-type)
     {:expr-type :int} (tc/mono->poly (tc/primitive-type :int))
 
@@ -44,7 +44,7 @@
                :local ::foo-param}})
 
 (t/deftest types-identity-fn
-  (let [res (::tc/poly-type (tc/with-type id-fn {}))
+  (let [res (::tc/poly-type (tc/type-expr id-fn {}))
         param-type (get-in res [::tc/mono-type ::tc/param-types 0])
         identity-type {::tc/type-vars #{(::tc/type-var param-type)}
                        ::tc/mono-type {::tc/type :fn
@@ -55,7 +55,7 @@
     (t/is (= res identity-type))))
 
 (t/deftest types-def
-  (t/is (= (-> (tc/with-type {:expr-type :def
+  (t/is (= (-> (tc/type-expr {:expr-type :def
                               :sym :foo
                               :locals []
                               :body-expr {:expr-type :int
@@ -75,7 +75,7 @@
                      :entries [{:k :User/first-name, :v {:expr-type :string, :string "James"}}
                                {:k :User/last-name, :v {:expr-type :string, :string "Henderson"}}]}]
     (t/is (= (-> record-expr
-                 (tc/with-type {:env env})
+                 (tc/type-expr {:env env})
                  ::tc/poly-type)
 
              (tc/mono->poly #::tc{:type :record, :attributes #{:User/first-name :User/last-name}})))
@@ -83,7 +83,7 @@
     (t/is (= (-> {:expr-type :call
                   :exprs [{:expr-type :attribute, :attribute :User/first-name}
                           record-expr]}
-                 (tc/with-type {:env env})
+                 (tc/type-expr {:env env})
                  ::tc/poly-type)
 
              (tc/mono->poly (tc/primitive-type :string))))))
@@ -96,7 +96,7 @@
                  :attributes {:Just.val {::tc/mono-type tv}}
                  :constructors {'Just {:attributes #{:Just.val}}
                                 'Nothing {}}}
-                (tc/with-type {:env {}}))
+                (tc/type-expr {:env {}}))
 
         just-constructor (get-in res [:constructors 'Just])
         nothing-constructor (get-in res [:constructors 'Nothing])]
@@ -122,7 +122,7 @@
                 :body-expr {:expr-type :vector
                             :exprs [{:expr-type :local, :local ::y}
                                     {:expr-type :local, :local ::x}]}}
-               (tc/with-type {})
+               (tc/type-expr {})
                ::tc/poly-type)
            (tc/mono->poly (tc/vector-of (tc/primitive-type :string))))))
 
@@ -133,7 +133,7 @@
                             :pred-expr {:expr-type :bool, :bool false}
                             :then-expr {:expr-type :recur, :exprs [{:expr-type :local, :local ::x}], :loop-locals [::x]}
                             :else-expr {:expr-type :local, :local ::x}}}
-               (tc/with-type {})
+               (tc/type-expr {})
                ::tc/poly-type)
            (tc/mono->poly (tc/primitive-type :int)))))
 
@@ -147,5 +147,5 @@
                    :exprs
                    [{:expr-type :effect-fn, :effect-fn read-file!}
                     {:expr-type :string, :string "/tmp/foo.txt"}]}
-                 (tc/with-type ctx)
+                 (tc/type-expr ctx)
                  (select-keys [::tc/poly-type ::tc/effects]))))))

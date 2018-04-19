@@ -365,43 +365,42 @@
       {::poly-type {::mono-type :env-update
                     ::env-update-type :defmacro}})))
 
-(defn with-type [expr {:keys [env]}]
-  (merge expr
-         (case (:expr-type expr)
-           :def
-           {::poly-type (let [{:keys [locals body-expr]} expr]
-                          {::mono-type :env-update
-                           ::env-update-type :def
-                           ::def-expr-type (type-value-expr (if locals
-                                                              {:expr-type :fn
-                                                               :locals locals
-                                                               :body-expr body-expr}
-                                                              body-expr)
-                                                            {:env env})})}
+(defn type-expr [expr {:keys [env]}]
+  (case (:expr-type expr)
+    :def
+    {::poly-type (let [{:keys [locals body-expr]} expr]
+                   {::mono-type :env-update
+                    ::env-update-type :def
+                    ::def-expr-type (type-value-expr (if locals
+                                                       {:expr-type :fn
+                                                        :locals locals
+                                                        :body-expr body-expr}
+                                                       body-expr)
+                                                     {:env env})})}
 
-           :defmacro
-           (type-defmacro expr {:env env})
+    :defmacro
+    (type-defmacro expr {:env env})
 
-           :defattribute
-           (let [{:keys [kw ::mono-type]} expr]
-             {::poly-type {::mono-type :env-update
-                           ::env-update-type :defattribute}})
+    :defattribute
+    (let [{:keys [kw ::mono-type]} expr]
+      {::poly-type {::mono-type :env-update
+                    ::env-update-type :defattribute}})
 
-           :defclj
-           {::poly-type {::mono-type :env-update
-                         ::env-update-type :defclj}}
+    :defclj
+    {::poly-type {::mono-type :env-update
+                  ::env-update-type :defclj}}
 
-           :defjava
-           {::poly-type {::mono-type :env-update
-                         ::env-update-type :defjava}}
+    :defjava
+    {::poly-type {::mono-type :env-update
+                  ::env-update-type :defjava}}
 
-           :defadt
-           {::poly-type {::mono-type :env-update
-                         ::env-update-type :defadt}}
+    :defadt
+    {::poly-type {::mono-type :env-update
+                  ::env-update-type :defadt}}
 
-           :defeffect
-           {::poly-type {::mono-type :env-update
-                         ::env-update-type :defeffect}}
+    :defeffect
+    {::poly-type {::mono-type :env-update
+                  ::env-update-type :defeffect}}
 
 
-           (type-value-expr expr {:env env}))))
+    (type-value-expr expr {:env env})))
