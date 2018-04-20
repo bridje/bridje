@@ -123,7 +123,7 @@
   (case expr-type
     :def
     (let [{:keys [sym locals body-expr]} expr
-          poly-type (get-in expr [::tc/poly-type ::tc/def-expr-type ::tc/poly-type])]
+          poly-type (get-in expr [::tc/def-expr-type ::tc/poly-type])]
       {:env (assoc-in env [:vars sym] {::tc/poly-type poly-type
                                        :value ((eval (emit-value-expr (if locals
                                                                         {:expr-type :fn
@@ -151,29 +151,27 @@
                 (update :attributes assoc attribute {::tc/mono-type mono-type}))})
 
     :defadt
-    (let [{:keys [sym constructors]} expr
-          mono-type (tc/->adt sym)]
+    (let [{:keys [sym constructors]} expr]
       {:env (-> env
                 (update :adts assoc sym {:constructors (into #{} (map :constructor-sym) constructors)
-                                         ::tc/poly-type (tc/mono->poly mono-type)})
+                                         ::tc/poly-type (tc/mono->poly (::tc/adt-mono-type expr))})
 
                 (update :constructor-syms (fnil into {})
-                        (map (juxt :constructor-sym
-                                   #(merge {:adt sym}
-                                           (select-keys % [:param-mono-types]))))
+                        (map (juxt :constructor-sym (fn [{:keys [param-mono-types]}]
+                                                      {:adt sym
+                                                       :param-mono-types param-mono-types})))
                         constructors)
 
                 (update :vars merge (->> constructors
                                          (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
                                                          [constructor-sym
-                                                          (if param-mono-types
-                                                            {:value (fn [& params]
+                                                          {:value (if param-mono-types
+                                                                    (fn [& params]
                                                                       {:brj/constructor constructor-sym
                                                                        :brj/constructor-params (vec params)})
-                                                             ::tc/poly-type (tc/mono->poly (tc/fn-type param-mono-types mono-type))}
+                                                                    {:brj/constructor constructor-sym})
 
-                                                            {:value {:brj/constructor constructor-sym}
-                                                             ::tc/poly-type (tc/mono->poly mono-type)})]))))))})
+                                                           ::tc/poly-type (tc/mono->poly (get-in expr [::tc/constructor-mono-types constructor-sym]))}]))))))})
 
     :defeffect
     (let [{:keys [sym definitions]} expr]

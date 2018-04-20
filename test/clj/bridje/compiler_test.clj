@@ -114,6 +114,42 @@
 
     (t/is (= (:value matches) [-2 43 -3]))))
 
+(t/deftest poly-adts
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          clj-core-interop
+
+                                          '(defadt (Maybe a)
+                                             (Just a)
+                                             Nothing)
+
+                                          '(def forms
+                                             [(Just 4) Nothing (Just 23)])
+
+                                          #_'(def (simple-match o)
+                                               (case o
+                                                 (BoolForm b) (if b -1 -2)
+                                                 (IntForm i) (inc i)
+                                                 SomethingElse -3))
+
+                                          #_'(def matches
+                                               [(simple-match (BoolForm false))
+                                                (simple-match (IntForm 42))
+                                                (simple-match SomethingElse)]))
+
+                                         {})
+        {:syms [forms simple-match matches]} (:vars env)]
+
+    (t/is (= {:value [{:brj/constructor 'Just, :brj/constructor-params [4]}
+                      {:brj/constructor 'Nothing}
+                      {:brj/constructor 'Just, :brj/constructor-params [23]}]
+              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'Maybe [(tc/primitive-type :int)])))}
+             forms))
+
+    #_(t/is (= (::tc/poly-type simple-match)
+               (tc/mono->poly (tc/fn-type [(tc/->adt 'SimpleForm)] (tc/primitive-type :int)))))
+
+    #_(t/is (= (:value matches) [-2 43 -3]))))
+
 (t/deftest loop-recur
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           clj-core-interop

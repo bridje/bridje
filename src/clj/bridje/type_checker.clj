@@ -20,9 +20,13 @@
   {::type :set
    ::elem-type elem-type})
 
-(defn ->adt [sym]
-  {::type :adt
-   ::adt-sym sym})
+(defn ->adt
+  ([sym] (->adt sym nil))
+  ([sym tvs]
+   (merge {::type :adt
+           ::adt-sym sym}
+          (when tvs
+            {::type-vars tvs}))))
 
 (defn ->class [class]
   {::type :class
@@ -89,14 +93,15 @@
                 type))
 
     :type-var (get mapping (::type-var type) type)
-    :fn (fn [{:keys [::param-types ::return-type]}]
+    :fn (let [{:keys [::param-types ::return-type]} type]
           {::type :fn
            ::param-types (map #(apply-mapping % mapping) param-types)
            ::return-type (apply-mapping return-type mapping)})
-    :applied (-> type (update ::type-params (fn [tps] (map #(apply-mapping % mapping) tps))))
 
-    ;; TODO will need to change when ADTs have type-vars
-    :adt type))
+    :adt (let [{::keys [type-vars]} type]
+           (merge type
+                  (when type-vars
+                    {::type-vars (into [] (map #(apply-mapping % mapping)) type-vars)})))))
 
 (defn mono-env-apply-mapping [mono-env mapping]
   (into {}
@@ -166,6 +171,14 @@
                                                [[t1-return-type t2-return-type]]
                                                more-eqs)
                                        mapping)))
+
+                  :adt (let [{t1-adt-sym :adt-sym, t1-tvs :type-vars} t1
+                             {t2-adt-sym :adt-sym, t2-tvs :type-vars} t2]
+                         (cond
+                           (not= t1-adt-sym t2-adt-sym) (throw ex)
+                           :else (recur (concat (map vector t1-tvs t2-tvs)
+                                                more-eqs)
+                                        mapping)))
 
                   (throw ex)))))))
 
@@ -394,15 +407,16 @@
 (defn type-expr [expr {:keys [env]}]
   (case (:expr-type expr)
     :def
-    {::poly-type (let [{:keys [locals body-expr]} expr]
-                   {::mono-type :env-update
-                    ::env-update-type :def
-                    ::def-expr-type (type-value-expr (if locals
-                                                       {:expr-type :fn
-                                                        :locals locals
-                                                        :body-expr body-expr}
-                                                       body-expr)
-                                                     {:env env})})}
+    (let [{:keys [locals body-expr]} expr]
+      {::poly-type {::mono-type :env-update
+                    ::env-update-type :def}
+
+       ::def-expr-type (type-value-expr (if locals
+                                          {:expr-type :fn
+                                           :locals locals
+                                           :body-expr body-expr}
+                                          body-expr)
+                                        {:env env})})
 
     :defmacro
     (type-defmacro expr {:env env})
@@ -421,8 +435,15 @@
                   ::env-update-type :defjava}}
 
     :defadt
-    {::poly-type {::mono-type :env-update
-                  ::env-update-type :defadt}}
+    (let [adt-mono-type (->adt (:sym expr) (:type-vars expr))]
+      {::poly-type {::mono-type :env-update
+                    ::env-update-type :defadt}
+       ::adt-mono-type adt-mono-type
+       ::constructor-mono-types (->> (:constructors expr)
+                                     (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
+                                                     {constructor-sym (if param-mono-types
+                                                                        (fn-type param-mono-types adt-mono-type)
+                                                                        adt-mono-type)}))))})
 
     :defeffect
     {::poly-type {::mono-type :env-update
