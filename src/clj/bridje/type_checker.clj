@@ -56,11 +56,7 @@
 
     :fn (into (ftvs (::return-type mono-type)) (mapcat ftvs) (::param-types mono-type))
 
-    :adt (into #{} (mapcat ftvs) (::type-params mono-type))))
-
-(defn instantiate [{:keys [::type-vars ::mono-type]}]
-  (let [tv-mapping (into {} (map (fn [tv] [tv (gensym (name tv))])) type-vars)]
-    (w/postwalk (some-fn tv-mapping identity) mono-type)))
+    :adt (into #{} (mapcat ftvs) (::type-vars mono-type))))
 
 (defn mono->poly [mono-type]
   {::type-vars (ftvs mono-type)
@@ -93,6 +89,7 @@
                 type))
 
     :type-var (get mapping (::type-var type) type)
+
     :fn (let [{:keys [::param-types ::return-type]} type]
           {::type :fn
            ::param-types (map #(apply-mapping % mapping) param-types)
@@ -209,22 +206,27 @@
            (when return-type
              {::mono-type (apply-mapping return-type mapping)}))))
 
+(defn instantiate [{:keys [::type-vars ::mono-type]}]
+  (let [tv-mapping (into {} (map (fn [tv] [tv (->type-var tv)])) type-vars)]
+    (-> (apply-mapping mono-type tv-mapping)
+        (with-meta {:mapping tv-mapping}))))
+
 (defn type-value-expr [expr {:keys [env]}]
   (letfn [(type-value-expr* [{:keys [expr-type] :as expr} {:keys [local-mono-env loop-return-var] :as opts}]
-            (let [type-value-expr** (fn tve
-                                      ([expr]
-                                       (tve expr {}))
-                                      ([expr recur-opts]
-                                       (type-value-expr* expr (merge opts recur-opts))))
+            (letfn [(type-value-expr**
+                      ([expr] (type-value-expr** expr {}))
 
-                  type-bindings (fn [bindings]
-                                  (reduce (fn [{:keys [local-mono-env typings]} [local binding-expr]]
-                                            (let [{:keys [::mono-type] :as typing} (type-value-expr* binding-expr local-mono-env)]
-                                              {:local-mono-env (assoc local-mono-env local mono-type)
-                                               :typings (conj typings typing)}))
-                                          {:local-mono-env local-mono-env
-                                           :typings []}
-                                          bindings))]
+                      ([expr recur-opts]
+                       (type-value-expr* expr (merge opts recur-opts))))
+
+                    (type-bindings [bindings]
+                      (reduce (fn [{:keys [local-mono-env typings]} [local binding-expr]]
+                                (let [{:keys [::mono-type] :as typing} (type-value-expr** binding-expr {:local-mono-env local-mono-env})]
+                                  {:local-mono-env (assoc local-mono-env local mono-type)
+                                   :typings (conj typings typing)}))
+                              {:local-mono-env local-mono-env
+                               :typings []}
+                              bindings))]
 
               (case expr-type
                 (:int :float :big-int :big-float :string :bool)
@@ -307,17 +309,22 @@
                 :case
                 (let [{:keys [expr adt clauses]} expr
                       expr-typing (type-value-expr** expr)
-                      adt-mono-type (->adt adt)
+                      adt-mono-type (instantiate (get-in env [:adts adt ::poly-type]))
+                      adt-tv-mapping (:mapping (meta adt-mono-type))
+
                       return-type-var (->type-var :case)
                       clause-typings (for [{:keys [constructor-sym default-sym bindings expr]} clauses]
-                                       (let [param-types (cond
-                                                           constructor-sym
-                                                           (let [{:keys [param-mono-types]} (get-in env [:constructor-syms constructor-sym])]
-                                                             (into {} (map vector bindings param-mono-types)))
+                                       (let [param-types (doto (cond
+                                                                 constructor-sym
+                                                                 (let [{:keys [param-mono-types]} (get-in env [:constructor-syms constructor-sym])]
+                                                                   (into {} (map vector bindings (map #(apply-mapping % adt-tv-mapping) param-mono-types))))
 
-                                                           default-sym
-                                                           {(first bindings) adt-mono-type})]
-                                         (type-value-expr** expr {:local-mono-env (merge local-mono-env param-types)})))]
+                                                                 default-sym
+                                                                 {(first bindings) adt-mono-type})
+                                                           (prn :param-types))]
+
+                                         (doto (type-value-expr** expr {:local-mono-env (merge local-mono-env adt-tv-mapping)})
+                                           (prn :typed))))]
 
                   (combine-typings {:typings (into [expr-typing] clause-typings)
                                     :return-type return-type-var
@@ -389,7 +396,7 @@
 
                     :else (-> (combine-typings {:typings typings
                                                 :return-type return-type
-                                                :extra-eqs (mapv vector param-types (map ::mono-type param-typings))})
+                                                :extra-eqs (doto (mapv vector param-types (map ::mono-type param-typings)) prn)})
                               (update ::effects (fnil set/union #{}) (::effects fn-expr-type))))))))]
 
     (let [{::keys [mono-type effects]} (type-value-expr* expr {})]
