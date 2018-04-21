@@ -1,0 +1,73 @@
+* Transducers
+#+BEGIN_SRC clojure
+  (defadt (ReduceState s b)
+    (More s b)
+    (Done s b))
+
+  (defadt (Reducer s a b)
+    (Reducer (Fn [] s)
+             (Fn [s a] (ReduceState s b))
+             (Fn [s] b)))
+
+  (:: (reduce [a]
+              (Reducer (#{s} s) a [b])
+              (Reducer (#{s} s) b c))
+      c)
+
+  (def (reduce coll xf rf)
+    (loop [xf-state ]))
+
+  (def (reducer init step complete))
+
+  (defmacro (xf &forms)
+    )
+
+  (def id-xf
+    (Reducer Unit (fn (step s el) (More s [el])) Nothing))
+
+  (def (map f)
+    (Reducer Unit
+
+             (fn (step s el)
+               (More s [(f el)]))
+
+             Nothing))
+
+  (def (filter p)
+    (Reducer Unit
+
+             (fn (step s el)
+               (More s (if (p el) [el] [])))
+
+             Nothing))
+
+  (def (mapcat f)
+    (Reducer Unit
+             (fn (step s el)
+               (More s (f el)))
+             Nothing))
+
+  (def (take n)
+    (Reducer n
+             (fn (step s el)
+               (if (pos? s)
+                 (More (dec n) [el])
+                 (Done 0 [])))
+             Nothing))
+
+  (def (take n)
+    (Reducer n
+             (fn (step _ el)
+               (More (take (dec n)) [el])
+               (Done (take 0) [el]))
+             Nothing))
+
+  (def (drop n)
+    (Reducer n
+             (fn (step n el)
+               (if (pos? n)
+                 (More (dec n) [])
+                 (More 0 [el])))
+             Nothing))
+
+#+END_SRC
