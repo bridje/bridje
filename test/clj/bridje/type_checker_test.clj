@@ -33,6 +33,7 @@
                           :exprs [{:expr-type :local
                                    :local ::x}]}}
              {:expr-type :big-int
+
               :big-int 54}]}
     (tc/mono->poly (tc/vector-of (tc/primitive-type :big-int)))))
 
@@ -61,7 +62,7 @@
                               :body-expr {:expr-type :int
                                           :int 54}}
                              {})
-               (get-in [::tc/poly-type ::tc/def-expr-type ::tc/poly-type]))
+               (get-in [::tc/def-poly-type ::tc/poly-type]))
            (tc/mono->poly {::tc/type :fn
                            ::tc/param-types []
                            ::tc/return-type (tc/primitive-type :int)

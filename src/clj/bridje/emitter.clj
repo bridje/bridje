@@ -63,11 +63,11 @@
                         `(let [~expr-sym ~(emit-value-expr* expr)
                                ~constructor (:brj/constructor ~expr-sym)]
                            (cond
-                             ~@(mapcat (fn [{:keys [constructor-sym default-sym bindings expr]}]
+                             ~@(mapcat (fn [{:keys [constructor-sym default-sym locals expr]}]
                                          [(cond
                                             constructor-sym `(= ~constructor '~constructor-sym)
                                             default-sym :else)
-                                          `(let [[~@bindings] ~(cond
+                                          `(let [[~@locals] ~(cond
                                                                  constructor-sym `(:brj/constructor-params ~expr-sym)
                                                                  default-sym expr-sym)]
                                              ~(emit-value-expr* expr))])
@@ -123,7 +123,7 @@
   (case expr-type
     :def
     (let [{:keys [sym locals body-expr]} expr
-          poly-type (get-in expr [::tc/def-expr-type ::tc/poly-type])]
+          poly-type (get-in expr [::tc/def-poly-type ::tc/poly-type])]
       {:env (assoc-in env [:vars sym] {::tc/poly-type poly-type
                                        :value ((eval (emit-value-expr (if locals
                                                                         {:expr-type :fn
@@ -151,16 +151,15 @@
                 (update :attributes assoc attribute {::tc/mono-type mono-type}))})
 
     :defadt
-    (let [{:keys [sym constructors]} expr]
+    (let [{:keys [sym ::tc/adt-poly-type ::tc/constructor-poly-types constructors]} expr
+          adt-mono-type (::tc/mono-type adt-poly-type)]
       {:env (-> env
-                (update :adts assoc sym {:constructors (into #{} (map :constructor-sym) constructors)
-                                         ::tc/poly-type (tc/mono->poly (::tc/adt-mono-type expr))})
+                (update :adts assoc sym {:sym sym
+                                         ::tc/poly-type adt-poly-type
+                                         :constructors (mapv :constructor-sym constructors)
+                                         ::tc/constructor-poly-types constructor-poly-types})
 
-                (update :constructor-syms (fnil into {})
-                        (map (juxt :constructor-sym (fn [{:keys [param-mono-types]}]
-                                                      {:adt sym
-                                                       :param-mono-types param-mono-types})))
-                        constructors)
+                (update :adt-constructors (fnil into {}) (map (juxt :constructor-sym (constantly sym))) constructors)
 
                 (update :vars merge (->> constructors
                                          (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
@@ -171,7 +170,7 @@
                                                                        :brj/constructor-params (vec params)})
                                                                     {:brj/constructor constructor-sym})
 
-                                                           ::tc/poly-type (tc/mono->poly (get-in expr [::tc/constructor-mono-types constructor-sym]))}]))))))})
+                                                           ::tc/poly-type (get constructor-poly-types constructor-sym)}]))))))})
 
     :defeffect
     (let [{:keys [sym definitions]} expr]
@@ -213,4 +212,5 @@
                                                                                 :invoke-static
                                                                                 `(fn [~@param-syms]
                                                                                    (~(symbol (.getName class) (name sym))
-                                                                                    ~@param-syms))))}]))))))))}))
+                                                                                    ~@param-syms))))}]))))))))})
+  )

@@ -158,23 +158,11 @@
                                                                                                     {sym-type sym}))
                                            locals (map (juxt identity gen-local) binding-syms)]
                                        (merge (select-keys clause [:constructor-sym :default-sym])
-                                              {:bindings (map second locals)
+                                              {:locals (map second locals)
                                                :expr (with-ctx-update (update :locals into locals)
-                                                       (analyse-expr expr-form))}))))))
-
-        adt (let [adts (into #{}
-                             (comp (keep :constructor-sym)
-                                   (map (fn [constructor-sym]
-                                          (or (get-in *ctx* [:env :constructor-syms constructor-sym :adt])
-                                              (throw (ex-info "Unknown constructor" {:constructor-sym constructor-sym}))))))
-                             clauses)]
-              (if (= 1 (count adts))
-                (first adts)
-                (throw (ex-info "Ambiguous constructors" {:constructor-syms (into #{} (keep :constructor-sym) clauses)
-                                                          :adts adts}))))]
+                                                       (analyse-expr expr-form))}))))))]
 
     {:expr-type :case
-     :adt adt
      :expr expr
      :clauses clauses}))
 
@@ -335,14 +323,14 @@
                                 :param-forms (s/* ::mono-type-form)))))
 
 (defn extract-mono-type [mono-type-form]
-  (let [{:keys [->type-var env] :as ctx} *ctx*
+  (let [{:keys [env] :as ctx} *ctx*
         [mono-type-type arg] mono-type-form]
     (case mono-type-type
       :primitive (tc/primitive-type arg)
       :vector (tc/vector-of (extract-mono-type arg))
       :set (tc/set-of (extract-mono-type arg))
       :record (tc/record-of (gensym 'r) arg)
-      :type-var (->type-var arg)
+      :type-var (tc/->type-var (tc/new-type-var arg))
       :adt-or-class (or (when (get-in env [:adts arg])
                           (tc/->adt arg))
 
@@ -364,7 +352,7 @@
          :return-form ::mono-type-form))
 
 (defn extract-type-signature [type-signature-form]
-  (with-ctx-update (assoc :->type-var (memoize tc/->type-var))
+  (binding [tc/new-type-var (memoize tc/new-type-var)]
     (let [{[param-form-type params-form] :params-form
            :keys [return-form]} type-signature-form
           {:keys [sym param-type-forms]} (case param-form-type
@@ -480,10 +468,10 @@
                             (dissoc :name-form))))))
 
 (defmethod analyse-expr :defadt [[_ {:keys [name-sym type-var-syms constructors-forms]}]]
-  (let [->type-var (memoize tc/->type-var)]
+  (binding [tc/new-type-var (memoize tc/new-type-var)]
     {:expr-type :defadt
      :sym name-sym
-     :type-vars (into [] (map ->type-var) type-var-syms)
+     ::tc/type-vars (into [] (map tc/new-type-var) type-var-syms)
      :constructors (->> constructors-forms
                         (into [] (map (fn [[c-type c-args]]
                                         (case c-type
@@ -492,8 +480,7 @@
                                                                :param-mono-types
                                                                (->> (:params-forms c-args)
                                                                     (into [] (map (fn [form]
-                                                                                    (with-ctx-update (-> (assoc :->type-var ->type-var)
-                                                                                                         (assoc-in [:env :adts name-sym] {}))
+                                                                                    (with-ctx-update (-> (assoc-in [:env :adts name-sym] {}))
 
                                                                                       (extract-mono-type form))))))})))))}))
 
