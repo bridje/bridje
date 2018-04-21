@@ -5,24 +5,28 @@
             [bridje.emitter :as emitter]
             [bridje.type-checker :as tc]
             [bridje.util :as u]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [clojure.java.io :as io]))
 
 (defn interpret-form [form {:keys [env]}]
   (-> form
-      (quoter/expand-syntax-quotes {:env env})
-      quoter/expand-quotes
+      (quoter/expand-quotes {:env env})
       (analyser/analyse {:env env})
-      (tc/with-type {:env env})
+      (as-> expr (merge expr (tc/type-expr expr {:env env})))
       (emitter/interpret-expr {:env env})))
 
+(def base-env
+  (->> (reader/read-forms (slurp (io/resource "bridje/core.brj")))
+
+       (reduce (fn [env form]
+                 (:env (interpret-form form {:env env})))
+
+               {})))
+
 (defn interpret-str [str {:keys [env]}]
-  (reduce (fn [{:keys [env]} form]
-            (interpret-form form {:env env}))
+  (->> (reader/read-forms str)
 
-          {:env env}
+       (reduce (fn [{:keys [env]} form]
+                 (interpret-form form {:env env}))
 
-          (reader/read-forms str)))
-
-(defn run-main [env & args]
-  (when-let [main-fn (get-in env [:vars 'main :value])]
-    (main-fn args)))
+               {:env (or env base-env)})))

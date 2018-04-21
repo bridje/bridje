@@ -2,7 +2,7 @@
   (:require [bridje.runtime :as rt]
             [bridje.type-checker :as tc]
             [bridje.util :as u]
-            [clojure.string :as s]))
+            [clojure.string :as str]))
 
 (defn find-globals [sub-exprs]
   (->> sub-exprs
@@ -28,6 +28,8 @@
                 :bool (:bool expr)
                 (:int :float :big-int :big-float) (:number expr)
 
+                :symbol (list 'quote (:sym expr))
+
                 :vector (->> exprs
                              (into [] (map emit-value-expr*)))
 
@@ -35,8 +37,8 @@
                           (into #{} (map emit-value-expr*)))
 
                 :record (->> (:entries expr)
-                             (into {} (map (fn [[sym expr]]
-                                             [(keyword sym) (emit-value-expr* expr)]))))
+                             (into {} (map (fn [{:keys [k v]}]
+                                             [k (emit-value-expr* v)]))))
 
                 :attribute (:attribute expr)
 
@@ -46,6 +48,7 @@
 
                 :local (:local expr)
                 :global (get globals (:global expr))
+                :effect-fn `(get rt/*effect-fns* '~(:effect-fn expr))
                 :clj-var (:clj-var expr)
 
                 :let (let [{:keys [bindings body-expr]} expr]
@@ -53,6 +56,22 @@
                                           [local (emit-value-expr* expr)])
                                         bindings)]
                           ~(emit-value-expr* body-expr)))
+
+                :case (let [{:keys [expr adt clauses]} expr
+                            expr-sym (gensym 'expr)
+                            constructor (gensym 'constructor)]
+                        `(let [~expr-sym ~(emit-value-expr* expr)
+                               ~constructor (:brj/constructor ~expr-sym)]
+                           (cond
+                             ~@(mapcat (fn [{:keys [constructor-sym default-sym locals expr]}]
+                                         [(cond
+                                            constructor-sym `(= ~constructor '~constructor-sym)
+                                            default-sym :else)
+                                          `(let [[~@locals] ~(cond
+                                                                 constructor-sym `(:brj/constructor-params ~expr-sym)
+                                                                 default-sym expr-sym)]
+                                             ~(emit-value-expr* expr))])
+                                       clauses))))
 
                 :fn (let [{:keys [sym locals body-expr]} expr]
                       `(fn ~sym [~@locals]
@@ -75,7 +94,16 @@
                                           bindings)]
                            ~(emit-value-expr* body-expr)))
 
-                :recur `(recur ~@(map emit-value-expr* exprs))))]
+                :recur `(recur ~@(map emit-value-expr* exprs))
+
+                :handling (let [{:keys [handlers body-expr]} expr]
+                            `(binding [rt/*effect-fns* (merge rt/*effect-fns*
+                                                              ~(into {}
+                                                                     (comp (mapcat :handler-exprs)
+                                                                           (map (fn [{:keys [sym] :as fn-expr}]
+                                                                                  [`'~sym (emit-value-expr* fn-expr)])))
+                                                                     handlers))]
+                               ~(emit-value-expr* body-expr)))))]
 
       (let [env-sym (gensym 'env)]
         `(fn [~env-sym]
@@ -95,9 +123,9 @@
   (case expr-type
     :def
     (let [{:keys [sym locals body-expr]} expr
-          poly-type (get-in expr [::tc/poly-type ::tc/def-expr-type ::tc/poly-type])]
+          poly-type (get-in expr [::tc/def-poly-type ::tc/poly-type])]
       {:env (assoc-in env [:vars sym] {::tc/poly-type poly-type
-                                       :value ((eval (emit-value-expr (if (seq locals)
+                                       :value ((eval (emit-value-expr (if locals
                                                                         {:expr-type :fn
                                                                          :sym sym
                                                                          :locals locals
@@ -105,28 +133,55 @@
                                                                         body-expr)
                                                                       env))
                                                env)})})
-    :defattrs
-    (let [{:keys [attributes]} expr]
+
+    :defmacro
+    (let [{:keys [sym locals body-expr]} expr]
+      {:env (assoc-in env [:macros sym] {:value ((eval (emit-value-expr (if locals
+                                                                          {:expr-type :fn
+                                                                           :sym sym
+                                                                           :locals locals
+                                                                           :body-expr body-expr}
+                                                                          body-expr)
+                                                                        env))
+                                                 env)})})
+
+    :defattribute
+    (let [{:keys [attribute ::tc/mono-type]} expr]
       {:env (-> env
-                (update :attributes merge attributes))})
+                (update :attributes assoc attribute {::tc/mono-type mono-type}))})
 
     :defadt
-    (let [{:keys [sym constructors attributes ::tc/adt-constructor-types ::tc/poly-type]} expr]
+    (let [{:keys [sym ::tc/adt-poly-type ::tc/constructor-poly-types constructors]} expr
+          adt-mono-type (::tc/mono-type adt-poly-type)]
       {:env (-> env
-                (update :adts assoc sym {:constructors (->> constructors
-                                                            (into {} (map (juxt :constructor-sym #(select-keys % [:attributes])))))
-                                         ::tc/poly-type poly-type})
+                (update :adts assoc sym {:sym sym
+                                         ::tc/poly-type adt-poly-type
+                                         :constructors (mapv :constructor-sym constructors)
+                                         ::tc/constructor-poly-types constructor-poly-types})
+
+                (update :adt-constructors (fnil into {}) (map (juxt :constructor-sym (constantly sym))) constructors)
 
                 (update :vars merge (->> constructors
-                                         (into {} (map (fn [[constructor-sym {:keys [attributes ::tc/poly-type]}]]
+                                         (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
                                                          [constructor-sym
-                                                          {:value (if attributes
-                                                                    (fn [v]
-                                                                      (merge v
-                                                                             {:brj/adt constructor-sym}))
-                                                                    {:brj/adt constructor-sym})
-                                                           ::tc/poly-type poly-type}])))))
-                (update :attributes merge attributes))})
+                                                          {:value (if param-mono-types
+                                                                    (fn [& params]
+                                                                      {:brj/constructor constructor-sym
+                                                                       :brj/constructor-params (vec params)})
+                                                                    {:brj/constructor constructor-sym})
+
+                                                           ::tc/poly-type (get constructor-poly-types constructor-sym)}]))))))})
+
+    :defeffect
+    (let [{:keys [sym definitions]} expr]
+      {:env (-> env
+                (update :effects assoc sym {:definitions (into #{} (map :sym) definitions)})
+
+                (update :effect-fns (fnil into {})
+                        (map (juxt :sym
+                                   #(merge {:effect sym}
+                                           (select-keys % [::tc/poly-type]))))
+                        definitions))})
 
     :defclj
     {:env (reduce (fn [env {:keys [sym value ::tc/poly-type] :as foo}]
@@ -134,4 +189,28 @@
                         (assoc-in [:vars sym] {:value value
                                                ::tc/poly-type poly-type})))
                   env
-                  (:clj-fns expr))}))
+                  (:clj-fns expr))}
+
+    :defjava
+    {:env (let [{:keys [^Class class members]} expr
+                class-basename (symbol (last (str/split (.getName class) #"\.")))]
+            (-> env
+                (assoc-in [:classes class-basename] {:class class})
+                (update :vars merge (->> members
+                                         (into {} (map (fn [{:keys [sym op ::tc/poly-type]}]
+                                                         (let [mono-type (::tc/mono-type poly-type)
+                                                               param-syms (when (= :fn (::tc/type mono-type))
+                                                                            (repeatedly (count (::tc/param-types mono-type))
+                                                                                        #(gensym 'param)))]
+                                                           [sym {::tc/poly-type poly-type
+                                                                 :value (eval (case op
+                                                                                ;; TODO all the rest
+                                                                                :invoke-virtual
+                                                                                `(fn [~@param-syms]
+                                                                                   (~(symbol (str "." (name sym))) ~@param-syms))
+
+                                                                                :invoke-static
+                                                                                `(fn [~@param-syms]
+                                                                                   (~(symbol (.getName class) (name sym))
+                                                                                    ~@param-syms))))}]))))))))})
+  )

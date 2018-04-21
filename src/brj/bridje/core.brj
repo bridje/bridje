@@ -1,0 +1,20 @@
+(defjava clojure.lang.Symbol)
+
+(defadt Form
+  (BoolForm Bool)
+  (StringForm String)
+
+  (IntForm Int)
+  (FloatForm Float)
+  (BigIntForm BigInt)
+  (BigFloatForm BigFloat)
+
+  (ListForm [Form])
+  (VectorForm [Form])
+  (SetForm [Form])
+  (RecordForm [Form])
+
+  (SymbolForm Symbol))
+
+(defclj bridje.runtime
+  (:: (concat [[a]]) [a]))
