@@ -274,3 +274,18 @@
                     {::tc/typedefd? true})
 
              (-> (get-in env [:vars 'foo ::tc/poly-type]))))))
+
+(t/deftest poly-let-test
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          '(defadt (T2 a b) (T2 a b))
+
+                                          '(def foo
+                                             (let ((id (fn (id x) x)))
+                                               (T2 (id 4) (id "Hello")))))
+
+                                         {})
+        {:syms [foo]} (:vars env)]
+
+    (t/is (= {::tc/poly-type (tc/mono->poly (tc/->adt 'T2 [(tc/primitive-type :int) (tc/primitive-type :string)]))
+              :value '#:brj{:constructor T2, :constructor-params [4 "Hello"]}}
+             foo))))

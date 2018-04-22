@@ -249,10 +249,13 @@
    ::mono-env {}})
 
 (defmethod type-value-expr* :local [{:keys [local]}]
-  (let [mono-type (or (get-in *ctx* [:local-mono-env local])
-                      (->type-var (new-type-var local)))]
-    {::mono-env {local mono-type}
-     ::mono-type mono-type}))
+  (or (when-let [poly-type (get-in *ctx* [:local-poly-env local])]
+        {::mono-type (instantiate poly-type)})
+
+      (let [mono-type (or (get-in *ctx* [:local-mono-env local])
+                          (->type-var (new-type-var local)))]
+        {::mono-env {local mono-type}
+         ::mono-type mono-type})))
 
 (defmethod type-value-expr* :global [{:keys [global]}]
   {::mono-env {}
@@ -318,19 +321,20 @@
                                   [(::mono-type then-typing) type-var]
                                   [(::mono-type else-typing) type-var]]})))
 
-(defn type-bindings [bindings]
-  (reduce (fn [{:keys [local-mono-env typings]} [local binding-expr]]
-            (let [{:keys [::mono-type] :as typing} (with-ctx-update (assoc :local-mono-env local-mono-env)
-                                                     (type-value-expr* binding-expr))]
-              {:local-mono-env (assoc local-mono-env local mono-type)
-               :typings (conj typings typing)}))
-          {:local-mono-env (:local-mono-env *ctx*)
-           :typings []}
-          bindings))
-
 (defmethod type-value-expr* :let [{:keys [bindings body-expr]}]
-  (let [{:keys [local-mono-env typings]} (type-bindings bindings)
-        body-typing (with-ctx-update (assoc :local-mono-env local-mono-env)
+  (let [free-tvs (set (keys (:local-mono-env *ctx*)))
+        {:keys [local-poly-env typings]} (reduce (fn [{:keys [local-poly-env typings]} [local binding-expr]]
+                                                   (let [{:keys [::mono-type] :as typing} (with-ctx-update (assoc :local-poly-env local-poly-env)
+                                                                                            (type-value-expr* binding-expr))
+                                                         poly-type (-> (mono->poly mono-type)
+                                                                       (update ::type-vars set/difference free-tvs))]
+
+                                                     {:local-poly-env (assoc local-poly-env local poly-type)
+                                                      :typings (conj typings typing)}))
+                                                 {:local-poly-env (:local-poly-env *ctx*)
+                                                  :typings []}
+                                                 bindings)
+        body-typing (with-ctx-update (assoc :local-poly-env local-poly-env)
                       (type-value-expr* body-expr))]
 
     (combine-typings {:typings (conj typings body-typing)
@@ -369,8 +373,17 @@
                                                clause-typings))})))
 
 (defmethod type-value-expr* :loop [{:keys [bindings body-expr]}]
-  (let [{:keys [local-mono-env typings]} (type-bindings bindings)
+  (let [{:keys [local-mono-env typings]} (reduce (fn [{:keys [local-mono-env typings]} [local binding-expr]]
+                                                   (let [{:keys [::mono-type] :as typing} (with-ctx-update (assoc :local-mono-env local-mono-env)
+                                                                                            (type-value-expr* binding-expr))]
+                                                     {:local-mono-env (assoc local-mono-env local mono-type)
+                                                      :typings (conj typings typing)}))
+                                                 {:local-mono-env (:local-mono-env *ctx*)
+                                                  :typings []}
+                                                 bindings)
+
         loop-return-var (->type-var 'loop-return)
+
         body-typing (with-ctx-update (merge {:local-mono-env local-mono-env
                                              :loop-return-var loop-return-var})
                       (type-value-expr* body-expr))]
