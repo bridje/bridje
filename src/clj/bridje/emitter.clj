@@ -152,7 +152,7 @@
                                                                     env))
                                              env)})})
 
-(defmethod interpret-expr :defattribute [{:keys [attribute ::tc/mono-type]} {:keys [env]}]
+(defmethod interpret-expr :attribute-typedef [{:keys [attribute ::tc/mono-type]} {:keys [env]}]
   {:env (-> env
             (update :attributes assoc attribute {::tc/mono-type mono-type}))})
 

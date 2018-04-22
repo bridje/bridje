@@ -420,17 +420,17 @@
                                                     nil :invoke-static)
                                               ::tc/poly-type poly-type})))))))}))
 
-(s/def ::typedef-form
+(s/def ::attribute-typedef-form
   (s/cat :_list #{:list}
          :_typedef (exact-sym (symbol "::"))
          :subject (s/or :keyword ::keyword-form
                         :symbol ::symbol-form)
          :type-form ::mono-type-form))
 
-(defmethod analyse-expr :typedef [[_ {[subject-type subject-form] :subject, :keys [type-form]}]]
+(defmethod analyse-expr :attribute-typedef [[_ {[subject-type subject-form] :subject, :keys [type-form]}]]
   (merge {::tc/mono-type (extract-mono-type type-form)}
          (case subject-type
-           :keyword {:expr-type :defattribute
+           :keyword {:expr-type :attribute-typedef
                      :attribute subject-form})))
 
 (s/def ::defeffect-form
@@ -573,7 +573,7 @@
                :defjava ::defjava-form
                :defclj ::defclj-form
                :defeffect ::defeffect-form
-               :typedef ::typedef-form
+               :attribute-typedef ::attribute-typedef-form
 
                :call (s/and (s/cat :_list #{:list}
                                    :forms (s/* any?))

@@ -456,9 +456,9 @@
                     ::env-update-type :defmacro}})))
 
 
-(defmethod type-expr* :defattribute [{:keys [kw ::mono-type]}]
+(defmethod type-expr* :attribute-typedef [{:keys [kw ::mono-type]}]
   {::poly-type {::mono-type :env-update
-                ::env-update-type :defattribute}})
+                ::env-update-type :attribute-typedef}})
 
 (defmethod type-expr* :defclj [_]
   {::poly-type {::mono-type :env-update
