@@ -24,12 +24,11 @@
 (t/deftest basic-interop
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           '(defclj bridje.interop
-                                             ("::" (concat [[a]]) [a])
                                              ("::" (++ [String]) String))
 
                                           '(def hello-world
-                                             (let [hello "hello "
-                                                   world "world"]
+                                             (let ((hello "hello ")
+                                                   (world "world"))
                                                (++ [hello world]))))
 
                                          {})
@@ -156,8 +155,8 @@
                                           clj-core-interop
 
                                           '(def loop-recur
-                                             (loop [x 5
-                                                    res []]
+                                             (loop ((x 5)
+                                                    (res []))
                                                (if (zero? x)
                                                  res
                                                  (recur (dec x) (conj res x))))))

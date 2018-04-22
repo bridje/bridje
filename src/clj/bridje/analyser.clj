@@ -181,9 +181,10 @@
    :else-expr (analyse-expr else-form)})
 
 (s/def ::bindings-form
-  (s/and (s/cat :_vector #{:vector}
-                :bindings (s/* (s/cat :binding-sym ::symbol-form
-                                      :binding-form ::form)))
+  (s/and (s/cat :_list #{:list}
+                :bindings (s/* (s/spec (s/cat :_list #{:list}
+                                              :binding-sym ::symbol-form
+                                              :binding-form ::form))))
          (s/conformer #(:bindings %))))
 
 (s/def ::let-form
