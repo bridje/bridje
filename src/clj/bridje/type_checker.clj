@@ -1,4 +1,5 @@
 (ns bridje.type-checker
+  (:refer-clojure :exclude [<=])
   (:require [clojure.set :as set]
             [clojure.walk :as w]))
 
@@ -45,7 +46,7 @@
    {::type :fn
     ::param-types param-types
     ::return-type return-type
-    ::effects effects}))
+    ::effects (or effects #{})}))
 
 (defn ftvs [mono-type]
   (case (::type mono-type)
@@ -133,57 +134,63 @@
                                     new-base)
                            ::attributes t1-t2-attributes}}))))))
 
-(defn unify-eqs [eqs]
-  (loop [[[{t1-type ::type, :as t1} {t2-type ::type, :as t2} :as eq] & more-eqs] eqs
-         mapping {}]
-    (if-not eq
-      mapping
+(defn unify-eqs
+  ([eqs]
+   (unify-eqs eqs {:unify-tv-eq (fn [[[t1 t2] & more-eqs] mapping]
+                                  (if (= :type-var (::type t1))
+                                    (let [new-mapping {(::type-var t1) t2}]
+                                      {:eqs (map (fn [[t1 t2]]
+                                                   [(apply-mapping t1 new-mapping)
+                                                    (apply-mapping t2 new-mapping)])
+                                                 more-eqs)
 
-      (let [ex (ex-info "Cannot unify types" {:types [t1 t2]})]
-        (cond
-          (= t1 t2) (recur more-eqs mapping)
+                                       :mapping (mapping-apply-mapping mapping new-mapping)})
 
-          (= :type-var t1-type)
-          (let [new-mapping {(::type-var t1) t2}]
-            (recur (map (fn [[t1 t2]]
-                          [(apply-mapping t1 new-mapping)
-                           (apply-mapping t2 new-mapping)])
-                        more-eqs)
+                                    (recur (cons [t2 t1] more-eqs) mapping)))}))
 
-                   (mapping-apply-mapping mapping new-mapping)))
+  ([eqs {:keys [unify-tv-eq]}]
+   (loop [[[{t1-type ::type, :as t1} {t2-type ::type, :as t2} :as eq] & more-eqs] eqs
+          mapping {}]
+     (if-not eq
+       mapping
 
-          (= :type-var t2-type)
-          (recur (cons [t2 t1] more-eqs) mapping)
+       (let [ex (ex-info "Cannot unify types" {:types [t1 t2]})]
+         (cond
+           (= t1 t2) (recur more-eqs mapping)
 
-          (not= t1-type t2-type) (throw ex)
+           (or (= :type-var t1-type) (= :type-var t2-type))
+           (let [{:keys [eqs mapping]} (unify-tv-eq (cons [t1 t2] more-eqs) mapping)]
+             (recur eqs mapping))
 
-          :else (case (::type t1)
-                  :record (recur more-eqs (mapping-apply-mapping mapping (unify-records t1 t2)))
-                  (:vector :set) (recur (cons [(::elem-type t1) (::elem-type t2)] more-eqs) mapping)
-                  :fn (let [{t1-param-types ::param-types, t1-return-type ::return-type} t1
-                            {t2-param-types ::param-types, t2-return-type ::return-type} t2]
-                        (cond
-                          (not= (count t1-param-types) (count t2-param-types)) (throw ex)
-                          :else (recur (concat (map vector t1-param-types t2-param-types)
-                                               [[t1-return-type t2-return-type]]
-                                               more-eqs)
-                                       mapping)))
+           (not= t1-type t2-type) (throw ex)
 
-                  :adt (let [{t1-adt-sym :adt-sym, t1-tvs :type-vars} t1
-                             {t2-adt-sym :adt-sym, t2-tvs :type-vars} t2]
+           :else (case (::type t1)
+                   :record (recur more-eqs (mapping-apply-mapping mapping (unify-records t1 t2)))
+                   (:vector :set) (recur (cons [(::elem-type t1) (::elem-type t2)] more-eqs) mapping)
+                   :fn (let [{t1-param-types ::param-types, t1-return-type ::return-type} t1
+                             {t2-param-types ::param-types, t2-return-type ::return-type} t2]
                          (cond
-                           (not= t1-adt-sym t2-adt-sym) (throw ex)
-                           :else (recur (concat (map vector
-                                                     (for [tv t1-tvs]
-                                                       {::type :type-var
-                                                        :type-var tv})
-                                                     (for [tv t2-tvs]
-                                                       {::type :type-var
-                                                        :type-var tv}))
+                           (not= (count t1-param-types) (count t2-param-types)) (throw ex)
+                           :else (recur (concat (map vector t1-param-types t2-param-types)
+                                                [[t1-return-type t2-return-type]]
                                                 more-eqs)
                                         mapping)))
 
-                  (throw ex)))))))
+                   :adt (let [{t1-adt-sym :adt-sym, t1-tvs :type-vars} t1
+                              {t2-adt-sym :adt-sym, t2-tvs :type-vars} t2]
+                          (cond
+                            (not= t1-adt-sym t2-adt-sym) (throw ex)
+                            :else (recur (concat (map vector
+                                                      (for [tv t1-tvs]
+                                                        {::type :type-var
+                                                         :type-var tv})
+                                                      (for [tv t2-tvs]
+                                                        {::type :type-var
+                                                         :type-var tv}))
+                                                 more-eqs)
+                                         mapping)))
+
+                   (throw ex))))))))
 
 (defn mono-env-union [mono-envs]
   (->> mono-envs
@@ -243,7 +250,7 @@
 
 (defmethod type-value-expr* :local [{:keys [local]}]
   (let [mono-type (or (get-in *ctx* [:local-mono-env local])
-                      (->type-var local))]
+                      (->type-var (new-type-var local)))]
     {::mono-env {local mono-type}
      ::mono-type mono-type}))
 
@@ -286,7 +293,7 @@
     (combine-typings {:typings (map :typing entry-typings)
                       :extra-eqs (->> entry-typings
                                       (into [] (map (fn [{:keys [k typing]}]
-                                                      [(doto (get-in *ctx* [:env :attributes k ::mono-type]) prn)
+                                                      [(get-in *ctx* [:env :attributes k ::mono-type])
                                                        (::mono-type typing)]))))
                       :return-type {::type :record
                                     ::attributes (->> entry-typings
@@ -401,8 +408,7 @@
 (defmethod type-value-expr* :fn [{:keys [locals body-expr]}]
   (let [{:keys [::mono-type ::mono-env ::effects]} (type-value-expr* body-expr)]
     {::mono-env (apply dissoc mono-env locals)
-     ::mono-type (merge (fn-type (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type)
-                        {::effects effects})}))
+     ::mono-type (merge (fn-type effects (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type))}))
 
 (defmethod type-value-expr* :call [{:keys [exprs]}]
   (let [[fn-expr & arg-exprs] exprs
@@ -437,15 +443,58 @@
 (defmethod type-expr* ::default [expr]
   (type-value-expr expr))
 
-(defmethod type-expr* :def [{:keys [locals body-expr]}]
-  {::poly-type {::mono-type :env-update
-                ::env-update-type :def}
 
-   ::def-poly-type (type-value-expr (if locals
-                                      {:expr-type :fn
-                                       :locals locals
-                                       :body-expr body-expr}
-                                      body-expr))})
+;; https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/putting.pdf
+
+(defn <= [{offered-mono-type ::mono-type, :as offered-poly-type}
+          {required-mono-type ::mono-type, :as required-poly-type}]
+
+  (let [ex (Exception.)]
+    (try
+      (-> (unify-eqs [[offered-mono-type required-mono-type]]
+                     {:unify-tv-eq (fn [[[t1 t2] & more-eqs] mapping]
+                                     (cond
+                                       (not= :type-var (::type t1)) (throw ex)
+                                       (not= (get mapping (::type-var t1) t2) t2) (throw ex)
+                                       :else {:eqs more-eqs
+                                              :mapping (assoc mapping (::type-var t1) t2)}))})
+
+          boolean)
+
+      (catch Exception e
+        (if (= ex e)
+          false
+          (throw e))))))
+
+(defmethod type-expr* :typedef [{:keys [::mono-type]}]
+  {::poly-type {::mono-type :env-update
+                ::env-update-type :typedef}
+
+   ::typedef-poly-type (merge (mono->poly mono-type)
+                              {::typedefd? true})})
+
+(defmethod type-expr* :def [{:keys [sym locals body-expr]}]
+  (let [offered-poly-type (-> (type-value-expr (if locals
+                                                 {:expr-type :fn
+                                                  :locals locals
+                                                  :body-expr body-expr}
+                                                 body-expr))
+                              ::poly-type)
+
+        required-poly-type (let [poly-type (get-in *ctx* [:env :vars sym ::poly-type])]
+                             (when (::typedefd? poly-type)
+                               poly-type))]
+
+    (when (and required-poly-type
+               (not (<= offered-poly-type required-poly-type)))
+      (throw (ex-info "you suck at typedefs" {:sym sym
+                                              :offered-poly-type offered-poly-type
+                                              :required-poly-type required-poly-type})))
+
+    {::poly-type {::mono-type :env-update
+                  ::env-update-type :def}
+
+     ::def-poly-type (or required-poly-type offered-poly-type)}))
 
 (defmethod type-expr* :defmacro [{:keys [locals body-expr]}]
   (let [form-adt (->adt 'Form)
@@ -454,7 +503,6 @@
                             :return-type form-adt})
       {::poly-type {::mono-type :env-update
                     ::env-update-type :defmacro}})))
-
 
 (defmethod type-expr* :attribute-typedef [{:keys [kw ::mono-type]}]
   {::poly-type {::mono-type :env-update
@@ -477,7 +525,7 @@
      ::constructor-poly-types (->> constructors
                                    (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
                                                    [constructor-sym (mono->poly (if (seq param-mono-types)
-                                                                                  (fn-type param-mono-types adt-mono-type)
+                                                                                  (fn-type #{} param-mono-types adt-mono-type)
                                                                                   adt-mono-type))]))))}))
 
 (defmethod type-expr* :defeffect [_]

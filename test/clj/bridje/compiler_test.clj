@@ -180,7 +180,7 @@
                                           '(def mocked-res
                                              (handling ((ConsoleIO (fn (read-line!)
                                                                      "foo")))
-                                               (res))))
+                                                       (res))))
 
                                          {})
         {:syms [mocked-res]} (:vars env)]
@@ -260,3 +260,18 @@
 
         (t/is (= 10 (:value foo)))
         (t/is (= [10] @!tracer))))))
+
+(t/deftest typedef-test
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          "(:: (foo Int) Int)"
+
+                                          '(def (foo x)
+                                             x))
+
+                                         {})
+        {:syms [foo]} (:vars env)]
+
+    (t/is (= (merge (tc/mono->poly (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int)))
+                    {::tc/typedefd? true})
+
+             (-> (get-in env [:vars 'foo ::tc/poly-type]))))))

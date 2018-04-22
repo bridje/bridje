@@ -130,17 +130,20 @@
   (fn [{:keys [expr-type]} {:keys [env]}]
     expr-type))
 
-(defmethod interpret-expr :def [{:keys [sym locals body-expr] :as expr} {:keys [env] :as ctx}]
-  (let [poly-type (get-in expr [::tc/def-poly-type ::tc/poly-type])]
-    {:env (assoc-in env [:vars sym] {::tc/poly-type poly-type
-                                     :value ((eval (emit-value-expr (if locals
-                                                                      {:expr-type :fn
-                                                                       :sym sym
-                                                                       :locals locals
-                                                                       :body-expr body-expr}
-                                                                      body-expr)
-                                                                    env))
-                                             env)})}))
+(defmethod interpret-expr :typedef [{:keys [sym ::tc/typedef-poly-type]} {:keys [env]}]
+  {:env (-> env
+            (update-in [:vars sym] merge {::tc/poly-type typedef-poly-type}))})
+
+(defmethod interpret-expr :def [{:keys [sym locals body-expr ::tc/def-poly-type] :as expr} {:keys [env] :as ctx}]
+  {:env (assoc-in env [:vars sym] {::tc/poly-type def-poly-type
+                                   :value ((eval (emit-value-expr (if locals
+                                                                    {:expr-type :fn
+                                                                     :sym sym
+                                                                     :locals locals
+                                                                     :body-expr body-expr}
+                                                                    body-expr)
+                                                                  env))
+                                           env)})})
 
 (defmethod interpret-expr :defmacro [{:keys [sym locals body-expr]} {:keys [env]}]
   {:env (assoc-in env [:macros sym] {:value ((eval (emit-value-expr (if locals

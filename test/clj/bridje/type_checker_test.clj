@@ -39,34 +39,76 @@
 
 (def id-fn
   {:expr-type :fn
-   :sym :foo
-   :locals [::foo-param]
+   :sym 'foo-id
+   :locals ['x]
    :body-expr {:expr-type :local
-               :local ::foo-param}})
+               :local 'x}})
 
 (t/deftest types-identity-fn
-  (let [res (::tc/poly-type (tc/type-expr id-fn {}))
-        param-type (get-in res [::tc/mono-type ::tc/param-types 0])
-        identity-type {::tc/type-vars #{(::tc/type-var param-type)}
-                       ::tc/mono-type {::tc/type :fn
-                                       ::tc/param-types [param-type]
-                                       ::tc/return-type param-type
-                                       ::tc/effects nil}}]
-
-    (t/is (= res identity-type))))
+  (binding [tc/new-type-var identity]
+    (t/is (= (tc/mono->poly (tc/fn-type #{} [(tc/->type-var 'x)] (tc/->type-var 'x)))
+             (-> (tc/type-expr id-fn {})
+                 ::tc/poly-type)))))
 
 (t/deftest types-def
-  (t/is (= (-> (tc/type-expr {:expr-type :def
-                              :sym :foo
+  (t/is (= (tc/mono->poly (tc/fn-type [] (tc/primitive-type :int)))
+
+           (-> (tc/type-expr {:expr-type :def
+                              :sym 'foo
                               :locals []
                               :body-expr {:expr-type :int
                                           :int 54}}
                              {})
-               (get-in [::tc/def-poly-type ::tc/poly-type]))
-           (tc/mono->poly {::tc/type :fn
-                           ::tc/param-types []
-                           ::tc/return-type (tc/primitive-type :int)
-                           ::tc/effects nil}))))
+               ::tc/def-poly-type))))
+
+(t/deftest subsumption
+  (t/are [off req] (true? (tc/<= (tc/mono->poly off) (tc/mono->poly req)))
+    ;; x -> x <= Int -> Int
+    (tc/fn-type #{} [(tc/->type-var 'x)] (tc/->type-var 'x))
+    (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))
+
+    ;; (a, b) -> b <= (Int, Int) -> Int
+    (tc/fn-type #{} [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))
+    (tc/fn-type [(tc/primitive-type :int) (tc/primitive-type :int)] (tc/primitive-type :int))
+
+    ;; (a, b) -> b <= (x, x) -> x
+    (tc/fn-type #{} [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))
+    (tc/fn-type #{} [(tc/->type-var 'x) (tc/->type-var 'x)] (tc/->type-var 'x))
+
+    ;; a -> a <= [x] -> [x]
+    (tc/fn-type #{} [(tc/->type-var 'a)] (tc/->type-var 'a))
+    (tc/fn-type #{} [(tc/vector-of (tc/->type-var 'x))] (tc/vector-of (tc/->type-var 'x)))
+
+    ;; (a, a) -> Int <= ([Int], [Int]) -> Int
+    (tc/fn-type #{} [(tc/->type-var 'a) (tc/->type-var 'a)] (tc/primitive-type :int))
+    (tc/fn-type [(tc/vector-of (tc/primitive-type :int)) (tc/vector-of (tc/primitive-type :int))] (tc/primitive-type :int)))
+
+
+  (t/are [off req] (false? (tc/<= (tc/mono->poly off) (tc/mono->poly req)))
+    ;; Int -> Int </= x -> x
+    (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))
+    (tc/fn-type #{} [(tc/->type-var 'x)] (tc/->type-var 'x))
+
+    ;; [x] -> [x] </= a -> a
+    (tc/fn-type #{} [(tc/vector-of (tc/->type-var 'x))] (tc/vector-of (tc/->type-var 'x)))
+    (tc/fn-type #{} [(tc/->type-var 'a)] (tc/->type-var 'a))
+
+    ;; (x, x) -> x </= (a, b) -> b
+    (tc/fn-type #{} [(tc/->type-var 'x) (tc/->type-var 'x)] (tc/->type-var 'x))
+    (tc/fn-type #{} [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))))
+
+
+(t/deftest types-typedefd-identity-fn
+  (binding [tc/new-type-var identity]
+    (let [more-specific-id-type (merge (tc/mono->poly (tc/fn-type #{} [(tc/primitive-type :int)] (tc/primitive-type :int)))
+                                       {::tc/typedefd? true})]
+
+
+      (t/is (= more-specific-id-type
+
+               (-> (tc/type-expr (merge id-fn {:expr-type :def})
+                                 {:env {:vars {'foo-id {::tc/poly-type more-specific-id-type}}}})
+                   ::tc/def-poly-type))))))
 
 (t/deftest types-record
   (let [env {:attributes {:User/first-name {::tc/mono-type (tc/primitive-type :string)}

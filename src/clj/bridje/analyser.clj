@@ -24,6 +24,81 @@
 
 (def ^:dynamic ^:private *ctx* {})
 
+(s/def ::primitive-type-form
+  (s/and (s/or :string (exact-sym 'String)
+               :bool (exact-sym 'Bool)
+               :int (exact-sym 'Int)
+               :float (exact-sym 'Float)
+               :big-int (exact-sym 'BigInt)
+               :big-float (exact-sym 'BigFloat))
+         (s/conformer first)))
+
+(s/def ::type-var-sym-form
+  (s/and ::symbol-form
+         #(Character/isLowerCase (first (name %)))))
+
+(s/def ::mono-type-form
+  (s/or :primitive ::primitive-type-form
+        :vector (s/spec (s/and (s/cat :_vector #{:vector}
+                                      :elem-type-form ::mono-type-form)
+                               (s/conformer #(:elem-type-form %))))
+        :set (s/spec (s/and (s/cat :_set #{:set}
+                                   :elem-type-form ::mono-type-form)
+                            (s/conformer #(:elem-type-form %))))
+        :type-var ::type-var-sym-form
+        :record (s/spec (s/and (s/cat :_record #{:record}
+                                      :kws (s/* ::keyword-form))
+                               (s/conformer #(set (:kws %)))))
+        :adt-or-class (s/and ::symbol-form
+                             #(Character/isUpperCase (first (name %))))
+        :applied (s/spec (s/cat :_list #{:list}
+                                :constructor-sym ::symbol-form
+                                :param-forms (s/* ::mono-type-form)))))
+
+(defn extract-mono-type [mono-type-form]
+  (let [{:keys [env] :as ctx} *ctx*
+        [mono-type-type arg] mono-type-form]
+    (case mono-type-type
+      :primitive (tc/primitive-type arg)
+      :vector (tc/vector-of (extract-mono-type arg))
+      :set (tc/set-of (extract-mono-type arg))
+      :record (tc/record-of (gensym 'r) arg)
+      :type-var (tc/->type-var (tc/new-type-var arg))
+      :adt-or-class (or (when (get-in env [:adts arg])
+                          (tc/->adt arg))
+
+                        (when-let [{:keys [class]} (get-in env [:classes arg])]
+                          (tc/->class class))
+
+                        (throw (ex-info "Can't find type" {:type arg})))
+
+      :applied (tc/->adt (get-in arg [:constructor-sym])
+                         (mapv extract-mono-type (:param-forms arg))))))
+
+(s/def ::type-signature-form
+  (s/cat :_list #{:list}
+         :_colon (exact-sym (symbol "::"))
+         :params-form (s/or :fn-shorthand (s/spec (s/cat :_list #{:list}
+                                                         :name-sym ::symbol-form
+                                                         :param-type-forms (s/* ::mono-type-form)))
+                            :just-name ::symbol-form)
+         :return-form ::mono-type-form))
+
+(defn extract-type-signature [type-signature-form]
+  (binding [tc/new-type-var (memoize tc/new-type-var)]
+    (let [{[param-form-type params-form] :params-form
+           :keys [return-form]} type-signature-form
+          {:keys [sym param-type-forms]} (case param-form-type
+                                           :fn-shorthand {:sym (get-in params-form [:name-sym])
+                                                          :param-type-forms (or (:param-type-forms params-form) [])}
+                                           :just-name {:sym params-form})
+          return-type (extract-mono-type return-form)]
+
+      {:sym sym
+       ::tc/poly-type (tc/mono->poly (if param-type-forms
+                                       (tc/fn-type #{} (mapv extract-mono-type param-type-forms) return-type)
+                                       return-type))})))
+
 (defmacro with-ctx-update [update-form & body]
   `(binding [*ctx* (-> *ctx* ~update-form)]
      ~@body))
@@ -245,24 +320,52 @@
                                      (dissoc :loop-locals))
                   (analyse-expr body-form))}))
 
+(s/def ::typedef-form
+  (s/and (s/cat :_list #{:list}
+                :_typedef (exact-sym (symbol "::"))
+                :params-form (s/and (s/or :just-name ::symbol-form
+                                          :sym+params (s/spec (s/cat :_list #{:list}
+                                                                     :sym-form ::symbol-form
+                                                                     :param-forms (s/* ::mono-type-form))))
+                                    (s/conformer (fn [[alt alt-opts]]
+                                                   (case alt
+                                                     :just-name {:sym-form alt-opts}
+                                                     :sym+params (merge {:param-forms []} alt-opts)))))
+                :return-form ::mono-type-form)
+         (s/conformer (fn [form]
+                        (merge (dissoc form :params-form)
+                               (:params-form form))))))
+
+(defmethod analyse-expr :typedef [[_ {:keys [sym-form param-forms return-form]}]]
+  {:expr-type :typedef
+   :sym sym-form
+   ::tc/mono-type (if param-forms
+                    (tc/fn-type #{} (mapv extract-mono-type param-forms) (extract-mono-type return-form))
+                    (extract-mono-type return-form))})
+
 (s/def ::def-params
-  (s/or :just-sym ::symbol-form
-        :sym+params (s/spec (s/cat :_list #{:list}
-                                   :sym-form ::symbol-form
-                                   :param-forms (s/* ::symbol-form)))))
+  (s/and (s/or :just-sym ::symbol-form
+               :sym+params (s/spec (s/cat :_list #{:list}
+                                          :sym-form ::symbol-form
+                                          :param-forms (s/* ::symbol-form))))
+
+         (s/conformer (fn [[alt alt-opts]]
+                        (case alt
+                          :just-sym {:sym-form alt-opts}
+                          :sym+params (merge {:param-forms []} alt-opts))))))
 
 (s/def ::def-form
-  (s/cat :_list #{:list}
-         :_def (s/and ::symbol-form #{'def})
-         :params-form ::def-params,
-         :body-form ::form))
+  (s/and (s/cat :_list #{:list}
+                :_def (s/and ::symbol-form #{'def})
+                :params-form ::def-params,
+                :body-form ::form)
 
-(defmethod analyse-expr :def [[_ {:keys [params-form body-form]}]]
-  (let [{:keys [sym-form param-forms]} (case (first params-form)
-                                         :just-sym {:sym-form (second params-form)}
-                                         :sym+params (merge {:param-forms []} (second params-form)))
+         (s/conformer (fn [form]
+                        (merge (dissoc form :params-form)
+                               (:params-form form))))))
 
-        local-mapping (some->> param-forms (map (juxt identity gen-local)))]
+(defmethod analyse-expr :def [[_ {:keys [sym-form param-forms body-form] :as form}]]
+  (let [local-mapping (some->> param-forms (map (juxt identity gen-local)))]
 
     {:expr-type :def
      :sym sym-form
@@ -272,17 +375,16 @@
                   (analyse-expr body-form))}))
 
 (s/def ::defmacro-form
-  (s/cat :_list #{:list}
-         :_defmacro (exact-sym 'defmacro)
-         :params-form ::def-params,
-         :body-form ::form))
+  (s/and (s/cat :_list #{:list}
+                :_defmacro (exact-sym 'defmacro)
+                :params-form ::def-params,
+                :body-form ::form)
+         (s/conformer (fn [form]
+                        (merge (dissoc form :param-forms)
+                               (:params-form form))))))
 
-(defmethod analyse-expr :defmacro [[_ {:keys [params-form body-form]}]]
-  (let [{:keys [sym-form param-forms]} (case (first params-form)
-                                         :just-sym {:sym-form (second params-form)}
-                                         :sym+params (merge {:param-forms []} (second params-form)))
-
-        local-mapping (some->> param-forms (map (juxt identity gen-local)))]
+(defmethod analyse-expr :defmacro [[_ {:keys [sym-form param-forms body-form]}]]
+  (let [local-mapping (some->> param-forms (map (juxt identity gen-local)))]
 
     {:expr-type :defmacro
      :sym sym-form
@@ -290,81 +392,6 @@
      :body-expr (with-ctx-update (-> (update :locals (fnil into {}) local-mapping)
                                      (dissoc :loop-locals))
                   (analyse-expr body-form ))}))
-
-(s/def ::primitive-type-form
-  (s/and (s/or :string (exact-sym 'String)
-               :bool (exact-sym 'Bool)
-               :int (exact-sym 'Int)
-               :float (exact-sym 'Float)
-               :big-int (exact-sym 'BigInt)
-               :big-float (exact-sym 'BigFloat))
-         (s/conformer first)))
-
-(s/def ::type-var-sym-form
-  (s/and ::symbol-form
-         #(Character/isLowerCase (first (name %)))))
-
-(s/def ::mono-type-form
-  (s/or :primitive ::primitive-type-form
-        :vector (s/spec (s/and (s/cat :_vector #{:vector}
-                                      :elem-type-form ::mono-type-form)
-                               (s/conformer #(:elem-type-form %))))
-        :set (s/spec (s/and (s/cat :_set #{:set}
-                                   :elem-type-form ::mono-type-form)
-                            (s/conformer #(:elem-type-form %))))
-        :type-var ::type-var-sym-form
-        :record (s/spec (s/and (s/cat :_record #{:record}
-                                      :kws (s/* ::keyword-form))
-                               (s/conformer #(set (:kws %)))))
-        :adt-or-class (s/and ::symbol-form
-                             #(Character/isUpperCase (first (name %))))
-        :applied (s/spec (s/cat :_list #{:list}
-                                :constructor-sym ::symbol-form
-                                :param-forms (s/* ::mono-type-form)))))
-
-(defn extract-mono-type [mono-type-form]
-  (let [{:keys [env] :as ctx} *ctx*
-        [mono-type-type arg] mono-type-form]
-    (case mono-type-type
-      :primitive (tc/primitive-type arg)
-      :vector (tc/vector-of (extract-mono-type arg))
-      :set (tc/set-of (extract-mono-type arg))
-      :record (tc/record-of (gensym 'r) arg)
-      :type-var (tc/->type-var (tc/new-type-var arg))
-      :adt-or-class (or (when (get-in env [:adts arg])
-                          (tc/->adt arg))
-
-                        (when-let [{:keys [class]} (get-in env [:classes arg])]
-                          (tc/->class class))
-
-                        (throw (ex-info "Can't find type" {:type arg})))
-
-      :applied (tc/->adt (get-in arg [:constructor-sym])
-                         (mapv extract-mono-type (:param-forms arg))))))
-
-(s/def ::type-signature-form
-  (s/cat :_list #{:list}
-         :_colon (exact-sym (symbol "::"))
-         :params-form (s/or :fn-shorthand (s/spec (s/cat :_list #{:list}
-                                                         :name-sym ::symbol-form
-                                                         :param-type-forms (s/* ::mono-type-form)))
-                            :just-name ::symbol-form)
-         :return-form ::mono-type-form))
-
-(defn extract-type-signature [type-signature-form]
-  (binding [tc/new-type-var (memoize tc/new-type-var)]
-    (let [{[param-form-type params-form] :params-form
-           :keys [return-form]} type-signature-form
-          {:keys [sym param-type-forms]} (case param-form-type
-                                           :fn-shorthand {:sym (get-in params-form [:name-sym])
-                                                          :param-type-forms (or (:param-type-forms params-form) [])}
-                                           :just-name {:sym params-form})
-          return-type (extract-mono-type return-form)]
-
-      {:sym sym
-       ::tc/poly-type (tc/mono->poly (if param-type-forms
-                                       (tc/fn-type (mapv extract-mono-type param-type-forms) return-type)
-                                       return-type))})))
 
 (s/def ::defclj-form
   (s/cat :_list #{:list}
@@ -423,15 +450,13 @@
 (s/def ::attribute-typedef-form
   (s/cat :_list #{:list}
          :_typedef (exact-sym (symbol "::"))
-         :subject (s/or :keyword ::keyword-form
-                        :symbol ::symbol-form)
+         :keyword-form ::keyword-form
          :type-form ::mono-type-form))
 
-(defmethod analyse-expr :attribute-typedef [[_ {[subject-type subject-form] :subject, :keys [type-form]}]]
+(defmethod analyse-expr :attribute-typedef [[_ {:keys [keyword-form type-form]}]]
   (merge {::tc/mono-type (extract-mono-type type-form)}
-         (case subject-type
-           :keyword {:expr-type :attribute-typedef
-                     :attribute subject-form})))
+         {:expr-type :attribute-typedef
+          :attribute keyword-form}))
 
 (s/def ::defeffect-form
   (s/cat :_list #{:list}
@@ -452,7 +477,7 @@
           :name-form (s/and (s/or :just-name ::symbol-form
                                   :name+type-vars (s/spec (s/cat :_list #{:list}
                                                                  :name-sym ::symbol-form
-                                                                 :type-var-syms (s/* ::symbol-form))))
+                                                                 :type-var-syms (s/+ ::type-var-sym-form))))
                             (s/conformer (fn [[decl-type decl-args]]
                                            (case decl-type
                                              :just-name {:name-sym decl-args}
@@ -567,6 +592,7 @@
 
                :handling ::handling-form
 
+               :typedef ::typedef-form
                :def ::def-form
                :defmacro ::defmacro-form
                :defadt ::defadt-form

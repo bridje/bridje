@@ -3,6 +3,7 @@
             [bridje.type-checker :as tc]
             [bridje.reader :refer [read-forms]]
             [bridje.analyser :as ana :refer [analyse]]
+            [clojure.spec.alpha :as s]
             [clojure.test :as t]))
 
 (defn fake-form [form]
@@ -29,3 +30,11 @@
                                     (read-file! "/tmp/foo.txt")))
                       {:env {:effects {'FileIO #{'read-file!}}
                              :effect-fns {'read-file! {:effect 'FileIO}}}})))))
+
+(t/deftest analyses-typedef
+  (t/is (= {:expr-type :typedef
+            :sym 'foo
+            ::tc/mono-type (tc/fn-type #{} [(tc/primitive-type :int)] (tc/primitive-type :int))}
+
+           (analyse (fake-form "(:: (foo Int) Int)")
+                    {}))))
