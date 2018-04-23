@@ -4,22 +4,27 @@
     (More s b)
     (Done s b))
 
+  (defadt (StepResult a)
+    None
+    (Single a)
+    (Multiple [a]))
+
   (defadt (Reducer s a b)
-    (Reducer (Fn [] s)
+    (Reducer s
              (Fn [s a] (ReduceState s b))
-             (Fn [s] b)))
+             (Maybe (Fn [s] b))))
+
+
 
   (:: (reduce [a]
-              (Reducer (#{s} s) a [b])
-              (Reducer (#{s} s) b c))
+              (∀ #{s} (Reducer s a (StepResult b)))
+              (∀ #{s} (Reducer s b c)))
       c)
 
   (def (reduce coll xf rf)
     (loop [xf-state ]))
 
-  (def (reducer init step complete))
-
-  (defmacro (xf &forms)
+  (defmacro (xf* &forms)
     )
 
   (def id-xf
@@ -29,7 +34,7 @@
     (Reducer Unit
 
              (fn (step s el)
-               (More s [(f el)]))
+               (More s (Single (f el))))
 
              Nothing))
 
@@ -37,37 +42,40 @@
     (Reducer Unit
 
              (fn (step s el)
-               (More s (if (p el) [el] [])))
+               (More s (if (p el) (Single el) None)))
 
              Nothing))
 
   (def (mapcat f)
     (Reducer Unit
              (fn (step s el)
-               (More s (f el)))
+               (More s (Multiple (f el))))
              Nothing))
 
   (def (take n)
     (Reducer n
              (fn (step s el)
                (if (pos? s)
-                 (More (dec n) [el])
-                 (Done 0 [])))
-             Nothing))
-
-  (def (take n)
-    (Reducer n
-             (fn (step _ el)
-               (More (take (dec n)) [el])
-               (Done (take 0) [el]))
+                 (More (dec n) (Single el))
+                 (Done 0 None)))
              Nothing))
 
   (def (drop n)
     (Reducer n
              (fn (step n el)
                (if (pos? n)
-                 (More (dec n) [])
-                 (More 0 [el])))
+                 (More (dec n) None)
+                 (More 0 (Single el))))
              Nothing))
 
+  (def (partition-all n)
+    (Reducer []
+             (fn (step coll el)
+               (let ((coll (conj coll el)))
+                 (if (= n (count coll))
+                   (More [] (Single coll))
+                   (More coll None))))
+
+             (Just (fn (complete s acc)
+                     (conj acc s)))))
 #+END_SRC
