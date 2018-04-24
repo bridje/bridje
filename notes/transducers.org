@@ -1,4 +1,5 @@
 * Transducers
+** Round 1 - explicit state
 #+BEGIN_SRC clojure
   (defadt (ReduceState s b)
     (More s b)
@@ -78,4 +79,41 @@
 
              (Just (fn (complete s acc)
                      (conj acc s)))))
+#+END_SRC
+** Round 2 - state effect
+#+BEGIN_SRC clojure
+  (defeffect (Mut s)
+    (:: (mv! a) (MutVar s a))
+    (:: (deref! (MutVar s a)) a)
+    (:: (reset! (MutVar s a) a) Unit))
+
+  (:: (swap! (MutVar s a) (Fn [a] a)) a)
+  (:: (run! a) a) ; removes Mut effects
+
+  (:: (append! (TransientVec s a) a) (TransientVec s a))
+  (:: (transient-vec! [a]) (TransientVec s a))
+  (:: (persistent-vec! (TransientVec s a)) [a])
+
+  (def (->vec)
+    (let [!s (transient-vec [])]
+      (Reducer (fn (step el)
+                 (append! !s el))
+               (Just (fn (complete)
+                       (persistent-vec! !s))))))
+
+  (def (map f)
+    (Transducer (fn (step el)
+                  (rf (f el)))
+
+                Nothing))
+
+  (def (take n)
+    (let [!n (mv! n)]
+      (Transducer (fn (step el)
+                    (when (pos? (swap! !n dec))
+                      (reduced!))
+
+                    (rf el))
+
+                  Nothing)))
 #+END_SRC
