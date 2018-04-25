@@ -101,17 +101,16 @@
                                          {})
         {:syms [forms simple-match matches]} (:vars env)]
 
-    (t/is (= (-> forms
-                 (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] select-keys [::tc/type ::tc/adt-sym]))
+    (t/is (= forms
              {:value [{:brj/constructor 'BoolForm, :brj/constructor-params [true]}
                       {:brj/constructor 'IntForm, :brj/constructor-params [43]}
                       {:brj/constructor 'SomethingElse}]
               ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'SimpleForm)))}))
 
     (t/is (= (::tc/poly-type simple-match)
-             (tc/mono->poly (tc/fn-type [(tc/->adt 'SimpleForm)] (tc/primitive-type :int)))))
+               (tc/mono->poly (tc/fn-type [(tc/->adt 'SimpleForm)] (tc/primitive-type :int)))))
 
-    (t/is (= (:value matches) [-2 43 -3]))))
+    (t/is (= [-2 43 -3] (:value matches)))))
 
 (t/deftest poly-adts
   (let [{:keys [env]} (sut/interpret-str (fake-forms
@@ -136,8 +135,6 @@
 
                                          {})
         {:syms [forms simple-match matches]} (:vars env)]
-
-
 
     (t/is (= {:value [{:brj/constructor 'Just, :brj/constructor-params [4]}
                       {:brj/constructor 'Nothing}
