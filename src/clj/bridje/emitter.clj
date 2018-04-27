@@ -34,8 +34,7 @@
 (defmethod emit-value-expr* :vector [{:keys [exprs]}]
   (into [] (map emit-value-expr*) exprs))
 
-(defmethod emit-value-expr* :set [{:keys [exprs]}]
-  (into #{} (map emit-value-expr*) exprs))
+(defmethod emit-value-expr* :set [{:keys [exprs]}] (into #{} (map emit-value-expr*) exprs))
 
 (defmethod emit-value-expr* :record [{:keys [entries]}]
   (into {} (map (juxt :k (comp emit-value-expr* :v))) entries))
@@ -68,17 +67,18 @@
 (defmethod emit-value-expr* :case [{:keys [expr adt clauses]}]
   (let [expr-sym (gensym 'expr)
         constructor (gensym 'constructor)]
-    `(let [~expr-sym ~(emit-value-expr* expr)
-           ~constructor (:brj/constructor ~expr-sym)]
+
+    `(let [~expr-sym ~(emit-value-expr* expr)]
        (cond
          ~@(mapcat (fn [{:keys [constructor-sym default-sym locals expr]}]
-                     [(cond
-                        constructor-sym `(= ~constructor '~constructor-sym)
-                        default-sym :else)
-                      `(let [[~@locals] ~(cond
-                                           constructor-sym `(:brj/constructor-params ~expr-sym)
-                                           default-sym expr-sym)]
-                         ~(emit-value-expr* expr))])
+                     (cond
+                       constructor-sym (let [{:keys [class fields]} (get-in *ctx* [:env :adts adt ::constructor-classes constructor-sym])]
+                                         `[(instance? ~class ~expr-sym)
+                                           (let [~@(interleave locals (mapv #(list '. expr-sym %) fields))]
+                                             ~(emit-value-expr* expr))])
+
+                       default-sym `[:else (let [~(first locals) ~expr-sym]
+                                             ~(emit-value-expr* expr))]))
                    clauses)))))
 
 (defmethod emit-value-expr* :fn [{:keys [sym locals body-expr]}]
@@ -112,7 +112,7 @@
         clj-namespaces (find-clj-namespaces sub-exprs)
         env-sym (gensym 'env)]
 
-    (binding [*ctx* {:globals globals}]
+    (binding [*ctx* {:globals globals, :env env}]
       `(fn [~env-sym]
          (do
            ~@(for [clj-ns clj-namespaces]
@@ -160,25 +160,33 @@
             (update :attributes assoc attribute {::tc/mono-type mono-type}))})
 
 (defmethod interpret-expr :defadt [{:keys [sym ::tc/adt-poly-type ::tc/constructor-poly-types constructors]} {:keys [env]}]
-  (let [adt-mono-type (::tc/mono-type adt-poly-type)]
+  (let [adt-mono-type (::tc/mono-type adt-poly-type)
+        constructor-classes (->> constructors
+                                 (into {} (map (juxt :constructor-sym (fn [{:keys [constructor-sym param-mono-types]}]
+                                                                        (binding [*ns* (create-ns 'brj)]
+                                                                          (let [fields (map (comp symbol str) (repeat 'field) (range (count param-mono-types)))
+                                                                                class (eval `(defrecord ~constructor-sym [~@fields]))]
+                                                                            {:class class
+                                                                             :constructor (ns-resolve *ns* (symbol (str "->" (name constructor-sym))))
+                                                                             :fields fields})))))))]
     {:env (-> env
               (update :adts assoc sym {:sym sym
                                        ::tc/poly-type adt-poly-type
-                                       :constructors (mapv :constructor-sym constructors)
+                                       :constructor-syms (mapv :constructor-sym constructors)
+                                       ::constructor-classes constructor-classes
                                        ::tc/constructor-poly-types constructor-poly-types})
 
               (update :adt-constructors (fnil into {}) (map (juxt :constructor-sym (constantly sym))) constructors)
 
               (update :vars merge (->> constructors
-                                       (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
-                                                       [constructor-sym
-                                                        {:value (if param-mono-types
-                                                                  (fn [& params]
-                                                                    {:brj/constructor constructor-sym
-                                                                     :brj/constructor-params (vec params)})
-                                                                  {:brj/constructor constructor-sym})
+                                       (into {} (map (juxt :constructor-sym
+                                                           (fn [{:keys [constructor-sym]}]
+                                                             (let [{:keys [class constructor fields]} (get constructor-classes constructor-sym)]
+                                                               {:value (if (seq fields)
+                                                                         constructor
+                                                                         (constructor))
 
-                                                         ::tc/poly-type (get constructor-poly-types constructor-sym)}]))))))}))
+                                                                ::tc/poly-type (get constructor-poly-types constructor-sym)}))))))))}))
 
 (defmethod interpret-expr :defeffect [{:keys [sym definitions]} {:keys [env]}]
   {:env (-> env

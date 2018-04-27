@@ -1,5 +1,6 @@
 (ns bridje.compiler-test
   (:require [bridje.compiler :as sut]
+            [bridje.emitter :as e]
             [bridje.test-util :refer [fake-forms]]
             [bridje.runtime :as rt]
             [clojure.string :as s]
@@ -75,6 +76,18 @@
               ::tc/poly-type (tc/mono->poly (tc/primitive-type :string))}))
     env))
 
+(def ^:dynamic *env* {})
+
+(defn ->ADT* [constructor params]
+  (let [adt-sym (get-in *env* [:adt-constructors constructor])
+        {:keys [constructor]} (get-in *env* [:adts adt-sym ::e/constructor-classes constructor])]
+    (apply constructor params)))
+
+(defmacro ->ADT [adt]
+  (if (symbol? adt)
+    `(->ADT* '~adt [])
+    `(->ADT* '~(first adt) ~(vec (rest adt)))))
+
 (t/deftest adts
   (let [{:keys [env]} (sut/interpret-str (fake-forms
                                           clj-core-interop
@@ -101,17 +114,17 @@
                                          {})
         {:syms [forms simple-match matches]} (:vars env)]
 
-    (t/is (= (-> forms
-                 (update-in [::tc/poly-type ::tc/mono-type ::tc/elem-type] select-keys [::tc/type ::tc/adt-sym]))
-             {:value [{:brj/constructor 'BoolForm, :brj/constructor-params [true]}
-                      {:brj/constructor 'IntForm, :brj/constructor-params [43]}
-                      {:brj/constructor 'SomethingElse}]
-              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'SimpleForm)))}))
+    (t/is (= forms
+             (binding [*env* env]
+               {:value [(->ADT (BoolForm true))
+                        (->ADT (IntForm 43))
+                        (->ADT SomethingElse)]
+                ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'SimpleForm)))})))
 
     (t/is (= (::tc/poly-type simple-match)
              (tc/mono->poly (tc/fn-type [(tc/->adt 'SimpleForm)] (tc/primitive-type :int)))))
 
-    (t/is (= (:value matches) [-2 43 -3]))))
+    (t/is (= [-2 43 -3] (:value matches)))))
 
 (t/deftest poly-adts
   (let [{:keys [env]} (sut/interpret-str (fake-forms
@@ -137,13 +150,12 @@
                                          {})
         {:syms [forms simple-match matches]} (:vars env)]
 
-
-
-    (t/is (= {:value [{:brj/constructor 'Just, :brj/constructor-params [4]}
-                      {:brj/constructor 'Nothing}
-                      {:brj/constructor 'Just, :brj/constructor-params [23]}]
-              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'Maybe [(tc/primitive-type :int)])))}
-             forms))
+    (binding [*env* env]
+      (t/is (= {:value [(->ADT (Just 4))
+                        (->ADT Nothing)
+                        (->ADT (Just 23))]
+                ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'Maybe [(tc/primitive-type :int)])))}
+               forms)))
 
     (t/is (= (tc/mono->poly (tc/fn-type [(tc/->adt 'Maybe [(tc/primitive-type :int)])] (tc/primitive-type :int)))
              (::tc/poly-type simple-match)))
@@ -201,9 +213,7 @@
               ::tc/poly-type (tc/mono->poly (tc/->class clojure.lang.Symbol))}
              (get-in env [:vars 'foo])))))
 
-(defn ->ADT [constructor & params]
-  {:brj/constructor constructor
-   :brj/constructor-params (vec params)})
+
 
 (t/deftest quoting-test
   (let [{:keys [env]} (sut/interpret-str
@@ -213,29 +223,27 @@
                        {})
         {:syms [simple-quote double-quote syntax-quote]} (:vars env)]
 
-    (t/is (= (->ADT 'ListForm
-                    [(->ADT 'SymbolForm 'foo)
-                     (->ADT 'IntForm 4)
-                     (->ADT 'VectorForm [(->ADT 'IntForm 2) (->ADT 'IntForm 3)])])
-             (:value simple-quote)))
+    (binding [*env* env]
+      (t/is (= (->ADT (ListForm [(->ADT (SymbolForm 'foo))
+                                 (->ADT (IntForm 4))
+                                 (->ADT (VectorForm [(->ADT (IntForm 2)) (->ADT (IntForm 3))]))]))
+               (:value simple-quote)))
 
-    (t/is (= (->ADT 'ListForm [(->ADT 'SymbolForm 'VectorForm)
-                               (->ADT 'VectorForm [(->ADT 'ListForm [(->ADT 'SymbolForm 'SymbolForm)
-                                                                     (->ADT 'ListForm
-                                                                            [(->ADT 'SymbolForm 'quote)
-                                                                             (->ADT 'SymbolForm 'foo)])])
-                                                   (->ADT 'ListForm [(->ADT 'SymbolForm 'IntForm)
-                                                                     (->ADT 'IntForm 24)])])])
+      (t/is (= (->ADT (ListForm [(->ADT (SymbolForm 'VectorForm))
+                                 (->ADT (VectorForm [(->ADT (ListForm [(->ADT (SymbolForm 'SymbolForm))
+                                                                       (->ADT (ListForm [(->ADT (SymbolForm 'quote))
+                                                                                         (->ADT (SymbolForm 'foo))]))]))
+                                                     (->ADT (ListForm [(->ADT (SymbolForm 'IntForm))
+                                                                       (->ADT (IntForm 24))]))]))]))
 
-             (:value double-quote)))
+               (:value double-quote)))
 
-    (t/is (= (->ADT 'VectorForm,
-                    [(->ADT 'IntForm 1)
-                     (->ADT 'IntForm 2)
-                     (->ADT 'IntForm 3)
-                     (->ADT 'IntForm 4)
-                     (->ADT 'IntForm 5)])
-             (:value syntax-quote)))))
+      (t/is (= (->ADT (VectorForm [(->ADT (IntForm 1))
+                                   (->ADT (IntForm 2))
+                                   (->ADT (IntForm 3))
+                                   (->ADT (IntForm 4))
+                                   (->ADT (IntForm 5))]))
+               (:value syntax-quote))))))
 
 (def ^:dynamic with-trace)
 
@@ -286,6 +294,7 @@
                                          {})
         {:syms [foo]} (:vars env)]
 
-    (t/is (= {::tc/poly-type (tc/mono->poly (tc/->adt 'T2 [(tc/primitive-type :int) (tc/primitive-type :string)]))
-              :value '#:brj{:constructor T2, :constructor-params [4 "Hello"]}}
-             foo))))
+    (binding [*env* env]
+      (t/is (= {::tc/poly-type (tc/mono->poly (tc/->adt 'T2 [(tc/primitive-type :int) (tc/primitive-type :string)]))
+                :value (->ADT (T2 4 "Hello"))}
+               foo)))))

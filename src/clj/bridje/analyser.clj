@@ -236,10 +236,15 @@
                                        (merge (select-keys clause [:constructor-sym :default-sym])
                                               {:locals (map second locals)
                                                :expr (with-ctx-update (update :locals into locals)
-                                                       (analyse-expr expr-form))}))))))]
+                                                       (analyse-expr expr-form))}))))))
+        adts (into #{} (map (comp (get-in *ctx* [:env :adt-constructors]) :constructor-sym)) clauses)]
+
+    (when-not (= 1 (count adts))
+      (throw (ex-info "Ambiguous ADTs" {:adts adts})))
 
     {:expr-type :case
      :expr expr
+     :adt (first adts)
      :clauses clauses}))
 
 (s/def ::loop-form
@@ -511,23 +516,25 @@
                                                                                       (extract-mono-type form))))))})))))}))
 
 (def ->form-type-kw
-  (-> (fn [sym]
-        (when sym
-          (->> (name sym)
-               (re-seq #"[A-Z][a-z]*" )
-               butlast
-               (map str/lower-case)
-               (str/join "-")
-               keyword)))
+  (-> (fn [^Class class]
+        (when class
+          (-> (.getName class)
+              (str/split #"\.")
+              last
+              (->> (re-seq #"[A-Z][a-z]*" )
+                   butlast
+                   (map str/lower-case)
+                   (str/join "-")
+                   keyword))))
       memoize))
 
-(defn form-adt->form [{:brj/keys [constructor constructor-params]}]
-  (let [form-type (->form-type-kw constructor)]
+(defn form-adt->form [form-adt]
+  (let [form-type (->form-type-kw (class form-adt))]
     (case form-type
       (:vector :list :set :record)
-      (into [form-type] (map form-adt->form) (get-in constructor-params [0]))
+      (into [form-type] (map form-adt->form) (:field0 form-adt))
 
-      [form-type (first constructor-params)])))
+      [form-type (:field0 form-adt)])))
 
 (def ->form-adt-sym
   (-> (fn [form-type]
@@ -538,11 +545,10 @@
       memoize))
 
 (defn form->form-adt [[form-type & [first-form :as forms] :as form]]
-  (case form-type
-    {:brj/constructor (->form-adt-sym form-type)
-     :brj/constructor-params (case form-type
-                               (:vector :list :set :record) [(mapv form->form-adt forms)]
-                               [first-form])}))
+  (let [constructor (get-in *ctx* [:env :adts 'Form :bridje.emitter/constructor-classes (->form-adt-sym form-type) :constructor])]
+    (apply constructor (case form-type
+                         (:vector :list :set :record) [(mapv form->form-adt forms)]
+                         [first-form]))))
 
 (defn call-conformer [{:keys [forms]}]
   (letfn [(fall-through [conformed-forms]
