@@ -236,10 +236,15 @@
                                        (merge (select-keys clause [:constructor-sym :default-sym])
                                               {:locals (map second locals)
                                                :expr (with-ctx-update (update :locals into locals)
-                                                       (analyse-expr expr-form))}))))))]
+                                                       (analyse-expr expr-form))}))))))
+        adts (into #{} (map (comp (get-in *ctx* [:env :adt-constructors]) :constructor-sym)) clauses)]
+
+    (when-not (= 1 (count adts))
+      (throw (ex-info "Ambiguous ADTs" {:adts adts})))
 
     {:expr-type :case
      :expr expr
+     :adt (first adts)
      :clauses clauses}))
 
 (s/def ::loop-form

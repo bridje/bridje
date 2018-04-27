@@ -72,9 +72,9 @@
        (cond
          ~@(mapcat (fn [{:keys [constructor-sym default-sym locals expr]}]
                      (cond
-                       constructor-sym (let [{:keys [class-name fields]} (get-in *ctx* [:env :adts adt ::constructor-classes constructor-sym])]
-                                         `[(instance? ~class-name ~expr-sym)
-                                           (let [~@(interleave locals (mapv #(list '. (with-meta expr-sym {:tag class-name}) %) fields))]
+                       constructor-sym (let [{:keys [class fields]} (get-in *ctx* [:env :adts adt ::constructor-classes constructor-sym])]
+                                         `[(instance? ~class ~expr-sym)
+                                           (let [~@(interleave locals (mapv #(list '. expr-sym %) fields))]
                                              ~(emit-value-expr* expr))])
 
                        default-sym `[:else (let [~(first locals) ~expr-sym]
@@ -163,13 +163,12 @@
   (let [adt-mono-type (::tc/mono-type adt-poly-type)
         constructor-classes (->> constructors
                                  (into {} (map (juxt :constructor-sym (fn [{:keys [constructor-sym param-mono-types]}]
-                                                                        (let [tag (symbol (name 'brj) (name constructor-sym))
-                                                                              class-name (symbol (str "brj." constructor-sym))
-                                                                              fields (map (comp symbol str) (repeat 'field) (range (count param-mono-types)))]
-                                                                          (eval `(deftype* ~tag ~class-name [~@fields]))
-                                                                          {:class (Class/forName (name class-name))
-:class-name class-name
-                                                                           :fields fields}))))))]
+                                                                        (binding [*ns* (create-ns 'brj)]
+                                                                          (let [fields (map (comp symbol str) (repeat 'field) (range (count param-mono-types)))
+                                                                                class (eval `(defrecord ~constructor-sym [~@fields]))]
+                                                                            {:class class
+                                                                             :constructor (ns-resolve *ns* (symbol (str "->" (name constructor-sym))))
+                                                                             :fields fields})))))))]
     {:env (-> env
               (update :adts assoc sym {:sym sym
                                        ::tc/poly-type adt-poly-type
@@ -182,26 +181,12 @@
               (update :vars merge (->> constructors
                                        (into {} (map (juxt :constructor-sym
                                                            (fn [{:keys [constructor-sym]}]
-                                                             (let [{:keys [class class-name fields]} (get constructor-classes constructor-sym)]
-                                                               {:value (eval (if (seq fields)
-                                                                               `(fn [~@fields]
-                                                                                  (new ~class-name ~@fields))
-
-                                                                               `(new ~class-name)))
+                                                             (let [{:keys [class constructor fields]} (get constructor-classes constructor-sym)]
+                                                               {:value (if (seq fields)
+                                                                         constructor
+                                                                         (constructor))
 
                                                                 ::tc/poly-type (get constructor-poly-types constructor-sym)}))))))))}))
-
-(let [tv (tc/->type-var 'a)
-      adt-mono-type (tc/->adt 'Maybe [tv])
-      {:keys [env]} (interpret-expr {:expr-type :defadt
-                                     :sym 'Maybe
-                                     :constructors [{:constructor-sym 'Just, :param-mono-types [tv]}
-                                                    {:constructor-sym 'Nothing}]
-                                     ::tc/constructor-poly-types {'Just (tc/mono->poly (tc/fn-type [tv] adt-mono-type))
-                                                                  'Nothing (tc/mono->poly adt-mono-type)}}
-                                    {:env {}})
-      Just (-> env (get-in [:vars 'Just :value]))]
-  (.field0 (Just 4)))
 
 (defmethod interpret-expr :defeffect [{:keys [sym definitions]} {:keys [env]}]
   {:env (-> env
