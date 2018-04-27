@@ -237,7 +237,8 @@
                                               {:locals (map second locals)
                                                :expr (with-ctx-update (update :locals into locals)
                                                        (analyse-expr expr-form))}))))))
-        adts (into #{} (map (comp (get-in *ctx* [:env :adt-constructors]) :constructor-sym)) clauses)]
+
+        adts (into #{} (map (comp :adt (get-in *ctx* [:env :adt-constructors]) :constructor-sym)) clauses)]
 
     (when-not (= 1 (count adts))
       (throw (ex-info "Ambiguous ADTs" {:adts adts})))
@@ -545,7 +546,7 @@
       memoize))
 
 (defn form->form-adt [[form-type & [first-form :as forms] :as form]]
-  (let [constructor (get-in *ctx* [:env :adts 'Form :bridje.emitter/constructor-classes (->form-adt-sym form-type) :constructor])]
+  (let [constructor (get-in *ctx* [:env :vars (->form-adt-sym form-type) :value])]
     (apply constructor (case form-type
                          (:vector :list :set :record) [(mapv form->form-adt forms)]
                          [first-form]))))

@@ -79,9 +79,10 @@
 (def ^:dynamic *env* {})
 
 (defn ->ADT* [constructor params]
-  (let [adt-sym (get-in *env* [:adt-constructors constructor])
-        {:keys [constructor]} (get-in *env* [:adts adt-sym ::e/constructor-classes constructor])]
-    (apply constructor params)))
+  (let [value (get-in *env* [:vars constructor :value])]
+    (if (seq params)
+      (apply value params)
+      value)))
 
 (defmacro ->ADT [adt]
   (if (symbol? adt)

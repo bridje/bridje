@@ -219,18 +219,20 @@
            (when return-type
              {::mono-type (apply-mapping return-type mapping)}))))
 
+(def ^:dynamic *ctx* {})
+
 (def ^:dynamic new-type-var (comp gensym name))
 
 (defn instantiate [{:keys [::type-vars ::mono-type]}]
   (apply-mapping mono-type (into {} (map (juxt identity (comp ->type-var new-type-var))) type-vars)))
 
-(defn instantiate-adt [{:keys [sym ::poly-type ::constructor-poly-types] :as adt}]
+(defn instantiate-adt [adt-sym]
   (binding [new-type-var (memoize new-type-var)]
-    {::mono-type (instantiate poly-type)
-     ::constructor-mono-types (->> constructor-poly-types
-                                   (into {} (map (juxt key (comp instantiate val)))))}))
-
-(def ^:dynamic *ctx* {})
+    (let [{:keys [::poly-type constructor-syms]} (get-in *ctx* [:env :adts adt-sym])]
+      {::mono-type (instantiate poly-type)
+       ::constructor-mono-types (->> (for [constructor-sym constructor-syms]
+                                       [constructor-sym (instantiate (get-in *ctx* [:env :adt-constructors constructor-sym ::poly-type]))])
+                                     (into {}))})))
 
 (defmacro with-ctx-update [update-form & body]
   `(binding [*ctx* (-> *ctx* ~update-form)]
@@ -340,15 +342,14 @@
     (combine-typings {:typings (conj typings body-typing)
                       :return-type (::mono-type body-typing)})))
 
-(defmethod type-value-expr* :case [{:keys [expr clauses] :as case-expr}]
+(defmethod type-value-expr* :case [{:keys [expr adt clauses] :as case-expr}]
   (let [expr-typing (type-value-expr* expr)
+        {::keys [mono-type constructor-mono-types]} (instantiate-adt adt)
         clause-typings (for [{:keys [constructor-sym default-sym locals expr]} clauses]
                          {:pattern-typing (cond
                                             constructor-sym
-                                            (let [adt-sym (get-in *ctx* [:env :adt-constructors constructor-sym])
-                                                  {::keys [mono-type constructor-mono-types]} (instantiate-adt (get-in *ctx* [:env :adts adt-sym]))]
-                                              {::mono-env (into {} (mapv vector locals (get-in constructor-mono-types [constructor-sym ::param-types])))
-                                               ::mono-type mono-type})
+                                            {::mono-env (into {} (mapv vector locals (get-in constructor-mono-types [constructor-sym ::param-types])))
+                                             ::mono-type mono-type}
 
                                             default-sym
                                             (let [tv (->type-var (new-type-var default-sym))]
