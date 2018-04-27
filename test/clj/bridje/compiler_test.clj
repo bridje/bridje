@@ -223,26 +223,27 @@
                        {})
         {:syms [simple-quote double-quote syntax-quote]} (:vars env)]
 
-    (t/is (= (->ADT (ListForm (->ADT (SymbolForm 'foo))
-                              (->ADT (IntForm 4))
-                              (->ADT (VectorForm (->ADT (IntForm 2)) (->ADT (IntForm 3))))))
-             (:value simple-quote)))
+    (binding [*env* env]
+      (t/is (= (->ADT (ListForm [(->ADT (SymbolForm 'foo))
+                                 (->ADT (IntForm 4))
+                                 (->ADT (VectorForm [(->ADT (IntForm 2)) (->ADT (IntForm 3))]))]))
+               (:value simple-quote)))
 
-    (t/is (= (->ADT (ListForm (->ADT (SymbolForm 'VectorForm))
-                              (->ADT (VectorForm (->ADT (ListForm (->ADT (SymbolForm 'SymbolForm))
-                                                                  (->ADT (ListForm (->ADT (SymbolForm 'quote))
-                                                                                   (->ADT (SymbolForm 'foo))))))
-                                                 (->ADT (ListForm (->ADT (SymbolForm 'IntForm))
-                                                                  (->ADT (IntForm 24))))))))
+      (t/is (= (->ADT (ListForm [(->ADT (SymbolForm 'VectorForm))
+                                 (->ADT (VectorForm [(->ADT (ListForm [(->ADT (SymbolForm 'SymbolForm))
+                                                                       (->ADT (ListForm [(->ADT (SymbolForm 'quote))
+                                                                                         (->ADT (SymbolForm 'foo))]))]))
+                                                     (->ADT (ListForm [(->ADT (SymbolForm 'IntForm))
+                                                                       (->ADT (IntForm 24))]))]))]))
 
-             (:value double-quote)))
+               (:value double-quote)))
 
-    (t/is (= (->ADT (VectorForm (->ADT (IntForm 1))
-                                (->ADT (IntForm 2))
-                                (->ADT (IntForm 3))
-                                (->ADT (IntForm 4))
-                                (->ADT (IntForm 5))))
-             (:value syntax-quote)))))
+      (t/is (= (->ADT (VectorForm [(->ADT (IntForm 1))
+                                   (->ADT (IntForm 2))
+                                   (->ADT (IntForm 3))
+                                   (->ADT (IntForm 4))
+                                   (->ADT (IntForm 5))]))
+               (:value syntax-quote))))))
 
 (def ^:dynamic with-trace)
 
