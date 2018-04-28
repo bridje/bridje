@@ -95,25 +95,75 @@
   (:: (persistent-vec! (TransientVec s a)) [a])
 
   (def (->vec)
-    (let [!s (transient-vec [])]
+    (let [!s (mv! (transient-vec []))]
       (Reducer (fn (step el)
-                 (append! !s el))
-               (Just (fn (complete)
-                       (persistent-vec! !s))))))
+                 (swap! !s (->% (append! el))))
+               (fn (complete)
+                 (persistent-vec! (deref! !s))))))
+
+  (def id
+    (Transducer (fn (step el)
+                  (t/rf1 true el))
+                Nothing))
+
+  (def (transduce coll xf rf)
+    )
+
+  (def (reduce coll rf)
+    )
 
   (def (map f)
     (Transducer (fn (step el)
-                  (rf (f el)))
+                  (t/rf1 true (f el)))
 
                 Nothing))
+
+  (def (filter f)
+    (Transducer (fn (step el)
+                  (if (f el)
+                    (t/rf1 true el)
+                    (t/rf0 true)))
+
+                Nothing))
+
+  (def (mapcat f)
+    (Transducer (fn (step el)
+                  (t/rf* true (f el)))))
 
   (def (take n)
     (let [!n (mv! n)]
       (Transducer (fn (step el)
-                    (when (pos? (swap! !n dec))
-                      (reduced!))
-
-                    (rf el))
+                    (t/rf1 (pos? (swap! !n dec)) el))
 
                   Nothing)))
+
+  (def (drop n)
+    (let [!n (mv! n)]
+      (Transducer (fn (step el)
+                    (if (pos? (swap! !n dec))
+                      (t/rf0 true)
+                      (t/rf1 true el)))
+                  Nothing)))
+
+  (def (take-while f)
+    (Transducer (fn (step el)
+                  (if (f el)
+                    (t/rf1 true el)
+                    (t/rf0 false)))
+                Nothing))
+
+  (def (partition-all n)
+    (let [!coll (mv! (transient-vec! []))]
+      (Transducer (fn (step el)
+                    (swap! !coll (->% (append! el)))
+                    (if (= n (count! !coll))
+                      (let [coll (persistent-vec! (deref! !coll))]
+                        (reset! !coll (transient-vec! []))
+                        (t/rf1 true coll))
+                      (t/rf0 true)))
+
+                  (Just (fn (complete)
+                          (if (pos? (count! !coll))
+                            (t/rf1 true el)
+                            (t/rf0 true)))))))
 #+END_SRC
