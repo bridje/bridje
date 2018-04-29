@@ -34,7 +34,7 @@
 (t/deftest analyses-typedef
   (t/is (= {:expr-type :typedef
             :sym 'foo
-            ::tc/mono-type (tc/fn-type #{} [(tc/primitive-type :int)] (tc/primitive-type :int))}
+            ::tc/mono-type (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))}
 
            (analyse (fake-form "(:: (foo Int) Int)")
                     {}))))

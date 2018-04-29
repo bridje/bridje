@@ -38,15 +38,10 @@
    ::base base
    ::attributes attributes})
 
-(defn fn-type
-  ([param-types return-type]
-   (fn-type #{} param-types return-type))
-
-  ([effects param-types return-type]
-   {::type :fn
-    ::param-types param-types
-    ::return-type return-type
-    ::effects (or effects #{})}))
+(defn fn-type [param-types return-type]
+  {::type :fn
+   ::param-types param-types
+   ::return-type return-type})
 
 (defn ftvs [mono-type]
   (case (::type mono-type)
@@ -260,8 +255,10 @@
          ::mono-type mono-type})))
 
 (defmethod type-value-expr* :global [{:keys [global]}]
-  {::mono-env {}
-   ::mono-type (instantiate (get-in *ctx* [:env :vars global ::poly-type]))})
+  (let [{::keys [poly-type effects]} (get-in *ctx* [:env :vars global])]
+    {::mono-env {}
+     ::mono-type (instantiate poly-type)
+     ::effects effects}))
 
 (defmethod type-value-expr* :effect-fn [{:keys [effect-fn]}]
   (let [{:keys [effect ::poly-type]} (get-in *ctx* [:env :effect-fns effect-fn])]
@@ -422,7 +419,8 @@
 (defmethod type-value-expr* :fn [{:keys [locals body-expr]}]
   (let [{:keys [::mono-type ::mono-env ::effects]} (type-value-expr* body-expr)]
     {::mono-env (apply dissoc mono-env locals)
-     ::mono-type (merge (fn-type effects (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type))}))
+     ::mono-type (merge (fn-type (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type))
+     ::effects effects}))
 
 (defmethod type-value-expr* :call [{:keys [exprs]}]
   (let [[fn-expr & arg-exprs] exprs
@@ -442,10 +440,9 @@
                       {:expected expected-param-count
                        :actual actual-param-count}))
 
-      :else (-> (combine-typings {:typings typings
-                                  :return-type return-type
-                                  :extra-eqs (mapv vector param-types (map ::mono-type param-typings))})
-                (update ::effects (fnil set/union #{}) (::effects fn-expr-type))))))
+      :else (combine-typings {:typings typings
+                              :return-type return-type
+                              :extra-eqs (mapv vector param-types (map ::mono-type param-typings))}))))
 
 (defn type-value-expr [expr]
   (let [{::keys [mono-type effects]} (type-value-expr* expr)]
@@ -488,12 +485,11 @@
                               {::typedefd? true})})
 
 (defmethod type-expr* :def [{:keys [sym locals body-expr]}]
-  (let [offered-poly-type (-> (type-value-expr (if locals
-                                                 {:expr-type :fn
-                                                  :locals locals
-                                                  :body-expr body-expr}
-                                                 body-expr))
-                              ::poly-type)
+  (let [{offered-poly-type ::poly-type, ::keys [effects]} (type-value-expr (if locals
+                                                                             {:expr-type :fn
+                                                                              :locals locals
+                                                                              :body-expr body-expr}
+                                                                             body-expr))
 
         required-poly-type (let [poly-type (get-in *ctx* [:env :vars sym ::poly-type])]
                              (when (::typedefd? poly-type)
@@ -508,7 +504,8 @@
     {::poly-type {::mono-type :env-update
                   ::env-update-type :def}
 
-     ::def-poly-type (or required-poly-type offered-poly-type)}))
+     ::def-poly-type (or required-poly-type offered-poly-type)
+     ::effects effects}))
 
 (defmethod type-expr* :defmacro [{:keys [locals body-expr]}]
   (let [form-adt (->adt 'Form)
@@ -539,7 +536,7 @@
      ::constructor-poly-types (->> constructors
                                    (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
                                                    [constructor-sym (mono->poly (if (seq param-mono-types)
-                                                                                  (fn-type #{} param-mono-types adt-mono-type)
+                                                                                  (fn-type param-mono-types adt-mono-type)
                                                                                   adt-mono-type))]))))}))
 
 (defmethod type-expr* :defeffect [_]

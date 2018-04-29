@@ -96,7 +96,7 @@
 
       {:sym sym
        ::tc/poly-type (tc/mono->poly (if param-type-forms
-                                       (tc/fn-type #{} (mapv extract-mono-type param-type-forms) return-type)
+                                       (tc/fn-type (mapv extract-mono-type param-type-forms) return-type)
                                        return-type))})))
 
 (defmacro with-ctx-update [update-form & body]
@@ -347,7 +347,7 @@
   {:expr-type :typedef
    :sym sym-form
    ::tc/mono-type (if param-forms
-                    (tc/fn-type #{} (mapv extract-mono-type param-forms) (extract-mono-type return-form))
+                    (tc/fn-type (mapv extract-mono-type param-forms) (extract-mono-type return-form))
                     (extract-mono-type return-form))})
 
 (s/def ::def-params

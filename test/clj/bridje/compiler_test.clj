@@ -192,7 +192,7 @@
                                           '(def mocked-res
                                              (handling ((ConsoleIO (fn (read-line!)
                                                                      "foo")))
-                                                       (res))))
+                                               (res))))
 
                                          {})
         {:syms [mocked-res]} (:vars env)]
