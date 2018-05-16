@@ -1,0 +1,63 @@
+(defadt (Result a)
+  (Zero Bool)
+  (One Bool a)
+  (Many Bool [a]))
+
+(defadt (Reducer x a)
+  (Reducer (Fn (x) Bool)
+           (Fn () a)))
+
+(defadt (Transducer x a)
+  (Transducer (Fn (x) (TxResult a))
+              (Maybe (Fn () (TxResult a)))))
+
+(def tx0 Zero)
+(def tx1 One)
+(def tx* Many)
+
+(defprotocol (Monoid m)
+  (:: mempty (m a))
+  (:: (mplus (m a) (m a)) (m a)))
+
+(do
+  (defprotocol (Seqable s)
+    (:: (seq (s e)) (Maybe (Seq s e))))
+
+  (defadt #{(Seqable s)} (Seq s e)
+    (Seq e (s e))))
+
+(definstance (Seqable [])
+  (fn (seq v)
+    (-> (first v)
+        (fmap (->% (Seq (rest v)))))))
+
+(defadt (Tree a)
+  (Node (Tree a) a (Tree a))
+  Leaf)
+
+(defadt (Cons a)
+  (Cons a (Cons a))
+  Nil)
+
+(definstance (Seqable Cons)
+  (fn (seq c)
+    (case c
+      (Cons e c) (Just (Seq e c))
+      Nil Nothing)))
+
+(:: #{(Seqable s)}
+    (reduce (s a) (Reducer a b)) b)
+
+(def (reduce coll (Reducer step complete))
+  (loop (coll coll)
+    (if-let ((Seq head tail) (seq coll)
+             _ (step head))
+      (recur tail)
+      (complete))))
+
+
+(:: #{(Seqable s)}
+    (transduce (s a) (Transducer a b) (Reducer b c) c))
+
+(def (transduce coll (Transducer tx-step tx-complete) (Reducer rx-step rx-complete))
+  (let ))
