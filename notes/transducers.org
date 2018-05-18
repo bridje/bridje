@@ -167,3 +167,19 @@
                             (t/rf1 true el)
                             (t/rf0 true)))))))
 #+END_SRC
+
+
+everything created under the same Mut effect cannot escape the effect
+
+in Haskell, it works because it's runST that creates an instance of all the
+mutable vars - whereas we create them all imperatively (for all intents and
+purposes).
+
+Haskell's ST monad doesn't work across threads, though, although they
+
+can we get `run` to do a similar thing?
+
+might mean a double deref... maybe we do need a threadlocal for this one?
+
+alternatively, we just 'unsafe' the whole lot. which does mean we don't have to do higher-kinded types (yet)
+does mean that we need to support it forever, though

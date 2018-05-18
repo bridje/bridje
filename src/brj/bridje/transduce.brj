@@ -15,21 +15,60 @@
 (def tx1 One)
 (def tx* Many)
 
-(defprotocol (Monoid m)
-  (:: mempty (m a))
+(defclass (Monoid m)
+  (:: (mzero) (m a))
   (:: (mplus (m a) (m a)) (m a)))
 
 (do
-  (defprotocol (Seqable s)
+  (defclass (Seqable s)
     (:: (seq (s e)) (Maybe (Seq s e))))
 
   (defadt #{(Seqable s)} (Seq s e)
     (Seq e (s e))))
 
-(definstance (Seqable [])
-  (fn (seq v)
-    (-> (first v)
-        (fmap (->% (Seq (rest v)))))))
+(defclass (Functor f)
+  (:: (fmap (f a) (Fn (a) b)) (f b)))
+
+(defclass #{(Functor m)} (Monad m)
+  (:: (return a) (m a))
+  (:: (bind (m a) (Fn (a) (m b))) (m b)))
+
+(defadt (Maybe a)
+  (Just a)
+  Nothing)
+
+(definstance (Functor Maybe)
+  (fn (fmap x f)
+    (case x
+      (Just v) (Just (f e))
+      Nothing Nothing)))
+
+(definstance (Monad Maybe)
+  (fn (return a)
+    (Just a))
+
+  (fn (bind x f)
+    (case x
+      (Just v) (f v)
+      Nothing Nothing)))
+
+(definstance (Monoid Maybe)
+  (fn (mzero) Nothing)
+  (fn (mplus x y)
+    (case x
+      (Just _) y
+      Nothing Nothing)))
+
+(defclass (Eq a)
+  (:: (= a a) Bool))
+
+(:: #{(Eq a)} (not= a a) Bool)
+(def (not= a b)
+  (not (= a b)))
+
+(definstance (Functor [])
+  (fn (fmap v f)
+    (transduce v (map f) (->vec))))
 
 (defadt (Tree a)
   (Node (Tree a) a (Tree a))
@@ -38,6 +77,34 @@
 (defadt (Cons a)
   (Cons a (Cons a))
   Nil)
+
+(defclj {c bridje.kernel.clj-collections}
+  (:: (c/vector-seq [a]) (Maybe (Seq [] a)))
+  (:: (c/set-seq #{}) (Maybe (Seq #{} a))))
+
+(definstance (Seqable [])
+  (fn (seq v) (c/vector-seq v)))
+
+(definstance (Seqable #{})
+  (fn (seq s) (c/set-seq s)))
+
+;; clj
+(require '[clojure.walk :as w])
+
+(defn ->ADT [env sym & params]
+  )
+
+(defbrj vec-seq
+  (fn [v]
+    (if-not (empty? v)
+      (Just. (Seq. (first v) (subvec v 1)))
+      Nothing.)))
+
+(defbrj set-seq
+  (fn [s]
+    (if-not (empty? s)
+      (Just. (Seq. (first s) (disj s (first s))))
+      Nothing.)))
 
 (definstance (Seqable Cons)
   (fn (seq c)
@@ -49,15 +116,26 @@
     (reduce (s a) (Reducer a b)) b)
 
 (def (reduce coll (Reducer step complete))
-  (loop (coll coll)
+  (loop ((coll coll))
     (if-let ((Seq head tail) (seq coll)
              _ (step head))
       (recur tail)
       (complete))))
 
+(:: (tf-chain (Transducer a b) (Transducer b c)) (Transducer a c))
 
-(:: #{(Seqable s)}
-    (transduce (s a) (Transducer a b) (Reducer b c) c))
+(def (tf-chain (Transducer l-step l-complete) (Transducer r-step r-complete))
+  (Transducer (fn (step el)
+                (case (l-step el)
+                  (Zero cont?) (Zero cont?)
+                  (One cont? el)
+                  (Many cont? els)
+                  ))
+              (fn (complete)
+                (l-complete)
+                (r-complete))))
 
-(def (transduce coll (Transducer tx-step tx-complete) (Reducer rx-step rx-complete))
-  (let ))
+(:: (reducer (Transducer a b) (Reducer b c)) (Reducer a c))
+
+(def (reducer (Transducer tf-step tf-complete) (Reducer rf-step rf-complete))
+  (Reducer ))
