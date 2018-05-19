@@ -1,19 +1,21 @@
 (defadt (Result a)
   (Zero Bool)
-  (One Bool a)
-  (Many Bool [a]))
+  (One a Bool)
+
+  (∀ #{(Seqable s)}
+   (Many (s a) Bool)))
 
 (defadt (Reducer x a)
   (Reducer (Fn (x) Bool)
            (Fn () a)))
 
 (defadt (Transducer x a)
-  (Transducer (Fn (x) (TxResult a))
-              (Maybe (Fn () (TxResult a)))))
+  (Transducer (Fn (x) (Result a))
+              (Fn () (Result a))))
 
-(def tx0 Zero)
-(def tx1 One)
-(def tx* Many)
+(def tx0 (Zero true))
+(def tx1 (->% (One true)))
+(def tx* (->% (Many true)))
 
 (defclass (Monoid m)
   (:: (mzero) (m a))
@@ -21,10 +23,10 @@
 
 (do
   (defclass (Seqable s)
-    (:: (seq (s e)) (Maybe (Seq s e))))
+    (:: (seq (s e)) (Maybe (Seq e))))
 
-  (defadt #{(Seqable s)} (Seq s e)
-    (Seq e (s e))))
+  (defadt (Seq e)
+    (Seq e (∀ #{(Seqable s)} (s e)))))
 
 (defclass (Functor f)
   (:: (fmap (f a) (Fn (a) b)) (f b)))
@@ -75,7 +77,7 @@
   Leaf)
 
 (defadt (Cons a)
-  (Cons a (Cons a))
+  (∀ #{(Seqable s)} (Cons a (s a)))
   Nil)
 
 (defclj {c bridje.kernel.clj-collections}
@@ -123,6 +125,31 @@
       (complete))))
 
 (:: (tf-chain (Transducer a b) (Transducer b c)) (Transducer a c))
+
+(def (reduced r)
+  (case r
+    (Zero _) (Zero false)
+    (One el _) (One el false)
+    (Many els _) (Many els false)))
+
+(definstance (Monad Result)
+  (fn (return x)
+    (One x true))
+
+  (fn (bind x f)
+    (case x
+      (Zero cont?) x
+      (One cont? el) (-> (f el)
+                         (cond-> (not cont?) reduced))
+      (Many cont? els) (-> ))))
+
+(defadt (LazySeq a)
+  (∀ #{(Seqable s)}
+   (LazySeq (Fn () (s a)))))
+
+(definstance (Seqable LazySeq)
+  (fn (seq (LazySeq f))
+    (seq (f))))
 
 (def (tf-chain (Transducer l-step l-complete) (Transducer r-step r-complete))
   (Transducer (fn (step el)
