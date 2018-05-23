@@ -1,32 +1,79 @@
-(defadt (Result a)
-  (Zero Bool)
-  (One a Bool)
+;; seqs
 
-  (∀ #{(Seqable s)}
-   (Many (s a) Bool)))
-
-(defadt (Reducer x a)
-  (Reducer (Fn (x) Bool)
-           (Fn () a)))
-
-(defadt (Transducer x a)
-  (Transducer (Fn (x) (Result a))
-              (Fn () (Result a))))
-
-(def tx0 (Zero true))
-(def tx1 (->% (One true)))
-(def tx* (->% (Many true)))
-
-(defclass (Monoid m)
-  (:: (mzero) (m a))
-  (:: (mplus (m a) (m a)) (m a)))
-
-(do
+(defrec
   (defclass (Seqable s)
-    (:: (seq (s e)) (Maybe (Seq e))))
+    (:: (seq (s a)) (Seq a)))
 
-  (defadt (Seq e)
-    (Seq e (∀ #{(Seqable s)} (s e)))))
+  (defadt (Seq a)
+    (:: #{(Seqable s)}
+        (Cons a (s a)) (Seq a))
+    Nil))
+
+(definstance (Seqable Seq)
+  (fn (seq c) c))
+
+;; clj
+(require '[clojure.walk :as w])
+
+(defbrj vec-seq
+  (fn [v]
+    (if-not (empty? v)
+      (Cons. (first v) (subvec v 1))
+      Nil.)))
+
+(defbrj set-seq
+  (fn [s]
+    (if-not (empty? s)
+      (Cons. (first s) (disj s (first s)))
+      Nil.)))
+
+;; brj
+
+(defclj {c bridje.kernel.clj-collections}
+  (:: (c/vector-seq [a]) (Seq a))
+  (:: (c/set-seq #{a}) (Seq a)))
+
+(definstance (Seqable [])
+  (fn (seq v) (c/vector-seq v)))
+
+(definstance (Seqable #{})
+  (fn (seq s) (c/set-seq s)))
+
+
+(defadt (LazySeq a)
+  (:: #{(Seqable s)}
+      (LazySeq (Fn () (s a)))))
+
+(defmacro (lazy-seq coll)
+  `(LazySeq (fn (_) ~coll)))
+
+(definstance (Seqable LazySeq)
+  (fn (seq (LazySeq f))
+    (seq (f))))
+
+(def (lazy-cat seqs)
+  (lazy-seq
+    (if-seq ((Cons first-seq more-seqs) seqs)
+      (if-seq ((Cons first-el more-els) first-seq)
+        (Cons first-el (lazy-cat (Cons more-els more-seqs)))
+        (lazy-cat more-seqs))
+
+      Nil)))
+
+
+;; comp
+(defclass (Compose c)
+  (:: (comp2 (c y z) (c x y)) (c x z)))
+
+(defmacro (comp &forms)
+  (if-seq ((Cons f1 more-forms) &forms)
+    (if-not (empty? more-forms)
+      `(comp2 ~f1 (comp ~@more-forms))
+      f1)
+
+    (throw "No forms passed to `comp`")))
+
+;; functors/monads/etc
 
 (defclass (Functor f)
   (:: (fmap (f a) (Fn (a) b)) (f b)))
@@ -54,12 +101,22 @@
       (Just v) (f v)
       Nothing Nothing)))
 
-(definstance (Monoid Maybe)
+(defclass (Monoid a)
+  (:: (mzero) a)
+  (:: (mplus2 a a) a))
+
+(defmacro (mplus &forms)
+  ...)
+
+(definstance #{(Monoid a)} (Monoid (Maybe a))
   (fn (mzero) Nothing)
-  (fn (mplus x y)
-    (case x
-      (Just _) y
-      Nothing Nothing)))
+  (fn (mplus2 x y)
+    (cond
+      (= x Nothing) y
+      (= y Nothing) x
+      (let ((Just x) x
+            (Just y) y)
+        (Just (mplus2 x y))))))
 
 (defclass (Eq a)
   (:: (= a a) Bool))
@@ -76,93 +133,145 @@
   (Node (Tree a) a (Tree a))
   Leaf)
 
-(defadt (Cons a)
-  (∀ #{(Seqable s)} (Cons a (s a)))
-  Nil)
 
-(defclj {c bridje.kernel.clj-collections}
-  (:: (c/vector-seq [a]) (Maybe (Seq [] a)))
-  (:: (c/set-seq #{}) (Maybe (Seq #{} a))))
-
-(definstance (Seqable [])
-  (fn (seq v) (c/vector-seq v)))
-
-(definstance (Seqable #{})
-  (fn (seq s) (c/set-seq s)))
-
-;; clj
-(require '[clojure.walk :as w])
-
-(defn ->ADT [env sym & params]
-  )
-
-(defbrj vec-seq
-  (fn [v]
-    (if-not (empty? v)
-      (Just. (Seq. (first v) (subvec v 1)))
-      Nothing.)))
-
-(defbrj set-seq
-  (fn [s]
-    (if-not (empty? s)
-      (Just. (Seq. (first s) (disj s (first s))))
-      Nothing.)))
-
-(definstance (Seqable Cons)
-  (fn (seq c)
-    (case c
-      (Cons e c) (Just (Seq e c))
-      Nil Nothing)))
+;; onto actual transducers
 
 (:: #{(Seqable s)}
     (reduce (s a) (Reducer a b)) b)
 
-(def (reduce coll (Reducer step complete))
-  (loop ((coll coll))
-    (if-let ((Seq head tail) (seq coll)
-             _ (step head))
-      (recur tail)
-      (complete))))
 
-(:: (tf-chain (Transducer a b) (Transducer b c)) (Transducer a c))
+(defadt (Reducer x a)
+  (Reducer (Fn (x) Unit) ; step
+           (Fn () Bool) ; more?
+           (Fn () a) ; complete
+           ))
 
-(def (reduced r)
-  (case r
-    (Zero _) (Zero false)
-    (One el _) (One el false)
-    (Many els _) (Many els false)))
+(defadt (Transducer x a)
+  (Transducer (∀ #{(Seqable s)} (Fn (x) (s a))) ; step
+              (Fn () Bool) ; more?
+              (∀ #{(Seqable s)} (Fn () (s a))) ; complete
+              ))
 
-(definstance (Monad Result)
-  (fn (return x)
-    (One x true))
+(def (step-transducer step)
+  (Transducer step (fn (more?) true) (fn (complete) Nil)))
 
-  (fn (bind x f)
-    (case x
-      (Zero cont?) x
-      (One cont? el) (-> (f el)
-                         (cond-> (not cont?) reduced))
-      (Many cont? els) (-> ))))
+(def (map f)
+  (step-transducer (fn (step el)
+                     (Cons (f el) Nil))))
 
-(defadt (LazySeq a)
-  (∀ #{(Seqable s)}
-   (LazySeq (Fn () (s a)))))
+(def (filter f)
+  (step-transducer (fn (step el)
+                     (if (f el)
+                       (Cons el Nil)
+                       Nil))))
 
-(definstance (Seqable LazySeq)
-  (fn (seq (LazySeq f))
-    (seq (f))))
+(:: (mapcat (∀ #{(Seqable s)} (Fn (x) (s a))))
+    (Transducer x a))
 
-(def (tf-chain (Transducer l-step l-complete) (Transducer r-step r-complete))
-  (Transducer (fn (step el)
-                (case (l-step el)
-                  (Zero cont?) (Zero cont?)
-                  (One cont? el)
-                  (Many cont? els)
-                  ))
-              (fn (complete)
-                (l-complete)
-                (r-complete))))
+(def (mapcat f)
+  (step-transducer f))
+
+(def (->vec)
+  (let ((!vec (volatile! (transient-vec! []))))
+    (Reducer (fn (step el)
+               (swap! !vec conj! el)
+               Unit)
+             (fn (more?) true)
+             (fn (complete)
+               (persistent! @!vec)))))
+
+(def (take n)
+  (let ((!n (volatile! n)))
+    (Transducer (fn (step el)
+                  (swap! !n dec)
+                  (Cons el Nil))
+
+                (fn (more?)
+                  (pos? @!n))
+
+                (fn (complete)
+                  Nil))))
+
+(def (drop n)
+  (let ((!n (volatile! n)))
+    (easy-transducer (fn (step el)
+                       (if (pos? @!n)
+                         (do
+                           (swap! !n dec)
+                           Nil)
+
+                         (Cons el Nil))))))
 
 (:: (reducer (Transducer a b) (Reducer b c)) (Reducer a c))
 
-(def (reducer (Transducer tf-step tf-complete) (Reducer rf-step rf-complete))
-  (Reducer ))
+(def (reducer (Transducer t-step t-more? t-complete) (Reducer r-step r-more? r-complete))
+  (letfn ((fn (handle-els els)
+            (loop ((els els))
+              (if (r-more?)
+                (if-seq ((Seq el more-els) els)
+                  (do (r-step el) (recur more-els))
+                  Unit)
+                Unit))))
+
+    (Reducer (fn (step el)
+               (when (r-more?)
+                 (handle-els (t-step el))))
+
+             (fn (more?)
+               (and (t-more?) (r-more?)))
+
+             (fn (complete)
+               (when (r-more?)
+                 (handle-els (t-complete)))
+               (r-complete)))))
+
+(:: #{(Seqable s)} (reduce* (s a) (Reducer a b)) b)
+
+(def (reduce* coll (Reducer step more? complete))
+  (loop ((coll coll))
+    (if-seq ((Cons head tail) coll)
+      (do
+        (step head)
+        (if (more?)
+          (recur tail)
+          (complete)))
+
+      (complete))))
+
+(defmacro (reduce coll &forms)
+  `(reduce* ~coll
+            ~(if-seq ((Cons r ts) (reverse &forms))
+               (if-not (empty? ts)
+                 `(reducer (comp ~@ts) ~r)
+                 r)
+
+               (throw "No reducer passed to `reduce`"))))
+
+
+(:: #{(Seqable s)}
+    (stream* (s a) (Transducer a b))
+    (LazySeq b))
+
+(def (stream* coll t)
+  (let (((Transducer step more? complete) t))
+    (lazy-seq
+      (if-seq ((Cons head tail) (if (more?) coll Nil))
+        (lazy-cat (Cons (step head) (Cons (stream* tail t) Nil)))
+        (complete)))))
+
+(defmacro (stream coll &forms)
+  `(stream* ~coll (comp ~@(reverse forms))))
+
+(definstance (Compose Transducer)
+  (fn (comp2 l (Transducer rstep rmore? rcomplete))
+    (let ((Transducer lstep lmore? lcomplete) l
+          l-no-complete (Transducer lstep lmore? (fn (complete) Nil)))
+
+      (Transducer (fn (step el)
+                    (stream* (rstep el) l-no-complete))
+
+                  (fn (more?)
+                    (and (rmore?) (lmore?)))
+
+                  (fn (complete)
+                    (stream* (rcomplete) l))))))
