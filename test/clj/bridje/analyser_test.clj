@@ -36,17 +36,19 @@
             :sym 'foo
             ::tc/mono-type (tc/->fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))}
 
-           (analyse (fake-form "(:: (foo Int) Int)")
+           (analyse (fake-form '("::" (foo Int) Int))
                     {}))))
 
 (t/deftest analyses-defclass
   (binding [tc/new-type-var identity]
-    (let [tv (tc/->type-var 'a)]
-      (t/is (= {:expr-type :defclass
-                :sym 'Eq
-                ::tc/type-var 'a
-                :members [{:sym 'eq
-                           ::tc/poly-type (tc/mono->poly (tc/->fn-type [tv tv] (tc/primitive-type :bool)))}]}
+    (t/is (= {:expr-type :defclass
+              :sym 'Functor
+              ::tc/type-var 'f
+              :members [{:sym 'fmap
+                         ::tc/poly-type (tc/mono->poly (tc/->fn-type [(tc/->applied-type (tc/->type-var 'f) [(tc/->type-var 'a)])
+                                                                      (tc/->fn-type [(tc/->type-var 'a)] (tc/->type-var 'b))]
+                                                                     (tc/->applied-type (tc/->type-var 'f) [(tc/->type-var 'b)])))}]}
 
-               (analyse (fake-form "(defclass (Eq a) (:: (eq a a) Bool))")
-                        {}))))))
+             (analyse (fake-form '(defclass (Functor f)
+                                    ("::" (fmap (f a) (Fn (a) b)) (f b))))
+                      {})))))

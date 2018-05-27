@@ -49,6 +49,12 @@
         :record (s/spec (s/and (s/cat :_record #{:record}
                                       :kws (s/* ::keyword-form))
                                (s/conformer #(set (:kws %)))))
+        :fn (s/spec (s/cat :_list #{:list}
+                           :_fn (exact-sym 'Fn)
+                           :param-type-forms (s/spec (s/and (s/cat :_list #{:list}
+                                                                   :forms (s/* ::mono-type-form))
+                                                            (s/conformer #(:forms %))))
+                           :return-type-form ::mono-type-form))
         :adt-or-class (s/and ::symbol-form
                              #(Character/isUpperCase (first (name %))))
         :applied (s/spec (s/cat :_list #{:list}
@@ -64,6 +70,8 @@
       :set (tc/set-of (extract-mono-type arg))
       :record (tc/record-of (gensym 'r) arg)
       :type-var (tc/->type-var (tc/new-type-var arg))
+      :fn (tc/->fn-type (mapv extract-mono-type (:param-type-forms arg))
+                        (extract-mono-type (:return-type-form arg)))
       :adt-or-class (or (when (get-in env [:adts arg])
                           (tc/->adt arg))
 
