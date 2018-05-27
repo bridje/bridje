@@ -426,12 +426,12 @@
                                                 :unavailable-syms (set unavailable-syms)})))
 
     {:expr-type :defclj
-     :clj-fns (into #{} (map (fn [{:keys [sym ::tc/poly-type]}]
-                               {:ns ns-sym
-                                :sym sym
-                                :value @(get publics sym)
-                                ::tc/poly-type poly-type}))
-                    type-sigs)}))
+     :clj-vars (into #{} (map (fn [{:keys [sym ::tc/poly-type]}]
+                                {:ns ns-sym
+                                 :sym sym
+                                 :clj-var (get publics sym)
+                                 ::tc/poly-type poly-type}))
+                     type-sigs)}))
 
 (s/def ::defjava-form
   (s/cat :_list #{:list}
@@ -486,21 +486,21 @@
 
 (s/def ::defadt-form
   (s/and (s/cat :_list #{:list}
-          :_defadt (exact-sym 'defadt)
-          :name-form (s/and (s/or :just-name ::symbol-form
-                                  :name+type-vars (s/spec (s/cat :_list #{:list}
-                                                                 :name-sym ::symbol-form
-                                                                 :type-var-syms (s/+ ::type-var-sym-form))))
-                            (s/conformer (fn [[decl-type decl-args]]
-                                           (case decl-type
-                                             :just-name {:name-sym decl-args}
-                                             :name+type-vars decl-args))))
+                :_defadt (exact-sym 'defadt)
+                :name-form (s/and (s/or :just-name ::symbol-form
+                                        :name+type-vars (s/spec (s/cat :_list #{:list}
+                                                                       :name-sym ::symbol-form
+                                                                       :type-var-syms (s/+ ::type-var-sym-form))))
+                                  (s/conformer (fn [[decl-type decl-args]]
+                                                 (case decl-type
+                                                   :just-name {:name-sym decl-args}
+                                                   :name+type-vars decl-args))))
 
-          ;; TODO add attrs in here, will make recursive ADTs much easier
-          :constructors-forms (s/* (s/or :value-constructor ::symbol-form
-                                         :constructor+params (s/spec (s/cat :_list #{:list}
-                                                                            :constructor-sym ::symbol-form
-                                                                            :params-forms (s/* ::mono-type-form))))))
+                ;; TODO add attrs in here, will make recursive ADTs much easier
+                :constructors-forms (s/* (s/or :value-constructor ::symbol-form
+                                               :constructor+params (s/spec (s/cat :_list #{:list}
+                                                                                  :constructor-sym ::symbol-form
+                                                                                  :params-forms (s/* ::mono-type-form))))))
          (s/conformer (fn [form]
                         (-> (merge form (:name-form form))
                             (dissoc :name-form))))))
@@ -521,6 +521,22 @@
                                                                                     (with-ctx-update (-> (assoc-in [:env :adts name-sym] {}))
 
                                                                                       (extract-mono-type form))))))})))))}))
+
+(s/def ::defclass-form
+  (s/cat :_list #{:list}
+         :_defclass (exact-sym 'defclass)
+         :declaration (s/spec (s/cat :_list #{:list}
+                                     :sym ::symbol-form
+                                     :type-var-sym ::type-var-sym-form))
+         :member-forms (s/* (s/spec ::type-signature-form))))
+
+(defmethod analyse-expr :defclass [[_ {:keys [declaration member-forms]}]]
+  (binding [tc/new-type-var (memoize tc/new-type-var)]
+    {:expr-type :defclass
+     :sym (:sym declaration)
+     ::tc/type-var (tc/new-type-var (:type-var-sym declaration))
+     :members (into [] (map extract-type-signature) member-forms)}))
+
 
 (def ->form-type-kw
   (-> (fn [^Class class]
@@ -616,6 +632,8 @@
                :defclj ::defclj-form
                :defeffect ::defeffect-form
                :attribute-typedef ::attribute-typedef-form
+
+               :defclass ::defclass-form
 
                :call (s/and (s/cat :_list #{:list}
                                    :forms (s/* any?))

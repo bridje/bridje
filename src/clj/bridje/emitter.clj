@@ -1,6 +1,5 @@
 (ns bridje.emitter
-  (:require [bridje.runtime :as rt]
-            [bridje.type-checker :as tc]
+  (:require [bridje.type-checker :as tc]
             [bridje.util :as u]
             [clojure.string :as str]))
 
@@ -237,13 +236,13 @@
                                        (select-keys % [::tc/poly-type]))))
                     definitions))})
 
-(defmethod interpret-expr :defclj [{:keys [clj-fns]} {:keys [env]}]
-  {:env (reduce (fn [env {:keys [sym value ::tc/poly-type] :as foo}]
+(defmethod interpret-expr :defclj [{:keys [clj-vars]} {:keys [env]}]
+  {:env (reduce (fn [env {:keys [sym clj-var ::tc/poly-type] :as foo}]
                   (-> env
-                      (assoc-in [:vars sym] {:value value
+                      (assoc-in [:vars sym] {:value (clj-var env)
                                              ::tc/poly-type poly-type})))
                 env
-                clj-fns)})
+                clj-vars)})
 
 (defmethod interpret-expr :defjava [{:keys [^Class class members]} {:keys [env]}]
   (let [class-basename (symbol (last (str/split (.getName class) #"\.")))]

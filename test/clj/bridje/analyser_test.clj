@@ -38,3 +38,15 @@
 
            (analyse (fake-form "(:: (foo Int) Int)")
                     {}))))
+
+(t/deftest analyses-defclass
+  (binding [tc/new-type-var identity]
+    (let [tv (tc/->type-var 'a)]
+      (t/is (= {:expr-type :defclass
+                :sym 'Eq
+                ::tc/type-var 'a
+                :members [{:sym 'eq
+                           ::tc/poly-type (tc/mono->poly (tc/fn-type [tv tv] (tc/primitive-type :bool)))}]}
+
+               (analyse (fake-form "(defclass (Eq a) (:: (eq a a) Bool))")
+                        {}))))))

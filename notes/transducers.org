@@ -187,12 +187,12 @@ does mean that we need to support it forever, though
 ** Plan of action:
 
 *** DONE =do= form
-*** TODO =if-seq= macro
-*** TODO changes to interop
-*** TODO Basic classes:
+*** DONE changes to interop
+*** TODO Basic classes
 *** TODO varargs in macros
 *** TODO Destructuring
 *** TODO 'throw'/'try/catch'
 *** TODO mutually recursive definitions
 *** TODO mutable state effect
 *** TODO higher-ranked types :/
+*** TODO =if-seq= macro
