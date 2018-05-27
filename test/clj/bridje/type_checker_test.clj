@@ -46,12 +46,12 @@
 
 (t/deftest types-identity-fn
   (binding [tc/new-type-var identity]
-    (t/is (= (tc/mono->poly (tc/fn-type [(tc/->type-var 'x)] (tc/->type-var 'x)))
+    (t/is (= (tc/mono->poly (tc/->fn-type [(tc/->type-var 'x)] (tc/->type-var 'x)))
              (-> (tc/type-expr id-fn {})
                  ::tc/poly-type)))))
 
 (t/deftest types-def
-  (t/is (= (tc/mono->poly (tc/fn-type [] (tc/primitive-type :int)))
+  (t/is (= (tc/mono->poly (tc/->fn-type [] (tc/primitive-type :int)))
 
            (-> (tc/type-expr {:expr-type :def
                               :sym 'foo
@@ -64,43 +64,43 @@
 (t/deftest subsumption
   (t/are [off req] (true? (tc/<= (tc/mono->poly off) (tc/mono->poly req)))
     ;; x -> x <= Int -> Int
-    (tc/fn-type [(tc/->type-var 'x)] (tc/->type-var 'x))
-    (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))
+    (tc/->fn-type [(tc/->type-var 'x)] (tc/->type-var 'x))
+    (tc/->fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))
 
     ;; (a, b) -> b <= (Int, Int) -> Int
-    (tc/fn-type [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))
-    (tc/fn-type [(tc/primitive-type :int) (tc/primitive-type :int)] (tc/primitive-type :int))
+    (tc/->fn-type [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))
+    (tc/->fn-type [(tc/primitive-type :int) (tc/primitive-type :int)] (tc/primitive-type :int))
 
     ;; (a, b) -> b <= (x, x) -> x
-    (tc/fn-type [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))
-    (tc/fn-type [(tc/->type-var 'x) (tc/->type-var 'x)] (tc/->type-var 'x))
+    (tc/->fn-type [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))
+    (tc/->fn-type [(tc/->type-var 'x) (tc/->type-var 'x)] (tc/->type-var 'x))
 
     ;; a -> a <= [x] -> [x]
-    (tc/fn-type [(tc/->type-var 'a)] (tc/->type-var 'a))
-    (tc/fn-type [(tc/vector-of (tc/->type-var 'x))] (tc/vector-of (tc/->type-var 'x)))
+    (tc/->fn-type [(tc/->type-var 'a)] (tc/->type-var 'a))
+    (tc/->fn-type [(tc/vector-of (tc/->type-var 'x))] (tc/vector-of (tc/->type-var 'x)))
 
     ;; (a, a) -> Int <= ([Int], [Int]) -> Int
-    (tc/fn-type [(tc/->type-var 'a) (tc/->type-var 'a)] (tc/primitive-type :int))
-    (tc/fn-type [(tc/vector-of (tc/primitive-type :int)) (tc/vector-of (tc/primitive-type :int))] (tc/primitive-type :int)))
+    (tc/->fn-type [(tc/->type-var 'a) (tc/->type-var 'a)] (tc/primitive-type :int))
+    (tc/->fn-type [(tc/vector-of (tc/primitive-type :int)) (tc/vector-of (tc/primitive-type :int))] (tc/primitive-type :int)))
 
 
   (t/are [off req] (false? (tc/<= (tc/mono->poly off) (tc/mono->poly req)))
     ;; Int -> Int </= x -> x
-    (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))
-    (tc/fn-type [(tc/->type-var 'x)] (tc/->type-var 'x))
+    (tc/->fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))
+    (tc/->fn-type [(tc/->type-var 'x)] (tc/->type-var 'x))
 
     ;; [x] -> [x] </= a -> a
-    (tc/fn-type [(tc/vector-of (tc/->type-var 'x))] (tc/vector-of (tc/->type-var 'x)))
-    (tc/fn-type [(tc/->type-var 'a)] (tc/->type-var 'a))
+    (tc/->fn-type [(tc/vector-of (tc/->type-var 'x))] (tc/vector-of (tc/->type-var 'x)))
+    (tc/->fn-type [(tc/->type-var 'a)] (tc/->type-var 'a))
 
     ;; (x, x) -> x </= (a, b) -> b
-    (tc/fn-type [(tc/->type-var 'x) (tc/->type-var 'x)] (tc/->type-var 'x))
-    (tc/fn-type [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))))
+    (tc/->fn-type [(tc/->type-var 'x) (tc/->type-var 'x)] (tc/->type-var 'x))
+    (tc/->fn-type [(tc/->type-var 'a) (tc/->type-var 'b)] (tc/->type-var 'b))))
 
 
 (t/deftest types-typedefd-identity-fn
   (binding [tc/new-type-var identity]
-    (let [more-specific-id-type (merge (tc/mono->poly (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int)))
+    (let [more-specific-id-type (merge (tc/mono->poly (tc/->fn-type [(tc/primitive-type :int)] (tc/primitive-type :int)))
                                        {::tc/typedefd? true})]
 
 
@@ -155,8 +155,8 @@
 
 (t/deftest types-handling
   (let [ctx {:env {:effect-fns {'read-file! {:effect 'FileIO
-                                             ::tc/poly-type (tc/mono->poly (tc/fn-type [(tc/primitive-type :string)]
-                                                                                       (tc/primitive-type :string)))}}}}]
+                                             ::tc/poly-type (tc/mono->poly (tc/->fn-type [(tc/primitive-type :string)]
+                                                                                         (tc/primitive-type :string)))}}}}]
     (t/is (= {::tc/poly-type (tc/mono->poly (tc/primitive-type :string))
               ::tc/effects #{'FileIO}}
              (-> '{:expr-type :call,

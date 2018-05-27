@@ -34,7 +34,7 @@
 (t/deftest analyses-typedef
   (t/is (= {:expr-type :typedef
             :sym 'foo
-            ::tc/mono-type (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))}
+            ::tc/mono-type (tc/->fn-type [(tc/primitive-type :int)] (tc/primitive-type :int))}
 
            (analyse (fake-form "(:: (foo Int) Int)")
                     {}))))
@@ -46,7 +46,7 @@
                 :sym 'Eq
                 ::tc/type-var 'a
                 :members [{:sym 'eq
-                           ::tc/poly-type (tc/mono->poly (tc/fn-type [tv tv] (tc/primitive-type :bool)))}]}
+                           ::tc/poly-type (tc/mono->poly (tc/->fn-type [tv tv] (tc/primitive-type :bool)))}]}
 
                (analyse (fake-form "(defclass (Eq a) (:: (eq a a) Bool))")
                         {}))))))

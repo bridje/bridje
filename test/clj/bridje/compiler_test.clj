@@ -117,7 +117,7 @@
              forms))
 
     (t/is (= (::tc/poly-type simple-match)
-             (tc/mono->poly (tc/fn-type [(tc/->adt 'SimpleForm)] (tc/primitive-type :int)))))
+             (tc/mono->poly (tc/->fn-type [(tc/->adt 'SimpleForm)] (tc/primitive-type :int)))))
 
     (t/is (= [-2 43 -3] (:value matches)))))
 
@@ -152,7 +152,7 @@
                 ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'Maybe [(tc/primitive-type :int)])))}
                forms)))
 
-    (t/is (= (tc/mono->poly (tc/fn-type [(tc/->adt 'Maybe [(tc/primitive-type :int)])] (tc/primitive-type :int)))
+    (t/is (= (tc/mono->poly (tc/->fn-type [(tc/->adt 'Maybe [(tc/primitive-type :int)])] (tc/primitive-type :int)))
              (::tc/poly-type simple-match)))
 
     (t/is (= [5 0 24] (:value matches)))))
@@ -233,7 +233,7 @@
                                           '(def foo
                                              (intern "foo")))
                                          {})]
-    (t/is (= (tc/mono->poly (tc/fn-type [(tc/primitive-type :string)] (tc/->class clojure.lang.Symbol)))
+    (t/is (= (tc/mono->poly (tc/->fn-type [(tc/primitive-type :string)] (tc/->class clojure.lang.Symbol)))
              (get-in env [:vars 'intern ::tc/poly-type])))
 
     (t/is (= {:value 'foo
@@ -306,7 +306,7 @@
                                          {})
         {:syms [foo]} (:vars env)]
 
-    (t/is (= (merge (tc/mono->poly (tc/fn-type [(tc/primitive-type :int)] (tc/primitive-type :int)))
+    (t/is (= (merge (tc/mono->poly (tc/->fn-type [(tc/primitive-type :int)] (tc/primitive-type :int)))
                     {::tc/typedefd? true})
 
              (-> (get-in env [:vars 'foo ::tc/poly-type]))))))

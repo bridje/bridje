@@ -38,7 +38,7 @@
    ::base base
    ::attributes attributes})
 
-(defn fn-type [param-types return-type]
+(defn ->fn-type [param-types return-type]
   {::type :fn
    ::param-types param-types
    ::return-type return-type})
@@ -304,10 +304,10 @@
 (defmethod type-value-expr* :attribute [{:keys [attribute]}]
   (let [{:keys [::mono-type]} (get-in *ctx* [:env :attributes attribute])]
     {::mono-env {}
-     ::mono-type (fn-type [{::type :record
-                            ::base (gensym 'r)
-                            ::attributes #{attribute}}]
-                          mono-type)}))
+     ::mono-type (->fn-type [{::type :record
+                              ::base (gensym 'r)
+                              ::attributes #{attribute}}]
+                            mono-type)}))
 
 (defmethod type-value-expr* :if [expr]
   (let [type-var (->type-var :if)
@@ -424,7 +424,7 @@
 (defmethod type-value-expr* :fn [{:keys [locals body-expr]}]
   (let [{:keys [::mono-type ::mono-env ::effects]} (type-value-expr* body-expr)]
     {::mono-env (apply dissoc mono-env locals)
-     ::mono-type (merge (fn-type (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type))
+     ::mono-type (merge (->fn-type (into [] (map #(or (get mono-env %) (->type-var %)) locals)) mono-type))
      ::effects effects}))
 
 (defmethod type-value-expr* :call [{:keys [exprs]}]
@@ -541,7 +541,7 @@
      ::constructor-poly-types (->> constructors
                                    (into {} (map (fn [{:keys [constructor-sym param-mono-types]}]
                                                    [constructor-sym (mono->poly (if (seq param-mono-types)
-                                                                                  (fn-type param-mono-types adt-mono-type)
+                                                                                  (->fn-type param-mono-types adt-mono-type)
                                                                                   adt-mono-type))]))))}))
 
 (defmethod type-expr* :defeffect [_]
