@@ -183,3 +183,16 @@ might mean a double deref... maybe we do need a threadlocal for this one?
 
 alternatively, we just 'unsafe' the whole lot. which does mean we don't have to do higher-kinded types (yet)
 does mean that we need to support it forever, though
+
+** Plan of action:
+
+*** TODO =do= form
+*** TODO =if-seq= macro
+*** TODO changes to interop
+*** TODO Basic classes:
+*** TODO varargs in macros
+*** TODO Destructuring
+*** TODO 'throw'/'try/catch'
+*** TODO mutually recursive definitions
+*** TODO mutable state effect
+*** TODO higher-ranked types :/
