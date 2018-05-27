@@ -52,7 +52,7 @@
         :adt-or-class (s/and ::symbol-form
                              #(Character/isUpperCase (first (name %))))
         :applied (s/spec (s/cat :_list #{:list}
-                                :constructor-sym ::symbol-form
+                                :base-form ::mono-type-form
                                 :param-forms (s/* ::mono-type-form)))))
 
 (defn extract-mono-type [mono-type-form]
@@ -72,8 +72,8 @@
 
                         (throw (ex-info "Can't find type" {:type arg})))
 
-      :applied (tc/->adt (get-in arg [:constructor-sym])
-                         (mapv extract-mono-type (:param-forms arg))))))
+      :applied (tc/->applied-type (extract-mono-type (:base-form arg))
+                                  (mapv extract-mono-type (:param-forms arg))))))
 
 (s/def ::type-signature-form
   (s/cat :_list #{:list}

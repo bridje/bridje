@@ -149,10 +149,10 @@
       (t/is (= {:value (rt/->brj env [(Just. 4)
                                       Nothing.
                                       (Just. 23)])
-                ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->adt 'Maybe [(tc/primitive-type :int)])))}
+                ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->applied-type (tc/->adt 'Maybe) [(tc/primitive-type :int)])))}
                forms)))
 
-    (t/is (= (tc/mono->poly (tc/->fn-type [(tc/->adt 'Maybe [(tc/primitive-type :int)])] (tc/primitive-type :int)))
+    (t/is (= (tc/mono->poly (tc/->fn-type [(tc/->applied-type (tc/->adt 'Maybe) [(tc/primitive-type :int)])] (tc/primitive-type :int)))
              (::tc/poly-type simple-match)))
 
     (t/is (= [5 0 24] (:value matches)))))
@@ -322,6 +322,6 @@
                                          {})
         {:syms [foo]} (:vars env)]
 
-    (t/is (= {::tc/poly-type (tc/mono->poly (tc/->adt 'T2 [(tc/primitive-type :int) (tc/primitive-type :string)]))
+    (t/is (= {::tc/poly-type (tc/mono->poly (tc/->applied-type (tc/->adt 'T2) [(tc/primitive-type :int) (tc/primitive-type :string)]))
               :value (rt/->brj env (T2. 4 "Hello"))}
              foo))))

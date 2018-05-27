@@ -21,13 +21,9 @@
   {::type :set
    ::elem-type elem-type})
 
-(defn ->adt
-  ([sym] (->adt sym nil))
-  ([sym param-types]
-   (merge {::type :adt
-           ::adt-sym sym}
-          (when (seq param-types)
-            {::param-types param-types}))))
+(defn ->adt [sym]
+  {::type :adt
+   ::adt-sym sym})
 
 (defn ->class [class]
   {::type :class
@@ -43,6 +39,11 @@
    ::param-types param-types
    ::return-type return-type})
 
+(defn ->applied-type [base-type param-types]
+  {::type :applied
+   ::base-type base-type
+   ::param-types param-types})
+
 (defn ftvs [mono-type]
   (case (::type mono-type)
     :type-var #{(::type-var mono-type)}
@@ -52,7 +53,9 @@
 
     :fn (into (ftvs (::return-type mono-type)) (mapcat ftvs) (::param-types mono-type))
 
-    :adt (into #{} (mapcat ftvs) (::param-types mono-type))))
+    :adt (into #{} (mapcat ftvs) (::param-types mono-type))
+
+    :applied (into #{} (mapcat ftvs) (::param-types mono-type))))
 
 (defn mono->poly [mono-type]
   {::type-vars (ftvs mono-type)
@@ -74,7 +77,7 @@
 
 (defn apply-mapping [type mapping]
   (case (::type type)
-    (:primitive :class) type
+    (:primitive :class :adt) type
     (:vector :set) (-> type (update ::elem-type apply-mapping mapping))
     :record (let [{existing-base ::base, existing-attributes ::attributes} type]
               (if-let [{new-base ::base, extra-attributes ::attributes} (get mapping existing-base)]
@@ -91,10 +94,10 @@
            ::param-types (map #(apply-mapping % mapping) param-types)
            ::return-type (apply-mapping return-type mapping)})
 
-    :adt (let [{::keys [param-types]} type]
-           (merge type
-                  (when param-types
-                    {::param-types (into [] (map #(apply-mapping % mapping)) param-types)})))))
+    :applied (let [{::keys [base-type param-types]} type]
+               (merge type
+                      {::base-type (apply-mapping base-type mapping)
+                       ::param-types (into [] (map #(apply-mapping % mapping)) param-types)}))))
 
 (defn mono-env-apply-mapping [mono-env mapping]
   (into {}
@@ -184,6 +187,12 @@
                                                          :type-var tv}))
                                                  more-eqs)
                                          mapping)))
+
+                   :applied (let [{t1-base ::base-type, t1-params ::param-types} t1
+                                  {t2-base ::base-type, t2-params ::param-types} t2]
+                              (cond
+                                (not= (count t1-params) (count t2-params)) (throw ex)
+                                :else (recur (concat (map vector t1-params t2-params) more-eqs) mapping)))
 
                    (throw ex))))))))
 
@@ -533,7 +542,9 @@
                 ::env-update-type :defjava}})
 
 (defmethod type-expr* :defadt [{:keys [sym ::type-vars constructors]}]
-  (let [adt-mono-type (->adt sym (mapv ->type-var type-vars))]
+  (let [adt-mono-type (if (seq type-vars)
+                        (->applied-type (->adt sym) (mapv ->type-var type-vars))
+                        (->adt sym))]
     {::poly-type {::mono-type :env-update
                   ::env-update-type :defadt}
 
