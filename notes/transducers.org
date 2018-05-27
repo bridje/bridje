@@ -186,7 +186,7 @@ does mean that we need to support it forever, though
 
 ** Plan of action:
 
-*** TODO =do= form
+*** DONE =do= form
 *** TODO =if-seq= macro
 *** TODO changes to interop
 *** TODO Basic classes:

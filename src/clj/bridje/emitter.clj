@@ -101,6 +101,9 @@
 (defmethod emit-value-expr* :recur [{:keys [exprs]}]
   `(recur ~@(mapv emit-value-expr* exprs)))
 
+(defmethod emit-value-expr* :do [{:keys [exprs]}]
+  `(do ~@(mapv emit-value-expr* exprs)))
+
 (defn with-global-bindings* [globals emit-body]
   (let [global-mapping (into {} (map (juxt identity gensym)) globals)
         {:keys [env-sym effect-mapping]} *ctx*]

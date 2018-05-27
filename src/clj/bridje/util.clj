@@ -11,7 +11,7 @@
 
 (defn sub-exprs [expr]
   (conj (case (:expr-type expr)
-          (:vector :set :call :recur) (mapcat sub-exprs (:exprs expr))
+          (:vector :set :call :recur :do) (mapcat sub-exprs (:exprs expr))
           :record (mapcat sub-exprs (map second (:entries expr)))
           :if (mapcat (comp sub-exprs expr) #{:pred-expr :then-expr :else-expr})
           :case (concat (sub-exprs (:expr expr))

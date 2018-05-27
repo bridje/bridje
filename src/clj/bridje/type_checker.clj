@@ -399,6 +399,11 @@
                                        expr-typings
                                        loop-locals)})))
 
+(defmethod type-value-expr* :do [{:keys [exprs]}]
+  (let [expr-typings (map type-value-expr* exprs)]
+    (combine-typings {:typings expr-typings
+                      :return-type (::mono-type (last expr-typings))})))
+
 (defmethod type-value-expr* :handling [{:keys [handlers body-expr]}]
   (let [handler-typings (for [{:keys [effect handler-exprs]} handlers
                               {:keys [expr-type sym] :as handler-expr} handler-exprs]

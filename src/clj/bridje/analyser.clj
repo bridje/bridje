@@ -282,6 +282,12 @@
                       (mapv analyse-expr forms))
              :loop-locals loop-locals})))
 
+(defmethod analyse-expr :do [[_ {:keys [forms]}]]
+  {:expr-type :do
+   :exprs (conj (with-ctx-update (dissoc :loop-locals)
+                  (mapv analyse-expr (butlast forms)))
+                (analyse-expr (last forms)))})
+
 (s/def ::handling-form
   (s/cat :_list #{:list}
          :_handling (exact-sym 'handling)
@@ -588,7 +594,9 @@
                :record (s/cat :_record #{:record}, :entries (s/* (s/cat :k ::keyword-form, :v ::form)))
 
                :loop ::loop-form
-               :recur (s/cat :_list #{:list}, :_recur (s/and ::symbol-form #{'recur}), :forms (s/* ::form))
+               :recur (s/cat :_list #{:list}, :_recur (exact-sym 'recur), :forms (s/* ::form))
+
+               :do (s/cat :_list #{:list} :_do (exact-sym 'do) :forms (s/* ::form))
 
                :quote ::quote-form
 

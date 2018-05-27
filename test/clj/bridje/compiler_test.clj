@@ -192,12 +192,22 @@
                                           '(def mocked-res
                                              (handling ((ConsoleIO (fn (read-line!)
                                                                      "foo")))
-                                               (res))))
+                                               (res)))
+
+                                          '(def do-block
+                                             (do
+                                               (read-line!)
+                                               "foo")))
 
                                          {})
-        {:syms [mocked-res]} (:vars env)]
+        {:syms [mocked-res do-block]} (:vars env)]
 
-    (t/is (= "foo" (:value mocked-res)))))
+    (t/is (= "foo" (:value mocked-res)))
+    (t/is (= {::tc/poly-type (tc/mono->poly (tc/primitive-type :string)),
+              ::tc/effects '[ConsoleIO]}
+
+             (-> do-block
+                 (dissoc :value))))))
 
 (t/deftest defjava-test
   (let [{:keys [env]} (sut/interpret-str (fake-forms
