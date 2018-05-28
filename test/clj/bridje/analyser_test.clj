@@ -39,16 +39,38 @@
            (analyse (fake-form '("::" (foo Int) Int))
                     {}))))
 
+(def fmap-poly-type
+  (tc/mono->poly (tc/->fn-type [(tc/->applied-type (tc/->type-var 'f) [(tc/->type-var 'a)])
+                                (tc/->fn-type [(tc/->type-var 'a)] (tc/->type-var 'b))]
+                               (tc/->applied-type (tc/->type-var 'f) [(tc/->type-var 'b)]))))
+
 (t/deftest analyses-defclass
   (binding [tc/new-type-var identity]
     (t/is (= {:expr-type :defclass
               :sym 'Functor
               ::tc/type-var 'f
               :members [{:sym 'fmap
-                         ::tc/poly-type (tc/mono->poly (tc/->fn-type [(tc/->applied-type (tc/->type-var 'f) [(tc/->type-var 'a)])
-                                                                      (tc/->fn-type [(tc/->type-var 'a)] (tc/->type-var 'b))]
-                                                                     (tc/->applied-type (tc/->type-var 'f) [(tc/->type-var 'b)])))}]}
+                         ::tc/poly-type fmap-poly-type}]}
 
              (analyse (fake-form '(defclass (Functor f)
                                     ("::" (fmap (f a) (Fn (a) b)) (f b))))
                       {})))))
+
+(t/deftest analyses-definstance
+  (binding [tc/new-type-var identity
+            ana/gen-local identity]
+    (t/is (= {:expr-type :definstance
+              :class 'Functor
+              :instance-type (tc/->adt 'Maybe)
+              :members [{:expr-type :fn
+                         :sym 'fmap
+                         :locals '[maybe f]
+                         :body-expr {:expr-type :bool
+                                     :bool true}}]}
+
+             (analyse (fake-form '(definstance (Functor Maybe)
+                                    (fn (fmap maybe f)
+                                      ;; obv doesn't type-check, but we're not testing that here
+                                      true)))
+                      {:env {:adts {'Maybe {}}
+                             :classes {'Functor {}}}})))))

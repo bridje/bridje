@@ -545,6 +545,22 @@
      ::tc/type-var (tc/new-type-var (:type-var-sym declaration))
      :members (into [] (map extract-type-signature) member-forms)}))
 
+(s/def ::definstance-form
+  (s/cat :_list #{:list}
+         :_definstance (exact-sym 'definstance)
+         :declaration (s/spec (s/cat :_list #{:list}
+                                     :class-sym ::symbol-form
+                                     :instance-type-form (s/and ::mono-type-form (comp #{:adt-or-class :type-var} first))))
+         :member-forms (s/* (s/and ::form (comp #{:fn} first)))))
+
+(defmethod analyse-expr :definstance [[_ {{:keys [class-sym instance-type-form]} :declaration, :keys [member-forms]}]]
+  (when-not (get-in *ctx* [:env :classes class-sym])
+    (throw (ex-info "Can't find class" {:class class-sym})))
+
+  {:expr-type :definstance
+   :class class-sym
+   :instance-type (extract-mono-type instance-type-form)
+   :members (mapv analyse-expr member-forms)})
 
 (def ->form-type-kw
   (-> (fn [^Class class]
@@ -642,6 +658,7 @@
                :attribute-typedef ::attribute-typedef-form
 
                :defclass ::defclass-form
+               :definstance ::definstance-form
 
                :call (s/and (s/cat :_list #{:list}
                                    :forms (s/* any?))

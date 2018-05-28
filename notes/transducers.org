@@ -188,10 +188,10 @@ does mean that we need to support it forever, though
 
 *** DONE =do= form
 *** DONE changes to interop
-*** TODO Basic classes
-*** TODO varargs in macros
-*** TODO Destructuring
 *** TODO 'throw'/'try/catch'
+*** TODO varargs in macros
+*** TODO Basic classes
+*** TODO Destructuring
 *** TODO mutually recursive definitions
 *** TODO mutable state effect
 *** TODO higher-ranked types :/
