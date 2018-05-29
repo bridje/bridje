@@ -189,7 +189,7 @@ does mean that we need to support it forever, though
 *** DONE =do= form
 *** DONE changes to interop
 *** TODO 'throw'/'try/catch'
-*** TODO varargs in macros
+*** DONE varargs in macros
 *** TODO Basic classes
 *** TODO Destructuring
 *** TODO mutually recursive definitions

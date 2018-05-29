@@ -11,11 +11,13 @@
 
 (s/def ::symbol-form
   (s/and (s/cat :_sym #{:symbol}
-                :sym symbol?)
+                :sym (every-pred symbol? #(not= '& %)))
          (s/conformer #(:sym %))))
 
 (defn exact-sym [sym]
-  (s/and ::symbol-form #{sym}))
+  (s/and (s/cat :_sym #{:symbol}
+                :sym #{sym})
+         (s/conformer #(:sym %))))
 
 (s/def ::keyword-form
   (s/and (s/cat :_kw #{:keyword}
@@ -368,17 +370,21 @@
   (s/and (s/or :just-sym ::symbol-form
                :sym+params (s/spec (s/cat :_list #{:list}
                                           :sym-form ::symbol-form
-                                          :param-forms (s/* ::symbol-form))))
+                                          :param-forms (s/* ::symbol-form)
+                                          :varargs (s/? (s/cat :_& (exact-sym '&)
+                                                               :varargs-form ::symbol-form)))))
 
          (s/conformer (fn [[alt alt-opts]]
                         (case alt
                           :just-sym {:sym-form alt-opts}
-                          :sym+params (merge {:param-forms []} alt-opts))))))
+                          :sym+params {:sym-form (:sym-form alt-opts)
+                                       :param-forms (vec (:param-forms alt-opts))
+                                       :varargs-form (get-in alt-opts [:varargs :varargs-form])})))))
 
 (s/def ::def-form
   (s/and (s/cat :_list #{:list}
                 :_def (s/and ::symbol-form #{'def})
-                :params-form ::def-params,
+                :params-form (s/and ::def-params #(nil? (:varargs-form %))),
                 :body-form ::form)
 
          (s/conformer (fn [form]
@@ -404,15 +410,18 @@
                         (merge (dissoc form :param-forms)
                                (:params-form form))))))
 
-(defmethod analyse-expr :defmacro [[_ {:keys [sym-form param-forms body-form]}]]
-  (let [local-mapping (some->> param-forms (map (juxt identity gen-local)))]
+(defmethod analyse-expr :defmacro [[_ {:keys [sym-form param-forms varargs-form body-form]}]]
+  (let [local-mapping (-> param-forms
+                          (cond-> varargs-form (conj varargs-form))
+                          (some->> (map (juxt identity gen-local))))]
 
     {:expr-type :defmacro
      :sym sym-form
      :locals (some->> local-mapping (map second))
+     :varargs? (boolean varargs-form)
      :body-expr (with-ctx-update (-> (update :locals (fnil into {}) local-mapping)
                                      (dissoc :loop-locals))
-                  (analyse-expr body-form ))}))
+                  (analyse-expr body-form))}))
 
 (s/def ::defclj-form
   (s/cat :_list #{:list}
@@ -603,14 +612,21 @@
               (do
                 (s/explain (s/* ::form) forms)
                 ::s/invalid)
-              {:forms conformed-forms}))]
+              {:forms conformed-forms}))
+
+          (apply-macro [{:keys [fixed-arg-count varargs?], f :value} args]
+            (apply f (if varargs?
+                       (let [[fixed-args varargs] (split-at fixed-arg-count args)]
+                         (conj (vec fixed-args) (vec varargs)))
+
+                       args)))]
 
     (if (= :symbol (get-in forms [0 0]))
-      (if-let [{eval-macro :value} (get-in *ctx* [:env :macros (get-in forms [0 1])])]
+      (if-let [macro (get-in *ctx* [:env :macros (get-in forms [0 1])])]
         ;; TODO arity check
         (let [form (->> (rest forms)
                         (into [] (map form->form-adt))
-                        (apply eval-macro)
+                        (apply-macro macro)
                         form-adt->form)
               [[form-type params] :as conformed] (s/conform (s/* ::form) [form])]
           (if (= :call form-type)

@@ -181,14 +181,15 @@
                                                             body-expr))
                                                    env))})
 
-(defmethod interpret-expr :defmacro [{:keys [sym locals body-expr]} {:keys [env]}]
-  {:env (assoc-in env [:macros sym] (emit-value-expr (if locals
-                                                       {:expr-type :fn
-                                                        :sym sym
-                                                        :locals locals
-                                                        :body-expr body-expr}
-                                                       body-expr)
-                                                     env))})
+(defmethod interpret-expr :defmacro [{:keys [sym locals varargs? body-expr]} {:keys [env]}]
+  {:env (assoc-in env [:macros sym] (merge {:fixed-arg-count (cond-> (count locals)
+                                                               varargs? dec)
+                                            :varargs? varargs?}
+                                           (emit-value-expr {:expr-type :fn
+                                                             :sym sym
+                                                             :locals locals
+                                                             :body-expr body-expr}
+                                                            env)))})
 
 (defmethod interpret-expr :attribute-typedef [{:keys [attribute ::tc/mono-type]} {:keys [env]}]
   {:env (-> env
