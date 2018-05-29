@@ -11,11 +11,13 @@
 
 (s/def ::symbol-form
   (s/and (s/cat :_sym #{:symbol}
-                :sym symbol?)
+                :sym (every-pred symbol? #(not= '& %)))
          (s/conformer #(:sym %))))
 
 (defn exact-sym [sym]
-  (s/and ::symbol-form #{sym}))
+  (s/and (s/cat :_sym #{:symbol}
+                :sym #{sym})
+         (s/conformer #(:sym %))))
 
 (s/def ::keyword-form
   (s/and (s/cat :_kw #{:keyword}
@@ -368,12 +370,18 @@
   (s/and (s/or :just-sym ::symbol-form
                :sym+params (s/spec (s/cat :_list #{:list}
                                           :sym-form ::symbol-form
-                                          :param-forms (s/* ::symbol-form))))
+                                          :param-forms (s/* ::symbol-form)
+                                          :varargs-form (s/? (s/cat :_& (exact-sym '&)
+                                                                    :varargs-param-form ::symbol-form)))))
 
          (s/conformer (fn [[alt alt-opts]]
                         (case alt
                           :just-sym {:sym-form alt-opts}
-                          :sym+params (merge {:param-forms []} alt-opts))))))
+                          :sym+params (-> (merge {:param-forms []}
+                                                 (when-let [{:keys [varargs-param-form]} (:varargs-form alt-opts)]
+                                                   {:varargs-param-form varargs-param-form})
+                                                 alt-opts)
+                                          (dissoc :varargs-form)))))))
 
 (s/def ::def-form
   (s/and (s/cat :_list #{:list}

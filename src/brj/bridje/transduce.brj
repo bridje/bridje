@@ -65,8 +65,8 @@
 (defclass (Compose c)
   (:: (comp2 (c y z) (c x y)) (c x z)))
 
-(defmacro (comp &forms)
-  (if-seq ((Cons f1 more-forms) &forms)
+(defmacro (comp & forms)
+  (if-seq ((Cons f1 more-forms) forms)
     (if-not (empty? more-forms)
       `(comp2 ~f1 (comp ~@more-forms))
       f1)
@@ -105,7 +105,7 @@
   (:: (mzero) a)
   (:: (mplus2 a a) a))
 
-(defmacro (mplus &forms)
+(defmacro (mplus & forms)
   ...)
 
 (definstance #{(Monoid a)} (Monoid (Maybe a))
@@ -238,9 +238,9 @@
 
       (complete))))
 
-(defmacro (reduce coll &forms)
+(defmacro (reduce coll & forms)
   `(reduce* ~coll
-            ~(if-seq ((Cons r ts) (reverse &forms))
+            ~(if-seq ((Cons r ts) (reverse forms))
                (if-not (empty? ts)
                  `(reducer (comp ~@ts) ~r)
                  r)
@@ -259,7 +259,7 @@
         (lazy-cat (Cons (step head) (Cons (stream* tail t) Nil)))
         (complete)))))
 
-(defmacro (stream coll &forms)
+(defmacro (stream coll & forms)
   `(stream* ~coll (comp ~@(reverse forms))))
 
 (definstance (Compose Transducer)

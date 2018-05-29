@@ -3,8 +3,10 @@
             [bridje.type-checker :as tc]
             [bridje.reader :refer [read-forms]]
             [bridje.analyser :as ana :refer [analyse]]
+            [bridje.compiler :refer [base-env]]
             [clojure.spec.alpha :as s]
-            [clojure.test :as t]))
+            [clojure.test :as t]
+            [bridje.quoter :as quoter]))
 
 (defn fake-form [form]
   (first (read-forms (fake-forms form))))
@@ -38,6 +40,11 @@
 
            (analyse (fake-form '("::" (foo Int) Int))
                     {}))))
+
+(t/deftest varargs-macro)
+(analyse (-> (fake-form "(defmacro (foo bar & more) `(+ ~bar ~@more))")
+             (quoter/expand-quotes {}))
+         {:env base-env})
 
 (def fmap-poly-type
   (tc/mono->poly (tc/->fn-type [(tc/->applied-type (tc/->type-var 'f) [(tc/->type-var 'a)])
