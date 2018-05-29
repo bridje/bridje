@@ -276,7 +276,7 @@
      ::effects #{effect}}))
 
 (defn type-coll-expr [{:keys [expr-type exprs]}]
-  (let [elem-type-var (->type-var :elem)
+  (let [elem-type-var (->type-var (new-type-var :elem))
         elem-typings (map type-value-expr* exprs)]
 
     (combine-typings {:typings elem-typings
@@ -298,8 +298,6 @@
   (let [entry-typings (->> entries
                            (map (fn [{:keys [k v]}]
                                   {:k k, :typing (type-value-expr* v)})))]
-
-    (clojure.pprint/pprint entry-typings)
 
     (combine-typings {:typings (map :typing entry-typings)
                       :extra-eqs (->> entry-typings
@@ -521,10 +519,13 @@
      ::def-poly-type (or required-poly-type offered-poly-type)
      ::effects effects}))
 
-(defmethod type-expr* :defmacro [{:keys [locals body-expr]}]
+(defmethod type-expr* :defmacro [{:keys [locals varargs? body-expr]}]
   (let [form-adt (->adt 'Form)
         body-typing (type-value-expr body-expr)]
-    (when (combine-typings {:typings [body-typing {::mono-env (into {} (map (juxt identity (constantly form-adt))) locals)}]
+    (when (combine-typings {:typings [body-typing
+                                      {::mono-env (merge (into {} (map (juxt identity (constantly form-adt))) locals)
+                                                         (when varargs?
+                                                           {(last locals) (vector-of form-adt)}))}]
                             :return-type form-adt})
       {::poly-type {::mono-type :env-update
                     ::env-update-type :defmacro}})))
