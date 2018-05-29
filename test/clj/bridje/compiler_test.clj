@@ -145,12 +145,11 @@
                                          {})
         {:syms [forms simple-match matches]} (:vars env)]
 
-    (binding [*env* env]
-      (t/is (= {:value (rt/->brj env [(Just. 4)
-                                      Nothing.
-                                      (Just. 23)])
-                ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->applied-type (tc/->adt 'Maybe) [(tc/primitive-type :int)])))}
-               forms)))
+    (t/is (= {:value (rt/->brj env [(Just. 4)
+                                    Nothing.
+                                    (Just. 23)])
+              ::tc/poly-type (tc/mono->poly (tc/vector-of (tc/->applied-type (tc/->adt 'Maybe) [(tc/primitive-type :int)])))}
+             forms))
 
     (t/is (= (tc/mono->poly (tc/->fn-type [(tc/->applied-type (tc/->adt 'Maybe) [(tc/primitive-type :int)])] (tc/primitive-type :int)))
              (::tc/poly-type simple-match)))
@@ -295,6 +294,18 @@
 
         (t/is (= 10 (:value foo)))
         (t/is (= [10] @!tracer))))))
+
+(t/deftest vararg-macro-test
+  (let [{:keys [env]} (sut/interpret-str (fake-forms
+                                          "(defmacro (foo-vector & elems)
+                                             `[~@elems])"
+
+                                          '(def foo
+                                             (foo-vector 5 4 3)))
+                                         {})
+        {:syms [foo]} (:vars env)]
+
+    (t/is (= [5 4 3] (:value foo)))))
 
 (t/deftest typedef-test
   (let [{:keys [env]} (sut/interpret-str (fake-forms

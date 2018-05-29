@@ -612,14 +612,21 @@
               (do
                 (s/explain (s/* ::form) forms)
                 ::s/invalid)
-              {:forms conformed-forms}))]
+              {:forms conformed-forms}))
+
+          (apply-macro [{:keys [fixed-arg-count varargs?], f :value} args]
+            (apply f (if varargs?
+                       (let [[fixed-args varargs] (split-at fixed-arg-count args)]
+                         (conj (vec fixed-args) (vec varargs)))
+
+                       args)))]
 
     (if (= :symbol (get-in forms [0 0]))
-      (if-let [{eval-macro :value} (get-in *ctx* [:env :macros (get-in forms [0 1])])]
+      (if-let [macro (get-in *ctx* [:env :macros (get-in forms [0 1])])]
         ;; TODO arity check
         (let [form (->> (rest forms)
                         (into [] (map form->form-adt))
-                        (apply eval-macro)
+                        (apply-macro macro)
                         form-adt->form)
               [[form-type params] :as conformed] (s/conform (s/* ::form) [form])]
           (if (= :call form-type)
