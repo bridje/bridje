@@ -41,10 +41,13 @@
            (analyse (fake-form '("::" (foo Int) Int))
                     {}))))
 
-(t/deftest varargs-macro)
-(analyse (-> (fake-form "(defmacro (foo bar & more) `(+ ~bar ~@more))")
-             (quoter/expand-quotes {}))
-         {:env base-env})
+(t/deftest varargs-macro
+  (binding [ana/gen-local identity]
+    (t/is (= {:locals '[bar more], :varargs? true}
+             (-> (analyse (-> (fake-form "(defmacro (foo bar & more) `(+ ~bar ~@more))")
+                              (quoter/expand-quotes {}))
+                          {:env base-env})
+                 (select-keys [:locals :varargs?]))))))
 
 (def fmap-poly-type
   (tc/mono->poly (tc/->fn-type [(tc/->applied-type (tc/->type-var 'f) [(tc/->type-var 'a)])
