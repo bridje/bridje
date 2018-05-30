@@ -297,15 +297,15 @@
 
 (t/deftest vararg-macro-test
   (let [{:keys [env]} (sut/interpret-str (fake-forms
-                                          "(defmacro (foo-vector & elems)
-                                             `[~@elems])"
+                                          "(defmacro (strange-vector bar & elems)
+                                             `[~@elems ~bar])"
 
                                           '(def foo
-                                             (foo-vector 5 4 3)))
+                                             (strange-vector 5 4 3 6)))
                                          {})
         {:syms [foo]} (:vars env)]
 
-    (t/is (= [5 4 3] (:value foo)))))
+    (t/is (= [4 3 6 5] (:value foo)))))
 
 (t/deftest typedef-test
   (let [{:keys [env]} (sut/interpret-str (fake-forms
