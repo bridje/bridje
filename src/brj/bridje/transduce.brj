@@ -275,3 +275,22 @@
 
                   (fn (complete)
                     (stream* (rcomplete) l))))))
+
+(def (view-xf lens)
+  (mapcat (->% (tl/view lens))))
+
+(def (update-xf lens f)
+  (map (->% (tl/update lens f))))
+
+(defadt Record
+  (Record {:id Int, :foo? Bool, :a Int}))
+
+(-> [(Record {:id 1, :foo? true, :a 1})
+     (Record {:id 2, :foo? false, :a 4})
+     (Record {:id 3, :foo? false, :a 25})
+     (Record {:id 4, :foo? true, :a 12})]
+
+    (reduce (update-xf Record.foo? not)
+            (view-xf (*> (only Record.foo?) Record.a))
+            (map inc)
+            (->vec)))
