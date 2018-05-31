@@ -5,8 +5,7 @@
     (:: (seq (s a)) (Seq a)))
 
   (defadt (Seq a)
-    (:: #{(Seqable s)}
-        (Cons a (s a)) (Seq a))
+    (:: #{(Seqable s)} (Cons a (s a)) (Seq a))
     Nil))
 
 (definstance (Seqable Seq)
@@ -41,8 +40,7 @@
 
 
 (defadt (LazySeq a)
-  (:: #{(Seqable s)}
-      (LazySeq (Fn () (s a)))))
+  (:: #{(Seqable s)} (LazySeq (Fn () (s a))) (LazySeq a)))
 
 (defmacro (lazy-seq coll)
   `(LazySeq (fn (_) ~coll)))
