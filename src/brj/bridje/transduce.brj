@@ -292,3 +292,19 @@
             (view-xf (*> (only Record.foo?) Record.a))
             (map inc)
             (->vec)))
+
+
+;; what about CPS?
+(defadt (Transducer x a)
+  (Transducer (Fn #{(Seqable s)} (x (Fn ((s a)) r)) r)
+              (Fn () Bool)
+              (Fn #{(Seqable s)} ((Fn ((s a)) r)) r)))
+
+(def (map f)
+  (Transducer (fn (step x c)
+                (c (Cons (f x) Nil)))
+
+              (fn (more?) true)
+
+              (fn (complete c)
+                (c Nil))))t
