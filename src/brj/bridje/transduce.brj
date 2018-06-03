@@ -206,7 +206,7 @@
   (letfn ((fn (handle-els els)
             (loop ((els els))
               (if (r-more?)
-                (if-seq ((Seq el more-els) els)
+                (if-seq ((Cons el more-els) els)
                   (do (r-step el) (recur more-els))
                   Unit)
                 Unit))))
