@@ -54,7 +54,7 @@
     (if-seq ((Cons first-seq more-seqs) seqs)
       (if-seq ((Cons first-el more-els) first-seq)
         (Cons first-el (lazy-cat (Cons more-els more-seqs)))
-        (lazy-cat more-seqs))
+        (seq (lazy-cat more-seqs)))
 
       Nil)))
 
@@ -203,13 +203,13 @@
 (:: (reducer (Transducer a b) (Reducer b c)) (Reducer a c))
 
 (def (reducer (Transducer t-step t-more? t-complete) (Reducer r-step r-more? r-complete))
-  (letfn ((fn (handle-els els)
-            (loop ((els els))
-              (if (r-more?)
-                (if-seq ((Cons el more-els) els)
-                  (do (r-step el) (recur more-els))
-                  Unit)
-                Unit))))
+  (let ((fn (handle-els els)
+          (loop ((els els))
+            (if (r-more?)
+              (if-seq ((Cons el more-els) els)
+                (do (r-step el) (recur more-els))
+                Unit)
+              Unit))))
 
     (Reducer (fn (step el)
                (when (r-more?)
@@ -300,11 +300,45 @@
               (Fn () Bool)
               (Fn #{(Seqable s)} ((Fn ((s a)) r)) r)))
 
+(def (step-transducer step)
+  (Transducer step (fn (more?) true) (fn (complete c) (c Nil))))
+
 (def (map f)
-  (Transducer (fn (step x c)
-                (c (Cons (f x) Nil)))
+  (step-transducer (fn (step x c)
+                     (c (Cons (f x) Nil)))))
 
-              (fn (more?) true)
+(def (filter f)
+  (step-transducer (fn (step x c)
+                     (c (if (f x)
+                          (Cons x Nil)
+                          Nil)))))
 
-              (fn (complete c)
-                (c Nil))))t
+(def (mapcat f)
+  (step-transducer (fn (step x c)
+                     (c (f x)))))
+
+(:: #{(Seqable s)}
+    (stream* (s a) (Transducer a b))
+    (LazySeq b))
+
+(def (stream* coll t)
+  (let (((Transducer step more? complete) t))
+    (lazy-seq
+      (if-seq ((Cons head tail) (if (more?) coll Nil))
+        (lazy-cat (Cons (step head seq) (Cons (stream* tail t) Nil)))
+        ;; this won't type-check in HS, because identity can't expose the type of the seqable
+        (complete seq)))))
+
+(definstance (Compose Transducer)
+  (fn (comp2 l (Transducer rstep rmore? rcomplete))
+    (let ((Transducer lstep lmore? lcomplete) l
+          l-no-complete (Transducer lstep lmore? (fn (complete) Nil)))
+
+      (Transducer (fn (step el)
+                    (stream* (rstep el) l-no-complete))
+
+                  (fn (more?)
+                    (and (rmore?) (lmore?)))
+
+                  (fn (complete)
+                    (stream* (rcomplete) l))))))
