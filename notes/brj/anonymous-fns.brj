@@ -1,0 +1,14 @@
+;; anonymouse fns
+
+(% (case %
+     (Just x) (Cons x Nil)
+     Nothing Nil))
+
+(#-> (foo {:foo? true}))
+
+(# (+ % 2))
+
+(fn (el)
+  (case el
+    (Just x) (Cons x Nil)
+    Nothing Nil))

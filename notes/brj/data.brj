@@ -1,0 +1,62 @@
+(def :User
+  (Foo a))
+
+(def (:Tree a)
+  {:left (:Tree a)
+   :node a
+   :right (:Tree a)}
+
+  (Node {:left :node :right})
+  Leaf)
+
+(def :Address
+  {:line1 Str
+   :line2 Str
+   :city Str
+   :region Str
+   :postal-code Str}
+
+  (Address {:line1 :?line2 :city :region :postal-code}))
+
+(def (:Maybe a)
+  (Just a)
+  Nothing)
+
+(def :User
+  {:id UUID
+   :first-name Str
+   :last-name Str
+   :age Int
+   :address :Address
+   :part-address {:Address {:line1}}
+   :just-line1 :Address.line1})
+
+(:: :foo? Bool)
+
+(:: :foo-address :Address)
+
+(ns social.bar
+  {:alias {u social.user}
+   :refer {social.user #{:User :foo?}}})
+
+;; if an alias shadows a real NS, tough shit.
+(:: (foo {:User. #{:id :?first-name :?last-name :address},
+          u/:User. #{}
+          u/ #{:foo?}
+          :foo, :foo-address
+          & r}) Int)
+
+(def (foo {:User. {id, :?first-name ?prenom, :?last-name ?nom
+                   :address (Address {* a}),
+                   * user}
+
+           u/:User. {}
+
+           social.user/ {}
+           u/ {foo?}
+           foo?,
+           :foo-address (Address {* line1})
+           * all-of-it})
+  ...)
+
+(foo {:User. {id, :first-name first-name}, :foo? true})
