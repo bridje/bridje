@@ -1,0 +1,17 @@
+(let [(foo 2)
+      (bar 1)]
+  (+ foo bar))
+
+;; mutually recursive definitions
+
+(def (foo a b)
+  (letfn [(:: (bar ...) ...)
+          (:: (baz ...) ...)
+
+          (def (bar ...)
+            ...)
+
+          (def (baz ...)
+            ...)]
+
+    ...))
