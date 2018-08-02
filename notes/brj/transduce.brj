@@ -24,3 +24,8 @@
             (if (f el)
               (:Cons el :Nil)
               :Nil))))
+
+;; TODO internal mutable state?
+;; TODO reduce
+;; TODO whole ns compilation? macros?
+;; TODO do we need rank-n types?
