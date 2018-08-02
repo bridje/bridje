@@ -1,0 +1,26 @@
+(defdata (:Seq a)
+  (:Cons a (:Seq a))
+  :Nil)
+
+(defclass (Seqable s)
+  (:: (seq (s a)) (:Seq a)))
+
+(definstance (Seqable (:Seq a))
+  (def (seq xs) xs))
+
+(defdata (:Transducer a b)
+  (:Transducer (Fn [a] (Seqable b))
+               (Fn [] Bool)
+               (Fn [] (Seqable b))))
+
+(def (mapcat f)
+  (:Transducer f (fn [] true) (fn [] :Nil)))
+
+(def (map f)
+  (mapcat (#-> f (:Cons :Nil))))
+
+(def (filter f)
+  (mapcat (fn [el]
+            (if (f el)
+              (:Cons el :Nil)
+              :Nil))))
