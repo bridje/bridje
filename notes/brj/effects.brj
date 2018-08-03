@@ -1,0 +1,25 @@
+(defdata :Void :Void)
+
+(defx Console
+  (:: (print! Str) :Void)
+  (:: (flush!) :Void))
+
+(defx EmailProvider
+  (:: (create-subscriber! :User) :Void)
+  (:: (send-email! :Email) :Void)
+
+  (def (send-email! email)
+    ;; default implementation
+    ...))
+
+(def (send-welcome-email! {:User. {first-name}})
+  (send-email! (:Email {:subject (format "Welcome, %s!" first-name)
+                        :body "..."})))
+
+(handling [(EmailProvider (def (send-email! email)
+                            ...))]
+  (send-welcome-email! {:User. {:first-name "James"}}))
+
+
+
+()
