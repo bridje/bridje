@@ -29,3 +29,28 @@
 ;; TODO reduce
 ;; TODO whole ns compilation? macros?
 ;; TODO do we need rank-n types?
+
+(def (partition-all n)
+  (lv/with-local-vars
+    (let [(!segment (lv/lvar (t/transient-vec [])))]
+      (:Transducer (fn [el]
+                     (let [(seg (lv/deref! !segment))
+                           (seg-len (t/count! seg))]
+                       (if (>= n seg-len)
+                         (let [(seg (t/persistent! seg))
+                               (_ (reset! !segment (t/transient-vec [])))]
+                           (:Cons seg :Nil))
+
+                         (lv/let [(seg (t/conj! seg el))
+                                  (_ (reset! !segment seg))]
+                           :Nil))))
+
+                   (fn [] true)
+
+                   (fn []
+                     (let [(seg (deref! !segment))
+                           (seg-len (t/count! seg))]
+
+                       (if (pos? seg-len)
+                         (:Cons seg :Nil)
+                         :Nil)))))))
