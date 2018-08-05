@@ -5,13 +5,22 @@
 ;; mutually recursive definitions
 
 (def (foo a b)
-  (letfn [(:: (bar ...) ...)
-          (:: (baz ...) ...)
+  (let-rec [(:: (bar ...) ...)
+            (:: (baz ...) ...)
 
-          (def (bar ...)
-            ...)
+            (def (bar ...)
+              ...)
 
-          (def (baz ...)
-            ...)]
+            (def (baz ...)
+              ...)]
 
     ...))
+
+(def (comp2 g f)
+  (fn [x]
+    (g (f x))))
+
+(defmacro (comp f & fs)
+  (if-not (empty? fs)
+    `(comp2 ~f (comp ~@fs))
+    f))
