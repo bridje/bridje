@@ -236,6 +236,8 @@ the block.
 There is one 'base' effect, ~IO~, which interacts with the outside world. This
 is built-in and cannot be explicitly handled.
 
+**** TODO internal mutable state
+
 *** TODO Typeclasses
 
 #+BEGIN_SRC clojure
@@ -294,10 +296,12 @@ is built-in and cannot be explicitly handled.
      :hiding #{...}})
 #+END_SRC
 
-TODO:
+**** TODO
 - cycles between namespaces allowed
 - cycles between vars allowed (with forward declarations)
 - immutable namespaces - invalidation + reloading
+- can use standard clojure namespaces (if we use the intern functions to define everything)
+- cycles including macros?
 
 * LICENCE
 
