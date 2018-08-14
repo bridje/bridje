@@ -15,34 +15,19 @@ so we have two (three?) passes:
 
 #+BEGIN_SRC clojure
   (ns foo
-    {:referring {(^ bar)}})
+    {:referring {(for-syntax bar)}})
 
-  ;; def for syntax
-  (^ (def (foo ...)
-       ...))
+  (def-for-syntax
+    (def (foo ...)
+      ...)
+    )
 
   ;; macros are implicitly for syntax
   (defmacro (with-foo ...)
     ...)
 #+END_SRC
 
-** TODO separate idea to file - we pass an array of effect and typeclass impls
-Would need building up on every call, though.
-
-typeclass instances - legitimately, could be a different object each time. let's
-get as close as we can to invokevirtual? will likely only be a few types per
-function call.
-
-effects, not so much. could be a large number of effects, and not likely to
-differ from call to call. can we reuse a large proportion of them?
-
-DI in Java - they rebuild the whole object tree in tests. or, at least, the part
-they're interested in
-
-so that's not a bad idea. can we group by namespace? on a call to with-fx, we
-rebuild the object tree
-
-** immutable namespaces?
+* immutable namespaces?
 
 benefits of immutable namespaces?
 - means that the system continues to behave as it did
