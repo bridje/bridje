@@ -1,6 +1,6 @@
 ;; defdata
 
-(defdata (:Tree a)
+(defdata (Tree a)
   {:left (Tree a)
    :node a
    :right (Tree a)}
@@ -8,7 +8,7 @@
   (:Node {:left :node :right})
   :Leaf)
 
-(defdata :Address
+(defdata Address
   {:line1 Str
    :line2 Str
    :city Str
@@ -18,7 +18,7 @@
   (:Address {:line1 :?line2 :city :region :postal-code}))
 
 (defdata {:foo? Bool
-          :foo-address :Address})
+          :foo-address Address})
 
 ;; typeclasses
 
@@ -26,7 +26,7 @@
   (:: (fmap (f a) (Fn [a] b))
       (f b)))
 
-(definstance (Functor :Maybe)
+(definstance (Functor Maybe)
   (def (fmap maybe f)
     (case maybe
       (:Just a) (:Just (f a))
@@ -36,7 +36,7 @@
   (:: (bind (m a) (Fn [a] (m b))) (m b))
   (:: (return a) (m a)))
 
-(definstance (Monad :Maybe)
+(definstance (Monad Maybe)
   (def (return a)
     (:Just a))
 
@@ -49,27 +49,28 @@
 
 (ns social.bar
   {:alias {u social.user}
-   :refer {social.user #{:User :foo?}}})
+   :refer {social.user #{User :foo?}}})
 
 ;; destructuring
 
-(:: (foo {:User. #{:id :?first-name :?last-name :address},
-          :u/User. #{}
-          :u/ #{:foo?}
+(:: (foo {User. #{:id :?first-name :?last-name :address},
+          u/User. #{}
+          u/ #{:foo?}
           :foo, :foo-address
-          & r}) Int)
+          & r})
+    Int)
 
-(def (foo {:User. {id, :?first-name ?prenom, :?last-name ?nom
-                   :address (Address {* a}),
-                   * user}
+(def (foo {User. {id, :?first-name ?prenom, :?last-name ?nom
+                  :address (Address {* a}),
+                  * user}
 
-           :u/User. {...}
+           u/User. {...}
 
-           :social.user/ {...}
-           :u/ {foo?}
+           social.user/ {...}
+           u/ {foo?}
            foo?,
            :foo-address (:Address {* line1})
            * all-of-it})
   ...)
 
-(foo {:User. {id, :first-name first-name}, :foo? true})
+(foo {User. {id, :first-name first-name}, :foo? true})
