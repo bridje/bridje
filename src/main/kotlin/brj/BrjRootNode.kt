@@ -1,6 +1,5 @@
 package brj
 
-import brj.forms.Form
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode

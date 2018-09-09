@@ -1,6 +1,6 @@
 package brj
 
-import brj.forms.Form.Companion.readForms
+import brj.Form.Companion.readForms
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
