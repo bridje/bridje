@@ -1,0 +1,8 @@
+language1.id=brj
+language1.interactive=true
+language1.implementationName=
+language1.mimeType.0=application/brj
+language1.name=Bridje
+language1.version=inherit
+language1.className=brj.BrjLanguage
+language1.internal=false

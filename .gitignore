@@ -4,3 +4,5 @@ bridje-stuff/
 dist/
 .nrepl-port
 /.cpcache/
+
+/.idea/
