@@ -76,6 +76,13 @@ object Types {
         }
     }
 
+    private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<ValueExpr>): Typing {
+        val typings = exprs.map(::valueExprTyping)
+        val returnType = TypeVarType()
+
+        return combine(mkCollType(returnType), typings, typings.map { t -> Types.TypeEq(t.returnType, returnType) })
+    }
+
     fun valueExprTyping(expr: ValueExpr): Typing =
         when (expr) {
             is BooleanExpr -> Typing(BoolType)
@@ -85,18 +92,9 @@ object Types {
             is FloatExpr -> Typing(FloatType)
             is BigFloatExpr -> Typing(BigFloatType)
 
-            is VectorExpr -> {
-                val typings = expr.exprs.map(::valueExprTyping)
-                val returnType = TypeVarType()
+            is VectorExpr -> collExprTyping(::VectorType, expr.exprs)
+            is SetExpr -> collExprTyping(::SetType, expr.exprs)
 
-                combine(returnType, typings, typings.map { t -> Types.TypeEq(t.returnType, returnType) })
-            }
-
-            is SetExpr -> {
-                val typings = expr.exprs.map(::valueExprTyping)
-                val returnType = TypeVarType()
-
-                combine(returnType, typings, typings.map { t -> Types.TypeEq(t.returnType, returnType) })
-            }
+            is CallExpr -> TODO()
         }
 }

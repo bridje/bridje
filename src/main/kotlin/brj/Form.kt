@@ -11,7 +11,7 @@ sealed class Form {
     data class BigIntForm(val bigInt: BigInteger) : Form()
     data class FloatForm(val float: Double) : Form()
     data class BigFloatForm(val bigFloat: BigDecimal) : Form()
-    data class SymbolForm(val ns: String?, val kw: String) : Form()
+    data class SymbolForm(val ns: String?, val sym: String) : Form()
     data class KeywordForm(val ns: String?, val kw: String) : Form()
     data class ListForm(val forms: List<Form>) : Form()
     data class VectorForm(val forms: List<Form>) : Form()

@@ -74,7 +74,10 @@ class GraalEmitter(val lang: BrjLanguage) {
             is BigIntExpr -> BigIntNode(expr.bigInt)
             is FloatExpr -> FloatNode(expr.float)
             is BigFloatExpr -> BigFloatNode(expr.bigFloat)
+
             is VectorExpr -> VectorNode(expr.exprs)
             is SetExpr -> SetNode(expr.exprs)
+
+            is CallExpr -> TODO()
         }
 }

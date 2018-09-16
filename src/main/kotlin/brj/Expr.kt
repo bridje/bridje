@@ -14,7 +14,10 @@ sealed class Expr {
         data class BigIntExpr(val bigInt: BigInteger) : ValueExpr()
         data class FloatExpr(val float: Double) : ValueExpr()
         data class BigFloatExpr(val bigFloat: BigDecimal) : ValueExpr()
+
         data class VectorExpr(val exprs: List<ValueExpr>) : ValueExpr()
         data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr()
+
+        data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>) : ValueExpr()
     }
 }
