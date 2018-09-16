@@ -11,9 +11,23 @@
     <properties>
         <graalvm.version>1.0.0-rc6</graalvm.version>
         <kotlin.version>1.2.61</kotlin.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-test-junit</artifactId>
+            <version>${kotlin.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
@@ -41,20 +55,15 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-stdlib</artifactId>
-            <version>${kotlin.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-test-junit</artifactId>
-            <version>${kotlin.version}</version>
-            <scope>test</scope>
+            <groupId>org.pcollections</groupId>
+            <artifactId>pcollections</artifactId>
+            <version>3.0.3</version>
         </dependency>
     </dependencies>
 
     <build>
+        <sourceDirectory>src/main/kotlin</sourceDirectory>
+
         <plugins>
             <plugin>
                 <groupId>org.antlr</groupId>
@@ -79,6 +88,25 @@
                 <version>${kotlin.version}</version>
                 <executions>
                     <execution>
+                        <id>kapt</id>
+                        <goals>
+                            <goal>kapt</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirs>
+                                <sourceDir>src/main/kotlin</sourceDir>
+                                <sourceDir>target/generated-sources/antlr4</sourceDir>
+                            </sourceDirs>
+                            <annotationProcessorPaths>
+                                <annotationProcessorPath>
+                                    <groupId>com.oracle.truffle</groupId>
+                                    <artifactId>truffle-dsl-processor</artifactId>
+                                    <version>${graalvm.version}</version>
+                                </annotationProcessorPath>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>compile</id>
                         <phase>compile</phase>
                         <goals>
@@ -86,8 +114,8 @@
                         </goals>
                         <configuration>
                             <sourceDirs>
-                                <source>src/main/kotlin</source>
-                                <source>target/generated-sources/antlr4</source>
+                                <sourceDir>src/main/kotlin</sourceDir>
+                                <sourceDir>target/generated-sources/antlr4</sourceDir>
                             </sourceDirs>
                         </configuration>
                     </execution>
@@ -103,6 +131,7 @@
                     <jvmTarget>1.8</jvmTarget>
                 </configuration>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -123,10 +152,12 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <source>1.10</source>
-                    <target>1.10</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
             </plugin>
         </plugins>
+
     </build>
+
 </project>

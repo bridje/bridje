@@ -2,47 +2,79 @@ package brj
 
 import brj.Expr.ValueExpr
 import brj.Expr.ValueExpr.*
-import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.RootNode
+import org.pcollections.HashTreePSet
+import org.pcollections.PCollection
+import org.pcollections.TreePVector
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.util.*
 
-object GraalEmitter {
+class GraalEmitter(val lang: BrjLanguage) {
 
-    data class BoolNode(val lang: TruffleLanguage<out Any>, val boolean: Boolean): RootNode(lang) {
+    abstract inner class ValueNode : RootNode(lang)
+
+    inner class BoolNode(val boolean: Boolean) : ValueNode() {
         override fun execute(frame: VirtualFrame): Boolean = boolean
     }
 
-    data class StringNode(val lang: TruffleLanguage<out Any>, val string: String): RootNode(lang) {
+    inner class StringNode(val string: String) : ValueNode() {
         override fun execute(frame: VirtualFrame): String = string
     }
 
-    data class IntNode(val lang: TruffleLanguage<out Any>, val int: Long): RootNode(lang) {
-        override fun execute(frame: VirtualFrame?): Long = int
+    inner class IntNode(val int: Long) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Long = int
     }
 
-    data class BigIntNode(val lang: TruffleLanguage<out Any>, val bigInt: BigInteger): RootNode(lang) {
-        override fun execute(frame: VirtualFrame?): BigInteger = bigInt
+    inner class BigIntNode(val bigInt: BigInteger) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any = lang.asBrjValue(bigInt)
     }
 
-    data class FloatNode(val lang: TruffleLanguage<out Any>, val float: Double): RootNode(lang) {
-        override fun execute(frame: VirtualFrame?): Double = float
+    inner class FloatNode(val float: Double) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Double = float
     }
 
-    data class BigFloatNode(val lang: TruffleLanguage<out Any>, val bigDec: BigDecimal): RootNode(lang) {
-        override fun execute(frame: VirtualFrame?): BigDecimal = bigDec
+    inner class BigFloatNode(val bigDec: BigDecimal) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any = lang.asBrjValue(bigDec)
     }
 
-    fun emitValueExpr(lang: TruffleLanguage<out Any>, expr: ValueExpr): RootNode =
+    abstract inner class CollNode(exprs: List<ValueExpr>) : ValueNode() {
+        @Children
+        val nodes: Array<ValueNode> = exprs.map(::emitValueExpr).toTypedArray()
+
+        abstract fun <T> toColl(coll: List<T>): PCollection<T>
+
+        @ExplodeLoop
+        override fun execute(frame: VirtualFrame): Any {
+            val coll: MutableList<Any> = ArrayList(nodes.size)
+
+            for (node in nodes) {
+                coll.add(node.execute(frame))
+            }
+
+            return lang.asBrjValue(toColl(coll))
+        }
+    }
+
+    inner class VectorNode(exprs: List<ValueExpr>) : CollNode(exprs) {
+        override fun <T> toColl(coll: List<T>): PCollection<T> = TreePVector.from(coll)
+    }
+
+    inner class SetNode(exprs: List<ValueExpr>) : CollNode(exprs) {
+        override fun <T> toColl(coll: List<T>): PCollection<T> = HashTreePSet.from(coll)
+    }
+
+    fun emitValueExpr(expr: ValueExpr): ValueNode =
         when (expr) {
-            is BooleanExpr -> BoolNode(lang, expr.boolean)
-            is StringExpr -> StringNode(lang, expr.string)
-            is IntExpr -> IntNode(lang, expr.int)
-            is BigIntExpr -> BigIntNode(lang, expr.bigInt)
-            is FloatExpr -> FloatNode(lang, expr.float)
-            is BigFloatExpr -> BigFloatNode(lang, expr.bigFloat)
-            is VectorExpr -> TODO()
-            is SetExpr -> TODO()
+            is BooleanExpr -> this.BoolNode(expr.boolean)
+            is StringExpr -> StringNode(expr.string)
+            is IntExpr -> IntNode(expr.int)
+            is BigIntExpr -> BigIntNode(expr.bigInt)
+            is FloatExpr -> FloatNode(expr.float)
+            is BigFloatExpr -> BigFloatNode(expr.bigFloat)
+            is VectorExpr -> VectorNode(expr.exprs)
+            is SetExpr -> SetNode(expr.exprs)
         }
 }
