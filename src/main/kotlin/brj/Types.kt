@@ -83,6 +83,22 @@ object Types {
         return combine(mkCollType(returnType), typings, typings.map { t -> Types.TypeEq(t.returnType, returnType) })
     }
 
+    private fun ifExprTyping(expr: IfExpr): Typing {
+        val predTyping = valueExprTyping(expr.predExpr)
+        val thenTyping = valueExprTyping(expr.thenExpr)
+        val elseTyping = valueExprTyping(expr.elseExpr)
+
+        val returnType = TypeVarType()
+
+        return combine(
+            returnType,
+            listOf(predTyping, thenTyping, elseTyping),
+            listOf(
+                TypeEq(BoolType, predTyping.returnType),
+                TypeEq(returnType, thenTyping.returnType),
+                TypeEq(returnType, elseTyping.returnType)))
+    }
+
     fun valueExprTyping(expr: ValueExpr): Typing =
         when (expr) {
             is BooleanExpr -> Typing(BoolType)
@@ -96,5 +112,7 @@ object Types {
             is SetExpr -> collExprTyping(::SetType, expr.exprs)
 
             is CallExpr -> TODO()
+
+            is IfExpr -> ifExprTyping(expr)
         }
 }

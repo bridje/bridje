@@ -19,7 +19,7 @@ object Analyser {
         }
 
         private fun analyseIfForm(forms: List<Form>): ValueExpr? {
-            TODO("not implemented")
+            TODO("analyse if")
         }
 
         private fun analyseListValueForm(form: Form.ListForm): ValueExpr? {

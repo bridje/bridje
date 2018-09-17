@@ -19,5 +19,7 @@ sealed class Expr {
         data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr()
 
         data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>) : ValueExpr()
+
+        data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr()
     }
 }

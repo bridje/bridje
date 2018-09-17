@@ -5,6 +5,8 @@ import brj.Expr.ValueExpr.*
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.RootNode
+import com.oracle.truffle.api.nodes.UnexpectedResultException
+import com.oracle.truffle.api.profiles.ConditionProfile
 import org.pcollections.HashTreePSet
 import org.pcollections.PCollection
 import org.pcollections.TreePVector
@@ -66,6 +68,23 @@ class GraalEmitter(val lang: BrjLanguage) {
         override fun <T> toColl(coll: List<T>): PCollection<T> = HashTreePSet.from(coll)
     }
 
+    inner class IfNode(predExpr: ValueExpr, thenExpr: ValueExpr, elseExpr: ValueExpr) : ValueNode() {
+        private val conditionProfile = ConditionProfile.createBinaryProfile()!!
+        private val predNode = emitValueExpr(predExpr)
+        private val thenNode = emitValueExpr(thenExpr)
+        private val elseNode = emitValueExpr(elseExpr)
+
+        override fun execute(frame: VirtualFrame): Any {
+            val result = predNode.execute(frame)
+
+            if (result !is Boolean) {
+                throw UnexpectedResultException(result)
+            }
+
+            return (if (conditionProfile.profile(result)) thenNode else elseNode).execute(frame)
+        }
+    }
+
     fun emitValueExpr(expr: ValueExpr): ValueNode =
         when (expr) {
             is BooleanExpr -> this.BoolNode(expr.boolean)
@@ -79,5 +98,7 @@ class GraalEmitter(val lang: BrjLanguage) {
             is SetExpr -> SetNode(expr.exprs)
 
             is CallExpr -> TODO()
+
+            is IfExpr -> IfNode(expr.predExpr, expr.thenExpr, expr.elseExpr)
         }
 }
