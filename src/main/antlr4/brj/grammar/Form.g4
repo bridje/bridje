@@ -14,7 +14,7 @@ BIG_INT: INT [nN];
 FLOAT: ('-' | '+')? [0-9]+ ('.' [0-9]+)?;
 BIG_FLOAT: FLOAT [mM];
 
-STRING : '"' ( '\\"' | '\\r' | '\\n' | '\\t' | '\\\\' | . )*? '"';
+STRING : '"' ( '\\"' | . )*? '"';
 
 file : form* EOF;
 
