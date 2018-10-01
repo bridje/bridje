@@ -1,69 +1,33 @@
 package brj
 
-import brj.Analyser.AnalyserCtx.AnalyserState.Companion.analyser
-import brj.Analyser.FormsAnalyser.AnalyserError.ExpectedForm
-import brj.Analyser.FormsAnalyser.AnalyserError.UnexpectedForms
-import brj.Analyser.FormsAnalyser.Result
-import brj.Analyser.FormsAnalyser.Result.Failure
-import brj.Analyser.FormsAnalyser.Result.Success
+import brj.Analyser.AnalyserError.*
 import brj.Expr.LocalVar
 import brj.Expr.ValueExpr
 import brj.Expr.ValueExpr.*
+import brj.Form.*
+
+typealias FormsAnalyser<R> = (Analyser.AnalyserCtx.AnalyserState) -> R
 
 object Analyser {
 
-    interface FormsAnalyser<R> {
-        sealed class AnalyserError : Exception() {
-            object ExpectedForm : AnalyserError()
-            data class UnexpectedForms(val forms: List<Form>) : AnalyserError()
-        }
-
-        sealed class Result<R> {
-            abstract fun orThrow(): R
-
-            data class Failure<R>(val error: AnalyserError) : Result<R>() {
-                override fun orThrow(): R = throw error
-            }
-
-            data class Success<R>(val res: R, val remaining: List<Form>) : Result<R>() {
-                override fun orThrow(): R = res
-            }
-        }
-
-        fun analyse(forms: List<Form>): Result<R>
-
+    sealed class AnalyserError : Exception() {
+        object ExpectedForm : AnalyserError()
+        data class UnexpectedForms(val forms: List<Form>) : AnalyserError()
     }
 
     data class AnalyserCtx(val loopLocals: List<LocalVar>? = null) {
-        data class AnalyserState(var forms: List<Form>) {
-            companion object {
-                fun <R> analyser(f: (AnalyserState) -> R): FormsAnalyser<R> = object : FormsAnalyser<R> {
-                    override fun analyse(forms: List<Form>): Result<R> =
-                        try {
-                            val state = AnalyserState(forms)
-                            val res = f(state)
-                            Success(res, state.forms)
-                        } catch (e: FormsAnalyser.AnalyserError) {
-                            Failure(e)
-                        }
-                }
-            }
 
+        data class AnalyserState(var forms: List<Form>) {
             fun <R> zeroOrMore(a: FormsAnalyser<R>): List<R> {
                 val ret: MutableList<R> = mutableListOf()
 
                 while (true) {
-                    val res = a.analyse(forms)
+                    val res = maybe(a)
 
-                    when (res) {
-                        is Success<R> -> {
-                            forms = res.remaining
-                            ret.add(res.res)
-                        }
-
-                        is Failure<R> -> {
-                            return ret.toList()
-                        }
+                    if (res != null) {
+                        ret += res
+                    } else {
+                        return ret
                     }
                 }
             }
@@ -74,41 +38,58 @@ object Analyser {
                 }
             }
 
-            fun <R> expectForm(f: (Form) -> R): R =
+            inline fun <reified F : Form, R> expectForm(f: (F) -> R): R =
                 if (forms.isNotEmpty()) {
-                    val r = f(forms.first())
+                    val firstForm = forms.first()
+                    val r = f(firstForm as? F ?: throw ExpectedForm)
                     forms = forms.drop(1)
                     r
                 } else {
                     throw ExpectedForm
                 }
 
-            fun <R> analyse(a: FormsAnalyser<R>): R =
-                a.analyse(forms).let {
-                    when (it) {
-                        is Failure<R> -> throw it.error
-
-                        is Success<R> -> {
-                            forms = it.remaining; return it.res
-                        }
-                    }
+            fun <R> maybe(a: FormsAnalyser<R>): R? =
+                try {
+                    val newState = copy()
+                    val res = a(newState)
+                    forms = newState.forms
+                    res
+                } catch (e: AnalyserError) {
+                    null
                 }
+
+            inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, a: FormsAnalyser<R>): R =
+                expectForm<F, R> { form -> a(AnalyserState(f(form))) }
         }
 
-        private val ifAnalyser: FormsAnalyser<ValueExpr> = analyser {
-            val predExpr = it.analyse(exprAnalyser)
-            val thenExpr = it.analyse(exprAnalyser)
-            val elseExpr = it.analyse(exprAnalyser)
+        private val ifAnalyser: FormsAnalyser<ValueExpr> = {
+            val predExpr = exprAnalyser(it)
+            val thenExpr = exprAnalyser(it)
+            val elseExpr = exprAnalyser(it)
             it.expectEnd()
             IfExpr(predExpr, thenExpr, elseExpr)
         }
 
-        private val callAnalyser: FormsAnalyser<ValueExpr> = analyser {
-            val call = it.analyse(exprAnalyser)
+        private val fnAnalyser: FormsAnalyser<ValueExpr> = {
+            val fnName = it.maybe { it2 ->
+                it2.expectForm<SymbolForm, String> { symForm -> symForm.sym }
+            }
+
+            it.nested(VectorForm::forms) {
+                it.zeroOrMore {
+                    TODO()
+                }
+            }
+
+            TODO()
+        }
+
+        private val callAnalyser: FormsAnalyser<ValueExpr> = {
+            val call = exprAnalyser(it)
             CallExpr(call, it.zeroOrMore(exprAnalyser))
         }
 
-        private val listAnalyser = analyser {
+        private val listAnalyser: FormsAnalyser<ValueExpr> = {
             if (it.forms.isEmpty()) throw ExpectedForm
 
             val firstForm = it.forms[0]
@@ -118,23 +99,29 @@ object Analyser {
                     it.forms = it.forms.drop(1)
                     when (firstForm.sym) {
                         "if" -> {
-                            return@analyser it.analyse(ifAnalyser)
+                            ifAnalyser(it)
                         }
+
+                        "fn" -> {
+                            fnAnalyser(it)
+                        }
+
+                        else -> callAnalyser(it)
                     }
                 } else {
                     TODO("global call")
                 }
+            } else {
+                callAnalyser(it)
             }
-
-            it.analyse(callAnalyser)
         }
 
-        private fun collParser(transform: (List<ValueExpr>) -> ValueExpr): FormsAnalyser<ValueExpr> = analyser {
+        private fun collAnalyser(transform: (List<ValueExpr>) -> ValueExpr): FormsAnalyser<ValueExpr> = {
             transform(it.zeroOrMore(exprAnalyser))
         }
 
-        private val exprAnalyser: FormsAnalyser<ValueExpr> = analyser {
-            return@analyser it.expectForm { form ->
+        private val exprAnalyser: FormsAnalyser<ValueExpr> = {
+            it.expectForm<Form, ValueExpr> { form ->
                 when (form) {
                     is Form.BooleanForm -> BooleanExpr(form.bool)
                     is Form.StringForm -> StringExpr(form.string)
@@ -144,9 +131,9 @@ object Analyser {
                     is Form.BigFloatForm -> BigFloatExpr(form.bigFloat)
                     is Form.SymbolForm -> TODO()
                     is Form.KeywordForm -> TODO()
-                    is Form.ListForm -> listAnalyser.analyse(form.forms).orThrow()
-                    is Form.VectorForm -> collParser(::VectorExpr).analyse(form.forms).orThrow()
-                    is Form.SetForm -> collParser(::SetExpr).analyse(form.forms).orThrow()
+                    is Form.ListForm -> listAnalyser(AnalyserState(form.forms))
+                    is Form.VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))
+                    is Form.SetForm -> collAnalyser(::SetExpr)(AnalyserState(form.forms))
                     is Form.RecordForm -> TODO()
                     is Form.QuoteForm -> TODO()
                     is Form.UnquoteForm -> TODO()
@@ -155,14 +142,7 @@ object Analyser {
             }
         }
 
-        fun analyse(form: Form): ValueExpr {
-            val result = exprAnalyser.analyse(listOf(form))
-
-            return when (result) {
-                is Success -> result.res
-                is Failure -> throw result.error
-            }
-        }
+        fun analyse(form: Form): ValueExpr = exprAnalyser(AnalyserState(listOf(form)))
     }
 
     fun analyseValueExpr(form: Form): ValueExpr = Analyser.AnalyserCtx().analyse(form)
