@@ -1,6 +1,6 @@
 package brj
 
-import brj.Analyser.analyseValueForm
+import brj.Analyser.analyseValueExpr
 import brj.BrjLanguage.Env
 import brj.Reader.readForms
 import com.oracle.truffle.api.CallTarget
@@ -23,7 +23,7 @@ class BrjLanguage : TruffleLanguage<Env>() {
     override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
         val form = readForms(request.source).first()
 
-        return Truffle.getRuntime().createCallTarget(GraalEmitter(this).emitValueExpr(analyseValueForm(form)))
+        return Truffle.getRuntime().createCallTarget(GraalEmitter(this).emitValueExpr(analyseValueExpr(form)))
     }
 
     fun asBrjValue(obj: Any): Any = contextReference.get().truffleEnv.asGuestValue(obj)
