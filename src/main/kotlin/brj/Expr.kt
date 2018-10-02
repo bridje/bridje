@@ -5,7 +5,7 @@ import java.math.BigInteger
 
 sealed class Expr {
 
-    data class LocalVar(val s: String)
+    data class LocalVar(val s: Symbol)
 
     sealed class ValueExpr : Expr() {
         data class BooleanExpr(val boolean: Boolean) : ValueExpr()
@@ -21,5 +21,8 @@ sealed class Expr {
         data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>) : ValueExpr()
 
         data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr()
+        data class FnExpr(val fnName: Symbol?, val params: List<LocalVar>, val bodyExprs: List<ValueExpr>) : ValueExpr()
+
+        data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
     }
 }

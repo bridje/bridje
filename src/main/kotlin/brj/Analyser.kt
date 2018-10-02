@@ -4,7 +4,8 @@ import brj.Analyser.AnalyserError.*
 import brj.Expr.LocalVar
 import brj.Expr.ValueExpr
 import brj.Expr.ValueExpr.*
-import brj.Form.*
+import brj.Form.SymbolForm
+import brj.Form.VectorForm
 
 typealias FormsAnalyser<R> = (Analyser.AnalyserCtx.AnalyserState) -> R
 
@@ -13,9 +14,10 @@ object Analyser {
     sealed class AnalyserError : Exception() {
         object ExpectedForm : AnalyserError()
         data class UnexpectedForms(val forms: List<Form>) : AnalyserError()
+        data class ResolutionError(val sym: Symbol) : AnalyserError()
     }
 
-    data class AnalyserCtx(val loopLocals: List<LocalVar>? = null) {
+    data class AnalyserCtx(val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
 
         data class AnalyserState(var forms: List<Form>) {
             fun <R> zeroOrMore(a: FormsAnalyser<R>): List<R> {
@@ -70,18 +72,27 @@ object Analyser {
             IfExpr(predExpr, thenExpr, elseExpr)
         }
 
+        @Suppress("NestedLambdaShadowedImplicitParameter")
         private val fnAnalyser: FormsAnalyser<ValueExpr> = {
-            val fnName = it.maybe { it2 ->
-                it2.expectForm<SymbolForm, String> { symForm -> symForm.sym }
-            }
+            val fnName: Symbol? = it.maybe { it.expectForm(SymbolForm::sym) }
 
-            it.nested(VectorForm::forms) {
-                it.zeroOrMore {
-                    TODO()
+            val paramNames = it.nested(VectorForm::forms) {
+                val paramNames = it.zeroOrMore {
+                    it.expectForm(SymbolForm::sym)
                 }
+                it.expectEnd()
+                paramNames
             }
 
-            TODO()
+            val newLocals = paramNames.map { Pair(it, LocalVar(it)) }
+
+            val ctx = AnalyserCtx(locals = locals.plus(newLocals))
+
+            val bodyExpr = ctx.exprAnalyser(it)
+            val bodyExprs = it.zeroOrMore(ctx.exprAnalyser)
+            it.expectEnd()
+
+            FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), listOf(bodyExpr).plus(bodyExprs))
         }
 
         private val callAnalyser: FormsAnalyser<ValueExpr> = {
@@ -95,21 +106,17 @@ object Analyser {
             val firstForm = it.forms[0]
 
             if (firstForm is Form.SymbolForm) {
-                if (firstForm.ns == null) {
-                    it.forms = it.forms.drop(1)
-                    when (firstForm.sym) {
-                        "if" -> {
-                            ifAnalyser(it)
-                        }
-
-                        "fn" -> {
-                            fnAnalyser(it)
-                        }
-
-                        else -> callAnalyser(it)
+                it.forms = it.forms.drop(1)
+                when (firstForm.sym) {
+                    Symbol("if") -> {
+                        ifAnalyser(it)
                     }
-                } else {
-                    TODO("global call")
+
+                    Symbol("fn") -> {
+                        fnAnalyser(it)
+                    }
+
+                    else -> callAnalyser(it)
                 }
             } else {
                 callAnalyser(it)
@@ -118,6 +125,10 @@ object Analyser {
 
         private fun collAnalyser(transform: (List<ValueExpr>) -> ValueExpr): FormsAnalyser<ValueExpr> = {
             transform(it.zeroOrMore(exprAnalyser))
+        }
+
+        private fun analyseSymbol(sym: Symbol): ValueExpr {
+            return LocalVarExpr(locals.get(sym) ?: throw ResolutionError(sym))
         }
 
         private val exprAnalyser: FormsAnalyser<ValueExpr> = {
@@ -129,8 +140,10 @@ object Analyser {
                     is Form.BigIntForm -> BigIntExpr(form.bigInt)
                     is Form.FloatForm -> FloatExpr(form.float)
                     is Form.BigFloatForm -> BigFloatExpr(form.bigFloat)
-                    is Form.SymbolForm -> TODO()
+                    is Form.SymbolForm -> analyseSymbol(form.sym)
+                    is Form.NamespacedSymbolForm -> TODO()
                     is Form.KeywordForm -> TODO()
+                    is Form.NamespacedKeywordForm -> TODO()
                     is Form.ListForm -> listAnalyser(AnalyserState(form.forms))
                     is Form.VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))
                     is Form.SetForm -> collAnalyser(::SetExpr)(AnalyserState(form.forms))

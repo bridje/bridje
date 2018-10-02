@@ -25,15 +25,20 @@ object Reader {
         override fun visitBigFloat(ctx: FormParser.BigFloatContext) =
             BigFloatForm(ctx.BIG_FLOAT().text.removeSuffix("M").toBigDecimal())
 
-        override fun visitSymbol(ctx: FormParser.SymbolContext) =
-            Regex("((.+)/)?(.+)").matchEntire(ctx.text)!!
-                .groups
-                .let { groups -> SymbolForm(groups[2]?.value, groups[3]!!.value) }
+        override fun visitSymbol(ctx: FormParser.SymbolContext): Form = SymbolForm(Symbol(ctx.text))
 
-        override fun visitKeyword(ctx: FormParser.KeywordContext) =
-            Regex(":((.+)/)?(.+)").matchEntire(ctx.text)!!
+        override fun visitNamespacedSymbol(ctx: FormParser.NamespacedSymbolContext) =
+            Regex("(.+)/(.+)").matchEntire(ctx.text)!!
                 .groups
-                .let { groups -> KeywordForm(groups[2]?.value, groups[3]!!.value) }
+                .let { groups -> NamespacedSymbolForm(NamespacedSymbol(Symbol(groups[1]!!.value), groups[2]!!.value)) }
+
+        override fun visitKeyword(ctx: FormParser.KeywordContext) = KeywordForm(Keyword(ctx.text.removePrefix(":")))
+
+
+        override fun visitNamespacedKeyword(ctx: FormParser.NamespacedKeywordContext): Form =
+            Regex(":(.+)/(.+)").matchEntire(ctx.text)!!
+                .groups
+                .let { groups -> NamespacedKeywordForm(NamespacedKeyword(Symbol(groups[1]!!.value), groups[2]!!.value)) }
 
         override fun visitList(ctx: FormParser.ListContext) = ListForm(ctx.form().map(::transformForm))
         override fun visitVector(ctx: FormParser.VectorContext) = VectorForm(ctx.form().map(::transformForm))

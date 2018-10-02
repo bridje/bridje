@@ -5,6 +5,8 @@ import brj.Expr.ValueExpr
 import brj.Expr.ValueExpr.*
 import brj.Types.MonoType.*
 import brj.Types.TypeEq.Companion.unifyEqs
+import brj.Types.TypeException.ArityError
+import brj.Types.TypeException.UnificationError
 import brj.Types.Typing.Companion.combine
 import java.util.*
 
@@ -26,10 +28,10 @@ object Types {
     sealed class MonoType {
         open fun applyMapping(mapping: TypeMapping): MonoType = this
         open fun unifyEq(other: MonoType): List<TypeEq> =
-            if (this.javaClass == other.javaClass) emptyList() else throw UnificationException(this, other)
+            if (this.javaClass == other.javaClass) emptyList() else throw UnificationError(this, other)
 
         protected inline fun <reified T : MonoType> cast(t: MonoType): T =
-            t as? T ?: throw UnificationException(this, t)
+            t as? T ?: throw UnificationError(this, t)
 
         object BoolType : MonoType() {
             override fun toString(): String = "Bool"
@@ -82,9 +84,28 @@ object Types {
             override fun unifyEq(other: MonoType): List<TypeEq> = listOf(TypeEq(elType, cast<SetType>(other).elType))
             override fun toString(): String = "#{$elType}"
         }
+
+        data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : MonoType() {
+            override fun applyMapping(mapping: TypeMapping): MonoType =
+                FnType(paramTypes.map { it.applyMapping(mapping) }, returnType.applyMapping(mapping))
+
+            override fun unifyEq(other: MonoType): List<TypeEq> {
+                val otherFnType = cast<FnType>(other)
+                if (paramTypes.size != otherFnType.paramTypes.size) throw UnificationError(this, other)
+
+                return paramTypes.zip(otherFnType.paramTypes, ::TypeEq)
+                    .plus(TypeEq(returnType, otherFnType.returnType))
+            }
+
+            override fun toString(): String = "(Fn [${paramTypes.joinToString(separator = " ")}] $returnType)"
+        }
     }
 
-    data class UnificationException(val t1: MonoType, val t2: MonoType) : Exception()
+    sealed class TypeException : Exception() {
+        data class UnificationError(val t1: MonoType, val t2: MonoType) : TypeException()
+        data class ExpectedFunction(val expr: ValueExpr, val type: MonoType) : TypeException()
+        data class ArityError(val fnType: FnType, val argExprs: List<ValueExpr>) : TypeException()
+    }
 
     data class TypeEq(val t1: MonoType, val t2: MonoType) {
         companion object {
@@ -159,6 +180,41 @@ object Types {
                 TypeEq(returnType, elseTyping.returnType)))
     }
 
+    private fun fnExprTyping(expr: FnExpr): Typing {
+        val typings = expr.bodyExprs.map(this::valueExprTyping)
+        val typing = combine(typings.last().returnType, typings)
+
+        return Typing(
+            FnType(
+                expr.params.map { typing.monoEnv.env.getOrDefault(it, TypeVarType()) },
+                typing.returnType),
+            MonoEnv(env = typing.monoEnv.env.minus(expr.params)))
+    }
+
+    private fun callExprTyping(expr: CallExpr): Typing {
+        val fnExpr = expr.f
+        val argExprs = expr.args
+
+        val fnExprTyping = valueExprTyping(fnExpr)
+        val fnExprType =
+            fnExprTyping.returnType as? FnType
+                ?: throw TypeException.ExpectedFunction(fnExpr, fnExprTyping.returnType)
+
+        if (fnExprType.paramTypes.size != argExprs.size) throw ArityError(fnExprType, argExprs)
+
+        val argTypings = argExprs.map(this::valueExprTyping)
+
+        return combine(
+            fnExprType.returnType,
+            argTypings.plus(fnExprTyping),
+            fnExprType.paramTypes.zip(argTypings.map(Typing::returnType), ::TypeEq))
+    }
+
+    private fun localVarTyping(lv: LocalVar): Typing {
+        val tv = TypeVarType()
+        return Typing(tv, MonoEnv(mapOf(Pair(lv, tv))))
+    }
+
     fun valueExprTyping(expr: ValueExpr): Typing =
         when (expr) {
             is BooleanExpr -> Typing(BoolType)
@@ -171,8 +227,11 @@ object Types {
             is VectorExpr -> collExprTyping(::VectorType, expr.exprs)
             is SetExpr -> collExprTyping(::SetType, expr.exprs)
 
-            is CallExpr -> TODO()
+            is FnExpr -> fnExprTyping(expr)
+            is CallExpr -> callExprTyping(expr)
 
             is IfExpr -> ifExprTyping(expr)
+
+            is LocalVarExpr -> localVarTyping(expr.localVar)
         }
 }
