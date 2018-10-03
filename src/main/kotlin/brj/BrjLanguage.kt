@@ -1,7 +1,7 @@
 package brj
 
 import brj.Analyser.analyseValueExpr
-import brj.BrjLanguage.EmitterCtx.BridjeFunction
+import brj.BrjLanguage.EmitterCtx.FnNode.BridjeFunction
 import brj.BrjLanguage.Env
 import brj.BrjLanguageFactory.EmitterCtxFactory.LocalVarNodeGen
 import brj.Expr.ValueExpr
@@ -135,10 +135,38 @@ class BrjLanguage : TruffleLanguage<Env>() {
 
         }
 
-        class BridjeFunction {
-            fun callTarget(): CallTarget {
-                TODO()
+        class FnNode(val fn: BridjeFunction) : ValueNode() {
+
+            class BridjeFunction(
+                lang: BrjLanguage,
+                frameDescriptor: FrameDescriptor,
+                @Children var readArgNodes: Array<ReadArgNode>,
+                @Child var bodyNode: ValueNode
+            ) : RootNode(lang, frameDescriptor) {
+
+                class ReadArgNode(val slot: FrameSlot, val idx: Int) : Node() {
+                    fun execute(frame: VirtualFrame) {
+                        frame.setObject(slot, frame.arguments[idx])
+                    }
+                }
+
+                @ExplodeLoop
+                override fun execute(frame: VirtualFrame): Any {
+                    val argCount = readArgNodes.size
+                    CompilerAsserts.compilationConstant<Int>(argCount)
+                    for (i in 0 until argCount) {
+                        readArgNodes[i].execute(frame)
+                    }
+
+                    return bodyNode.execute(frame)
+                }
+
+                fun callTarget(): CallTarget {
+                    return Truffle.getRuntime().createCallTarget(this)
+                }
             }
+
+            override fun execute(frame: VirtualFrame): BridjeFunction = fn
         }
 
         class CallNode(@Child var fnNode: ValueNode, @Children var argNodes: Array<ValueNode>) : ValueNode() {
@@ -185,7 +213,14 @@ class BrjLanguage : TruffleLanguage<Env>() {
                 is SetExpr ->
                     CollNode(expr.exprs.map(::emitValueExpr).toTypedArray()) { HashTreePSet.from(it) }
 
-                is FnExpr -> TODO()
+                is FnExpr -> {
+                    val slots = expr.params.associate { Pair(it, frameDescriptor.findOrAddFrameSlot(it)) }
+                    val readArgNodes = expr.params.mapIndexed { idx, it -> BridjeFunction.ReadArgNode(slots[it]!!, idx) }
+                    val ctx = copy(lexicalScope = LexicalScope(slots.plus(slots)))
+
+                    FnNode(BridjeFunction(lang, frameDescriptor, readArgNodes.toTypedArray(), ctx.emitValueExpr(expr.expr)))
+                }
+
                 is CallExpr -> CallNode(emitValueExpr(expr.f), expr.args.map(::emitValueExpr).toTypedArray())
 
                 is IfExpr -> IfNode(
@@ -194,7 +229,7 @@ class BrjLanguage : TruffleLanguage<Env>() {
                     emitValueExpr(expr.elseExpr)
                 )
 
-                is Expr.ValueExpr.LetExpr -> {
+                is LetExpr -> {
                     var ctx = this
                     val letBindingNodes = expr.bindings.map {
                         val node = ctx.emitValueExpr(it.expr)

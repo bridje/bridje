@@ -188,8 +188,7 @@ object Types {
     }
 
     private fun fnExprTyping(expr: FnExpr): Typing {
-        val typings = expr.bodyExprs.map(this::valueExprTyping)
-        val typing = combine(typings.last().returnType, typings)
+        val typing = valueExprTyping(expr.expr)
 
         return Typing(
             FnType(

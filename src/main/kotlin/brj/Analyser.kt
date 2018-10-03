@@ -109,10 +109,9 @@ object Analyser {
             val ctx = AnalyserCtx(locals = locals.plus(newLocals))
 
             val bodyExpr = ctx.exprAnalyser(it)
-            val bodyExprs = it.zeroOrMore(ctx.exprAnalyser)
             it.expectEnd()
 
-            FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), listOf(bodyExpr).plus(bodyExprs))
+            FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), bodyExpr)
         }
 
         private val callAnalyser: FormsAnalyser<ValueExpr> = {
