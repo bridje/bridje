@@ -141,8 +141,8 @@ object Types {
 
     data class Typing(val returnType: MonoType, val monoEnv: MonoEnv = MonoEnv(), val typeEqs: List<TypeEq> = emptyList()) {
         companion object {
-            fun combine(returnType: MonoType, typings: List<Typing>, extraEqs: List<TypeEq> = emptyList()): Typing {
-                val monoEnvs = typings.map { it.monoEnv }
+            fun combine(returnType: MonoType, typings: List<Typing>, extraEqs: List<TypeEq> = emptyList(), extraMonoEnvs: List<MonoEnv> = emptyList()): Typing {
+                val monoEnvs = typings.map { it.monoEnv }.plus(extraMonoEnvs)
 
                 val lvTvs = monoEnvs
                     .flatMapTo(HashSet()) { it.env.keys }
@@ -178,6 +178,13 @@ object Types {
                 TypeEq(BoolType, predTyping.returnType),
                 TypeEq(returnType, thenTyping.returnType),
                 TypeEq(returnType, elseTyping.returnType)))
+    }
+
+    private fun letExprTyping(expr: LetExpr): Typing {
+        val bindingPairs = expr.bindings.map { Pair(it.localVar, valueExprTyping(it.expr)) }
+        val exprTyping = valueExprTyping(expr.expr)
+
+        return combine(exprTyping.returnType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping), extraMonoEnvs = listOf(MonoEnv()))
     }
 
     private fun fnExprTyping(expr: FnExpr): Typing {
@@ -231,6 +238,7 @@ object Types {
             is CallExpr -> callExprTyping(expr)
 
             is IfExpr -> ifExprTyping(expr)
+            is LetExpr -> letExprTyping(expr)
 
             is LocalVarExpr -> localVarTyping(expr.localVar)
         }
