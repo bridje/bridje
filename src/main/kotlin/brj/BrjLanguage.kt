@@ -247,17 +247,9 @@ class BrjLanguage : TruffleLanguage<Env>() {
 
     }
 
-    inner class RootValueNode(@Children var nodes: Array<ValueNode>, frameDescriptor: FrameDescriptor) : RootNode(this, frameDescriptor) {
-        @ExplodeLoop
+    inner class RootValueNode(@Child var node: ValueNode, frameDescriptor: FrameDescriptor) : RootNode(this, frameDescriptor) {
         override fun execute(frame: VirtualFrame): Any {
-            val secondToLast = nodes.size - 1
-            CompilerAsserts.compilationConstant<Int>(secondToLast)
-
-            for (i in 0 until secondToLast) {
-                nodes[i].execute(frame)
-            }
-
-            val res = nodes[secondToLast].execute(frame)
+            val res = node.execute(frame)
 
             return when (res) {
                 is Boolean, is Long, is String -> res
@@ -273,6 +265,6 @@ class BrjLanguage : TruffleLanguage<Env>() {
         println("type: ${valueExprTyping(expr).returnType}")
 
         val frameDescriptor = FrameDescriptor()
-        return Truffle.getRuntime().createCallTarget(RootValueNode(arrayOf(EmitterCtx(this, frameDescriptor).emitValueExpr(expr)), frameDescriptor))
+        return Truffle.getRuntime().createCallTarget(RootValueNode(EmitterCtx(this, frameDescriptor).emitValueExpr(expr), frameDescriptor))
     }
 }
