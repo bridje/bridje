@@ -114,6 +114,21 @@ class BrjLanguage : TruffleLanguage<Env>() {
             }
         }
 
+        class DoNode(@Children var exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode) : ValueNode() {
+            @ExplodeLoop
+            override fun execute(frame: VirtualFrame): Any {
+                val exprCount = exprNodes.size
+                CompilerAsserts.compilationConstant<Int>(exprCount)
+
+                for (i in 0 until exprCount) {
+                    exprNodes[i].execute(frame)
+                }
+
+                return exprNode.execute(frame)
+            }
+
+        }
+
         class LetNode(@Children var bindingNodes: Array<LetBindingNode>, @Child var bodyNode: ValueNode) : ValueNode() {
             class LetBindingNode(val slot: FrameSlot, @Child var node: ValueNode) : Node() {
                 fun execute(frame: VirtualFrame) {
@@ -228,6 +243,8 @@ class BrjLanguage : TruffleLanguage<Env>() {
                     emitValueExpr(expr.thenExpr),
                     emitValueExpr(expr.elseExpr)
                 )
+
+                is DoExpr -> DoNode(expr.exprs.map(::emitValueExpr).toTypedArray(), emitValueExpr(expr.expr))
 
                 is LetExpr -> {
                     var ctx = this

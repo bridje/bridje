@@ -4,5 +4,7 @@ import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
 
 fun main(args: Array<String>) {
-    println(Context.create().eval(Source.create("brj", "((fn [x y] [y x 5 y]) 9 6)")))
+    val context = Context.create()
+    println(context.eval(Source.create("brj", "10N")))
+    println(context.eval(Source.create("brj", "24M")))
 }

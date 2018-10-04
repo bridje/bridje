@@ -119,6 +119,12 @@ object Analyser {
             CallExpr(call, it.zeroOrMore(exprAnalyser))
         }
 
+        private val doAnalyser: FormsAnalyser<ValueExpr> = {
+            val exprs = listOf(exprAnalyser(it)).plus(it.zeroOrMore(exprAnalyser))
+            it.expectEnd()
+            DoExpr(exprs.dropLast(1), exprs.last())
+        }
+
         private val listAnalyser: FormsAnalyser<ValueExpr> = {
             if (it.forms.isEmpty()) throw ExpectedForm
 
@@ -127,18 +133,10 @@ object Analyser {
             if (firstForm is Form.SymbolForm) {
                 it.forms = it.forms.drop(1)
                 when (firstForm.sym) {
-                    Symbol("if") -> {
-                        ifAnalyser(it)
-                    }
-
-                    Symbol("fn") -> {
-                        fnAnalyser(it)
-                    }
-
-                    Symbol("let") -> {
-                        letAnalyser(it)
-                    }
-
+                    Symbol("if") -> ifAnalyser(it)
+                    Symbol("fn") -> fnAnalyser(it)
+                    Symbol("let") -> letAnalyser(it)
+                    Symbol("do") -> doAnalyser(it)
                     else -> callAnalyser(it)
                 }
             } else {

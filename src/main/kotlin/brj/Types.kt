@@ -187,6 +187,13 @@ object Types {
         return combine(exprTyping.returnType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping), extraMonoEnvs = listOf(MonoEnv()))
     }
 
+    private fun doExprTyping(expr: DoExpr): Typing {
+        val exprTypings = expr.exprs.map(::valueExprTyping)
+        val exprTyping = valueExprTyping(expr.expr)
+
+        return combine(exprTyping.returnType, exprTypings.plus(exprTyping))
+    }
+
     private fun fnExprTyping(expr: FnExpr): Typing {
         val typing = valueExprTyping(expr.expr)
 
@@ -238,6 +245,7 @@ object Types {
 
             is IfExpr -> ifExprTyping(expr)
             is LetExpr -> letExprTyping(expr)
+            is DoExpr -> doExprTyping(expr)
 
             is LocalVarExpr -> localVarTyping(expr.localVar)
         }

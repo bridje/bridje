@@ -22,6 +22,7 @@ sealed class Expr {
 
         data class FnExpr(val fnName: Symbol?, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr()
         data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr()
+        data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr) : ValueExpr()
 
         data class Binding(val localVar: LocalVar, val expr: ValueExpr)
         data class LetExpr(val bindings: List<Binding>, val expr: ValueExpr) : ValueExpr()
