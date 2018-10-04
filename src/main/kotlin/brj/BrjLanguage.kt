@@ -1,6 +1,8 @@
 package brj
 
-import brj.Analyser.analyseValueExpr
+import brj.Analyser.AnalyserCtx.AnalysisResult.EvalExpr
+import brj.Analyser.AnalyserCtx.AnalysisResult.UpdateEnv
+import brj.Analyser.AnalyserCtx.Companion.analyseForms
 import brj.BrjLanguage.EmitterCtx.FnNode.BridjeFunction
 import brj.BrjLanguage.Env
 import brj.BrjLanguageFactory.EmitterCtxFactory.LocalVarNodeGen
@@ -37,9 +39,9 @@ import java.math.BigInteger
 @Suppress("unused")
 class BrjLanguage : TruffleLanguage<Env>() {
 
-    data class Env(val truffleEnv: TruffleLanguage.Env)
+    data class Env(val truffleEnv: TruffleLanguage.Env, var analyserEnv: Analyser.Env)
 
-    override fun createContext(env: TruffleLanguage.Env) = Env(env)
+    override fun createContext(env: TruffleLanguage.Env) = Env(env, Analyser.Env())
 
     override fun isObjectOfLanguage(obj: Any): Boolean = false
 
@@ -275,12 +277,19 @@ class BrjLanguage : TruffleLanguage<Env>() {
     }
 
     override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
-        val form = readForms(request.source).first()
+        val analyserRes = analyseForms(getCurrentContext(this.javaClass).analyserEnv, readForms(request.source))
 
-        val expr = analyseValueExpr(form)
-        println("type: ${valueExprTyping(expr).returnType}")
+        when (analyserRes) {
+            is EvalExpr -> {
+                val expr = analyserRes.expr
+                println("type: ${valueExprTyping(expr).returnType}")
 
-        val frameDescriptor = FrameDescriptor()
-        return Truffle.getRuntime().createCallTarget(RootValueNode(EmitterCtx(this, frameDescriptor).emitValueExpr(expr), frameDescriptor))
+                val frameDescriptor = FrameDescriptor()
+
+                return Truffle.getRuntime().createCallTarget(RootValueNode(EmitterCtx(this, frameDescriptor).emitValueExpr(expr), frameDescriptor))
+            }
+            is UpdateEnv -> TODO()
+        }
+
     }
 }

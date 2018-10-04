@@ -1,14 +1,15 @@
 package brj
 
+import brj.Analyser.AnalyserCtx.AnalysisResult.EvalExpr
 import brj.Analyser.AnalyserError.*
 import brj.Expr.LocalVar
 import brj.Expr.ValueExpr
 import brj.Expr.ValueExpr.*
-import brj.Form.SymbolForm
-import brj.Form.VectorForm
+import brj.Form.*
 
-typealias FormsAnalyser<R> = (Analyser.AnalyserCtx.AnalyserState) -> R
+typealias FormsAnalyser<R> = (Analyser.AnalyserState) -> R
 
+@Suppress("NestedLambdaShadowedImplicitParameter")
 object Analyser {
 
     sealed class AnalyserError : Exception() {
@@ -17,52 +18,59 @@ object Analyser {
         data class ResolutionError(val sym: Symbol) : AnalyserError()
     }
 
-    data class AnalyserCtx(val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
+    data class AnalyserState(var forms: List<Form>) {
+        fun <R> zeroOrMore(a: FormsAnalyser<R>): List<R> {
+            val ret: MutableList<R> = mutableListOf()
 
-        data class AnalyserState(var forms: List<Form>) {
-            fun <R> zeroOrMore(a: FormsAnalyser<R>): List<R> {
-                val ret: MutableList<R> = mutableListOf()
+            while (true) {
+                val res = maybe(a)
 
-                while (true) {
-                    val res = maybe(a)
-
-                    if (res != null) {
-                        ret += res
-                    } else {
-                        return ret
-                    }
-                }
-            }
-
-            fun expectEnd() {
-                if (forms.isNotEmpty()) {
-                    throw UnexpectedForms(forms)
-                }
-            }
-
-            inline fun <reified F : Form> expectForm(): F =
-                if (forms.isNotEmpty()) {
-                    val firstForm = forms.first() as? F ?: throw ExpectedForm
-                    forms = forms.drop(1)
-                    firstForm
+                if (res != null) {
+                    ret += res
                 } else {
-                    throw ExpectedForm
+                    return ret
                 }
-
-            fun <R> maybe(a: FormsAnalyser<R>): R? =
-                try {
-                    val newState = copy()
-                    val res = a(newState)
-                    forms = newState.forms
-                    res
-                } catch (e: AnalyserError) {
-                    null
-                }
-
-            inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, a: FormsAnalyser<R>): R =
-                a(AnalyserState(f(expectForm())))
+            }
         }
 
+        fun expectEnd() {
+            if (forms.isNotEmpty()) {
+                throw UnexpectedForms(forms)
+            }
+        }
+
+        inline fun <reified F : Form> expectForm(): F =
+            if (forms.isNotEmpty()) {
+                val firstForm = forms.first() as? F ?: throw ExpectedForm
+                forms = forms.drop(1)
+                firstForm
+            } else {
+                throw ExpectedForm
+            }
+
+        fun <R> maybe(a: FormsAnalyser<R?>): R? =
+            try {
+                val newState = copy()
+                val res = a(newState)
+
+                if (res != null) {
+                    forms = newState.forms
+                }
+
+                res
+            } catch (e: AnalyserError) {
+                null
+            }
+
+        inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, a: FormsAnalyser<R>): R =
+            a(AnalyserState(f(expectForm())))
+    }
+
+    data class Var(val type: Nothing)
+    data class NSEnv(val vars: Map<Symbol, Var>)
+    data class Env(val nses: Map<Symbol, NSEnv> = emptyMap())
+
+    data class AnalyserCtx(val env: Env, val ns: Symbol, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
         private val ifAnalyser: FormsAnalyser<ValueExpr> = {
             val predExpr = exprAnalyser(it)
             val thenExpr = exprAnalyser(it)
@@ -71,7 +79,6 @@ object Analyser {
             IfExpr(predExpr, thenExpr, elseExpr)
         }
 
-        @Suppress("NestedLambdaShadowedImplicitParameter")
         private val letAnalyser: FormsAnalyser<ValueExpr> = {
             var ctx = this
             LetExpr(
@@ -92,7 +99,6 @@ object Analyser {
                 ctx.exprAnalyser(it))
         }
 
-        @Suppress("NestedLambdaShadowedImplicitParameter")
         private val fnAnalyser: FormsAnalyser<ValueExpr> = {
             val fnName: Symbol? = it.maybe { it.expectForm<SymbolForm>().sym }
 
@@ -106,7 +112,7 @@ object Analyser {
 
             val newLocals = paramNames.map { Pair(it, LocalVar(it)) }
 
-            val ctx = AnalyserCtx(locals = locals.plus(newLocals))
+            val ctx = this.copy(locals = locals.plus(newLocals))
 
             val bodyExpr = ctx.exprAnalyser(it)
             it.expectEnd()
@@ -156,30 +162,51 @@ object Analyser {
             val form = it.expectForm<Form>()
 
             when (form) {
-                is Form.BooleanForm -> BooleanExpr(form.bool)
-                is Form.StringForm -> StringExpr(form.string)
-                is Form.IntForm -> IntExpr(form.int)
-                is Form.BigIntForm -> BigIntExpr(form.bigInt)
-                is Form.FloatForm -> FloatExpr(form.float)
-                is Form.BigFloatForm -> BigFloatExpr(form.bigFloat)
-                is Form.SymbolForm -> analyseSymbol(form.sym)
-                is Form.NamespacedSymbolForm -> TODO()
-                is Form.KeywordForm -> TODO()
-                is Form.NamespacedKeywordForm -> TODO()
-                is Form.ListForm -> listAnalyser(AnalyserState(form.forms))
-                is Form.VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))
-                is Form.SetForm -> collAnalyser(::SetExpr)(AnalyserState(form.forms))
-                is Form.RecordForm -> TODO()
-                is Form.QuoteForm -> TODO()
-                is Form.UnquoteForm -> TODO()
-                is Form.UnquoteSplicingForm -> TODO()
+                is BooleanForm -> BooleanExpr(form.bool)
+                is StringForm -> StringExpr(form.string)
+                is IntForm -> IntExpr(form.int)
+                is BigIntForm -> BigIntExpr(form.bigInt)
+                is FloatForm -> FloatExpr(form.float)
+                is BigFloatForm -> BigFloatExpr(form.bigFloat)
+                is SymbolForm -> analyseSymbol(form.sym)
+                is NamespacedSymbolForm -> TODO()
+                is KeywordForm -> TODO()
+                is NamespacedKeywordForm -> TODO()
+                is ListForm -> listAnalyser(AnalyserState(form.forms))
+                is VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))
+                is SetForm -> collAnalyser(::SetExpr)(AnalyserState(form.forms))
+                is RecordForm -> TODO()
+                is QuoteForm -> TODO()
+                is UnquoteForm -> TODO()
+                is UnquoteSplicingForm -> TODO()
             }
         }
 
-        fun analyse(form: Form): ValueExpr = exprAnalyser(AnalyserState(listOf(form)))
+        sealed class AnalysisResult {
+            data class UpdateEnv(val ns: Symbol) : AnalysisResult()
+            data class EvalExpr(val expr: ValueExpr) : AnalysisResult()
+        }
+
+        companion object {
+            private val inNsAnalyser: FormsAnalyser<Symbol?> = {
+                it.maybe {
+                    it.nested(ListForm::forms) {
+                        val inNsSym = it.expectForm<SymbolForm>().sym
+                        val nsSym = it.expectForm<SymbolForm>().sym
+                        if (inNsSym == Symbol("in-ns")) nsSym else null
+                    }
+                }
+            }
+
+            fun analyseForms(env: Env, forms: List<Form>): AnalysisResult {
+                val state = AnalyserState(forms)
+
+                val ns = inNsAnalyser(state) ?: Symbol("user")
+                val ctx = AnalyserCtx(env, ns)
+
+                return EvalExpr(ctx.doAnalyser(state))
+            }
+        }
     }
-
-    fun analyseValueExpr(form: Form): ValueExpr = Analyser.AnalyserCtx().analyse(form)
-
 }
 
