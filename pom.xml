@@ -9,7 +9,7 @@
     <version>0.0-SNAPSHOT</version>
 
     <properties>
-        <graalvm.version>1.0.0-rc6</graalvm.version>
+        <graalvm.version>1.0.0-rc7</graalvm.version>
         <kotlin.version>1.2.70</kotlin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
