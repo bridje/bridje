@@ -43,7 +43,6 @@ class BrjLanguage : TruffleLanguage<Env>() {
 
     override fun isObjectOfLanguage(obj: Any): Boolean = false
 
-    private fun asBridjeValue(obj: Any) = contextReference.get().truffleEnv.asGuestValue(obj)
 
     abstract class ValueNode : Node() {
         abstract fun execute(frame: VirtualFrame): Any
@@ -71,19 +70,19 @@ class BrjLanguage : TruffleLanguage<Env>() {
             override fun execute(frame: VirtualFrame): Long = int
         }
 
-        inner class BigIntNode(val bigInt: BigInteger) : ValueNode() {
-            override fun execute(frame: VirtualFrame): Any = lang.asBridjeValue(bigInt)
+        class BigIntNode(val bigInt: BigInteger) : ValueNode() {
+            override fun execute(frame: VirtualFrame): BigInteger = bigInt
         }
 
         class FloatNode(val float: Double) : ValueNode() {
             override fun execute(frame: VirtualFrame): Double = float
         }
 
-        inner class BigFloatNode(val bigDec: BigDecimal) : ValueNode() {
-            override fun execute(frame: VirtualFrame): Any = lang.asBridjeValue(bigDec)
+        class BigFloatNode(val bigDec: BigDecimal) : ValueNode() {
+            override fun execute(frame: VirtualFrame): BigDecimal = bigDec
         }
 
-        inner class CollNode(@Children var nodes: Array<ValueNode>, val toColl: (List<Any>) -> Any) : ValueNode() {
+        class CollNode(@Children var nodes: Array<ValueNode>, val toColl: (List<Any>) -> Any) : ValueNode() {
             @ExplodeLoop
             override fun execute(frame: VirtualFrame): Any {
                 val coll: MutableList<Any> = ArrayList(nodes.size)
@@ -270,7 +269,7 @@ class BrjLanguage : TruffleLanguage<Env>() {
 
             return when (res) {
                 is Boolean, is Long, is String -> res
-                else -> asBridjeValue(res)
+                else -> contextReference.get().truffleEnv.asGuestValue(res)
             }
         }
     }
