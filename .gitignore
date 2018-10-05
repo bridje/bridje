@@ -4,5 +4,4 @@ bridje-stuff/
 dist/
 .nrepl-port
 /.cpcache/
-
-/.idea/
+/.idea/workspace.xml
