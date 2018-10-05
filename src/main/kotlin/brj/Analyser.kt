@@ -1,7 +1,6 @@
 package brj
 
-import brj.Analyser.AnalyserError.ExpectedForm
-import brj.Analyser.AnalyserError.UnexpectedForms
+import brj.Analyser.AnalyserError.*
 
 typealias FormsAnalyser<R> = (Analyser.AnalyserState) -> R
 
@@ -19,21 +18,18 @@ object Analyser {
         data class UnexpectedForms(val forms: List<Form>) : AnalyserError()
         data class ResolutionError(val sym: Symbol) : AnalyserError()
         object InvalidDefDefinition : AnalyserError()
+        object ExpectedSymbol : AnalyserError()
     }
 
     data class AnalyserState(var forms: List<Form>) {
-        fun <R> zeroOrMore(a: FormsAnalyser<R>): List<R> {
+        fun <R> varargs(a: FormsAnalyser<R>): List<R> {
             val ret: MutableList<R> = mutableListOf()
 
-            while (true) {
-                val res = maybe(a)
-
-                if (res != null) {
-                    ret += res
-                } else {
-                    return ret
-                }
+            while (forms.isNotEmpty()) {
+                ret += a(this)
             }
+
+            return ret
         }
 
         fun expectEnd() {
@@ -78,6 +74,11 @@ object Analyser {
 
         inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, a: FormsAnalyser<R>): R =
             a(AnalyserState(f(expectForm())))
+
+        fun expectSym(expectedSym: Symbol) {
+            val actualSym = maybe { it.expectForm<Form.SymbolForm>().sym }
+            if (expectedSym != actualSym) throw ExpectedSymbol
+        }
     }
 
 }

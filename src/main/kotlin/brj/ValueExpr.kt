@@ -16,17 +16,17 @@ sealed class ValueExpr {
 
     data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>) : ValueExpr()
 
-    data class FnExpr(val fnName: Symbol?, val params: List<Expr.LocalVar>, val expr: ValueExpr) : ValueExpr()
+    data class FnExpr(val fnName: Symbol?, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr()
     data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr()
     data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr) : ValueExpr()
 
-    data class Binding(val localVar: Expr.LocalVar, val expr: ValueExpr)
+    data class Binding(val localVar: LocalVar, val expr: ValueExpr)
     data class LetExpr(val bindings: List<Binding>, val expr: ValueExpr) : ValueExpr()
 
-    data class LocalVarExpr(val localVar: Expr.LocalVar) : ValueExpr()
+    data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
 
     @Suppress("NestedLambdaShadowedImplicitParameter")
-    data class AnalyserCtx(val env: BrjEnv, val ns: Symbol, val locals: Map<Symbol, Expr.LocalVar> = emptyMap(), val loopLocals: List<Expr.LocalVar>? = null) {
+    data class ValueExprAnalyser(val env: BrjEnv, val ns: Symbol, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
         private val ifAnalyser: FormsAnalyser<ValueExpr> = {
             val predExpr = exprAnalyser(it)
             val thenExpr = exprAnalyser(it)
@@ -36,54 +36,50 @@ sealed class ValueExpr {
         }
 
         private val letAnalyser: FormsAnalyser<ValueExpr> = {
-            var ctx = this
+            var ana = this
             LetExpr(
                 it.nested(Form.VectorForm::forms) { bindingState ->
-                    bindingState.zeroOrMore {
-                        val bindingCtx = ctx.copy(loopLocals = null)
+                    bindingState.varargs {
+                        val bindingCtx = ana.copy(loopLocals = null)
 
                         val sym = it.expectForm<Form.SymbolForm>().sym
-                        val localVar = Expr.LocalVar(sym)
+                        val localVar = LocalVar(sym)
 
                         val expr = bindingCtx.exprAnalyser(it)
 
-                        ctx = ctx.copy(locals = ctx.locals.plus(Pair(sym, localVar)))
+                        ana = ana.copy(locals = ana.locals.plus(sym to localVar))
                         Binding(localVar, expr)
-                    }.also { bindingState.expectEnd() }
+                    }
                 },
 
-                ctx.exprAnalyser(it))
+                ana.exprAnalyser(it))
         }
 
         private val fnAnalyser: FormsAnalyser<ValueExpr> = {
             val fnName: Symbol? = it.maybe { it.expectForm<Form.SymbolForm>().sym }
 
             val paramNames = it.nested(Form.VectorForm::forms) {
-                val paramNames = it.zeroOrMore {
+                it.varargs {
                     it.expectForm<Form.SymbolForm>().sym
                 }
-                it.expectEnd()
-                paramNames
             }
 
-            val newLocals = paramNames.map { Pair(it, Expr.LocalVar(it)) }
+            val newLocals = paramNames.map { it to LocalVar(it) }
 
-            val ctx = this.copy(locals = locals.plus(newLocals))
+            val ana = this.copy(locals = locals.plus(newLocals))
 
-            val bodyExpr = ctx.exprAnalyser(it)
-            it.expectEnd()
+            val bodyExpr = ana.doAnalyser(it)
 
-            FnExpr(fnName, newLocals.map(Pair<Symbol, Expr.LocalVar>::second), bodyExpr)
+            FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), bodyExpr)
         }
 
         private val callAnalyser: FormsAnalyser<ValueExpr> = {
             val call = exprAnalyser(it)
-            CallExpr(call, it.zeroOrMore(exprAnalyser))
+            CallExpr(call, it.varargs(exprAnalyser))
         }
 
         private val doAnalyser: FormsAnalyser<ValueExpr> = {
-            val exprs = listOf(exprAnalyser(it)).plus(it.zeroOrMore(exprAnalyser))
-            it.expectEnd()
+            val exprs = listOf(exprAnalyser(it)).plus(it.varargs(exprAnalyser))
             DoExpr(exprs.dropLast(1), exprs.last())
         }
 
@@ -107,7 +103,7 @@ sealed class ValueExpr {
         }
 
         private fun collAnalyser(transform: (List<ValueExpr>) -> ValueExpr): FormsAnalyser<ValueExpr> = {
-            transform(it.zeroOrMore(exprAnalyser)).also { _ -> it.expectEnd() }
+            transform(it.varargs(exprAnalyser))
         }
 
         private fun analyseSymbol(sym: Symbol): ValueExpr {

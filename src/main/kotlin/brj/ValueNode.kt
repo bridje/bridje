@@ -1,8 +1,8 @@
 package brj
 
-import brj.BrjLanguageFactory.EmitterCtxFactory.LocalVarNodeGen
 import brj.ValueExpr.*
 import brj.ValueNode.LetNode.LetBindingNode
+import brj.ValueNodeFactory.LocalVarNodeGen
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.Truffle
@@ -179,7 +179,7 @@ sealed class ValueNode : Node() {
         protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())
     }
 
-    data class EmitterCtx(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
+    data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
 
         inner class RootValueNode(@Child var node: ValueNode) : RootNode(lang, frameDescriptor) {
             override fun execute(frame: VirtualFrame): Any {
@@ -206,7 +206,7 @@ sealed class ValueNode : Node() {
                 is SetExpr -> CollNode(expr.exprs.map(::emitValueExpr).toTypedArray()) { HashTreePSet.from(it) }
 
                 is FnExpr -> {
-                    val slots = expr.params.associate { Pair(it, frameDescriptor.findOrAddFrameSlot(it)) }
+                    val slots = expr.params.associate { it to frameDescriptor.findOrAddFrameSlot(it) }
                     val readArgNodes = expr.params.mapIndexed { idx, it -> FnNode.BridjeFunction.ReadArgNode(slots[it]!!, idx) }
 
                     FnNode(FnNode.BridjeFunction(lang, frameDescriptor, readArgNodes.toTypedArray(), emitValueExpr(expr.expr)))

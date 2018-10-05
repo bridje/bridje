@@ -1,6 +1,5 @@
 package brj
 
-import brj.Expr.LocalVar
 import brj.Types.MonoType.*
 import brj.Types.TypeEq.Companion.unifyEqs
 import brj.Types.TypeException.ArityError
@@ -116,14 +115,14 @@ object Types {
                     val eq = eqs.first()
                     eqs = eqs.drop(1)
 
-                    val (t1, t2) = if (eq.t2 is TypeVarType) Pair(eq.t2, eq.t1) else Pair(eq.t1, eq.t2)
+                    val (t1, t2) = if (eq.t2 is TypeVarType) (eq.t2 to eq.t1) else (eq.t1 to eq.t2)
 
                     if (t1 == t2) {
                         continue
                     }
 
                     if (t1 is TypeVarType) {
-                        val newMapping = TypeMapping(mapOf(Pair(t1, t2)))
+                        val newMapping = TypeMapping(mapOf(t1 to t2))
                         mapping = mapping.applyMapping(newMapping)
                         eqs = eqs.map { TypeEq(it.t1.applyMapping(newMapping), it.t2.applyMapping(newMapping)) }
                         continue
@@ -180,7 +179,7 @@ object Types {
     }
 
     private fun letExprTyping(expr: LetExpr): Typing {
-        val bindingPairs = expr.bindings.map { Pair(it.localVar, valueExprTyping(it.expr)) }
+        val bindingPairs = expr.bindings.map { it.localVar to valueExprTyping(it.expr) }
         val exprTyping = valueExprTyping(expr.expr)
 
         return combine(exprTyping.returnType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping), extraMonoEnvs = listOf(MonoEnv()))
@@ -224,7 +223,7 @@ object Types {
 
     private fun localVarTyping(lv: LocalVar): Typing {
         val tv = TypeVarType()
-        return Typing(tv, MonoEnv(mapOf(Pair(lv, tv))))
+        return Typing(tv, MonoEnv(mapOf(lv to tv)))
     }
 
     fun valueExprTyping(expr: ValueExpr): Typing =

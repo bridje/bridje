@@ -1,16 +1,13 @@
 package brj
 
+import brj.BrjLanguage.Companion.require
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
 
 fun main(args: Array<String>) {
-    val context = Context.create()
-    context.enter()
+    val ctx = Context.create()
 
-    try {
-        println(context.eval(Source.create("brj", "10N")))
-        println(context.eval(Source.create("brj", "(let [x 5] [3 x])")))
-    } finally {
-        context.leave()
-    }
+    require(ctx, Source.create("brj", "(ns foo) (def x 10N)"))
+
+//    println(ctx.eval(Source.create("brj", "foo/x")))
 }
