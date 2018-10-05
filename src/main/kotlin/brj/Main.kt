@@ -5,7 +5,12 @@ import org.graalvm.polyglot.Source
 
 fun main(args: Array<String>) {
     val context = Context.create()
+    context.enter()
 
-    println(context.eval(Source.create("brj", "(in-ns foo) 10N")))
-    println(context.eval(Source.create("brj", "24M")))
+    try {
+        println(context.eval(Source.create("brj", "10N")))
+        println(context.eval(Source.create("brj", "(let [x 5] [3 x])")))
+    } finally {
+        context.leave()
+    }
 }

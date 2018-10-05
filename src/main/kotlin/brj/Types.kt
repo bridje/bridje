@@ -1,13 +1,12 @@
 package brj
 
 import brj.Expr.LocalVar
-import brj.Expr.ValueExpr
-import brj.Expr.ValueExpr.*
 import brj.Types.MonoType.*
 import brj.Types.TypeEq.Companion.unifyEqs
 import brj.Types.TypeException.ArityError
 import brj.Types.TypeException.UnificationError
 import brj.Types.Typing.Companion.combine
+import brj.ValueExpr.*
 import java.util.*
 
 object Types {
