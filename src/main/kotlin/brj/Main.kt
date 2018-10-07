@@ -7,7 +7,10 @@ import org.graalvm.polyglot.Source
 fun main(args: Array<String>) {
     val ctx = Context.create()
 
-    require(ctx, Source.create("brj", "(ns foo) (def x 10N)"))
+    ctx.enter()
 
-//    println(ctx.eval(Source.create("brj", "foo/x")))
+    require(ctx, Source.create("brj", "(ns foo) (def x [10N 45N]) (def (bar x y) [y x])"))
+    println("value: ${ctx.eval(Source.create("brj", "foo/x"))}")
+
+    ctx.leave()
 }

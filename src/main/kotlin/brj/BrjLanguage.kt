@@ -2,6 +2,9 @@ package brj
 
 import brj.ActionExpr.ActionExprAnalyser
 import brj.ActionExpr.ActionExprAnalyser.Companion.nsAnalyser
+import brj.ActionExpr.DefExpr
+import brj.BrjEnv.NSEnv
+import brj.BrjEnv.NSEnv.GlobalVar
 import brj.BrjLanguage.BridjeContext
 import brj.Form.Companion.readForms
 import brj.Form.ListForm
@@ -43,47 +46,73 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         TreePVector::class, HashTreePSet::class)
     abstract class BridjeTypes
 
-    private fun brjEnv() = getCurrentContext(this.javaClass).env
+    private val ctx get() = getCurrentContext(this.javaClass)
 
     override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
         val source = request.source
 
         if (source.isInternal) {
             when (source.characters) {
-                "env" -> return Truffle.getRuntime().createCallTarget(object : RootNode(this) {
-                    override fun execute(frame: VirtualFrame?): Any {
-                        CompilerDirectives.transferToInterpreter()
-                        val ctx = contextReference.get()
-                        return ctx.truffleEnv.asGuestValue(ctx.env)
-                    }
-                })
+                "lang" ->
+                    return Truffle.getRuntime().createCallTarget(object : RootNode(this) {
+                        override fun execute(frame: VirtualFrame): Any {
+                            CompilerDirectives.transferToInterpreter()
+                            return contextReference.get().truffleEnv.asGuestValue(this@BrjLanguage)
+                        }
+                    })
             }
         }
 
         val forms = readForms(source.reader)
 
-        val expr = ValueExpr.ValueExprAnalyser(brjEnv(), Symbol("user")).analyseValueExpr(forms)
+        val expr = ValueExpr.ValueExprAnalyser(ctx.env, Symbol("user")).analyseValueExpr(forms)
 
-        val emitterCtx = ValueNode.ValueNodeEmitter(this, FrameDescriptor())
-        return Truffle.getRuntime().createCallTarget(emitterCtx.RootValueNode(emitterCtx.emitValueExpr(expr)))
+        println("type: ${Types.TypeChecker(ctx.env).valueExprTyping(expr)}")
+
+        val emitter = ValueNode.ValueNodeEmitter(this, FrameDescriptor())
+        return Truffle.getRuntime().createCallTarget(emitter.RootValueNode(emitter.emitValueExpr(expr)))
     }
 
     companion object {
-        private val envSource = Source.newBuilder("brj", "env", null).internal(true).buildLiteral()
 
-        private fun getEnv(ctx: Context): BrjEnv = ctx.eval(envSource).asHostObject<BrjEnv>()
+        private val langSource = Source.newBuilder("brj", "lang", null).internal(true).buildLiteral()
 
-        fun require(ctx: Context, source: Source) {
+        private fun getLang(ctx: Context): BrjLanguage = ctx.eval(langSource).asHostObject<BrjLanguage>()
+
+        fun require(graalCtx: Context, source: Source) {
+            val lang = getLang(graalCtx)
+            val ctx = lang.ctx
+
             val state = Analyser.AnalyserState(readForms(source.reader))
             val ns = nsAnalyser(state)
 
-            val ana = ActionExprAnalyser(getEnv(ctx), ns)
+            val ana = ActionExprAnalyser(ctx.env, ns)
+
+            var nsEnv = NSEnv()
 
             while (state.forms.isNotEmpty()) {
-                println(state.nested(ListForm::forms, ana.actionExprAnalyser))
+                val expr = state.nested(ListForm::forms, ana.actionExprAnalyser)
+
+                val frameDescriptor = FrameDescriptor()
+                val typeChecker = Types.TypeChecker(ctx.env + (ns to nsEnv))
+                val emitter = ValueNode.ValueNodeEmitter(lang, frameDescriptor)
+
+                when (expr) {
+                    is DefExpr -> {
+                        val valueExpr =
+                            if (expr.params == null) expr.expr
+                            else ValueExpr.FnExpr(params = expr.params, expr = expr.expr)
+
+                        val typing = typeChecker.valueExprTyping(valueExpr)
+
+                        val node = emitter.emitValueExpr(valueExpr)
+
+                        nsEnv += expr.sym to GlobalVar(node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)), typing)
+                    }
+                }
             }
 
-            TODO()
+            ctx.env += ns to nsEnv
         }
     }
 }

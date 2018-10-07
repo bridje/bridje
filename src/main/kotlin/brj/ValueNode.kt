@@ -179,6 +179,10 @@ sealed class ValueNode : Node() {
         protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())
     }
 
+    class GlobalVarNode(val obj: Any) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any = obj
+    }
+
     data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
 
         inner class RootValueNode(@Child var node: ValueNode) : RootNode(lang, frameDescriptor) {
@@ -233,6 +237,8 @@ sealed class ValueNode : Node() {
                 }
 
                 is LocalVarExpr -> LocalVarNodeGen.create(frameDescriptor.findFrameSlot(expr.localVar))
+
+                is GlobalVarExpr -> GlobalVarNode(expr.globalVar.value)
             }
 
     }

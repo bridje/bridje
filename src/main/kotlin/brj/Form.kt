@@ -52,7 +52,7 @@ sealed class Form {
             override fun visitNamespacedSymbol(ctx: FormParser.NamespacedSymbolContext) =
                 Regex("(.+)/(.+)").matchEntire(ctx.text)!!
                     .groups
-                    .let { groups -> NamespacedSymbolForm(NamespacedSymbol(Symbol(groups[1]!!.value), groups[2]!!.value)) }
+                    .let { groups -> NamespacedSymbolForm(NamespacedSymbol(Symbol(groups[1]!!.value), Symbol(groups[2]!!.value))) }
 
             override fun visitKeyword(ctx: FormParser.KeywordContext) = KeywordForm(Keyword(ctx.text.removePrefix(":")))
 
@@ -60,7 +60,7 @@ sealed class Form {
             override fun visitNamespacedKeyword(ctx: FormParser.NamespacedKeywordContext): Form =
                 Regex(":(.+)/(.+)").matchEntire(ctx.text)!!
                     .groups
-                    .let { groups -> NamespacedKeywordForm(NamespacedKeyword(Symbol(groups[1]!!.value), groups[2]!!.value)) }
+                    .let { groups -> NamespacedKeywordForm(NamespacedKeyword(Symbol(groups[1]!!.value), Symbol(groups[2]!!.value))) }
 
             override fun visitList(ctx: FormParser.ListContext) = ListForm(ctx.form().map(::transformForm))
             override fun visitVector(ctx: FormParser.VectorContext) = VectorForm(ctx.form().map(::transformForm))

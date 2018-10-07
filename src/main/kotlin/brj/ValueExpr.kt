@@ -1,5 +1,7 @@
 package brj
 
+import brj.Analyser.AnalyserError.TodoError
+import brj.BrjEnv.NSEnv.GlobalVar
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -16,7 +18,7 @@ sealed class ValueExpr {
 
     data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>) : ValueExpr()
 
-    data class FnExpr(val fnName: Symbol?, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr()
+    data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr()
     data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr()
     data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr) : ValueExpr()
 
@@ -24,6 +26,7 @@ sealed class ValueExpr {
     data class LetExpr(val bindings: List<Binding>, val expr: ValueExpr) : ValueExpr()
 
     data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
+    data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
     @Suppress("NestedLambdaShadowedImplicitParameter")
     data class ValueExprAnalyser(val env: BrjEnv, val ns: Symbol, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
@@ -110,6 +113,11 @@ sealed class ValueExpr {
             return LocalVarExpr(locals[sym] ?: throw Analyser.AnalyserError.ResolutionError(sym))
         }
 
+        private fun analyseSymbol(sym: NamespacedSymbol): ValueExpr {
+            val globalVar = env.nses[sym.ns]?.vars?.get(sym.name) ?: throw TodoError
+            return GlobalVarExpr(globalVar)
+        }
+
         private val exprAnalyser: FormsAnalyser<ValueExpr> = {
             val form = it.expectForm<Form>()
 
@@ -121,7 +129,7 @@ sealed class ValueExpr {
                 is Form.FloatForm -> FloatExpr(form.float)
                 is Form.BigFloatForm -> BigFloatExpr(form.bigFloat)
                 is Form.SymbolForm -> analyseSymbol(form.sym)
-                is Form.NamespacedSymbolForm -> TODO()
+                is Form.NamespacedSymbolForm -> analyseSymbol(form.sym)
                 is Form.KeywordForm -> TODO()
                 is Form.NamespacedKeywordForm -> TODO()
                 is Form.ListForm -> listAnalyser(Analyser.AnalyserState(form.forms))

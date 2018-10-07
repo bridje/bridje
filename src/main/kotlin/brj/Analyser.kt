@@ -19,6 +19,8 @@ object Analyser {
         data class ResolutionError(val sym: Symbol) : AnalyserError()
         object InvalidDefDefinition : AnalyserError()
         object ExpectedSymbol : AnalyserError()
+
+        object TodoError : AnalyserError()
     }
 
     data class AnalyserState(var forms: List<Form>) {
