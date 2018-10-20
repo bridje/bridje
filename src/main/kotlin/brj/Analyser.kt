@@ -7,11 +7,10 @@ typealias FormsAnalyser<R> = (Analyser.AnalyserState) -> R
 @Suppress("NestedLambdaShadowedImplicitParameter")
 object Analyser {
 
-    val DEF = Symbol("def")
-    val IF = Symbol("if")
-    val FN = Symbol("fn")
-    val LET = Symbol("let")
-    val DO = Symbol("do")
+    val IF = Symbol.create("if")
+    val FN = Symbol.create("fn")
+    val LET = Symbol.create("let")
+    val DO = Symbol.create("do")
 
     sealed class AnalyserError : Exception() {
         object ExpectedForm : AnalyserError()

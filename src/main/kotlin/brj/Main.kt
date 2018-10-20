@@ -9,7 +9,7 @@ fun main(args: Array<String>) {
 
     ctx.enter()
 
-    val foo = Symbol("foo")
+    val foo = Symbol.create("foo")
 
     require(ctx, foo, mapOf(foo to Source.create("brj", "(ns foo) (def x [10N 45N]) (def (bar x y) [y x])")))
 

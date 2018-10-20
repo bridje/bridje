@@ -48,6 +48,8 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
     private val ctx get() = getCurrentContext(this.javaClass)
 
+    private val USER = Symbol.create("user")
+
     override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
         val source = request.source
 
@@ -65,7 +67,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         val forms = readForms(source.reader)
 
-        val expr = ValueExpr.ValueExprAnalyser(ctx.env, Symbol("user")).analyseValueExpr(forms)
+        val expr = ValueExpr.ValueExprAnalyser(ctx.env, USER).analyseValueExpr(forms)
 
         println("type: ${Types.TypeChecker(ctx.env).valueExprTyping(expr)}")
 
