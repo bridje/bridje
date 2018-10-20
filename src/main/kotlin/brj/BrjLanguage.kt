@@ -79,12 +79,18 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         private fun getLang(ctx: Context): BrjLanguage = ctx.eval(langSource).asHostObject<BrjLanguage>()
 
-        fun require(graalCtx: Context, source: Source) {
+        private fun nsSource(ns: Symbol): Source? =
+            this::class.java.getResource("${ns.name.replace('.', '/')}.brj")
+                ?.let { url -> Source.newBuilder("brj", url).build() }
+
+        fun require(graalCtx: Context, ns: Symbol, sources: Map<Symbol, Source> = emptyMap()) {
             val lang = getLang(graalCtx)
             val ctx = lang.ctx
 
+            val source = sources[ns] ?: nsSource(ns) ?: TODO("ns not found")
+
             val state = Analyser.AnalyserState(readForms(source.reader))
-            val ns = nsAnalyser(state)
+            val analysedNs = nsAnalyser(state)
 
             val ana = ActionExprAnalyser(ctx.env, ns)
 
