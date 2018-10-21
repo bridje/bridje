@@ -26,12 +26,12 @@ fun main(args: Array<String>) {
 
     val barSource = Source.create("brj", """
         (ns bar)
-        (def baz 42)
+        (def baz 42N)
     """.trimIndent())
 
     require(ctx, foo, mapOf(foo to fooSource, bar to barSource))
 
-    println("value: ${ctx.eval(Source.create("brj", "foo/x"))}")
+    println("value: ${ctx.eval(Source.create("brj", "(foo/my-fn foo/x [bar/baz 60N 99N])"))}")
 
     ctx.leave()
 }

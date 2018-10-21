@@ -112,9 +112,9 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
             data class TarjanNS(val ns: Symbol, val nsFile: NSFile, var index: Int? = null, var lowlink: Int? = null, var isOnStack: Boolean = false)
 
-            val nses: Map<Symbol, TarjanNS> = nsFiles.entries.associate { it.key to TarjanNS(ns = it.key, nsFile = it.value) }
+            val nses: Map<Symbol, TarjanNS> = nsFiles.mapValues { TarjanNS(ns = it.key, nsFile = it.value) }
             var index = 0
-            val res = mutableListOf<Set<NSFile>>()
+            val res: MutableList<Set<NSFile>> = mutableListOf()
             val stack: MutableList<TarjanNS> = LinkedList()
 
             fun strongConnect(ns: TarjanNS) {
@@ -165,13 +165,14 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                     val ns = nsFile.ns
                     var nsEnv = nsFile.nsEnv
 
+                    env += ns to nsEnv
                     val state = Analyser.AnalyserState(nsFile.forms)
 
                     while (state.forms.isNotEmpty()) {
                         val expr = state.nested(ListForm::forms, ActionExprAnalyser(env, ns).actionExprAnalyser)
 
                         val frameDescriptor = FrameDescriptor()
-                        val typeChecker = Types.TypeChecker(ctx.env + (ns to nsEnv))
+                        val typeChecker = Types.TypeChecker(env)
                         val emitter = ValueNode.ValueNodeEmitter(lang, frameDescriptor)
 
                         when (expr) {

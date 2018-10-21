@@ -110,7 +110,13 @@ sealed class ValueExpr {
         }
 
         private fun analyseSymbol(sym: Symbol): ValueExpr {
-            return LocalVarExpr(locals[sym] ?: throw Analyser.AnalyserError.ResolutionError(sym))
+            return (locals[sym]?.let { LocalVarExpr(it) })
+
+                ?: (env.nses[ns]?.refers?.get(sym)
+                    ?.let { refer -> env.nses[refer.ns]?.vars?.get(refer.name) }
+                    ?.let { globalVar -> GlobalVarExpr(globalVar) })
+
+                ?: throw Analyser.AnalyserError.ResolutionError(sym)
         }
 
         private fun analyseSymbol(sym: NamespacedSymbol): ValueExpr {
