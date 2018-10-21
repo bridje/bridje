@@ -6,6 +6,8 @@ class Symbol private constructor(val name: String) {
 
         fun create(name: String): Symbol = SYMBOLS.getOrPut(name) { Symbol(name) }
     }
+
+    override fun toString() = name
 }
 
 class NamespacedSymbol private constructor(val ns: Symbol, val name: Symbol) {
@@ -13,6 +15,8 @@ class NamespacedSymbol private constructor(val ns: Symbol, val name: Symbol) {
         private val SYMBOLS: MutableMap<Pair<Symbol, Symbol>, NamespacedSymbol> = mutableMapOf()
         fun create(ns: Symbol, name: Symbol) = SYMBOLS.getOrPut(Pair(ns, name)) { NamespacedSymbol(ns, name) }
     }
+
+    override fun toString() = "$ns/$name"
 }
 
 data class Keyword(val name: String)

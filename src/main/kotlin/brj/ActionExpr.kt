@@ -28,8 +28,6 @@ sealed class ActionExpr {
             DefExpr(sym, params, expr)
         }
 
-        private val DEF = Symbol.create("def")
-
         val actionExprAnalyser: FormsAnalyser<ActionExpr> = {
             val firstSym = it.expectForm<SymbolForm>().sym
 
@@ -40,14 +38,7 @@ sealed class ActionExpr {
         }
 
         companion object {
-            private val NS = Symbol.create("ns")
-
-            val nsAnalyser: FormsAnalyser<Symbol> = {
-                it.nested(ListForm::forms) {
-                    it.expectSym(NS)
-                    it.expectForm<SymbolForm>().sym
-                }
-            }
+            private val DEF = Symbol.create("def")
         }
     }
 }

@@ -1,9 +1,8 @@
 package brj
 
 import brj.ActionExpr.ActionExprAnalyser
-import brj.ActionExpr.ActionExprAnalyser.Companion.nsAnalyser
 import brj.ActionExpr.DefExpr
-import brj.BrjEnv.NSEnv
+import brj.BrjEnv.NSEnv.Companion.nsAnalyser
 import brj.BrjEnv.NSEnv.GlobalVar
 import brj.BrjLanguage.BridjeContext
 import brj.Form.Companion.readForms
@@ -23,6 +22,8 @@ import org.pcollections.HashTreePSet
 import org.pcollections.TreePVector
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.util.*
+import kotlin.math.min
 
 @TruffleLanguage.Registration(
     id = "brj",
@@ -85,42 +86,113 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             this::class.java.getResource("${ns.name.replace('.', '/')}.brj")
                 ?.let { url -> Source.newBuilder("brj", url).build() }
 
-        fun require(graalCtx: Context, ns: Symbol, sources: Map<Symbol, Source> = emptyMap()) {
+        private data class NSFile(val ns: Symbol, val nsEnv: BrjEnv.NSEnv, val forms: List<Form>)
+
+        private fun readNsFiles(rootNs: Symbol, sources: Map<Symbol, Source> = emptyMap()): Map<Symbol, NSFile> {
+            val nses: MutableList<Symbol> = mutableListOf(rootNs)
+            val nsFiles: MutableMap<Symbol, NSFile> = mutableMapOf()
+
+            while (nses.isNotEmpty()) {
+                val ns = nses.removeAt(0)
+                if (nsFiles.containsKey(ns)) continue
+
+                val source = sources[ns] ?: nsSource(ns) ?: TODO("ns not found")
+
+                val state = Analyser.AnalyserState(readForms(source.reader))
+                var nsEnv = nsAnalyser(state)
+                nses += (nsEnv.deps - nsFiles.keys)
+                nsFiles[ns] = NSFile(ns, nsEnv, state.forms)
+            }
+
+            return nsFiles
+        }
+
+        private fun requireOrder(nsFiles: Map<Symbol, NSFile>): List<Set<NSFile>> {
+            // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
+
+            data class TarjanNS(val ns: Symbol, val nsFile: NSFile, var index: Int? = null, var lowlink: Int? = null, var isOnStack: Boolean = false)
+
+            val nses: Map<Symbol, TarjanNS> = nsFiles.entries.associate { it.key to TarjanNS(ns = it.key, nsFile = it.value) }
+            var index = 0
+            val res = mutableListOf<Set<NSFile>>()
+            val stack: MutableList<TarjanNS> = LinkedList()
+
+            fun strongConnect(ns: TarjanNS) {
+                ns.index = index
+                ns.lowlink = index
+                ns.isOnStack = true
+                stack.add(0, ns)
+                index++
+
+                ns.nsFile.nsEnv.deps.map { nses[it]!! }.forEach { dep ->
+                    if (dep.index == null) {
+                        strongConnect(dep)
+                        ns.lowlink = min(ns.lowlink!!, dep.lowlink!!)
+                    } else if (dep.isOnStack) {
+                        ns.lowlink = min(ns.lowlink!!, dep.index!!)
+                    }
+                }
+
+                if (ns.lowlink!! == ns.index!!) {
+                    val nsSet = mutableSetOf<NSFile>()
+                    while (true) {
+                        val dep = stack.removeAt(0)
+                        dep.isOnStack = false
+                        nsSet += dep.nsFile
+                        if (dep == ns) break
+                    }
+                    res += nsSet
+                }
+            }
+
+            nses.values.forEach { tarjanNS ->
+                if (tarjanNS.index == null) {
+                    strongConnect(tarjanNS)
+                }
+            }
+
+            return res
+        }
+
+        fun require(graalCtx: Context, rootNs: Symbol, sources: Map<Symbol, Source> = emptyMap()) {
             val lang = getLang(graalCtx)
             val ctx = lang.ctx
 
-            val source = sources[ns] ?: nsSource(ns) ?: TODO("ns not found")
+            var env = ctx.env
 
-            val state = Analyser.AnalyserState(readForms(source.reader))
-            val analysedNs = nsAnalyser(state)
+            requireOrder(readNsFiles(rootNs, sources)).forEach { nses ->
+                nses.forEach { nsFile ->
+                    val ns = nsFile.ns
+                    var nsEnv = nsFile.nsEnv
 
-            val ana = ActionExprAnalyser(ctx.env, ns)
+                    val state = Analyser.AnalyserState(nsFile.forms)
 
-            var nsEnv = NSEnv()
+                    while (state.forms.isNotEmpty()) {
+                        val expr = state.nested(ListForm::forms, ActionExprAnalyser(env, ns).actionExprAnalyser)
 
-            while (state.forms.isNotEmpty()) {
-                val expr = state.nested(ListForm::forms, ana.actionExprAnalyser)
+                        val frameDescriptor = FrameDescriptor()
+                        val typeChecker = Types.TypeChecker(ctx.env + (ns to nsEnv))
+                        val emitter = ValueNode.ValueNodeEmitter(lang, frameDescriptor)
 
-                val frameDescriptor = FrameDescriptor()
-                val typeChecker = Types.TypeChecker(ctx.env + (ns to nsEnv))
-                val emitter = ValueNode.ValueNodeEmitter(lang, frameDescriptor)
+                        when (expr) {
+                            is DefExpr -> {
+                                val valueExpr =
+                                    if (expr.params == null) expr.expr
+                                    else ValueExpr.FnExpr(params = expr.params, expr = expr.expr)
 
-                when (expr) {
-                    is DefExpr -> {
-                        val valueExpr =
-                            if (expr.params == null) expr.expr
-                            else ValueExpr.FnExpr(params = expr.params, expr = expr.expr)
+                                val typing = typeChecker.valueExprTyping(valueExpr)
 
-                        val typing = typeChecker.valueExprTyping(valueExpr)
+                                val node = emitter.emitValueExpr(valueExpr)
 
-                        val node = emitter.emitValueExpr(valueExpr)
-
-                        nsEnv += expr.sym to GlobalVar(node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)), typing)
+                                nsEnv += expr.sym to GlobalVar(node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)), typing)
+                                env += ns to nsEnv
+                            }
+                        }
                     }
                 }
             }
 
-            ctx.env += ns to nsEnv
+            ctx.env = env
         }
     }
 }
