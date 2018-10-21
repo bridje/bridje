@@ -29,7 +29,7 @@ fun main(args: Array<String>) {
         (def baz 42N)
     """.trimIndent())
 
-    require(ctx, foo, mapOf(foo to fooSource, bar to barSource))
+    require(foo, mapOf(foo to fooSource, bar to barSource))
 
     println("value: ${ctx.eval(Source.create("brj", "(foo/my-fn foo/x [bar/baz 60N 99N])"))}")
 

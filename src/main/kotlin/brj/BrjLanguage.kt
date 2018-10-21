@@ -80,7 +80,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         private val langSource = Source.newBuilder("brj", "lang", null).internal(true).buildLiteral()
 
-        private fun getLang(ctx: Context): BrjLanguage = ctx.eval(langSource).asHostObject<BrjLanguage>()
+        private val lang get() = Context.getCurrent().eval(langSource).asHostObject<BrjLanguage>()
 
         private fun nsSource(ns: Symbol): Source? =
             this::class.java.getResource("${ns.name.replace('.', '/')}.brj")
@@ -154,8 +154,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             return res
         }
 
-        fun require(graalCtx: Context, rootNs: Symbol, sources: Map<Symbol, Source> = emptyMap()) {
-            val lang = getLang(graalCtx)
+        fun require(rootNs: Symbol, sources: Map<Symbol, Source> = emptyMap()) {
             val ctx = lang.ctx
 
             var env = ctx.env
