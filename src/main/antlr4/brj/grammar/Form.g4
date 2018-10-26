@@ -6,7 +6,7 @@ BOOLEAN : 'true' | 'false';
 
 fragment SYMBOL_PART: [\p{Alpha}] ~[()[\]{}#\p{White_Space},/]* ;
 
-SYMBOL: SYMBOL_PART | '+' | '-' | '*' | '/';
+SYMBOL: SYMBOL_PART | '+' | '-' | '*' | '/' | '::' ;
 NAMESPACED_SYMBOL: SYMBOL_PART '/' SYMBOL_PART;
 
 KEYWORD: ':' SYMBOL_PART ;

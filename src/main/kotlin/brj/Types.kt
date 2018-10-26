@@ -136,9 +136,9 @@ object Types {
         }
     }
 
-    data class Typing(val returnType: MonoType, val monoEnv: MonoEnv = MonoEnv()) {
+    data class Typing(val monoType: MonoType, val monoEnv: MonoEnv = MonoEnv()) {
         companion object {
-            fun combine(returnType: MonoType, typings: List<Typing>, extraEqs: List<TypeEq> = emptyList()): Typing {
+            fun combine(monoType: MonoType, typings: List<Typing>, extraEqs: List<TypeEq> = emptyList()): Typing {
                 val monoEnvs = typings.map { it.monoEnv }
 
                 val lvTvs = monoEnvs
@@ -149,7 +149,7 @@ object Types {
                     .flatMap { env -> env.env.mapTo(LinkedList()) { e -> TypeEq(lvTvs[e.key]!!, e.value) } }
                     .plus(extraEqs))
 
-                return Typing(returnType.applyMapping(mapping), MonoEnv(lvTvs.mapValues { e -> mapping.map(e.value) }))
+                return Typing(monoType.applyMapping(mapping), MonoEnv(lvTvs.mapValues { e -> mapping.map(e.value) }))
             }
         }
     }
@@ -160,7 +160,7 @@ object Types {
             val typings = exprs.map(::valueExprTyping)
             val returnType = TypeVarType()
 
-            return combine(mkCollType(returnType), typings, typings.map { t -> Types.TypeEq(t.returnType, returnType) })
+            return combine(mkCollType(returnType), typings, typings.map { t -> Types.TypeEq(t.monoType, returnType) })
         }
 
         private fun ifExprTyping(expr: IfExpr): Typing {
@@ -174,23 +174,23 @@ object Types {
                 returnType,
                 listOf(predTyping, thenTyping, elseTyping),
                 listOf(
-                    TypeEq(BoolType, predTyping.returnType),
-                    TypeEq(returnType, thenTyping.returnType),
-                    TypeEq(returnType, elseTyping.returnType)))
+                    TypeEq(BoolType, predTyping.monoType),
+                    TypeEq(returnType, thenTyping.monoType),
+                    TypeEq(returnType, elseTyping.monoType)))
         }
 
         private fun letExprTyping(expr: LetExpr): Typing {
             val bindingPairs = expr.bindings.map { it.localVar to valueExprTyping(it.expr) }
             val exprTyping = valueExprTyping(expr.expr)
 
-            return combine(exprTyping.returnType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping))
+            return combine(exprTyping.monoType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping))
         }
 
         private fun doExprTyping(expr: DoExpr): Typing {
             val exprTypings = expr.exprs.map(::valueExprTyping)
             val exprTyping = valueExprTyping(expr.expr)
 
-            return combine(exprTyping.returnType, exprTypings.plus(exprTyping))
+            return combine(exprTyping.monoType, exprTypings.plus(exprTyping))
         }
 
         private fun fnExprTyping(expr: FnExpr): Typing {
@@ -199,7 +199,7 @@ object Types {
             return Typing(
                 FnType(
                     expr.params.map { typing.monoEnv.env.getOrDefault(it, TypeVarType()) },
-                    typing.returnType),
+                    typing.monoType),
                 MonoEnv(env = typing.monoEnv.env.minus(expr.params)))
         }
 
@@ -209,8 +209,8 @@ object Types {
 
             val fnExprTyping = valueExprTyping(fnExpr)
             val fnExprType =
-                fnExprTyping.returnType as? FnType
-                    ?: throw TypeException.ExpectedFunction(fnExpr, fnExprTyping.returnType)
+                fnExprTyping.monoType as? FnType
+                    ?: throw TypeException.ExpectedFunction(fnExpr, fnExprTyping.monoType)
 
             if (fnExprType.paramTypes.size != argExprs.size) throw ArityError(fnExprType, argExprs)
 
@@ -219,7 +219,7 @@ object Types {
             return combine(
                 fnExprType.returnType,
                 argTypings.plus(fnExprTyping),
-                fnExprType.paramTypes.zip(argTypings.map(Typing::returnType), ::TypeEq))
+                fnExprType.paramTypes.zip(argTypings.map(Typing::monoType), ::TypeEq))
         }
 
         private fun localVarTyping(lv: LocalVar): Typing {

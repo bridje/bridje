@@ -6,6 +6,7 @@ import brj.grammar.FormParser
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.io.Reader
+import java.io.StringReader
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -77,5 +78,7 @@ sealed class Form {
                 .file().form()
                 .toList()
                 .map(::transformForm)
+
+        fun readForms(s: String): List<Form> = readForms(StringReader(s))
     }
 }

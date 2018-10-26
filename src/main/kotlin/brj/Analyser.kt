@@ -73,8 +73,9 @@ object Analyser {
             return null
         }
 
-        inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, a: FormsAnalyser<R>): R =
-            a(AnalyserState(f(expectForm())))
+        fun <R> nested(forms: List<Form>, a: FormsAnalyser<R>): R = a(AnalyserState(forms))
+
+        inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsAnalyser<R>): R = nested(f(expectForm()), a)
 
         fun expectSym(expectedSym: Symbol) {
             val actualSym = maybe { it.expectForm<Form.SymbolForm>().sym }

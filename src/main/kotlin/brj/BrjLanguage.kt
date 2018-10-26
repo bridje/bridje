@@ -99,7 +99,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 val source = sources[ns] ?: nsSource(ns) ?: TODO("ns not found")
 
                 val state = Analyser.AnalyserState(readForms(source.reader))
-                var nsEnv = nsAnalyser(state)
+                val nsEnv = nsAnalyser(state)
                 nses += (nsEnv.deps - nsFiles.keys)
                 nsFiles[ns] = NSFile(ns, nsEnv, state.forms)
             }
@@ -186,6 +186,10 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                                 nsEnv += expr.sym to GlobalVar(node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)), typing)
                                 env += ns to nsEnv
+                            }
+
+                            is ActionExpr.TypedefExpr -> {
+                                TODO()
                             }
                         }
                     }

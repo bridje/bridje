@@ -18,7 +18,8 @@ fun main(args: Array<String>) {
            :refers {bar #{baz}}})
 
         (def x
-          [10N baz])
+          (let [quux 10N]
+            [quux baz]))
 
         (def (my-fn x y)
           [y x])
