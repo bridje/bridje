@@ -42,45 +42,54 @@ class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
         DefExpr(sym, expr, Types.TypeChecker(brjEnv).valueExprTyping(expr))
     }
 
-    private fun monoTypeAnalyser(it: Analyser.AnalyserState): Types.MonoType {
-        val form = it.expectForm<Form>()
-        return when (form) {
-            is Form.SymbolForm -> {
-                when (form.sym) {
-                    STR -> StringType
-                    BOOL -> BoolType
-                    INT -> IntType
-                    FLOAT -> FloatType
-                    BIG_INT -> BigIntType
-                    BIG_FLOAT -> BigFloatType
+    class TypeAnalyser {
+        val tvMapping: MutableMap<Symbol, TypeVarType> = mutableMapOf()
 
-                    else -> {
-                        TODO()
+        internal fun monoTypeAnalyser(it: Analyser.AnalyserState): Types.MonoType {
+            val form = it.expectForm<Form>()
+            return when (form) {
+                is Form.SymbolForm -> {
+                    when (form.sym) {
+                        STR -> StringType
+                        BOOL -> BoolType
+                        INT -> IntType
+                        FLOAT -> FloatType
+                        BIG_INT -> BigIntType
+                        BIG_FLOAT -> BigFloatType
+
+                        else -> {
+                            if (Character.isLowerCase(form.sym.name.first())) {
+                                tvMapping.getOrPut(form.sym) { TypeVarType() }
+                            } else {
+                                TODO()
+                            }
+                        }
                     }
                 }
+
+                is Form.VectorForm ->
+                    VectorType(it.nested(form.forms) {
+                        monoTypeAnalyser(it).also { _ -> it.expectEnd() }
+                    })
+
+                is Form.SetForm ->
+                    SetType(it.nested(form.forms) {
+                        monoTypeAnalyser(it).also { _ -> it.expectEnd() }
+                    })
+
+                else -> TODO()
             }
-
-            is Form.VectorForm ->
-                VectorType(it.nested(form.forms) {
-                    monoTypeAnalyser(it).also { _ -> it.expectEnd() }
-                })
-
-            is Form.SetForm ->
-                SetType(it.nested(form.forms) {
-                    monoTypeAnalyser(it).also { _ -> it.expectEnd() }
-                })
-
-            else -> TODO()
         }
     }
 
     val typeDefAnalyser: FormsAnalyser<TypeDefExpr> = {
         val form = it.expectForm<Form>()
+        val typeAnalyser = TypeAnalyser()
 
         val (sym, params) = when (form) {
             is Form.ListForm -> {
                 it.nested(form.forms) {
-                    Pair(it.expectForm<Form.SymbolForm>().sym, it.varargs(::monoTypeAnalyser))
+                    Pair(it.expectForm<Form.SymbolForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
                 }
             }
 
@@ -91,7 +100,7 @@ class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
             else -> TODO()
         }
 
-        val returnType = monoTypeAnalyser(it)
+        val returnType = typeAnalyser.monoTypeAnalyser(it)
 
         it.expectEnd()
 

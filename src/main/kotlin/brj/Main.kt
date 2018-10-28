@@ -21,8 +21,7 @@ fun main(args: Array<String>) {
           (let [quux 10N]
             [quux baz]))
 
-        (:: (my-fn [BigInt] [BigInt]) [[BigInt]])
-
+        (:: (my-fn a a) [a])
         (def (my-fn x y)
           [y x])
         """.trimIndent())
@@ -30,7 +29,6 @@ fun main(args: Array<String>) {
     val barSource = Source.create("brj", """
         (ns bar)
 
-        (:: baz BigInt)
         (def baz 42N)
     """.trimIndent())
 
