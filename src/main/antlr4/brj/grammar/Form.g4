@@ -20,6 +20,8 @@ BIG_FLOAT: FLOAT [mM];
 
 STRING : '"' ( '\\"' | . )*? '"';
 
+LINE_COMMENT: ';' (.*?) ([\n]+ | EOF) -> skip;
+
 file : form* EOF;
 
 form : BOOLEAN # Boolean
@@ -38,4 +40,4 @@ form : BOOLEAN # Boolean
      | '{' form* '}' # Record
      | '\'' form # Quote
      | '~' form # Unquote
-     | '~@' form # UnquoteSplicing;
+     | '~@' form # UnquoteSplicing ;
