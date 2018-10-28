@@ -21,16 +21,20 @@ fun main(args: Array<String>) {
           (let [quux 10N]
             [quux baz]))
 
+        (:: (my-fn [BigInt] [BigInt]) [[BigInt]])
+
         (def (my-fn x y)
           [y x])
         """.trimIndent())
 
     val barSource = Source.create("brj", """
         (ns bar)
+
+        (:: baz BigInt)
         (def baz 42N)
     """.trimIndent())
 
-    require(foo, mapOf(foo to fooSource, bar to barSource))
+    require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
     println("value: ${ctx.eval(Source.create("brj", "(foo/my-fn foo/x [bar/baz 60N 99N])"))}")
 

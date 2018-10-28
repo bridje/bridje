@@ -18,8 +18,10 @@ object Types {
         fun map(tv: TypeVarType) = mapping.getOrDefault(tv, tv)
     }
 
-    data class MonoEnv(val env: Map<LocalVar, MonoType> = emptyMap()) {
+    data class MonoEnv(val env: Map<LocalVar, MonoType> = emptyMap()) : Map<LocalVar, MonoType> by env {
         fun applyMapping(mapping: TypeMapping): MonoEnv = MonoEnv(env.mapValues { e -> e.value.applyMapping(mapping) })
+
+        operator fun minus(localVars: Iterable<LocalVar>): MonoEnv = MonoEnv(env.minus(localVars))
     }
 
     sealed class MonoType {
@@ -133,10 +135,14 @@ object Types {
 
                 return mapping
             }
+
         }
     }
 
     data class Typing(val monoType: MonoType, val monoEnv: MonoEnv = MonoEnv()) {
+        // TODO need to check against the expected typing
+        fun matches(expectedTyping: Typing): Boolean = true
+
         companion object {
             fun combine(monoType: MonoType, typings: List<Typing>, extraEqs: List<TypeEq> = emptyList()): Typing {
                 val monoEnvs = typings.map { it.monoEnv }
@@ -183,7 +189,8 @@ object Types {
             val bindingPairs = expr.bindings.map { it.localVar to valueExprTyping(it.expr) }
             val exprTyping = valueExprTyping(expr.expr)
 
-            return combine(exprTyping.monoType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping))
+            val typing = combine(exprTyping.monoType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping))
+            return typing.copy(monoEnv = typing.monoEnv - expr.bindings.map(Binding::localVar))
         }
 
         private fun doExprTyping(expr: DoExpr): Typing {
@@ -200,7 +207,7 @@ object Types {
                 FnType(
                     expr.params.map { typing.monoEnv.env.getOrDefault(it, TypeVarType()) },
                     typing.monoType),
-                MonoEnv(env = typing.monoEnv.env.minus(expr.params)))
+                typing.monoEnv - expr.params)
         }
 
         private fun callExprTyping(expr: CallExpr): Typing {

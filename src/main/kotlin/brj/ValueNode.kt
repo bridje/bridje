@@ -23,7 +23,7 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 sealed class ValueNode : Node() {
-    abstract fun execute(frame: VirtualFrame): Any
+    abstract fun execute(frame: VirtualFrame): Any?
 
     class BoolNode(val boolean: Boolean) : ValueNode() {
         override fun execute(frame: VirtualFrame): Boolean = boolean
@@ -49,10 +49,10 @@ sealed class ValueNode : Node() {
         override fun execute(frame: VirtualFrame): BigDecimal = bigDec
     }
 
-    class CollNode(@Children var nodes: Array<ValueNode>, val toColl: (List<Any>) -> Any) : ValueNode() {
+    class CollNode(@Children var nodes: Array<ValueNode>, val toColl: (List<Any?>) -> Any) : ValueNode() {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
-            val coll: MutableList<Any> = ArrayList(nodes.size)
+            val coll: MutableList<Any?> = ArrayList(nodes.size)
 
             for (node in nodes) {
                 coll.add(node.execute(frame))
@@ -69,7 +69,7 @@ sealed class ValueNode : Node() {
     ) : ValueNode() {
         private val conditionProfile = ConditionProfile.createBinaryProfile()!!
 
-        override fun execute(frame: VirtualFrame): Any {
+        override fun execute(frame: VirtualFrame): Any? {
             val result = predNode.execute(frame)
 
             if (result !is Boolean) {
@@ -82,7 +82,7 @@ sealed class ValueNode : Node() {
 
     class DoNode(@Children var exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode) : ValueNode() {
         @ExplodeLoop
-        override fun execute(frame: VirtualFrame): Any {
+        override fun execute(frame: VirtualFrame): Any? {
             val exprCount = exprNodes.size
             CompilerAsserts.compilationConstant<Int>(exprCount)
 
@@ -103,7 +103,7 @@ sealed class ValueNode : Node() {
         }
 
         @ExplodeLoop
-        override fun execute(frame: VirtualFrame): Any {
+        override fun execute(frame: VirtualFrame): Any? {
             val bindingCount = bindingNodes.size
             CompilerAsserts.compilationConstant<Int>(bindingCount)
 
@@ -132,7 +132,7 @@ sealed class ValueNode : Node() {
             }
 
             @ExplodeLoop
-            override fun execute(frame: VirtualFrame): Any {
+            override fun execute(frame: VirtualFrame): Any? {
                 val argCount = readArgNodes.size
                 CompilerAsserts.compilationConstant<Int>(argCount)
                 for (i in 0 until argCount) {
@@ -179,8 +179,8 @@ sealed class ValueNode : Node() {
         protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())
     }
 
-    class GlobalVarNode(val obj: Any) : ValueNode() {
-        override fun execute(frame: VirtualFrame): Any = obj
+    class GlobalVarNode(val obj: Any?) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any? = obj
     }
 
     data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {

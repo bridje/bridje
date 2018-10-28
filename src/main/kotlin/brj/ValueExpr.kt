@@ -1,6 +1,7 @@
 package brj
 
 import brj.Analyser.AnalyserError.TodoError
+import brj.BrjEnv.NSEnv
 import brj.BrjEnv.NSEnv.GlobalVar
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -29,7 +30,7 @@ sealed class ValueExpr {
     data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
     @Suppress("NestedLambdaShadowedImplicitParameter")
-    data class ValueExprAnalyser(val env: BrjEnv, val ns: Symbol, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
+    data class ValueExprAnalyser(val env: BrjEnv, val nsEnv: NSEnv, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
         private val ifAnalyser: FormsAnalyser<ValueExpr> = {
             val predExpr = exprAnalyser(it)
             val thenExpr = exprAnalyser(it)
@@ -112,7 +113,7 @@ sealed class ValueExpr {
         private fun analyseSymbol(sym: Symbol): ValueExpr {
             return (locals[sym]?.let { LocalVarExpr(it) })
 
-                ?: (env.nses[ns]?.refers?.get(sym)
+                ?: (nsEnv.refers.get(sym)
                     ?.let { refer -> env.nses[refer.ns]?.vars?.get(refer.name) }
                     ?.let { globalVar -> GlobalVarExpr(globalVar) })
 
