@@ -146,16 +146,18 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     private fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source>) {
-        val ctx = ctx
+        synchronized(this) {
+            val ctx = ctx
 
-        val req = Require(ctx.env)
+            val req = Require(ctx.env)
 
-        requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
-            nses.forEach(req::evalTypeDefs)
-            nses.forEach(req::evalVars)
+            requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
+                nses.forEach(req::evalTypeDefs)
+                nses.forEach(req::evalVars)
+            }
+
+            ctx.env = req.env
         }
-
-        ctx.env = req.env
     }
 
     companion object {
