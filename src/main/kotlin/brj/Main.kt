@@ -17,6 +17,8 @@ fun main(args: Array<String>) {
           {:aliases {b bar},
            :refers {bar #{baz}}})
 
+        (defdata (Maybe a) (:Just a) :Nothing)
+
         (def x
           (let [quux 10N]
             [quux baz]))

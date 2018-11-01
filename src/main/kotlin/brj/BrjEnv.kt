@@ -1,15 +1,24 @@
 package brj
 
 import brj.Form.*
+import brj.Types.MonoType
+import brj.Types.MonoType.TypeVarType
 
 data class BrjEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     data class NSEnv(val ns: Symbol,
                      val refers: Map<Symbol, NamespacedSymbol> = emptyMap(),
                      val aliases: Map<Symbol, Symbol> = emptyMap(),
-                     val vars: Map<Symbol, GlobalVar> = emptyMap()) {
-        data class GlobalVar(val value: Any?, val typing: Types.Typing)
+                     val vars: Map<Symbol, GlobalVar> = emptyMap(),
+                     val adts: Map<Symbol, ADT> = emptyMap()) {
 
-        operator fun plus(newGlobalVar: Pair<Symbol, GlobalVar>): NSEnv = copy(vars = vars + newGlobalVar)
+        data class GlobalVar(val sym: Symbol, val value: Any?, val typing: Types.Typing)
+
+        data class ADT(val sym: Symbol, val typeVars: List<TypeVarType>?, val constructors: List<ADTConstructor> = emptyList()) {
+            data class ADTConstructor(val kw: Keyword, val params: List<MonoType>?)
+        }
+
+        operator fun plus(newGlobalVar: GlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym to newGlobalVar))
+        operator fun plus(newADT: ADT): NSEnv = copy(adts = adts + (newADT.sym to newADT))
 
         val deps: Set<Symbol> by lazy {
             aliases.values.toSet() + refers.values.map { it.ns }

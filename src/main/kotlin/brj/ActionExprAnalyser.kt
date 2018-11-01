@@ -1,17 +1,20 @@
 package brj
 
-import brj.Form.ListForm
-import brj.Form.SymbolForm
+import brj.Analyser.AnalyserState
+import brj.BrjEnv.NSEnv.ADT.ADTConstructor
+import brj.Form.*
+import brj.Types.MonoType
 import brj.Types.MonoType.*
 import brj.Types.Typing
 import brj.ValueExpr.FnExpr
 import brj.ValueExpr.ValueExprAnalyser
 
 @Suppress("NestedLambdaShadowedImplicitParameter")
-class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
+internal class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
     data class DefExpr(val sym: Symbol, val expr: ValueExpr, val typing: Typing)
-
     data class TypeDefExpr(val sym: Symbol, val typing: Typing)
+
+    data class DefDataExpr(val sym: Symbol, val typeParams: List<TypeVarType>?, val constructors: List<ADTConstructor> = emptyList())
 
     val defAnalyser: FormsAnalyser<DefExpr> = {
         val form = it.expectForm<Form>()
@@ -45,7 +48,12 @@ class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
     class TypeAnalyser {
         val tvMapping: MutableMap<Symbol, TypeVarType> = mutableMapOf()
 
-        internal fun monoTypeAnalyser(it: Analyser.AnalyserState): Types.MonoType {
+        private fun tv(sym: Symbol): TypeVarType? =
+            if (Character.isLowerCase(sym.name.first())) {
+                tvMapping.getOrPut(sym) { TypeVarType() }
+            } else null
+
+        fun monoTypeAnalyser(it: AnalyserState): MonoType {
             val form = it.expectForm<Form>()
             return when (form) {
                 is Form.SymbolForm -> {
@@ -58,11 +66,7 @@ class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
                         BIG_FLOAT -> BigFloatType
 
                         else -> {
-                            if (Character.isLowerCase(form.sym.name.first())) {
-                                tvMapping.getOrPut(form.sym) { TypeVarType() }
-                            } else {
-                                TODO()
-                            }
+                            tv(form.sym) ?: TODO()
                         }
                     }
                 }
@@ -80,16 +84,30 @@ class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
                 else -> TODO()
             }
         }
+
+        fun tvAnalyser(it: AnalyserState): TypeVarType =
+            tv(it.expectForm<SymbolForm>().sym) ?: TODO()
     }
 
     val typeDefAnalyser: FormsAnalyser<TypeDefExpr> = {
-        val form = it.expectForm<Form>()
         val typeAnalyser = TypeAnalyser()
 
-        val (sym, params) = when (form) {
+        val (sym, params) = defDataSigAnalyser(it, typeAnalyser)
+
+        val returnType = typeAnalyser.monoTypeAnalyser(it)
+
+        it.expectEnd()
+
+        TypeDefExpr(sym, Typing(if (params != null) FnType(params, returnType) else returnType))
+    }
+
+    fun defDataSigAnalyser(it: AnalyserState, typeAnalyser: TypeAnalyser = TypeAnalyser()): Pair<Symbol, List<TypeVarType>?> {
+        val form = it.expectForm<Form>()
+
+        return when (form) {
             is Form.ListForm -> {
                 it.nested(form.forms) {
-                    Pair(it.expectForm<Form.SymbolForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
+                    Pair(it.expectForm<Form.SymbolForm>().sym, it.varargs(typeAnalyser::tvAnalyser))
                 }
             }
 
@@ -99,12 +117,32 @@ class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
 
             else -> TODO()
         }
+    }
 
-        val returnType = typeAnalyser.monoTypeAnalyser(it)
+    val defDataAnalyser: FormsAnalyser<DefDataExpr> = {
+        val typeAnalyser = TypeAnalyser()
 
-        it.expectEnd()
+        val (sym, typeParams) = defDataSigAnalyser(it, typeAnalyser)
 
-        TypeDefExpr(sym, Typing(if (params != null) FnType(params, returnType) else returnType))
+        val constructors = it.varargs {
+            val form = it.expectForm<Form>()
+
+            when (form) {
+                is ListForm -> {
+                    it.nested(form.forms) {
+                        ADTConstructor(it.expectForm<KeywordForm>().kw, it.varargs(typeAnalyser::monoTypeAnalyser))
+                    }
+                }
+
+                is KeywordForm -> {
+                    ADTConstructor(form.kw, null)
+                }
+
+                else -> TODO()
+            }
+        }
+
+        DefDataExpr(sym, typeParams, constructors)
     }
 
     companion object {

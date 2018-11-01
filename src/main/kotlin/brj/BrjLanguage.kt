@@ -1,5 +1,6 @@
 package brj
 
+import brj.Analyser.AnalyserState
 import brj.BrjEnv.NSEnv
 import brj.BrjEnv.NSEnv.Companion.nsAnalyser
 import brj.BrjLanguage.BridjeContext
@@ -76,8 +77,33 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     internal inner class Require(var env: BrjEnv) {
+        fun evalDataDefs(nsFile: NSFile) {
+            fun dataDefEvaluator(it: AnalyserState) {
+                val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
+
+                it.nested(ListForm::forms) {
+                    when (it.expectForm<Form.SymbolForm>().sym) {
+                        DO -> it.varargs(::dataDefEvaluator)
+
+                        DEF_DATA -> {
+                            val (sym, typeVars) = analyser.defDataSigAnalyser(it)
+
+                            nsFile.nsEnv += NSEnv.ADT(sym, typeVars)
+                            env += nsFile.ns to nsFile.nsEnv
+                        }
+
+                        TYPE_DEF, DEF -> Unit
+
+                        else -> TODO()
+                    }
+                }
+            }
+
+            AnalyserState(nsFile.forms).varargs(::dataDefEvaluator)
+        }
+
         fun evalTypeDefs(nsFile: NSFile) {
-            fun typeDefEvaluator(it: Analyser.AnalyserState) {
+            fun typeDefEvaluator(it: AnalyserState) {
                 it.nested(ListForm::forms) {
                     val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
 
@@ -91,7 +117,14 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                                 TODO("sym already exists in NS")
                             }
 
-                            nsFile.nsEnv += typeDef.sym to NSEnv.GlobalVar(null, typeDef.typing)
+                            nsFile.nsEnv += NSEnv.GlobalVar(typeDef.sym, null, typeDef.typing)
+                            env += nsFile.ns to nsFile.nsEnv
+                        }
+
+                        DEF_DATA -> {
+                            val defDataExpr = analyser.defDataAnalyser(it)
+
+                            nsFile.nsEnv += NSEnv.ADT(defDataExpr.sym, defDataExpr.typeParams, defDataExpr.constructors)
                             env += nsFile.ns to nsFile.nsEnv
                         }
 
@@ -104,33 +137,36 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 }
             }
 
-            Analyser.AnalyserState(nsFile.forms).varargs(::typeDefEvaluator)
+            AnalyserState(nsFile.forms).varargs(::typeDefEvaluator)
         }
 
         fun evalVars(nsFile: NSFile) {
-            fun varEvaluator(it: Analyser.AnalyserState) {
+            fun evalDefExpr(expr: ActionExprAnalyser.DefExpr) {
+                val expectedTyping = nsFile.nsEnv.vars[expr.sym]?.typing
+
+                if (expectedTyping != null && !(expr.typing.matches(expectedTyping))) {
+                    TODO()
+                }
+
+                val frameDescriptor = FrameDescriptor()
+
+                val node = ValueNode.ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
+
+                nsFile.nsEnv += NSEnv.GlobalVar(expr.sym, node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)), expectedTyping
+                    ?: expr.typing)
+
+                env += nsFile.ns to nsFile.nsEnv
+            }
+
+            fun varEvaluator(it: AnalyserState) {
                 it.nested(ListForm::forms) {
                     val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
 
                     when (it.expectForm<Form.SymbolForm>().sym) {
                         DO -> it.varargs(::varEvaluator)
-                        DEF -> {
-                            val expr = analyser.defAnalyser(it)
-                            val expectedTyping = nsFile.nsEnv.vars[expr.sym]?.typing
+                        DEF -> evalDefExpr(analyser.defAnalyser(it))
 
-                            if (expectedTyping != null && !(expr.typing.matches(expectedTyping))) {
-                                TODO()
-                            }
-
-                            val frameDescriptor = FrameDescriptor()
-
-                            val node = ValueNode.ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
-
-                            nsFile.nsEnv += expr.sym to BrjEnv.NSEnv.GlobalVar(node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)), expectedTyping
-                                ?: expr.typing)
-
-                            env += nsFile.ns to nsFile.nsEnv
-                        }
+                        DEF_DATA -> TODO()
 
                         TYPE_DEF -> Unit
 
@@ -141,7 +177,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 }
             }
 
-            Analyser.AnalyserState(nsFile.forms).varargs(::varEvaluator)
+            AnalyserState(nsFile.forms).varargs(::varEvaluator)
         }
     }
 
@@ -152,6 +188,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             val req = Require(ctx.env)
 
             requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
+                nses.forEach(req::evalDataDefs)
                 nses.forEach(req::evalTypeDefs)
                 nses.forEach(req::evalVars)
             }
@@ -166,6 +203,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         private val DEF = Symbol.create("def")
         private val TYPE_DEF = Symbol.create("::")
         private val DEFX = Symbol.create("defx")
+        private val DEF_DATA = Symbol.create("defdata")
 
         private val langSource = Source.newBuilder("brj", "lang", null).internal(true).buildLiteral()
 
@@ -187,7 +225,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                 val source = sources[ns] ?: nsSource(ns) ?: TODO("ns not found")
 
-                val state = Analyser.AnalyserState(readForms(source.reader))
+                val state = AnalyserState(readForms(source.reader))
                 val nsEnv = nsAnalyser(state)
                 nses += (nsEnv.deps - nsFiles.keys)
                 nsFiles[ns] = NSFile(ns, nsEnv, state.forms)
