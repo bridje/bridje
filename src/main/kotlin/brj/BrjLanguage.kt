@@ -1,5 +1,6 @@
 package brj
 
+import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.Analyser.AnalyserState
 import brj.BrjEnv.NSEnv
 import brj.BrjEnv.NSEnv.Companion.nsAnalyser
@@ -88,8 +89,8 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                         DEF_DATA -> {
                             val (sym, typeVars) = analyser.defDataSigAnalyser(it)
 
-                            nsFile.nsEnv += NSEnv.ADT(sym, typeVars)
-                            env += nsFile.ns to nsFile.nsEnv
+                            nsFile.nsEnv += NSEnv.DataType(sym, typeVars, emptyList())
+                            env += nsFile.nsEnv
                         }
 
                         TYPE_DEF, DEF -> Unit
@@ -117,15 +118,24 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                                 TODO("sym already exists in NS")
                             }
 
-                            nsFile.nsEnv += NSEnv.GlobalVar(typeDef.sym, null, typeDef.typing)
-                            env += nsFile.ns to nsFile.nsEnv
+                            nsFile.nsEnv += NSEnv.GlobalVar(typeDef.sym, typeDef.typing, null)
+                            env += nsFile.nsEnv
                         }
 
                         DEF_DATA -> {
                             val defDataExpr = analyser.defDataAnalyser(it)
 
-                            nsFile.nsEnv += NSEnv.ADT(defDataExpr.sym, defDataExpr.typeParams, defDataExpr.constructors)
-                            env += nsFile.ns to nsFile.nsEnv
+                            nsFile.nsEnv += NSEnv.DataType(defDataExpr.sym, defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::sym))
+
+                            val dataType = Types.MonoType.DataType(NamespacedSymbol.create(nsFile.ns, defDataExpr.sym))
+
+                            defDataExpr.constructors.forEach { constructor ->
+                                val type = constructor.params?.let { params -> Types.MonoType.FnType(params, dataType) }
+                                    ?: dataType
+                                nsFile.nsEnv += NSEnv.GlobalVar(constructor.sym, Types.Typing(type), null)
+                            }
+
+                            env += nsFile.nsEnv
                         }
 
                         DEF -> Unit
@@ -152,10 +162,10 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                 val node = ValueNode.ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
 
-                nsFile.nsEnv += NSEnv.GlobalVar(expr.sym, node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)), expectedTyping
-                    ?: expr.typing)
+                nsFile.nsEnv += NSEnv.GlobalVar(expr.sym, expectedTyping
+                    ?: expr.typing, node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)))
 
-                env += nsFile.ns to nsFile.nsEnv
+                env += nsFile.nsEnv
             }
 
             fun varEvaluator(it: AnalyserState) {
@@ -166,7 +176,18 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                         DO -> it.varargs(::varEvaluator)
                         DEF -> evalDefExpr(analyser.defAnalyser(it))
 
-                        DEF_DATA -> TODO()
+                        DEF_DATA -> {
+                            val nsEnv = nsFile.nsEnv
+                            val sym = analyser.defDataSigAnalyser(it).first
+                            val dataType = nsEnv.dataTypes[sym]!!
+
+                            dataType.constructors.forEach { constructorSym ->
+                                nsFile.nsEnv += nsEnv.vars[constructorSym]!!.copy(value = null)
+
+                                env += nsFile.nsEnv
+                                TODO()
+                            }
+                        }
 
                         TYPE_DEF -> Unit
 

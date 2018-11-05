@@ -17,7 +17,7 @@ fun main(args: Array<String>) {
           {:aliases {b bar},
            :refers {bar #{baz}}})
 
-        (defdata (Maybe a) (:Just a) :Nothing)
+        (defdata (Maybe a) (Just a) Nothing)
 
         (def x
           (let [quux 10N]
@@ -29,7 +29,7 @@ fun main(args: Array<String>) {
         """.trimIndent())
 
     val barSource = Source.create("brj", """
-        (ns bar)
+        (ns bar {})
 
         (def baz 42N)
     """.trimIndent())

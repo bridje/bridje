@@ -1,8 +1,8 @@
 package brj
 
 import brj.Analyser.AnalyserState
-import brj.BrjEnv.NSEnv.ADT.ADTConstructor
-import brj.Form.*
+import brj.Form.ListForm
+import brj.Form.SymbolForm
 import brj.Types.MonoType
 import brj.Types.MonoType.*
 import brj.Types.Typing
@@ -14,7 +14,9 @@ internal class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
     data class DefExpr(val sym: Symbol, val expr: ValueExpr, val typing: Typing)
     data class TypeDefExpr(val sym: Symbol, val typing: Typing)
 
-    data class DefDataExpr(val sym: Symbol, val typeParams: List<TypeVarType>?, val constructors: List<ADTConstructor> = emptyList())
+    data class DefDataExpr(val sym: Symbol, val typeParams: List<TypeVarType>?, val constructors: List<DefDataConstructor> = emptyList()) {
+        data class DefDataConstructor(val sym: Symbol, val params: List<MonoType>?)
+    }
 
     val defAnalyser: FormsAnalyser<DefExpr> = {
         val form = it.expectForm<Form>()
@@ -130,12 +132,12 @@ internal class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
             when (form) {
                 is ListForm -> {
                     it.nested(form.forms) {
-                        ADTConstructor(it.expectForm<KeywordForm>().kw, it.varargs(typeAnalyser::monoTypeAnalyser))
+                        DefDataExpr.DefDataConstructor(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
                     }
                 }
 
-                is KeywordForm -> {
-                    ADTConstructor(form.kw, null)
+                is SymbolForm -> {
+                    DefDataExpr.DefDataConstructor(form.sym, null)
                 }
 
                 else -> TODO()

@@ -1,5 +1,7 @@
 package brj
 
+import brj.BridjeTypesGen.expectBoolean
+import brj.BridjeTypesGen.expectBridjeFunction
 import brj.ValueExpr.*
 import brj.ValueNode.LetNode.LetBindingNode
 import brj.ValueNodeFactory.LocalVarNodeGen
@@ -15,7 +17,6 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RootNode
-import com.oracle.truffle.api.nodes.UnexpectedResultException
 import com.oracle.truffle.api.profiles.ConditionProfile
 import org.pcollections.HashTreePSet
 import org.pcollections.TreePVector
@@ -23,7 +24,7 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 sealed class ValueNode : Node() {
-    abstract fun execute(frame: VirtualFrame): Any?
+    abstract fun execute(frame: VirtualFrame): Any
 
     class BoolNode(val boolean: Boolean) : ValueNode() {
         override fun execute(frame: VirtualFrame): Boolean = boolean
@@ -49,7 +50,7 @@ sealed class ValueNode : Node() {
         override fun execute(frame: VirtualFrame): BigDecimal = bigDec
     }
 
-    class CollNode(@Children var nodes: Array<ValueNode>, val toColl: (List<Any?>) -> Any) : ValueNode() {
+    class CollNode(@Children val nodes: Array<ValueNode>, val toColl: (List<Any?>) -> Any) : ValueNode() {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
             val coll: MutableList<Any?> = ArrayList(nodes.size)
@@ -67,22 +68,15 @@ sealed class ValueNode : Node() {
         @Child var thenNode: ValueNode,
         @Child var elseNode: ValueNode
     ) : ValueNode() {
-        private val conditionProfile = ConditionProfile.createBinaryProfile()!!
+        private val conditionProfile = ConditionProfile.createBinaryProfile()
 
-        override fun execute(frame: VirtualFrame): Any? {
-            val result = predNode.execute(frame)
-
-            if (result !is Boolean) {
-                throw UnexpectedResultException(result)
-            }
-
-            return (if (conditionProfile.profile(result)) thenNode else elseNode).execute(frame)
-        }
+        override fun execute(frame: VirtualFrame): Any =
+            (if (conditionProfile.profile(expectBoolean(predNode.execute(frame)))) thenNode else elseNode).execute(frame)
     }
 
     class DoNode(@Children var exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode) : ValueNode() {
         @ExplodeLoop
-        override fun execute(frame: VirtualFrame): Any? {
+        override fun execute(frame: VirtualFrame): Any {
             val exprCount = exprNodes.size
             CompilerAsserts.compilationConstant<Int>(exprCount)
 
@@ -103,7 +97,7 @@ sealed class ValueNode : Node() {
         }
 
         @ExplodeLoop
-        override fun execute(frame: VirtualFrame): Any? {
+        override fun execute(frame: VirtualFrame): Any {
             val bindingCount = bindingNodes.size
             CompilerAsserts.compilationConstant<Int>(bindingCount)
 
@@ -158,7 +152,7 @@ sealed class ValueNode : Node() {
 
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
-            val fn = BridjeTypesGen.expectBridjeFunction(fnNode.execute(frame))
+            val fn = expectBridjeFunction(fnNode.execute(frame))
 
             CompilerAsserts.compilationConstant<Int>(argCount)
             val argValues = Array<Any?>(argCount) { null }
@@ -179,8 +173,8 @@ sealed class ValueNode : Node() {
         protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())
     }
 
-    class GlobalVarNode(val obj: Any?) : ValueNode() {
-        override fun execute(frame: VirtualFrame): Any? = obj
+    class GlobalVarNode(val obj: Any) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any = obj
     }
 
     data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
@@ -238,7 +232,7 @@ sealed class ValueNode : Node() {
 
                 is LocalVarExpr -> LocalVarNodeGen.create(frameDescriptor.findFrameSlot(expr.localVar))
 
-                is GlobalVarExpr -> GlobalVarNode(expr.globalVar.value)
+                is GlobalVarExpr -> GlobalVarNode(expr.globalVar.value!!)
             }
 
     }

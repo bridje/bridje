@@ -98,6 +98,13 @@ object Types {
 
             override fun toString(): String = "(Fn [${paramTypes.joinToString(separator = " ")}] $returnType)"
         }
+
+        data class DataType(val sym: NamespacedSymbol) : MonoType() {
+            override fun unifyEq(other: MonoType): List<TypeEq> =
+                if (this == other) emptyList() else throw UnificationError(this, other)
+
+            override fun toString(): String = sym.toString()
+        }
     }
 
     sealed class TypeException : Exception() {
