@@ -19,6 +19,7 @@ data class BrjEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
 
         operator fun plus(newGlobalVar: GlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym to newGlobalVar))
         operator fun plus(newDataType: DataType): NSEnv = copy(dataTypes = dataTypes + (newDataType.sym to newDataType))
+        operator fun plus(constructor: DataTypeConstructor) = copy(constructors = constructors + (constructor.kw to constructor))
 
         val deps: Set<Symbol> by lazy {
             aliases.values.toSet() + refers.values.map { it.ns }

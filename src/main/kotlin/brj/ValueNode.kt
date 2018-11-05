@@ -2,6 +2,7 @@ package brj
 
 import brj.BridjeTypesGen.expectBoolean
 import brj.BridjeTypesGen.expectBridjeFunction
+import brj.BrjEnv.NSEnv.DataTypeConstructor
 import brj.ValueExpr.*
 import brj.ValueNode.LetNode.LetBindingNode
 import brj.ValueNodeFactory.LocalVarNodeGen
@@ -234,6 +235,10 @@ sealed class ValueNode : Node() {
 
                 is GlobalVarExpr -> GlobalVarNode(expr.globalVar.value!!)
             }
+
+        fun emitConstructor(constructor: DataTypeConstructor): CallTarget {
+            TODO("not implemented")
+        }
 
     }
 }

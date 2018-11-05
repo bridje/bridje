@@ -125,14 +125,14 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                         DEF_DATA -> {
                             val defDataExpr = analyser.defDataAnalyser(it)
 
-                            nsFile.nsEnv += NSEnv.DataType(defDataExpr.sym, defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::sym))
+                            nsFile.nsEnv += NSEnv.DataType(defDataExpr.sym, defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
 
                             val dataType = Types.MonoType.DataType(NamespacedSymbol.create(nsFile.ns, defDataExpr.sym))
 
                             defDataExpr.constructors.forEach { constructor ->
                                 val type = constructor.params?.let { params -> Types.MonoType.FnType(params, dataType) }
                                     ?: dataType
-                                nsFile.nsEnv += NSEnv.GlobalVar(constructor.sym, Types.Typing(type), null)
+                                nsFile.nsEnv += NSEnv.DataTypeConstructor(constructor.kw, defDataExpr.sym, Types.Typing(type), null)
                             }
 
                             env += nsFile.nsEnv
@@ -168,6 +168,18 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 env += nsFile.nsEnv
             }
 
+            fun evalDefDataExpr(sym: Symbol) {
+                val nsEnv = nsFile.nsEnv
+                val dataType = nsEnv.dataTypes[sym]!!
+
+                dataType.constructors.forEach { constructorSym ->
+                    val constructor = nsEnv.constructors[constructorSym]!!
+                    nsFile.nsEnv += constructor.copy(value = ValueNode.ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
+                }
+
+                env += nsFile.nsEnv
+            }
+
             fun varEvaluator(it: AnalyserState) {
                 it.nested(ListForm::forms) {
                     val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
@@ -175,19 +187,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                     when (it.expectForm<Form.SymbolForm>().sym) {
                         DO -> it.varargs(::varEvaluator)
                         DEF -> evalDefExpr(analyser.defAnalyser(it))
-
-                        DEF_DATA -> {
-                            val nsEnv = nsFile.nsEnv
-                            val sym = analyser.defDataSigAnalyser(it).first
-                            val dataType = nsEnv.dataTypes[sym]!!
-
-                            dataType.constructors.forEach { constructorSym ->
-                                nsFile.nsEnv += nsEnv.vars[constructorSym]!!.copy(value = null)
-
-                                env += nsFile.nsEnv
-                                TODO()
-                            }
-                        }
+                        DEF_DATA -> evalDefDataExpr(analyser.defDataSigAnalyser(it).first)
 
                         TYPE_DEF -> Unit
 
