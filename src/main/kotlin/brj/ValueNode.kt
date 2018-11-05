@@ -9,6 +9,8 @@ import brj.ValueNodeFactory.LocalVarNodeGen
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.Truffle
+import com.oracle.truffle.api.`object`.Layout
+import com.oracle.truffle.api.`object`.ObjectType
 import com.oracle.truffle.api.dsl.NodeField
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -237,7 +239,14 @@ sealed class ValueNode : Node() {
             }
 
         fun emitConstructor(constructor: DataTypeConstructor): CallTarget {
+            LAYOUT.createShape(OBJECT_TYPE)
+
             TODO("not implemented")
+        }
+
+        companion object {
+            val LAYOUT = Layout.createLayout()!!
+            val OBJECT_TYPE = object : ObjectType() {}
         }
 
     }

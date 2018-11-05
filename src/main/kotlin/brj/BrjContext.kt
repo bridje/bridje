@@ -1,3 +1,0 @@
-package brj
-
-class BrjContext
