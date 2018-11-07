@@ -1,6 +1,7 @@
 package brj
 
 import brj.Form.*
+import brj.Types.MonoType
 import brj.Types.MonoType.TypeVarType
 import brj.Types.Typing
 
@@ -13,9 +14,10 @@ data class BrjEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
                      val constructors: Map<Keyword, DataTypeConstructor> = emptyMap()) {
 
         data class GlobalVar(val sym: Symbol, val typing: Typing, val value: Any?)
-        data class DataTypeConstructor(val kw: Keyword, val dataTypeSym: Symbol, val typing: Typing, val value: Any?)
 
         data class DataType(val sym: Symbol, val typeVars: List<TypeVarType>?, val constructors: List<Keyword>)
+
+        data class DataTypeConstructor(val kw: Keyword, val dataTypeSym: NamespacedSymbol, val paramTypes: List<MonoType>?, val value: Any?)
 
         operator fun plus(newGlobalVar: GlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym to newGlobalVar))
         operator fun plus(newDataType: DataType): NSEnv = copy(dataTypes = dataTypes + (newDataType.sym to newDataType))

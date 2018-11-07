@@ -3,14 +3,17 @@ package brj
 import brj.BridjeTypesGen.expectBoolean
 import brj.BridjeTypesGen.expectBridjeFunction
 import brj.BrjEnv.NSEnv.DataTypeConstructor
+import brj.Types.MonoType
 import brj.ValueExpr.*
 import brj.ValueNode.LetNode.LetBindingNode
 import brj.ValueNodeFactory.LocalVarNodeGen
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.Truffle
+import com.oracle.truffle.api.`object`.DynamicObjectFactory
 import com.oracle.truffle.api.`object`.Layout
 import com.oracle.truffle.api.`object`.ObjectType
+import com.oracle.truffle.api.`object`.Property
 import com.oracle.truffle.api.dsl.NodeField
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -238,16 +241,49 @@ sealed class ValueNode : Node() {
                 is GlobalVarExpr -> GlobalVarNode(expr.globalVar.value!!)
             }
 
-        fun emitConstructor(constructor: DataTypeConstructor): CallTarget {
-            LAYOUT.createShape(OBJECT_TYPE)
-
-            TODO("not implemented")
-        }
-
         companion object {
             val LAYOUT = Layout.createLayout()!!
-            val OBJECT_TYPE = object : ObjectType() {}
         }
+
+        inner class FunctionConstructor(paramTypes: List<MonoType>) : RootNode(lang) {
+
+            val constructorType = object : ObjectType() {}
+
+            private val paramCount = paramTypes.size
+
+            private val factory: DynamicObjectFactory
+
+            init {
+                val allocator = LAYOUT.createAllocator()
+                var shape = LAYOUT.createShape(constructorType)
+                paramTypes.forEachIndexed { idx, paramType ->
+                    shape = shape.addProperty(Property.create(idx, allocator.locationForType(paramType.javaType), 0))
+                }
+                factory = shape.createFactory()
+            }
+
+            @ExplodeLoop
+            override fun execute(frame: VirtualFrame): Any {
+                val params = arrayOfNulls<Any>(paramCount)
+
+                for (i in 0 until paramCount) {
+                    params[i] = frame.arguments[i]
+                }
+
+                return factory.newInstance(params)
+            }
+        }
+
+        class ObjectConstructor() : ValueNode() {
+            val obj = object : ObjectType() {}
+
+            override fun execute(frame: VirtualFrame): Any {
+                return obj
+            }
+        }
+
+        fun emitConstructor(constructor: DataTypeConstructor): Any =
+            if (constructor.paramTypes != null) FunctionConstructor(constructor.paramTypes) else ObjectConstructor()
 
     }
 }

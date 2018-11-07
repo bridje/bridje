@@ -127,12 +127,8 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                             nsFile.nsEnv += NSEnv.DataType(defDataExpr.sym, defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
 
-                            val dataType = Types.MonoType.DataType(NamespacedSymbol.create(nsFile.ns, defDataExpr.sym))
-
                             defDataExpr.constructors.forEach { constructor ->
-                                val type = constructor.params?.let { params -> Types.MonoType.FnType(params, dataType) }
-                                    ?: dataType
-                                nsFile.nsEnv += NSEnv.DataTypeConstructor(constructor.kw, defDataExpr.sym, Types.Typing(type), null)
+                                nsFile.nsEnv += NSEnv.DataTypeConstructor(constructor.kw, NamespacedSymbol.create(nsFile.ns, defDataExpr.sym), constructor.params, null)
                             }
 
                             env += nsFile.nsEnv

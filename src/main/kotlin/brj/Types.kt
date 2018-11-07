@@ -25,6 +25,8 @@ object Types {
     }
 
     sealed class MonoType {
+        open val javaType: Class<*>? = Object::class.java
+
         open fun applyMapping(mapping: TypeMapping): MonoType = this
         open fun unifyEq(other: MonoType): List<TypeEq> =
             if (this.javaClass == other.javaClass) emptyList() else throw UnificationError(this, other)
@@ -33,6 +35,8 @@ object Types {
             t as? T ?: throw UnificationError(this, t)
 
         object BoolType : MonoType() {
+            override val javaType: Class<*>? = Boolean::class.javaPrimitiveType
+
             override fun toString(): String = "Bool"
         }
 
@@ -41,6 +45,7 @@ object Types {
         }
 
         object IntType : MonoType() {
+            override val javaType: Class<*>? = Long::class.javaPrimitiveType
             override fun toString(): String = "Int"
         }
 
@@ -49,6 +54,7 @@ object Types {
         }
 
         object FloatType : MonoType() {
+            override val javaType: Class<*>? = Double::class.javaPrimitiveType
             override fun toString(): String = "Float"
         }
 
