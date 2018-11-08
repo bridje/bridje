@@ -19,13 +19,15 @@ fun main(args: Array<String>) {
 
         (defdata (Maybe a) (:Just a) :Nothing)
 
-        (def x
-          (let [quux 10N]
-            [quux baz]))
+        (def foo [:Nothing (:Just 4)])
 
-        (:: (my-fn a a) [a])
-        (def (my-fn x y)
-          [y x])
+        ;(def x
+        ;  (let [quux 10N]
+        ;    [quux baz]))
+
+        ;(:: (my-fn a a) [a])
+        ;(def (my-fn x y)
+        ;  [y x])
         """.trimIndent())
 
     val barSource = Source.create("brj", """
@@ -35,6 +37,8 @@ fun main(args: Array<String>) {
     """.trimIndent())
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
+
+    println("value: ${ctx.eval(Source.create("brj", "foo/foo"))}")
 
     println("value: ${ctx.eval(Source.create("brj", "(foo/my-fn foo/x [bar/baz 60N 99N])"))}")
 

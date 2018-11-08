@@ -20,7 +20,7 @@ BIG_FLOAT: FLOAT [mM];
 
 STRING : '"' ( '\\"' | . )*? '"';
 
-LINE_COMMENT: ';' (.*?) ([\n]+ | EOF) -> skip;
+LINE_COMMENT: ';' (.*?) ([\n\r]+ | EOF) -> skip;
 
 file : form* EOF;
 

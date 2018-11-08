@@ -1,5 +1,6 @@
 package brj
 
+import brj.BrjEnv.NSEnv.DataTypeConstructor
 import brj.Types.MonoType.*
 import brj.Types.TypeEq.Companion.unifyEqs
 import brj.Types.TypeException.ArityError
@@ -247,6 +248,13 @@ object Types {
             return Typing(tv, MonoEnv(mapOf(lv to tv)))
         }
 
+        private fun constructorExprTyping(constructor: DataTypeConstructor): Typing {
+            val dataType = DataType(constructor.dataTypeSym)
+            val type = if (constructor.paramTypes == null) dataType else FnType(constructor.paramTypes, dataType)
+
+            return Typing(type)
+        }
+
         fun valueExprTyping(expr: ValueExpr): Typing =
             when (expr) {
                 is BooleanExpr -> Typing(BoolType)
@@ -268,8 +276,8 @@ object Types {
 
                 is LocalVarExpr -> localVarTyping(expr.localVar)
                 is GlobalVarExpr -> expr.globalVar.typing
+
+                is ConstructorExpr -> constructorExprTyping(expr.constructor)
             }
     }
-
-
 }

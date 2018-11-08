@@ -19,5 +19,10 @@ class NamespacedSymbol private constructor(val ns: Symbol, val name: Symbol) {
     override fun toString() = "$ns/$name"
 }
 
-data class Keyword(val name: String)
-data class NamespacedKeyword(val ns: Symbol, val name: Symbol)
+data class Keyword(val name: String) {
+    override fun toString(): String = ":$name"
+}
+
+data class NamespacedKeyword(val ns: Symbol, val name: Symbol) {
+    override fun toString(): String = ":$ns/$name"
+}

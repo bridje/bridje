@@ -7,7 +7,6 @@ import brj.BrjEnv.NSEnv.Companion.nsAnalyser
 import brj.BrjLanguage.BridjeContext
 import brj.Form.Companion.readForms
 import brj.Form.ListForm
-import brj.ValueNode.FnNode.BridjeFunction
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
@@ -18,8 +17,6 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
-import org.pcollections.HashTreePSet
-import org.pcollections.TreePVector
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.util.*
@@ -43,8 +40,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     @TypeSystem(
         Boolean::class, String::class,
         Long::class, Float::class, BigInteger::class, BigDecimal::class,
-        BridjeFunction::class,
-        TreePVector::class, HashTreePSet::class)
+        CallTarget::class)
     abstract class BridjeTypes
 
     private val ctx get() = getCurrentContext(this.javaClass)
@@ -74,7 +70,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         println("type: ${Types.TypeChecker(env).valueExprTyping(expr)}")
 
         val emitter = ValueNode.ValueNodeEmitter(this, FrameDescriptor())
-        return Truffle.getRuntime().createCallTarget(emitter.RootValueNode(emitter.emitValueExpr(expr)))
+        return Truffle.getRuntime().createCallTarget(emitter.EvalRootNode(emitter.emitValueExpr(expr)))
     }
 
     internal inner class Require(var env: BrjEnv) {
@@ -158,18 +154,19 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                 val node = ValueNode.ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
 
-                nsFile.nsEnv += NSEnv.GlobalVar(expr.sym, expectedTyping
-                    ?: expr.typing, node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)))
+                nsFile.nsEnv += NSEnv.GlobalVar(
+                    expr.sym,
+                    expectedTyping ?: expr.typing,
+                    node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)))
 
                 env += nsFile.nsEnv
             }
 
             fun evalDefDataExpr(sym: Symbol) {
-                val nsEnv = nsFile.nsEnv
-                val dataType = nsEnv.dataTypes[sym]!!
+                val dataType = nsFile.nsEnv.dataTypes[sym]!!
 
                 dataType.constructors.forEach { constructorSym ->
-                    val constructor = nsEnv.constructors[constructorSym]!!
+                    val constructor = nsFile.nsEnv.constructors[constructorSym]!!
                     nsFile.nsEnv += constructor.copy(value = ValueNode.ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
                 }
 

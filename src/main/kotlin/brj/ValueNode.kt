@@ -1,19 +1,17 @@
 package brj
 
 import brj.BridjeTypesGen.expectBoolean
-import brj.BridjeTypesGen.expectBridjeFunction
+import brj.BridjeTypesGen.expectCallTarget
 import brj.BrjEnv.NSEnv.DataTypeConstructor
 import brj.Types.MonoType
 import brj.ValueExpr.*
-import brj.ValueNode.LetNode.LetBindingNode
-import brj.ValueNodeFactory.LocalVarNodeGen
-import com.oracle.truffle.api.CallTarget
+import brj.ValueNodeFactory.ReadLocalVarNodeGen
+import brj.ValueNodeFactory.WriteLocalVarNodeGen
 import com.oracle.truffle.api.CompilerAsserts
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.`object`.DynamicObjectFactory
-import com.oracle.truffle.api.`object`.Layout
-import com.oracle.truffle.api.`object`.ObjectType
-import com.oracle.truffle.api.`object`.Property
+import com.oracle.truffle.api.`object`.*
+import com.oracle.truffle.api.dsl.NodeChild
 import com.oracle.truffle.api.dsl.NodeField
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -29,7 +27,7 @@ import org.pcollections.TreePVector
 import java.math.BigDecimal
 import java.math.BigInteger
 
-sealed class ValueNode : Node() {
+abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
 
     class BoolNode(val boolean: Boolean) : ValueNode() {
@@ -56,6 +54,10 @@ sealed class ValueNode : Node() {
         override fun execute(frame: VirtualFrame): BigDecimal = bigDec
     }
 
+    class ObjectNode(val obj: Any) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any = obj
+    }
+
     class CollNode(@Children val nodes: Array<ValueNode>, val toColl: (List<Any?>) -> Any) : ValueNode() {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
@@ -80,7 +82,7 @@ sealed class ValueNode : Node() {
             (if (conditionProfile.profile(expectBoolean(predNode.execute(frame)))) thenNode else elseNode).execute(frame)
     }
 
-    class DoNode(@Children var exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode) : ValueNode() {
+    class DoNode(@Children val exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode) : ValueNode() {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
             val exprCount = exprNodes.size
@@ -92,100 +94,80 @@ sealed class ValueNode : Node() {
 
             return exprNode.execute(frame)
         }
-
     }
 
-    class LetNode(@Children var bindingNodes: Array<LetBindingNode>, @Child var bodyNode: ValueNode) : ValueNode() {
-        class LetBindingNode(val slot: FrameSlot, @Child var node: ValueNode) : Node() {
-            fun execute(frame: VirtualFrame) {
-                frame.setObject(slot, node.execute(frame))
-            }
-        }
-
+    class LetNode(@Children val bindingNodes: Array<UnitNode>, @Child var bodyNode: ValueNode) : ValueNode() {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
             val bindingCount = bindingNodes.size
             CompilerAsserts.compilationConstant<Int>(bindingCount)
 
-            for (i in 0 until bindingCount) {
-                bindingNodes[i].execute(frame)
+            for (node in bindingNodes) {
+                node.execute(frame)
             }
 
             return bodyNode.execute(frame)
         }
-
     }
 
-    class FnNode(val fn: BridjeFunction) : ValueNode() {
 
-        class BridjeFunction(
-            lang: BrjLanguage,
-            frameDescriptor: FrameDescriptor,
-            @Children var readArgNodes: Array<ReadArgNode>,
-            @Child var bodyNode: ValueNode
-        ) : RootNode(lang, frameDescriptor) {
+    abstract class UnitNode : Node() {
+        abstract fun execute(frame: VirtualFrame)
+    }
 
-            class ReadArgNode(val slot: FrameSlot, val idx: Int) : Node() {
-                fun execute(frame: VirtualFrame) {
-                    frame.setObject(slot, frame.arguments[idx])
-                }
-            }
+    class ReadArgNode(val idx: Int) : ValueNode() {
+        override fun execute(frame: VirtualFrame) = frame.arguments[idx]
+    }
 
-            @ExplodeLoop
-            override fun execute(frame: VirtualFrame): Any? {
-                val argCount = readArgNodes.size
-                CompilerAsserts.compilationConstant<Int>(argCount)
-                for (i in 0 until argCount) {
-                    readArgNodes[i].execute(frame)
-                }
+    @NodeChild("value", type = ValueNode::class)
+    @NodeField(name = "slot", type = FrameSlot::class)
+    abstract class WriteLocalVarNode : UnitNode() {
+        abstract fun getSlot(): FrameSlot
 
-                return bodyNode.execute(frame)
-            }
-
-            fun callTarget(): CallTarget {
-                return Truffle.getRuntime().createCallTarget(this)
-            }
+        @Specialization
+        fun writeObject(frame: VirtualFrame, value: Any) {
+            frame.setObject(getSlot(), value)
         }
-
-        override fun execute(frame: VirtualFrame): BridjeFunction = fn
     }
 
-    class CallNode(@Child var fnNode: ValueNode, @Children var argNodes: Array<ValueNode>) : ValueNode() {
-        val argCount = argNodes.size
+    class FnBodyNode(@Children val readArgNodes: Array<UnitNode>, @Child var bodyNode: ValueNode) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any {
+            for (node in readArgNodes) {
+                node.execute(frame)
+            }
 
+            return bodyNode.execute(frame)
+        }
+    }
+
+    class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>) : ValueNode() {
         @Child
         var callNode = Truffle.getRuntime().createIndirectCallNode()
 
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
-            val fn = expectBridjeFunction(fnNode.execute(frame))
+            val fn = expectCallTarget(fnNode.execute(frame))
 
-            CompilerAsserts.compilationConstant<Int>(argCount)
-            val argValues = Array<Any?>(argCount) { null }
+            val argValues = arrayOfNulls<Any>(argNodes.size)
 
-            for (i in 0 until argCount) {
+            for (i in argNodes.indices) {
                 argValues[i] = argNodes[i].execute(frame)
             }
 
-            return callNode.call(fn.callTarget(), argValues)
+            return callNode.call(fn, argValues)
         }
     }
 
     @NodeField(name = "slot", type = FrameSlot::class)
-    abstract class LocalVarNode : ValueNode() {
+    abstract class ReadLocalVarNode : ValueNode() {
         abstract fun getSlot(): FrameSlot
 
         @Specialization
         protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())
     }
 
-    class GlobalVarNode(val obj: Any) : ValueNode() {
-        override fun execute(frame: VirtualFrame): Any = obj
-    }
-
     data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
-
-        inner class RootValueNode(@Child var node: ValueNode) : RootNode(lang, frameDescriptor) {
+        inner class EvalRootNode(@Child var node: ValueNode) : RootNode(lang, frameDescriptor) {
             override fun execute(frame: VirtualFrame): Any {
                 val res = node.execute(frame)
 
@@ -210,10 +192,12 @@ sealed class ValueNode : Node() {
                 is SetExpr -> CollNode(expr.exprs.map(::emitValueExpr).toTypedArray()) { HashTreePSet.from(it) }
 
                 is FnExpr -> {
-                    val slots = expr.params.associate { it to frameDescriptor.findOrAddFrameSlot(it) }
-                    val readArgNodes = expr.params.mapIndexed { idx, it -> FnNode.BridjeFunction.ReadArgNode(slots[it]!!, idx) }
-
-                    FnNode(FnNode.BridjeFunction(lang, frameDescriptor, readArgNodes.toTypedArray(), emitValueExpr(expr.expr)))
+                    FnBodyNode(
+                        expr.params
+                            .mapIndexed { idx, it -> WriteLocalVarNodeGen.create(ReadArgNode(idx), frameDescriptor.findOrAddFrameSlot(it)) }
+                            .toTypedArray(),
+                        emitValueExpr(expr.expr))
+                    TODO()
                 }
 
                 is CallExpr -> CallNode(emitValueExpr(expr.f), expr.args.map(::emitValueExpr).toTypedArray())
@@ -221,69 +205,62 @@ sealed class ValueNode : Node() {
                 is IfExpr -> IfNode(
                     emitValueExpr(expr.predExpr),
                     emitValueExpr(expr.thenExpr),
-                    emitValueExpr(expr.elseExpr)
-                )
+                    emitValueExpr(expr.elseExpr))
 
                 is DoExpr -> DoNode(expr.exprs.map(::emitValueExpr).toTypedArray(), emitValueExpr(expr.expr))
 
-                is LetExpr -> {
-                    val letBindingNodes = expr.bindings.map {
-                        val node = emitValueExpr(it.expr)
-                        val slot = frameDescriptor.findOrAddFrameSlot(it.localVar)
-                        LetBindingNode(slot, node)
-                    }
+                is LetExpr -> LetNode(
+                    expr.bindings
+                        .map { WriteLocalVarNodeGen.create(emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.localVar)) }
+                        .toTypedArray(),
+                    emitValueExpr(expr.expr))
 
-                    LetNode(letBindingNodes.toTypedArray(), emitValueExpr(expr.expr))
-                }
+                is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findFrameSlot(expr.localVar))
 
-                is LocalVarExpr -> LocalVarNodeGen.create(frameDescriptor.findFrameSlot(expr.localVar))
-
-                is GlobalVarExpr -> GlobalVarNode(expr.globalVar.value!!)
+                is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
+                is ConstructorExpr -> ObjectNode(expr.constructor.value!!)
             }
 
         companion object {
             val LAYOUT = Layout.createLayout()!!
         }
 
-        inner class FunctionConstructor(paramTypes: List<MonoType>) : RootNode(lang) {
-
-            val constructorType = object : ObjectType() {}
-
-            private val paramCount = paramTypes.size
+        inner class FunctionConstructor(kw: Keyword, val paramTypes: List<MonoType>) : RootNode(lang) {
+            val constructorType = object : ObjectType() {
+                @TruffleBoundary
+                override fun toString(obj: DynamicObject): String = "($kw ${paramTypes.mapIndexed { idx, _ -> obj[idx] }.joinToString(" ")})"
+            }
 
             private val factory: DynamicObjectFactory
 
             init {
                 val allocator = LAYOUT.createAllocator()
                 var shape = LAYOUT.createShape(constructorType)
+
                 paramTypes.forEachIndexed { idx, paramType ->
                     shape = shape.addProperty(Property.create(idx, allocator.locationForType(paramType.javaType), 0))
                 }
+
                 factory = shape.createFactory()
             }
 
             @ExplodeLoop
             override fun execute(frame: VirtualFrame): Any {
-                val params = arrayOfNulls<Any>(paramCount)
+                val params = arrayOfNulls<Any>(paramTypes.size)
 
-                for (i in 0 until paramCount) {
+                for (i in paramTypes.indices) {
                     params[i] = frame.arguments[i]
                 }
 
-                return factory.newInstance(params)
-            }
-        }
-
-        class ObjectConstructor() : ValueNode() {
-            val obj = object : ObjectType() {}
-
-            override fun execute(frame: VirtualFrame): Any {
-                return obj
+                return factory.newInstance(*params)
             }
         }
 
         fun emitConstructor(constructor: DataTypeConstructor): Any =
-            if (constructor.paramTypes != null) FunctionConstructor(constructor.paramTypes) else ObjectConstructor()
-
+            if (constructor.paramTypes != null)
+                Truffle.getRuntime().createCallTarget(FunctionConstructor(constructor.kw, constructor.paramTypes))
+            else object : Any() {
+                override fun toString(): String = constructor.kw.toString()
+            }
     }
 }

@@ -29,6 +29,8 @@ sealed class ValueExpr {
     data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
     data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
+    data class ConstructorExpr(val constructor: NSEnv.DataTypeConstructor) : ValueExpr()
+
     @Suppress("NestedLambdaShadowedImplicitParameter")
     data class ValueExprAnalyser(val env: BrjEnv, val nsEnv: NSEnv, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
         private val ifAnalyser: FormsAnalyser<ValueExpr> = {
@@ -125,6 +127,12 @@ sealed class ValueExpr {
             return GlobalVarExpr(globalVar)
         }
 
+        private fun analyseKeyword(kw: Keyword): ValueExpr {
+            nsEnv.constructors[kw]?.let { return ConstructorExpr(it) }
+
+            TODO()
+        }
+
         private val exprAnalyser: FormsAnalyser<ValueExpr> = {
             val form = it.expectForm<Form>()
 
@@ -137,7 +145,7 @@ sealed class ValueExpr {
                 is Form.BigFloatForm -> BigFloatExpr(form.bigFloat)
                 is Form.SymbolForm -> analyseSymbol(form.sym)
                 is Form.NamespacedSymbolForm -> analyseSymbol(form.sym)
-                is Form.KeywordForm -> TODO()
+                is Form.KeywordForm -> analyseKeyword(form.kw)
                 is Form.NamespacedKeywordForm -> TODO()
                 is Form.ListForm -> listAnalyser(Analyser.AnalyserState(form.forms))
                 is Form.VectorForm -> collAnalyser(ValueExpr::VectorExpr)(Analyser.AnalyserState(form.forms))
