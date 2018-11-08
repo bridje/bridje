@@ -85,7 +85,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                         DEF_DATA -> {
                             val (sym, typeVars) = analyser.defDataSigAnalyser(it)
 
-                            nsFile.nsEnv += NSEnv.DataType(sym, typeVars, emptyList())
+                            nsFile.nsEnv += NSEnv.DataType(NamespacedSymbol.create(nsFile.ns, sym), typeVars, emptyList())
                             env += nsFile.nsEnv
                         }
 
@@ -121,10 +121,12 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                         DEF_DATA -> {
                             val defDataExpr = analyser.defDataAnalyser(it)
 
-                            nsFile.nsEnv += NSEnv.DataType(defDataExpr.sym, defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
+                            val dataType = NSEnv.DataType(NamespacedSymbol.create(nsFile.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
+
+                            nsFile.nsEnv += dataType
 
                             defDataExpr.constructors.forEach { constructor ->
-                                nsFile.nsEnv += NSEnv.DataTypeConstructor(constructor.kw, NamespacedSymbol.create(nsFile.ns, defDataExpr.sym), constructor.params, null)
+                                nsFile.nsEnv += NSEnv.DataTypeConstructor(constructor.kw, dataType, constructor.params, null)
                             }
 
                             env += nsFile.nsEnv

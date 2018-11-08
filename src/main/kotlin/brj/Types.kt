@@ -25,15 +25,29 @@ object Types {
         operator fun minus(localVars: Iterable<LocalVar>): MonoEnv = MonoEnv(env.minus(localVars))
     }
 
+    internal class Instantiator {
+        val mapping: MutableMap<TypeVarType, TypeVarType> = mutableMapOf()
+
+        operator fun invoke(type: MonoType): MonoType {
+            return when (type) {
+                is TypeVarType -> mapping.getOrPut(type) { TypeVarType() }
+                else -> type.fmap(this::invoke)
+            }
+        }
+    }
+
     sealed class MonoType {
         open val javaType: Class<*>? = Object::class.java
 
-        open fun applyMapping(mapping: TypeMapping): MonoType = this
         open fun unifyEq(other: MonoType): List<TypeEq> =
             if (this.javaClass == other.javaClass) emptyList() else throw UnificationError(this, other)
 
         protected inline fun <reified T : MonoType> ensure(t: MonoType): T =
             t as? T ?: throw UnificationError(this, t)
+
+        open fun fmap(f: (MonoType) -> MonoType): MonoType = this
+
+        open fun applyMapping(mapping: TypeMapping): MonoType = fmap { it.applyMapping(mapping) }
 
         object BoolType : MonoType() {
             override val javaType: Class<*>? = Boolean::class.javaPrimitiveType
@@ -64,7 +78,7 @@ object Types {
         }
 
         class TypeVarType : MonoType() {
-            override fun applyMapping(mapping: TypeMapping): MonoType = mapping.map(this)
+            override fun applyMapping(mapping: TypeMapping): MonoType = mapping.mapping.getOrDefault(this, this)
 
             override fun equals(other: Any?): Boolean {
                 return this === other
@@ -80,21 +94,20 @@ object Types {
         }
 
         data class VectorType(val elType: MonoType) : MonoType() {
-            override fun applyMapping(mapping: TypeMapping): MonoType = VectorType(elType = elType.applyMapping(mapping))
             override fun unifyEq(other: MonoType): List<TypeEq> = listOf(TypeEq(elType, ensure<VectorType>(other).elType))
+            override fun fmap(f: (MonoType) -> MonoType): MonoType = VectorType(f(elType))
+
             override fun toString(): String = "[$elType]"
         }
 
         data class SetType(val elType: MonoType) : MonoType() {
-            override fun applyMapping(mapping: TypeMapping): MonoType = SetType(elType = elType.applyMapping(mapping))
             override fun unifyEq(other: MonoType): List<TypeEq> = listOf(TypeEq(elType, ensure<SetType>(other).elType))
+            override fun fmap(f: (MonoType) -> MonoType): MonoType = VectorType(f(elType))
+
             override fun toString(): String = "#{$elType}"
         }
 
         data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : MonoType() {
-            override fun applyMapping(mapping: TypeMapping): MonoType =
-                FnType(paramTypes.map { it.applyMapping(mapping) }, returnType.applyMapping(mapping))
-
             override fun unifyEq(other: MonoType): List<TypeEq> {
                 val otherFnType = ensure<FnType>(other)
                 if (paramTypes.size != otherFnType.paramTypes.size) throw UnificationError(this, other)
@@ -102,6 +115,8 @@ object Types {
                 return paramTypes.zip(otherFnType.paramTypes, ::TypeEq)
                     .plus(TypeEq(returnType, otherFnType.returnType))
             }
+
+            override fun fmap(f: (MonoType) -> MonoType): MonoType = FnType(paramTypes.map(f), f(returnType))
 
             override fun toString(): String = "(Fn [${paramTypes.joinToString(separator = " ")}] $returnType)"
         }
@@ -111,6 +126,21 @@ object Types {
                 if (this == other) emptyList() else throw UnificationError(this, other)
 
             override fun toString(): String = sym.toString()
+        }
+
+        data class AppliedType(val type: MonoType, val params: List<MonoType>) : MonoType() {
+            override fun unifyEq(other: MonoType): List<TypeEq> {
+                val otherAppliedType = ensure<AppliedType>(other)
+                if (this.params.size != otherAppliedType.params.size) throw UnificationError(this, other)
+
+                return params.zip(otherAppliedType.params, ::TypeEq)
+                    .plus(TypeEq(this.type, otherAppliedType.type))
+            }
+
+            override fun fmap(f: (MonoType) -> MonoType): MonoType =
+                AppliedType(f(type), params.map(f))
+
+            override fun toString(): String = "($type ${params.joinToString(" ")})"
         }
     }
 
@@ -249,8 +279,11 @@ object Types {
         }
 
         private fun constructorExprTyping(constructor: DataTypeConstructor): Typing {
-            val dataType = DataType(constructor.dataTypeSym)
-            val type = if (constructor.paramTypes == null) dataType else FnType(constructor.paramTypes, dataType)
+            val dataType = DataType(constructor.dataType.sym)
+            val typeVars = constructor.dataType.typeVars
+
+            val appliedDataType = if (typeVars != null) AppliedType(dataType, typeVars) else dataType
+            val type = Instantiator()(if (constructor.paramTypes == null) appliedDataType else FnType(constructor.paramTypes, appliedDataType))
 
             return Typing(type)
         }
