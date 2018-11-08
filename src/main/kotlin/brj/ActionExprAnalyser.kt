@@ -72,15 +72,11 @@ internal class ActionExprAnalyser(val brjEnv: BrjEnv, val nsEnv: BrjEnv.NSEnv) {
                     }
                 }
 
-                is Form.VectorForm ->
-                    VectorType(it.nested(form.forms) {
-                        monoTypeAnalyser(it).also { _ -> it.expectEnd() }
-                    })
+                is Form.VectorForm -> VectorType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
 
-                is Form.SetForm ->
-                    SetType(it.nested(form.forms) {
-                        monoTypeAnalyser(it).also { _ -> it.expectEnd() }
-                    })
+                is Form.SetForm -> SetType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
+
+                is Form.ListForm -> it.nested(form.forms) { AppliedType(monoTypeAnalyser(it), it.varargs(::monoTypeAnalyser)) }
 
                 else -> TODO()
             }

@@ -19,6 +19,7 @@ fun main(args: Array<String>) {
 
         (defdata (Maybe a) (:Just a) :Nothing)
 
+        (:: foo [(foo/Maybe Int)])
         (def foo [:Nothing (:Just 4)])
 
         (def x
