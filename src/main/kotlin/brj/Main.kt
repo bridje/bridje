@@ -21,13 +21,13 @@ fun main(args: Array<String>) {
 
         (def foo [:Nothing (:Just 4)])
 
-        ;(def x
-        ;  (let [quux 10N]
-        ;    [quux baz]))
+        (def x
+          (let [quux 10N]
+            [quux baz]))
 
-        ;(:: (my-fn a a) [a])
-        ;(def (my-fn x y)
-        ;  [y x])
+        (:: (my-fn a a) [a])
+        (def (my-fn x y)
+          [y x])
         """.trimIndent())
 
     val barSource = Source.create("brj", """

@@ -24,8 +24,6 @@ import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.profiles.ConditionProfile
 import org.pcollections.HashTreePSet
 import org.pcollections.TreePVector
-import java.math.BigDecimal
-import java.math.BigInteger
 
 abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
@@ -34,24 +32,12 @@ abstract class ValueNode : Node() {
         override fun execute(frame: VirtualFrame): Boolean = boolean
     }
 
-    class StringNode(val string: String) : ValueNode() {
-        override fun execute(frame: VirtualFrame): String = string
-    }
-
     class IntNode(val int: Long) : ValueNode() {
         override fun execute(frame: VirtualFrame): Long = int
     }
 
-    class BigIntNode(val bigInt: BigInteger) : ValueNode() {
-        override fun execute(frame: VirtualFrame): BigInteger = bigInt
-    }
-
     class FloatNode(val float: Double) : ValueNode() {
         override fun execute(frame: VirtualFrame): Double = float
-    }
-
-    class BigFloatNode(val bigDec: BigDecimal) : ValueNode() {
-        override fun execute(frame: VirtualFrame): BigDecimal = bigDec
     }
 
     class ObjectNode(val obj: Any) : ValueNode() {
@@ -130,16 +116,6 @@ abstract class ValueNode : Node() {
         }
     }
 
-    class FnBodyNode(@Children val readArgNodes: Array<UnitNode>, @Child var bodyNode: ValueNode) : ValueNode() {
-        override fun execute(frame: VirtualFrame): Any {
-            for (node in readArgNodes) {
-                node.execute(frame)
-            }
-
-            return bodyNode.execute(frame)
-        }
-    }
-
     class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>) : ValueNode() {
         @Child
         var callNode = Truffle.getRuntime().createIndirectCallNode()
@@ -178,27 +154,38 @@ abstract class ValueNode : Node() {
             }
         }
 
+        inner class FnBodyNode(expr: FnExpr) : RootNode(lang, frameDescriptor) {
+            @Children
+            val readArgNodes: Array<UnitNode> = expr.params
+                .mapIndexed { idx, it -> WriteLocalVarNodeGen.create(ReadArgNode(idx), frameDescriptor.findOrAddFrameSlot(it)) }
+                .toTypedArray()
+
+            @Child
+            var bodyNode: ValueNode = emitValueExpr(expr.expr)
+
+            override fun execute(frame: VirtualFrame): Any {
+                for (node in readArgNodes) {
+                    node.execute(frame)
+                }
+
+                return bodyNode.execute(frame)
+            }
+        }
+
         fun emitValueExpr(expr: ValueExpr): ValueNode =
             when (expr) {
                 is BooleanExpr -> BoolNode(expr.boolean)
-                is StringExpr -> StringNode(expr.string)
+                is StringExpr -> ObjectNode(expr.string)
                 is IntExpr -> IntNode(expr.int)
-                is BigIntExpr -> BigIntNode(expr.bigInt)
+                is BigIntExpr -> ObjectNode(expr.bigInt)
                 is FloatExpr -> FloatNode(expr.float)
-                is BigFloatExpr -> BigFloatNode(expr.bigFloat)
+                is BigFloatExpr -> ObjectNode(expr.bigFloat)
 
                 is VectorExpr -> CollNode(expr.exprs.map(::emitValueExpr).toTypedArray()) { TreePVector.from(it) }
 
                 is SetExpr -> CollNode(expr.exprs.map(::emitValueExpr).toTypedArray()) { HashTreePSet.from(it) }
 
-                is FnExpr -> {
-                    FnBodyNode(
-                        expr.params
-                            .mapIndexed { idx, it -> WriteLocalVarNodeGen.create(ReadArgNode(idx), frameDescriptor.findOrAddFrameSlot(it)) }
-                            .toTypedArray(),
-                        emitValueExpr(expr.expr))
-                    TODO()
-                }
+                is FnExpr -> ObjectNode(Truffle.getRuntime().createCallTarget(ValueNodeEmitter(lang, FrameDescriptor()).FnBodyNode(expr)))
 
                 is CallExpr -> CallNode(emitValueExpr(expr.f), expr.args.map(::emitValueExpr).toTypedArray())
 
