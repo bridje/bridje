@@ -7,6 +7,7 @@ import brj.BrjEnv.NSEnv.Companion.nsAnalyser
 import brj.BrjLanguage.BridjeContext
 import brj.Form.Companion.readForms
 import brj.Form.ListForm
+import brj.Types.MonoType.*
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
@@ -45,7 +46,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
     private val ctx get() = getCurrentContext(this.javaClass)
 
-    private val USER = Symbol.create("user")
+    private val USER = ASymbol.Symbol.intern("user")
 
     override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
         val source = request.source
@@ -79,13 +80,13 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
 
                 it.nested(ListForm::forms) {
-                    when (it.expectForm<Form.SymbolForm>().sym) {
+                    when (it.expectForm<Form.ASymbolForm.SymbolForm>().sym) {
                         DO -> it.varargs(::dataDefEvaluator)
 
                         DEF_DATA -> {
                             val (sym, typeVars) = analyser.defDataSigAnalyser(it)
 
-                            nsFile.nsEnv += NSEnv.DataType(NamespacedSymbol.create(nsFile.ns, sym), typeVars, emptyList())
+                            nsFile.nsEnv += NSEnv.DataType(AQSymbol.QSymbol.intern(nsFile.ns, sym), typeVars, emptyList())
                             env += nsFile.nsEnv
                         }
 
@@ -104,7 +105,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 it.nested(ListForm::forms) {
                     val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
 
-                    when (it.expectForm<Form.SymbolForm>().sym) {
+                    when (it.expectForm<Form.ASymbolForm.SymbolForm>().sym) {
                         DO -> it.varargs(::typeDefEvaluator)
 
                         TYPE_DEF -> {
@@ -121,12 +122,17 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                         DEF_DATA -> {
                             val defDataExpr = analyser.defDataAnalyser(it)
 
-                            val dataType = NSEnv.DataType(NamespacedSymbol.create(nsFile.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
+                            val dataType = NSEnv.DataType(AQSymbol.QSymbol.intern(nsFile.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
 
                             nsFile.nsEnv += dataType
 
+                            val dataTypeType = DataType(dataType.sym)
+                            val appliedType = dataType.typeVars?.let { AppliedType(dataTypeType, it) } ?: dataTypeType
+
                             defDataExpr.constructors.forEach { constructor ->
-                                nsFile.nsEnv += NSEnv.DataTypeConstructor(constructor.kw, dataType, constructor.params, null)
+                                val constructorType = constructor.params?.let { FnType(it, appliedType) } ?: appliedType
+
+                                nsFile.nsEnv += NSEnv.GlobalVar(constructor.kw, Types.Typing(constructorType), ValueNode.ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
                             }
 
                             env += nsFile.nsEnv
@@ -164,27 +170,15 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 env += nsFile.nsEnv
             }
 
-            fun evalDefDataExpr(sym: Symbol) {
-                val dataType = nsFile.nsEnv.dataTypes[sym]!!
-
-                dataType.constructors.forEach { constructorSym ->
-                    val constructor = nsFile.nsEnv.constructors[constructorSym]!!
-                    nsFile.nsEnv += constructor.copy(value = ValueNode.ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
-                }
-
-                env += nsFile.nsEnv
-            }
-
             fun varEvaluator(it: AnalyserState) {
                 it.nested(ListForm::forms) {
                     val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
 
-                    when (it.expectForm<Form.SymbolForm>().sym) {
+                    when (it.expectForm<Form.ASymbolForm.SymbolForm>().sym) {
                         DO -> it.varargs(::varEvaluator)
                         DEF -> evalDefExpr(analyser.defAnalyser(it))
-                        DEF_DATA -> evalDefDataExpr(analyser.defDataSigAnalyser(it).first)
 
-                        TYPE_DEF -> Unit
+                        TYPE_DEF, DEF_DATA -> Unit
 
                         else -> TODO()
                     }
@@ -197,7 +191,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         }
     }
 
-    private fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source>) {
+    private fun require(rootNses: Set<ASymbol.Symbol>, sources: Map<ASymbol.Symbol, Source>) {
         synchronized(this) {
             val ctx = ctx
 
@@ -214,26 +208,26 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     companion object {
-        private val DO = Symbol.create("do")
+        private val DO = ASymbol.Symbol.intern("do")
 
-        private val DEF = Symbol.create("def")
-        private val TYPE_DEF = Symbol.create("::")
-        private val DEFX = Symbol.create("defx")
-        private val DEF_DATA = Symbol.create("defdata")
+        private val DEF = ASymbol.Symbol.intern("def")
+        private val TYPE_DEF = ASymbol.Symbol.intern("::")
+        private val DEFX = ASymbol.Symbol.intern("defx")
+        private val DEF_DATA = ASymbol.Symbol.intern("defdata")
 
         private val langSource = Source.newBuilder("brj", "lang", null).internal(true).buildLiteral()
 
         private fun getLang() = Context.getCurrent().eval(langSource).asHostObject<BrjLanguage>()
 
-        private fun nsSource(ns: Symbol): Source? =
-            this::class.java.getResource("${ns.name.replace('.', '/')}.brj")
+        private fun nsSource(ns: ASymbol.Symbol): Source? =
+            this::class.java.getResource("${ns.nameStr.replace('.', '/')}.brj")
                 ?.let { url -> Source.newBuilder("brj", url).build() }
 
-        internal data class NSFile(val ns: Symbol, var nsEnv: BrjEnv.NSEnv, val forms: List<Form>)
+        internal data class NSFile(val ns: ASymbol.Symbol, var nsEnv: BrjEnv.NSEnv, val forms: List<Form>)
 
-        private fun readNsFiles(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()): Map<Symbol, NSFile> {
-            val nses: MutableList<Symbol> = rootNses.toMutableList()
-            val nsFiles: MutableMap<Symbol, NSFile> = mutableMapOf()
+        private fun readNsFiles(rootNses: Set<ASymbol.Symbol>, sources: Map<ASymbol.Symbol, Source> = emptyMap()): Map<ASymbol.Symbol, NSFile> {
+            val nses: MutableList<ASymbol.Symbol> = rootNses.toMutableList()
+            val nsFiles: MutableMap<ASymbol.Symbol, NSFile> = mutableMapOf()
 
             while (nses.isNotEmpty()) {
                 val ns = nses.removeAt(0)
@@ -250,12 +244,12 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             return nsFiles
         }
 
-        private fun requireOrder(nsFiles: Map<Symbol, NSFile>): List<Set<NSFile>> {
+        private fun requireOrder(nsFiles: Map<ASymbol.Symbol, NSFile>): List<Set<NSFile>> {
             // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
 
-            data class TarjanNS(val ns: Symbol, val nsFile: NSFile, var index: Int? = null, var lowlink: Int? = null, var isOnStack: Boolean = false)
+            data class TarjanNS(val ns: ASymbol.Symbol, val nsFile: NSFile, var index: Int? = null, var lowlink: Int? = null, var isOnStack: Boolean = false)
 
-            val nses: Map<Symbol, TarjanNS> = nsFiles.mapValues { TarjanNS(ns = it.key, nsFile = it.value) }
+            val nses: Map<ASymbol.Symbol, TarjanNS> = nsFiles.mapValues { TarjanNS(ns = it.key, nsFile = it.value) }
             var index = 0
             val res: MutableList<Set<NSFile>> = mutableListOf()
             val stack: MutableList<TarjanNS> = LinkedList()
@@ -297,7 +291,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             return res
         }
 
-        fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()) {
+        fun require(rootNses: Set<ASymbol.Symbol>, sources: Map<ASymbol.Symbol, Source> = emptyMap()) {
             getLang().require(rootNses, sources)
         }
     }

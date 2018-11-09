@@ -1,5 +1,6 @@
 package brj
 
+import brj.ASymbol.Symbol
 import brj.Analyser.AnalyserError.*
 
 typealias FormsAnalyser<R> = (Analyser.AnalyserState) -> R
@@ -7,15 +8,10 @@ typealias FormsAnalyser<R> = (Analyser.AnalyserState) -> R
 @Suppress("NestedLambdaShadowedImplicitParameter")
 object Analyser {
 
-    val IF = Symbol.create("if")
-    val FN = Symbol.create("fn")
-    val LET = Symbol.create("let")
-    val DO = Symbol.create("do")
-
     sealed class AnalyserError : Exception() {
         object ExpectedForm : AnalyserError()
         data class UnexpectedForms(val forms: List<Form>) : AnalyserError()
-        data class ResolutionError(val sym: Symbol) : AnalyserError()
+        data class ResolutionError(val sym: ASymbol) : AnalyserError()
         object InvalidDefDefinition : AnalyserError()
         object ExpectedSymbol : AnalyserError()
 
@@ -78,7 +74,7 @@ object Analyser {
         inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsAnalyser<R>): R = nested(f(expectForm()), a)
 
         fun expectSym(expectedSym: Symbol) {
-            val actualSym = maybe { it.expectForm<Form.SymbolForm>().sym }
+            val actualSym = maybe { it.expectForm<Form.ASymbolForm.SymbolForm>().sym }
             if (expectedSym != actualSym) throw ExpectedSymbol
         }
     }

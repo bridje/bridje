@@ -1,5 +1,6 @@
 package brj
 
+import brj.ASymbol.Symbol
 import brj.BrjLanguage.Companion.require
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
@@ -9,8 +10,8 @@ fun main(args: Array<String>) {
 
     ctx.enter()
 
-    val foo = Symbol.create("foo")
-    val bar = Symbol.create("bar")
+    val foo = Symbol.intern("foo")
+    val bar = Symbol.intern("bar")
 
     val fooSource = Source.create("brj", """
         (ns foo
@@ -19,8 +20,13 @@ fun main(args: Array<String>) {
 
         (defdata (Maybe a) (:Just a) :Nothing)
 
-        (:: foo [(foo/Maybe Int)])
+        ;(:: foo [(foo/Maybe Int)])
         (def foo [:Nothing (:Just 4)])
+
+        ;(def bar
+        ;  (case (:Just 4)
+        ;    (:Just x) x
+        ;    :Nothing 0))
 
         (def x
           (let [quux 10N]

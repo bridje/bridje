@@ -7,10 +7,10 @@ BOOLEAN : 'true' | 'false';
 fragment SYMBOL_PART: [\p{Alpha}] ~[()[\]{}#\p{White_Space},/]* ;
 
 SYMBOL: SYMBOL_PART | '+' | '-' | '*' | '/' | '::' ;
-NAMESPACED_SYMBOL: SYMBOL_PART '/' SYMBOL_PART;
+QSYMBOL: SYMBOL_PART '/' SYMBOL_PART;
 
 KEYWORD: ':' SYMBOL_PART ;
-NAMESPACED_KEYWORD: ':' SYMBOL_PART '/' SYMBOL_PART;
+QKEYWORD: ':' SYMBOL_PART '/' SYMBOL_PART;
 
 INT: ('-' | '+')? [0-9]+;
 BIG_INT: INT [nN];
@@ -27,9 +27,9 @@ file : form* EOF;
 form : BOOLEAN # Boolean
      | STRING # String
      | SYMBOL # Symbol
-     | NAMESPACED_SYMBOL # NamespacedSymbol
+     | QSYMBOL # QSymbol
      | KEYWORD # Keyword
-     | NAMESPACED_KEYWORD # NamespacedKeyword
+     | QKEYWORD # QKeyword
      | BIG_INT # BigInt
      | INT # Int
      | BIG_FLOAT # BigFloat

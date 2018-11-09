@@ -1,8 +1,9 @@
 package brj
 
+import brj.ASymbol.Keyword
+import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.BridjeTypesGen.expectBoolean
 import brj.BridjeTypesGen.expectCallTarget
-import brj.BrjEnv.NSEnv.DataTypeConstructor
 import brj.Types.MonoType
 import brj.ValueExpr.*
 import brj.ValueNodeFactory.ReadLocalVarNodeGen
@@ -206,6 +207,7 @@ abstract class ValueNode : Node() {
 
                 is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
                 is ConstructorExpr -> ObjectNode(expr.constructor.value!!)
+                is CaseExpr -> TODO()
             }
 
         companion object {
@@ -243,9 +245,9 @@ abstract class ValueNode : Node() {
             }
         }
 
-        fun emitConstructor(constructor: DataTypeConstructor): Any =
-            if (constructor.paramTypes != null)
-                Truffle.getRuntime().createCallTarget(FunctionConstructor(constructor.kw, constructor.paramTypes))
+        internal fun emitConstructor(constructor: DefDataConstructor): Any =
+            if (constructor.params != null)
+                Truffle.getRuntime().createCallTarget(FunctionConstructor(constructor.kw, constructor.params))
             else object : Any() {
                 override fun toString(): String = constructor.kw.toString()
             }

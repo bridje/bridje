@@ -1,5 +1,6 @@
 package brj
 
+import brj.AQSymbol.QSymbol
 import brj.BrjEnv.NSEnv.DataTypeConstructor
 import brj.Types.MonoType.*
 import brj.Types.TypeEq.Companion.unifyEqs
@@ -121,7 +122,7 @@ object Types {
             override fun toString(): String = "(Fn [${paramTypes.joinToString(separator = " ")}] $returnType)"
         }
 
-        data class DataType(val sym: NamespacedSymbol) : MonoType() {
+        data class DataType(val sym: QSymbol) : MonoType() {
             override fun unifyEq(other: MonoType): List<TypeEq> =
                 if (this == other) emptyList() else throw UnificationError(this, other)
 
@@ -234,7 +235,7 @@ object Types {
             val exprTyping = valueExprTyping(expr.expr)
 
             val typing = combine(exprTyping.monoType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping))
-            return typing.copy(monoEnv = typing.monoEnv - expr.bindings.map(Binding::localVar))
+            return typing.copy(monoEnv = typing.monoEnv - expr.bindings.map(LetExpr.LetBinding::localVar))
         }
 
         private fun doExprTyping(expr: DoExpr): Typing {
@@ -311,6 +312,7 @@ object Types {
                 is GlobalVarExpr -> expr.globalVar.typing
 
                 is ConstructorExpr -> constructorExprTyping(expr.constructor)
+                is CaseExpr -> TODO()
             }
     }
 }

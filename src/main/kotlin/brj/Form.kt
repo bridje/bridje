@@ -18,10 +18,17 @@ sealed class Form {
     data class BigIntForm(val bigInt: BigInteger) : Form()
     data class FloatForm(val float: Double) : Form()
     data class BigFloatForm(val bigFloat: BigDecimal) : Form()
-    data class SymbolForm(val sym: Symbol) : Form()
-    data class NamespacedSymbolForm(val sym: NamespacedSymbol) : Form()
-    data class KeywordForm(val kw: Keyword) : Form()
-    data class NamespacedKeywordForm(val kw: NamespacedKeyword) : Form()
+
+    sealed class ASymbolForm(open val sym: ASymbol) : Form() {
+        data class SymbolForm(override val sym: ASymbol.Symbol) : ASymbolForm(sym)
+        data class KeywordForm(override val sym: ASymbol.Keyword) : ASymbolForm(sym)
+    }
+
+    sealed class AQSymbolForm(open val sym: AQSymbol) : Form() {
+        data class QSymbolForm(override val sym: AQSymbol.QSymbol) : AQSymbolForm(sym)
+        data class QKeywordForm(override val sym: AQSymbol.QKeyword) : AQSymbolForm(sym)
+    }
+
     data class ListForm(val forms: List<Form>) : Form()
     data class VectorForm(val forms: List<Form>) : Form()
     data class SetForm(val forms: List<Form>) : Form()
@@ -48,20 +55,20 @@ sealed class Form {
             override fun visitBigFloat(ctx: FormParser.BigFloatContext) =
                 BigFloatForm(ctx.BIG_FLOAT().text.removeSuffix("M").toBigDecimal())
 
-            override fun visitSymbol(ctx: FormParser.SymbolContext): Form = SymbolForm(Symbol.create(ctx.text))
+            override fun visitSymbol(ctx: FormParser.SymbolContext): Form = ASymbolForm.SymbolForm(ASymbol.Symbol.intern(ctx.text))
 
             override fun visitNamespacedSymbol(ctx: FormParser.NamespacedSymbolContext) =
                 Regex("(.+)/(.+)").matchEntire(ctx.text)!!
                     .groups
-                    .let { groups -> NamespacedSymbolForm(NamespacedSymbol.create(Symbol.create(groups[1]!!.value), Symbol.create(groups[2]!!.value))) }
+                    .let { groups -> AQSymbolForm.QSymbolForm(AQSymbol.QSymbol.intern(ASymbol.Symbol.intern(groups[1]!!.value), ASymbol.Symbol.intern(groups[2]!!.value))) }
 
-            override fun visitKeyword(ctx: FormParser.KeywordContext) = KeywordForm(Keyword(ctx.text.removePrefix(":")))
+            override fun visitKeyword(ctx: FormParser.KeywordContext) = ASymbolForm.KeywordForm(ASymbol.Keyword.intern(ctx.text.removePrefix(":")))
 
 
             override fun visitNamespacedKeyword(ctx: FormParser.NamespacedKeywordContext): Form =
                 Regex(":(.+)/(.+)").matchEntire(ctx.text)!!
                     .groups
-                    .let { groups -> NamespacedKeywordForm(NamespacedKeyword(Symbol.create(groups[1]!!.value), Symbol.create(groups[2]!!.value))) }
+                    .let { groups -> AQSymbolForm.QKeywordForm(AQSymbol.QKeyword.intern(ASymbol.Symbol.intern(groups[1]!!.value), ASymbol.Symbol.intern(groups[2]!!.value))) }
 
             override fun visitList(ctx: FormParser.ListContext) = ListForm(ctx.form().map(::transformForm))
             override fun visitVector(ctx: FormParser.VectorContext) = VectorForm(ctx.form().map(::transformForm))
@@ -81,4 +88,6 @@ sealed class Form {
 
         fun readForms(s: String): List<Form> = readForms(StringReader(s))
     }
+
+
 }
