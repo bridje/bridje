@@ -2,7 +2,6 @@ package brj
 
 import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.BrjLanguage.BridjeContext
-import brj.Form.Companion.readForms
 import brj.NSEnv.Companion.nsAnalyser
 import brj.Types.MonoType.*
 import com.oracle.truffle.api.CallTarget
@@ -67,7 +66,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         println("type: ${Types.TypeChecker(env).valueExprTyping(expr)}")
 
-        val emitter = ValueNode.ValueNodeEmitter(this, FrameDescriptor())
+        val emitter = ValueNodeEmitter(this, FrameDescriptor())
         return Truffle.getRuntime().createCallTarget(emitter.EvalRootNode(emitter.emitValueExpr(expr)))
     }
 
@@ -129,7 +128,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                             defDataExpr.constructors.forEach { constructor ->
                                 val constructorType = constructor.params?.let { FnType(it, appliedType) } ?: appliedType
 
-                                nsFile.nsEnv += NSEnv.GlobalVar(constructor.kw, Types.Typing(constructorType), ValueNode.ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
+                                nsFile.nsEnv += NSEnv.GlobalVar(constructor.kw, Types.Typing(constructorType), ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
                             }
 
                             env += nsFile.nsEnv
@@ -157,7 +156,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                 val frameDescriptor = FrameDescriptor()
 
-                val node = ValueNode.ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
+                val node = ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
 
                 nsFile.nsEnv += NSEnv.GlobalVar(
                     expr.sym,
