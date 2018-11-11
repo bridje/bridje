@@ -40,6 +40,9 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         val CASE = Symbol.intern("case")
     }
 
+    private fun resolve(ident: LocalIdent) = resolve(env, nsEnv, ident)
+    private fun resolve(ident: GlobalIdent) = resolve(env, nsEnv, ident)
+
     private fun ifAnalyser(it: AnalyserState): ValueExpr {
         val predExpr = exprAnalyser(it)
         val thenExpr = exprAnalyser(it)
@@ -103,7 +106,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             val clauseForm = it.expectForm<Form>()
 
             when (clauseForm) {
-
+                is KeywordForm -> resolve(clauseForm.kw)
             }
 
 //                clauses.add(CaseClause(it.expectForm<QKeywordForm>().kw, ))
@@ -141,13 +144,6 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         transform(it.varargs(::exprAnalyser))
     }
 
-    private fun resolve(ident: LocalIdent): GlobalVar? =
-        nsEnv.vars[ident]
-            ?: nsEnv.refers[ident]?.let { refer -> env.nses[refer.ns]?.vars?.get(refer.name) }
-
-    private fun resolve(ident: GlobalIdent): GlobalVar? =
-        (nsEnv.aliases[ident.ns]?.let { ns -> env.nses[ns] } ?: env.nses[ident.ns])?.vars?.get(ident.name)
-
     private fun exprAnalyser(it: AnalyserState): ValueExpr {
         val form = it.expectForm<Form>()
 
@@ -160,13 +156,13 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             is BigFloatForm -> BigFloatExpr(form.bigFloat)
 
             is LocalIdentForm ->
-                (locals[form.sym]?.let { LocalVarExpr(it) })
-                    ?: resolve(form.sym)?.let(::GlobalVarExpr)
-                    ?: throw AnalyserError.ResolutionError(form.sym)
+                (locals[form.ident]?.let { LocalVarExpr(it) })
+                    ?: resolve(form.ident)?.let(::GlobalVarExpr)
+                    ?: throw AnalyserError.ResolutionError(form.ident)
 
             is GlobalIdentForm ->
-                GlobalVarExpr(resolve(form.sym)
-                    ?: throw AnalyserError.ResolutionError(form.sym))
+                GlobalVarExpr(resolve(form.ident)
+                    ?: throw AnalyserError.ResolutionError(form.ident))
 
             is ListForm -> listAnalyser(AnalyserState(form.forms))
             is VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))
