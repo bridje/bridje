@@ -2,8 +2,8 @@ package brj
 
 import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.BrjLanguage.BridjeContext
-import brj.NSEnv.Companion.nsAnalyser
 import brj.Types.MonoType.*
+import brj.Types.MonoType.DataType
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
@@ -82,7 +82,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                         DEF_DATA -> {
                             val (sym, typeVars) = analyser.defDataSigAnalyser(it)
 
-                            nsFile.nsEnv += NSEnv.DataType(QSymbol.intern(nsFile.ns, sym), typeVars, emptyList())
+                            nsFile.nsEnv += DataType(QSymbol.intern(nsFile.ns, sym), typeVars, emptyList())
                             env += nsFile.nsEnv
                         }
 
@@ -111,14 +111,14 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                                 TODO("sym already exists in NS")
                             }
 
-                            nsFile.nsEnv += NSEnv.GlobalVar(typeDef.sym, typeDef.typing, null)
+                            nsFile.nsEnv += GlobalVar(typeDef.sym, typeDef.typing, null)
                             env += nsFile.nsEnv
                         }
 
                         DEF_DATA -> {
                             val defDataExpr = analyser.defDataAnalyser(it)
 
-                            val dataType = NSEnv.DataType(QSymbol.intern(nsFile.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
+                            val dataType = DataType(QSymbol.intern(nsFile.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
 
                             nsFile.nsEnv += dataType
 
@@ -128,7 +128,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                             defDataExpr.constructors.forEach { constructor ->
                                 val constructorType = constructor.params?.let { FnType(it, appliedType) } ?: appliedType
 
-                                nsFile.nsEnv += NSEnv.GlobalVar(constructor.kw, Types.Typing(constructorType), ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
+                                nsFile.nsEnv += GlobalVar(constructor.kw, Types.Typing(constructorType), ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
                             }
 
                             env += nsFile.nsEnv
@@ -158,7 +158,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                 val node = ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
 
-                nsFile.nsEnv += NSEnv.GlobalVar(
+                nsFile.nsEnv += GlobalVar(
                     expr.sym,
                     expectedTyping ?: expr.typing,
                     node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)))

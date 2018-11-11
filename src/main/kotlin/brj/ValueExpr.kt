@@ -1,6 +1,5 @@
 package brj
 
-import brj.NSEnv.GlobalVar
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -100,6 +99,11 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         val clauses = mutableListOf<CaseClause>()
 
         while (it.forms.size > 1) {
+            val clauseForm = it.expectForm<Form>()
+
+            when (clauseForm) {
+
+            }
 
 //                clauses.add(CaseClause(it.expectForm<QKeywordForm>().kw, ))
             TODO()

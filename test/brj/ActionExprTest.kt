@@ -1,7 +1,6 @@
 package brj
 
 import brj.ActionExprAnalyser.TypeDefExpr
-import brj.Form.Companion.readForms
 import brj.Types.MonoType.*
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
