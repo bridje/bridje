@@ -12,31 +12,6 @@ import java.math.BigInteger
 
 sealed class Form {
 
-    data class BooleanForm(val bool: Boolean) : Form()
-    data class StringForm(val string: String) : Form()
-    data class IntForm(val int: Long) : Form()
-    data class BigIntForm(val bigInt: BigInteger) : Form()
-    data class FloatForm(val float: Double) : Form()
-    data class BigFloatForm(val bigFloat: BigDecimal) : Form()
-
-    sealed class ASymbolForm(open val sym: ASymbol) : Form() {
-        data class SymbolForm(override val sym: ASymbol.Symbol) : ASymbolForm(sym)
-        data class KeywordForm(override val sym: ASymbol.Keyword) : ASymbolForm(sym)
-    }
-
-    sealed class AQSymbolForm(open val sym: AQSymbol) : Form() {
-        data class QSymbolForm(override val sym: AQSymbol.QSymbol) : AQSymbolForm(sym)
-        data class QKeywordForm(override val sym: AQSymbol.QKeyword) : AQSymbolForm(sym)
-    }
-
-    data class ListForm(val forms: List<Form>) : Form()
-    data class VectorForm(val forms: List<Form>) : Form()
-    data class SetForm(val forms: List<Form>) : Form()
-    data class RecordForm(val forms: List<Form>) : Form()
-    data class QuoteForm(val form: Form) : Form()
-    data class UnquoteForm(val form: Form) : Form()
-    data class UnquoteSplicingForm(val form: Form) : Form()
-
     companion object {
 
         private fun transformForm(formContext: FormParser.FormContext): Form = formContext.accept(object : FormBaseVisitor<Form>() {
@@ -55,20 +30,20 @@ sealed class Form {
             override fun visitBigFloat(ctx: FormParser.BigFloatContext) =
                 BigFloatForm(ctx.BIG_FLOAT().text.removeSuffix("M").toBigDecimal())
 
-            override fun visitSymbol(ctx: FormParser.SymbolContext): Form = ASymbolForm.SymbolForm(ASymbol.Symbol.intern(ctx.text))
+            override fun visitSymbol(ctx: FormParser.SymbolContext): Form = SymbolForm(Symbol.intern(ctx.text))
 
-            override fun visitNamespacedSymbol(ctx: FormParser.NamespacedSymbolContext) =
+            override fun visitQSymbol(ctx: FormParser.QSymbolContext) =
                 Regex("(.+)/(.+)").matchEntire(ctx.text)!!
                     .groups
-                    .let { groups -> AQSymbolForm.QSymbolForm(AQSymbol.QSymbol.intern(ASymbol.Symbol.intern(groups[1]!!.value), ASymbol.Symbol.intern(groups[2]!!.value))) }
+                    .let { groups -> QSymbolForm(QSymbol.intern(Symbol.intern(groups[1]!!.value), Symbol.intern(groups[2]!!.value))) }
 
-            override fun visitKeyword(ctx: FormParser.KeywordContext) = ASymbolForm.KeywordForm(ASymbol.Keyword.intern(ctx.text.removePrefix(":")))
+            override fun visitKeyword(ctx: FormParser.KeywordContext) = KeywordForm(Keyword.intern(ctx.text.removePrefix(":")))
 
 
-            override fun visitNamespacedKeyword(ctx: FormParser.NamespacedKeywordContext): Form =
+            override fun visitQKeyword(ctx: FormParser.QKeywordContext): Form =
                 Regex(":(.+)/(.+)").matchEntire(ctx.text)!!
                     .groups
-                    .let { groups -> AQSymbolForm.QKeywordForm(AQSymbol.QKeyword.intern(ASymbol.Symbol.intern(groups[1]!!.value), ASymbol.Symbol.intern(groups[2]!!.value))) }
+                    .let { groups -> QKeywordForm(QKeyword.intern(Symbol.intern(groups[1]!!.value), Symbol.intern(groups[2]!!.value))) }
 
             override fun visitList(ctx: FormParser.ListContext) = ListForm(ctx.form().map(::transformForm))
             override fun visitVector(ctx: FormParser.VectorContext) = VectorForm(ctx.form().map(::transformForm))
@@ -88,6 +63,28 @@ sealed class Form {
 
         fun readForms(s: String): List<Form> = readForms(StringReader(s))
     }
-
-
 }
+
+data class BooleanForm(val bool: Boolean) : Form()
+data class StringForm(val string: String) : Form()
+data class IntForm(val int: Long) : Form()
+data class BigIntForm(val bigInt: BigInteger) : Form()
+data class FloatForm(val float: Double) : Form()
+data class BigFloatForm(val bigFloat: BigDecimal) : Form()
+
+sealed class LocalIdentForm(open val sym: LocalIdent) : Form()
+data class SymbolForm(override val sym: Symbol) : LocalIdentForm(sym)
+data class KeywordForm(override val sym: Keyword) : LocalIdentForm(sym)
+
+sealed class GlobalIdentForm(open val sym: GlobalIdent) : Form()
+data class QSymbolForm(override val sym: QSymbol) : GlobalIdentForm(sym)
+data class QKeywordForm(override val sym: QKeyword) : GlobalIdentForm(sym)
+
+data class ListForm(val forms: List<Form>) : Form()
+data class VectorForm(val forms: List<Form>) : Form()
+data class SetForm(val forms: List<Form>) : Form()
+data class RecordForm(val forms: List<Form>) : Form()
+data class QuoteForm(val form: Form) : Form()
+data class UnquoteForm(val form: Form) : Form()
+data class UnquoteSplicingForm(val form: Form) : Form()
+

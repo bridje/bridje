@@ -1,13 +1,10 @@
 package brj
 
-import brj.AQSymbol.QSymbol
-import brj.BrjEnv.NSEnv.DataTypeConstructor
 import brj.Types.MonoType.*
 import brj.Types.TypeEq.Companion.unifyEqs
 import brj.Types.TypeException.ArityError
 import brj.Types.TypeException.UnificationError
 import brj.Types.Typing.Companion.combine
-import brj.ValueExpr.*
 import java.util.*
 
 object Types {
@@ -205,7 +202,7 @@ object Types {
         }
     }
 
-    data class TypeChecker(val brjEnv: BrjEnv, val polyEnv: Map<LocalVar, Typing> = emptyMap()) {
+    data class TypeChecker(val env: Env, val polyEnv: Map<LocalVar, Typing> = emptyMap()) {
 
         private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<ValueExpr>): Typing {
             val typings = exprs.map(::valueExprTyping)
@@ -235,7 +232,7 @@ object Types {
             val exprTyping = valueExprTyping(expr.expr)
 
             val typing = combine(exprTyping.monoType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping))
-            return typing.copy(monoEnv = typing.monoEnv - expr.bindings.map(LetExpr.LetBinding::localVar))
+            return typing.copy(monoEnv = typing.monoEnv - expr.bindings.map(LetBinding::localVar))
         }
 
         private fun doExprTyping(expr: DoExpr): Typing {
@@ -279,16 +276,6 @@ object Types {
             return Typing(tv, MonoEnv(mapOf(lv to tv)))
         }
 
-        private fun constructorExprTyping(constructor: DataTypeConstructor): Typing {
-            val dataType = DataType(constructor.dataType.sym)
-            val typeVars = constructor.dataType.typeVars
-
-            val appliedDataType = if (typeVars != null) AppliedType(dataType, typeVars) else dataType
-            val type = Instantiator()(if (constructor.paramTypes == null) appliedDataType else FnType(constructor.paramTypes, appliedDataType))
-
-            return Typing(type)
-        }
-
         fun valueExprTyping(expr: ValueExpr): Typing =
             when (expr) {
                 is BooleanExpr -> Typing(BoolType)
@@ -311,7 +298,6 @@ object Types {
                 is LocalVarExpr -> localVarTyping(expr.localVar)
                 is GlobalVarExpr -> expr.globalVar.typing
 
-                is ConstructorExpr -> constructorExprTyping(expr.constructor)
                 is CaseExpr -> TODO()
             }
     }

@@ -1,6 +1,5 @@
 package brj
 
-import brj.ASymbol.Symbol
 import brj.BrjLanguage.Companion.require
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source

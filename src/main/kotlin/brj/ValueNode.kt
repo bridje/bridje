@@ -1,11 +1,9 @@
 package brj
 
-import brj.ASymbol.Keyword
 import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.BridjeTypesGen.expectBoolean
 import brj.BridjeTypesGen.expectCallTarget
 import brj.Types.MonoType
-import brj.ValueExpr.*
 import brj.ValueNodeFactory.ReadLocalVarNodeGen
 import brj.ValueNodeFactory.WriteLocalVarNodeGen
 import com.oracle.truffle.api.CompilerAsserts
@@ -204,9 +202,8 @@ abstract class ValueNode : Node() {
                     emitValueExpr(expr.expr))
 
                 is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findFrameSlot(expr.localVar))
-
                 is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
-                is ConstructorExpr -> ObjectNode(expr.constructor.value!!)
+
                 is CaseExpr -> TODO()
             }
 
