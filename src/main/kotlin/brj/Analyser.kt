@@ -70,3 +70,4 @@ data class AnalyserState(var forms: List<Form>) {
     }
 }
 
+class LocalVar(val s: Symbol)
