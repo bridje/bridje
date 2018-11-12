@@ -2,7 +2,6 @@ package brj
 
 import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.BrjLanguage.BridjeContext
-import brj.DataTypeConstructor.Companion.constructorType
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
@@ -63,7 +62,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         val expr = ValueExprAnalyser(env, env.nses[USER] ?: NSEnv(USER)).analyseValueExpr(forms)
 
-        println("type: ${Types.TypeChecker(env).valueExprTyping(expr)}")
+        println("type: ${TypeChecker(env).valueExprTyping(expr)}")
 
         val emitter = ValueNodeEmitter(this, FrameDescriptor())
         return Truffle.getRuntime().createCallTarget(emitter.EvalRootNode(emitter.emitValueExpr(expr)))

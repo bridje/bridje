@@ -1,10 +1,5 @@
 package brj
 
-import brj.Types.MonoType
-import brj.Types.MonoType.FnType
-import brj.Types.MonoType.TypeVarType
-import brj.Types.Typing
-
 internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
     data class DefExpr(val sym: Symbol, val expr: ValueExpr, val typing: Typing)
     data class TypeDefExpr(val sym: Symbol, val typing: Typing)
@@ -39,7 +34,7 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
             else
                 FnExpr(sym, locals.map(Pair<Symbol, LocalVar>::second), bodyExpr)
 
-        return DefExpr(sym, expr, Types.TypeChecker(env).valueExprTyping(expr))
+        return DefExpr(sym, expr, TypeChecker(env).valueExprTyping(expr))
     }
 
     fun typeDefAnalyser(it: AnalyserState): TypeDefExpr {

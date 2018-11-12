@@ -2,23 +2,19 @@
 
 package brj
 
-import brj.Types.MonoType
-import brj.Types.MonoType.FnType
-import brj.Types.Typing
-
 data class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv): Env = Env(nses + (newNsEnv.ns to newNsEnv))
 }
 
 open class GlobalVar internal constructor(val sym: Symbol, val typing: Typing, val value: Any?)
 
-data class DataType(val sym: QSymbol, val typeVars: List<MonoType.TypeVarType>?, val constructors: List<Symbol>)
+data class DataType(val sym: QSymbol, val typeVars: List<TypeVarType>?, val constructors: List<Symbol>)
 
 class DataTypeConstructor internal constructor(sym: Symbol, val dataType: DataType, val paramTypes: List<MonoType>?, value: Any?): GlobalVar(sym, Typing(constructorType(dataType, paramTypes)), value)  {
     companion object {
         fun constructorType(dataType: DataType, paramTypes: List<MonoType>?): MonoType {
-            val dataTypeType = MonoType.DataType(dataType.sym)
-            val appliedType = dataType.typeVars?.let { MonoType.AppliedType(dataTypeType, it) } ?: dataTypeType
+            val dataTypeType = DataTypeType(dataType)
+            val appliedType = dataType.typeVars?.let { AppliedType(dataTypeType, it) } ?: dataTypeType
 
             return if (paramTypes != null) FnType(paramTypes, appliedType) else appliedType
         }

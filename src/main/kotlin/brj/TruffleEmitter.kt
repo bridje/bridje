@@ -3,7 +3,6 @@ package brj
 import brj.BridjeTypesGen.expectBoolean
 import brj.BridjeTypesGen.expectCallTarget
 import com.oracle.truffle.api.CompilerAsserts
-import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.`object`.*
@@ -209,7 +208,7 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
         val LAYOUT = Layout.createLayout()!!
     }
 
-    inner class FunctionConstructor(sym: Symbol, val paramTypes: List<Types.MonoType>) : RootNode(lang) {
+    inner class FunctionConstructor(sym: Symbol, val paramTypes: List<MonoType>) : RootNode(lang) {
         val constructorType = object : ObjectType() {
             @TruffleBoundary
             override fun toString(obj: DynamicObject): String = "($sym ${paramTypes.mapIndexed { idx, _ -> obj[idx] }.joinToString(" ")})"

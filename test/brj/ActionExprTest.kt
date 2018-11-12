@@ -1,7 +1,6 @@
 package brj
 
 import brj.ActionExprAnalyser.TypeDefExpr
-import brj.Types.MonoType.*
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
@@ -12,11 +11,11 @@ internal class ActionExprTest {
     @Test
     internal fun testTypedef() {
         assertEquals(
-            TypeDefExpr(Symbol.intern("foo"), Types.Typing(StringType)),
+            TypeDefExpr(Symbol.intern("foo"), Typing(StringType)),
             analyse(ActionExprAnalyser::typeDefAnalyser, readForms("foo Str")))
 
         assertEquals(
-            TypeDefExpr(Symbol.intern("foo"), Types.Typing(FnType(listOf(StringType, IntType), StringType))),
+            TypeDefExpr(Symbol.intern("foo"), Typing(FnType(listOf(StringType, IntType), StringType))),
             analyse(ActionExprAnalyser::typeDefAnalyser, readForms("(foo Str Int) Str")))
     }
 }

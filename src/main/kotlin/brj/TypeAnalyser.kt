@@ -10,24 +10,24 @@ internal class TypeAnalyser {
         private val BIG_FLOAT = Symbol.intern("BigFloat")
     }
 
-    val tvMapping: MutableMap<Symbol, Types.MonoType.TypeVarType> = mutableMapOf()
+    val tvMapping: MutableMap<Symbol, TypeVarType> = mutableMapOf()
 
-    private fun tv(sym: Symbol): Types.MonoType.TypeVarType? =
+    private fun tv(sym: Symbol): TypeVarType? =
         if (Character.isLowerCase(sym.nameStr.first())) {
-            tvMapping.getOrPut(sym) { Types.MonoType.TypeVarType() }
+            tvMapping.getOrPut(sym) { TypeVarType() }
         } else null
 
-    fun monoTypeAnalyser(it: AnalyserState): Types.MonoType {
+    fun monoTypeAnalyser(it: AnalyserState): MonoType {
         val form = it.expectForm<Form>()
         return when (form) {
             is SymbolForm -> {
                 when (form.sym) {
-                    STR -> Types.MonoType.StringType
-                    BOOL -> Types.MonoType.BoolType
-                    INT -> Types.MonoType.IntType
-                    FLOAT -> Types.MonoType.FloatType
-                    BIG_INT -> Types.MonoType.BigIntType
-                    BIG_FLOAT -> Types.MonoType.BigFloatType
+                    STR -> StringType
+                    BOOL -> BoolType
+                    INT -> IntType
+                    FLOAT -> FloatType
+                    BIG_INT -> BigIntType
+                    BIG_FLOAT -> BigFloatType
 
                     else -> {
                         tv(form.sym) ?: TODO()
@@ -35,16 +35,16 @@ internal class TypeAnalyser {
                 }
             }
 
-            is VectorForm -> Types.MonoType.VectorType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
+            is VectorForm -> VectorType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
 
-            is SetForm -> Types.MonoType.SetType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
+            is SetForm -> SetType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
 
-            is ListForm -> it.nested(form.forms) { Types.MonoType.AppliedType(monoTypeAnalyser(it), it.varargs(::monoTypeAnalyser)) }
+            is ListForm -> it.nested(form.forms) { AppliedType(monoTypeAnalyser(it), it.varargs(::monoTypeAnalyser)) }
 
             else -> TODO()
         }
     }
 
-    fun tvAnalyser(it: AnalyserState): Types.MonoType.TypeVarType =
+    fun tvAnalyser(it: AnalyserState): TypeVarType =
         tv(it.expectForm<SymbolForm>().sym) ?: TODO()
 }
