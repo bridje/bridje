@@ -2,8 +2,7 @@ package brj
 
 import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.BrjLanguage.BridjeContext
-import brj.Types.MonoType.*
-import brj.Types.MonoType.DataType
+import brj.DataTypeConstructor.Companion.constructorType
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
@@ -122,13 +121,12 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                             nsFile.nsEnv += dataType
 
-                            val dataTypeType = DataType(dataType.sym)
-                            val appliedType = dataType.typeVars?.let { AppliedType(dataTypeType, it) } ?: dataTypeType
-
                             defDataExpr.constructors.forEach { constructor ->
-                                val constructorType = constructor.params?.let { FnType(it, appliedType) } ?: appliedType
-
-                                nsFile.nsEnv += GlobalVar(constructor.sym, Types.Typing(constructorType), ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
+                                nsFile.nsEnv += DataTypeConstructor(
+                                        constructor.sym,
+                                        dataType,
+                                        constructor.params,
+                                        ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
                             }
 
                             env += nsFile.nsEnv

@@ -276,6 +276,10 @@ object Types {
             return Typing(tv, MonoEnv(mapOf(lv to tv)))
         }
 
+        private fun caseExprTyping(expr: CaseExpr): Typing {
+            TODO()
+        }
+
         fun valueExprTyping(expr: ValueExpr): Typing =
             when (expr) {
                 is BooleanExpr -> Typing(BoolType)
@@ -298,7 +302,7 @@ object Types {
                 is LocalVarExpr -> localVarTyping(expr.localVar)
                 is GlobalVarExpr -> expr.globalVar.typing
 
-                is CaseExpr -> TODO()
+                is CaseExpr -> caseExprTyping(expr)
             }
     }
 }

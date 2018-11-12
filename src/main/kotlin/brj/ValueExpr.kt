@@ -24,7 +24,7 @@ data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr) : ValueExpr()
 data class LetBinding(val localVar: LocalVar, val expr: ValueExpr)
 data class LetExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr()
 
-data class CaseClause(val sym: QSymbol, val bindings: List<LocalVar>?, val bodyExpr: ValueExpr)
+data class CaseClause(val constructor: DataTypeConstructor, val bindings: List<LocalVar>?, val bodyExpr: ValueExpr)
 data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?) : ValueExpr()
 
 data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
@@ -54,21 +54,21 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
     private fun letAnalyser(it: AnalyserState): ValueExpr {
         var ana = this
         return LetExpr(
-            it.nested(VectorForm::forms) { bindingState ->
-                bindingState.varargs {
-                    val bindingCtx = ana.copy(loopLocals = null)
+                it.nested(VectorForm::forms) { bindingState ->
+                    bindingState.varargs {
+                        val bindingCtx = ana.copy(loopLocals = null)
 
-                    val sym = it.expectForm<SymbolForm>().sym
-                    val localVar = LocalVar(sym)
+                        val sym = it.expectForm<SymbolForm>().sym
+                        val localVar = LocalVar(sym)
 
-                    val expr = bindingCtx.exprAnalyser(it)
+                        val expr = bindingCtx.exprAnalyser(it)
 
-                    ana = ana.copy(locals = ana.locals.plus(sym to localVar))
-                    LetBinding(localVar, expr)
-                }
-            },
+                        ana = ana.copy(locals = ana.locals.plus(sym to localVar))
+                        LetBinding(localVar, expr)
+                    }
+                },
 
-            ana.exprAnalyser(it))
+                ana.exprAnalyser(it))
     }
 
     private fun fnAnalyser(it: AnalyserState): ValueExpr {
@@ -90,7 +90,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
     }
 
     private fun callAnalyser(it: AnalyserState): ValueExpr =
-        CallExpr(exprAnalyser(it), it.varargs(::exprAnalyser))
+            CallExpr(exprAnalyser(it), it.varargs(::exprAnalyser))
 
     private fun doAnalyser(it: AnalyserState): ValueExpr {
         val exprs = listOf(exprAnalyser(it)).plus(it.varargs(::exprAnalyser))
@@ -105,12 +105,32 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         while (it.forms.size > 1) {
             val clauseForm = it.expectForm<Form>()
 
-            when (clauseForm) {
-                is SymbolForm -> resolve(clauseForm.sym)
+            fun resolveConstructor(form: Form): DataTypeConstructor {
+                return when (form) {
+                    is SymbolForm -> resolve(form.sym)
+                    is QSymbolForm -> resolve(form.sym)
+                    else -> TODO()
+                } as? DataTypeConstructor ?: TODO()
             }
 
-//                clauses.add(CaseClause(it.expectForm<QKeywordForm>().kw, ))
-            TODO()
+            val (constructor, paramSyms) = when (clauseForm) {
+                is SymbolForm, is QSymbolForm -> Pair(resolveConstructor(clauseForm), null)
+                is ListForm -> {
+                    it.nested(clauseForm.forms) {
+                        Pair(resolveConstructor(it.expectForm()), it.varargs { it.expectForm<SymbolForm>().sym })
+
+                    }
+                }
+                else -> TODO()
+            }
+
+            val localVars = paramSyms?.map { it to LocalVar(it) }
+
+            clauses += CaseClause(
+                    constructor,
+                    localVars?.map { it.second },
+                    (if (localVars == null) this else copy(locals = locals + localVars))
+                            .exprAnalyser(it))
         }
 
         val defaultExpr = if (it.forms.isNotEmpty()) exprAnalyser(it) else null
@@ -160,12 +180,12 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
             is SymbolForm ->
                 (locals[form.sym]?.let { LocalVarExpr(it) })
-                    ?: resolve(form.sym)?.let(::GlobalVarExpr)
-                    ?: throw AnalyserError.ResolutionError(form.sym)
+                        ?: resolve(form.sym)?.let(::GlobalVarExpr)
+                        ?: throw AnalyserError.ResolutionError(form.sym)
 
             is QSymbolForm ->
                 GlobalVarExpr(resolve(form.sym)
-                    ?: throw AnalyserError.ResolutionError(form.sym))
+                        ?: throw AnalyserError.ResolutionError(form.sym))
 
             is ListForm -> listAnalyser(AnalyserState(form.forms))
             is VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))
