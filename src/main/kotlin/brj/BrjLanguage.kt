@@ -118,7 +118,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                         DEF_DATA -> {
                             val defDataExpr = analyser.defDataAnalyser(it)
 
-                            val dataType = DataType(QSymbol.intern(nsFile.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::kw))
+                            val dataType = DataType(QSymbol.intern(nsFile.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::sym))
 
                             nsFile.nsEnv += dataType
 
@@ -128,7 +128,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                             defDataExpr.constructors.forEach { constructor ->
                                 val constructorType = constructor.params?.let { FnType(it, appliedType) } ?: appliedType
 
-                                nsFile.nsEnv += GlobalVar(constructor.kw, Types.Typing(constructorType), ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
+                                nsFile.nsEnv += GlobalVar(constructor.sym, Types.Typing(constructorType), ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
                             }
 
                             env += nsFile.nsEnv

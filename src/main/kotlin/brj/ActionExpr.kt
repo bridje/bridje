@@ -10,7 +10,7 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
     data class TypeDefExpr(val sym: Symbol, val typing: Typing)
 
     data class DefDataExpr(val sym: Symbol, val typeParams: List<TypeVarType>?, val constructors: List<DefDataConstructor> = emptyList()) {
-        data class DefDataConstructor(val kw: Keyword, val params: List<MonoType>?)
+        data class DefDataConstructor(val sym: Symbol, val params: List<MonoType>?)
     }
 
     fun defAnalyser(it: AnalyserState): DefExpr {
@@ -83,11 +83,11 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
             when (form) {
                 is ListForm -> {
                     it.nested(form.forms) {
-                        DefDataExpr.DefDataConstructor(it.expectForm<KeywordForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
+                        DefDataExpr.DefDataConstructor(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
                     }
                 }
 
-                is KeywordForm -> {
+                is SymbolForm -> {
                     DefDataExpr.DefDataConstructor(form.sym, null)
                 }
 

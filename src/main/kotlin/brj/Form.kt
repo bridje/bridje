@@ -19,18 +19,14 @@ data class BigIntForm(val bigInt: BigInteger) : Form()
 data class FloatForm(val float: Double) : Form()
 data class BigFloatForm(val bigFloat: BigDecimal) : Form()
 
-sealed class LocalIdentForm(open val ident: LocalIdent) : Form()
-data class SymbolForm(val sym: Symbol) : LocalIdentForm(sym)
-data class KeywordForm(val kw: Keyword) : LocalIdentForm(kw)
-
-sealed class GlobalIdentForm(open val ident: GlobalIdent) : Form()
-data class QSymbolForm(val sym: QSymbol) : GlobalIdentForm(sym)
-data class QKeywordForm(val kw: QKeyword) : GlobalIdentForm(kw)
+data class SymbolForm(val sym: Symbol) : Form()
+data class QSymbolForm(val sym: QSymbol) : Form()
 
 data class ListForm(val forms: List<Form>) : Form()
 data class VectorForm(val forms: List<Form>) : Form()
 data class SetForm(val forms: List<Form>) : Form()
 data class RecordForm(val forms: List<Form>) : Form()
+
 data class QuoteForm(val form: Form) : Form()
 data class UnquoteForm(val form: Form) : Form()
 data class UnquoteSplicingForm(val form: Form) : Form()
@@ -58,14 +54,6 @@ private fun transformForm(formContext: FormParser.FormContext): Form = formConte
         Regex("(.+)/(.+)").matchEntire(ctx.text)!!
             .groups
             .let { groups -> QSymbolForm(QSymbol.intern(Symbol.intern(groups[1]!!.value), Symbol.intern(groups[2]!!.value))) }
-
-    override fun visitKeyword(ctx: FormParser.KeywordContext) = KeywordForm(Keyword.intern(ctx.text.removePrefix(":")))
-
-
-    override fun visitQKeyword(ctx: FormParser.QKeywordContext): Form =
-        Regex(":(.+)/(.+)").matchEntire(ctx.text)!!
-            .groups
-            .let { groups -> QKeywordForm(QKeyword.intern(Symbol.intern(groups[1]!!.value), Symbol.intern(groups[2]!!.value))) }
 
     override fun visitList(ctx: FormParser.ListContext) = ListForm(ctx.form().map(::transformForm))
     override fun visitVector(ctx: FormParser.VectorContext) = VectorForm(ctx.form().map(::transformForm))

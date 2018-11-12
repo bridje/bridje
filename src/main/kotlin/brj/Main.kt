@@ -14,18 +14,18 @@ fun main(args: Array<String>) {
 
     val fooSource = Source.create("brj", """
         (ns foo
-          {:aliases {b bar},
-           :refers {bar #{baz}}})
+          {aliases {b bar},
+           refers {bar #{baz}}})
 
-        (defdata (Maybe a) (:Just a) :Nothing)
+        (defdata (Maybe a) (Just a) Nothing)
 
         ;(:: foo [(foo/Maybe Int)])
-        (def foo [:Nothing (:Just 4)])
+        (def foo [Nothing (Just 4)])
 
         ;(def bar
-        ;  (case (:Just 4)
-        ;    (:Just x) x
-        ;    :Nothing 0))
+        ;  (case (Just 4)
+        ;    (Just x) x
+        ;    Nothing 0))
 
         (def x
           (let [quux 10N]

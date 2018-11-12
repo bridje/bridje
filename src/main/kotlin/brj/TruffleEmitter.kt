@@ -4,6 +4,7 @@ import brj.BridjeTypesGen.expectBoolean
 import brj.BridjeTypesGen.expectCallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.`object`.*
 import com.oracle.truffle.api.dsl.NodeChild
@@ -208,10 +209,10 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
         val LAYOUT = Layout.createLayout()!!
     }
 
-    inner class FunctionConstructor(kw: Keyword, val paramTypes: List<Types.MonoType>) : RootNode(lang) {
+    inner class FunctionConstructor(sym: Symbol, val paramTypes: List<Types.MonoType>) : RootNode(lang) {
         val constructorType = object : ObjectType() {
-            @CompilerDirectives.TruffleBoundary
-            override fun toString(obj: DynamicObject): String = "($kw ${paramTypes.mapIndexed { idx, _ -> obj[idx] }.joinToString(" ")})"
+            @TruffleBoundary
+            override fun toString(obj: DynamicObject): String = "($sym ${paramTypes.mapIndexed { idx, _ -> obj[idx] }.joinToString(" ")})"
         }
 
         private val factory: DynamicObjectFactory
@@ -241,8 +242,8 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
 
     internal fun emitConstructor(constructor: ActionExprAnalyser.DefDataExpr.DefDataConstructor): Any =
         if (constructor.params != null)
-            Truffle.getRuntime().createCallTarget(FunctionConstructor(constructor.kw, constructor.params))
+            Truffle.getRuntime().createCallTarget(FunctionConstructor(constructor.sym, constructor.params))
         else object : Any() {
-            override fun toString(): String = constructor.kw.toString()
+            override fun toString(): String = constructor.sym.toString()
         }
 }

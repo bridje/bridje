@@ -4,8 +4,8 @@ private val NS = Symbol.intern("ns")
 private val REFERS = Symbol.intern("refers")
 private val ALIASES = Symbol.intern("aliases")
 
-private fun refersAnalyser(it: AnalyserState): Map<LocalIdent, GlobalIdent> {
-    val refers = mutableMapOf<LocalIdent, GlobalIdent>()
+private fun refersAnalyser(it: AnalyserState): Map<Symbol, QSymbol> {
+    val refers = mutableMapOf<Symbol, QSymbol>()
 
     it.varargs {
         val ns = it.expectForm<SymbolForm>().sym
@@ -38,8 +38,7 @@ internal fun nsAnalyser(it: AnalyserState): NSEnv =
         it.maybe {
             it.nested(RecordForm::forms) {
                 it.varargs {
-                    val kw = it.expectForm<KeywordForm>()
-                    when (kw.sym.name) {
+                    when (it.expectForm<SymbolForm>().sym) {
                         REFERS -> {
                             nsEnv = nsEnv.copy(refers = it.nested(RecordForm::forms, ::refersAnalyser))
                         }
