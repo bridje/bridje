@@ -6,11 +6,11 @@ data class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv): Env = Env(nses + (newNsEnv.ns to newNsEnv))
 }
 
-abstract class AGlobalVar internal constructor(val sym: Symbol, val value: Any?) {
+abstract class AGlobalVar internal constructor(val sym: QSymbol, val value: Any?) {
     abstract val type: Type
 }
 
-class GlobalVar(sym: Symbol, override val type: Type, value: Any?): AGlobalVar(sym, value)
+class GlobalVar(sym: QSymbol, override val type: Type, value: Any?): AGlobalVar(sym, value)
 
 data class DataType internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>?, val constructors: List<Symbol>) {
     val monoType: MonoType
@@ -23,7 +23,7 @@ data class DataType internal constructor(val sym: QSymbol, val typeVars: List<Ty
     override fun toString() = sym.toString()
 }
 
-class DataTypeConstructor internal constructor(sym: Symbol, val dataType: DataType, val paramTypes: List<MonoType>?, value: Any?) : AGlobalVar(sym, value) {
+class DataTypeConstructor internal constructor(sym: QSymbol, val dataType: DataType, val paramTypes: List<MonoType>?, value: Any?) : AGlobalVar(sym, value) {
     override val type: Type = Type(if (paramTypes != null) FnType(paramTypes, dataType.monoType) else dataType.monoType)
 }
 
@@ -33,7 +33,7 @@ data class NSEnv(val ns: Symbol,
                  val dataTypes: Map<Symbol, DataType> = emptyMap(),
                  val vars: Map<Symbol, AGlobalVar> = emptyMap()) {
 
-    operator fun plus(newGlobalVar: AGlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym to newGlobalVar))
+    operator fun plus(newGlobalVar: AGlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym.name to newGlobalVar))
     operator fun plus(newDataType: DataType): NSEnv = copy(dataTypes = dataTypes + (newDataType.sym.name to newDataType))
 
     val deps: Set<Symbol> by lazy {

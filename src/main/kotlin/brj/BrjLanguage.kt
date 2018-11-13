@@ -109,7 +109,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                                 TODO("sym already exists in NS")
                             }
 
-                            nsFile.nsEnv += GlobalVar(typeDef.sym, typeDef.type, null)
+                            nsFile.nsEnv += GlobalVar(QSymbol.intern(nsFile.ns, typeDef.sym), typeDef.type, null)
                             env += nsFile.nsEnv
                         }
 
@@ -121,11 +121,12 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                             nsFile.nsEnv += dataType
 
                             defDataExpr.constructors.forEach { constructor ->
+                                val sym = QSymbol.intern(nsFile.ns, constructor.sym)
                                 nsFile.nsEnv += DataTypeConstructor(
-                                        constructor.sym,
+                                        sym,
                                         dataType,
                                         constructor.params,
-                                        ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(constructor))
+                                        ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(sym, constructor.params))
                             }
 
                             env += nsFile.nsEnv
@@ -156,7 +157,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 val node = ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
 
                 nsFile.nsEnv += GlobalVar(
-                    expr.sym,
+                    QSymbol.intern(nsFile.ns, expr.sym),
                     expectedType ?: expr.type,
                     node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)))
 
