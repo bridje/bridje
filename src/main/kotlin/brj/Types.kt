@@ -1,6 +1,5 @@
 package brj
 
-import brj.TypeEq.Companion.unifyEqs
 import brj.TypeException.ArityError
 import brj.TypeException.UnificationError
 import java.util.*
@@ -14,11 +13,7 @@ internal data class TypeMapping(val mapping: Map<TypeVarType, MonoType> = emptyM
     fun map(tv: TypeVarType) = mapping.getOrDefault(tv, tv)
 }
 
-internal data class MonoEnv(val env: Map<LocalVar, MonoType> = emptyMap()) : Map<LocalVar, MonoType> by env {
-    private fun applyMapping(mapping: TypeMapping): MonoEnv = MonoEnv(env.mapValues { e -> e.value.applyMapping(mapping) })
-
-    operator fun minus(localVars: Iterable<LocalVar>): MonoEnv = MonoEnv(env.minus(localVars))
-}
+typealias MonoEnv = MutableMap<LocalVar, MonoType>
 
 internal class Instantiator {
     val mapping: MutableMap<TypeVarType, TypeVarType> = mutableMapOf()
@@ -29,6 +24,13 @@ internal class Instantiator {
             else -> type.fmap(this::invoke)
         }
     }
+}
+
+data class Type(val monoType: MonoType) {
+    override fun toString() = monoType.toString()
+
+    // TODO check matching
+    fun matches(expectedType: Type): Boolean = true
 }
 
 sealed class MonoType {
@@ -145,158 +147,132 @@ sealed class TypeException : Exception() {
     data class ArityError(val fnType: FnType, val argExprs: List<ValueExpr>) : TypeException()
 }
 
-internal data class TypeEq(val t1: MonoType, val t2: MonoType) {
-    companion object {
-        fun unifyEqs(eqs_: List<TypeEq>): TypeMapping {
-            var eqs = eqs_
-            var mapping = TypeMapping()
+typealias TypeEq = Pair<MonoType, MonoType>
 
-            while (eqs.isNotEmpty()) {
-                val eq = eqs.first()
-                eqs = eqs.drop(1)
+private fun unifyEqs(eqs_: List<TypeEq>): TypeMapping {
+    var eqs = eqs_
+    var mapping = TypeMapping()
 
-                val (t1, t2) = if (eq.t2 is TypeVarType) (eq.t2 to eq.t1) else (eq.t1 to eq.t2)
+    while (eqs.isNotEmpty()) {
+        val eq = eqs.first()
+        eqs = eqs.drop(1)
 
-                if (t1 == t2) {
-                    continue
-                }
+        val (t1, t2) = if (eq.second is TypeVarType) (eq.second to eq.first) else (eq.first to eq.second)
 
-                if (t1 is TypeVarType) {
-                    val newMapping = TypeMapping(mapOf(t1 to t2))
-                    mapping = mapping.applyMapping(newMapping)
-                    eqs = eqs.map { TypeEq(it.t1.applyMapping(newMapping), it.t2.applyMapping(newMapping)) }
-                    continue
-                }
-
-                eqs = t1.unifyEq(t2).plus(eqs)
-
-            }
-
-            return mapping
+        if (t1 == t2) {
+            continue
         }
 
-    }
-}
+        if (t1 is TypeVarType) {
+            val newMapping = TypeMapping(mapOf(t1 to t2))
+            mapping = mapping.applyMapping(newMapping)
+            eqs = eqs.map { TypeEq(it.first.applyMapping(newMapping), it.second.applyMapping(newMapping)) }
+            continue
+        }
 
-internal data class Typing(val monoType: MonoType, val monoEnv: MonoEnv = MonoEnv()) {
-    // TODO need to check against the expected typing
-    fun matches(expectedTyping: Typing): Boolean = true
-}
+        eqs = t1.unifyEq(t2).plus(eqs)
 
-private fun combine(monoType: MonoType, typings: List<Typing>, extraEqs: List<TypeEq> = emptyList()): Typing {
-    val monoEnvs = typings.map { it.monoEnv }
-
-    val lvTvs = monoEnvs
-        .flatMapTo(HashSet()) { it.env.keys }
-        .associate { it to TypeVarType() }
-
-    val mapping = unifyEqs(monoEnvs
-        .flatMap { env -> env.env.mapTo(LinkedList()) { e -> TypeEq(lvTvs[e.key]!!, e.value) } }
-        .plus(extraEqs))
-
-    return Typing(monoType.applyMapping(mapping), MonoEnv(lvTvs.mapValues { e -> mapping.map(e.value) }))
-}
-
-internal data class TypeChecker(val env: Env, val polyEnv: Map<LocalVar, Typing> = emptyMap()) {
-
-    private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<ValueExpr>): Typing {
-        val typings = exprs.map(::valueExprTyping)
-        val returnType = TypeVarType()
-
-        return combine(mkCollType(returnType), typings, typings.map { t -> TypeEq(t.monoType, returnType) })
     }
 
-    private fun ifExprTyping(expr: IfExpr): Typing {
-        val predTyping = valueExprTyping(expr.predExpr)
-        val thenTyping = valueExprTyping(expr.thenExpr)
-        val elseTyping = valueExprTyping(expr.elseExpr)
+    return mapping
+}
 
+internal class TypeChecker(val env: Env) {
+
+    private var monoEnv: MonoEnv = mutableMapOf()
+
+    private fun combine(returnType: MonoType, extraEqs: List<TypeEq> = emptyList(), extraLVs: Iterable<Pair<LocalVar, MonoType>> = emptyList()): MonoType {
+        val lvTvs: MutableMap<LocalVar, TypeVarType> = mutableMapOf()
+
+        val mapping = unifyEqs(
+            monoEnv.toList()
+                .plus(extraLVs)
+                .mapTo(LinkedList()) { e -> TypeEq(lvTvs.getOrPut(e.first, ::TypeVarType), e.second) }
+                .plus(extraEqs))
+
+        monoEnv = lvTvs.mapValuesTo(mutableMapOf()) { e -> mapping.map(e.value) }
+
+        return returnType.applyMapping(mapping)
+    }
+
+    private fun collExprType(mkCollType: (MonoType) -> MonoType, exprs: List<ValueExpr>): MonoType {
+        val types = exprs.map(::valueExprType)
         val returnType = TypeVarType()
 
-        return combine(
-            returnType,
-            listOf(predTyping, thenTyping, elseTyping),
+        return combine(mkCollType(returnType), extraEqs = types.map { TypeEq(it, returnType) })
+    }
+
+    private fun ifExprType(expr: IfExpr): MonoType {
+        val returnType = TypeVarType()
+
+        return combine(returnType,
             listOf(
-                TypeEq(BoolType, predTyping.monoType),
-                TypeEq(returnType, thenTyping.monoType),
-                TypeEq(returnType, elseTyping.monoType)))
+                TypeEq(BoolType, valueExprType(expr.predExpr)),
+                TypeEq(returnType, valueExprType(expr.thenExpr)),
+                TypeEq(returnType, valueExprType(expr.elseExpr))))
     }
 
-    private fun letExprTyping(expr: LetExpr): Typing {
-        val bindingPairs = expr.bindings.map { it.localVar to valueExprTyping(it.expr) }
-        val exprTyping = valueExprTyping(expr.expr)
+    private fun letExprType(expr: LetExpr): MonoType =
+        combine(valueExprType(expr.expr),
+            extraLVs = expr.bindings.map { it.localVar to valueExprType(it.expr) })
 
-        val typing = combine(exprTyping.monoType, bindingPairs.map(Pair<*, Typing>::second).plus(exprTyping))
-        return typing.copy(monoEnv = typing.monoEnv - expr.bindings.map(LetBinding::localVar))
+    private fun doExprType(expr: DoExpr): MonoType {
+        expr.exprs.map(::valueExprType)
+
+        return combine(valueExprType(expr.expr))
     }
 
-    private fun doExprTyping(expr: DoExpr): Typing {
-        val exprTypings = expr.exprs.map(::valueExprTyping)
-        val exprTyping = valueExprTyping(expr.expr)
+    private fun fnExprType(expr: FnExpr): MonoType =
+        combine(FnType(
+            expr.params.map { monoEnv.getOrPut(it, ::TypeVarType) },
+            valueExprType(expr.expr)))
 
-        return combine(exprTyping.monoType, exprTypings.plus(exprTyping))
-    }
-
-    private fun fnExprTyping(expr: FnExpr): Typing {
-        val typing = valueExprTyping(expr.expr)
-
-        return Typing(
-            FnType(
-                expr.params.map { typing.monoEnv.env.getOrDefault(it, TypeVarType()) },
-                typing.monoType),
-            typing.monoEnv - expr.params)
-    }
-
-    private fun callExprTyping(expr: CallExpr): Typing {
+    private fun callExprType(expr: CallExpr): MonoType {
         val fnExpr = expr.f
         val argExprs = expr.args
 
-        val fnExprTyping = valueExprTyping(fnExpr)
-        val fnExprType =
-            fnExprTyping.monoType as? FnType
-                ?: throw TypeException.ExpectedFunction(fnExpr, fnExprTyping.monoType)
+        val fnExprType = valueExprType(fnExpr).let { it as? FnType ?: throw TypeException.ExpectedFunction(fnExpr, it) }
 
         if (fnExprType.paramTypes.size != argExprs.size) throw ArityError(fnExprType, argExprs)
 
-        val argTypings = argExprs.map(this::valueExprTyping)
+        val argTypes = argExprs.map(this::valueExprType)
 
-        return combine(
-            fnExprType.returnType,
-            argTypings.plus(fnExprTyping),
-            fnExprType.paramTypes.zip(argTypings.map(Typing::monoType), ::TypeEq))
+        return combine(fnExprType.returnType,
+            extraEqs = fnExprType.paramTypes.zip(argTypes))
     }
 
-    private fun localVarTyping(lv: LocalVar): Typing {
-        val tv = TypeVarType()
-        return Typing(tv, MonoEnv(mapOf(lv to tv)))
+    private fun localVarType(lv: LocalVar): MonoType {
+        return monoEnv.getOrPut(lv, ::TypeVarType)
     }
 
-    private fun caseExprTyping(expr: CaseExpr): Typing {
+    private fun caseExprType(expr: CaseExpr): MonoType {
         TODO()
     }
 
-    fun valueExprTyping(expr: ValueExpr): Typing =
+    internal fun valueExprType(expr: ValueExpr): MonoType =
         when (expr) {
-            is BooleanExpr -> Typing(BoolType)
-            is StringExpr -> Typing(StringType)
-            is IntExpr -> Typing(IntType)
-            is BigIntExpr -> Typing(BigIntType)
-            is FloatExpr -> Typing(FloatType)
-            is BigFloatExpr -> Typing(BigFloatType)
+            is BooleanExpr -> BoolType
+            is StringExpr -> StringType
+            is IntExpr -> IntType
+            is BigIntExpr -> BigIntType
+            is FloatExpr -> FloatType
+            is BigFloatExpr -> BigFloatType
 
-            is VectorExpr -> collExprTyping(::VectorType, expr.exprs)
-            is SetExpr -> collExprTyping(::SetType, expr.exprs)
+            is VectorExpr -> collExprType(::VectorType, expr.exprs)
+            is SetExpr -> collExprType(::SetType, expr.exprs)
 
-            is FnExpr -> fnExprTyping(expr)
-            is CallExpr -> callExprTyping(expr)
+            is FnExpr -> fnExprType(expr)
+            is CallExpr -> callExprType(expr)
 
-            is IfExpr -> ifExprTyping(expr)
-            is LetExpr -> letExprTyping(expr)
-            is DoExpr -> doExprTyping(expr)
+            is IfExpr -> ifExprType(expr)
+            is LetExpr -> letExprType(expr)
+            is DoExpr -> doExprType(expr)
 
-            is LocalVarExpr -> localVarTyping(expr.localVar)
-            is GlobalVarExpr -> expr.globalVar.typing
+            is LocalVarExpr -> localVarType(expr.localVar)
+            is GlobalVarExpr -> Instantiator()(expr.globalVar.type.monoType)
 
-            is CaseExpr -> caseExprTyping(expr)
+            is CaseExpr -> caseExprType(expr)
         }
 }
+
+fun valueExprType(env: Env, expr: ValueExpr) = Type(TypeChecker(env).valueExprType(expr))

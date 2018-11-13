@@ -62,7 +62,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         val expr = ValueExprAnalyser(env, env.nses[USER] ?: NSEnv(USER)).analyseValueExpr(forms)
 
-        println("type: ${TypeChecker(env).valueExprTyping(expr)}")
+        println("type: ${TypeChecker(env).valueExprType(expr)}")
 
         val emitter = ValueNodeEmitter(this, FrameDescriptor())
         return Truffle.getRuntime().createCallTarget(emitter.EvalRootNode(emitter.emitValueExpr(expr)))
@@ -109,7 +109,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                                 TODO("sym already exists in NS")
                             }
 
-                            nsFile.nsEnv += GlobalVar(typeDef.sym, typeDef.typing, null)
+                            nsFile.nsEnv += GlobalVar(typeDef.sym, typeDef.type, null)
                             env += nsFile.nsEnv
                         }
 
@@ -145,9 +145,9 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         fun evalVars(nsFile: NSFile) {
             fun evalDefExpr(expr: ActionExprAnalyser.DefExpr) {
-                val expectedTyping = nsFile.nsEnv.vars[expr.sym]?.typing
+                val expectedType = nsFile.nsEnv.vars[expr.sym]?.type
 
-                if (expectedTyping != null && !(expr.typing.matches(expectedTyping))) {
+                if (expectedType != null && !(expr.type.matches(expectedType))) {
                     TODO()
                 }
 
@@ -157,7 +157,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                 nsFile.nsEnv += GlobalVar(
                     expr.sym,
-                    expectedTyping ?: expr.typing,
+                    expectedType ?: expr.type,
                     node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)))
 
                 env += nsFile.nsEnv

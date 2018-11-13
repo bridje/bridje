@@ -1,8 +1,8 @@
 package brj
 
 internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
-    data class DefExpr(val sym: Symbol, val expr: ValueExpr, val typing: Typing)
-    data class TypeDefExpr(val sym: Symbol, val typing: Typing)
+    data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type)
+    data class TypeDefExpr(val sym: Symbol, val type: Type)
 
     data class DefDataExpr(val sym: Symbol, val typeParams: List<TypeVarType>?, val constructors: List<DefDataConstructor> = emptyList()) {
         data class DefDataConstructor(val sym: Symbol, val params: List<MonoType>?)
@@ -34,7 +34,7 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
             else
                 FnExpr(sym, locals.map(Pair<Symbol, LocalVar>::second), bodyExpr)
 
-        return DefExpr(sym, expr, TypeChecker(env).valueExprTyping(expr))
+        return DefExpr(sym, expr, valueExprType(env, expr))
     }
 
     fun typeDefAnalyser(it: AnalyserState): TypeDefExpr {
@@ -46,7 +46,7 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
 
         it.expectEnd()
 
-        return TypeDefExpr(sym, Typing(if (params != null) FnType(params, returnType) else returnType))
+        return TypeDefExpr(sym, Type(if (params != null) FnType(params, returnType) else returnType))
     }
 
     fun defDataSigAnalyser(it: AnalyserState, typeAnalyser: TypeAnalyser = TypeAnalyser()): Pair<Symbol, List<TypeVarType>?> {

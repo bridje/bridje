@@ -22,10 +22,10 @@ fun main(args: Array<String>) {
         ;(:: foo [(foo/Maybe Int)])
         (def foo [Nothing (Just 4)])
 
-        (def bar
-          (case (Just 4)
-            (Just x) x
-            Nothing 0))
+        ; (def bar
+        ;   (case (Just 4)
+        ;     (Just x) x
+        ;     Nothing 0))
 
         (def x
           (let [quux 10N]

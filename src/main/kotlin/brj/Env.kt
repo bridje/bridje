@@ -6,11 +6,13 @@ data class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv): Env = Env(nses + (newNsEnv.ns to newNsEnv))
 }
 
-open class GlobalVar internal constructor(val sym: Symbol, val typing: Typing, val value: Any?)
+open class GlobalVar internal constructor(val sym: Symbol, val type: Type, val value: Any?)
 
-data class DataType(val sym: QSymbol, val typeVars: List<TypeVarType>?, val constructors: List<Symbol>)
+data class DataType(val sym: QSymbol, val typeVars: List<TypeVarType>?, val constructors: List<Symbol>) {
+    override fun toString() = sym.toString()
+}
 
-class DataTypeConstructor internal constructor(sym: Symbol, val dataType: DataType, val paramTypes: List<MonoType>?, value: Any?): GlobalVar(sym, Typing(constructorType(dataType, paramTypes)), value)  {
+class DataTypeConstructor internal constructor(sym: Symbol, val dataType: DataType, val paramTypes: List<MonoType>?, value: Any?): GlobalVar(sym, Type(constructorType(dataType, paramTypes)), value)  {
     companion object {
         fun constructorType(dataType: DataType, paramTypes: List<MonoType>?): MonoType {
             val dataTypeType = DataTypeType(dataType)
