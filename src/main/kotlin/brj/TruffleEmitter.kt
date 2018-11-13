@@ -34,6 +34,10 @@ internal abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
 }
 
+internal abstract class UnitNode : Node() {
+    abstract fun execute(frame: VirtualFrame)
+}
+
 internal class BoolNode(val boolean: Boolean) : ValueNode() {
     override fun execute(frame: VirtualFrame): Boolean = boolean
 }
@@ -102,11 +106,6 @@ internal class LetNode(@Children val bindingNodes: Array<UnitNode>, @Child var b
     }
 }
 
-
-internal abstract class UnitNode : Node() {
-    abstract fun execute(frame: VirtualFrame)
-}
-
 internal class ReadArgNode(val idx: Int) : ValueNode() {
     override fun execute(frame: VirtualFrame) = frame.arguments[idx]
 }
@@ -148,7 +147,13 @@ internal abstract class ReadLocalVarNode : ValueNode() {
     protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())
 }
 
-internal data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
+internal class ReadDataTypeParamNode(@Child var objNode: ValueNode, val idx: Int) : ValueNode() {
+    override fun execute(frame: VirtualFrame): Any {
+        return expectDynamicObject(objNode.execute(frame))[idx]
+    }
+}
+
+internal class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
     inner class EvalRootNode(@Child var node: ValueNode) : RootNode(lang, frameDescriptor) {
         override fun execute(frame: VirtualFrame): Any {
             val res = node.execute(frame)
@@ -183,15 +188,6 @@ internal data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor:
 
         inner class CaseMatched(val res: Any) : ControlFlowException()
 
-        inner class ReadPropNode(val idx: Int) : ValueNode() {
-            @Child
-            var readSlot = ReadLocalVarNodeGen.create(slot)
-
-            override fun execute(frame: VirtualFrame): Any {
-                return expectDynamicObject(readSlot.execute(frame))[idx]
-            }
-        }
-
         inner class CaseClauseNode(val clause: CaseClause) : Node() {
             @Child
             var readSlot = ReadLocalVarNodeGen.create(slot)
@@ -199,7 +195,7 @@ internal data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor:
             @Children
             val writeBindingNodes =
                 clause.bindings
-                    ?.mapIndexed { idx, lv -> WriteLocalVarNodeGen.create(ReadPropNode(idx), frameDescriptor.findOrAddFrameSlot(lv)) }
+                    ?.mapIndexed { idx, lv -> WriteLocalVarNodeGen.create(ReadDataTypeParamNode(ReadLocalVarNodeGen.create(slot), idx), frameDescriptor.findOrAddFrameSlot(lv)) }
                     ?.toTypedArray()
                     ?: arrayOf()
 
