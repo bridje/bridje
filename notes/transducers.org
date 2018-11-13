@@ -82,7 +82,7 @@
 #+END_SRC
 ** Round 2 - state effect
 #+BEGIN_SRC clojure
-  (defeffect (Mut s)
+  (defx (Mut s)
     (:: (mv! a) (MutVar s a))
     (:: (deref! (MutVar s a)) a)
     (:: (reset! (MutVar s a) a) Unit))

@@ -16,8 +16,8 @@
   (send-email! (:Email {:subject (format "Welcome, %s!" first-name)
                         :body "..."})))
 
-(handling [(EmailProvider (def (send-email! email)
-                            ...))]
+(with-fx [(EmailProvider (def (send-email! email)
+                           ...))]
   (send-welcome-email! {:User. {:first-name "James"}}))
 
 
