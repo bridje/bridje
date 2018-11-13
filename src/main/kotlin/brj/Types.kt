@@ -246,7 +246,30 @@ internal class TypeChecker(val env: Env) {
     }
 
     private fun caseExprType(expr: CaseExpr): MonoType {
-        TODO()
+        val returnType = TypeVarType()
+        val extraEqs = mutableListOf<TypeEq>()
+        val extraLVs = mutableListOf<Pair<LocalVar, MonoType>>()
+
+        val exprType = valueExprType(expr.expr)
+
+        expr.clauses.forEach {clause ->
+            val constructor = clause.constructor
+
+            extraEqs += exprType to constructor.dataType.monoType
+            if (constructor.paramTypes?.size != clause.bindings?.size) TODO()
+
+            if (constructor.paramTypes != null && clause.bindings != null) {
+                extraLVs += clause.bindings.zip(constructor.paramTypes)
+            }
+
+            extraEqs += returnType to valueExprType(clause.bodyExpr)
+        }
+
+        expr.defaultExpr?.let {
+            extraEqs += returnType to valueExprType(it)
+        }
+
+        return combine(returnType, extraEqs, extraLVs)
     }
 
     internal fun valueExprType(expr: ValueExpr): MonoType =

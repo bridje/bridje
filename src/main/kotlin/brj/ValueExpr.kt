@@ -28,7 +28,7 @@ data class CaseClause(val constructor: DataTypeConstructor, val bindings: List<L
 data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?) : ValueExpr()
 
 data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
-data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
+data class GlobalVarExpr(val globalVar: AGlobalVar) : ValueExpr()
 
 @Suppress("NestedLambdaShadowedImplicitParameter")
 internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
