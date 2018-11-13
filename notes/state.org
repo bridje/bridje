@@ -1,0 +1,46 @@
+* Local mutable state
+We want to be able to use mutable state locally, for algorithms that behave
+statelessly (from the outside) but use mutable state for performance reasons.
+
+Looking at OOP, they would use encapsulation for this, and would then carefully
+control who had access to update state, but this wouldn't be managed statically.
+
+We could statically analyse the reach of a given bit of state - would be
+specific rules to a LocalMutableState effect.
+
+ST?
+
+We could parameterise the state effect by a type variable which would be
+unified. Two reads in the same expression would mean that the effect would be unified.
+
+type of ~mut~ would be ~a -> (Mut s a)~
+type of ~deref!~ would be ~(Mut s a) -> a~ with effect ~(Mut s)~
+type of ~reset!~, similar
+unifying - there'd only ever be one ~Mut~ effect in any given signature, with a
+type-var
+~run-mut~ would remove the mut effect, and check that the output type didn't
+contain any references to the type-var
+
+what about storing mutable references elsewhere?
+
+in theory, we shouldn't be able to retrieve them
+ah, or, we could, but it'll be a different context, so it'll have a different
+value - assuming we implement it as pulling a value out of a context.
+although - if we do implement it as an effect, it'll re-eval all the namespaces.
+maybe best as a dynamic param.
+maybe it behaves more like a typeclass, then?
+
+#+BEGIN_SRC clojure
+  (:: #{!s} (drop Int) (Transducer a a))
+
+  (def (drop n)
+    (let [!n (mut n)]
+      (mapcat (fn [el]
+                (let [n (deref! !n)]
+                  (if (pos? n)
+                    (do
+                      (swap! !n dec)
+                      :Nil)
+
+                    (:Cons el :Nil)))))))
+#+END_SRC

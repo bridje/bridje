@@ -1,0 +1,26 @@
+(let [(foo 2)
+      (bar 1)]
+  (+ foo bar))
+
+;; mutually recursive definitions
+
+(def (foo a b)
+  (let-rec [(:: (bar ...) ...)
+            (:: (baz ...) ...)
+
+            (def (bar ...)
+              ...)
+
+            (def (baz ...)
+              ...)]
+
+    ...))
+
+(def (comp2 g f)
+  (fn [x]
+    (g (f x))))
+
+(defmacro (comp f & fs)
+  (if-not (empty? fs)
+    `(comp2 ~f (comp ~@fs))
+    f))

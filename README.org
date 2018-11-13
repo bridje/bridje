@@ -1,0 +1,308 @@
+* Bridje
+
+Bridje is a statically typed LISP, drawing inspiration from both Clojure and
+Haskell. It currently runs on the JVM, but is fundamentally a hosted language -
+the intention being to have it run on the JavaScript ecosystem too (eventually).
+
+Its main features include:
+- Polymorphic records with type-checked keys, similar to Clojure's 'spec'
+  library
+- Algebraic data types (ADTs), statically checked.
+- A monad-less 'effect system' to statically determine an expression's side
+  causes and side effects.
+- Type-safe macros.
+
+It is currently pre-alpha, and nowhere near finished. What follows below are
+ideas for how I imagine the language would work!
+
+** Forms
+Bridje has a number of built-in forms, many similar to their Clojure
+counterparts. It also has a few additions, particularly regarding the record
+data structures, and its effect and typeclass systems.
+
+*** Basic forms
+
+Primitives in Bridje are mostly the same as Clojure:
+
+- Strings: "foo" - encased in double-quotes.
+- Bools - ~true~ / ~false~
+- 'Int's: ~4~, ~9~ - 64 bits.
+- 'Float's: ~5.3~, ~10.5~ - IEEE double-precision.
+- 'BigInt's: ~105N~, ~253N~ - arbitrary precision
+- 'BigFloat's: ~153.25M~, ~256.68M~ - arbitrary precision
+
+Function application works as in any other LISP - ~(foo param1 param2)~. Parameters
+are eagerly evaluated before calling the function.
+
+'If' and 'do' expressions are unsurprising. In an 'if' statement, though,
+because Bridje is typed, the two branches must have an equivalent type.
+
+#+BEGIN_SRC clojure
+  (if (> x y)
+    x
+    y)
+#+END_SRC
+
+'Let' expressions are slightly different to Clojure - with each binding/value pair
+being enclosed in parens:
+
+#+BEGIN_SRC clojure
+  (let [(x 4)
+        (y 5)]
+    (+ x y))
+#+END_SRC
+
+Loop/recur behave as in Clojure - again, with each binding/value pair enclosed
+in parens. Like in Clojure, 'recur' must be called from the tail position, and
+no tail-call optimisation is performed elsewhere. If no ~loop~ block is present,
+the recur point is assumed to be the containing function.
+
+#+BEGIN_SRC clojure
+    (loop [(x 5)
+           (y 0)]
+      (if (pos? x)
+        (recur (dec x) (+ y x))
+        y))
+#+END_SRC
+
+*** Collections
+
+Vectors and sets in Bridje are *homogenous*, unlike Clojure's heterogeneous
+collections. They are immutable, and can be arbitrarily nested.
+
+#+BEGIN_SRC clojure
+  [1 4 3]
+  #{["foo" "bar"] ["baz"]}
+#+END_SRC
+
+Bridje does have homogenous maps, but they do not have a specific syntax - they
+are constructed from sequences of tuples.
+
+*** TODO Records
+
+#+BEGIN_SRC clojure
+  (defdata
+    {:text Str
+     :a-number BigInt})
+
+  {:text "Hello"
+   :a-number 52N}
+
+
+  (defdata :User
+    {:id Int
+     :name Str
+     :active? Bool})
+
+  {:User.id 52
+   :User.name "James"
+   :User.active? true
+   :text "Hello"}
+
+
+  {:User. {:id 52, :name "James", :active? true},
+   :text "Hello"}
+
+  (let [({:User. {id name active?}, text} a-user)]
+    id)
+#+END_SRC
+
+TODO: more constructing/destructuring.
+
+*** Algebraic Data Types (ADTs)
+
+In addition to records, Bridje also allows developers to declare 'Algebraic Data
+Types' (ADTs). These are also defined using the ~defdata~ syntax. For example,
+if a value can either be an Int or a String, we can declare this as follows:
+
+#+BEGIN_SRC clojure
+  (defdata IntOrString
+    (:Int Int)
+    (:String Str))
+#+END_SRC
+
+Values of type ~IntOrString~ include ~(:Int 5)~ and ~(:String "Hello!")~.
+
+ADTs can be deconstructed using the ~case~ form:
+
+#+BEGIN_SRC clojure
+  (case int-or-string
+    (:Int i) (inc i)
+    (:String s) (count s))
+#+END_SRC
+
+*** Naming values, defining functions
+
+#+BEGIN_SRC clojure
+  (:: x Int)
+  (def x 4)
+
+  (:: (say-hi Str) Str)
+  (def (say-hi s)
+    (str "Hello, " s "!"))
+#+END_SRC
+
+*** TODO Macros
+
+#+BEGIN_SRC clojure
+  (defmacro (if-not pred then else)
+    `(if ~pred
+       ~else
+       ~then))
+#+END_SRC
+
+*** TODO Interop
+
+#+BEGIN_SRC clojure
+  (defjava java.lang/Runtime
+    (:: (getRuntime) Runtime)
+    (:: (.freeMemory) Int))
+
+  (Runtime/.freeMemory (Runtime/getRuntime))
+#+END_SRC
+
+#+BEGIN_SRC clojure
+  ;; in CLJ:
+
+  (ns myapp.clj-interop
+    (:require [bridje.runtime :as brj]))
+
+  ;; TODO ADT syntax
+  (brj/defbrj my-add
+    (fn [x y]
+      (+ x y)))
+
+  ;; in BRJ
+
+  (defclj myapp.clj-interop
+    (:: (my-add Int Int) Int))
+#+END_SRC
+
+*** TODO Uncaught exceptions
+
+*** Effects
+
+One of Bridje's main features is its effect system - a way of knowing at
+compile-time what side causes/side effects.
+
+We use the example of a simple logging system, where we want to log to stdout.
+In Bridje, we declare a set of effects using ~defx~. We can also provide default
+implementations of each of the effect functions, which may in turn call
+lower-level effects.
+
+#+BEGIN_SRC clojure
+  (defx Console
+    (:: (print! Str) :Void)
+    (:: (read-line!) Str))
+
+  (def (println! s)
+    (print! (str s "\n")))
+
+
+  (defdata :Level
+    :Debug, :Info, :Warn, :Error)
+
+  (defx Logger
+    (:: (log! Level Str) :Void)
+
+    (def (log! level s)
+      (print! (format "Log [%s]: %s" (pr-str level) s))))
+
+
+  (def (my-fn x y)
+    (log! :Debug (format "Got x: %d, y: %d" x y))
+    (+ x y))
+#+END_SRC
+
+Effects propagate through the call stack - in this case, the ~println!~ function
+is determined to use the ~Console~ effects. The ~my-fn~ function is determined
+to use the ~Logger~ effects, but not ~Console~ (because default implementations
+can be overridden).
+
+We can provide/override implementations of effects using the ~with-fx~
+expression. This defines the behaviour of the effect in the /lexical/ scope of
+the block.
+
+#+BEGIN_SRC clojure
+  (with-fx [(Console (def (print! s)
+                       ...)
+
+                     (def (read-line! s)
+                       ...))]
+
+    (log! :Info "Hello!"))
+#+END_SRC
+
+There is one 'base' effect, ~IO~, which interacts with the outside world. This
+is built-in and cannot be explicitly handled.
+
+**** TODO internal mutable state
+
+*** TODO Typeclasses
+
+#+BEGIN_SRC clojure
+  (defdata :Ordering
+    :LT :EQ :GT)
+
+  (defclass (Ord a)
+    (:: (compare a a) :Ordering))
+
+  (definstance (Ord Int)
+    (def (compare x y)
+      (cond
+        (< x y) :LT
+        (= x y) :EQ
+        :GT)))
+#+END_SRC
+
+#+BEGIN_SRC clojure
+  (defdata (Maybe a)
+    (:Just a)
+    :Nothing)
+
+  (defclass (Functor f)
+    (:: (fmap (f a) (Fn [a] b))
+        (f b)))
+
+  (definstance (Functor Maybe)
+    (def (fmap maybe)
+      (case maybe
+        (:Just a) (:Just (f a))
+        :Nothing)))
+
+  (defclass #{(Functor m)} (Monad m)
+    (:: (return a) (m a))
+
+    (:: (bind (m a) (Fn [a] (m b)))
+        (m b)))
+
+  (definstance (Monad Maybe)
+    (def (return a)
+      (Just a))
+
+    (def (bind maybe f)
+      (case maybe
+        (:Just a) (f a)
+        :Nothing)))
+#+END_SRC
+
+** TODO Namespaces
+
+#+BEGIN_SRC clojure
+  (ns myapp.main
+    {:referring {myapp.users #{get-user! update-user! :User}}
+     :aliasing {u myapp.users}
+     :exposing #{...}
+     :hiding #{...}})
+#+END_SRC
+
+**** TODO
+- cycles between namespaces allowed
+- cycles between vars allowed (with forward declarations)
+- immutable namespaces - invalidation + reloading
+- can use standard clojure namespaces (if we use the intern functions to define everything)
+- cycles including macros?
+
+* LICENCE
+
+Licence tbc. For now, all rights reserved. Feel free to have a browse, though.
