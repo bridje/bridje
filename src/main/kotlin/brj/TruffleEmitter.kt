@@ -1,7 +1,7 @@
 package brj
 
-import brj.BridjeTypesGen.expectBoolean
-import brj.BridjeTypesGen.expectCallTarget
+import brj.BridjeTypesGen.*
+import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
@@ -9,6 +9,7 @@ import com.oracle.truffle.api.`object`.*
 import com.oracle.truffle.api.dsl.NodeChild
 import com.oracle.truffle.api.dsl.NodeField
 import com.oracle.truffle.api.dsl.Specialization
+import com.oracle.truffle.api.dsl.TypeSystem
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.FrameUtil
@@ -20,28 +21,36 @@ import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.profiles.ConditionProfile
 import org.pcollections.HashTreePSet
 import org.pcollections.TreePVector
+import java.math.BigDecimal
+import java.math.BigInteger
 
-abstract class ValueNode : Node() {
+@TypeSystem(
+    Boolean::class, String::class,
+    Long::class, Float::class, BigInteger::class, BigDecimal::class,
+    CallTarget::class, DynamicObject::class)
+internal abstract class BridjeTypes
+
+internal abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
 }
 
-class BoolNode(val boolean: Boolean) : ValueNode() {
+internal class BoolNode(val boolean: Boolean) : ValueNode() {
     override fun execute(frame: VirtualFrame): Boolean = boolean
 }
 
-class IntNode(val int: Long) : ValueNode() {
+internal class IntNode(val int: Long) : ValueNode() {
     override fun execute(frame: VirtualFrame): Long = int
 }
 
-class FloatNode(val float: Double) : ValueNode() {
+internal class FloatNode(val float: Double) : ValueNode() {
     override fun execute(frame: VirtualFrame): Double = float
 }
 
-class ObjectNode(val obj: Any) : ValueNode() {
+internal class ObjectNode(val obj: Any) : ValueNode() {
     override fun execute(frame: VirtualFrame): Any = obj
 }
 
-class CollNode(@Children val nodes: Array<ValueNode>, val toColl: (List<Any?>) -> Any) : ValueNode() {
+internal class CollNode(@Children val nodes: Array<ValueNode>, val toColl: (List<Any?>) -> Any) : ValueNode() {
     @ExplodeLoop
     override fun execute(frame: VirtualFrame): Any {
         val coll: MutableList<Any?> = ArrayList(nodes.size)
@@ -54,7 +63,7 @@ class CollNode(@Children val nodes: Array<ValueNode>, val toColl: (List<Any?>) -
     }
 }
 
-class IfNode(
+internal class IfNode(
     @Child var predNode: ValueNode,
     @Child var thenNode: ValueNode,
     @Child var elseNode: ValueNode
@@ -65,7 +74,7 @@ class IfNode(
         (if (conditionProfile.profile(expectBoolean(predNode.execute(frame)))) thenNode else elseNode).execute(frame)
 }
 
-class DoNode(@Children val exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode) : ValueNode() {
+internal class DoNode(@Children val exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode) : ValueNode() {
     @ExplodeLoop
     override fun execute(frame: VirtualFrame): Any {
         val exprCount = exprNodes.size
@@ -79,7 +88,7 @@ class DoNode(@Children val exprNodes: Array<ValueNode>, @Child var exprNode: Val
     }
 }
 
-class LetNode(@Children val bindingNodes: Array<UnitNode>, @Child var bodyNode: ValueNode) : ValueNode() {
+internal class LetNode(@Children val bindingNodes: Array<UnitNode>, @Child var bodyNode: ValueNode) : ValueNode() {
     @ExplodeLoop
     override fun execute(frame: VirtualFrame): Any {
         val bindingCount = bindingNodes.size
@@ -94,17 +103,17 @@ class LetNode(@Children val bindingNodes: Array<UnitNode>, @Child var bodyNode: 
 }
 
 
-abstract class UnitNode : Node() {
+internal abstract class UnitNode : Node() {
     abstract fun execute(frame: VirtualFrame)
 }
 
-class ReadArgNode(val idx: Int) : ValueNode() {
+internal class ReadArgNode(val idx: Int) : ValueNode() {
     override fun execute(frame: VirtualFrame) = frame.arguments[idx]
 }
 
 @NodeChild("value", type = ValueNode::class)
 @NodeField(name = "slot", type = FrameSlot::class)
-abstract class WriteLocalVarNode : UnitNode() {
+internal abstract class WriteLocalVarNode : UnitNode() {
     abstract fun getSlot(): FrameSlot
 
     @Specialization
@@ -113,7 +122,7 @@ abstract class WriteLocalVarNode : UnitNode() {
     }
 }
 
-class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>) : ValueNode() {
+internal class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>) : ValueNode() {
     @Child
     var callNode = Truffle.getRuntime().createIndirectCallNode()
 
@@ -132,14 +141,14 @@ class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<Value
 }
 
 @NodeField(name = "slot", type = FrameSlot::class)
-abstract class ReadLocalVarNode : ValueNode() {
+internal abstract class ReadLocalVarNode : ValueNode() {
     abstract fun getSlot(): FrameSlot
 
     @Specialization
     protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())
 }
 
-data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
+internal data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
     inner class EvalRootNode(@Child var node: ValueNode) : RootNode(lang, frameDescriptor) {
         override fun execute(frame: VirtualFrame): Any {
             val res = node.execute(frame)
@@ -170,26 +179,22 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
     }
 
     inner class CaseExprNode(expr: CaseExpr) : ValueNode() {
+        val slot: FrameSlot = frameDescriptor.findOrAddFrameSlot(this)
 
         inner class CaseMatched(val res: Any) : ControlFlowException()
 
-        val slot: FrameSlot = frameDescriptor.findOrAddFrameSlot(this)
+        inner class ReadPropNode(val idx: Int) : ValueNode() {
+            @Child
+            var readSlot = ReadLocalVarNodeGen.create(slot)
 
-        @Child
-        var exprNode = WriteLocalVarNodeGen.create(emitValueExpr(expr.expr), slot)
+            override fun execute(frame: VirtualFrame): Any {
+                return expectDynamicObject(readSlot.execute(frame))[idx]
+            }
+        }
 
         inner class CaseClauseNode(val clause: CaseClause) : Node() {
             @Child
             var readSlot = ReadLocalVarNodeGen.create(slot)
-
-            inner class ReadPropNode(val idx: Int): ValueNode() {
-                @Child
-                var readSlot = this@CaseClauseNode.readSlot
-
-                override fun execute(frame: VirtualFrame): Any {
-                    return (readSlot.execute(frame) as DynamicObject)[idx]
-                }
-            }
 
             @Children
             val writeBindingNodes =
@@ -201,11 +206,13 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
             @Child
             var exprNode = emitValueExpr(clause.bodyExpr)
 
+            val conditionProfile = ConditionProfile.createBinaryProfile()
+
             @ExplodeLoop
             fun execute(frame: VirtualFrame) {
-                val value = readSlot.execute(frame) as DynamicObject
+                val value = expectDynamicObject(readSlot.execute(frame))
 
-                if ((value.shape.objectType as ConstructorType).sym == clause.constructor.sym) {
+                if (conditionProfile.profile((value.shape.objectType as ConstructorType).sym == clause.constructor.sym)) {
                     for (node in writeBindingNodes) {
                         node.execute(frame)
                     }
@@ -214,6 +221,9 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
                 }
             }
         }
+
+        @Child
+        var exprNode = WriteLocalVarNodeGen.create(emitValueExpr(expr.expr), slot)
 
         @Children
         val clauseNodes = expr.clauses.map(this@CaseExprNode::CaseClauseNode).toTypedArray()
@@ -236,7 +246,6 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
             return defaultNode?.execute(frame) ?: TODO()
         }
     }
-
 
     fun emitValueExpr(expr: ValueExpr): ValueNode =
         when (expr) {
@@ -281,32 +290,27 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
     class ConstructorType(val sym: QSymbol, val paramTypes: List<MonoType>?) : ObjectType() {
         @TruffleBoundary
         override fun toString(obj: DynamicObject): String =
-            if (paramTypes == null) sym.toString()
-            else "($sym ${paramTypes.mapIndexed { idx, _ -> obj[idx] }.joinToString(" ")})"
+            if (paramTypes == null)
+                sym.toString()
+            else
+                "($sym ${paramTypes.mapIndexed { idx, _ -> obj[idx] }.joinToString(" ")})"
     }
 
-    private class DataTypeObjectFactory(sym: QSymbol, paramTypes: List<MonoType>?) {
+    fun dynamicObjectFactory(sym: QSymbol, paramTypes: List<MonoType>?): DynamicObjectFactory {
         val constructorType = ConstructorType(sym, paramTypes)
 
-        private val factory: DynamicObjectFactory
+        val allocator = LAYOUT.createAllocator()
+        var shape = LAYOUT.createShape(constructorType)
 
-        init {
-            val allocator = LAYOUT.createAllocator()
-            var shape = LAYOUT.createShape(constructorType)
-
-            paramTypes?.forEachIndexed { idx, paramType ->
-                shape = shape.addProperty(Property.create(idx, allocator.locationForType(paramType.javaType), 0))
-            }
-
-            factory = shape.createFactory()
+        paramTypes?.forEachIndexed { idx, paramType ->
+            shape = shape.addProperty(Property.create(idx, allocator.locationForType(paramType.javaType), 0))
         }
 
-        fun newInstance() = factory.newInstance()
-        fun newInstance(args: Array<Any?>) = factory.newInstance(*args)
+        return shape.createFactory()
     }
 
-    inner class FunctionConstructor(sym: QSymbol, val paramTypes: List<MonoType>) : RootNode(lang) {
-        private val factory = DataTypeObjectFactory(sym, paramTypes)
+    inner class FunctionConstructor(sym: QSymbol, private val paramTypes: List<MonoType>) : RootNode(lang) {
+        private val factory = dynamicObjectFactory(sym, paramTypes)
 
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
@@ -320,10 +324,10 @@ data class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDes
         }
     }
 
-    internal fun emitConstructor(sym: QSymbol, paramTypes: List<MonoType>?): Any {
+    fun emitConstructor(sym: QSymbol, paramTypes: List<MonoType>?): Any {
         return if (paramTypes != null)
             Truffle.getRuntime().createCallTarget(FunctionConstructor(sym, paramTypes))
         else
-            DataTypeObjectFactory(sym, null).newInstance()
+            dynamicObjectFactory(sym, paramTypes).newInstance()
     }
 }

@@ -6,14 +6,11 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.dsl.TypeSystem
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
-import java.math.BigDecimal
-import java.math.BigInteger
 import java.util.*
 import kotlin.math.min
 
@@ -31,12 +28,6 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     override fun createContext(env: TruffleLanguage.Env) = BridjeContext(env, brj.Env())
 
     override fun isObjectOfLanguage(obj: Any): Boolean = false
-
-    @TypeSystem(
-        Boolean::class, String::class,
-        Long::class, Float::class, BigInteger::class, BigDecimal::class,
-        CallTarget::class)
-    abstract class BridjeTypes
 
     private val ctx get() = getCurrentContext(this.javaClass)
 
