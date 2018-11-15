@@ -114,10 +114,10 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                             defDataExpr.constructors.forEach { constructor ->
                                 val sym = QSymbol.intern(nsFile.ns, constructor.sym)
                                 nsFile.nsEnv += DataTypeConstructor(
-                                        sym,
-                                        dataType,
-                                        constructor.params,
-                                        ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(sym, constructor.params))
+                                    sym,
+                                    dataType,
+                                    constructor.params,
+                                    ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(sym, constructor.params))
                             }
 
                             env += nsFile.nsEnv
@@ -177,18 +177,18 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     private fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source>) {
-        synchronized(this) {
-            val ctx = ctx
+        val ctx = ctx
 
-            val req = Require(ctx.env)
+        requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
+            synchronized(ctx) {
+                val req = Require(ctx.env)
 
-            requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
                 nses.forEach(req::evalDataDefs)
                 nses.forEach(req::evalTypeDefs)
                 nses.forEach(req::evalVars)
-            }
 
-            ctx.env = req.env
+                ctx.env = req.env
+            }
         }
     }
 
