@@ -15,7 +15,9 @@ fun main(args: Array<String>) {
     val fooSource = Source.create("brj", """
         (ns foo
           {aliases {b bar},
-           refers {bar #{baz}}})
+           refers {bar #{baz}}
+           ;export #{x}
+           })
 
         (defdata (Maybe a) (Just a) Nothing)
 
@@ -26,6 +28,8 @@ fun main(args: Array<String>) {
           (case (Just 4)
             (Just x) x
             Nothing 0))
+
+        (def just (Just 4))
 
         (def x
           (let [quux 10N]
@@ -44,7 +48,7 @@ fun main(args: Array<String>) {
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    println("value: ${ctx.eval(Source.create("brj", "foo/bar"))}")
+    println("value: ${ctx.eval(Source.create("brj", "foo/just"))}")
 
     println("value: ${ctx.eval(Source.create("brj", "(foo/my-fn foo/x [bar/baz 60N 99N])"))}")
 

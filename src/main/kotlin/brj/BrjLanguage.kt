@@ -56,7 +56,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         println("type: ${TypeChecker(env).valueExprType(expr)}")
 
         val emitter = ValueNodeEmitter(this, FrameDescriptor())
-        return Truffle.getRuntime().createCallTarget(emitter.EvalRootNode(emitter.emitValueExpr(expr)))
+        return emitter.valueNodeCallTarget(emitter.WrapGuestValueNode(emitter.emitValueExpr(expr)))
     }
 
     internal inner class Require(var env: brj.Env) {
@@ -113,11 +113,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                             defDataExpr.constructors.forEach { constructor ->
                                 val sym = QSymbol.intern(nsFile.ns, constructor.sym)
-                                nsFile.nsEnv += DataTypeConstructor(
-                                    sym,
-                                    dataType,
-                                    constructor.params,
-                                    ValueNodeEmitter(getLang(), FrameDescriptor()).emitConstructor(sym, constructor.params))
+                                nsFile.nsEnv += ValueNodeEmitter(this@BrjLanguage, FrameDescriptor()).emitConstructor(sym, dataType, constructor.params)
                             }
 
                             env += nsFile.nsEnv

@@ -14,6 +14,8 @@ import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.FrameUtil
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.ForeignAccess
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.ControlFlowException
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
@@ -65,17 +67,6 @@ internal class CollNode(@Children val nodes: Array<ValueNode>, val toColl: (List
 
         return toColl(coll)
     }
-}
-
-internal class IfNode(
-    @Child var predNode: ValueNode,
-    @Child var thenNode: ValueNode,
-    @Child var elseNode: ValueNode
-) : ValueNode() {
-    private val conditionProfile = ConditionProfile.createBinaryProfile()
-
-    override fun execute(frame: VirtualFrame): Any =
-        (if (conditionProfile.profile(expectBoolean(predNode.execute(frame)))) thenNode else elseNode).execute(frame)
 }
 
 internal class DoNode(@Children val exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode) : ValueNode() {
@@ -154,18 +145,36 @@ internal class ReadDataTypeParamNode(@Child var objNode: ValueNode, val idx: Int
 }
 
 internal class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: FrameDescriptor) {
-    inner class EvalRootNode(@Child var node: ValueNode) : RootNode(lang, frameDescriptor) {
+
+    inner class RootValueNode(@Child var node: ValueNode) : RootNode(lang, frameDescriptor) {
+        override fun execute(frame: VirtualFrame): Any = node.execute(frame)
+    }
+
+    fun valueNodeCallTarget(node: ValueNode): CallTarget = Truffle.getRuntime().createCallTarget(RootValueNode(node))
+
+    inner class WrapGuestValueNode(@Child var node: ValueNode) : ValueNode() {
         override fun execute(frame: VirtualFrame): Any {
             val res = node.execute(frame)
 
             return when (res) {
-                is Boolean, is Long, is String -> res
+                is Boolean, is Long, is String, is TruffleObject -> res
                 else -> lang.contextReference.get().truffleEnv.asGuestValue(res)
             }
         }
     }
 
-    inner class FnBodyNode(expr: FnExpr) : RootNode(lang, frameDescriptor) {
+    inner class IfNode(expr: IfExpr) : ValueNode() {
+        @Child var predNode = emitValueExpr(expr.predExpr)
+        @Child var thenNode = emitValueExpr(expr.thenExpr)
+        @Child var elseNode = emitValueExpr(expr.elseExpr)
+
+        private val conditionProfile = ConditionProfile.createBinaryProfile()
+
+        override fun execute(frame: VirtualFrame): Any =
+            (if (conditionProfile.profile(expectBoolean(predNode.execute(frame)))) thenNode else elseNode).execute(frame)
+    }
+
+    inner class FnBodyNode(expr: FnExpr) : ValueNode() {
         @Children
         val readArgNodes: Array<UnitNode> = expr.params
             .mapIndexed { idx, it -> WriteLocalVarNodeGen.create(ReadArgNode(idx), frameDescriptor.findOrAddFrameSlot(it)) }
@@ -195,7 +204,11 @@ internal class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: Fram
             @Children
             val writeBindingNodes =
                 clause.bindings
-                    ?.mapIndexed { idx, lv -> WriteLocalVarNodeGen.create(ReadDataTypeParamNode(ReadLocalVarNodeGen.create(slot), idx), frameDescriptor.findOrAddFrameSlot(lv)) }
+                    ?.mapIndexed { idx, lv ->
+                        WriteLocalVarNodeGen.create(
+                            ReadDataTypeParamNode(ReadLocalVarNodeGen.create(slot), idx),
+                            frameDescriptor.findOrAddFrameSlot(lv))
+                    }
                     ?.toTypedArray()
                     ?: arrayOf()
 
@@ -256,14 +269,14 @@ internal class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: Fram
 
             is SetExpr -> CollNode(expr.exprs.map(::emitValueExpr).toTypedArray()) { HashTreePSet.from(it) }
 
-            is FnExpr -> ObjectNode(Truffle.getRuntime().createCallTarget(ValueNodeEmitter(lang, FrameDescriptor()).FnBodyNode(expr)))
+            is FnExpr -> {
+                val emitter = ValueNodeEmitter(lang, FrameDescriptor())
+                ObjectNode(emitter.valueNodeCallTarget(emitter.FnBodyNode(expr)))
+            }
 
             is CallExpr -> CallNode(emitValueExpr(expr.f), expr.args.map(::emitValueExpr).toTypedArray())
 
-            is IfExpr -> IfNode(
-                emitValueExpr(expr.predExpr),
-                emitValueExpr(expr.thenExpr),
-                emitValueExpr(expr.elseExpr))
+            is IfExpr -> IfNode(expr)
 
             is DoExpr -> DoNode(expr.exprs.map(::emitValueExpr).toTypedArray(), emitValueExpr(expr.expr))
 
@@ -273,7 +286,7 @@ internal class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: Fram
                     .toTypedArray(),
                 emitValueExpr(expr.expr))
 
-            is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findFrameSlot(expr.localVar))
+            is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
             is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
 
             is CaseExpr -> CaseExprNode(expr)
@@ -283,17 +296,48 @@ internal class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: Fram
         val LAYOUT = Layout.createLayout()!!
     }
 
-    class ConstructorType(val sym: QSymbol, val paramTypes: List<MonoType>?) : ObjectType() {
+    class DataTypeInteropReadNode(val sym: QSymbol, val dataType: DataType, val paramTypes: List<MonoType>?) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any {
+            val obj = frame.arguments[0] as DynamicObject
+            val idxArg = frame.arguments[1]
+
+            return when (idxArg) {
+                is Long -> {
+                    val idx = idxArg.toInt()
+                    if (paramTypes == null || idx >= paramTypes.size) throw IndexOutOfBoundsException(idx)
+
+                    obj[idx]
+                }
+
+                "constructor" -> sym.toString()
+                "dataType" -> dataType.sym.toString()
+
+                else -> TODO()
+            }
+        }
+    }
+
+    inner class DataTypeForeignAccessFactory(val sym: QSymbol, val dataType: DataType, val paramTypes: List<MonoType>?) : ForeignAccess.StandardFactory {
+        override fun accessHasSize(): CallTarget = valueNodeCallTarget(BoolNode(paramTypes != null))
+        override fun accessGetSize(): CallTarget? = paramTypes?.let { valueNodeCallTarget(IntNode(it.size.toLong())) }
+        override fun accessHasKeys(): CallTarget = valueNodeCallTarget(BoolNode(true))
+        override fun accessRead(): CallTarget = valueNodeCallTarget(DataTypeInteropReadNode(sym, dataType, paramTypes))
+    }
+
+    inner class ConstructorType(val sym: QSymbol, val dataType: DataType, val paramTypes: List<MonoType>?) : ObjectType() {
         @TruffleBoundary
         override fun toString(obj: DynamicObject): String =
             if (paramTypes == null)
                 sym.toString()
             else
                 "($sym ${paramTypes.mapIndexed { idx, _ -> obj[idx] }.joinToString(" ")})"
+
+        override fun getForeignAccessFactory(obj: DynamicObject): ForeignAccess =
+            ForeignAccess.create(obj.javaClass, DataTypeForeignAccessFactory(sym, dataType, paramTypes))
     }
 
-    fun dynamicObjectFactory(sym: QSymbol, paramTypes: List<MonoType>?): DynamicObjectFactory {
-        val constructorType = ConstructorType(sym, paramTypes)
+    fun dynamicObjectFactory(sym: QSymbol, dataType: DataType, paramTypes: List<MonoType>?): DynamicObjectFactory {
+        val constructorType = ConstructorType(sym, dataType, paramTypes)
 
         val allocator = LAYOUT.createAllocator()
         var shape = LAYOUT.createShape(constructorType)
@@ -305,9 +349,7 @@ internal class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: Fram
         return shape.createFactory()
     }
 
-    inner class FunctionConstructor(sym: QSymbol, private val paramTypes: List<MonoType>) : RootNode(lang) {
-        private val factory = dynamicObjectFactory(sym, paramTypes)
-
+    inner class FunctionConstructor(private val factory: DynamicObjectFactory, private val paramTypes: List<MonoType>) : RootNode(lang) {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
             val params = arrayOfNulls<Any>(paramTypes.size)
@@ -316,14 +358,17 @@ internal class ValueNodeEmitter(val lang: BrjLanguage, val frameDescriptor: Fram
                 params[i] = frame.arguments[i]
             }
 
-            return factory.newInstance(params)
+            return factory.newInstance(*params)
         }
     }
 
-    fun emitConstructor(sym: QSymbol, paramTypes: List<MonoType>?): Any {
-        return if (paramTypes != null)
-            Truffle.getRuntime().createCallTarget(FunctionConstructor(sym, paramTypes))
-        else
-            dynamicObjectFactory(sym, paramTypes).newInstance()
+    fun emitConstructor(sym: QSymbol, dataType: DataType, paramTypes: List<MonoType>?): DataTypeConstructor {
+        val factory = dynamicObjectFactory(sym, dataType, paramTypes)
+
+        return DataTypeConstructor(sym, dataType, paramTypes,
+            if (paramTypes != null)
+                Truffle.getRuntime().createCallTarget(FunctionConstructor(factory, paramTypes))
+            else
+                factory.newInstance())
     }
 }
