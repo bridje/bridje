@@ -5,7 +5,6 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.`object`.DynamicObject
 import com.oracle.truffle.api.dsl.TypeSystem
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -21,8 +20,8 @@ import java.math.BigInteger
 
 @TypeSystem(
     Boolean::class, String::class,
-    Long::class, Float::class, BigInteger::class, BigDecimal::class,
-    CallTarget::class, DynamicObject::class)
+    Long::class, Double::class, BigInteger::class, BigDecimal::class,
+    CallTarget::class, DataObject::class)
 internal abstract class BridjeTypes
 
 internal class BoolNode(val boolean: Boolean) : ValueNode() {
@@ -177,9 +176,9 @@ internal class CaseClauseNode(emitter: ValueExprEmitter, dataSlot: FrameSlot, cl
 
     @ExplodeLoop
     fun execute(frame: VirtualFrame) {
-        val value = expectDynamicObject(readSlot.execute(frame))
+        val value = expectDataObject(readSlot.execute(frame))
 
-        if (conditionProfile.profile((value.shape.objectType as DataTypeEmitter.ConstructorType).constructor.sym == constructorSym)) {
+        if (conditionProfile.profile(value.constructor.sym == constructorSym)) {
             for (node in writeBindingNodes) {
                 node.execute(frame)
             }
@@ -193,7 +192,7 @@ internal class CaseExprNode(emitter: ValueExprEmitter, expr: CaseExpr) : ValueNo
     private val dataSlot: FrameSlot = emitter.frameDescriptor.findOrAddFrameSlot(this)
 
     @Child
-    var exprNode = WriteLocalVarNodeGen.create(emitter.emitValueExpr(expr.expr), dataSlot)
+    var exprNode = WriteLocalVarNodeGen.create(emitter.emitValueExpr(expr.expr), dataSlot)!!
 
     @Children
     val clauseNodes = expr.clauses.map { CaseClauseNode(emitter, dataSlot, it) }.toTypedArray()
