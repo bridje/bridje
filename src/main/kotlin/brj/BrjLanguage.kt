@@ -6,7 +6,6 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
 import org.graalvm.polyglot.Context
@@ -55,8 +54,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         println("type: ${TypeChecker(env).valueExprType(expr)}")
 
-        val emitter = ValueNodeEmitter(this, FrameDescriptor())
-        return emitter.valueNodeCallTarget(emitter.WrapGuestValueNode(emitter.emitValueExpr(expr)))
+        return emitValueExpr(this, expr)
     }
 
     internal inner class Require(var env: brj.Env) {
@@ -114,7 +112,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                             defDataExpr.constructors.forEach { constructor ->
                                 val sym = QSymbol.intern(nsFile.ns, constructor.sym)
                                 val dataTypeConstructor = DataTypeConstructor(sym, dataType, constructor.params)
-                                nsFile.nsEnv += ValueNodeEmitter(this@BrjLanguage, FrameDescriptor()).emitConstructor(dataTypeConstructor)
+                                nsFile.nsEnv += emitConstructor(this@BrjLanguage, dataTypeConstructor)
                             }
 
                             env += nsFile.nsEnv
@@ -140,14 +138,10 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                     TODO()
                 }
 
-                val frameDescriptor = FrameDescriptor()
-
-                val node = ValueNodeEmitter(this@BrjLanguage, frameDescriptor).emitValueExpr(expr.expr)
-
                 nsFile.nsEnv += GlobalVar(
                     QSymbol.intern(nsFile.ns, expr.sym),
                     expectedType ?: expr.type,
-                    node.execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), frameDescriptor)))
+                    evalValueExpr(this@BrjLanguage, expr.expr))
 
                 env += nsFile.nsEnv
             }
