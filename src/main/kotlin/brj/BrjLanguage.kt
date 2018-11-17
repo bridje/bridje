@@ -113,7 +113,8 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                             defDataExpr.constructors.forEach { constructor ->
                                 val sym = QSymbol.intern(nsFile.ns, constructor.sym)
-                                nsFile.nsEnv += ValueNodeEmitter(this@BrjLanguage, FrameDescriptor()).emitConstructor(sym, dataType, constructor.params)
+                                val dataTypeConstructor = DataTypeConstructor(sym, dataType, constructor.params)
+                                nsFile.nsEnv += ValueNodeEmitter(this@BrjLanguage, FrameDescriptor()).emitConstructor(dataTypeConstructor)
                             }
 
                             env += nsFile.nsEnv

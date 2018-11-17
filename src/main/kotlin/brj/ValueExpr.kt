@@ -105,19 +105,19 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         while (it.forms.size > 1) {
             val clauseForm = it.expectForm<Form>()
 
-            fun resolveConstructor(form: Form): DataTypeConstructor {
+            fun resolveConstructor(form: Form): ConstructorVar {
                 return when (form) {
                     is SymbolForm -> resolve(form.sym)
                     is QSymbolForm -> resolve(form.sym)
                     else -> TODO()
-                } as? DataTypeConstructor ?: TODO()
+                } as? ConstructorVar ?: TODO()
             }
 
             val (constructor, paramSyms) = when (clauseForm) {
-                is SymbolForm, is QSymbolForm -> Pair(resolveConstructor(clauseForm), null)
+                is SymbolForm, is QSymbolForm -> Pair(resolveConstructor(clauseForm).constructor, null)
                 is ListForm -> {
                     it.nested(clauseForm.forms) {
-                        Pair(resolveConstructor(it.expectForm()), it.varargs { it.expectForm<SymbolForm>().sym })
+                        Pair(resolveConstructor(it.expectForm()).constructor, it.varargs { it.expectForm<SymbolForm>().sym })
 
                     }
                 }

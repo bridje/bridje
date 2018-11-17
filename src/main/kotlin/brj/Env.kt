@@ -10,7 +10,11 @@ abstract class AGlobalVar internal constructor(val sym: QSymbol, val value: Any?
     abstract val type: Type
 }
 
-class GlobalVar(sym: QSymbol, override val type: Type, value: Any?): AGlobalVar(sym, value)
+internal class GlobalVar(sym: QSymbol, override val type: Type, value: Any?) : AGlobalVar(sym, value)
+
+internal class ConstructorVar internal constructor(val constructor: DataTypeConstructor, value: Any?) : AGlobalVar(constructor.sym, value) {
+    override val type: Type = Type(if (constructor.paramTypes != null) FnType(constructor.paramTypes, constructor.dataType.monoType) else constructor.dataType.monoType)
+}
 
 data class DataType internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>?, val constructors: List<Symbol>) {
     val monoType: MonoType
@@ -23,9 +27,7 @@ data class DataType internal constructor(val sym: QSymbol, val typeVars: List<Ty
     override fun toString() = sym.toString()
 }
 
-class DataTypeConstructor internal constructor(sym: QSymbol, val dataType: DataType, val paramTypes: List<MonoType>?, value: Any?) : AGlobalVar(sym, value) {
-    override val type: Type = Type(if (paramTypes != null) FnType(paramTypes, dataType.monoType) else dataType.monoType)
-}
+data class DataTypeConstructor internal constructor(val sym: QSymbol, val dataType: DataType, val paramTypes: List<MonoType>?)
 
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),

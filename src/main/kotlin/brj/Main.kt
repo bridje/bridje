@@ -48,7 +48,9 @@ fun main(args: Array<String>) {
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    println("value: ${ctx.eval(Source.create("brj", "foo/just"))}")
+    val value = ctx.eval(Source.create("brj", "foo/just"))
+
+    println("value: $value")
 
     println("value: ${ctx.eval(Source.create("brj", "(foo/my-fn foo/x [bar/baz 60N 99N])"))}")
 

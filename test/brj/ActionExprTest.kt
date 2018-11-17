@@ -11,11 +11,11 @@ internal class ActionExprTest {
     @Test
     internal fun testTypedef() {
         assertEquals(
-            TypeDefExpr(Symbol.intern("foo"), Typing(StringType)),
+            TypeDefExpr(Symbol.intern("foo"), Type(StringType)),
             analyse(ActionExprAnalyser::typeDefAnalyser, readForms("foo Str")))
 
         assertEquals(
-            TypeDefExpr(Symbol.intern("foo"), Typing(FnType(listOf(StringType, IntType), StringType))),
+            TypeDefExpr(Symbol.intern("foo"), Type(FnType(listOf(StringType, IntType), StringType))),
             analyse(ActionExprAnalyser::typeDefAnalyser, readForms("(foo Str Int) Str")))
     }
 }
