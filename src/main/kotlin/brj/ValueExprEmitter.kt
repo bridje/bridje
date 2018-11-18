@@ -8,6 +8,7 @@ import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.dsl.TypeSystem
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.ForeignAccess
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.ControlFlowException
 import com.oracle.truffle.api.nodes.ExplodeLoop
@@ -38,6 +39,26 @@ internal class FloatNode(val float: Double) : ValueNode() {
 
 internal class ObjectNode(val obj: Any) : ValueNode() {
     override fun execute(frame: VirtualFrame): Any = obj
+}
+
+data class BigInt(val bigInt: BigInteger) : TruffleObject {
+    override fun getForeignAccess() =
+        ForeignAccess.create(BigInt::class.java, object : ForeignAccess.StandardFactory {
+            override fun accessIsBoxed() = constantly(true)
+            override fun accessUnbox() = constantly(bigInt.toLong())
+        })
+
+    override fun toString() = bigInt.toString()
+}
+
+data class BigFloat(val bigFloat: BigDecimal) : TruffleObject {
+    override fun getForeignAccess() =
+        ForeignAccess.create(BigInt::class.java, object : ForeignAccess.StandardFactory {
+            override fun accessIsBoxed() = constantly(true)
+            override fun accessUnbox() = constantly(bigFloat.toDouble())
+        })!!
+
+    override fun toString() = bigFloat.toString()
 }
 
 internal class CollNode(emitter: ValueExprEmitter, exprs: List<ValueExpr>, private val collFn: (List<Any?>) -> Any) : ValueNode() {
@@ -236,9 +257,9 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
             is BooleanExpr -> BoolNode(expr.boolean)
             is StringExpr -> ObjectNode(expr.string)
             is IntExpr -> IntNode(expr.int)
-            is BigIntExpr -> ObjectNode(expr.bigInt)
+            is BigIntExpr -> ObjectNode(BigInt(expr.bigInt))
             is FloatExpr -> FloatNode(expr.float)
-            is BigFloatExpr -> ObjectNode(expr.bigFloat)
+            is BigFloatExpr -> ObjectNode(BigFloat(expr.bigFloat))
 
             is VectorExpr -> CollNode(this, expr.exprs) { TreePVector.from(it) }
 

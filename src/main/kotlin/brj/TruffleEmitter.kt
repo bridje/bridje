@@ -15,6 +15,8 @@ internal abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
 }
 
+internal fun constantly(obj: Any) = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(obj))
+
 internal class ReadArgNode(val idx: Int) : ValueNode() {
     override fun execute(frame: VirtualFrame) = frame.arguments[idx]
 }
