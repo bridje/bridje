@@ -291,6 +291,9 @@ internal class TypeChecker(val env: Env) {
             is LetExpr -> letExprType(expr)
             is DoExpr -> doExprType(expr)
 
+            is LoopExpr -> TODO()
+            is RecurExpr -> TODO()
+
             is LocalVarExpr -> localVarType(expr.localVar)
             is GlobalVarExpr -> Instantiator()(expr.globalVar.type.monoType)
 

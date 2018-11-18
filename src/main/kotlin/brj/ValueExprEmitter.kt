@@ -303,6 +303,9 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
             is DoExpr -> DoNode(this, expr)
             is LetExpr -> LetNode(this, expr)
 
+            is LoopExpr -> TODO()
+            is RecurExpr -> TODO()
+
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
             is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
 
