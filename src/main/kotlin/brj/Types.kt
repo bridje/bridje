@@ -234,6 +234,23 @@ internal class TypeChecker(val env: Env) {
         return combine(exprTyping.monoType, exprTypings + exprTyping)
     }
 
+    private fun loopExprTyping(expr: LoopExpr): Typing {
+        val bindingTypings = expr.bindings.map { it to valueExprTyping(it.expr) }
+
+        val bodyTyping = valueExprTyping(expr.expr)
+
+        return combine(bodyTyping.monoType,
+            typings = bindingTypings.map { it.second } + bodyTyping,
+            extraLVs = bindingTypings.map { it.first.localVar to it.second.monoType })
+    }
+
+    private fun recurExprTyping(expr: RecurExpr): Typing {
+        val exprTypings = expr.exprs.map { valueExprTyping(it.second) }
+
+        return combine(TypeVarType(), exprTypings,
+            extraLVs = expr.exprs.map { it.first }.zip(exprTypings.map(Typing::monoType)))
+    }
+
     private fun fnExprTyping(expr: FnExpr): Typing {
         val params = expr.params.map { it to TypeVarType() }
         val exprTyping = valueExprTyping(expr.expr)
@@ -311,8 +328,8 @@ internal class TypeChecker(val env: Env) {
             is LetExpr -> letExprTyping(expr)
             is DoExpr -> doExprTyping(expr)
 
-            is LoopExpr -> TODO()
-            is RecurExpr -> TODO()
+            is LoopExpr -> loopExprTyping(expr)
+            is RecurExpr -> recurExprTyping(expr)
 
             is LocalVarExpr -> localVarTyping(expr.localVar)
             is GlobalVarExpr -> Typing(Instantiator()(expr.globalVar.type.monoType))
