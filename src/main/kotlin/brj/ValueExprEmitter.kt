@@ -83,22 +83,18 @@ class BridjeSet(private val set: Set<Any>) : BridjeColl(), Set<Any> by set {
     override fun toString() = "#{${set.joinToString(", ")}}"
 }
 
-internal class CollNode(emitter: ValueExprEmitter, exprs: List<ValueExpr>) : ValueNode() {
+internal class CollNode(emitter: ValueExprEmitter, exprs: List<ValueExpr>) : Node() {
     @Children
     val nodes = exprs.map(emitter::emitValueExpr).toTypedArray()
 
     @TruffleBoundary
-    private fun add(list: MutableList<Any>, value: Any) = list.add(value)
+    private fun add(coll: MutableCollection<Any>, value: Any) = coll.add(value)
 
     @ExplodeLoop
-    override fun execute(frame: VirtualFrame): List<Any> {
-        val values = mutableListOf<Any>()
-
+    fun execute(frame: VirtualFrame, coll: MutableCollection<Any>) {
         for (node in nodes) {
-            add(values, node.execute(frame))
+            add(coll, node.execute(frame))
         }
-
-        return values
     }
 }
 
@@ -107,7 +103,9 @@ internal class VectorNode(emitter: ValueExprEmitter, expr: VectorExpr) : ValueNo
     var collNode = CollNode(emitter, expr.exprs)
 
     override fun execute(frame: VirtualFrame): Any {
-        return BridjeVector(collNode.execute(frame))
+        val coll = mutableListOf<Any>()
+        collNode.execute(frame, coll)
+        return BridjeVector(coll)
     }
 }
 
@@ -115,11 +113,10 @@ internal class SetNode(emitter: ValueExprEmitter, expr: SetExpr) : ValueNode() {
     @Child
     var collNode = CollNode(emitter, expr.exprs)
 
-    @TruffleBoundary
-    private fun toSet(list: List<Any>) = list.toSet()
-
     override fun execute(frame: VirtualFrame): Any {
-        return BridjeSet(toSet(collNode.execute(frame)))
+        val coll = mutableSetOf<Any>()
+        collNode.execute(frame, coll)
+        return BridjeSet(coll)
     }
 }
 
