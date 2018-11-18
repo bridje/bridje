@@ -104,7 +104,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
         val newLocals = paramNames.map { it to LocalVar(it) }
 
-        val ana = this.copy(locals = locals.plus(newLocals))
+        val ana = this.copy(locals = locals.plus(newLocals), loopLocals = newLocals.map { it.second })
 
         val bodyExpr = ana.doAnalyser(it)
 
