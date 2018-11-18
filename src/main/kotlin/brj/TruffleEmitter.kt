@@ -8,6 +8,8 @@ import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.FrameUtil
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.ForeignAccess
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RootNode
 
@@ -48,6 +50,16 @@ internal abstract class WriteLocalVarNode : Node() {
     }
 
     abstract fun execute(frame: VirtualFrame)
+}
+
+private val functionForeignAccess = ForeignAccess.create(BridjeFunction::class.java, object : ForeignAccess.StandardFactory {
+
+})!!
+
+class BridjeFunction internal constructor(emitter: TruffleEmitter, bodyNode: ValueNode) : TruffleObject {
+    val callTarget = emitter.makeCallTarget(bodyNode)
+
+    override fun getForeignAccess() = functionForeignAccess
 }
 
 internal abstract class TruffleEmitter(val lang: BrjLanguage) {

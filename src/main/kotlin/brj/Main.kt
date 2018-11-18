@@ -49,7 +49,7 @@ fun main(args: Array<String>) {
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval(Source.create("brj", "bar/aset"))
+    val value = ctx.eval(Source.create("brj", "foo/just"))
 
     println("value: $value")
 

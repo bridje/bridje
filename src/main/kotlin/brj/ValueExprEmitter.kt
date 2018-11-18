@@ -19,8 +19,8 @@ import java.math.BigInteger
 
 @TypeSystem(
     Boolean::class, String::class,
-    Long::class, Double::class, BigInteger::class, BigDecimal::class,
-    CallTarget::class, DataObject::class)
+    Long::class, Double::class, BigInt::class, BigFloat::class,
+    BridjeFunction::class, DataObject::class)
 internal abstract class BridjeTypes
 
 internal class BoolNode(val boolean: Boolean) : ValueNode() {
@@ -195,11 +195,11 @@ internal class FnBodyNode(emitter: ValueExprEmitter, expr: FnExpr) : ValueNode()
 
 internal class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>) : ValueNode() {
     @Child
-    var callNode = Truffle.getRuntime().createIndirectCallNode()
+    var callNode = Truffle.getRuntime().createIndirectCallNode()!!
 
     @ExplodeLoop
     override fun execute(frame: VirtualFrame): Any {
-        val fn = expectCallTarget(fnNode.execute(frame))
+        val fn = expectBridjeFunction(fnNode.execute(frame))
 
         val argValues = arrayOfNulls<Any>(argNodes.size)
 
@@ -207,7 +207,7 @@ internal class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Ar
             argValues[i] = argNodes[i].execute(frame)
         }
 
-        return callNode.call(fn, argValues)
+        return callNode.call(fn.callTarget, argValues)
     }
 }
 
@@ -280,18 +280,6 @@ internal class CaseExprNode(emitter: ValueExprEmitter, expr: CaseExpr) : ValueNo
 
 internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
 
-    @Deprecated("shouldn't be necessary once we have full interop")
-    inner class WrapGuestValueNode(@Child var node: ValueNode) : ValueNode() {
-        override fun execute(frame: VirtualFrame): Any {
-            val res = node.execute(frame)
-
-            return when (res) {
-                is Boolean, is Long, is String, is TruffleObject -> res
-                else -> lang.contextReference.get().truffleEnv.asGuestValue(res)
-            }
-        }
-    }
-
     fun emitValueExpr(expr: ValueExpr): ValueNode =
         when (expr) {
             is BooleanExpr -> BoolNode(expr.boolean)
@@ -306,7 +294,7 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
 
             is FnExpr -> {
                 val emitter = ValueExprEmitter(lang)
-                ObjectNode(emitter.makeCallTarget(FnBodyNode(emitter, expr)))
+                ObjectNode(BridjeFunction(emitter, FnBodyNode(emitter, expr)))
             }
 
             is CallExpr -> CallNode(emitValueExpr(expr.f), expr.args.map(::emitValueExpr).toTypedArray())
@@ -324,7 +312,7 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
 
 internal fun emitValueExpr(lang: BrjLanguage, expr: ValueExpr): CallTarget {
     val emitter = ValueExprEmitter(lang)
-    return emitter.makeCallTarget(emitter.WrapGuestValueNode(emitter.emitValueExpr(expr)))
+    return emitter.makeCallTarget(emitter.emitValueExpr(expr))
 }
 
 internal fun evalValueExpr(lang: BrjLanguage, expr: ValueExpr): Any {

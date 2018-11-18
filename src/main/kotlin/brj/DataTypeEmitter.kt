@@ -100,7 +100,7 @@ internal class DataTypeEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
 
         return ConstructorVar(constructor,
             if (constructor.paramTypes != null)
-                makeCallTarget(FunctionConstructorNode(dataObjectFactory, constructor.paramTypes))
+                BridjeFunction(this, FunctionConstructorNode(dataObjectFactory, constructor.paramTypes))
             else
                 dataObjectFactory(emptyArray()))
     }
