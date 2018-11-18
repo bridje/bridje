@@ -13,6 +13,14 @@ import com.oracle.truffle.api.nodes.RootNode
 
 internal abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
+
+    fun toRootNode(): RootNode {
+        return object : RootNode(null) {
+            override fun execute(frame: VirtualFrame): Any = this@ValueNode.execute(frame)
+        }
+    }
+
+    fun toCallTarget() = Truffle.getRuntime().createCallTarget(toRootNode())
 }
 
 internal fun constantly(obj: Any) = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(obj))

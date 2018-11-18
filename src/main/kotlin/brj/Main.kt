@@ -44,11 +44,12 @@ fun main(args: Array<String>) {
         (ns bar {})
 
         (def baz 42N)
+        (def aset #{45N 90N})
     """.trimIndent())
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval(Source.create("brj", "bar/baz"))
+    val value = ctx.eval(Source.create("brj", "bar/aset"))
 
     println("value: $value")
 

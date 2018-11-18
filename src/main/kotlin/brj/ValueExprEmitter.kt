@@ -14,8 +14,6 @@ import com.oracle.truffle.api.nodes.ControlFlowException
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.profiles.ConditionProfile
-import org.pcollections.HashTreePSet
-import org.pcollections.TreePVector
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -46,9 +44,9 @@ data class BigInt(val bigInt: BigInteger) : TruffleObject {
         ForeignAccess.create(BigInt::class.java, object : ForeignAccess.StandardFactory {
             override fun accessIsBoxed() = constantly(true)
             override fun accessUnbox() = constantly(bigInt.toLong())
-        })
+        })!!
 
-    override fun toString() = bigInt.toString()
+    override fun toString() = "${bigInt}N"
 }
 
 data class BigFloat(val bigFloat: BigDecimal) : TruffleObject {
@@ -58,25 +56,70 @@ data class BigFloat(val bigFloat: BigDecimal) : TruffleObject {
             override fun accessUnbox() = constantly(bigFloat.toDouble())
         })!!
 
-    override fun toString() = bigFloat.toString()
+    override fun toString() = "${bigFloat}M"
 }
 
-internal class CollNode(emitter: ValueExprEmitter, exprs: List<ValueExpr>, private val collFn: (List<Any?>) -> Any) : ValueNode() {
+internal val collForeignAccess = ForeignAccess.create(BridjeColl::class.java, object : ForeignAccess.StandardFactory {
+    override fun accessHasSize() = constantly(true)
+
+    override fun accessGetSize() = object : ValueNode() {
+        override fun execute(frame: VirtualFrame) = (frame.arguments[0] as BridjeColl).size
+    }.toCallTarget()
+
+    override fun accessRead() = object : ValueNode() {
+        override fun execute(frame: VirtualFrame) = (frame.arguments[0] as BridjeColl).toList()[(frame.arguments[1] as Long).toInt()]
+    }.toCallTarget()
+})!!
+
+abstract class BridjeColl : TruffleObject, Collection<Any> {
+    override fun getForeignAccess() = collForeignAccess
+}
+
+class BridjeVector(private val list: List<Any>) : BridjeColl(), List<Any> by list {
+    override fun toString() = "[${list.joinToString(", ")}]"
+}
+
+class BridjeSet(private val set: Set<Any>) : BridjeColl(), Set<Any> by set {
+    override fun toString() = "#{${set.joinToString(", ")}}"
+}
+
+internal class CollNode(emitter: ValueExprEmitter, exprs: List<ValueExpr>) : ValueNode() {
     @Children
     val nodes = exprs.map(emitter::emitValueExpr).toTypedArray()
 
     @TruffleBoundary
-    private fun toColl(list: List<Any?>) = collFn(list)
+    private fun add(list: MutableList<Any>, value: Any) = list.add(value)
 
     @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Any {
-        val coll: MutableList<Any?> = ArrayList(nodes.size)
+    override fun execute(frame: VirtualFrame): List<Any> {
+        val values = mutableListOf<Any>()
 
         for (node in nodes) {
-            coll.add(node.execute(frame))
+            add(values, node.execute(frame))
         }
 
-        return toColl(coll)
+        return values
+    }
+}
+
+internal class VectorNode(emitter: ValueExprEmitter, expr: VectorExpr) : ValueNode() {
+    @Child
+    var collNode = CollNode(emitter, expr.exprs)
+
+    override fun execute(frame: VirtualFrame): Any {
+        return BridjeVector(collNode.execute(frame))
+    }
+}
+
+internal class SetNode(emitter: ValueExprEmitter, expr: SetExpr) : ValueNode() {
+    @Child
+    var collNode = CollNode(emitter, expr.exprs)
+
+    @TruffleBoundary
+    private fun toSet(list: List<Any>) = list.toSet()
+
+    override fun execute(frame: VirtualFrame): Any {
+        return BridjeSet(toSet(collNode.execute(frame)))
     }
 }
 
@@ -261,9 +304,8 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
             is FloatExpr -> FloatNode(expr.float)
             is BigFloatExpr -> ObjectNode(BigFloat(expr.bigFloat))
 
-            is VectorExpr -> CollNode(this, expr.exprs) { TreePVector.from(it) }
-
-            is SetExpr -> CollNode(this, expr.exprs) { HashTreePSet.from(it) }
+            is VectorExpr -> VectorNode(this, expr)
+            is SetExpr -> SetNode(this, expr)
 
             is FnExpr -> {
                 val emitter = ValueExprEmitter(lang)
