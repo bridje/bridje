@@ -74,8 +74,10 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
     private fun loopAnalyser(it: AnalyserState): ValueExpr {
         val bindings = it.nested(VectorForm::forms) { bindingState ->
+            val bindingCtx = this.copy(loopLocals = null)
+
             bindingState.varargs {
-                LetBinding(LocalVar(it.expectForm<SymbolForm>().sym), exprAnalyser(it))
+                LetBinding(LocalVar(it.expectForm<SymbolForm>().sym), bindingCtx.exprAnalyser(it))
             }
         }
 
