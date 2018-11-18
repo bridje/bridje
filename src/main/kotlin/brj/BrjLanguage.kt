@@ -52,7 +52,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         val expr = ValueExprAnalyser(env, env.nses[USER] ?: NSEnv(USER)).analyseValueExpr(forms)
 
-        println("type: ${TypeChecker(env).valueExprType(expr)}")
+        println("type: ${TypeChecker(env).valueExprTyping(expr)}")
 
         return emitValueExpr(this, expr)
     }
