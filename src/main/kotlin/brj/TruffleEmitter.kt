@@ -22,7 +22,7 @@ internal abstract class ValueNode : Node() {
         }
     }
 
-    fun toCallTarget() = Truffle.getRuntime().createCallTarget(toRootNode())
+    fun toCallTarget() = Truffle.getRuntime().createCallTarget(toRootNode())!!
 }
 
 internal fun constantly(obj: Any) = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(obj))
