@@ -5,7 +5,7 @@ import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
 
 fun main(args: Array<String>) {
-    val ctx = Context.create()
+    val ctx = Context.newBuilder("brj").allowAllAccess(true).build()
 
     ctx.enter()
 
