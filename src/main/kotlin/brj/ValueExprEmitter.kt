@@ -193,9 +193,15 @@ internal class FnBodyNode(emitter: ValueExprEmitter, expr: FnExpr) : ValueNode()
     }
 }
 
-internal class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>) : ValueNode() {
+internal class CallNode(emitter: ValueExprEmitter, expr: CallExpr) : ValueNode() {
     @Child
     var callNode = Truffle.getRuntime().createIndirectCallNode()!!
+
+    @Child
+    var fnNode = emitter.emitValueExpr(expr.f)
+
+    @Children
+    val argNodes = expr.args.map(emitter::emitValueExpr).toTypedArray()
 
     @ExplodeLoop
     override fun execute(frame: VirtualFrame): Any {
@@ -297,7 +303,7 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
                 ObjectNode(BridjeFunction(emitter, FnBodyNode(emitter, expr)))
             }
 
-            is CallExpr -> CallNode(emitValueExpr(expr.f), expr.args.map(::emitValueExpr).toTypedArray())
+            is CallExpr -> CallNode(this, expr)
 
             is IfExpr -> IfNode(this, expr)
             is DoExpr -> DoNode(this, expr)

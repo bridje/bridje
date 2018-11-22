@@ -40,7 +40,20 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
     fun typeDefAnalyser(it: AnalyserState): TypeDefExpr {
         val typeAnalyser = TypeAnalyser()
 
-        val (sym, params) = defDataSigAnalyser(it, typeAnalyser)
+        val form = it.expectForm<Form>()
+        val (sym, params) = when (form) {
+            is ListForm -> {
+                it.nested(form.forms) {
+                    Pair(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
+                }
+            }
+
+            is SymbolForm -> {
+                Pair(form.sym, null)
+            }
+
+            else -> TODO()
+        }
 
         val returnType = typeAnalyser.monoTypeAnalyser(it)
 

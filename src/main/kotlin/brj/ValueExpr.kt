@@ -45,8 +45,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         val RECUR = Symbol.intern("recur")
     }
 
-    private fun resolve(sym: Symbol) = resolve(env, nsEnv, sym)
-    private fun resolve(sym: QSymbol) = resolve(env, nsEnv, sym)
+    private fun resolve(sym: Ident) = resolve(env, nsEnv, sym)
 
     private fun ifAnalyser(it: AnalyserState): ValueExpr {
         val predExpr = exprAnalyser(it)

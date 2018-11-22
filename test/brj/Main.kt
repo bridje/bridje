@@ -14,10 +14,9 @@ fun main(args: Array<String>) {
 
     val fooSource = Source.create("brj", """
         (ns foo
-          {aliases {b bar},
+          {aliases {b bar}
            refers {bar #{baz}}
-           ;export #{x}
-           })
+           java {brj.Foo #{(:: (isZero Int) Bool)}}})
 
         (defdata (Maybe a) (Just a) Nothing)
 
@@ -35,6 +34,8 @@ fun main(args: Array<String>) {
           (let [quux 10N]
             [quux baz]))
 
+        (def (zero? x) (Foo/isZero x))
+
         (:: (my-fn a a) [a])
         (def (my-fn x y)
           [y x])
@@ -43,17 +44,16 @@ fun main(args: Array<String>) {
     val barSource = Source.create("brj", """
         (ns bar {})
 
+        (:: baz BigInt)
         (def baz 42N)
-        (def aset #{45N 90N})
+        (def a-set #{45N 90N})
     """.trimIndent())
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval(Source.create("brj", "foo/just"))
+    val value = ctx.eval(Source.create("brj", "(foo/zero? 0)"))
 
     println("value: $value")
-
-    println("value: ${ctx.eval(Source.create("brj", "(foo/my-fn foo/x [bar/baz 60N 99N])"))}")
 
     ctx.leave()
 }
