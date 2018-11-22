@@ -70,4 +70,6 @@ data class AnalyserState(var forms: List<Form>) {
     }
 }
 
-class LocalVar(val sym: Symbol)
+class LocalVar(val sym: Symbol) {
+    override fun toString() = "LV($sym)"
+}

@@ -16,7 +16,10 @@ fun main(args: Array<String>) {
         (ns foo
           {aliases {b bar}
            refers {bar #{baz}}
-           java {brj.Foo #{(:: (isZero Int) Bool)}}})
+           java {brj.Foo #{(:: (isZero Int) Bool)
+                           (:: (dec Int) Int)
+                           (:: (conj [a] a) [a])
+                           (:: (plus Int Int) Int)}}})
 
         (defdata (Maybe a) (Just a) Nothing)
 
@@ -34,7 +37,10 @@ fun main(args: Array<String>) {
           (let [quux 10N]
             [quux baz]))
 
-        (def (zero? x) (Foo/isZero x))
+        (def (count-down x)
+          (loop [y x
+                 res 0]
+            (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/plus res y)))))
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)
@@ -51,7 +57,7 @@ fun main(args: Array<String>) {
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval(Source.create("brj", "(foo/zero? 0)"))
+    val value = ctx.eval(Source.create("brj", "(foo/count-down 5)"))
 
     println("value: $value")
 

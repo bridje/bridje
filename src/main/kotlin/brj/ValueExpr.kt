@@ -170,7 +170,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
         return if (firstForm is SymbolForm) {
             when (firstForm.sym) {
-                IF, FN, LET, DO, CASE -> it.forms = it.forms.drop(1)
+                IF, FN, LET, DO, CASE, LOOP, RECUR -> it.forms = it.forms.drop(1)
             }
 
             when (firstForm.sym) {

@@ -194,14 +194,14 @@ internal class TypeChecker(val env: Env) {
                 .flatMapTo(extraLVs.toMutableList()) { it.monoEnv.toList() }
                 .mapTo(extraEqs.toMutableList()) { e -> TypeEq(lvTvs.getOrPut(e.first, ::TypeVarType), e.second) })
 
-        return Typing(returnType.applyMapping(mapping), lvTvs.mapValuesTo(mutableMapOf()) { e -> mapping.map(e.value) })
+        return Typing(returnType.applyMapping(mapping), lvTvs.mapValues { e -> mapping.map(e.value) })
     }
 
     private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<ValueExpr>): Typing {
         val typings = exprs.map(::valueExprTyping)
         val returnType = TypeVarType()
 
-        return combine(mkCollType(returnType), extraEqs = typings.map { it.monoType to returnType })
+        return combine(mkCollType(returnType), typings, extraEqs = typings.map { it.monoType to returnType })
     }
 
     private fun ifExprTyping(expr: IfExpr): Typing {
@@ -212,6 +212,7 @@ internal class TypeChecker(val env: Env) {
         val returnType = TypeVarType()
 
         return combine(returnType,
+            typings = listOf(predExprTyping, thenExprTyping, elseExprTyping),
             extraEqs = listOf(
                 BoolType to predExprTyping.monoType,
                 returnType to thenExprTyping.monoType,

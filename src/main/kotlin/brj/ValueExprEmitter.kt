@@ -13,7 +13,9 @@ import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.ControlFlowException
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
+import com.oracle.truffle.api.nodes.RepeatingNode
 import com.oracle.truffle.api.profiles.ConditionProfile
+import java.lang.RuntimeException
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -76,10 +78,12 @@ abstract class BridjeColl : TruffleObject, Collection<Any> {
 }
 
 class BridjeVector(private val list: List<Any>) : BridjeColl(), List<Any> by list {
+    fun conj(el: Any) = BridjeVector(list + el)
     override fun toString() = "[${list.joinToString(", ")}]"
 }
 
 class BridjeSet(private val set: Set<Any>) : BridjeColl(), Set<Any> by set {
+    fun conj(el: Any) = BridjeSet(set + el)
     override fun toString() = "#{${set.joinToString(", ")}}"
 }
 
@@ -283,6 +287,67 @@ internal class CaseExprNode(emitter: ValueExprEmitter, expr: CaseExpr) : ValueNo
     }
 }
 
+internal class LoopReturnException(val res: Any) : ControlFlowException()
+internal object RecurException : ControlFlowException()
+
+internal class LoopNode(emitter: ValueExprEmitter, expr: LoopExpr) : ValueNode() {
+    @Children
+    val bindingNodes = expr.bindings
+        .map {
+            WriteLocalVarNodeGen.create(
+                emitter.emitValueExpr(it.expr),
+                emitter.frameDescriptor.findOrAddFrameSlot(it.localVar))
+        }
+        .toTypedArray()
+
+    @Child
+    var bodyNode = emitter.emitValueExpr(expr.expr)
+
+
+    @Child
+    var loopBodyNode = Truffle.getRuntime().createLoopNode(object : Node(), RepeatingNode {
+        override fun executeRepeating(frame: VirtualFrame): Boolean {
+            try {
+                throw LoopReturnException(bodyNode.execute(frame))
+            } catch (e: RecurException) {
+                return true
+            }
+        }
+
+    })
+
+    @ExplodeLoop
+    override fun execute(frame: VirtualFrame): Any {
+        for (node in bindingNodes) {
+            node.execute(frame)
+        }
+
+        try {
+            loopBodyNode.executeLoop(frame)
+            throw RuntimeException("Loop didn't exit properly")
+        } catch (e: LoopReturnException) {
+            return e.res
+        }
+    }
+}
+
+internal class RecurNode(emitter: ValueExprEmitter, expr: RecurExpr) : ValueNode() {
+    @Children
+    val recurNodes = expr.exprs.map {
+        WriteLocalVarNodeGen.create(
+            emitter.emitValueExpr(it.second),
+            emitter.frameDescriptor.findOrAddFrameSlot(it.first))
+    }.toTypedArray()
+
+    @ExplodeLoop
+    override fun execute(frame: VirtualFrame): Any {
+        for (node in recurNodes) {
+            node.execute(frame)
+        }
+
+        throw RecurException
+    }
+}
 
 internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
 
@@ -309,8 +374,8 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
             is DoExpr -> DoNode(this, expr)
             is LetExpr -> LetNode(this, expr)
 
-            is LoopExpr -> TODO()
-            is RecurExpr -> TODO()
+            is LoopExpr -> LoopNode(this, expr)
+            is RecurExpr -> RecurNode(this, expr)
 
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
             is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
