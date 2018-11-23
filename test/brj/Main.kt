@@ -18,7 +18,7 @@ fun main(args: Array<String>) {
            refers {bar #{baz}}
            java {brj.Foo #{(:: (isZero Int) Bool)
                            (:: (dec Int) Int)
-                           (:: (conj [a] a) [a])
+                           (:: (conj #{a} a) #{a})
                            (:: (plus Int Int) Int)}}})
 
         (defdata (Maybe a) (Just a) Nothing)
@@ -39,7 +39,7 @@ fun main(args: Array<String>) {
 
         (def (count-down x)
           (loop [y x
-                 res []]
+                 res #{}]
             (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
 
         (:: (my-fn a a) [a])

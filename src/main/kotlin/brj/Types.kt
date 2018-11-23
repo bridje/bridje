@@ -99,7 +99,7 @@ data class VectorType(val elType: MonoType) : MonoType() {
 
 data class SetType(val elType: MonoType) : MonoType() {
     override fun unifyEq(other: MonoType): List<TypeEq> = listOf(TypeEq(elType, ensure<SetType>(other).elType))
-    override fun fmap(f: (MonoType) -> MonoType): MonoType = VectorType(f(elType))
+    override fun fmap(f: (MonoType) -> MonoType): MonoType = SetType(f(elType))
 
     override fun toString(): String = "#{$elType}"
 }
