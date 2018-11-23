@@ -16,10 +16,12 @@ fun main(args: Array<String>) {
         (ns foo
           {aliases {b bar}
            refers {bar #{baz}}
-           java {brj.Foo #{(:: (isZero Int) Bool)
-                           (:: (dec Int) Int)
-                           (:: (conj #{a} a) #{a})
-                           (:: (plus Int Int) Int)}}})
+           imports {brj.Foo #{(:: (isZero Int) Bool)
+                              (:: (dec Int) Int)
+                              (:: (conj #{a} a) #{a})
+                              (:: (plus Int Int) Int)}}
+
+           exports #{count-down}})
 
         (defdata (Maybe a) (Just a) Nothing)
 
@@ -60,6 +62,8 @@ fun main(args: Array<String>) {
     val value = ctx.eval(Source.create("brj", "(foo/count-down 5)"))
 
     println("value: $value")
+
+    println(ctx.polyglotBindings.getMember("brj/foo/count-down").execute(4))
 
     ctx.leave()
 }

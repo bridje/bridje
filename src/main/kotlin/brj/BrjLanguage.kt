@@ -177,6 +177,12 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
             AnalyserState(nsFile.forms).varargs(::varEvaluator)
         }
+
+        fun exportSymbols(nsFile: NSFile) {
+            nsFile.nsEnv.exports.forEach {
+                ctx.truffleEnv.exportSymbol("brj/${nsFile.ns}/$it", nsFile.nsEnv.vars[it]?.value ?: TODO())
+            }
+        }
     }
 
     private fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source>) {
@@ -190,6 +196,8 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 nses.forEach(req::evalDataDefs)
                 nses.forEach(req::evalTypeDefs)
                 nses.forEach(req::evalVars)
+
+                nses.forEach(req::exportSymbols)
 
                 ctx.env = req.env
             }

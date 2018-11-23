@@ -3,10 +3,11 @@ package brj
 import brj.BrjLanguage.Companion.TYPE_DEF
 
 private val NS = Symbol.intern("ns")
+
 private val REFERS = Symbol.intern("refers")
 private val ALIASES = Symbol.intern("aliases")
-
-private val JAVA = Symbol.intern("java")
+private val IMPORTS = Symbol.intern("imports")
+private val EXPORTS = Symbol.intern("exports")
 
 internal class NSAnalyser(val ns: Symbol) {
     fun refersAnalyser(it: AnalyserState): Map<Symbol, QSymbol> {
@@ -57,6 +58,8 @@ internal class NSAnalyser(val ns: Symbol) {
 
         return javaImports
     }
+
+    fun exportsAnalyser(it: AnalyserState): Set<Symbol> = it.varargs { it.expectForm<SymbolForm>().sym }.toSet()
 }
 
 internal fun nsAnalyser(it: AnalyserState): NSEnv =
@@ -78,8 +81,12 @@ internal fun nsAnalyser(it: AnalyserState): NSEnv =
                             nsEnv.copy(aliases = it.nested(RecordForm::forms, ana::aliasesAnalyser))
                         }
 
-                        JAVA -> {
+                        IMPORTS -> {
                             nsEnv.copy(javaImports = it.nested(RecordForm::forms, ana::javaImportsAnalyser))
+                        }
+
+                        EXPORTS -> {
+                            nsEnv.copy(exports = it.nested(SetForm::forms, ana::exportsAnalyser))
                         }
 
                         else -> TODO()

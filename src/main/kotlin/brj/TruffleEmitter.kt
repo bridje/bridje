@@ -1,5 +1,6 @@
 package brj
 
+import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.dsl.*
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -52,10 +53,21 @@ internal abstract class WriteLocalVarNode : Node() {
 }
 
 private val functionForeignAccess = ForeignAccess.create(BridjeFunction::class.java, object : ForeignAccess.StandardFactory {
+    override fun accessIsExecutable() = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(true))
+    override fun accessExecute(argumentsLength: Int) = Truffle.getRuntime().createCallTarget(object : RootNode(null) {
 
+        @Child
+        var callNode = Truffle.getRuntime().createIndirectCallNode()
+
+        override fun execute(frame: VirtualFrame) =
+            // FIXME I don't reckon this is very performant
+            callNode.call((
+                frame.arguments[0] as BridjeFunction).callTarget,
+                frame.arguments.sliceArray(1 until frame.arguments.size ))
+    })
 })!!
 
-class BridjeFunction internal constructor(emitter: TruffleEmitter, bodyNode: ValueNode) : TruffleObject {
+internal class BridjeFunction internal constructor(emitter: TruffleEmitter, bodyNode: ValueNode) : TruffleObject {
     val callTarget = emitter.makeCallTarget(bodyNode)
 
     override fun getForeignAccess() = functionForeignAccess
