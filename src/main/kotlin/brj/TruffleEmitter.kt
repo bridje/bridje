@@ -1,9 +1,7 @@
 package brj
 
 import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.dsl.NodeChild
-import com.oracle.truffle.api.dsl.NodeField
-import com.oracle.truffle.api.dsl.Specialization
+import com.oracle.truffle.api.dsl.*
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.FrameUtil
@@ -12,20 +10,20 @@ import com.oracle.truffle.api.interop.ForeignAccess
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RootNode
+import java.math.BigDecimal
+import java.math.BigInteger
 
+@TypeSystem(
+    Boolean::class, String::class,
+    Long::class, Double::class,
+    BigInteger::class, BigDecimal::class,
+    BridjeFunction::class, DataObject::class)
+internal abstract class BridjeTypes
+
+@TypeSystemReference(BridjeTypes::class)
 internal abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
-
-    fun toRootNode(): RootNode {
-        return object : RootNode(null) {
-            override fun execute(frame: VirtualFrame): Any = this@ValueNode.execute(frame)
-        }
-    }
-
-    fun toCallTarget() = Truffle.getRuntime().createCallTarget(toRootNode())!!
 }
-
-internal fun constantly(obj: Any) = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(obj))
 
 internal class ReadArgNode(val idx: Int) : ValueNode() {
     override fun execute(frame: VirtualFrame) = frame.arguments[idx]
@@ -34,6 +32,7 @@ internal class ReadArgNode(val idx: Int) : ValueNode() {
 @NodeField(name = "slot", type = FrameSlot::class)
 internal abstract class ReadLocalVarNode : ValueNode() {
     abstract fun getSlot(): FrameSlot
+
 
     @Specialization
     protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())

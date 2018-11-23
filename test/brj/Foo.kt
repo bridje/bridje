@@ -9,10 +9,10 @@ class Foo {
         fun dec(foo: Int) = foo - 1
 
         @JvmStatic
-        fun conj(list: BridjeVector, el: Int) = list + el
+        fun conj(list: List<Any>, el: Int) = list + el
 
         @JvmStatic
-        fun conj(set: BridjeSet, el: Any) = set + el
+        fun conj(set: Set<Any>, el: Any) = set + el
 
         @JvmStatic fun plus(a: Long, b: Long) = a + b
     }

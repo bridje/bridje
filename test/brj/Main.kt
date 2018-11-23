@@ -39,8 +39,8 @@ fun main(args: Array<String>) {
 
         (def (count-down x)
           (loop [y x
-                 res 0]
-            (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/plus res y)))))
+                 res []]
+            (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)

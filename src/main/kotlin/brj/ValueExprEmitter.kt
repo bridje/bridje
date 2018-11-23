@@ -5,25 +5,14 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.dsl.TypeSystem
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.ForeignAccess
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.ControlFlowException
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RepeatingNode
 import com.oracle.truffle.api.profiles.ConditionProfile
-import java.lang.RuntimeException
-import java.math.BigDecimal
-import java.math.BigInteger
-
-@TypeSystem(
-    Boolean::class, String::class,
-    Long::class, Double::class, BigInt::class, BigFloat::class,
-    BridjeFunction::class, DataObject::class)
-internal abstract class BridjeTypes
 
 internal class BoolNode(val boolean: Boolean) : ValueNode() {
     override fun execute(frame: VirtualFrame): Boolean = boolean
@@ -39,52 +28,6 @@ internal class FloatNode(val float: Double) : ValueNode() {
 
 internal class ObjectNode(val obj: Any) : ValueNode() {
     override fun execute(frame: VirtualFrame): Any = obj
-}
-
-data class BigInt(val bigInt: BigInteger) : TruffleObject {
-    override fun getForeignAccess() =
-        ForeignAccess.create(BigInt::class.java, object : ForeignAccess.StandardFactory {
-            override fun accessIsBoxed() = constantly(true)
-            override fun accessUnbox() = constantly(bigInt.toLong())
-        })!!
-
-    override fun toString() = "${bigInt}N"
-}
-
-data class BigFloat(val bigFloat: BigDecimal) : TruffleObject {
-    override fun getForeignAccess() =
-        ForeignAccess.create(BigInt::class.java, object : ForeignAccess.StandardFactory {
-            override fun accessIsBoxed() = constantly(true)
-            override fun accessUnbox() = constantly(bigFloat.toDouble())
-        })!!
-
-    override fun toString() = "${bigFloat}M"
-}
-
-internal val collForeignAccess = ForeignAccess.create(BridjeColl::class.java, object : ForeignAccess.StandardFactory {
-    override fun accessHasSize() = constantly(true)
-
-    override fun accessGetSize() = object : ValueNode() {
-        override fun execute(frame: VirtualFrame) = (frame.arguments[0] as BridjeColl).size
-    }.toCallTarget()
-
-    override fun accessRead() = object : ValueNode() {
-        override fun execute(frame: VirtualFrame) = (frame.arguments[0] as BridjeColl).toList()[(frame.arguments[1] as Long).toInt()]
-    }.toCallTarget()
-})!!
-
-abstract class BridjeColl : TruffleObject, Collection<Any> {
-    override fun getForeignAccess() = collForeignAccess
-}
-
-class BridjeVector(private val list: List<Any>) : BridjeColl(), List<Any> by list {
-    fun conj(el: Any) = BridjeVector(list + el)
-    override fun toString() = "[${list.joinToString(", ")}]"
-}
-
-class BridjeSet(private val set: Set<Any>) : BridjeColl(), Set<Any> by set {
-    fun conj(el: Any) = BridjeSet(set + el)
-    override fun toString() = "#{${set.joinToString(", ")}}"
 }
 
 internal class CollNode(emitter: ValueExprEmitter, exprs: List<ValueExpr>) : Node() {
@@ -106,10 +49,10 @@ internal class VectorNode(emitter: ValueExprEmitter, expr: VectorExpr) : ValueNo
     @Child
     var collNode = CollNode(emitter, expr.exprs)
 
-    override fun execute(frame: VirtualFrame): Any {
+    override fun execute(frame: VirtualFrame): List<Any> {
         val coll = mutableListOf<Any>()
         collNode.execute(frame, coll)
-        return BridjeVector(coll)
+        return coll
     }
 }
 
@@ -117,10 +60,10 @@ internal class SetNode(emitter: ValueExprEmitter, expr: SetExpr) : ValueNode() {
     @Child
     var collNode = CollNode(emitter, expr.exprs)
 
-    override fun execute(frame: VirtualFrame): Any {
+    override fun execute(frame: VirtualFrame): Set<Any> {
         val coll = mutableSetOf<Any>()
         collNode.execute(frame, coll)
-        return BridjeSet(coll)
+        return coll
     }
 }
 
@@ -356,9 +299,9 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
             is BooleanExpr -> BoolNode(expr.boolean)
             is StringExpr -> ObjectNode(expr.string)
             is IntExpr -> IntNode(expr.int)
-            is BigIntExpr -> ObjectNode(BigInt(expr.bigInt))
+            is BigIntExpr -> ObjectNode(expr.bigInt)
             is FloatExpr -> FloatNode(expr.float)
-            is BigFloatExpr -> ObjectNode(BigFloat(expr.bigFloat))
+            is BigFloatExpr -> ObjectNode(expr.bigFloat)
 
             is VectorExpr -> VectorNode(this, expr)
             is SetExpr -> SetNode(this, expr)
@@ -382,11 +325,15 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
 
             is CaseExpr -> CaseExprNode(this, expr)
         }
+
+    inner class WrapHostObjectNode(@Child var node: ValueNode): ValueNode() {
+        override fun execute(frame: VirtualFrame): Any = lang.ctx.truffleEnv.asGuestValue(node.execute(frame))
+    }
 }
 
 internal fun emitValueExpr(lang: BrjLanguage, expr: ValueExpr): CallTarget {
     val emitter = ValueExprEmitter(lang)
-    return emitter.makeCallTarget(emitter.emitValueExpr(expr))
+    return emitter.makeCallTarget(emitter.WrapHostObjectNode(emitter.emitValueExpr(expr)))
 }
 
 internal fun evalValueExpr(lang: BrjLanguage, expr: ValueExpr): Any {

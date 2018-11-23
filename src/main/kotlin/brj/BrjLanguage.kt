@@ -28,11 +28,9 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     override fun createContext(env: TruffleLanguage.Env) = BridjeContext(env, brj.Env())
 
     override fun isObjectOfLanguage(obj: Any): Boolean =
-        obj is BigInt || obj is BigFloat
-            || obj is BridjeVector || obj is BridjeSet
-            || obj is DataObject || obj is BridjeFunction
+        obj is DataObject || obj is BridjeFunction
 
-    private val ctx get() = getCurrentContext(this.javaClass)
+    internal val ctx get() = getCurrentContext(this.javaClass)
 
     private val USER = Symbol.intern("user")
 
