@@ -6,8 +6,6 @@ internal interface Emitter {
     fun emitConstructor(dataTypeConstructor: DataTypeConstructor): Any
 }
 
-internal data class NSFile(val nsEnv: NSEnv, val forms: List<Form>)
-
 internal class Evaluator(var env: Env, private val emitter: Emitter) {
 
     inner class NSEvaluator(var nsEnv: NSEnv) {

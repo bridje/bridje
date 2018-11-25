@@ -57,10 +57,10 @@ internal class NSAnalyser(val ns: Symbol) {
     }
 }
 
-internal fun nsAnalyser(it: AnalyserState): NSEnv =
+internal fun nsAnalyser(it: AnalyserState, ns: Symbol): NSEnv =
     it.nested(ListForm::forms) {
         it.expectSym(NS)
-        var nsEnv = NSEnv(it.expectForm<SymbolForm>().sym)
+        var nsEnv = NSEnv(it.expectSym(ns))
         val ana = NSAnalyser(nsEnv.ns)
 
         if (it.forms.isNotEmpty()) {

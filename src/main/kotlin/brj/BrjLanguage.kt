@@ -6,8 +6,6 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
-import java.util.*
-import kotlin.math.min
 
 @TruffleLanguage.Registration(
     id = "brj",
@@ -25,8 +23,6 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     override fun isObjectOfLanguage(obj: Any): Boolean =
         obj is DataObject || obj is BridjeFunction
 
-    private val USER = Symbol.intern("user")
-
     override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
         val source = request.source
 
@@ -41,98 +37,35 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     companion object {
+        private val USER = Symbol.intern("user")
 
         internal fun getLang() = getCurrentLanguage(BrjLanguage::class.java)
         internal fun getCtx() = getCurrentContext(BrjLanguage::class.java)
-
-        private fun nsSource(ns: Symbol): Source? =
-            this::class.java.getResource("${ns.nameStr.replace('.', '/')}.brj")
-                ?.let { url -> Source.newBuilder("brj", url).build() }
-
-
-        private fun readNsFiles(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()): Map<Symbol, NSFile> {
-            val nses: MutableList<Symbol> = rootNses.toMutableList()
-            val nsFiles: MutableMap<Symbol, NSFile> = mutableMapOf()
-
-            while (nses.isNotEmpty()) {
-                val ns = nses.removeAt(0)
-                if (nsFiles.containsKey(ns)) continue
-
-                val source = sources[ns] ?: nsSource(ns) ?: TODO("ns not found")
-
-                val state = AnalyserState(readForms(source.reader))
-                val nsEnv = nsAnalyser(state)
-                nses += (nsEnv.deps - nsFiles.keys)
-                nsFiles[ns] = NSFile(nsEnv, state.forms)
-            }
-
-            return nsFiles
-        }
-
-        private fun requireOrder(nsFiles: Map<Symbol, NSFile>): List<Set<NSFile>> {
-            // https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
-
-            data class TarjanNS(val ns: Symbol, val nsFile: NSFile, var index: Int? = null, var lowlink: Int? = null, var isOnStack: Boolean = false)
-
-            val nses: Map<Symbol, TarjanNS> = nsFiles.mapValues { TarjanNS(ns = it.key, nsFile = it.value) }
-            var index = 0
-            val res: MutableList<Set<NSFile>> = mutableListOf()
-            val stack: MutableList<TarjanNS> = LinkedList()
-
-            fun strongConnect(ns: TarjanNS) {
-                ns.index = index
-                ns.lowlink = index
-                ns.isOnStack = true
-                stack.add(0, ns)
-                index++
-
-                ns.nsFile.nsEnv.deps.map { nses[it]!! }.forEach { dep ->
-                    if (dep.index == null) {
-                        strongConnect(dep)
-                        ns.lowlink = min(ns.lowlink!!, dep.lowlink!!)
-                    } else if (dep.isOnStack) {
-                        ns.lowlink = min(ns.lowlink!!, dep.index!!)
-                    }
-                }
-
-                if (ns.lowlink!! == ns.index!!) {
-                    val nsSet = mutableSetOf<NSFile>()
-                    while (true) {
-                        val dep = stack.removeAt(0)
-                        dep.isOnStack = false
-                        nsSet += dep.nsFile
-                        if (dep == ns) break
-                    }
-                    res += nsSet
-                }
-            }
-
-            nses.values.forEach { tarjanNS ->
-                if (tarjanNS.index == null) {
-                    strongConnect(tarjanNS)
-                }
-            }
-
-            return res
-        }
 
         fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()) {
             Context.getCurrent().initialize("brj")
 
             val ctx = getCtx()
 
-            requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
-                synchronized(ctx) {
-                    val evaluator = Evaluator(ctx.env, object : Emitter {
-                        override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter.evalValueExpr(expr)
-                        override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter.emitJavaImport(javaImport)
-                        override fun emitConstructor(dataTypeConstructor: DataTypeConstructor) = DataTypeEmitter.emitConstructor(dataTypeConstructor)
-                    })
+            val formReader = object : FormReader() {
+                private fun nsSource(ns: Symbol): Source? =
+                    this::class.java.getResource("${ns.nameStr.replace('.', '/')}.brj")
+                        ?.let { url -> Source.newBuilder("brj", url).build() }
 
-                    nses.forEach(evaluator::evalNS)
+                override fun readForms(ns: Symbol): List<Form> =
+                    readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
+            }
 
-                    ctx.env = evaluator.env
-                }
+            synchronized(ctx) {
+                val evaluator = Evaluator(ctx.env, object : Emitter {
+                    override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter.evalValueExpr(expr)
+                    override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter.emitJavaImport(javaImport)
+                    override fun emitConstructor(dataTypeConstructor: DataTypeConstructor) = DataTypeEmitter.emitConstructor(dataTypeConstructor)
+                })
+
+                formReader.readNSes(rootNses).forEach(evaluator::evalNS)
+
+                ctx.env = evaluator.env
             }
         }
     }

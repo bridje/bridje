@@ -29,7 +29,7 @@ data class UnquoteForm(val form: Form) : Form()
 data class UnquoteSplicingForm(val form: Form) : Form()
 
 
-private fun transformForm(formContext: FormParser.FormContext): Form = formContext.accept(object : FormBaseVisitor<Form>() {
+internal fun transformForm(formContext: FormParser.FormContext): Form = formContext.accept(object : FormBaseVisitor<Form>() {
 
     override fun visitBoolean(ctx: FormParser.BooleanContext): Form = BooleanForm(ctx.text == "true")
 
@@ -69,4 +69,3 @@ fun readForms(reader: Reader): List<Form> =
         .map(::transformForm)
 
 fun readForms(s: String): List<Form> = readForms(StringReader(s))
-
