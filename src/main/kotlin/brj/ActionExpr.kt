@@ -5,13 +5,13 @@ internal val DEF = Symbol.intern("def")
 internal val TYPE_DEF = Symbol.intern("::")
 internal val DEF_DATA = Symbol.intern("defdata")
 
-internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
-    data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type)
-    data class TypeDefExpr(val sym: Symbol, val type: Type)
+data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type)
+data class TypeDefExpr(val sym: Symbol, val type: Type)
 
-    data class DefDataExpr(val sym: Symbol, val typeParams: List<TypeVarType>?, val constructors: List<DefDataConstructor> = emptyList()) {
-        data class DefDataConstructor(val sym: Symbol, val params: List<MonoType>?)
-    }
+data class DefDataConstructorExpr(val sym: Symbol, val params: List<MonoType>?)
+data class DefDataExpr(val sym: Symbol, val typeParams: List<TypeVarType>?, val constructors: List<DefDataConstructorExpr> = emptyList())
+
+internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
 
     fun defAnalyser(it: AnalyserState): DefExpr {
         val form = it.expectForm<Form>()
@@ -67,10 +67,11 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
         return TypeDefExpr(sym, Type(if (params != null) FnType(params, returnType) else returnType))
     }
 
-    fun defDataSigAnalyser(it: AnalyserState, typeAnalyser: TypeAnalyser = TypeAnalyser()): Pair<Symbol, List<TypeVarType>?> {
-        val form = it.expectForm<Form>()
+    fun defDataAnalyser(it: AnalyserState): DefDataExpr {
+        val typeAnalyser = TypeAnalyser()
 
-        return when (form) {
+        val form = it.expectForm<Form>()
+        val (sym, typeParams) = when (form) {
             is ListForm -> {
                 it.nested(form.forms) {
                     Pair(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::tvAnalyser))
@@ -83,12 +84,6 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
 
             else -> TODO()
         }
-    }
-
-    fun defDataAnalyser(it: AnalyserState): DefDataExpr {
-        val typeAnalyser = TypeAnalyser()
-
-        val (sym, typeParams) = defDataSigAnalyser(it, typeAnalyser)
 
         val constructors = it.varargs {
             val form = it.expectForm<Form>()
@@ -96,12 +91,12 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
             when (form) {
                 is ListForm -> {
                     it.nested(form.forms) {
-                        DefDataExpr.DefDataConstructor(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
+                        DefDataConstructorExpr(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
                     }
                 }
 
                 is SymbolForm -> {
-                    DefDataExpr.DefDataConstructor(form.sym, null)
+                    DefDataConstructorExpr(form.sym, null)
                 }
 
                 else -> TODO()

@@ -1,9 +1,7 @@
 package brj
 
-import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.BrjLanguage.BridjeContext
 import brj.ValueExprEmitter.Companion.emitValueExpr
-import brj.ValueExprEmitter.Companion.evalValueExpr
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import org.graalvm.polyglot.Context
@@ -42,141 +40,6 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         return emitValueExpr(expr)
     }
 
-    internal inner class Require(var env: brj.Env) {
-        fun evalJavaImports(nsFile: NSFile) {
-            nsFile.nsEnv.javaImports.values.forEach { import ->
-                nsFile.nsEnv += JavaImportVar(import, emitJavaImport(import))
-            }
-
-            env += nsFile.nsEnv
-        }
-
-        fun evalDataDefs(nsFile: NSFile) {
-            fun dataDefEvaluator(it: AnalyserState) {
-                val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
-
-                it.nested(ListForm::forms) {
-                    when (it.expectForm<SymbolForm>().sym) {
-                        DO -> it.varargs(::dataDefEvaluator)
-
-                        DEF_DATA -> {
-                            val (sym, typeVars) = analyser.defDataSigAnalyser(it)
-
-                            nsFile.nsEnv += DataType(QSymbol.intern(nsFile.ns, sym), typeVars, emptyList())
-                            env += nsFile.nsEnv
-                        }
-
-                        TYPE_DEF, DEF -> Unit
-
-                        else -> TODO()
-                    }
-                }
-            }
-
-            AnalyserState(nsFile.forms).varargs(::dataDefEvaluator)
-        }
-
-        fun evalTypeDefs(nsFile: NSFile) {
-            fun typeDefEvaluator(it: AnalyserState) {
-                it.nested(ListForm::forms) {
-                    val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
-
-                    when (it.expectForm<SymbolForm>().sym) {
-                        DO -> it.varargs(::typeDefEvaluator)
-
-                        TYPE_DEF -> {
-                            val typeDef = analyser.typeDefAnalyser(it)
-
-                            if (nsFile.nsEnv.vars[typeDef.sym] != null) {
-                                TODO("sym already exists in NS")
-                            }
-
-                            nsFile.nsEnv += GlobalVar(typeDef.sym, typeDef.type, null)
-                            env += nsFile.nsEnv
-                        }
-
-                        DEF_DATA -> {
-                            val defDataExpr = analyser.defDataAnalyser(it)
-
-                            val dataType = DataType(QSymbol.intern(nsFile.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructor::sym))
-
-                            nsFile.nsEnv += dataType
-
-                            defDataExpr.constructors.forEach { constructor ->
-                                val sym = QSymbol.intern(nsFile.ns, constructor.sym)
-                                val dataTypeConstructor = DataTypeConstructor(sym, dataType, constructor.params)
-                                nsFile.nsEnv += emitConstructor(dataTypeConstructor)
-                            }
-
-                            env += nsFile.nsEnv
-                        }
-
-                        DEF -> Unit
-
-                        else -> TODO()
-                    }
-
-                    return@nested
-                }
-            }
-
-            AnalyserState(nsFile.forms).varargs(::typeDefEvaluator)
-        }
-
-        fun evalVars(nsFile: NSFile) {
-            fun evalDefExpr(expr: ActionExprAnalyser.DefExpr) {
-                val expectedType = nsFile.nsEnv.vars[expr.sym]?.type
-
-                if (expectedType != null && !(expr.type.matches(expectedType))) {
-                    TODO()
-                }
-
-                nsFile.nsEnv += GlobalVar(
-                    expr.sym,
-                    expectedType ?: expr.type,
-                    evalValueExpr(expr.expr))
-
-                env += nsFile.nsEnv
-            }
-
-            fun varEvaluator(it: AnalyserState) {
-                it.nested(ListForm::forms) {
-                    val analyser = ActionExprAnalyser(env, nsFile.nsEnv)
-
-                    when (it.expectForm<SymbolForm>().sym) {
-                        DO -> it.varargs(::varEvaluator)
-                        DEF -> evalDefExpr(analyser.defAnalyser(it))
-
-                        TYPE_DEF, DEF_DATA -> Unit
-
-                        else -> TODO()
-                    }
-
-                    return@nested
-                }
-            }
-
-            AnalyserState(nsFile.forms).varargs(::varEvaluator)
-        }
-    }
-
-    private fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source>) {
-        val ctx = getCtx()
-
-        requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
-            synchronized(ctx) {
-                val req = Require(ctx.env)
-
-                nses.forEach(req::evalJavaImports)
-                nses.forEach(req::evalDataDefs)
-                nses.forEach(req::evalTypeDefs)
-                nses.forEach(req::evalVars)
-
-                ctx.env = req.env
-            }
-        }
-    }
-
     companion object {
 
         internal fun getLang() = getCurrentLanguage(BrjLanguage::class.java)
@@ -186,7 +49,6 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             this::class.java.getResource("${ns.nameStr.replace('.', '/')}.brj")
                 ?.let { url -> Source.newBuilder("brj", url).build() }
 
-        internal data class NSFile(val ns: Symbol, var nsEnv: NSEnv, val forms: List<Form>)
 
         private fun readNsFiles(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()): Map<Symbol, NSFile> {
             val nses: MutableList<Symbol> = rootNses.toMutableList()
@@ -201,7 +63,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 val state = AnalyserState(readForms(source.reader))
                 val nsEnv = nsAnalyser(state)
                 nses += (nsEnv.deps - nsFiles.keys)
-                nsFiles[ns] = NSFile(ns, nsEnv, state.forms)
+                nsFiles[ns] = NSFile(nsEnv, state.forms)
             }
 
             return nsFiles
@@ -256,7 +118,23 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()) {
             Context.getCurrent().initialize("brj")
-            getLang().require(rootNses, sources)
+
+            val ctx = getCtx()
+
+            requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
+                synchronized(ctx) {
+                    val evaluator = Evaluator(ctx.env, object : Emitter {
+                        override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter.evalValueExpr(expr)
+                        override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter.emitJavaImport(javaImport)
+                        override fun emitConstructor(dataTypeConstructor: DataTypeConstructor) = DataTypeEmitter.emitConstructor(dataTypeConstructor)
+                    })
+
+                    nses.forEach(evaluator::evalNS)
+
+                    ctx.env = evaluator.env
+                }
+            }
         }
     }
+
 }

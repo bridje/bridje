@@ -94,11 +94,12 @@ internal class FunctionConstructorNode(private val dataObjectFactory: DataObject
     }
 }
 
-internal fun emitConstructor(constructor: DataTypeConstructor): ConstructorVar {
-    val dataObjectFactory = objectFactory(constructor)
-    return ConstructorVar(constructor,
-            if (constructor.paramTypes != null)
-                BridjeFunction(makeRootNode(FunctionConstructorNode(dataObjectFactory, constructor.paramTypes)))
-            else
-                dataObjectFactory(emptyArray()))
+internal object DataTypeEmitter {
+    fun emitConstructor(constructor: DataTypeConstructor): TruffleObject {
+        val dataObjectFactory = objectFactory(constructor)
+        return if (constructor.paramTypes != null)
+            BridjeFunction(makeRootNode(FunctionConstructorNode(dataObjectFactory, constructor.paramTypes)))
+        else
+            dataObjectFactory(emptyArray())
+    }
 }

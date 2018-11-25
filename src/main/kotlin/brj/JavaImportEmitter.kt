@@ -41,5 +41,7 @@ internal class JavaExecuteNode(@Child var fnNode: JavaInteropNode, javaImport: J
     }
 }
 
-internal fun emitJavaImport(javaImport: JavaImport): BridjeFunction =
-    BridjeFunction(makeRootNode(JavaExecuteNode(JavaStaticReadNode(javaImport), javaImport)))
+internal object JavaImportEmitter {
+    fun emitJavaImport(javaImport: JavaImport): BridjeFunction =
+        BridjeFunction(makeRootNode(JavaExecuteNode(JavaStaticReadNode(javaImport), javaImport)))
+}

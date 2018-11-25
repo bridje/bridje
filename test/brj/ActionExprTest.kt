@@ -1,6 +1,5 @@
 package brj
 
-import brj.ActionExprAnalyser.TypeDefExpr
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
