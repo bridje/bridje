@@ -58,8 +58,6 @@ internal class NSAnalyser(val ns: Symbol) {
 
         return javaImports
     }
-
-    fun exportsAnalyser(it: AnalyserState): Set<Symbol> = it.varargs { it.expectForm<SymbolForm>().sym }.toSet()
 }
 
 internal fun nsAnalyser(it: AnalyserState): NSEnv =
@@ -83,10 +81,6 @@ internal fun nsAnalyser(it: AnalyserState): NSEnv =
 
                         IMPORTS -> {
                             nsEnv.copy(javaImports = it.nested(RecordForm::forms, ana::javaImportsAnalyser))
-                        }
-
-                        EXPORTS -> {
-                            nsEnv.copy(exports = it.nested(SetForm::forms, ana::exportsAnalyser))
                         }
 
                         else -> TODO()

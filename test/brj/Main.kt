@@ -19,9 +19,7 @@ fun main(args: Array<String>) {
            imports {brj.Foo #{(:: (isZero Int) Bool)
                               (:: (dec Int) Int)
                               (:: (conj #{a} a) #{a})
-                              (:: (plus Int Int) Int)}}
-
-           exports #{count-down}})
+                              (:: (plus Int Int) Int)}}})
 
         (defdata (Maybe a) (Just a) Nothing)
 
@@ -63,7 +61,7 @@ fun main(args: Array<String>) {
 
     println("value: $value")
 
-    println(ctx.polyglotBindings.getMember("brj/foo/count-down").execute(4))
+    println(ctx.eval(Source.create("brj", "foo/count-down")).execute(6))
 
     ctx.leave()
 }

@@ -52,8 +52,7 @@ data class NSEnv(val ns: Symbol,
                  val aliases: Map<Symbol, Symbol> = emptyMap(),
                  val dataTypes: Map<Symbol, DataType> = emptyMap(),
                  val javaImports: Map<QSymbol, JavaImport> = emptyMap(),
-                 val vars: Map<Ident, AGlobalVar> = emptyMap(),
-                 val exports: Set<Symbol> = emptySet()) {
+                 val vars: Map<Ident, AGlobalVar> = emptyMap()) {
 
     operator fun plus(newGlobalVar: AGlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym to newGlobalVar))
     operator fun plus(newDataType: DataType): NSEnv = copy(dataTypes = dataTypes + (newDataType.sym.name to newDataType))
