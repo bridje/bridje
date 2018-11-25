@@ -59,7 +59,7 @@ internal class DataTypeInteropReadNode(constructor: DataTypeConstructor) : Value
 
 typealias DataObjectFactory = (Array<Any?>) -> DataObject
 
-internal fun objectFactory(emitter: TruffleEmitter, constructor: DataTypeConstructor): DataObjectFactory {
+internal fun objectFactory(constructor: DataTypeConstructor): DataObjectFactory {
     val allocator = LAYOUT.createAllocator()
     var shape = LAYOUT.createShape(DataObjectType)
 
@@ -76,7 +76,7 @@ internal fun objectFactory(emitter: TruffleEmitter, constructor: DataTypeConstru
             override fun accessHasSize(): CallTarget = constantly(true)
             override fun accessGetSize(): CallTarget? = constructor.paramTypes?.let { constantly(it.size) }
             override fun accessHasKeys(): CallTarget = constantly(true)
-            override fun accessRead(): CallTarget = DataTypeEmitter(emitter.lang).makeCallTarget(DataTypeInteropReadNode(constructor))
+            override fun accessRead(): CallTarget = Truffle.getRuntime().createCallTarget(makeRootNode(DataTypeInteropReadNode(constructor)))
         })
     }
 }
@@ -94,16 +94,11 @@ internal class FunctionConstructorNode(private val dataObjectFactory: DataObject
     }
 }
 
-internal class DataTypeEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
-    fun emitConstructor(constructor: DataTypeConstructor): ConstructorVar {
-        val dataObjectFactory = objectFactory(this, constructor)
-
-        return ConstructorVar(constructor,
+internal fun emitConstructor(constructor: DataTypeConstructor): ConstructorVar {
+    val dataObjectFactory = objectFactory(constructor)
+    return ConstructorVar(constructor,
             if (constructor.paramTypes != null)
-                BridjeFunction(this, FunctionConstructorNode(dataObjectFactory, constructor.paramTypes))
+                BridjeFunction(makeRootNode(FunctionConstructorNode(dataObjectFactory, constructor.paramTypes)))
             else
                 dataObjectFactory(emptyArray()))
-    }
 }
-
-internal fun emitConstructor(lang: BrjLanguage, constructor: DataTypeConstructor) = DataTypeEmitter(lang).emitConstructor(constructor)

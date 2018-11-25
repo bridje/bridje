@@ -1,13 +1,10 @@
 package brj
 
-import brj.BrjLanguage.Companion.TYPE_DEF
-
 private val NS = Symbol.intern("ns")
 
 private val REFERS = Symbol.intern("refers")
 private val ALIASES = Symbol.intern("aliases")
 private val IMPORTS = Symbol.intern("imports")
-private val EXPORTS = Symbol.intern("exports")
 
 internal class NSAnalyser(val ns: Symbol) {
     fun refersAnalyser(it: AnalyserState): Map<Symbol, QSymbol> {

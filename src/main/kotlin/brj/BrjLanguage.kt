@@ -2,13 +2,10 @@ package brj
 
 import brj.ActionExprAnalyser.DefDataExpr.DefDataConstructor
 import brj.BrjLanguage.BridjeContext
+import brj.ValueExprEmitter.Companion.emitValueExpr
+import brj.ValueExprEmitter.Companion.evalValueExpr
 import com.oracle.truffle.api.CallTarget
-import com.oracle.truffle.api.CompilerDirectives
-import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.nodes.RootNode
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
 import java.util.*
@@ -30,41 +27,25 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     override fun isObjectOfLanguage(obj: Any): Boolean =
         obj is DataObject || obj is BridjeFunction
 
-    internal val ctx get() = getCurrentContext(this.javaClass)
-
     private val USER = Symbol.intern("user")
-
-    internal fun lookupClass(clazz: Class<*>) = ctx.truffleEnv.lookupHostSymbol(clazz.name) as TruffleObject
 
     override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
         val source = request.source
 
-        if (source.isInternal) {
-            when (source.characters) {
-                "lang" ->
-                    return Truffle.getRuntime().createCallTarget(object : RootNode(this) {
-                        override fun execute(frame: VirtualFrame): Any {
-                            CompilerDirectives.transferToInterpreter()
-                            return ctx.truffleEnv.asGuestValue(this@BrjLanguage)
-                        }
-                    })
-            }
-        }
-
-        val env = ctx.env
+        val env = getCtx().env
         val forms = readForms(source.reader)
 
-        val expr = ValueExprAnalyser(env, env.nses[USER] ?: NSEnv(USER)).analyseValueExpr(forms)
+        val expr = ValueExprAnalyser(env, NSEnv(USER)).analyseValueExpr(forms)
 
         println("type: ${valueExprType(env, expr)}")
 
-        return emitValueExpr(this, expr)
+        return emitValueExpr(expr)
     }
 
     internal inner class Require(var env: brj.Env) {
         fun evalJavaImports(nsFile: NSFile) {
             nsFile.nsEnv.javaImports.values.forEach { import ->
-                nsFile.nsEnv += JavaImportVar(import, emitJavaImport(this@BrjLanguage, import))
+                nsFile.nsEnv += JavaImportVar(import, emitJavaImport(import))
             }
 
             env += nsFile.nsEnv
@@ -124,7 +105,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                             defDataExpr.constructors.forEach { constructor ->
                                 val sym = QSymbol.intern(nsFile.ns, constructor.sym)
                                 val dataTypeConstructor = DataTypeConstructor(sym, dataType, constructor.params)
-                                nsFile.nsEnv += emitConstructor(this@BrjLanguage, dataTypeConstructor)
+                                nsFile.nsEnv += emitConstructor(dataTypeConstructor)
                             }
 
                             env += nsFile.nsEnv
@@ -153,7 +134,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 nsFile.nsEnv += GlobalVar(
                     expr.sym,
                     expectedType ?: expr.type,
-                    evalValueExpr(this@BrjLanguage, expr.expr))
+                    evalValueExpr(expr.expr))
 
                 env += nsFile.nsEnv
             }
@@ -180,7 +161,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     private fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source>) {
-        val ctx = ctx
+        val ctx = getCtx()
 
         requireOrder(readNsFiles(rootNses, sources)).forEach { nses ->
             synchronized(ctx) {
@@ -197,16 +178,9 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     companion object {
-        private val DO = Symbol.intern("do")
 
-        internal val DEF = Symbol.intern("def")
-        internal val TYPE_DEF = Symbol.intern("::")
-        internal val DEFX = Symbol.intern("defx")
-        internal val DEF_DATA = Symbol.intern("defdata")
-
-        private val langSource = Source.newBuilder("brj", "lang", null).internal(true).buildLiteral()
-
-        private fun getLang() = Context.getCurrent().eval(langSource).asHostObject<BrjLanguage>()
+        internal fun getLang() = getCurrentLanguage(BrjLanguage::class.java)
+        internal fun getCtx() = getCurrentContext(BrjLanguage::class.java)
 
         private fun nsSource(ns: Symbol): Source? =
             this::class.java.getResource("${ns.nameStr.replace('.', '/')}.brj")
@@ -281,6 +255,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         }
 
         fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()) {
+            Context.getCurrent().initialize("brj")
             getLang().require(rootNses, sources)
         }
     }

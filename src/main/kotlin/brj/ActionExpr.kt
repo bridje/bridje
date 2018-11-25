@@ -1,5 +1,10 @@
 package brj
 
+internal val DO = Symbol.intern("do")
+internal val DEF = Symbol.intern("def")
+internal val TYPE_DEF = Symbol.intern("::")
+internal val DEF_DATA = Symbol.intern("defdata")
+
 internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
     data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type)
     data class TypeDefExpr(val sym: Symbol, val type: Type)

@@ -1,5 +1,6 @@
 package brj
 
+import brj.BrjLanguage.Companion.getCtx
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.ForeignAccess.sendExecute
 import com.oracle.truffle.api.interop.ForeignAccess.sendRead
@@ -11,8 +12,8 @@ internal abstract class JavaInteropNode: ValueNode() {
     abstract override fun execute(frame: VirtualFrame): TruffleObject
 }
 
-internal class JavaStaticReadNode(lang: BrjLanguage, javaImport: JavaImport) : JavaInteropNode() {
-    val clazzObj = lang.lookupClass(javaImport.clazz)
+internal class JavaStaticReadNode(javaImport: JavaImport) : JavaInteropNode() {
+    val clazzObj = getCtx().truffleEnv.lookupHostSymbol(javaImport.clazz.name) as TruffleObject
     val name = javaImport.sym.name.nameStr
 
     @Child
@@ -40,9 +41,5 @@ internal class JavaExecuteNode(@Child var fnNode: JavaInteropNode, javaImport: J
     }
 }
 
-internal class JavaImportEmitter(lang: BrjLanguage): TruffleEmitter(lang) {
-    fun emitJavaImport(javaImport: JavaImport) =
-        BridjeFunction(this, JavaExecuteNode(JavaStaticReadNode(lang, javaImport), javaImport))
-}
-
-internal fun emitJavaImport(lang: BrjLanguage, javaImport: JavaImport) = JavaImportEmitter(lang).emitJavaImport(javaImport)
+internal fun emitJavaImport(javaImport: JavaImport): BridjeFunction =
+    BridjeFunction(makeRootNode(JavaExecuteNode(JavaStaticReadNode(javaImport), javaImport)))

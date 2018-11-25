@@ -1,298 +1,299 @@
 package brj
 
 import brj.BridjeTypesGen.*
+import brj.BrjLanguage.Companion.getCtx
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
+import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.nodes.ControlFlowException
-import com.oracle.truffle.api.nodes.ExplodeLoop
-import com.oracle.truffle.api.nodes.Node
-import com.oracle.truffle.api.nodes.RepeatingNode
+import com.oracle.truffle.api.nodes.*
 import com.oracle.truffle.api.profiles.ConditionProfile
 
-internal class BoolNode(val boolean: Boolean) : ValueNode() {
-    override fun execute(frame: VirtualFrame): Boolean = boolean
-}
+internal class ValueExprEmitter private constructor() {
+    val frameDescriptor = FrameDescriptor()
 
-internal class IntNode(val int: Long) : ValueNode() {
-    override fun execute(frame: VirtualFrame): Long = int
-}
-
-internal class FloatNode(val float: Double) : ValueNode() {
-    override fun execute(frame: VirtualFrame): Double = float
-}
-
-internal class ObjectNode(val obj: Any) : ValueNode() {
-    override fun execute(frame: VirtualFrame): Any = obj
-}
-
-internal class CollNode(emitter: ValueExprEmitter, exprs: List<ValueExpr>) : Node() {
-    @Children
-    val nodes = exprs.map(emitter::emitValueExpr).toTypedArray()
-
-    @TruffleBoundary
-    private fun add(coll: MutableCollection<Any>, value: Any) = coll.add(value)
-
-    @ExplodeLoop
-    fun execute(frame: VirtualFrame, coll: MutableCollection<Any>) {
-        for (node in nodes) {
-            add(coll, node.execute(frame))
-        }
+    inner class BoolNode(val boolean: Boolean) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Boolean = boolean
     }
-}
 
-internal class VectorNode(emitter: ValueExprEmitter, expr: VectorExpr) : ValueNode() {
-    @Child
-    var collNode = CollNode(emitter, expr.exprs)
-
-    override fun execute(frame: VirtualFrame): List<Any> {
-        val coll = mutableListOf<Any>()
-        collNode.execute(frame, coll)
-        return coll
+    inner class IntNode(val int: Long) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Long = int
     }
-}
 
-internal class SetNode(emitter: ValueExprEmitter, expr: SetExpr) : ValueNode() {
-    @Child
-    var collNode = CollNode(emitter, expr.exprs)
-
-    override fun execute(frame: VirtualFrame): Set<Any> {
-        val coll = mutableSetOf<Any>()
-        collNode.execute(frame, coll)
-        return coll
+    inner class FloatNode(val float: Double) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Double = float
     }
-}
 
-internal class DoNode(emitter: ValueExprEmitter, expr: DoExpr) : ValueNode() {
-    @Children
-    val exprNodes = expr.exprs.map(emitter::emitValueExpr).toTypedArray()
-    @Child
-    var exprNode = emitter.emitValueExpr(expr.expr)
-
-    @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Any {
-        val exprCount = exprNodes.size
-        CompilerAsserts.compilationConstant<Int>(exprCount)
-
-        for (i in 0 until exprCount) {
-            exprNodes[i].execute(frame)
-        }
-
-        return exprNode.execute(frame)
+    inner class ObjectNode(val obj: Any) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any = obj
     }
-}
 
-internal class IfNode(emitter: ValueExprEmitter, expr: IfExpr) : ValueNode() {
-    @Child
-    var predNode = emitter.emitValueExpr(expr.predExpr)
-    @Child
-    var thenNode = emitter.emitValueExpr(expr.thenExpr)
-    @Child
-    var elseNode = emitter.emitValueExpr(expr.elseExpr)
+    inner class CollNode(exprs: List<ValueExpr>) : Node() {
+        @Children
+        val nodes = exprs.map(::emitValueExpr).toTypedArray()
 
-    private val conditionProfile = ConditionProfile.createBinaryProfile()
+        @TruffleBoundary
+        private fun add(coll: MutableCollection<Any>, value: Any) = coll.add(value)
 
-    override fun execute(frame: VirtualFrame): Any =
-        (if (conditionProfile.profile(expectBoolean(predNode.execute(frame)))) thenNode else elseNode).execute(frame)
-}
-
-internal class LetNode(emitter: ValueExprEmitter, expr: LetExpr) : ValueNode() {
-    @Children
-    val bindingNodes = expr.bindings
-        .map { WriteLocalVarNodeGen.create(emitter.emitValueExpr(it.expr), emitter.frameDescriptor.findOrAddFrameSlot(it.localVar)) }
-        .toTypedArray()
-
-    @Child
-    var bodyNode: ValueNode = emitter.emitValueExpr(expr.expr)
-
-    @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Any {
-        val bindingCount = bindingNodes.size
-        CompilerAsserts.compilationConstant<Int>(bindingCount)
-
-        for (node in bindingNodes) {
-            node.execute(frame)
-        }
-
-        return bodyNode.execute(frame)
-    }
-}
-
-internal class FnBodyNode(emitter: ValueExprEmitter, expr: FnExpr) : ValueNode() {
-    @Children
-    val readArgNodes = expr.params
-        .mapIndexed { idx, it -> WriteLocalVarNodeGen.create(ReadArgNode(idx), emitter.frameDescriptor.findOrAddFrameSlot(it)) }
-        .toTypedArray()
-
-    @Child
-    var bodyNode: ValueNode = emitter.emitValueExpr(expr.expr)
-
-    override fun execute(frame: VirtualFrame): Any {
-        for (node in readArgNodes) {
-            node.execute(frame)
-        }
-
-        return bodyNode.execute(frame)
-    }
-}
-
-internal class CallNode(emitter: ValueExprEmitter, expr: CallExpr) : ValueNode() {
-    @Child
-    var callNode = Truffle.getRuntime().createIndirectCallNode()!!
-
-    @Child
-    var fnNode = emitter.emitValueExpr(expr.f)
-
-    @Children
-    val argNodes = expr.args.map(emitter::emitValueExpr).toTypedArray()
-
-    @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Any {
-        val fn = expectBridjeFunction(fnNode.execute(frame))
-
-        val argValues = arrayOfNulls<Any>(argNodes.size)
-
-        for (i in argNodes.indices) {
-            argValues[i] = argNodes[i].execute(frame)
-        }
-
-        return callNode.call(fn.callTarget, argValues)
-    }
-}
-
-internal class CaseMatched(val res: Any) : ControlFlowException()
-
-internal class CaseClauseNode(emitter: ValueExprEmitter, dataSlot: FrameSlot, clause: CaseClause) : Node() {
-
-    @Child
-    var readSlot = ReadLocalVarNodeGen.create(dataSlot)!!
-
-    @Children
-    val writeBindingNodes =
-        clause.bindings
-            ?.mapIndexed { idx, lv ->
-                WriteLocalVarNodeGen.create(
-                    ReadDataTypeParamNode(ReadLocalVarNodeGen.create(dataSlot), idx),
-                    emitter.frameDescriptor.findOrAddFrameSlot(lv))
+        @ExplodeLoop
+        fun execute(frame: VirtualFrame, coll: MutableCollection<Any>) {
+            for (node in nodes) {
+                add(coll, node.execute(frame))
             }
-            ?.toTypedArray()
-            ?: arrayOf()
+        }
+    }
 
-    @Child
-    var exprNode = emitter.emitValueExpr(clause.bodyExpr)
+    inner class VectorNode(expr: VectorExpr) : ValueNode() {
+        @Child
+        var collNode = CollNode(expr.exprs)
 
-    private val conditionProfile = ConditionProfile.createBinaryProfile()!!
-    private val constructorSym = clause.constructor.sym
+        override fun execute(frame: VirtualFrame): List<Any> {
+            val coll = mutableListOf<Any>()
+            collNode.execute(frame, coll)
+            return coll
+        }
+    }
 
-    @ExplodeLoop
-    fun execute(frame: VirtualFrame) {
-        val value = expectDataObject(readSlot.execute(frame))
+    inner class SetNode(expr: SetExpr) : ValueNode() {
+        @Child
+        var collNode = CollNode(expr.exprs)
 
-        if (conditionProfile.profile(value.constructor.sym == constructorSym)) {
-            for (node in writeBindingNodes) {
+        override fun execute(frame: VirtualFrame): Set<Any> {
+            val coll = mutableSetOf<Any>()
+            collNode.execute(frame, coll)
+            return coll
+        }
+    }
+
+    inner class DoNode(expr: DoExpr) : ValueNode() {
+        @Children
+        val exprNodes = expr.exprs.map(::emitValueExpr).toTypedArray()
+        @Child
+        var exprNode = emitValueExpr(expr.expr)
+
+        @ExplodeLoop
+        override fun execute(frame: VirtualFrame): Any {
+            val exprCount = exprNodes.size
+            CompilerAsserts.compilationConstant<Int>(exprCount)
+
+            for (i in 0 until exprCount) {
+                exprNodes[i].execute(frame)
+            }
+
+            return exprNode.execute(frame)
+        }
+    }
+
+    inner class IfNode(expr: IfExpr) : ValueNode() {
+        @Child
+        var predNode = emitValueExpr(expr.predExpr)
+        @Child
+        var thenNode = emitValueExpr(expr.thenExpr)
+        @Child
+        var elseNode = emitValueExpr(expr.elseExpr)
+
+        private val conditionProfile = ConditionProfile.createBinaryProfile()
+
+        override fun execute(frame: VirtualFrame): Any =
+            (if (conditionProfile.profile(expectBoolean(predNode.execute(frame)))) thenNode else elseNode).execute(frame)
+    }
+
+    inner class LetNode(expr: LetExpr) : ValueNode() {
+        @Children
+        val bindingNodes = expr.bindings
+            .map { WriteLocalVarNodeGen.create(emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.localVar)) }
+            .toTypedArray()
+
+        @Child
+        var bodyNode: ValueNode = emitValueExpr(expr.expr)
+
+        @ExplodeLoop
+        override fun execute(frame: VirtualFrame): Any {
+            val bindingCount = bindingNodes.size
+            CompilerAsserts.compilationConstant<Int>(bindingCount)
+
+            for (node in bindingNodes) {
                 node.execute(frame)
             }
 
-            throw CaseMatched(exprNode.execute(frame))
+            return bodyNode.execute(frame)
         }
     }
-}
 
-internal class CaseExprNode(emitter: ValueExprEmitter, expr: CaseExpr) : ValueNode() {
-    private val dataSlot: FrameSlot = emitter.frameDescriptor.findOrAddFrameSlot(this)
+    inner class FnBodyNode(expr: FnExpr) : ValueNode() {
+        @Children
+        val readArgNodes = expr.params
+            .mapIndexed { idx, it -> WriteLocalVarNodeGen.create(ReadArgNode(idx), frameDescriptor.findOrAddFrameSlot(it)) }
+            .toTypedArray()
 
-    @Child
-    var exprNode = WriteLocalVarNodeGen.create(emitter.emitValueExpr(expr.expr), dataSlot)!!
+        @Child
+        var bodyNode: ValueNode = emitValueExpr(expr.expr)
 
-    @Children
-    val clauseNodes = expr.clauses.map { CaseClauseNode(emitter, dataSlot, it) }.toTypedArray()
-
-    @Child
-    var defaultNode = expr.defaultExpr?.let(emitter::emitValueExpr)
-
-    @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Any {
-        exprNode.execute(frame)
-
-        try {
-            for (node in clauseNodes) {
+        override fun execute(frame: VirtualFrame): Any {
+            for (node in readArgNodes) {
                 node.execute(frame)
             }
-        } catch (e: CaseMatched) {
-            return e.res
-        }
 
-        return defaultNode?.execute(frame) ?: TODO()
+            return bodyNode.execute(frame)
+        }
     }
-}
 
-internal class LoopReturnException(val res: Any) : ControlFlowException()
-internal object RecurException : ControlFlowException()
+    inner class CallNode(expr: CallExpr) : ValueNode() {
+        @Child
+        var callNode = Truffle.getRuntime().createIndirectCallNode()!!
 
-internal class LoopNode(emitter: ValueExprEmitter, expr: LoopExpr) : ValueNode() {
-    @Children
-    val bindingNodes = expr.bindings
-        .map {
-            WriteLocalVarNodeGen.create(
-                emitter.emitValueExpr(it.expr),
-                emitter.frameDescriptor.findOrAddFrameSlot(it.localVar))
+        @Child
+        var fnNode = emitValueExpr(expr.f)
+
+        @Children
+        val argNodes = expr.args.map(::emitValueExpr).toTypedArray()
+
+        @ExplodeLoop
+        override fun execute(frame: VirtualFrame): Any {
+            val fn = expectBridjeFunction(fnNode.execute(frame))
+
+            val argValues = arrayOfNulls<Any>(argNodes.size)
+
+            for (i in argNodes.indices) {
+                argValues[i] = argNodes[i].execute(frame)
+            }
+
+            return callNode.call(fn.callTarget, argValues)
         }
-        .toTypedArray()
+    }
 
-    @Child
-    var bodyNode = emitter.emitValueExpr(expr.expr)
+    inner class CaseMatched(val res: Any) : ControlFlowException()
 
+    inner class CaseClauseNode(dataSlot: FrameSlot, clause: CaseClause) : Node() {
 
-    @Child
-    var loopBodyNode = Truffle.getRuntime().createLoopNode(object : Node(), RepeatingNode {
-        override fun executeRepeating(frame: VirtualFrame): Boolean {
+        @Child
+        var readSlot = ReadLocalVarNodeGen.create(dataSlot)!!
+
+        @Children
+        val writeBindingNodes =
+            clause.bindings
+                ?.mapIndexed { idx, lv ->
+                    WriteLocalVarNodeGen.create(
+                        ReadDataTypeParamNode(ReadLocalVarNodeGen.create(dataSlot), idx),
+                        frameDescriptor.findOrAddFrameSlot(lv))
+                }
+                ?.toTypedArray()
+                ?: arrayOf()
+
+        @Child
+        var exprNode = emitValueExpr(clause.bodyExpr)
+
+        private val conditionProfile = ConditionProfile.createBinaryProfile()!!
+        private val constructorSym = clause.constructor.sym
+
+        @ExplodeLoop
+        fun execute(frame: VirtualFrame) {
+            val value = expectDataObject(readSlot.execute(frame))
+
+            if (conditionProfile.profile(value.constructor.sym == constructorSym)) {
+                for (node in writeBindingNodes) {
+                    node.execute(frame)
+                }
+
+                throw CaseMatched(exprNode.execute(frame))
+            }
+        }
+    }
+
+    inner class CaseExprNode(expr: CaseExpr) : ValueNode() {
+        private val dataSlot: FrameSlot = frameDescriptor.findOrAddFrameSlot(this)
+
+        @Child
+        var exprNode = WriteLocalVarNodeGen.create(emitValueExpr(expr.expr), dataSlot)!!
+
+        @Children
+        val clauseNodes = expr.clauses.map { CaseClauseNode(dataSlot, it) }.toTypedArray()
+
+        @Child
+        var defaultNode = expr.defaultExpr?.let(::emitValueExpr)
+
+        @ExplodeLoop
+        override fun execute(frame: VirtualFrame): Any {
+            exprNode.execute(frame)
+
             try {
-                throw LoopReturnException(bodyNode.execute(frame))
-            } catch (e: RecurException) {
-                return true
+                for (node in clauseNodes) {
+                    node.execute(frame)
+                }
+            } catch (e: CaseMatched) {
+                return e.res
+            }
+
+            return defaultNode?.execute(frame) ?: TODO()
+        }
+    }
+
+    internal class LoopReturnException(val res: Any) : ControlFlowException()
+    internal object RecurException : ControlFlowException()
+
+    inner class LoopNode(expr: LoopExpr) : ValueNode() {
+        @Children
+        val bindingNodes = expr.bindings
+            .map {
+                WriteLocalVarNodeGen.create(
+                    emitValueExpr(it.expr),
+                    frameDescriptor.findOrAddFrameSlot(it.localVar))
+            }
+            .toTypedArray()
+
+        @Child
+        var bodyNode = emitValueExpr(expr.expr)
+
+
+        @Child
+        var loopBodyNode = Truffle.getRuntime().createLoopNode(object : Node(), RepeatingNode {
+            override fun executeRepeating(frame: VirtualFrame): Boolean {
+                try {
+                    throw LoopReturnException(bodyNode.execute(frame))
+                } catch (e: RecurException) {
+                    return true
+                }
+            }
+
+        })
+
+        @ExplodeLoop
+        override fun execute(frame: VirtualFrame): Any {
+            for (node in bindingNodes) {
+                node.execute(frame)
+            }
+
+            try {
+                loopBodyNode.executeLoop(frame)
+                throw RuntimeException("Loop didn't exit properly")
+            } catch (e: LoopReturnException) {
+                return e.res
             }
         }
+    }
 
-    })
+    inner class RecurNode(expr: RecurExpr) : ValueNode() {
+        @Children
+        val recurNodes = expr.exprs.map {
+            WriteLocalVarNodeGen.create(
+                emitValueExpr(it.second),
+                frameDescriptor.findOrAddFrameSlot(it.first))
+        }.toTypedArray()
 
-    @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Any {
-        for (node in bindingNodes) {
-            node.execute(frame)
-        }
+        @ExplodeLoop
+        override fun execute(frame: VirtualFrame): Any {
+            for (node in recurNodes) {
+                node.execute(frame)
+            }
 
-        try {
-            loopBodyNode.executeLoop(frame)
-            throw RuntimeException("Loop didn't exit properly")
-        } catch (e: LoopReturnException) {
-            return e.res
+            throw RecurException
         }
     }
-}
 
-internal class RecurNode(emitter: ValueExprEmitter, expr: RecurExpr) : ValueNode() {
-    @Children
-    val recurNodes = expr.exprs.map {
-        WriteLocalVarNodeGen.create(
-            emitter.emitValueExpr(it.second),
-            emitter.frameDescriptor.findOrAddFrameSlot(it.first))
-    }.toTypedArray()
-
-    @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Any {
-        for (node in recurNodes) {
-            node.execute(frame)
-        }
-
-        throw RecurException
-    }
-}
-
-internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
+    fun makeRootNode(node: ValueNode): RootNode = makeRootNode(node, frameDescriptor)
 
     fun emitValueExpr(expr: ValueExpr): ValueNode =
         when (expr) {
@@ -303,40 +304,43 @@ internal class ValueExprEmitter(lang: BrjLanguage) : TruffleEmitter(lang) {
             is FloatExpr -> FloatNode(expr.float)
             is BigFloatExpr -> ObjectNode(expr.bigFloat)
 
-            is VectorExpr -> VectorNode(this, expr)
-            is SetExpr -> SetNode(this, expr)
+            is VectorExpr -> VectorNode(expr)
+            is SetExpr -> SetNode(expr)
 
             is FnExpr -> {
-                val emitter = ValueExprEmitter(lang)
-                ObjectNode(BridjeFunction(emitter, FnBodyNode(emitter, expr)))
+                val emitter = ValueExprEmitter()
+                ObjectNode(BridjeFunction(emitter.makeRootNode(emitter.FnBodyNode(expr))))
             }
 
-            is CallExpr -> CallNode(this, expr)
+            is CallExpr -> CallNode(expr)
 
-            is IfExpr -> IfNode(this, expr)
-            is DoExpr -> DoNode(this, expr)
-            is LetExpr -> LetNode(this, expr)
+            is IfExpr -> IfNode(expr)
+            is DoExpr -> DoNode(expr)
+            is LetExpr -> LetNode(expr)
 
-            is LoopExpr -> LoopNode(this, expr)
-            is RecurExpr -> RecurNode(this, expr)
+            is LoopExpr -> LoopNode(expr)
+            is RecurExpr -> RecurNode(expr)
 
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
             is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
 
-            is CaseExpr -> CaseExprNode(this, expr)
+            is CaseExpr -> CaseExprNode(expr)
         }
 
-    inner class WrapHostObjectNode(@Child var node: ValueNode): ValueNode() {
-        override fun execute(frame: VirtualFrame): Any = lang.ctx.truffleEnv.asGuestValue(node.execute(frame))
+    inner class WrapHostObjectNode(@Child var node: ValueNode) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any = getCtx().truffleEnv.asGuestValue(node.execute(frame))
+    }
+
+    companion object {
+        internal fun emitValueExpr(expr: ValueExpr): CallTarget {
+            val emitter = ValueExprEmitter()
+            return createCallTarget(emitter.makeRootNode(emitter.WrapHostObjectNode(emitter.emitValueExpr(expr))))
+        }
+
+        internal fun evalValueExpr(expr: ValueExpr): Any {
+            val emitter = ValueExprEmitter()
+            return emitter.emitValueExpr(expr).execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), emitter.frameDescriptor)!!)
+        }
     }
 }
 
-internal fun emitValueExpr(lang: BrjLanguage, expr: ValueExpr): CallTarget {
-    val emitter = ValueExprEmitter(lang)
-    return emitter.makeCallTarget(emitter.WrapHostObjectNode(emitter.emitValueExpr(expr)))
-}
-
-internal fun evalValueExpr(lang: BrjLanguage, expr: ValueExpr): Any {
-    val emitter = ValueExprEmitter(lang)
-    return emitter.emitValueExpr(expr).execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), emitter.frameDescriptor)!!)
-}

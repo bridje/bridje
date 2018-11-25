@@ -2,10 +2,6 @@
 
 package brj
 
-data class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
-    operator fun plus(newNsEnv: NSEnv): Env = Env(nses + (newNsEnv.ns to newNsEnv))
-}
-
 abstract class AGlobalVar internal constructor() {
     abstract val sym: Ident
     abstract val type: Type
@@ -67,4 +63,8 @@ fun resolve(env: Env, nsEnv: NSEnv, sym: Ident): AGlobalVar? =
         ?: nsEnv.refers[sym]?.let { refer -> env.nses[refer.ns]?.vars?.get(refer.name) }
         ?: if (sym is QSymbol) env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)]?.let { it.vars[sym.name] } else null
 
+
+class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
+    operator fun plus(newNsEnv: NSEnv) = Env(nses + (newNsEnv.ns to newNsEnv))
+}
 

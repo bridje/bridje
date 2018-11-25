@@ -9,7 +9,7 @@ class Foo {
         fun dec(foo: Int) = foo - 1
 
         @JvmStatic
-        fun conj(list: List<Any>, el: Int) = list + el
+        fun conj(list: List<Any>, el: Any) = list + el
 
         @JvmStatic
         fun conj(set: Set<Any>, el: Any) = set + el
