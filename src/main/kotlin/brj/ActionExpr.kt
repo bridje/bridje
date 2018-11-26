@@ -45,7 +45,7 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
                 FnExpr(sym, locals.map(Pair<Symbol, LocalVar>::second), bodyExpr)
 
 
-        val actualType = valueExprType(env, expr)
+        val actualType = valueExprType(expr)
 
         val expectedType = nsEnv.vars[sym]?.type ?: typeDefs[sym]
 
