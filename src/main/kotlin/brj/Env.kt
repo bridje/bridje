@@ -31,7 +31,8 @@ internal class ConstructorVar(val constructor: DataTypeConstructor, override var
     override val type =
         Type(
             if (constructor.paramTypes != null) FnType(constructor.paramTypes, constructor.dataType.monoType)
-            else constructor.dataType.monoType)
+            else constructor.dataType.monoType,
+            emptySet())
 }
 
 

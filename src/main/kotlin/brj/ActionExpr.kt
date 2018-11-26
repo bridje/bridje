@@ -53,7 +53,7 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
             TODO()
         }
 
-        return DefExpr(sym, expr, expectedType ?: actualType)
+        return DefExpr(sym, expr, (expectedType ?: actualType).copy(effects = actualType.effects))
     }
 
     fun typeDefAnalyser(it: AnalyserState): TypeDefExpr {
@@ -78,7 +78,7 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
 
         it.expectEnd()
 
-        return TypeDefExpr(sym, Type(if (params != null) FnType(params, returnType) else returnType))
+        return TypeDefExpr(sym, Type(if (params != null) FnType(params, returnType) else returnType, emptySet()))
     }
 
     fun defDataAnalyser(it: AnalyserState): DefDataExpr {

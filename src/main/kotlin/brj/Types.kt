@@ -25,7 +25,7 @@ internal class Instantiator {
     }
 }
 
-data class Type(val monoType: MonoType) {
+data class Type(val monoType: MonoType, val effects: Set<QSymbol>) {
     override fun toString() = monoType.toString()
 
     // TODO check matching
@@ -176,7 +176,7 @@ private fun unifyEqs(eqs_: List<TypeEq>): TypeMapping {
     return mapping
 }
 
-internal data class Typing(val monoType: MonoType, val monoEnv: MonoEnv = emptyMap())
+internal data class Typing(val monoType: MonoType, val monoEnv: MonoEnv = emptyMap(), val effects: Set<QSymbol> = emptySet())
 
 internal class TypeChecker(val env: Env) {
 
@@ -194,7 +194,7 @@ internal class TypeChecker(val env: Env) {
                 .flatMapTo(extraLVs.toMutableList()) { it.monoEnv.toList() }
                 .mapTo(extraEqs.toMutableList()) { e -> TypeEq(lvTvs.getOrPut(e.first, ::TypeVarType), e.second) })
 
-        return Typing(returnType.applyMapping(mapping), lvTvs.mapValues { e -> mapping.map(e.value) })
+        return Typing(returnType.applyMapping(mapping), lvTvs.mapValues { e -> mapping.map(e.value) }, typings.flatMapTo(HashSet(), Typing::effects))
     }
 
     private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<ValueExpr>): Typing {
@@ -333,10 +333,10 @@ internal class TypeChecker(val env: Env) {
             is RecurExpr -> recurExprTyping(expr)
 
             is LocalVarExpr -> localVarTyping(expr.localVar)
-            is GlobalVarExpr -> Typing(Instantiator()(expr.globalVar.type.monoType))
+            is GlobalVarExpr -> expr.globalVar.type.let { Typing(Instantiator()(it.monoType), effects = it.effects) }
 
             is CaseExpr -> caseExprTyping(expr)
         }
 }
 
-fun valueExprType(env: Env, expr: ValueExpr) = Type(TypeChecker(env).valueExprTyping(expr).monoType)
+fun valueExprType(env: Env, expr: ValueExpr) = TypeChecker(env).valueExprTyping(expr).let { Type(it.monoType, it.effects) }
