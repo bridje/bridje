@@ -18,7 +18,7 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
         }
 
         private fun evalDef(expr: DefExpr) {
-            nsEnv += GlobalVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
+            nsEnv += DefVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
         }
 
         private fun evalTypeDef(typeDef: TypeDefExpr) {
@@ -26,7 +26,7 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
                 TODO("sym already exists in NS")
             }
 
-            nsEnv += GlobalVar(typeDef.sym, typeDef.type, null)
+            nsEnv += DefVar(typeDef.sym, typeDef.type, null)
         }
 
         private fun evalDefData(defDataExpr: DefDataExpr) {

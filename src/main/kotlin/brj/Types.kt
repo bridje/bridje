@@ -320,6 +320,8 @@ private fun valueExprTyping(expr: ValueExpr): Typing =
         is VectorExpr -> collExprTyping(::VectorType, expr.exprs)
         is SetExpr -> collExprTyping(::SetType, expr.exprs)
 
+        is RecordExpr -> TODO()
+
         is FnExpr -> fnExprTyping(expr)
         is CallExpr -> callExprTyping(expr)
 

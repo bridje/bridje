@@ -307,6 +307,8 @@ internal class ValueExprEmitter private constructor() {
             is VectorExpr -> VectorNode(expr)
             is SetExpr -> SetNode(expr)
 
+            is RecordExpr -> TODO()
+
             is FnExpr -> {
                 val emitter = ValueExprEmitter()
                 ObjectNode(BridjeFunction(emitter.makeRootNode(emitter.FnBodyNode(expr))))

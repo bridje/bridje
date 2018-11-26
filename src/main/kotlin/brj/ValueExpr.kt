@@ -15,6 +15,9 @@ data class BigFloatExpr(val bigFloat: BigDecimal) : ValueExpr()
 data class VectorExpr(val exprs: List<ValueExpr>) : ValueExpr()
 data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr()
 
+data class RecordEntry(val attribute: Attribute, val expr: ValueExpr)
+data class RecordExpr(val entries: List<RecordEntry>) : ValueExpr()
+
 data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>) : ValueExpr()
 
 data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr()
@@ -31,7 +34,7 @@ data class CaseClause(val constructor: DataTypeConstructor, val bindings: List<L
 data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?) : ValueExpr()
 
 data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
-data class GlobalVarExpr(val globalVar: AGlobalVar) : ValueExpr()
+data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
 @Suppress("NestedLambdaShadowedImplicitParameter")
 internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
@@ -46,6 +49,15 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
     }
 
     private fun resolve(sym: Ident) = resolve(env, nsEnv, sym)
+
+    private fun symAnalyser(form: SymbolForm): ValueExpr {
+        return ((locals[form.sym]?.let { LocalVarExpr(it) })
+            ?: resolve(form.sym)?.let(::GlobalVarExpr)
+            ?: throw AnalyserError.ResolutionError(form.sym))
+    }
+
+    private fun qsymAnalyser(form: QSymbolForm) = GlobalVarExpr(resolve(form.sym)
+        ?: throw AnalyserError.ResolutionError(form.sym))
 
     private fun ifAnalyser(it: AnalyserState): ValueExpr {
         val predExpr = exprAnalyser(it)
@@ -192,6 +204,24 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         transform(it.varargs(::exprAnalyser))
     }
 
+    private fun recordAnalyser(form: RecordForm): ValueExpr {
+        val entries = mutableListOf<RecordEntry>()
+
+        val state = AnalyserState(form.forms)
+        state.varargs {
+            val form = it.expectForm<Form>()
+            val attr: Attribute = (when (form) {
+                is SymbolForm -> resolve(form.sym)
+                is QSymbolForm -> resolve(form.sym)
+                else -> TODO()
+            } as? AttributeVar)?.attribute ?: TODO()
+
+            entries += RecordEntry(attr, exprAnalyser(it))
+        }
+
+        return RecordExpr(entries)
+    }
+
     private fun exprAnalyser(it: AnalyserState): ValueExpr {
         val form = it.expectForm<Form>()
 
@@ -203,19 +233,14 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             is FloatForm -> FloatExpr(form.float)
             is BigFloatForm -> BigFloatExpr(form.bigFloat)
 
-            is SymbolForm ->
-                (locals[form.sym]?.let { LocalVarExpr(it) })
-                    ?: resolve(form.sym)?.let(::GlobalVarExpr)
-                    ?: throw AnalyserError.ResolutionError(form.sym)
+            is SymbolForm -> symAnalyser(form)
 
-            is QSymbolForm ->
-                GlobalVarExpr(resolve(form.sym)
-                    ?: throw AnalyserError.ResolutionError(form.sym))
+            is QSymbolForm -> qsymAnalyser(form)
 
             is ListForm -> listAnalyser(AnalyserState(form.forms))
             is VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))
             is SetForm -> collAnalyser(::SetExpr)(AnalyserState(form.forms))
-            is RecordForm -> TODO()
+            is RecordForm -> recordAnalyser(form)
             is QuoteForm -> TODO()
             is UnquoteForm -> TODO()
             is UnquoteSplicingForm -> TODO()
