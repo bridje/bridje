@@ -18,13 +18,7 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
         }
 
         private fun evalDef(expr: DefExpr) {
-            val expectedType = nsEnv.vars[expr.sym]?.type
-
-            if (expectedType != null && !(expr.type.matches(expectedType))) {
-                TODO()
-            }
-
-            nsEnv += GlobalVar(expr.sym, expectedType ?: expr.type, emitter.evalValueExpr(expr.expr))
+            nsEnv += GlobalVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
         }
 
         private fun evalTypeDef(typeDef: TypeDefExpr) {
@@ -47,6 +41,10 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
             }
         }
 
+        private fun evalDefx(expr: DefxExpr) {
+            TODO()
+        }
+
         private fun formEvaluator(it: AnalyserState) {
             val analyser = ActionExprAnalyser(env, nsEnv)
 
@@ -57,6 +55,7 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
                     DEF_DATA -> evalDefData(analyser.defDataAnalyser(it))
                     TYPE_DEF -> evalTypeDef(analyser.typeDefAnalyser(it))
                     DEF -> evalDef(analyser.defAnalyser(it))
+                    DEFX -> evalDefx(analyser.defxAnalyser(it))
 
                     else -> TODO()
                 }

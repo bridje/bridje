@@ -21,6 +21,8 @@ fun main(args: Array<String>) {
                               (:: (conj #{a} a) #{a})
                               (:: (plus Int Int) Int)}}})
 
+        (defdata Void Void)
+
         (defdata (Maybe a) (Just a) Nothing)
 
         ;(:: foo [(foo/Maybe Int)])
@@ -36,6 +38,12 @@ fun main(args: Array<String>) {
         (def x
           (let [quux 10N]
             [quux baz]))
+
+        (defx Console
+          (:: (println! Str) Void)
+          (def (println! s) Void)
+
+          (:: (read-line!) Str))
 
         (def (count-down x)
           (loop [y x

@@ -49,6 +49,17 @@ data class AnalyserState(var forms: List<Form>) {
             null
         }
 
+    fun <R> or(vararg analysers: FormsAnalyser<R>): R? {
+        for (a in analysers) {
+            val res = maybe(a)
+            if (res != null) {
+                return res
+            }
+        }
+
+        return null
+    }
+
     fun <R> nested(forms: List<Form>, a: FormsAnalyser<R>): R = a(AnalyserState(forms))
 
     inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsAnalyser<R>): R = nested(f(expectForm()), a)
