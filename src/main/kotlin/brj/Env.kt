@@ -12,7 +12,7 @@ abstract class GlobalVar internal constructor() {
 internal class DefVar(override val sym: Symbol, override val type: Type, override var value: Any?) : GlobalVar()
 
 
-data class Attribute internal constructor(val sym: QSymbol, val type: Type)
+data class Attribute internal constructor(val sym: QSymbol, val type: MonoType)
 
 data class AttributeVar internal constructor(val attribute: Attribute, override var value: Any?) : GlobalVar() {
     override val sym = attribute.sym.name

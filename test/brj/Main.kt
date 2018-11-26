@@ -39,11 +39,13 @@ fun main(args: Array<String>) {
           (let [quux 10N]
             [quux baz]))
 
-        (defx Console
-          (:: (println! Str) Void)
-          (def (println! s) Void)
+        ; (defx Console
+        ;   (:: (println! Str) Void)
+        ;   (def (println! s) Void)
 
-          (:: (read-line!) Str))
+        ;   (:: (read-line!) Str))
+
+        (defdata User {first-name Str, last-name Str})
 
         (def (count-down x)
           (loop [y x

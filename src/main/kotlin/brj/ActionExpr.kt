@@ -9,9 +9,8 @@ internal val DEFX = Symbol.intern("defx")
 data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type)
 data class TypeDefExpr(val sym: Symbol, val type: Type)
 
-data class DefAttributeExpr(val sym: Symbol, val type: Type)
 data class DefDataConstructorExpr(val sym: Symbol, val params: List<MonoType>?)
-data class DefDataExpr(val sym: Symbol, val typeParams: List<TypeVarType>?, val attributes: List<DefAttributeExpr>, val constructors: List<DefDataConstructorExpr> = emptyList())
+data class DefDataExpr(val sym: Symbol?, val typeParams: List<TypeVarType>?, val attributes: List<Attribute>, val constructors: List<DefDataConstructorExpr> = emptyList())
 
 data class EffectFnExpr(val sym: Symbol, val type: Type, val expr: ValueExpr?)
 data class DefxExpr(val sym: QSymbol, val effectFns: List<EffectFnExpr>)
@@ -84,19 +83,28 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
     fun defDataAnalyser(it: AnalyserState): DefDataExpr {
         val typeAnalyser = TypeAnalyser(env, nsEnv)
 
-        val form = it.expectForm<Form>()
-        val (sym, typeParams) = when (form) {
-            is ListForm -> {
-                it.nested(form.forms) {
-                    Pair(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::tvAnalyser))
+        val sig =
+            it.maybe { it.expectForm<SymbolForm>().sym }?.let { sym -> Pair(sym, null) }
+                ?: it.maybe { it.expectForm<ListForm>().forms }?.let { forms ->
+                    it.nested(forms) {
+                        Pair(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::tvAnalyser))
+                    }
+                }
+
+        val sym = sig?.first
+        val typeParams = sig?.second
+
+        val attributes = mutableListOf<Attribute>()
+
+        it.maybe { it.expectForm<RecordForm>() }?.let { recordForm ->
+            it.nested(recordForm.forms) {
+                it.varargs {
+                    val attrSym = Symbol.intern(listOfNotNull(sym?.nameStr, it.expectForm<SymbolForm>().sym.nameStr).joinToString("."))
+
+                    // TODO quite a lot of cyclic defs to deal with here...
+                    attributes += Attribute(QSymbol.intern(nsEnv.ns, attrSym), typeAnalyser.monoTypeAnalyser(it))
                 }
             }
-
-            is SymbolForm -> {
-                Pair(form.sym, null)
-            }
-
-            else -> TODO()
         }
 
         val constructors = it.varargs {
@@ -117,8 +125,7 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
             }
         }
 
-        // TODO parse attributes
-        return DefDataExpr(sym, typeParams, attributes = emptyList(), constructors = constructors)
+        return DefDataExpr(sym, typeParams, attributes = attributes, constructors = constructors)
     }
 
     fun defxAnalyser(it: AnalyserState): DefxExpr {

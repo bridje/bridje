@@ -30,14 +30,21 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
         }
 
         private fun evalDefData(defDataExpr: DefDataExpr) {
-            val dataType = DataType(QSymbol.intern(nsEnv.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructorExpr::sym))
+            if (defDataExpr.sym != null && defDataExpr.constructors.isNotEmpty()) {
+                val dataType = DataType(QSymbol.intern(nsEnv.ns, defDataExpr.sym), defDataExpr.typeParams, defDataExpr.constructors.map(DefDataConstructorExpr::sym))
 
-            nsEnv += dataType
+                nsEnv += dataType
 
-            defDataExpr.constructors.forEach { constructor ->
-                val sym = QSymbol.intern(nsEnv.ns, constructor.sym)
-                val dataTypeConstructor = DataTypeConstructor(sym, dataType, constructor.params)
-                nsEnv += ConstructorVar(dataTypeConstructor, emitter.emitConstructor(dataTypeConstructor))
+                defDataExpr.constructors.forEach { constructor ->
+                    val sym = QSymbol.intern(nsEnv.ns, constructor.sym)
+                    val dataTypeConstructor = DataTypeConstructor(sym, dataType, constructor.params)
+                    nsEnv += ConstructorVar(dataTypeConstructor, emitter.emitConstructor(dataTypeConstructor))
+                }
+            }
+
+            defDataExpr.attributes.forEach {
+                // TODO emit attribute fn
+                nsEnv += AttributeVar(it, null)
             }
         }
 
