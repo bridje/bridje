@@ -43,7 +43,7 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
     }
 
     fun typeDefAnalyser(it: AnalyserState): TypeDefExpr {
-        val typeAnalyser = TypeAnalyser()
+        val typeAnalyser = TypeAnalyser(env, nsEnv)
 
         val form = it.expectForm<Form>()
         val (sym, params) = when (form) {
@@ -68,7 +68,7 @@ internal class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv) {
     }
 
     fun defDataAnalyser(it: AnalyserState): DefDataExpr {
-        val typeAnalyser = TypeAnalyser()
+        val typeAnalyser = TypeAnalyser(env, nsEnv)
 
         val form = it.expectForm<Form>()
         val (sym, typeParams) = when (form) {

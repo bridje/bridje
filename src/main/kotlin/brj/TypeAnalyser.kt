@@ -1,6 +1,6 @@
 package brj
 
-internal class TypeAnalyser {
+internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv) {
     companion object {
         private val STR = Symbol.intern("Str")
         private val BOOL = Symbol.intern("Bool")
@@ -11,6 +11,11 @@ internal class TypeAnalyser {
     }
 
     val tvMapping: MutableMap<Symbol, TypeVarType> = mutableMapOf()
+
+    private fun resolveDataType(sym: Symbol): MonoType? =
+    // TODO more resolving
+        (nsEnv.dataTypes[sym])
+            ?.let(::DataTypeType)
 
     private fun tv(sym: Symbol): TypeVarType? =
         if (Character.isLowerCase(sym.nameStr.first())) {
@@ -30,7 +35,7 @@ internal class TypeAnalyser {
                     BIG_FLOAT -> BigFloatType
 
                     else -> {
-                        tv(form.sym) ?: TODO()
+                        resolveDataType(form.sym) ?: tv(form.sym) ?: TODO()
                     }
                 }
             }
