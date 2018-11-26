@@ -3,23 +3,29 @@ package brj
 import brj.TypeException.ArityError
 import brj.TypeException.UnificationError
 
-internal data class TypeMapping(val mapping: Map<TypeVarType, MonoType> = emptyMap()) {
-    fun applyMapping(mapping: TypeMapping) =
-        TypeMapping(
-            this.mapping.mapValues { e -> e.value.applyMapping(mapping) }
-                .plus(mapping.mapping))
+internal data class Mapping(val typeMapping: Map<TypeVarType, MonoType> = emptyMap(),
+                            val recordMapping: Map<RecordTypeVar, RecordType> = emptyMap()) {
+    fun applyMapping(mapping: Mapping) =
+        Mapping(
+            this.typeMapping.mapValues { e -> e.value.applyMapping(mapping) }
+                .plus(mapping.typeMapping),
 
-    fun map(tv: TypeVarType) = mapping.getOrDefault(tv, tv)
+            this.recordMapping.mapValues { e -> e.value.applyMapping(mapping) }
+                .plus(mapping.recordMapping))
+
+    fun map(tv: TypeVarType) = typeMapping.getOrDefault(tv, tv)
 }
 
 typealias MonoEnv = Map<LocalVar, MonoType>
 
 internal class Instantiator {
-    private val mapping: MutableMap<TypeVarType, TypeVarType> = mutableMapOf()
+    private val tvMapping = mutableMapOf<TypeVarType, TypeVarType>()
+    private val recordMapping = mutableMapOf<RecordTypeVar, RecordTypeVar>()
 
     operator fun invoke(type: MonoType): MonoType {
         return when (type) {
-            is TypeVarType -> mapping.getOrPut(type) { TypeVarType() }
+            is TypeVarType -> tvMapping.getOrPut(type) { TypeVarType() }
+            is RecordType -> if (type.recordTv == null) type else type.copy(recordTv = recordMapping.getOrPut(type.recordTv) { RecordTypeVar() })
             else -> type.fmap(this::invoke)
         }
     }
@@ -43,7 +49,7 @@ sealed class MonoType {
 
     open fun fmap(f: (MonoType) -> MonoType): MonoType = this
 
-    internal open fun applyMapping(mapping: TypeMapping): MonoType = fmap { it.applyMapping(mapping) }
+    internal open fun applyMapping(mapping: Mapping): MonoType = fmap { it.applyMapping(mapping) }
 }
 
 object BoolType : MonoType() {
@@ -75,7 +81,7 @@ object BigFloatType : MonoType() {
 }
 
 class TypeVarType : MonoType() {
-    override fun applyMapping(mapping: TypeMapping): MonoType = mapping.mapping.getOrDefault(this, this)
+    override fun applyMapping(mapping: Mapping): MonoType = mapping.typeMapping.getOrDefault(this, this)
 
     override fun equals(other: Any?): Boolean {
         return this === other
@@ -102,6 +108,25 @@ data class SetType(val elType: MonoType) : MonoType() {
     override fun fmap(f: (MonoType) -> MonoType): MonoType = SetType(f(elType))
 
     override fun toString(): String = "#{$elType}"
+}
+
+class RecordTypeVar {
+    override fun toString() = "r${hashCode()}"
+}
+
+data class RecordType(val attributes: Set<Attribute>, val recordTv: RecordTypeVar?) : MonoType() {
+    override fun unifyEq(other: MonoType): List<TypeEq> {
+        TODO()
+    }
+
+    override fun applyMapping(mapping: Mapping): RecordType {
+        return recordTv?.let { tv ->
+            mapping.recordMapping[tv]
+                ?.let { type -> RecordType(attributes + type.attributes, type.recordTv) }
+        } ?: this
+    }
+
+    override fun toString() = "{${attributes.joinToString()}${recordTv?.let { "& $it" }}}"
 }
 
 data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : MonoType() {
@@ -148,9 +173,9 @@ sealed class TypeException : Exception() {
 
 typealias TypeEq = Pair<MonoType, MonoType>
 
-private fun unifyEqs(eqs_: List<TypeEq>): TypeMapping {
+private fun unifyEqs(eqs_: List<TypeEq>): Mapping {
     var eqs = eqs_
-    var mapping = TypeMapping()
+    var mapping = Mapping()
 
     while (eqs.isNotEmpty()) {
         val eq = eqs.first()
@@ -163,7 +188,7 @@ private fun unifyEqs(eqs_: List<TypeEq>): TypeMapping {
         }
 
         if (t1 is TypeVarType) {
-            val newMapping = TypeMapping(mapOf(t1 to t2))
+            val newMapping = Mapping(mapOf(t1 to t2))
             mapping = mapping.applyMapping(newMapping)
             eqs = eqs.map { TypeEq(it.first.applyMapping(newMapping), it.second.applyMapping(newMapping)) }
             continue
@@ -200,6 +225,15 @@ private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<Value
     val returnType = TypeVarType()
 
     return combine(mkCollType(returnType), typings, extraEqs = typings.map { it.monoType to returnType })
+}
+
+private fun recordExprTyping(expr: RecordExpr): Typing {
+    val typings = expr.entries.map { it.attribute to valueExprTyping(it.expr) }
+
+    return combine(
+        RecordType(expr.entries.mapTo(mutableSetOf(), RecordEntry::attribute), null),
+        typings.map { it.second },
+        extraEqs = typings.map { it.first.type to it.second.monoType })
 }
 
 private fun ifExprTyping(expr: IfExpr): Typing {
@@ -320,7 +354,7 @@ private fun valueExprTyping(expr: ValueExpr): Typing =
         is VectorExpr -> collExprTyping(::VectorType, expr.exprs)
         is SetExpr -> collExprTyping(::SetType, expr.exprs)
 
-        is RecordExpr -> TODO()
+        is RecordExpr -> recordExprTyping(expr)
 
         is FnExpr -> fnExprTyping(expr)
         is CallExpr -> callExprTyping(expr)

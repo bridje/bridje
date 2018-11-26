@@ -67,7 +67,7 @@ fun main(args: Array<String>) {
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval(Source.create("brj", "(foo/count-down 5)"))
+    val value = ctx.eval(Source.create("brj", "{foo/User.first-name \"James\"}"))
 
     println("value: $value")
 
