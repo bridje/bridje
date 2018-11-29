@@ -81,54 +81,41 @@ are constructed from sequences of tuples.
 *** TODO Records
 
 #+BEGIN_SRC clojure
-  (defdata
-    {:text Str
-     :a-number BigInt})
+  (defkeys
+    {id Int
+     text Str
+     a-number BigInt})
 
-  {:text "Hello"
-   :a-number 52N}
+  (def foo
+    {text "Hello"
+     a-number 52N})
 
-
-  (defdata :User
-    {:id Int
-     :name Str
-     :active? Bool})
-
-  {:User.id 52
-   :User.name "James"
-   :User.active? true
-   :text "Hello"}
-
-
-  {:User. {:id 52, :name "James", :active? true},
-   :text "Hello"}
-
-  (let [({:User. {id name active?}, text} a-user)]
-    id)
+  (let [{. #{text}} foo]
+    text)
 #+END_SRC
 
 TODO: more constructing/destructuring.
 
-*** Algebraic Data Types (ADTs)
+*** Union Types
 
-In addition to records, Bridje also allows developers to declare 'Algebraic Data
-Types' (ADTs). These are also defined using the ~defdata~ syntax. For example,
-if a value can either be an Int or a String, we can declare this as follows:
+In addition to records, Bridje also allows developers to declare union types.
+These are defined using the ~defunion~ syntax. For example, if a value can
+either be an Int or a String, we can declare this as follows:
 
 #+BEGIN_SRC clojure
-  (defdata IntOrString
-    (:Int Int)
-    (:String Str))
+  (defunion IntOrString
+    (Int Int)
+    (String Str))
 #+END_SRC
 
-Values of type ~IntOrString~ include ~(:Int 5)~ and ~(:String "Hello!")~.
+Values of type ~IntOrString~ include ~(Int 5)~ and ~(String "Hello!")~.
 
-ADTs can be deconstructed using the ~case~ form:
+Unions can be deconstructed using the ~case~ form:
 
 #+BEGIN_SRC clojure
   (case int-or-string
-    (:Int i) (inc i)
-    (:String s) (count s))
+    (Int i) (inc i)
+    (String s) (count s))
 #+END_SRC
 
 *** Naming values, defining functions
@@ -154,28 +141,12 @@ ADTs can be deconstructed using the ~case~ form:
 *** TODO Interop
 
 #+BEGIN_SRC clojure
-  (defjava java.lang/Runtime
-    (:: (getRuntime) Runtime)
-    (:: (.freeMemory) Int))
+  (ns my-ns
+    {imports {Runtime (java java.lang.Runtime
+                       (:: (getRuntime) Runtime)
+                       (:: (.freeMemory Runtime) Int))}})
 
   (Runtime/.freeMemory (Runtime/getRuntime))
-#+END_SRC
-
-#+BEGIN_SRC clojure
-  ;; in CLJ:
-
-  (ns myapp.clj-interop
-    (:require [bridje.runtime :as brj]))
-
-  ;; TODO ADT syntax
-  (brj/defbrj my-add
-    (fn [x y]
-      (+ x y)))
-
-  ;; in BRJ
-
-  (defclj myapp.clj-interop
-    (:: (my-add Int Int) Int))
 #+END_SRC
 
 *** TODO Uncaught exceptions
@@ -192,25 +163,25 @@ lower-level effects.
 
 #+BEGIN_SRC clojure
   (defx Console
-    (:: (print! Str) :Void)
+    (:: (print! Str) Void)
     (:: (read-line!) Str))
 
   (def (println! s)
     (print! (str s "\n")))
 
 
-  (defdata :Level
-    :Debug, :Info, :Warn, :Error)
+  (defunion Level
+    Debug, Info, Warn, Error)
 
   (defx Logger
-    (:: (log! Level Str) :Void)
+    (:: (log! Level Str) Void)
 
     (def (log! level s)
       (print! (format "Log [%s]: %s" (pr-str level) s))))
 
 
   (def (my-fn x y)
-    (log! :Debug (format "Got x: %d, y: %d" x y))
+    (log! Debug (format "Got x: %d, y: %d" x y))
     (+ x y))
 #+END_SRC
 
@@ -230,7 +201,7 @@ the block.
                      (def (read-line! s)
                        ...))]
 
-    (log! :Info "Hello!"))
+    (log! Info "Hello!"))
 #+END_SRC
 
 There is one 'base' effect, ~IO~, which interacts with the outside world. This
@@ -241,24 +212,24 @@ is built-in and cannot be explicitly handled.
 *** TODO Typeclasses
 
 #+BEGIN_SRC clojure
-  (defdata :Ordering
-    :LT :EQ :GT)
+  (defunion Ordering
+    LT EQ GT)
 
   (defclass (Ord a)
-    (:: (compare a a) :Ordering))
+    (:: (compare a a) Ordering))
 
   (definstance (Ord Int)
     (def (compare x y)
       (cond
-        (< x y) :LT
-        (= x y) :EQ
-        :GT)))
+        (< x y) LT
+        (= x y) EQ
+        GT)))
 #+END_SRC
 
 #+BEGIN_SRC clojure
-  (defdata (Maybe a)
-    (:Just a)
-    :Nothing)
+  (defunion (Maybe a)
+    (Just a)
+    Nothing)
 
   (defclass (Functor f)
     (:: (fmap (f a) (Fn [a] b))
@@ -267,8 +238,8 @@ is built-in and cannot be explicitly handled.
   (definstance (Functor Maybe)
     (def (fmap maybe)
       (case maybe
-        (:Just a) (:Just (f a))
-        :Nothing)))
+        (Just a) (Just (f a))
+        Nothing)))
 
   (defclass #{(Functor m)} (Monad m)
     (:: (return a) (m a))
@@ -282,25 +253,21 @@ is built-in and cannot be explicitly handled.
 
     (def (bind maybe f)
       (case maybe
-        (:Just a) (f a)
-        :Nothing)))
+        (Just a) (f a)
+        Nothing)))
 #+END_SRC
 
 ** TODO Namespaces
 
 #+BEGIN_SRC clojure
   (ns myapp.main
-    {:referring {myapp.users #{get-user! update-user! :User}}
-     :aliasing {u myapp.users}
-     :exposing #{...}
-     :hiding #{...}})
+    {refers {myapp.users #{get-user! update-user! User}}
+     aliases {u myapp.users}})
 #+END_SRC
 
 **** TODO
-- cycles between namespaces allowed
 - cycles between vars allowed (with forward declarations)
 - immutable namespaces - invalidation + reloading
-- can use standard clojure namespaces (if we use the intern functions to define everything)
 - cycles including macros?
 
 * LICENCE

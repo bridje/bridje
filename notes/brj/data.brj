@@ -1,30 +1,30 @@
-;; defdata
+;; defkeys/defunion
 
-(defdata (Tree a)
-  {left (Tree a)
-   node a
-   right (Tree a)}
+(defkeys
+  {(left a) (Tree a)
+   (node a) a
+   (right a) (Tree a)})
 
-  (Node {left node right})
+(defunion (Tree a)
+  (Node {(left a) (node a) (right a)})
   Leaf)
 
-(defdata Address
-  {line1 Str
-   line2 Str
-   city Str
-   region Str
-   postal-code Str}
+(defkeys
+  {user-id UUID
+   username Str
+   first-name Str
+   last-name Str})
 
-  (Address {line1 ?line2 city region postal-code}))
+(:: (max Int Int) Int)
 
-(defdata {foo? Bool
-          foo-address Address})
+(defunion (Maybe a)
+  (Just a)
+  Nothing)
 
 ;; typeclasses
 
 (defclass (Functor f)
-  (:: (fmap (f a) (Fn [a] b))
-      (f b)))
+  (:: (fmap (f a) (Fn [a] b)) (f b)))
 
 (definstance (Functor Maybe)
   (def (fmap maybe f)
@@ -49,37 +49,24 @@
 
 (ns social.bar
   {alias {u social.user}
-   refer {social.user #{User :foo?}}})
+   refer {social.user #{User foo?}}})
 
 ;; destructuring
 
-(:: (foo {(User. id ?first-name ?last-name address),
-          (u/User. ...)
-          (u/ foo?)
-          foo, foo-address
-          (& r)})
+(:: (foo {foo foo-address u/id u/?first-name u/?last-name u/address & r})
     Int)
 
-(def (foo {#User.{id, ?first-name ?prenom, .?last-name ?nom, (address (Address {* a})), (* user))
+(def (foo {. #{u/id foo}
+           u/?first-name ?prenom,
+           u/?last-name ?nom,
+           u/address (Address {* a})
 
-           #u/User.{...}
-
-           (social.user/ ...)
-           (u/ foo?)
-           foo?,
-           (foo-address (Address (* line1)))
-           (* all-of-it}))
+           foo-address (Address {. #{u/line1}})
+           * all-of-it))
   ...)
 
-(def (foo {(User. id, (?first-name ?prenom), (:?last-name ?nom), (address (Address {* a})), (* user))
+(def (foo {. #{foo}}))
 
-           (u/User. ...)
-
-           (social.user/ ...)
-           (u/ foo?)
-           foo?,
-           (foo-address (Address (* line1)))
-           (* all-of-it}))
-  ...)
-
-(foo {(User. id, (first-name first-name)}), :foo? true})
+(foo {* #{u/id},
+      u/first-name prenom
+      foo? true)})
