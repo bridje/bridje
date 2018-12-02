@@ -1,0 +1,93 @@
+* After Rich's Conj talk
+so, schemas and selections
+
+hard bit is going to be about nested selections. in fact, do we want to specify
+collection types within aggregates at all?
+
+we do probably want to specify /within/ those collections - i.e user has many
+addresses but we only care about the postal-codes in each one
+
+I'm coming around to the idea of open variants, too. closing them by default, so
+that we /can/ do completeness checks on case statements. actually, although,
+they're going to mandate the type anyway.
+
+Native imports - end them with a =!= to declare a native effect
+Don't /need/ to declare fx in advance, end with =!= and it's implicit
+
+=->?= for =some->=
+
+** Big example
+
+#+BEGIN_SRC clojure
+  ;; Type alias
+  (:: UserID UUID)
+
+  ;; Simple enum
+  (:: :LT)
+  (:: :EQ)
+  (:: :GT)
+  (:: Ord {:LT :EQ :GT})
+
+  ;; Simple params, alias
+  (:: (:Just a) a)
+  (:: :Nothing)
+  (:: (Maybe a) {(:Just a) :Nothing})
+
+  ;; parameterised types
+  (:: (:left-tree a) (Tree a))
+  (:: (:node-val a) a)
+  (:: (:right-tree a) (Tree a))
+
+  (:: (:Node a) {(:left-tree a) (:node-val a) (:right-tree a)})
+  (:: :Leaf)
+
+  (:: (Tree a) {(:Node a) :Leaf})
+
+  (:Node {left :Leaf, val 5, right :Leaf})
+
+  ;; Declaring polymorphic function types
+  (:: (.eq a) (Fn [a a] Bool))
+  (:: (.ord a) (Fn [a a] Ord))
+
+  (:: (.count a) (Fn [a] Int))
+  (:: (.sum a) (Fn [a] Int))
+
+  (:: (.return m) (Fn [a] (m a)))
+
+  (:: (.bind m)
+      (Fn [(m a) (Fn [a] (m b))]
+          (m b)))
+
+  ;; behaviour of polymorphic functions for a given type
+  (def (.return Maybe) :Just)
+
+  (def (.bind Maybe)
+    (fn [maybe f]
+      (case maybe
+        (:Just x) (f x)
+        :Nothing :Nothing)))
+
+  (def (.count (Tree a))
+    (fn [tree]
+      (case tree
+        (:Node {left-tree right-tree}) (+ 1 (tree-count left-tree) (tree-count right-tree))
+        :Leaf 0)))
+
+  (:: (.fmap f)
+      (Fn [(f a) (Fn [a] b)]
+          (f b)))
+
+  (def (.fmap Maybe)
+    (fn [maybe f]
+      (case maybe
+        (:Just x) (:Just (f x))
+        :Nothing :Nothing)))
+
+  ;; calling polymorphic functions
+
+  (:: #{(.fmap f)}
+      (fmap-caller (f Int)) (f Int))
+
+  (def (fmap-caller foo)
+    (.fmap foo inc))
+#+END_SRC
