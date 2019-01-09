@@ -1,13 +1,13 @@
 * Bridje
 
 Bridje is a statically typed LISP, drawing inspiration from both Clojure and
-Haskell. It currently runs on the JVM, but is fundamentally a hosted language -
-the intention being to have it run on the JavaScript ecosystem too (eventually).
+Haskell. It currently runs on the Graal JVM, but is fundamentally a hosted
+language - the intention being to have it run on the JavaScript ecosystem too
+(eventually).
 
 Its main features include:
-- Polymorphic records with type-checked keys, similar to Clojure's 'spec'
-  library
-- Algebraic data types (ADTs), statically checked.
+- Polymorphic records and variants with type-checked keys, similar to Clojure's
+  'spec' library
 - A monad-less 'effect system' to statically determine an expression's side
   causes and side effects.
 - Type-safe macros.
@@ -43,27 +43,41 @@ because Bridje is typed, the two branches must have an equivalent type.
     y)
 #+END_SRC
 
-'Let' expressions are slightly different to Clojure - with each binding/value pair
-being enclosed in parens:
+Let and loop/recur behave as in Clojure. Like in Clojure, 'recur' must be called
+from the tail position, and no tail-call optimisation is performed elsewhere. If
+no ~loop~ block is present, the recur point is assumed to be the containing
+function.
 
 #+BEGIN_SRC clojure
-  (let [(x 4)
-        (y 5)]
+  (let [x 4
+        y 5]
     (+ x y))
+
+  (loop [x 5
+         y 0]
+    (if (pos? x)
+      (recur (dec x) (+ y x))
+      y))
 #+END_SRC
 
-Loop/recur behave as in Clojure - again, with each binding/value pair enclosed
-in parens. Like in Clojure, 'recur' must be called from the tail position, and
-no tail-call optimisation is performed elsewhere. If no ~loop~ block is present,
-the recur point is assumed to be the containing function.
+
+*** Naming values, defining functions
+
+We define both values and functions using =def=. We can optionally specify the
+type of a value/function explicitly using =::=- it's not required, but it's checked, and
+useful as documentation.
 
 #+BEGIN_SRC clojure
-    (loop [(x 5)
-           (y 0)]
-      (if (pos? x)
-        (recur (dec x) (+ y x))
-        y))
+  (:: x Int)
+  (def x 4)
+
+  ; functions have their name and parameters wrapped in parens
+
+  (:: (say-hi Str) Str)
+  (def (say-hi s)
+    (str "Hello, " s "!"))
 #+END_SRC
+
 
 *** Collections
 
@@ -78,60 +92,145 @@ collections. They are immutable, and can be arbitrarily nested.
 Bridje does have homogenous maps, but they do not have a specific syntax - they
 are constructed from sequences of tuples.
 
-*** TODO Records
+*** Records
+In a similar manner to Clojure's 'spec', we define the type of a key, then any
+value of that key, throughout the program, is guaranteed to have the same type.
+We define keys using =::=:
 
 #+BEGIN_SRC clojure
-  (defkeys
-    {id Int
-     text Str
-     a-number BigInt})
+  (:: :id Int)
+  (:: :text Str)
+  (:: :a-big-number BigInt)
 
   (def foo
-    {text "Hello"
-     a-number 52N})
-
-  (let [{. #{text}} foo]
-    text)
+    {:text "Hello"
+     :a-big-number 52N})
 #+END_SRC
 
-TODO: more constructing/destructuring.
-
-*** Union Types
-
-In addition to records, Bridje also allows developers to declare union types.
-These are defined using the ~defunion~ syntax. For example, if a value can
-either be an Int or a String, we can declare this as follows:
+As in Clojure, we can destructure records, although the syntax is quite
+different. In particular, in the long-hand form, the destructuring matches the
+structure of the record itself. Here are some examples:
 
 #+BEGIN_SRC clojure
-  (defunion IntOrString
-    (Int Int)
-    (String Str))
+  ;; long-hand - we bind the symbol 'the-id' to the value of ':id' in the record
+  (let [{:id the-id} {:id 4}]
+    ; the-id = 4
+    )
+
+  ;; if the bound symbol matches the key, we don't have to specify it twice - the
+  ;; symbol suffices (commas are considered whitespace):
+  (let [{username, :id user-id} {:username "jarohen", :id 451}]
+    ; username = "jarohen"
+    ; user-id = 451
+    )
+
+  ;; we can bind the entire data structure by prefixing the symbol with `&`
+  (let [{username &user} {:username "jarohen", :id 451}]
+    ; username = "jarohen"
+    ; user = {:username "jarohen", :id 451}
+    )
 #+END_SRC
 
-Values of type ~IntOrString~ include ~(Int 5)~ and ~(String "Hello!")~.
 
-Unions can be deconstructed using the ~case~ form:
+Records can also be nested. Drawing inspiration from hints in Rich Hickey's
+'Maybe Not' talk, we do not specify ahead of time what keys a record type
+contains, only that it is a record. When the record is used, the type system
+then decides which keys the user of the record requires at that particular site.
 
 #+BEGIN_SRC clojure
-  (case int-or-string
-    (Int i) (inc i)
-    (String s) (count s))
+  (:: :user-id Int)
+  (:: :name Str)
+  (:: :follower-count Int)
+
+  ;; we don't specify any keys, just that :user is a record
+  (:: :user {})
+
+  ;; the type of `say-hi` is (Fn [{:name}] Str)
+  ;; - a function from a record containing a `:name` key to a string
+  (def (say-hi user)
+    (format "Hi, %s!" (:name user)))
+
+
+  ;; we can also nest the destructuring. N.B. whereas Clojure's destructuring
+  ;; syntax is 'inside-out', Bridje's more closely matches the structure of the
+  ;; input data
+
+  (let [{:user {:follower-count followers}} {:user {:follower-count 4424}}]
+    ; followers = 4424
+    )
+
+  (let [{:user {follower-count}} {:user {:follower-count 4424}}]
+    ; follower-count = 4424
+    )
+
 #+END_SRC
 
-*** Naming values, defining functions
+We can define type aliases for common sets of keys:
 
 #+BEGIN_SRC clojure
-  (:: x Int)
-  (def x 4)
+  (:: BaseUser {:user-id :name})
 
-  (:: (say-hi Str) Str)
-  (def (say-hi s)
-    (str "Hello, " s "!"))
+  (:: (say-hi BaseUser) Str)
 #+END_SRC
 
-*** TODO Macros
+*** Variants ('union'/'sum' types)
+
+In addition to records, with a set of keys, Bridje also allows developers to
+declare 'variants' - a data structure that has /one/ of a possible set of keys.
+Variant keys are distinguished from record keys by using an initial capital
+letter:
 
 #+BEGIN_SRC clojure
+  (:: :Int Int)
+  (:: :String Str)
+  (:: :Neither) ; variants don't *need* a value, necessarily
+
+  ;; we then construct instances of these variants using the key as a constructor:
+  ;; this is of type `[(+ :Int :String :Neither)]` - a vector whose elements either have an
+  ;; `:Int` key, a `:String` key, or the value `:Neither`
+  (def ints-and-strings
+    [(:Int 4) :Neither (:String "hello")])
+
+
+  ;; we can deconstruct variants using a `case` expression (destructuring if need be).
+  ;; in a similar vein to the `if` expression, all of the possible outputs of a
+  ;; case expression must have the same type.
+
+  (case (first ints-and-strings)
+    (:Int an-int) (+ an-int 2)
+    (:String a-string) (count a-string)
+    :Neither 0)
+
+  ;; again, we can define type aliases for common variants:
+  (:: IntOrString (+ :Int :String :Neither))
+#+END_SRC
+
+*** Macros
+
+Bridje macros aim to operate as similar to Clojure's macros as possible -
+however, without a heterogeneous list type, we need another way of expressing
+and manipulating forms.
+
+Instead, we use variants - a macro is then a function that accepts a number of
+Forms, and returns a Form.
+
+#+BEGIN_SRC clojure
+  (:: :StringForm Str)
+  (:: :IntForm Int)
+  (:: :ListForm [Form])
+  (:: :VectorForm [Form])
+  ;; ...
+
+  (:: Form (+ :StringForm :IntForm :ListForm :VectorForm ...))
+
+  (defmacro (my-first-macro form)
+    (case form
+      (:StringForm str) (:StringForm "sneaky!")
+      form))
+
+  ;; fortunately, syntax-quoting/unquoting translates into Form-generating code as
+  ;; you'd expect so, most of the time, Bridje macros will have similar implementations.
+
   (defmacro (if-not pred then else)
     `(if ~pred
        ~else
@@ -157,37 +256,46 @@ One of Bridje's main features is its effect system - a way of knowing at
 compile-time what side causes/side effects.
 
 We use the example of a simple logging system, where we want to log to stdout.
-In Bridje, we declare a set of effects using ~defx~. We can also provide default
-implementations of each of the effect functions, which may in turn call
-lower-level effects.
+In Bridje, we declare an effectful function using ~defx~ along with a default
+implementation, which may in turn call lower-level effects.
 
 #+BEGIN_SRC clojure
-  (defx Console
-    (:: (print! Str) Void)
-    (:: (read-line!) Str))
+  (:: (print! Str) Void)
+  (:: (read-line!) Str)
+
+  (defx (print! s)
+    ; interop
+    )
+
+  (defx (read-line!)
+    ; interop
+    )
 
   (def (println! s)
     (print! (str s "\n")))
 
 
-  (defunion Level
-    Debug, Info, Warn, Error)
+  (:: :Debug)
+  (:: :Info)
+  (:: :Warn)
+  (:: :Error)
 
-  (defx Logger
-    (:: (log! Level Str) Void)
+  (:: Level (+ :Debug :Info :Warn :Error))
 
-    (def (log! level s)
-      (print! (format "Log [%s]: %s" (pr-str level) s))))
 
+  (:: (log! Level Str) Void)
+
+  (defx (log! level s)
+    (print! (format "Log [%s]: %s" (pr-str level) s)))
 
   (def (my-fn x y)
-    (log! Debug (format "Got x: %d, y: %d" x y))
+    (log! :Debug (format "Got x: %d, y: %d" x y))
     (+ x y))
 #+END_SRC
 
 Effects propagate through the call stack - in this case, the ~println!~ function
-is determined to use the ~Console~ effects. The ~my-fn~ function is determined
-to use the ~Logger~ effects, but not ~Console~ (because default implementations
+is determined to use the ~print!~ effect. The ~my-fn~ function is determined
+to use the ~log!~ effect, but not ~print!~ (because default implementations
 can be overridden).
 
 We can provide/override implementations of effects using the ~with-fx~
@@ -195,16 +303,17 @@ expression. This defines the behaviour of the effect in the /lexical/ scope of
 the block.
 
 #+BEGIN_SRC clojure
-  (with-fx [(Console (def (print! s)
-                       ...)
-
-                     (def (read-line! s)
-                       ...))]
+  (with-fx [(def (print! s)
+              ...)]
 
     (log! Info "Hello!"))
 #+END_SRC
 
-There is one 'base' effect, ~IO~, which interacts with the outside world. This
+=with-fx= introduces a non-trivial overhead to swap out the implementation (in
+order to make the default implementations faster) - it is advisable not to use
+this in performance-critical code.
+
+There is one 'base' effect, =IO=, which interacts with the outside world. This
 is built-in and cannot be explicitly handled.
 
 **** TODO internal mutable state
