@@ -60,7 +60,6 @@ function.
       y))
 #+END_SRC
 
-
 *** Naming values, defining functions
 
 We define both values and functions using =def=. We can optionally specify the
@@ -68,6 +67,8 @@ type of a value/function explicitly using =::=- it's not required, but it's chec
 useful as documentation.
 
 #+BEGIN_SRC clojure
+  (ns my-project.my-ns) ; more on this later
+
   (:: x Int)
   (def x 4)
 
@@ -78,6 +79,8 @@ useful as documentation.
     (str "Hello, " s "!"))
 #+END_SRC
 
+Values are all defined within a namespace, specified at the top of the file.
+More on this later, including how to refer to values declared in other namespaces.
 
 *** Collections
 
@@ -95,6 +98,7 @@ are constructed from sequences of tuples.
 *** Records
 In a similar manner to Clojure's 'spec', we define the type of a key, then any
 value of that key, throughout the program, is guaranteed to have the same type.
+Each key
 We define keys using =::=:
 
 #+BEGIN_SRC clojure
@@ -229,13 +233,56 @@ Forms, and returns a Form.
       form))
 
   ;; fortunately, syntax-quoting/unquoting translates into Form-generating code as
-  ;; you'd expect so, most of the time, Bridje macros will have similar implementations.
+  ;; you'd expect, so, most of the time, Bridje macros will have similar implementations.
 
   (defmacro (if-not pred then else)
     `(if ~pred
        ~else
        ~then))
 #+END_SRC
+
+*** Namespaces
+
+Namespaces are collections of symbols and keys. In the namespace declaration
+(which must be the first declaration in the file) we can specify which symbols
+and keys we'd like to refer to from other namespaces:
+
+#+BEGIN_SRC clojure
+  ;; my-project/users.brj
+
+  (ns my-project.users)
+
+  (:: :user-id Int)
+  (:: :name Str)
+
+  (:: BaseUser {:user-id :name})
+
+  (def (say-hi {name})
+    (format "Hi, %s!" name))
+
+
+  ;; my-project/another-ns.brj
+
+  (ns my-project.another-ns
+    {:aliases {users my-project.users}
+     :refers {my-project.users #{:user-id say-hi}}})
+
+  ;; we can now refer to members of the 'users' namespace using either their
+  ;; alias, or, for the symbols we referred, directly:
+  (:user-id user)
+  (say-hi {:name "James"})
+
+  (:users/user-id user)
+  (users/say-hi {:users/name "James"})
+
+  (:: (save-user! users/BaseUser) Void)
+#+END_SRC
+
+Namespaces are loaded as a whole unit - you cannot just load a single =def= in
+Bridje. This is partly to ensure type consistency within the namespace - we
+don't want re-declaring a definition to invalidate the type guarantees. You can,
+however, evaluate other forms (that don't change the contents of a namespace)
+individually at the REPL.
 
 *** TODO Interop
 
@@ -248,12 +295,10 @@ Forms, and returns a Form.
   (Runtime/.freeMemory (Runtime/getRuntime))
 #+END_SRC
 
-*** TODO Uncaught exceptions
-
 *** Effects
 
 One of Bridje's main features is its effect system - a way of knowing at
-compile-time what side causes/side effects.
+compile-time what side causes/side effects a function depends on.
 
 We use the example of a simple logging system, where we want to log to stdout.
 In Bridje, we declare an effectful function using ~defx~ along with a default
@@ -318,6 +363,16 @@ is built-in and cannot be explicitly handled.
 
 **** TODO internal mutable state
 
+*** Polymorphism
+
+*** Error handling
+
+There are two types of error in Bridje - we make a distinction between errors
+that the immediate caller is expected to handle, and errors that they aren't.
+
+Errors that the caller is expected to handle are wrapped in variant types,
+defined by the user
+
 *** TODO Typeclasses
 
 #+BEGIN_SRC clojure
@@ -365,19 +420,6 @@ is built-in and cannot be explicitly handled.
         (Just a) (f a)
         Nothing)))
 #+END_SRC
-
-** TODO Namespaces
-
-#+BEGIN_SRC clojure
-  (ns myapp.main
-    {refers {myapp.users #{get-user! update-user! User}}
-     aliases {u myapp.users}})
-#+END_SRC
-
-**** TODO
-- cycles between vars allowed (with forward declarations)
-- immutable namespaces - invalidation + reloading
-- cycles including macros?
 
 * LICENCE
 
