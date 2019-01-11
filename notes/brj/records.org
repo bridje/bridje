@@ -203,3 +203,85 @@ you can store the partially evaluated seq
 you can pause execution
 you can zip two lazy sequences together
 
+** TODO Project?
+#+BEGIN_SRC clojure
+  {:imports {ZDT (java java.time.ZonedDateTime)
+             Inst (java java.time.Instant)}}
+
+  ;; users
+
+  (:: :user-id UUID)
+  (:: :username Str)
+  (:: :first-name Str)
+  (:: :last-name Str)
+  (:: :created-at Inst)
+
+  ;; posts
+  (:: :post-id UUID)
+  (:: :created-at Inst)
+  (:: :title Str)
+
+  (:: :Mention :user-id)
+  (:: :Hashtag Str)
+  (:: :Text Str)
+
+  (:: :content [(+ :Text :Hashtag :Mention)])
+
+  ;; these are a documentation of the keys the map may have, but no more - the actual contents are determined at each site
+  (:: :user {:user-id :username :first-name :last-name :created-at :posts})
+
+  (:: UserRegistrationForm {:username :first-name :last-name :marketing-enabled?})
+
+  (:: :posts [{:post}])
+
+  (:: (render-user {:user {:username :first-name :last-name}}))
+
+  (:: FullUser {:user {}})
+
+  (:: :post {:post-id :created-at, {:user {:user-id}}, :title :content})
+
+  (:: Attrs {})
+  (:: Children [ReactEl])
+
+  (:: (div Attrs Children) ReactEl)
+
+  ;; likely going to be recursive/reused, so we need to be able to name them
+  ;; i.e. projections need to be first class
+
+  (:: UserContext {:username :first-name :last-name})
+
+  (:: (render-author {:user {:username :first-name :last-name}}) (ReactEl a))
+
+  (def (render-author {:user {username first-name last-name}})
+    (div {:classes #{}}
+         ["Written by @" username]))
+
+  (:: (render-post {:username :first-name :last-name}) (ReactEl a))
+
+  ;; more types
+  {:user {:posts [{:post-id :title}]}}
+  {:post {:user {:user-id :first-name :last-name}}}
+
+  (def (post-data! post-id)
+    (track! (?> db! :?posts (?get post-id) (?with {:user-id :title :content}))))
+
+  (def (render-post post-id)
+    (case (post-data! post-id)
+      (:Just {user post})
+      (div {}
+           [(render-author user)
+            (render-post post)])
+
+      :Null
+      (div {} "ohno")))
+
+  (with-fx [(def (post-data! post-id)
+              (:Just {:user-id (uuid "c66")}))
+
+            (def (user-data! user-id)
+              (:Just ))]
+    (render-post post-id))
+
+  (def (user-full-name {first-name last-name})
+    (str first-name " " last-name))
+#+END_SRC
