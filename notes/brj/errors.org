@@ -1,0 +1,96 @@
+* Error handling
+
+We want two types of errors - errors to be handled by the caller, or not.
+
+** Caught errors
+
+Caught errors, done as user-defined variants, no additions to the language.
+
+We could add =try= to the language, in both =let= and =->= macros:
+
+=try= within a let block, top-level form on the RHS, would return immediately
+from the block iff the contained form returned a variant apart from
+=:brj.core/Ok=.
+
+=try= as a top-level form within an =->= arrow would return immediately from the
+arrow, would extract the value from an =:Ok= and thread it through subsequent
+forms.
+
+#+BEGIN_SRC clojure
+  ;; we define our own error variants, specific to this case.
+  ;; i.e. no language-defined 'error' variant.
+  (:: :InvalidArg)
+  (:: :UnknownError)
+
+  (:: (parse-input Input) (+ (:Ok ParsedInput) :InvalidArg :UnknownError))
+
+  (def (parse-input input)
+    (cond
+      ... (:Ok input)
+      ... :InvalidArg
+      :UnknownError))
+
+  (def (use-input input)
+    (case (parse-input input)
+      (:Ok parsed-input) ...
+      :InvalidArg ...
+      :UnknownError ...))
+#+END_SRC
+
+But we ought to make it easy for people using =:Ok=:
+
+#+BEGIN_SRC clojure
+  (:: (parse-and-inc Str) (+ (:Ok Int) :NumberParseError))
+
+  ;; if the top-level form of the RHS of the `let` expr is `try`, we expect a
+  ;; variant. `:Ok`s are passed through, everything else is returned immediately
+  ;; from the `let`
+  (def (parse-and-inc input)
+    (let [parsed-long (try (parse-float input))]
+      ;; further use of parsed-input
+
+      (inc parsed-long)))
+
+  ;; if the outer form of a `->` form is `try`, then `:Ok`s are passed through,
+  ;; everything else is returned immediately from the `->` expr
+  (def (parse-and-inc input)
+    (-> (try (parse-float input))
+        inc))
+#+END_SRC
+
+
+** Uncaught errors
+
+Thrown with =throw= special form, caught with =catch= special form. Any variant
+or Java exception can be thrown.
+
+=catch= turns an expression into a value that's either =:Ok=, an error variant,
+or a Java exception. I imagine this to be used with a standard =case= expression
+
+#+BEGIN_SRC clojure
+  (def (assert-valid arg)
+    (if (valid? arg)
+      arg
+      (throw (:Error arg))))
+
+  (ns foo
+    {:imports {Ex (java java.lang.Exception)}})
+
+  (def (catcher arg)
+    (case (catch (assert-valid arg))
+      (:Ok res) ...
+      (:Error e) ...
+      (Ex e) ...
+      e (throw e)))
+#+END_SRC
+
+** And finally
+=finally= special form - the second form within a finally block is /guaranteed/ to run
+regardless of whether the first form returns a value or throws an error:
+
+#+BEGIN_SRC clojure
+  (def (using-a-resource arg)
+    (let [res (open-resource! arg)]
+      (-> (use-resource res)
+          (finally (close-resource! arg)))))
+#+END_SRC
