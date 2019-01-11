@@ -284,17 +284,6 @@ don't want re-declaring a definition to invalidate the type guarantees. You can,
 however, evaluate other forms (that don't change the contents of a namespace)
 individually at the REPL.
 
-*** TODO Interop
-
-#+BEGIN_SRC clojure
-  (ns my-ns
-    {imports {Runtime (java java.lang.Runtime
-                       (:: (getRuntime) Runtime)
-                       (:: (.freeMemory Runtime) Int))}})
-
-  (Runtime/.freeMemory (Runtime/getRuntime))
-#+END_SRC
-
 *** Effects
 
 One of Bridje's main features is its effect system - a way of knowing at
@@ -362,6 +351,22 @@ There is one 'base' effect, =IO=, which interacts with the outside world. This
 is built-in and cannot be explicitly handled.
 
 **** TODO internal mutable state
+
+*** Java Interop
+We can import functions from Java as if they are Bridje functions - we just need
+to declare their types in the namespace declaration.
+
+#+BEGIN_SRC clojure
+  (ns my-ns
+    {:imports {R (java java.lang.Runtime
+                       (:: (getRuntime) Runtime)
+                       (:: (freeMemory Runtime) Int)
+                       )}})
+
+  ;; we can then use those functions using the `R` alias
+
+  (R/freeMemory (R/getRuntime))
+#+END_SRC
 
 *** Polymorphism
 
