@@ -1,0 +1,237 @@
+* Mute and Mutability
+
+Options:
+- Full Rust - ownership, lifetimes, etc
+  - seems like we don't need this - a significant proportion of this is geared towards memory safety
+- Maybe we do immutable by default, but mutability needs special handling
+
+#+BEGIN_SRC clojure
+  (defn play-game [{:keys [player-count max-marble]}]
+    (let [marbles (linked-list [0])]
+      (loop [next-player 0
+             next-marble 1
+             scores {}]
+
+        (cond
+          (> next-marble max-marble) scores
+
+          (zero? (mod next-marble 23))
+          (do
+            (dotimes [n 7]
+              (add! marbles 0 (remove! marbles -1)))
+
+            (let [removed-marble (remove! marbles -1)]
+              (add! marbles 0 (remove! marbles -1))
+              (recur (mod (inc next-player) player-count)
+                     (inc next-marble)
+                     (update scores next-player (fnil + 0) next-marble removed-marble))))
+
+          :else
+          (do
+            (add! marbles -1 (remove! marbles 0))
+            (add! marbles -1 next-marble)
+            (recur (mod (inc next-player) player-count)
+                   (inc next-marble)
+                   scores))))))
+#+END_SRC
+
+- let's try see what the low-level primitives are, then how they propagate
+- we may well need to have some kind of ownership - owned, mutably borrowed, immutably borrowed - because if we even /store/ a mutable reference, that's trouble
+- do we then need
+
+let's start off with everything mutable by default. we'd then need to restrict what could be done with mutable references
+
+&!foo
+
+so if everything's mutable, we need a `set!` operation
+
+if /anything's/ mutable, though, it's infectious - the whole DS is mutable
+
+fixing objects?
+mutable for a while, can't be mutated after that point.
+this is stronger than what Rust allows - Rust allows mutability throughout an object's life.
+
+we can say that we're 'mostly immutable' but that still means it would allow programs to be written entirely mutably should the dev choose to.
+
+so, mutable data structures
+should we allow user-defined mutable DSs?
+mutable wrappers (like clojure's 'volatiles')
+maybe that's what we're after - typechecked volatiles, with fixed scope/lifetime. what's the type of 'set!', though?
+should really be part of the parameter type of the function - am I going to mutate this parameter?
+if I am, we need to ensure that the caller's handling it safely
+
+we probably also want to be able to parameterise the mutability - it's annoying that
+
+mutability type params? something like the effect type system, except we generate type params and go from there
+
+so, a 'mut' could be created, which would have a mutability type param
+anything that modified a mut of a certain type would need to 'take out' the mut type param
+
+(mut 4) :: #{m} Int
+(set! (mut 4) 5) :: #{m} Int
+
+can then compose mutable types? building (e.g.) transient vectors, arrays.
+
+so functions would then have mutable type params depending on what they mutated
+idea would then be that any program that was purely internally mutable wouldn't contain any mutable type vars
+
+e.g.
+#+BEGIN_SRC clojure
+  (def (ignore x)
+    (mut 5)
+    (+ x 1))
+
+  ;; should't expose mutability
+  (do
+    (mut 5)
+    (+ 4 3))
+
+  ;; technically this is pure too, although it wouldn't be if foo came from elsewhere.
+  (let [foo (mut 5)]
+    (if (pos? (inc (deref foo)))
+      3
+      5))
+
+  ;; mutability has to be part of the whole signature if the function's output type depends on it
+
+  (fn [&foo]
+    &!foo)
+#+END_SRC
+
+** Commitment point
+
+still not really seeing the full impact of this. maybe we want to go down the 'commitment point' route?
+that's similar to Clojure's transients - can we prove that only one thread has access to a given mut?
+
+so let's say that 'mut' is a temporary thing. it can't be stored anywhere because in storage it could be shared between multiple threads
+if it's passing values between multiple /threads/ that's the problem, should we instead be looking at parameterising threads?
+then, mutating is fair game, so long as it doesn't use multiple threads?
+
+escape analysis?
+maybe that's the key - can we guarantee which values /cannot/ escape the function call?
+probably, but that really restricts what we can do if they /do/. And 'escape' probably includes 'being put into a collection', too
+
+thing is, local mutable variables, we're reasonably fine with - we can model them using loop/recur, in the main
+- that's when we're swapping out the entire referred value to another referred value
+- specifically, within a loop
+- that's already handled in Bridje, compiles down to mutable vars
+- so where are we looking for this mutability?
+  - building up collections - maybe to return as an immutable collection, maybe to collapse into a value
+
+global mutable variables, we generally need more coordination anyway - happy to have those sit within the effect system.
+
+if we're reducing down, we also want mutable state to keep track of intermediate values - or maybe we don't, reduce with an accumulator might be sufficient
+we can transduce into a transient map, but we can't have access to the existing values
+general case is loop/recur with a transient map?
+that means that the transient map value has to be a first class value
+
+other thing here, of course, is that ownership helps with stream clearup - fixing the 'stream closed' clojure error
+so even though we're not worried about memory safety (because GC) we want to know about resources
+
+maybe we just do it immutably, and rely on compiler optimisations? ideally not, I doubt we'll be able to do this reliably
+
+** iterating through a stream?
+can be treated as either effectful or mutable -
+
+** within the effect system
+so we now have
+
+ok - I'm not convinced we need local mutable vars.
+transient data structures, though - can we type check them?
+
+transient linked list? transient array list?
+
+we're doing effects as effectful fns now, so maybe this is separate
+we add a =with-transient= block, which checks the return type to ensure that no transients can get passed outside
+
+can we do this as a normal type? yes, but it's monadic and higher ranked.
+
+
+** more thoughts
+can't have mutable values, only mutable references/mutable objects?
+in Bridje's case, that means either:
+- records with mutable entries,
+- mutable variants
+- mutable lists/sets/maps
+
+so what does that actually mean...
+
+a mutable record - created with &{ }
+
+choice of making the programmer write the optimisation and we check it, vs we find it.
+we'd essentially be doing the Rust ownership analyses, I suspect
+
+so we start off with a mutable local variable - in Rust, it's the lvar that's 'mutable', not the value
+functions should likely declare whether they're going to mutate the values they're passed.
+but why should they care? ideally, they'd be fast if given a mutable object, safe if they're not.
+transients /could/ behave like that - a persistent data structure that happens to reuse its nodes if it knows that there's only one reference out there.
+does/how does that extend to plain old local variables, though.
+the transducer local variables are only interesting because they're /closed over/ - different invocations of that function have different behaviours depending on the value of that var.
+so let's say we were to extract that out into a 'pure' function.
+the values that it closed over would become values passed in as an implicit param, and returned as another implicit return. so that sounds like an /instance/
+let's distinguish here between explicit parameters that we'd like to mutate, and (essentially) 'instance fields'.
+
+can we say 'objects for everything mutable, functions for everything pure'?
+you'd essentially have two languages, I reckon. certainly two type-checkers.
+maybe each function has access to a stateful data type, 'from the environment'
+maybe it's a built-in form - akin to =volatile=
+
+#+BEGIN_SRC clojure
+  (def (take n)
+    (let [n (mut n)]
+      (mapcat (fn [el]
+                (if (pos? n)
+                  (do
+                    (set! n (dec n))
+                    (:Cons el :Nil))
+
+                  :Done)))))
+
+  (def (drop n)
+    (let [n (mut n)]
+      (mapcat (let-obj [el]
+                (if (pos? n)
+                  (do
+                    (set! n (dec n))
+                    :Nil)
+
+                  (:Cons el :Nil))))))
+
+  (def (partition-all n)
+    (let [v (mut [])]
+      ))
+#+END_SRC
+
+that inner closure has some mutable state, so it'll need to have a different sig (somehow) to an equivalent pure function
+or maybe it doesn't?
+hmm. at least it needs to be thread-safe, right?
+so we need to give it a thread var, because it accesses/mutates mutable state.
+
+mapcat, by accepting a function, needs to also accept a thread var. actually, by /calling/ a function, we need to deal with thread vars.
+so can global vars deal with mutable state? not likely, because they can be called from different threads.
+but people could /define/ them as using mutable state, so maybe they do.
+I can define a function as =(def x (let-mut [y 5] (fn [] ...)))= which is global mutable state.
+
+thinking about it compositionally, though - each sub s-exp may both access and mutate state. is that the way we compose this effect up?
+
+so an individual s-exp will access/mutate different lvars (doesn't really care where they come from) - question arises when we meet a function boundary.
+although, I suppose, even at a function boundary, if we're thinking lexically, it 'gets passed in'
+oh, if it's lvars that are mutable, it's a different game. we need an explicit constructor for them.
+
+maybe each mut has a thread-var, each function has a thread-var, and attempting to use one outside of the other is an error?
+how do we combine thread vars?
+what members are there?
+- 'top' - no mutable state - combines with anything
+- a polymorphic thread var - we don't know what thread it is, but we know it needs to be /a/ thread.
+- an explicit thread var - the built-in to create new threads
+
+** Another go at ownership
+ok, so let's have a go at ownership
+
+references can be initially mutable, let's say =let-mut=
+'after' they've been used immutably, they're copied,
+they can be 'moved' into a closure
+
+** just allow it
+we could, of course, take a pragmatic decision to 'just allow' local mutable state.
+no built in functions, just functions in a namespace that are unsafe
