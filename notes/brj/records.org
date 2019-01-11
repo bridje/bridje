@@ -7,13 +7,9 @@ collection types within aggregates at all?
 we do probably want to specify /within/ those collections - i.e user has many
 addresses but we only care about the postal-codes in each one
 
-I'm coming around to the idea of open variants, too. closing them by default, so
-that we /can/ do completeness checks on case statements. actually, although,
-they're going to mandate the type anyway.
-
+** Some other ideas
 Native imports - end them with a =!= to declare a native effect
 Don't /need/ to declare fx in advance, end with =!= and it's implicit
-
 =->?= for =some->=
 
 ** Big example
@@ -26,12 +22,12 @@ Don't /need/ to declare fx in advance, end with =!= and it's implicit
   (:: :LT)
   (:: :EQ)
   (:: :GT)
-  (:: Ord {:LT :EQ :GT})
+  (:: Ord (+ :LT :EQ :GT))
 
   ;; Simple params, alias
   (:: (:Just a) a)
   (:: :Nothing)
-  (:: (Maybe a) {(:Just a) :Nothing})
+  (:: (Maybe a) (+ (:Just a) :Nothing))
 
   ;; parameterised types
   (:: (:left-tree a) (Tree a))
@@ -41,9 +37,12 @@ Don't /need/ to declare fx in advance, end with =!= and it's implicit
   (:: (:Node a) {(:left-tree a) (:node-val a) (:right-tree a)})
   (:: :Leaf)
 
-  (:: (Tree a) {(:Node a) :Leaf})
+  (:: (Tree a) (+ (:Node a) :Leaf))
 
-  (:Node {left :Leaf, val 5, right :Leaf})
+  (:Node {:left-tree :Leaf, :node-val 5, :right-tree :Leaf})
+
+  (type :Node)
+  => (Fn [{:left-tree :node-val :right-tree}] (+ (:Node a)))
 
   ;; Declaring polymorphic function types
   (:: (.eq a) (Fn [a a] Bool))
@@ -57,6 +56,8 @@ Don't /need/ to declare fx in advance, end with =!= and it's implicit
   (:: (.bind m)
       (Fn [(m a) (Fn [a] (m b))]
           (m b)))
+
+  (:: #{(.return m)} (m a))
 
   ;; behaviour of polymorphic functions for a given type
   (def (.return Maybe) :Just)
