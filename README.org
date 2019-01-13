@@ -449,6 +449,25 @@ at the boundary of your system, by using =catch=:
       e (log! :Error "The system failed to start.")))
 #+END_SRC
 
+(n.b. not so sure about the =finally= syntax)
+
+As in other languages, we want to ensure that no matter what happens, our
+resources get cleaned up. For this, we use =finally= - a block of code that's
+evaluated whether the code within succeeds or fails. In Bridje, this is achieved
+with a standalone expression in the middle of a =let= binding:
+
+#+BEGIN_SRC clojure
+  (def (cleaning-up ...)
+    (let [resource (open-resource! ...)
+          (finally (close-resource! resource))
+
+          ...]
+      ...))
+#+END_SRC
+
+We can be sure that the resource is closed after the =let= block finishes,
+regardless of whether it yields a result, an error, or throws.
+
 *** TODO Typeclasses
 
 #+BEGIN_SRC clojure
