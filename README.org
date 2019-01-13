@@ -375,8 +375,79 @@ to declare their types in the namespace declaration.
 There are two types of error in Bridje - we make a distinction between errors
 that the immediate caller is expected to handle, and errors that they aren't.
 
-Errors that the caller is expected to handle are wrapped in variant types,
-defined by the user
+Errors that the caller is expected to handle can be wrapped in user-defined
+variant types. If you have a function that has a success case and a number of
+error cases, you can declare each case as a variant key, and then eliminate the
+variants with a =case= expression as you would with any other variant. Bridje
+provides an =:Ok= variant as part of the core library, but you'll want something
+more descriptive for your error cases.
+
+#+BEGIN_SRC clojure
+  (:: :InvalidInput) ; basic variant - can contain a value to return more details about the error
+
+  ;; returns `(+ (:Ok res-type) :InvalidInput)`
+  (def (might-error arg ...)
+    (if (input-valid? arg)
+      :InvalidInput
+      (:Ok (process-input arg))))
+
+  ;; calling `might-error`
+  (case (might-error my-arg)
+    (:Ok res) ...
+    :InvalidInput ...)
+#+END_SRC
+
+Often, there might be many steps in a process, each of which could error in a
+variety of ways. It'd get pretty boring to extract the =:Ok= value out each
+time if you're just going to pass the errors through. So, on the right hand side
+of a =let= binding, we can wrap the expression in =try=. If the expression
+returns an =:Ok= variant, it's unwrapped and the =let= expression continues; if
+not, the =let= expression returns the error.
+
+#+BEGIN_SRC clojure
+  (case (maybe-error input)
+    (:Ok parsed-input) (case (try-something-else parsed-input)
+                         (:Ok res) (use-result res)
+                         (:AnotherError err) (:AnotherError err))
+
+    (:AnError err) (:AnError err)
+
+  ;; becomes
+
+  (let [parsed-input (try (maybe-error input))
+        res (try (try-something-else parsed-input))]
+    (use-result res))
+
+  ;; `try` is also supported within `->`:
+
+  (-> (try (maybe-error input))
+      (try try-something-else)
+      use-result)
+#+END_SRC
+
+Errors that the caller isn't expected to handle are thrown with the =throw=
+built-in - again, any variant is supported. These errors can be handled, likely
+at the boundary of your system, by using =catch=:
+
+#+BEGIN_SRC clojure
+  (def (throwing config-str)
+    (case (parse-config config-str)
+      (:Ok config) config
+      :InvalidConfig (throw :InvalidConfig)))
+
+  ;; we could also use 'assume' in this case - a core function that returns the
+  ;; contained value in :Ok cases, but throws otherwise:
+
+  (def (assuming config-str)
+    (assume (parse-config config-str)))
+
+  ;; catching that error at the boundary
+
+  (def (start-system ...)
+    (case (catch (...))
+      (:Ok system) ...
+      e (log! :Error "The system failed to start.")))
+#+END_SRC
 
 *** TODO Typeclasses
 

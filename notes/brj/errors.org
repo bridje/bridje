@@ -90,7 +90,7 @@ regardless of whether the first form returns a value or throws an error:
 
 #+BEGIN_SRC clojure
   (def (using-a-resource arg)
-    (let [res (open-resource! arg)]
-      (-> (use-resource res)
-          (finally (close-resource! arg)))))
+    (let [res (open-resource! arg)
+          (finally (close-resource! res))]
+      (use-resource res)))
 #+END_SRC
