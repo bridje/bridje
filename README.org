@@ -453,7 +453,7 @@ at the boundary of your system, by using =catch=:
       :InvalidConfig (throw :InvalidConfig)))
 
   ;; we could also use 'assume' in this case - a core function that returns the
-  ;; contained value in :Ok cases, but throws otherwise:
+  ;; contained value in `:Ok` cases, but throws otherwise:
 
   (def (assuming config-str)
     (assume (parse-config config-str)))
@@ -484,54 +484,6 @@ with a standalone expression in the middle of a =let= binding:
 
 We can be sure that the resource is closed after the =let= block finishes,
 regardless of whether it yields a result, an error, or throws.
-
-*** TODO Typeclasses
-
-#+BEGIN_SRC clojure
-  (defunion Ordering
-    LT EQ GT)
-
-  (defclass (Ord a)
-    (:: (compare a a) Ordering))
-
-  (definstance (Ord Int)
-    (def (compare x y)
-      (cond
-        (< x y) LT
-        (= x y) EQ
-        GT)))
-#+END_SRC
-
-#+BEGIN_SRC clojure
-  (defunion (Maybe a)
-    (Just a)
-    Nothing)
-
-  (defclass (Functor f)
-    (:: (fmap (f a) (Fn [a] b))
-        (f b)))
-
-  (definstance (Functor Maybe)
-    (def (fmap maybe)
-      (case maybe
-        (Just a) (Just (f a))
-        Nothing)))
-
-  (defclass #{(Functor m)} (Monad m)
-    (:: (return a) (m a))
-
-    (:: (bind (m a) (Fn [a] (m b)))
-        (m b)))
-
-  (definstance (Monad Maybe)
-    (def (return a)
-      (Just a))
-
-    (def (bind maybe f)
-      (case maybe
-        (Just a) (f a)
-        Nothing)))
-#+END_SRC
 
 * LICENCE
 
