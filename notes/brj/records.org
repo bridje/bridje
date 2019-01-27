@@ -115,16 +115,17 @@ laziness could be implemented with 'reducible', might mean that we don't need 'p
         (:More new-acc) (recur new-acc (inc n))
         (:Done new-acc) (complete new-acc))))
 
-  (def (iterate f x {xf/step xf/init xf/complete})
-    (loop [acc init
-           el x]
-      (case (step acc el)
-        (:More new-acc) (recur new-acc (f el))
-        (:Done res) (complete res))))
+  (def (iterate x f)
+    (fn (_ {xf/step xf/init xf/complete})
+      (loop [acc init
+             el x]
+        (case (step acc el)
+          (:More new-acc) (recur new-acc (f el))
+          (:Done res) (complete res)))))
 
   (def (range {range/?start range/?end range/?step})
-    (fn [rf]
-      (xf> (iterate (->% (+ (or-> ?step 1))) (or-> ?start 0))
+    (fn (_ rf)
+      (xf> (iterate (or-> ?start 0) (->% (+ (or-> ?step 1))))
            (take-while (fn [n]
                          (if-let [end ?end]
                            (< n end)
@@ -132,7 +133,7 @@ laziness could be implemented with 'reducible', might mean that we don't need 'p
            rf)))
 
   (def (line-seq path)
-    (fn [{xf/step xf/init xf/complete}]
+    (fn (_ {xf/step xf/init xf/complete})
       (let [rdr (open! path)]
         (try
           (loop [acc init]
@@ -178,7 +179,7 @@ laziness could be implemented with 'reducible', might mean that we don't need 'p
 
   (def (drop-while p)
     (let [drop? (mut/mut true)]
-      (fn [el]
+      (fn (_ el)
         (if (mut/get drop?)
           (if (p el)
             (:More :Nil)
@@ -210,18 +211,22 @@ you can zip two lazy sequences together
 
   ;; users
 
-  (:: :user-id UUID)
-  (:: :username Str)
-  (:: :first-name Str)
-  (:: :last-name Str)
-  (:: :created-at Inst)
+  (:: UserId UUID)
+
+  (:: {:user-id UserId
+       :username Str
+       :first-name Str
+       :last-name Str
+       :created-at Inst
+
+       :user {}})
 
   ;; posts
-  (:: :post-id UUID)
-  (:: :created-at Inst)
-  (:: :title Str)
+  (:: {:post-id UUID
+       :created-at Inst
+       :title Str})
 
-  (:: :Mention :user-id)
+  (:: :Mention UserId)
   (:: :Hashtag Str)
   (:: :Text Str)
 
@@ -284,4 +289,55 @@ you can zip two lazy sequences together
 
   (def (user-full-name {first-name last-name})
     (str first-name " " last-name))
+#+END_SRC
+
+** Project II
+How about if project takes the same form as destructuring?
+
+
+#+BEGIN_SRC clojure
+  ;; ok, a summary
+  ;; spec-keywords stay, as before
+  (:: :user-id UUID)
+  (:: :first-name Str)
+  (:: :last-name Str)
+  (:: :email Str)
+
+  ;; composites - sets/vectors as before, records are specified as defaults
+  (:: :address {:address1 :?address2 :region :city :postal-code})
+  (:: :user {:user-id :address})
+
+  ;; specify exact requirements in function declarations
+  (:: (say-hi {:user}))
+
+  ;; override with parens (nested, too)
+  (:: (say-hi {(:user {:first-name :email (:address {:postal-code})})}))
+
+  ;; destructure with those same parens
+  (def (say-hi {(:user {first-name email address })})
+    )
+
+  ;; polymorphism:
+  ;; keywords - suffix with `.`
+  (:: :a.Ok a)
+
+  ;; function declarations:
+  (:: a.zero a)
+  (:: (a.count a) Int)
+  (:: (f.fmap (f a) ((Fn a) b)) (f b))
+
+  ;; instance definitions
+  (def Int.zero 0)
+
+  (def (. [a] (count coll))
+    ...)
+
+  (def (. Tree (fmap tree f)))
+
+  (def (Tree.fmap tree f)
+    (case tree
+      (:Node left val right) (:Node (fmap left f) (f val) (fmap right f))
+      :Leaf :Leaf))
+
+  (:: (! (print! Str)) Void)
 #+END_SRC

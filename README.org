@@ -98,7 +98,7 @@ are constructed from sequences of tuples.
 *** Records
 In a similar manner to Clojure's 'spec', we define the type of a key, then any
 value of that key, throughout the program, is guaranteed to have the same type.
-Each key
+
 We define keys using =::=:
 
 #+BEGIN_SRC clojure
@@ -117,21 +117,21 @@ structure of the record itself. Here are some examples:
 
 #+BEGIN_SRC clojure
   ;; long-hand - we bind the symbol 'the-id' to the value of ':id' in the record
-  (let [{:id the-id} {:id 4}]
-    ; the-id = 4
+  (let [{(:id the-id)} {:id 4}]
+    ;; the-id = 4
     )
 
   ;; if the bound symbol matches the key, we don't have to specify it twice - the
   ;; symbol suffices (commas are considered whitespace):
-  (let [{username, :id user-id} {:username "jarohen", :id 451}]
-    ; username = "jarohen"
-    ; user-id = 451
+  (let [{username, (:id user-id)} {:username "jarohen", :id 451}]
+    ;; username = "jarohen"
+    ;; user-id = 451
     )
 
-  ;; we can bind the entire data structure by prefixing the symbol with `&`
-  (let [{username &user} {:username "jarohen", :id 451}]
-    ; username = "jarohen"
-    ; user = {:username "jarohen", :id 451}
+  ;; we can bind the entire data structure by wrapping the symbol with `(* ...)`
+  (let [{username (* user)} {:username "jarohen", :id 451}]
+    ;; username = "jarohen"
+    ;; user = {:username "jarohen", :id 451}
     )
 #+END_SRC
 
@@ -146,10 +146,11 @@ then decides which keys the user of the record requires at that particular site.
   (:: :name Str)
   (:: :follower-count Int)
 
-  ;; we don't specify any keys, just that :user is a record
-  (:: :user {})
+  ;; we specify that `:user` is a record, and give it some default keys
+  ;; these can be overridden at each usage site.
+  (:: :user {:user-id :name :follower-count})
 
-  ;; the type of `say-hi` is (Fn [{:name}] Str)
+  ;; the type of `say-hi` is (Fn {:name} Str)
   ;; - a function from a record containing a `:name` key to a string
   (def (say-hi user)
     (format "Hi, %s!" (:name user)))
@@ -159,14 +160,13 @@ then decides which keys the user of the record requires at that particular site.
   ;; syntax is 'inside-out', Bridje's more closely matches the structure of the
   ;; input data
 
-  (let [{:user {:follower-count followers}} {:user {:follower-count 4424}}]
+  (let [{(:user {(:follower-count followers)})} {:user {:follower-count 4424}}]
     ; followers = 4424
     )
 
-  (let [{:user {follower-count}} {:user {:follower-count 4424}}]
+  (let [{(:user {follower-count})} {:user {:follower-count 4424}}]
     ; follower-count = 4424
     )
-
 #+END_SRC
 
 We can define type aliases for common sets of keys:
@@ -187,7 +187,7 @@ letter:
 #+BEGIN_SRC clojure
   (:: :Int Int)
   (:: :String Str)
-  (:: :Neither) ; variants don't *need* a value, necessarily
+  (:: :Neither) ; variants don't *need* a value, necessarily; they can also have more than one.
 
   ;; we then construct instances of these variants using the key as a constructor:
   ;; this is of type `[(+ :Int :String :Neither)]` - a vector whose elements either have an
@@ -290,19 +290,20 @@ One of Bridje's main features is its effect system - a way of knowing at
 compile-time what side causes/side effects a function depends on.
 
 We use the example of a simple logging system, where we want to log to stdout.
-In Bridje, we declare an effectful function using ~defx~ along with a default
-implementation, which may in turn call lower-level effects.
+In Bridje, we declare an effectful function by wrapping the declaration with
+=(! ...)=. We can then provide a default implementation, which may in turn call
+lower-level effects.
 
 #+BEGIN_SRC clojure
-  (:: (print! Str) Void)
-  (:: (read-line!) Str)
+  (:: (! (print! Str)) Void)
+  (:: (! (read-line!)) Str)
 
-  (defx (print! s)
-    ; interop
+  (def (print! s)
+    ;; interop
     )
 
-  (defx (read-line!)
-    ; interop
+  (def (read-line!)
+    ;; interop
     )
 
   (def (println! s)
@@ -319,7 +320,7 @@ implementation, which may in turn call lower-level effects.
 
   (:: (log! Level Str) Void)
 
-  (defx (log! level s)
+  (def (log! level s)
     (print! (format "Log [%s]: %s" (pr-str level) s)))
 
   (def (my-fn x y)
@@ -387,6 +388,77 @@ to declare their types in the namespace declaration.
 
 *** Polymorphism
 
+Polymorphism appears in Bridje in two forms - polymorphic keys and polymorphic
+functions.
+
+Polymorphic keys are declared using the =.= special form. For example, the core
+library declares a polymorphic =:Ok= variant which can contain a value of any
+type:
+
+#+BEGIN_SRC clojure
+  (:: (. a :Ok) a)
+#+END_SRC
+
+This declaration is saying that the =:Ok= variant has a type parameter called
+=a=, and that its type is that same type =a= - i.e. it has no constraints. We
+then use the =:Ok= variant as we would any other variant - introducing it using
+=(:Ok 42)= (which has type =(+ (. Int :Ok))=) and eliminating it with =case=:
+
+#+BEGIN_SRC clojure
+  (:: (. a :Ok) a)
+
+  (case (:Ok 42)
+    (:Ok int) (even? int)
+    false)
+#+END_SRC
+
+When both the type parameter and the key are simple symbols, we can shorten
+=(:: (. a :Ok) a)= to =(:: :a.Ok a)=.
+
+Polymorphic functions, likewise, are declared using the =.= special form
+(although again, most of the time, these can use the short-form)
+
+#+BEGIN_SRC clojure
+  (:: (. a (count a)) Int)
+
+  ;; or, shorter:
+  (:: (a.count a) Int)
+#+END_SRC
+
+We can then define how =count= behaves for specific types using that same syntax
+in a =def= form. In this case, let's define our own list structure, and define
+how to count it:
+
+#+BEGIN_SRC clojure
+  (:: (. a (count a)) Int) ; long form
+  (:: (a.count a) Int) ; short form
+
+  (:: :a.Cons a a.List)
+  (:: :Nil)
+  (:: a.List (+ :a.Cons :Nil))
+
+  (def (. a.List (count list))
+    (case list
+      (:Cons el rest) (+ 1 (count rest))
+      :Nil 0))
+#+END_SRC
+
+We can also express 'higher-kinded' functionality, like how to map a function
+over a structure.
+
+#+BEGIN_SRC clojure
+  (:: (f.fmap (f a) (Fn a b)) (f b))
+#+END_SRC
+
+We can then define how to map a function over our list type:
+
+#+BEGIN_SRC clojure
+  (def (List.fmap list f)
+    (case list
+      (:Cons el rest) (:Cons (f el) (fmap rest f))
+      :Nil :Nil))
+#+END_SRC
+
 *** Error handling
 
 There are two types of error in Bridje - we make a distinction between errors
@@ -395,9 +467,9 @@ that the immediate caller is expected to handle, and errors that they aren't.
 Errors that the caller is expected to handle can be wrapped in user-defined
 variant types. If you have a function that has a success case and a number of
 error cases, you can declare each case as a variant key, and then eliminate the
-variants with a =case= expression as you would with any other variant. Bridje
-provides an =:Ok= variant as part of the core library, but you'll want something
-more descriptive for your error cases.
+variants with a =case= expression as you would with any other variant. You can
+use the =:Ok= variant from the core library for the happy cases, but you'll
+likely want something more descriptive for your errors.
 
 #+BEGIN_SRC clojure
   (:: :InvalidInput) ; basic variant - can contain a value to return more details about the error
