@@ -49,7 +49,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
             val formReader = object : FormReader() {
                 private fun nsSource(ns: Symbol): Source? =
-                    this::class.java.getResource("${ns.nameStr.replace('.', '/')}.brj")
+                    this::class.java.getResource("${ns.baseStr.replace('.', '/')}.brj")
                         ?.let { url -> Source.newBuilder("brj", url).build() }
 
                 override fun readForms(ns: Symbol): List<Form> =

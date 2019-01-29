@@ -14,7 +14,7 @@ internal abstract class JavaInteropNode: ValueNode() {
 
 internal class JavaStaticReadNode(javaImport: JavaImport) : JavaInteropNode() {
     val clazzObj = getCtx().truffleEnv.lookupHostSymbol(javaImport.clazz.name) as TruffleObject
-    val name = javaImport.sym.name.nameStr
+    val name = javaImport.sym.base.baseStr
 
     @Child
     var readNode = Message.READ.createNode()

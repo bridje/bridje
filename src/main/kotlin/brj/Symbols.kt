@@ -8,27 +8,62 @@ private class Interner<K, V>(val f: (K) -> V) {
     }
 }
 
-sealed class Ident {
-    abstract val name: Symbol
+interface Ident {
+    val base: Symbol
 }
 
-class Symbol private constructor(val nameStr: String) : Ident()  {
-    override val name: Symbol get() = this
-
-    companion object {
-        private val INTERNER = Interner(::Symbol)
-        fun intern(name: String) = INTERNER.intern(name)
-    }
-
-    override fun toString() = nameStr
+interface QIdent : Ident {
+    val ns: Symbol
 }
 
-class QSymbol private constructor(val ns: Symbol, override val name: Symbol): Ident() {
+class Symbol private constructor(val baseStr: String) : Ident {
+    override val base: Symbol get() = this
+
     companion object {
-        private val INTERNER: Interner<Pair<Symbol, Symbol>, QSymbol> = Interner { QSymbol(it.first, it.second) }
-        fun intern(ns: Symbol, name: Symbol) = INTERNER.intern(Pair(ns, name))
+        private val INTERNER: Interner<String, Symbol> = Interner(::Symbol)
+
+        fun intern(str: String) = INTERNER.intern(str)
     }
 
-    override fun toString() = "$ns/$name"
+    override fun toString() = baseStr
+}
+
+class QSymbol private constructor(override val ns: Symbol, override val base: Symbol) : QIdent {
+    companion object {
+        private val INTERNER: Interner<Pair<Symbol, Symbol>, QSymbol> = Interner { (ns, base) ->
+            QSymbol(ns, base)
+        }
+
+        fun intern(ns: Symbol, base: Symbol) = INTERNER.intern(Pair(ns, base))
+    }
+
+    override fun toString() = "$ns/$base"
+}
+
+class Keyword private constructor(override val base: Symbol) : Ident {
+    companion object {
+        private val INTERNER: Interner<Symbol, Keyword> = Interner(::Keyword)
+
+        fun intern(sym: Symbol) = INTERNER.intern(sym)
+    }
+
+    override fun toString() = ":$base"
+}
+
+class QKeyword private constructor(override val ns: Symbol, override val base: Symbol) : QIdent {
+    companion object {
+        private val INTERNER: Interner<Pair<Symbol, Symbol>, QKeyword> = Interner { (ns, base) ->
+            //            Regex(":(.+)/(.+)").matchEntire(it)!!
+//                .groups
+//                .let { groups ->
+//                    QKeyword(Symbol.intern(groups[1]!!.value), Symbol.intern(groups[2]!!.value))
+//                }
+            QKeyword(ns, base)
+        }
+
+        fun intern(ns: Symbol, base: Symbol) = INTERNER.intern(Pair(ns, base))
+    }
+
+    override fun toString() = ":$ns/$base"
 }
 

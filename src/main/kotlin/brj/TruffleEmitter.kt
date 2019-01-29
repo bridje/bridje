@@ -70,8 +70,8 @@ private val functionForeignAccess = ForeignAccess.create(BridjeFunction::class.j
 
         override fun execute(frame: VirtualFrame) =
         // FIXME I don't reckon this is very performant
-            callNode.call((
-                frame.arguments[0] as BridjeFunction).callTarget,
+            callNode.call(
+                (frame.arguments[0] as BridjeFunction).callTarget,
                 frame.arguments.sliceArray(1 until frame.arguments.size))
     })
 })!!

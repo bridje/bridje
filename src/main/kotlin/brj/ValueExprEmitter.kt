@@ -15,19 +15,19 @@ import com.oracle.truffle.api.profiles.ConditionProfile
 internal class ValueExprEmitter private constructor() {
     val frameDescriptor = FrameDescriptor()
 
-    inner class BoolNode(val boolean: Boolean) : ValueNode() {
+    class BoolNode(val boolean: Boolean) : ValueNode() {
         override fun execute(frame: VirtualFrame): Boolean = boolean
     }
 
-    inner class IntNode(val int: Long) : ValueNode() {
+    class IntNode(val int: Long) : ValueNode() {
         override fun execute(frame: VirtualFrame): Long = int
     }
 
-    inner class FloatNode(val float: Double) : ValueNode() {
+    class FloatNode(val float: Double) : ValueNode() {
         override fun execute(frame: VirtualFrame): Double = float
     }
 
-    inner class ObjectNode(val obj: Any) : ValueNode() {
+    class ObjectNode(val obj: Any) : ValueNode() {
         override fun execute(frame: VirtualFrame): Any = obj
     }
 

@@ -99,7 +99,7 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
         it.maybe { it.expectForm<RecordForm>() }?.let { recordForm ->
             it.nested(recordForm.forms) {
                 it.varargs {
-                    val attrSym = Symbol.intern(listOfNotNull(sym?.nameStr, it.expectForm<SymbolForm>().sym.nameStr).joinToString("."))
+                    val attrSym = Symbol.intern(listOfNotNull(sym?.base, it.expectForm<SymbolForm>().sym.base).joinToString("."))
 
                     // TODO quite a lot of cyclic defs to deal with here...
                     attributes += Attribute(QSymbol.intern(nsEnv.ns, attrSym), typeAnalyser.monoTypeAnalyser(it))

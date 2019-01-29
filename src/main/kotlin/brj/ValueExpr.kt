@@ -48,7 +48,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         val RECUR = Symbol.intern("recur")
     }
 
-    private fun resolve(sym: Ident) = resolve(env, nsEnv, sym)
+    private fun resolve(sym: Symbol) = resolve(env, nsEnv, sym)
 
     private fun symAnalyser(form: SymbolForm): ValueExpr {
         return ((locals[form.sym]?.let { LocalVarExpr(it) })
@@ -56,8 +56,17 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             ?: throw AnalyserError.ResolutionError(form.sym))
     }
 
-    private fun qsymAnalyser(form: QSymbolForm) = GlobalVarExpr(resolve(form.sym)
-        ?: throw AnalyserError.ResolutionError(form.sym))
+    private fun qsymAnalyser(form: QSymbolForm): ValueExpr {
+        TODO()
+    }
+
+    private fun kwAnalyser(form: KeywordForm): ValueExpr {
+        TODO()
+    }
+
+    private fun qkwAnalyser(form: QKeywordForm): ValueExpr {
+        TODO()
+    }
 
     private fun ifAnalyser(it: AnalyserState): ValueExpr {
         val predExpr = exprAnalyser(it)
@@ -143,13 +152,12 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             fun resolveConstructor(form: Form): ConstructorVar {
                 return when (form) {
                     is SymbolForm -> resolve(form.sym)
-                    is QSymbolForm -> resolve(form.sym)
                     else -> TODO()
                 } as? ConstructorVar ?: TODO()
             }
 
             val (constructor, paramSyms) = when (clauseForm) {
-                is SymbolForm, is QSymbolForm -> Pair(resolveConstructor(clauseForm).constructor, null)
+                is SymbolForm -> Pair(resolveConstructor(clauseForm).constructor, null)
                 is ListForm -> {
                     it.nested(clauseForm.forms) {
                         Pair(resolveConstructor(it.expectForm()).constructor, it.varargs { it.expectForm<SymbolForm>().sym })
@@ -212,7 +220,6 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             val form = it.expectForm<Form>()
             val attr: Attribute = (when (form) {
                 is SymbolForm -> resolve(form.sym)
-                is QSymbolForm -> resolve(form.sym)
                 else -> TODO()
             } as? AttributeVar)?.attribute ?: TODO()
 
@@ -234,8 +241,9 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             is BigFloatForm -> BigFloatExpr(form.bigFloat)
 
             is SymbolForm -> symAnalyser(form)
-
             is QSymbolForm -> qsymAnalyser(form)
+            is KeywordForm -> kwAnalyser(form)
+            is QKeywordForm -> qkwAnalyser(form)
 
             is ListForm -> listAnalyser(AnalyserState(form.forms))
             is VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))

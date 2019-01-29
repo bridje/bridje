@@ -18,7 +18,7 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv) {
             ?.let(::DataTypeType)
 
     private fun tv(sym: Symbol): TypeVarType? =
-        if (Character.isLowerCase(sym.nameStr.first())) {
+        if (Character.isLowerCase(sym.baseStr.first())) {
             tvMapping.getOrPut(sym) { TypeVarType() }
         } else null
 

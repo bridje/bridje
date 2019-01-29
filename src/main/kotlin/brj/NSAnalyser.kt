@@ -37,7 +37,7 @@ internal class NSAnalyser(val ns: Symbol) {
         val javaImports = mutableMapOf<QSymbol, JavaImport>()
 
         it.varargs {
-            val clazz = Class.forName(it.expectForm<SymbolForm>().sym.nameStr)
+            val clazz = Class.forName(it.expectForm<SymbolForm>().sym.baseStr)
             val classSym = Symbol.intern(clazz.simpleName)
 
             it.nested(SetForm::forms) {
