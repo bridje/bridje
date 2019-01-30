@@ -1,21 +1,25 @@
 package brj
 
-private val NS = Symbol.intern("ns")
+import brj.QSymbol.Companion.mkQSym
+import brj.Symbol.Companion.mkSym
 
-private val REFERS = Symbol.intern("refers")
-private val ALIASES = Symbol.intern("aliases")
-private val IMPORTS = Symbol.intern("imports")
+private val NS = mkSym("ns")
+
+private val REFERS = mkSym(":refers")
+private val ALIASES = mkSym(":aliases")
+private val IMPORTS = mkSym(":imports")
+private val JAVA = mkSym("java")
 
 internal class NSAnalyser(val ns: Symbol) {
     fun refersAnalyser(it: AnalyserState): Map<Symbol, QSymbol> {
         val refers = mutableMapOf<Symbol, QSymbol>()
 
         it.varargs {
-            val ns = it.expectForm<SymbolForm>().sym
+            val nsSym = it.expectForm<SymbolForm>().sym
             it.nested(SetForm::forms) {
                 it.varargs {
                     val sym = it.expectForm<SymbolForm>().sym
-                    refers[sym] = QSymbol.intern(ns, sym)
+                    refers[sym] = mkQSym("${if (sym.isKeyword) ":" else ""}${nsSym.baseStr}/${sym.baseStr}")
                 }
             }
         }
@@ -37,16 +41,18 @@ internal class NSAnalyser(val ns: Symbol) {
         val javaImports = mutableMapOf<QSymbol, JavaImport>()
 
         it.varargs {
-            val clazz = Class.forName(it.expectForm<SymbolForm>().sym.baseStr)
-            val classSym = Symbol.intern(clazz.simpleName)
+            val alias = it.expectForm<SymbolForm>().sym
 
-            it.nested(SetForm::forms) {
+            it.nested(ListForm::forms) {
+                it.expectSym(JAVA)
+                val clazz = Class.forName(it.expectForm<SymbolForm>().sym.baseStr)
+
                 it.varargs {
                     it.nested(ListForm::forms) {
                         it.expectSym(TYPE_DEF)
                         val (sym, type) = ActionExprAnalyser(Env(), NSEnv(ns)).typeDefAnalyser(it)
 
-                        val importSym = QSymbol.intern(classSym, sym)
+                        val importSym = QSymbol.mkQSym("$alias/$sym")
                         javaImports[importSym] = JavaImport(clazz, importSym, type)
                     }
                 }

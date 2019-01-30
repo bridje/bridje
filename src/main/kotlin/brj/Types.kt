@@ -140,7 +140,7 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
 
     override fun fmap(f: (MonoType) -> MonoType): MonoType = FnType(paramTypes.map(f), f(returnType))
 
-    override fun toString(): String = "(Fn [${paramTypes.joinToString(separator = " ")}] $returnType)"
+    override fun toString(): String = "(Fn ${paramTypes.joinToString(separator = " ")} $returnType)"
 }
 
 data class DataTypeType(val dataType: DataType) : MonoType() {

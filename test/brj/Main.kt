@@ -9,43 +9,47 @@ fun main(args: Array<String>) {
 
     ctx.enter()
 
-    val foo = Symbol.intern("foo")
-    val bar = Symbol.intern("bar")
+    val foo = Symbol.mkSym("foo")
+    val bar = Symbol.mkSym("bar")
 
     val fooSource = Source.create("brj", """
         (ns foo
-          {aliases {b bar}
-           refers {bar #{baz}}
-           imports {brj.Foo #{(:: (isZero Int) Bool)
-                              (:: (dec Int) Int)
-                              (:: (conj #{a} a) #{a})
-                              (:: (plus Int Int) Int)}}})
+          {:aliases {b bar}
+           :refers {bar #{baz}}
+           :imports {Foo (java brj.Foo
+                               (:: (isZero Int) Bool)
+                               (:: (dec Int) Int)
+                               (:: (conj #{a} a) #{a})
+                               (:: (plus Int Int) Int))}})
 
-        (defdata Void Void)
+        (:: :Void)
+        (:: Void (+ :Void))
 
-        (defdata (Maybe a) (Just a) Nothing)
+        (:: (:Just a) a)
+        (:: :Nothing)
 
-        ;(:: foo [(foo/Maybe Int)])
-        (def foo [Nothing (Just 4)])
+        ;; (:: foo [(+ (:Just Int) :Nothing)])
+        (def foo [:Nothing (:Just 4)])
 
         (def bar
-          (case (Just 4)
-            (Just x) x
-            Nothing 0))
+          (case (:Just 4)
+            (:Just x) x
+            :Nothing 0))
 
-        (def just (Just 4))
+        (def just (:Just 4))
 
         (def x
           (let [quux 10N]
             [quux baz]))
 
-        ; (defx Console
-        ;   (:: (println! Str) Void)
-        ;   (def (println! s) Void)
+        ;;   (:: (! (println! Str)) Void)
+        ;;   (def (println! s) :Void)
 
-        ;   (:: (read-line!) Str))
+        ;;   (:: (! (read-line!)) Str))
 
-        (defdata User {first-name Str, last-name Str})
+        (:: :first-name Str)
+        (:: :last-name Str)
+        (:: User {:first-name :last-name})
 
         (def (count-down x)
           (loop [y x
@@ -67,7 +71,7 @@ fun main(args: Array<String>) {
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval(Source.create("brj", "{foo/User.first-name \"James\"}"))
+    val value = ctx.eval(Source.create("brj", "{:foo/first-name \"James\"}"))
 
     println("value: $value")
 

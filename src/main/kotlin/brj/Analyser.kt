@@ -5,7 +5,6 @@ typealias FormsAnalyser<R> = (AnalyserState) -> R
 sealed class AnalyserError : Exception() {
     object ExpectedForm : AnalyserError()
     data class UnexpectedForms(val forms: List<Form>) : AnalyserError()
-    data class ResolutionError(val ident: Ident) : AnalyserError()
     object ExpectedSymbol : AnalyserError()
 }
 

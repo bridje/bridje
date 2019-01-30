@@ -3,7 +3,7 @@
 package brj
 
 abstract class GlobalVar internal constructor() {
-    abstract val sym: QIdent
+    abstract val sym: QSymbol
     abstract val type: Type
     abstract val value: Any?
 }
@@ -57,23 +57,22 @@ internal class JavaImportVar(javaImport: JavaImport, override val value: Any? = 
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),
                  val aliases: Map<Symbol, Symbol> = emptyMap(),
-                 val dataTypes: Map<Symbol, DataType> = emptyMap(),
                  val javaImports: Map<QSymbol, JavaImport> = emptyMap(),
-                 val vars: Map<Ident, GlobalVar> = emptyMap()) {
+                 val vars: Map<Symbol, GlobalVar> = emptyMap()) {
 
-    operator fun plus(newGlobalVar: GlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym to newGlobalVar))
-    operator fun plus(newDataType: DataType): NSEnv = copy(dataTypes = dataTypes + (newDataType.sym.base to newDataType))
+    operator fun plus(newGlobalVar: GlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym.base to newGlobalVar))
 
     val deps: Set<Symbol> by lazy {
         aliases.values.toSet() + refers.values.map { it.ns }
     }
 }
 
-fun resolve(env: Env, nsEnv: NSEnv, sym: Ident): GlobalVar? =
+fun resolve(env: Env, nsEnv: NSEnv, sym: Symbol): GlobalVar? =
     nsEnv.vars[sym]
         ?: nsEnv.refers[sym]?.let { refer -> env.nses[refer.ns]?.vars?.get(refer.base) }
-        ?: if (sym is QSymbol) env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)]?.let { it.vars[sym.base] } else null
 
+fun resolve(env: Env, nsEnv: NSEnv, sym: QSymbol): GlobalVar? =
+    env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)]?.let { it.vars[sym.base] }
 
 class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv) = Env(nses + (newNsEnv.ns to newNsEnv))

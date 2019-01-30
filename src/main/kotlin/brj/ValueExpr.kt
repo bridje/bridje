@@ -39,33 +39,27 @@ data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 @Suppress("NestedLambdaShadowedImplicitParameter")
 internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
     companion object {
-        val IF = Symbol.intern("if")
-        val FN = Symbol.intern("fn")
-        val LET = Symbol.intern("let")
-        val DO = Symbol.intern("do")
-        val CASE = Symbol.intern("case")
-        val LOOP = Symbol.intern("loop")
-        val RECUR = Symbol.intern("recur")
+        val IF = Symbol.mkSym("if")
+        val FN = Symbol.mkSym("fn")
+        val LET = Symbol.mkSym("let")
+        val DO = Symbol.mkSym("do")
+        val CASE = Symbol.mkSym("case")
+        val LOOP = Symbol.mkSym("loop")
+        val RECUR = Symbol.mkSym("recur")
     }
 
     private fun resolve(sym: Symbol) = resolve(env, nsEnv, sym)
+    private fun resolve(sym: QSymbol) = resolve(env, nsEnv, sym)
 
     private fun symAnalyser(form: SymbolForm): ValueExpr {
         return ((locals[form.sym]?.let { LocalVarExpr(it) })
             ?: resolve(form.sym)?.let(::GlobalVarExpr)
-            ?: throw AnalyserError.ResolutionError(form.sym))
+            ?: TODO())
     }
 
     private fun qsymAnalyser(form: QSymbolForm): ValueExpr {
-        TODO()
-    }
-
-    private fun kwAnalyser(form: KeywordForm): ValueExpr {
-        TODO()
-    }
-
-    private fun qkwAnalyser(form: QKeywordForm): ValueExpr {
-        TODO()
+        return (resolve(form.sym)?.let(::GlobalVarExpr)
+            ?: TODO())
     }
 
     private fun ifAnalyser(it: AnalyserState): ValueExpr {
@@ -242,8 +236,6 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
             is SymbolForm -> symAnalyser(form)
             is QSymbolForm -> qsymAnalyser(form)
-            is KeywordForm -> kwAnalyser(form)
-            is QKeywordForm -> qkwAnalyser(form)
 
             is ListForm -> listAnalyser(AnalyserState(form.forms))
             is VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))

@@ -37,7 +37,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     companion object {
-        private val USER = Symbol.intern("user")
+        private val USER = Symbol.mkSym("user")
 
         internal fun getLang() = getCurrentLanguage(BrjLanguage::class.java)
         internal fun getCtx() = getCurrentContext(BrjLanguage::class.java)
