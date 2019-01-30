@@ -391,38 +391,33 @@ to declare their types in the namespace declaration.
 Polymorphism appears in Bridje in two forms - polymorphic keys and polymorphic
 functions.
 
-Polymorphic keys are declared using the =.= special form. For example, the core
-library declares a polymorphic =:Ok= variant which can contain a value of any
-type:
+Polymorphic keys are declared by applying keys to type variables. For example,
+the core library declares a polymorphic =:Ok= variant which can contain a value
+of any type:
 
 #+BEGIN_SRC clojure
-  (:: (. a :Ok) a)
+  (:: (:Ok a) a)
 #+END_SRC
 
 This declaration is saying that the =:Ok= variant has a type parameter called
 =a=, and that its type is that same type =a= - i.e. it has no constraints. We
 then use the =:Ok= variant as we would any other variant - introducing it using
-=(:Ok 42)= (which has type =(+ (. Int :Ok))=) and eliminating it with =case=:
+=(:Ok 42)= (which has type =(+ (:Ok Int))=) and eliminating it with =case=:
 
 #+BEGIN_SRC clojure
-  (:: (. a :Ok) a)
+  (:: (:Ok a) a)
 
   (case (:Ok 42)
     (:Ok int) (even? int)
     false)
 #+END_SRC
 
-When both the type parameter and the key are simple symbols, we can shorten
-=(:: (. a :Ok) a)= to =(:: :a.Ok a)=.
-
-Polymorphic functions, likewise, are declared using the =.= special form
-(although again, most of the time, these can use the short-form)
+Polymorphic functions are declared in a similar way - prefixing their names with
+=.=. This is how to declare a polymorphic =count= function, which takes any type
+and returns an =Int=:
 
 #+BEGIN_SRC clojure
-  (:: (. a (count a)) Int)
-
-  ;; or, shorter:
-  (:: (a.count a) Int)
+  (:: ((.count a) a) Int)
 #+END_SRC
 
 We can then define how =count= behaves for specific types using that same syntax
@@ -430,14 +425,13 @@ in a =def= form. In this case, let's define our own list structure, and define
 how to count it:
 
 #+BEGIN_SRC clojure
-  (:: (. a (count a)) Int) ; long form
-  (:: (a.count a) Int) ; short form
+  (:: ((.count a) a) Int)
 
-  (:: :a.Cons a a.List)
+  (:: (:Cons a) a (List a))
   (:: :Nil)
-  (:: a.List (+ :a.Cons :Nil))
+  (:: (List a) (+ (:Cons a) :Nil))
 
-  (def (. a.List (count list))
+  (def ((.count (List a)) a)
     (case list
       (:Cons el rest) (+ 1 (count rest))
       :Nil 0))
@@ -447,13 +441,13 @@ We can also express 'higher-kinded' functionality, like how to map a function
 over a structure.
 
 #+BEGIN_SRC clojure
-  (:: (f.fmap (f a) (Fn a b)) (f b))
+  (:: ((.fmap f) (f a) (Fn a b)) (f b))
 #+END_SRC
 
 We can then define how to map a function over our list type:
 
 #+BEGIN_SRC clojure
-  (def (List.fmap list f)
+  (def ((.fmap List) list f)
     (case list
       (:Cons el rest) (:Cons (f el) (fmap rest f))
       :Nil :Nil))
