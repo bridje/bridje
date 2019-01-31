@@ -378,8 +378,7 @@ to declare their types in the namespace declaration.
   (ns my-ns
     {:imports {R (java java.lang.Runtime
                        (:: (getRuntime) Runtime)
-                       (:: (freeMemory Runtime) Int)
-                       )}})
+                       (:: (freeMemory Runtime) Int))}})
 
   ;; we can then use those functions using the `R` alias
 
