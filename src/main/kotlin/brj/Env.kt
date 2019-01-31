@@ -18,7 +18,7 @@ data class Attribute internal constructor(val sym: QSymbol, val type: MonoType) 
 
 data class AttributeVar internal constructor(val attribute: Attribute, override var value: Any?) : GlobalVar() {
     override val sym = attribute.sym
-    override val type: Type get() = TODO("not implemented") //To change initializer of created properties use File | Settings | File Templates.
+    override val type: Type get() = TODO("not implemented")
 }
 
 

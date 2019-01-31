@@ -47,15 +47,6 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
             val ctx = getCtx()
 
-            val formReader = object : FormReader() {
-                private fun nsSource(ns: Symbol): Source? =
-                    this::class.java.getResource("${ns.baseStr.replace('.', '/')}.brj")
-                        ?.let { url -> Source.newBuilder("brj", url).build() }
-
-                override fun readForms(ns: Symbol): List<Form> =
-                    readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
-            }
-
             synchronized(ctx) {
                 val evaluator = Evaluator(ctx.env, object : Emitter {
                     override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter.evalValueExpr(expr)
@@ -63,11 +54,16 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                     override fun emitConstructor(dataTypeConstructor: DataTypeConstructor) = DataTypeEmitter.emitConstructor(dataTypeConstructor)
                 })
 
-                formReader.readNSes(rootNses).forEach(evaluator::evalNS)
+                loadNSes(rootNses) { ns ->
+                    fun nsSource(ns: Symbol): Source? =
+                        this::class.java.getResource("${ns.baseStr.replace('.', '/')}.brj")
+                            ?.let { url -> Source.newBuilder("brj", url).build() }
+
+                    readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
+                }.forEach(evaluator::evalNS)
 
                 ctx.env = evaluator.env
             }
         }
     }
-
 }

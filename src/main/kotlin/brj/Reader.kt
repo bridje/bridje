@@ -4,33 +4,29 @@ import java.util.*
 
 internal data class NSFile(val nsEnv: NSEnv, val forms: List<Form>)
 
-internal abstract class FormReader {
-    abstract fun readForms(ns: Symbol): List<Form>
+internal fun loadNSes(rootNSes: Set<Symbol>, nsForms: (Symbol) -> List<Form>): List<NSFile> {
+    val stack = LinkedHashSet<Symbol>()
 
-    internal fun readNSes(rootNSes: Set<Symbol>): List<NSFile> {
-        val stack = LinkedHashSet<Symbol>()
+    val res = LinkedList<NSFile>()
+    val seen = mutableSetOf<Symbol>()
 
-        val res = LinkedList<NSFile>()
-        val seen = mutableSetOf<Symbol>()
+    fun loadNS(ns: Symbol) {
+        if (seen.contains(ns)) return
+        if (stack.contains(ns)) throw TODO("Cyclic NS")
 
-        fun readNS(ns: Symbol) {
-            if (seen.contains(ns)) return
-            if (stack.contains(ns)) throw TODO("Cyclic NS")
+        stack += ns
 
-            stack += ns
+        val state = AnalyserState(nsForms(ns))
+        val nsEnv = NSAnalyser(ns).analyseNS(state)
 
-            val state = AnalyserState(readForms(ns))
-            val nsEnv = NSAnalyser(ns).analyseNS(state)
+        (nsEnv.deps - seen).forEach(::loadNS)
 
-            (nsEnv.deps - seen).forEach(::readNS)
+        res.add(NSFile(nsEnv, state.forms))
 
-            res.add(NSFile(nsEnv, state.forms))
-
-            stack -= ns
-        }
-
-        rootNSes.forEach(::readNS)
-
-        return res
+        stack -= ns
     }
+
+    rootNSes.forEach(::loadNS)
+
+    return res
 }
