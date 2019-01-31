@@ -20,7 +20,7 @@ internal abstract class FormReader {
             stack += ns
 
             val state = AnalyserState(readForms(ns))
-            val nsEnv = nsAnalyser(state, ns)
+            val nsEnv = NSAnalyser(ns).analyseNS(state)
 
             (nsEnv.deps - seen).forEach(::readNS)
 

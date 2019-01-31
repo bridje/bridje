@@ -5,8 +5,8 @@ import brj.Symbol.Companion.mkSym
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class NSAnalyserTest {
-    fun analyseNS(s: String): NSEnv = nsAnalyser(AnalyserState(readForms(s)), Symbol.mkSym("foo"))
+class AnalyserTest {
+    fun analyseNS(s: String): NSEnv = NSAnalyser(Symbol.mkSym("foo")).analyseNS(AnalyserState(readForms(s)))
 
     @Test
     fun `analyses refers`() {

@@ -1,7 +1,15 @@
 package brj
 
+import brj.Symbol.Companion.mkSym
 import brj.TypeException.ArityError
 import brj.TypeException.UnificationError
+
+internal val STR = mkSym("Str")
+internal val BOOL = mkSym("Bool")
+internal val INT = mkSym("Int")
+internal val FLOAT = mkSym("Float")
+internal val BIG_INT = mkSym("BigInt")
+internal val BIG_FLOAT = mkSym("BigFloat")
 
 internal data class Mapping(val typeMapping: Map<TypeVarType, MonoType> = emptyMap(),
                             val recordMapping: Map<RecordTypeVar, RecordType> = emptyMap()) {
