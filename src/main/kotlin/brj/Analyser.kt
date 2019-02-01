@@ -5,7 +5,7 @@ import brj.Symbol.Companion.mkSym
 import java.math.BigDecimal
 import java.math.BigInteger
 
-typealias FormsAnalyser<R> = (AnalyserState) -> R
+internal typealias FormsAnalyser<R> = (AnalyserState) -> R
 
 sealed class AnalyserError : Exception() {
     object ExpectedForm : AnalyserError()
@@ -13,7 +13,7 @@ sealed class AnalyserError : Exception() {
     object ExpectedSymbol : AnalyserError()
 }
 
-data class AnalyserState(var forms: List<Form>) {
+internal data class AnalyserState(var forms: List<Form>) {
     fun <R> varargs(a: FormsAnalyser<R>): List<R> {
         val ret: MutableList<R> = mutableListOf()
 
@@ -68,9 +68,17 @@ data class AnalyserState(var forms: List<Form>) {
 
     inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsAnalyser<R>): R = nested(f(expectForm()), a)
 
+    fun expectSym() = expectForm<SymbolForm>().sym
+
     fun expectSym(expectedSym: Symbol): Symbol {
-        val actualSym = expectForm<SymbolForm>().sym
+        val actualSym = expectSym()
         if (expectedSym == actualSym) return expectedSym else throw AnalyserError.ExpectedSymbol
+    }
+
+    fun expectKw(): Symbol {
+        val sym = expectForm<SymbolForm>().sym
+        if (!sym.isKeyword) TODO()
+        return sym
     }
 }
 
@@ -382,11 +390,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
         val state = AnalyserState(form.forms)
         state.varargs {
-            val form = it.expectForm<Form>()
-            val attr: Attribute = (when (form) {
-                is SymbolForm -> resolve(form.sym)
-                else -> TODO()
-            } as? AttributeVar)?.attribute ?: TODO()
+            val attr = (resolve(it.expectKw()) as? AttributeVar)?.attribute ?: TODO()
 
             entries += RecordEntry(attr, exprAnalyser(it))
         }
