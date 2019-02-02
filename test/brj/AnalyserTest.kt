@@ -5,7 +5,7 @@ import brj.Symbol.Companion.mkSym
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class AnalyserTest {
+internal class AnalyserTest {
     fun analyseNS(s: String): NSEnv = NSAnalyser(Symbol.mkSym("foo")).analyseNS(AnalyserState(readForms(s)))
 
     @Test
@@ -25,6 +25,56 @@ class AnalyserTest {
         assertEquals(mapOf(
             mkQSym("Foo/isZero") to JavaImport(Foo::class.java, mkQSym("Foo/isZero"), Type(FnType(listOf(IntType), BoolType), setOf()))),
             nsEnv.javaImports)
+    }
+
+    private val actionExprAnalyser = ActionExprAnalyser(Env(), NSEnv(mkSym("USER")))
+
+    private fun analyseDecl(s: String) = actionExprAnalyser.declAnalyser(AnalyserState(readForms(s)))
+
+    @Test
+    fun `analyses var declarations`() {
+        val foo = mkSym("foo")
+
+        assertEquals(
+            VarDeclExpr(foo, Type(IntType)),
+            analyseDecl("foo Int"))
+
+        assertEquals(
+            VarDeclExpr(foo, Type(FnType(listOf(IntType), StringType))),
+            analyseDecl("(foo Int) Str"))
+    }
+
+    @Test
+    fun `analyses type aliases`() {
+        val foo = mkSym("Foo")
+        assertEquals(
+            TypeAliasDeclExpr(foo, null, Type(FnType(listOf(IntType), StringType))),
+            analyseDecl("Foo (Fn Int Str)"))
+    }
+
+    @Test
+    fun `analyses key decl`() {
+        val fooKey = mkSym(":foo")
+        assertEquals(
+            KeyDeclExpr(fooKey, null, Type(IntType)),
+            analyseDecl(":foo Int"))
+
+        val typeVar = TypeVarType()
+
+        assertEquals(
+            KeyDeclExpr(fooKey, listOf(typeVar), Type(typeVar)),
+            analyseDecl("(:foo a) a"))
+
+        val fooVariant = mkSym(":Foo")
+
+        assertEquals(
+            VariantDeclExpr(fooVariant, null, null),
+            analyseDecl(":Foo"))
+
+        assertEquals(
+            VariantDeclExpr(fooVariant, null, listOf(Type(IntType))),
+            analyseDecl(":Foo Int"))
+
     }
 }
 

@@ -1,5 +1,7 @@
 package brj
 
+import brj.SymbolType.*
+
 private class Interner<K, V>(val f: (K) -> V) {
     val interned = mutableMapOf<K, V>()
 
@@ -8,8 +10,24 @@ private class Interner<K, V>(val f: (K) -> V) {
     }
 }
 
+internal enum class SymbolType {
+    VAR_SYM, KEY_SYM, VARIANT_SYM, TYPE_ALIAS_SYM, POLYVAR_SYM
+}
+
+private fun symbolType(sym: Symbol): SymbolType {
+    val firstIsUpper = sym.baseStr.first().isUpperCase()
+    val firstIsDot = sym.baseStr.first() == '.'
+
+    return if (sym.isKeyword) {
+        if (firstIsUpper) VAR_SYM else KEY_SYM
+    } else {
+        if (firstIsUpper) TYPE_ALIAS_SYM else if (firstIsDot) POLYVAR_SYM else VAR_SYM
+    }
+}
+
 class Symbol private constructor(val isKeyword: Boolean, val baseStr: String) {
     private val stringRep = "${if (isKeyword) ":" else ""}$baseStr"
+    internal val symbolType = brj.symbolType(this)
 
     companion object {
         private val INTERNER: Interner<String, Symbol> = Interner {

@@ -10,6 +10,7 @@ internal val INT = mkSym("Int")
 internal val FLOAT = mkSym("Float")
 internal val BIG_INT = mkSym("BigInt")
 internal val BIG_FLOAT = mkSym("BigFloat")
+internal val FN_TYPE = mkSym("Fn")
 
 internal data class Mapping(val typeMapping: Map<TypeVarType, MonoType> = emptyMap(),
                             val recordMapping: Map<RecordTypeVar, RecordType> = emptyMap()) {
@@ -39,7 +40,7 @@ internal class Instantiator {
     }
 }
 
-data class Type(val monoType: MonoType, val effects: Set<QSymbol>) {
+data class Type(val monoType: MonoType, val effects: Set<QSymbol> = emptySet()) {
     override fun toString() = monoType.toString()
 
     // TODO check matching

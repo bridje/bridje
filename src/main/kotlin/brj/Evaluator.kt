@@ -21,12 +21,18 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
             nsEnv += DefVar(QSymbol.mkQSym("${nsEnv.ns}/${expr.sym}"), expr.type, emitter.evalValueExpr(expr.expr))
         }
 
-        private fun evalTypeDef(typeDef: TypeDefExpr) {
-            if (nsEnv.vars[typeDef.sym] != null) {
+        private fun evalDecl(decl: DeclExpr) {
+            if (nsEnv.vars[decl.sym] != null) {
                 TODO("sym already exists in NS")
             }
 
-            nsEnv += DefVar(QSymbol.mkQSym("${nsEnv.ns}/${typeDef.sym}"), typeDef.type, null)
+            when (decl) {
+                is VarDeclExpr -> nsEnv += DefVar(QSymbol.mkQSym("${nsEnv.ns}/${decl.sym}"), decl.type, null)
+                is PolyVarDeclExpr -> TODO()
+                is TypeAliasDeclExpr -> TODO()
+                is KeyDeclExpr -> TODO()
+                is VariantDeclExpr -> TODO()
+            }
         }
 
         private fun formEvaluator(it: AnalyserState) {
@@ -35,7 +41,7 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
             it.nested(ListForm::forms) {
                 when (it.expectForm<SymbolForm>().sym) {
                     DO -> it.varargs(::formEvaluator)
-                    TYPE_DEF -> evalTypeDef(analyser.typeDefAnalyser(it))
+                    DECL -> evalDecl(analyser.declAnalyser(it))
                     DEF -> evalDef(analyser.defAnalyser(it))
 
                     else -> TODO()

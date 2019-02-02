@@ -2,6 +2,7 @@ package brj
 
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
+import brj.SymbolType.*
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -53,9 +54,9 @@ internal data class AnalyserState(var forms: List<Form>) {
             null
         }
 
-    fun <R> or(vararg analysers: FormsAnalyser<R>): R? {
+    fun <R> or(vararg analysers: FormsAnalyser<R?>): R? {
         for (a in analysers) {
-            val res = maybe(a)
+            val res = a(this)
             if (res != null) {
                 return res
             }
@@ -69,6 +70,11 @@ internal data class AnalyserState(var forms: List<Form>) {
     inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsAnalyser<R>): R = nested(f(expectForm()), a)
 
     fun expectSym() = expectForm<SymbolForm>().sym
+
+    fun expectSym(vararg types: SymbolType): Symbol {
+        val sym = expectSym()
+        if (!types.contains(sym.symbolType)) TODO() else return sym
+    }
 
     fun expectSym(expectedSym: Symbol): Symbol {
         val actualSym = expectSym()
@@ -120,7 +126,19 @@ data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
 data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
 data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type)
+
+@Deprecated("vardeclexpr")
 data class TypeDefExpr(val sym: Symbol, val type: Type)
+
+sealed class DeclExpr {
+    abstract val sym: Symbol
+}
+
+data class VarDeclExpr(override val sym: Symbol, val type: Type) : DeclExpr()
+data class PolyVarDeclExpr(override val sym: Symbol, val typeVar: TypeVarType, val type: Type) : DeclExpr()
+data class TypeAliasDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val type: Type) : DeclExpr()
+data class KeyDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val type: Type) : DeclExpr()
+data class VariantDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val types: List<Type>?) : DeclExpr()
 
 internal val IF = mkSym("if")
 internal val FN = mkSym("fn")
@@ -131,7 +149,7 @@ internal val RECUR = mkSym("recur")
 
 internal val DO = mkSym("do")
 internal val DEF = mkSym("def")
-internal val TYPE_DEF = mkSym("::")
+internal val DECL = mkSym("::")
 
 internal val NS = mkSym("ns")
 internal val REFERS = mkSym(":refers")
@@ -178,11 +196,12 @@ internal class NSAnalyser(val ns: Symbol) {
 
                 it.varargs {
                     it.nested(ListForm::forms) {
-                        it.expectSym(TYPE_DEF)
-                        val (sym, type) = ActionExprAnalyser(Env(), NSEnv(ns)).typeDefAnalyser(it)
+                        it.expectSym(DECL)
+                        val varDeclExpr = (ActionExprAnalyser(Env(), NSEnv(ns)).declAnalyser(it)) as? VarDeclExpr
+                            ?: TODO()
 
-                        val importSym = QSymbol.mkQSym("$alias/$sym")
-                        javaImports[importSym] = JavaImport(clazz, importSym, type)
+                        val importSym = QSymbol.mkQSym("$alias/${varDeclExpr.sym}")
+                        javaImports[importSym] = JavaImport(clazz, importSym, varDeclExpr.type)
                     }
                 }
             }
@@ -465,39 +484,94 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
         return DefExpr(sym, expr, (expectedType ?: actualType).copy(effects = actualType.effects))
     }
 
-    fun typeDefAnalyser(it: AnalyserState): TypeDefExpr {
+    private sealed class TypeDeclForm {
+        data class VarDeclForm(val sym: Symbol, val paramTypes: List<MonoType>? = null) : TypeDeclForm()
+        data class KeyDeclForm(val kw: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
+        data class VariantDeclForm(val kw: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
+        data class TypeAliasDeclForm(val sym: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
+        data class PolyVarDeclForm(val sym: Symbol, val typeVar: TypeVarType, val paramTypes: List<MonoType>? = null) : TypeDeclForm()
+    }
+
+    fun declAnalyser(it: AnalyserState): DeclExpr {
         val typeAnalyser = TypeAnalyser(env, nsEnv)
 
-        val form = it.expectForm<Form>()
-        val (sym, params) = when (form) {
-            is ListForm -> {
-                it.nested(form.forms) {
-                    Pair(it.expectForm<SymbolForm>().sym, it.varargs(typeAnalyser::monoTypeAnalyser))
+        val decl = it.or({
+            it.maybe { it.expectSym() }?.let { sym ->
+                // (:: <sym> <type>)
+                when (sym.symbolType) {
+                    VAR_SYM -> TypeDeclForm.VarDeclForm(sym)
+                    KEY_SYM -> TypeDeclForm.KeyDeclForm(sym)
+                    VARIANT_SYM -> TypeDeclForm.VariantDeclForm(sym)
+                    TYPE_ALIAS_SYM -> TypeDeclForm.TypeAliasDeclForm(sym)
+                    POLYVAR_SYM -> TODO("polyvar sym needs a type-var")
                 }
             }
+        }, {
+            it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
+                it.nested(listForm.forms) {
+                    it.or({
+                        it.maybe { it.expectSym() }?.let { sym ->
+                            when (sym.symbolType) {
+                                // (:: (foo Int) Str)
+                                VAR_SYM -> TypeDeclForm.VarDeclForm(sym, it.varargs { typeAnalyser.monoTypeAnalyser(it) })
 
-            is SymbolForm -> {
-                Pair(form.sym, null)
+                                // (:: (:Ok a) a)
+                                KEY_SYM -> TypeDeclForm.KeyDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
+                                VARIANT_SYM -> TypeDeclForm.VariantDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
+
+                                // (:: (.mzero a) a)
+                                POLYVAR_SYM -> TypeDeclForm.PolyVarDeclForm(sym, typeAnalyser.typeVarAnalyser(it))
+
+                                // (:: (Maybe a) (+ (:Ok a) :Nil))
+                                TYPE_ALIAS_SYM -> TypeDeclForm.TypeAliasDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
+                            }
+                        }
+                    }, {
+                        // (:: ((.count a) a) Int)
+                        it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
+                            it.nested(listForm.forms) {
+                                Pair(
+                                    it.expectSym(POLYVAR_SYM),
+                                    typeAnalyser.typeVarAnalyser(it).also { _ -> it.expectEnd() })
+                            }
+                        }?.let { (sym, tv) -> TypeDeclForm.PolyVarDeclForm(sym, tv, it.varargs { typeAnalyser.monoTypeAnalyser(it) }) }
+                    })
+                }
+            }
+        }) ?: TODO()
+
+        return when (decl) {
+            is TypeDeclForm.VarDeclForm -> {
+                val returnType = typeAnalyser.monoTypeAnalyser(it)
+                VarDeclExpr(decl.sym, Type(if (decl.paramTypes != null) FnType(decl.paramTypes, returnType) else returnType))
             }
 
-            else -> TODO()
-        }
+            is TypeDeclForm.KeyDeclForm -> KeyDeclExpr(decl.kw, decl.typeVars, Type(typeAnalyser.monoTypeAnalyser(it)))
+            is TypeDeclForm.VariantDeclForm -> VariantDeclExpr(decl.kw, decl.typeVars, it.varargs { typeAnalyser.monoTypeAnalyser(it) }.map { Type(it) })
+            is TypeDeclForm.TypeAliasDeclForm -> TypeAliasDeclExpr(decl.sym, decl.typeVars, Type(typeAnalyser.monoTypeAnalyser(it)))
 
-        val returnType = typeAnalyser.monoTypeAnalyser(it)
+            is TypeDeclForm.PolyVarDeclForm -> {
+                val returnType = typeAnalyser.monoTypeAnalyser(it)
+                PolyVarDeclExpr(decl.sym, decl.typeVar, Type(if (decl.paramTypes != null) FnType(decl.paramTypes, returnType) else returnType))
+            }
+        }.also { _ -> it.expectEnd() }
+    }
+}
 
-        it.expectEnd()
+internal interface ITypeVarFactory {
+    fun mkTypeVar(sym: Symbol): TypeVarType
 
-        return TypeDefExpr(sym, Type(if (params != null) FnType(params, returnType) else returnType, emptySet()))
+    class TypeVarFactory : ITypeVarFactory {
+        val tvMapping: MutableMap<Symbol, TypeVarType> = mutableMapOf()
+
+        override fun mkTypeVar(sym: Symbol) = tvMapping.getOrPut(sym) { TypeVarType() }
     }
 }
 
 internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv) {
-    val tvMapping: MutableMap<Symbol, TypeVarType> = mutableMapOf()
 
-    private fun tv(sym: Symbol): TypeVarType? =
-        if (Character.isLowerCase(sym.baseStr.first())) {
-            tvMapping.getOrPut(sym) { TypeVarType() }
-        } else null
+    private val typeVarFactory = ITypeVarFactory.TypeVarFactory()
+    fun typeVarAnalyser(it: AnalyserState) = typeVarFactory.mkTypeVar(it.expectSym(VAR_SYM))
 
     fun monoTypeAnalyser(it: AnalyserState): MonoType {
         val form = it.expectForm<Form>()
@@ -511,9 +585,7 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv) {
                     BIG_INT -> BigIntType
                     BIG_FLOAT -> BigFloatType
 
-                    else -> {
-                        TODO()
-                    }
+                    else -> if (form.sym.symbolType == VAR_SYM) typeVarFactory.mkTypeVar(form.sym) else TODO()
                 }
             }
 
@@ -521,7 +593,13 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv) {
 
             is SetForm -> SetType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
 
-            is ListForm -> it.nested(form.forms) { AppliedType(monoTypeAnalyser(it), it.varargs(::monoTypeAnalyser)) }
+            is ListForm -> it.nested(form.forms) {
+                it.maybe { it.expectSym(FN_TYPE) }?.let { _ ->
+                    val types = it.varargs { monoTypeAnalyser(it) }
+                    FnType(types.dropLast(1), types.last())
+                }
+                    ?: AppliedType(monoTypeAnalyser(it), it.varargs(::monoTypeAnalyser))
+            }
 
             else -> TODO()
         }
