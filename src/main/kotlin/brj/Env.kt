@@ -9,7 +9,7 @@ abstract class GlobalVar internal constructor() {
 }
 
 
-internal class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
+internal data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
 
 
 data class Attribute internal constructor(val sym: QSymbol, val type: MonoType) {
@@ -53,14 +53,17 @@ internal class JavaImportVar(javaImport: JavaImport, override val value: Any? = 
     override val type = javaImport.type
 }
 
+data class TypeAlias(val sym: QSymbol, val typeVars: List<TypeVarType>?, val type: Type)
 
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),
                  val aliases: Map<Symbol, Symbol> = emptyMap(),
                  val javaImports: Map<QSymbol, JavaImport> = emptyMap(),
+                 val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                  val vars: Map<Symbol, GlobalVar> = emptyMap()) {
 
     operator fun plus(newGlobalVar: GlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym.base to newGlobalVar))
+    operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
 
     val deps: Set<Symbol> by lazy {
         aliases.values.toSet() + refers.values.map { it.ns }

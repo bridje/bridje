@@ -1,5 +1,7 @@
 package brj
 
+import brj.QSymbol.Companion.mkQSym
+
 internal interface Emitter {
     fun evalValueExpr(expr: ValueExpr): Any
     fun emitJavaImport(javaImport: JavaImport): Any
@@ -18,18 +20,14 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
         }
 
         private fun evalDef(expr: DefExpr) {
-            nsEnv += DefVar(QSymbol.mkQSym("${nsEnv.ns}/${expr.sym}"), expr.type, emitter.evalValueExpr(expr.expr))
+            nsEnv += DefVar(mkQSym(nsEnv.ns, expr.sym), expr.type, emitter.evalValueExpr(expr.expr))
         }
 
         private fun evalDecl(decl: DeclExpr) {
-            if (nsEnv.vars[decl.sym] != null) {
-                TODO("sym already exists in NS")
-            }
-
             when (decl) {
-                is VarDeclExpr -> nsEnv += DefVar(QSymbol.mkQSym("${nsEnv.ns}/${decl.sym}"), decl.type, null)
+                is VarDeclExpr -> nsEnv += decl.defVar
                 is PolyVarDeclExpr -> TODO()
-                is TypeAliasDeclExpr -> TODO()
+                is TypeAliasDeclExpr -> nsEnv += decl.typeAlias
                 is KeyDeclExpr -> TODO()
                 is VariantDeclExpr -> TODO()
             }

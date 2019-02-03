@@ -27,28 +27,28 @@ internal class AnalyserTest {
             nsEnv.javaImports)
     }
 
-    private val actionExprAnalyser = ActionExprAnalyser(Env(), NSEnv(mkSym("USER")))
+    private val actionExprAnalyser = ActionExprAnalyser(Env(), NSEnv(mkSym("user")))
 
     private fun analyseDecl(s: String) = actionExprAnalyser.declAnalyser(AnalyserState(readForms(s)))
 
     @Test
     fun `analyses var declarations`() {
-        val foo = mkSym("foo")
+        val foo = mkQSym("user/foo")
 
         assertEquals(
-            VarDeclExpr(foo, Type(IntType)),
+            VarDeclExpr(DefVar(foo, Type(IntType), null)),
             analyseDecl("foo Int"))
 
         assertEquals(
-            VarDeclExpr(foo, Type(FnType(listOf(IntType), StringType))),
+            VarDeclExpr(DefVar(foo, Type(FnType(listOf(IntType), StringType)), null)),
             analyseDecl("(foo Int) Str"))
     }
 
     @Test
     fun `analyses type aliases`() {
-        val foo = mkSym("Foo")
+        val foo = mkQSym("user/Foo")
         assertEquals(
-            TypeAliasDeclExpr(foo, null, Type(FnType(listOf(IntType), StringType))),
+            TypeAliasDeclExpr(TypeAlias(foo, null, Type(FnType(listOf(IntType), StringType)))),
             analyseDecl("Foo (Fn Int Str)"))
     }
 

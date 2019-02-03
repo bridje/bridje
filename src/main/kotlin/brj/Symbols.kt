@@ -41,16 +41,19 @@ class Symbol private constructor(val isKeyword: Boolean, val baseStr: String) {
     override fun toString() = stringRep
 }
 
-class QSymbol private constructor(val isKeyword: Boolean, val ns: Symbol, val base: Symbol) {
+class QSymbol private constructor(val ns: Symbol, val base: Symbol) {
+    val isKeyword = base.isKeyword
     private val stringRep = "${if (isKeyword) ":" else ""}$ns/$base"
 
     companion object {
-        private val INTERNER: Interner<String, QSymbol> = Interner {
-            val groups = Regex("(:)?(.+?)/(.+)").matchEntire(it)!!.groups
-            QSymbol(isKeyword = groups[1] != null, ns = Symbol.mkSym(groups[2]!!.value), base = Symbol.mkSym(groups[3]!!.value))
+        private val INTERNER: Interner<Pair<Symbol, Symbol>, QSymbol> = Interner { (ns, base) -> QSymbol(ns, base) }
+
+        fun mkQSym(str: String): QSymbol {
+            val groups = Regex("(:)?(.+?)/(.+)").matchEntire(str)!!.groups
+            return mkQSym(ns = Symbol.mkSym(groups[2]!!.value), base = Symbol.mkSym("${if (groups[1] != null) ":" else ""}${groups[3]!!.value}"))
         }
 
-        fun mkQSym(str: String) = INTERNER.intern(str)
+        fun mkQSym(ns: Symbol, base: Symbol) = INTERNER.intern(Pair(ns, base))
     }
 
     override fun toString() = stringRep

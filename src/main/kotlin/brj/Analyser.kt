@@ -130,15 +130,13 @@ data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type)
 @Deprecated("vardeclexpr")
 data class TypeDefExpr(val sym: Symbol, val type: Type)
 
-sealed class DeclExpr {
-    abstract val sym: Symbol
-}
+sealed class DeclExpr
 
-data class VarDeclExpr(override val sym: Symbol, val type: Type) : DeclExpr()
-data class PolyVarDeclExpr(override val sym: Symbol, val typeVar: TypeVarType, val type: Type) : DeclExpr()
-data class TypeAliasDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val type: Type) : DeclExpr()
-data class KeyDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val type: Type) : DeclExpr()
-data class VariantDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val types: List<Type>) : DeclExpr()
+internal data class VarDeclExpr(val defVar: DefVar) : DeclExpr()
+internal data class PolyVarDeclExpr(val sym: Symbol, val typeVar: TypeVarType, val type: Type) : DeclExpr()
+internal data class TypeAliasDeclExpr(val typeAlias: TypeAlias) : DeclExpr()
+internal data class KeyDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>?, val type: Type) : DeclExpr()
+internal data class VariantDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>?, val types: List<Type>) : DeclExpr()
 
 internal val IF = mkSym("if")
 internal val FN = mkSym("fn")
@@ -166,7 +164,7 @@ internal class NSAnalyser(val ns: Symbol) {
             it.nested(SetForm::forms) {
                 it.varargs {
                     val sym = it.expectForm<SymbolForm>().sym
-                    refers[sym] = mkQSym("${if (sym.isKeyword) ":" else ""}${nsSym.baseStr}/${sym.baseStr}")
+                    refers[sym] = mkQSym(nsSym, sym)
                 }
             }
         }
@@ -200,8 +198,8 @@ internal class NSAnalyser(val ns: Symbol) {
                         val varDeclExpr = (ActionExprAnalyser(Env(), NSEnv(ns)).declAnalyser(it)) as? VarDeclExpr
                             ?: TODO()
 
-                        val importSym = QSymbol.mkQSym("$alias/${varDeclExpr.sym}")
-                        javaImports[importSym] = JavaImport(clazz, importSym, varDeclExpr.type)
+                        val importSym = QSymbol.mkQSym(alias, varDeclExpr.defVar.sym.base)
+                        javaImports[importSym] = JavaImport(clazz, importSym, varDeclExpr.defVar.type)
                     }
                 }
             }
@@ -543,12 +541,12 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
         return when (decl) {
             is TypeDeclForm.VarDeclForm -> {
                 val returnType = typeAnalyser.monoTypeAnalyser(it)
-                VarDeclExpr(decl.sym, Type(if (decl.paramTypes != null) FnType(decl.paramTypes, returnType) else returnType))
+                VarDeclExpr(DefVar(QSymbol.mkQSym(nsEnv.ns, decl.sym), Type(if (decl.paramTypes != null) FnType(decl.paramTypes, returnType) else returnType), null))
             }
 
             is TypeDeclForm.KeyDeclForm -> KeyDeclExpr(decl.kw, decl.typeVars, Type(typeAnalyser.monoTypeAnalyser(it)))
             is TypeDeclForm.VariantDeclForm -> VariantDeclExpr(decl.kw, decl.typeVars, it.varargs { typeAnalyser.monoTypeAnalyser(it) }.map { Type(it) })
-            is TypeDeclForm.TypeAliasDeclForm -> TypeAliasDeclExpr(decl.sym, decl.typeVars, Type(typeAnalyser.monoTypeAnalyser(it)))
+            is TypeDeclForm.TypeAliasDeclForm -> TypeAliasDeclExpr(TypeAlias(mkQSym(nsEnv.ns, decl.sym), decl.typeVars, Type(typeAnalyser.monoTypeAnalyser(it))))
 
             is TypeDeclForm.PolyVarDeclForm -> {
                 val returnType = typeAnalyser.monoTypeAnalyser(it)
