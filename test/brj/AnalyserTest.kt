@@ -78,5 +78,25 @@ internal class AnalyserTest {
             analyseDecl(":Foo Int Str"))
 
     }
+
+    @Test
+    fun `analyses polyvar`() {
+        val fooVar = mkSym(".foo")
+
+        val polyDecl = analyseDecl("(.foo a) a")
+        val typeVar = (polyDecl as PolyVarDeclExpr).typeVar
+
+        assertEquals(
+            PolyVarDeclExpr(fooVar, typeVar, Type(typeVar)),
+            polyDecl)
+
+        val polyDecl2 = analyseDecl("((.foo a) a) Int")
+        val typeVar2 = (polyDecl2 as PolyVarDeclExpr).typeVar
+
+        assertEquals(
+            PolyVarDeclExpr(fooVar, typeVar2, Type(FnType(listOf(typeVar2), IntType))),
+            polyDecl2)
+
+    }
 }
 
