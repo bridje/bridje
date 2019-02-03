@@ -138,7 +138,7 @@ data class VarDeclExpr(override val sym: Symbol, val type: Type) : DeclExpr()
 data class PolyVarDeclExpr(override val sym: Symbol, val typeVar: TypeVarType, val type: Type) : DeclExpr()
 data class TypeAliasDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val type: Type) : DeclExpr()
 data class KeyDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val type: Type) : DeclExpr()
-data class VariantDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val types: List<Type>?) : DeclExpr()
+data class VariantDeclExpr(override val sym: Symbol, val typeVars: List<TypeVarType>?, val types: List<Type>) : DeclExpr()
 
 internal val IF = mkSym("if")
 internal val FN = mkSym("fn")

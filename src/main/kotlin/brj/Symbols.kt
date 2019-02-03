@@ -19,7 +19,7 @@ private fun symbolType(sym: Symbol): SymbolType {
     val firstIsDot = sym.baseStr.first() == '.'
 
     return if (sym.isKeyword) {
-        if (firstIsUpper) VAR_SYM else KEY_SYM
+        if (firstIsUpper) VARIANT_SYM else KEY_SYM
     } else {
         if (firstIsUpper) TYPE_ALIAS_SYM else if (firstIsDot) POLYVAR_SYM else VAR_SYM
     }

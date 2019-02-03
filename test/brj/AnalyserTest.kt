@@ -59,21 +59,23 @@ internal class AnalyserTest {
             KeyDeclExpr(fooKey, null, Type(IntType)),
             analyseDecl(":foo Int"))
 
-        val typeVar = TypeVarType()
+        val decl = analyseDecl("(:foo a) a")
+        val typeVar = (decl as KeyDeclExpr).typeVars!!.first()
 
         assertEquals(
             KeyDeclExpr(fooKey, listOf(typeVar), Type(typeVar)),
-            analyseDecl("(:foo a) a"))
+            decl)
+
 
         val fooVariant = mkSym(":Foo")
 
         assertEquals(
-            VariantDeclExpr(fooVariant, null, null),
+            VariantDeclExpr(fooVariant, null, emptyList()),
             analyseDecl(":Foo"))
 
         assertEquals(
-            VariantDeclExpr(fooVariant, null, listOf(Type(IntType))),
-            analyseDecl(":Foo Int"))
+            VariantDeclExpr(fooVariant, null, listOf(Type(IntType), Type(StringType))),
+            analyseDecl(":Foo Int Str"))
 
     }
 }
