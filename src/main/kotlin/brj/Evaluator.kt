@@ -5,7 +5,7 @@ import brj.QSymbol.Companion.mkQSym
 internal interface Emitter {
     fun evalValueExpr(expr: ValueExpr): Any
     fun emitJavaImport(javaImport: JavaImport): Any
-    fun emitConstructor(dataTypeConstructor: DataTypeConstructor): Any
+    fun emitVariant(variantKey: VariantKey): Any
 }
 
 internal class Evaluator(var env: Env, private val emitter: Emitter) {
@@ -28,8 +28,8 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
                 is VarDeclExpr -> nsEnv += decl.defVar
                 is PolyVarDeclExpr -> TODO()
                 is TypeAliasDeclExpr -> nsEnv += decl.typeAlias
-                is KeyDeclExpr -> TODO()
-                is VariantDeclExpr -> TODO()
+                is RecordKeyDeclExpr -> nsEnv += decl.recordKey
+                is VariantKeyDeclExpr -> nsEnv += decl.variantKey
             }
         }
 

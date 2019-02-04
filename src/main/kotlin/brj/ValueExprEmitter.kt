@@ -177,7 +177,7 @@ internal class ValueExprEmitter private constructor() {
             clause.bindings
                 ?.mapIndexed { idx, lv ->
                     WriteLocalVarNodeGen.create(
-                        ReadDataTypeParamNode(ReadLocalVarNodeGen.create(dataSlot), idx),
+                        ReadVariantParamNode(ReadLocalVarNodeGen.create(dataSlot), idx),
                         frameDescriptor.findOrAddFrameSlot(lv))
                 }
                 ?.toTypedArray()
@@ -187,13 +187,13 @@ internal class ValueExprEmitter private constructor() {
         var exprNode = emitValueExpr(clause.bodyExpr)
 
         private val conditionProfile = ConditionProfile.createBinaryProfile()!!
-        private val constructorSym = clause.constructor.sym
+        private val variantSym = clause.variantKey.sym
 
         @ExplodeLoop
         fun execute(frame: VirtualFrame) {
-            val value = expectDataObject(readSlot.execute(frame))
+            val value = expectVariantObject(readSlot.execute(frame))
 
-            if (conditionProfile.profile(value.constructor.sym == constructorSym)) {
+            if (conditionProfile.profile(value.variantKey.sym == variantSym)) {
                 for (node in writeBindingNodes) {
                     node.execute(frame)
                 }

@@ -104,7 +104,7 @@ data class BigFloatExpr(val bigFloat: BigDecimal) : ValueExpr()
 data class VectorExpr(val exprs: List<ValueExpr>) : ValueExpr()
 data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr()
 
-data class RecordEntry(val attribute: Attribute, val expr: ValueExpr)
+data class RecordEntry(val recordKey: RecordKey, val expr: ValueExpr)
 data class RecordExpr(val entries: List<RecordEntry>) : ValueExpr()
 
 data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>) : ValueExpr()
@@ -119,7 +119,7 @@ data class LetExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueE
 data class LoopExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr()
 data class RecurExpr(val exprs: List<Pair<LocalVar, ValueExpr>>) : ValueExpr()
 
-data class CaseClause(val constructor: DataTypeConstructor, val bindings: List<LocalVar>?, val bodyExpr: ValueExpr)
+data class CaseClause(val variantKey: VariantKey, val bindings: List<LocalVar>?, val bodyExpr: ValueExpr)
 data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?) : ValueExpr()
 
 data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
@@ -135,8 +135,8 @@ sealed class DeclExpr
 internal data class VarDeclExpr(val defVar: DefVar) : DeclExpr()
 internal data class PolyVarDeclExpr(val sym: Symbol, val typeVar: TypeVarType, val type: Type) : DeclExpr()
 internal data class TypeAliasDeclExpr(val typeAlias: TypeAlias) : DeclExpr()
-internal data class KeyDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>?, val type: Type) : DeclExpr()
-internal data class VariantDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>?, val types: List<Type>) : DeclExpr()
+internal data class RecordKeyDeclExpr(val recordKey: RecordKey) : DeclExpr()
+internal data class VariantKeyDeclExpr(val variantKey: VariantKey) : DeclExpr()
 
 internal val IF = mkSym("if")
 internal val FN = mkSym("fn")
@@ -339,18 +339,18 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         while (it.forms.size > 1) {
             val clauseForm = it.expectForm<Form>()
 
-            fun resolveConstructor(form: Form): ConstructorVar {
+            fun resolveVariantKey(form: Form): VariantKeyVar {
                 return when (form) {
                     is SymbolForm -> resolve(form.sym)
                     else -> TODO()
-                } as? ConstructorVar ?: TODO()
+                } as? VariantKeyVar ?: TODO()
             }
 
-            val (constructor, paramSyms) = when (clauseForm) {
-                is SymbolForm -> Pair(resolveConstructor(clauseForm).constructor, null)
+            val (variantKey, paramSyms) = when (clauseForm) {
+                is SymbolForm -> Pair(resolveVariantKey(clauseForm).variantKey, null)
                 is ListForm -> {
                     it.nested(clauseForm.forms) {
-                        Pair(resolveConstructor(it.expectForm()).constructor, it.varargs { it.expectForm<SymbolForm>().sym })
+                        Pair(resolveVariantKey(it.expectForm()).variantKey, it.varargs { it.expectForm<SymbolForm>().sym })
 
                     }
                 }
@@ -360,7 +360,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             val localVars = paramSyms?.map { it to LocalVar(it) }
 
             clauses += CaseClause(
-                constructor,
+                variantKey,
                 localVars?.map { it.second },
                 (if (localVars == null) this else copy(locals = locals + localVars))
                     .exprAnalyser(it))
@@ -407,7 +407,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
         val state = AnalyserState(form.forms)
         state.varargs {
-            val attr = (resolve(it.expectKw()) as? AttributeVar)?.attribute ?: TODO()
+            val attr = (resolve(it.expectKw()) as? RecordKeyVar)?.recordKey ?: TODO()
 
             entries += RecordEntry(attr, exprAnalyser(it))
         }
@@ -544,8 +544,8 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
                 VarDeclExpr(DefVar(QSymbol.mkQSym(nsEnv.ns, decl.sym), Type(if (decl.paramTypes != null) FnType(decl.paramTypes, returnType) else returnType), null))
             }
 
-            is TypeDeclForm.KeyDeclForm -> KeyDeclExpr(decl.kw, decl.typeVars, Type(typeAnalyser.monoTypeAnalyser(it)))
-            is TypeDeclForm.VariantDeclForm -> VariantDeclExpr(decl.kw, decl.typeVars, it.varargs { typeAnalyser.monoTypeAnalyser(it) }.map { Type(it) })
+            is TypeDeclForm.KeyDeclForm -> RecordKeyDeclExpr(RecordKey(mkQSym(nsEnv.ns, decl.kw), decl.typeVars, typeAnalyser.monoTypeAnalyser(it)))
+            is TypeDeclForm.VariantDeclForm -> VariantKeyDeclExpr(VariantKey(mkQSym(nsEnv.ns, decl.kw), decl.typeVars, it.varargs { typeAnalyser.monoTypeAnalyser(it) }))
             is TypeDeclForm.TypeAliasDeclForm -> TypeAliasDeclExpr(TypeAlias(mkQSym(nsEnv.ns, decl.sym), decl.typeVars, Type(typeAnalyser.monoTypeAnalyser(it))))
 
             is TypeDeclForm.PolyVarDeclForm -> {

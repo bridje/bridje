@@ -43,7 +43,7 @@ class Symbol private constructor(val isKeyword: Boolean, val baseStr: String) {
 
 class QSymbol private constructor(val ns: Symbol, val base: Symbol) {
     val isKeyword = base.isKeyword
-    private val stringRep = "${if (isKeyword) ":" else ""}$ns/$base"
+    private val stringRep = "${if (isKeyword) ":" else ""}$ns/${base.baseStr}"
 
     companion object {
         private val INTERNER: Interner<Pair<Symbol, Symbol>, QSymbol> = Interner { (ns, base) -> QSymbol(ns, base) }

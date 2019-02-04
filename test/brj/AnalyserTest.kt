@@ -54,27 +54,27 @@ internal class AnalyserTest {
 
     @Test
     fun `analyses key decl`() {
-        val fooKey = mkSym(":foo")
+        val fooKey = mkQSym(":user/foo")
         assertEquals(
-            KeyDeclExpr(fooKey, null, Type(IntType)),
+            RecordKeyDeclExpr(RecordKey(fooKey, null, IntType)),
             analyseDecl(":foo Int"))
 
         val decl = analyseDecl("(:foo a) a")
-        val typeVar = (decl as KeyDeclExpr).typeVars!!.first()
+        val typeVar = (decl as RecordKeyDeclExpr).recordKey.typeVars!!.first()
 
         assertEquals(
-            KeyDeclExpr(fooKey, listOf(typeVar), Type(typeVar)),
+            RecordKeyDeclExpr(RecordKey(fooKey, listOf(typeVar), typeVar)),
             decl)
 
 
-        val fooVariant = mkSym(":Foo")
+        val fooVariant = mkQSym(":user/Foo")
 
         assertEquals(
-            VariantDeclExpr(fooVariant, null, emptyList()),
+            VariantKeyDeclExpr(VariantKey(fooVariant, null, emptyList())),
             analyseDecl(":Foo"))
 
         assertEquals(
-            VariantDeclExpr(fooVariant, null, listOf(Type(IntType), Type(StringType))),
+            VariantKeyDeclExpr(VariantKey(fooVariant, null, listOf(IntType, StringType))),
             analyseDecl(":Foo Int Str"))
 
     }

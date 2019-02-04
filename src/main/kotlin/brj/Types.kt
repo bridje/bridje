@@ -119,25 +119,6 @@ data class SetType(val elType: MonoType) : MonoType() {
     override fun toString(): String = "#{$elType}"
 }
 
-class RecordTypeVar {
-    override fun toString() = "r${hashCode()}"
-}
-
-data class RecordType(val attributes: Set<Attribute>, val recordTv: RecordTypeVar?) : MonoType() {
-    override fun unifyEq(other: MonoType): List<TypeEq> {
-        TODO()
-    }
-
-    override fun applyMapping(mapping: Mapping): RecordType {
-        return recordTv?.let { tv ->
-            mapping.recordMapping[tv]
-                ?.let { type -> RecordType(attributes + type.attributes, type.recordTv) }
-        } ?: this
-    }
-
-    override fun toString() = "{${attributes.joinToString()}${recordTv?.let { "& $it" }}}"
-}
-
 data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : MonoType() {
     override fun unifyEq(other: MonoType): List<TypeEq> {
         val otherFnType = ensure<FnType>(other)
@@ -152,11 +133,37 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
     override fun toString(): String = "(Fn ${paramTypes.joinToString(separator = " ")} $returnType)"
 }
 
-data class DataTypeType(val dataType: DataType) : MonoType() {
-    override fun unifyEq(other: MonoType): List<TypeEq> =
-        if (this == other) emptyList() else throw UnificationError(this, other)
+class RecordTypeVar {
+    override fun toString() = "r${hashCode()}"
+}
 
-    override fun toString(): String = dataType.toString()
+data class RecordType(val recordKeys: Set<RecordKey>, val recordTv: RecordTypeVar?) : MonoType() {
+    override fun unifyEq(other: MonoType): List<TypeEq> {
+        TODO()
+    }
+
+    override fun applyMapping(mapping: Mapping): RecordType {
+        return recordTv?.let { tv ->
+            mapping.recordMapping[tv]
+                ?.let { type -> RecordType(recordKeys + type.recordKeys, type.recordTv) }
+        } ?: this
+    }
+
+    override fun toString() = "{${recordKeys.joinToString()}${recordTv?.let { "& $it" }}}"
+}
+
+data class VariantType(val variantKeys: Set<VariantKey>) : MonoType() {
+    override fun unifyEq(other: MonoType): List<TypeEq> {
+        TODO()
+    }
+
+    override fun fmap(f: (MonoType) -> MonoType): MonoType {
+        TODO()
+    }
+
+    override fun applyMapping(mapping: Mapping): MonoType {
+        TODO()
+    }
 }
 
 data class AppliedType(val type: MonoType, val params: List<MonoType>) : MonoType() {
@@ -237,10 +244,10 @@ private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<Value
 }
 
 private fun recordExprTyping(expr: RecordExpr): Typing {
-    val typings = expr.entries.map { it.attribute to valueExprTyping(it.expr) }
+    val typings = expr.entries.map { it.recordKey to valueExprTyping(it.expr) }
 
     return combine(
-        RecordType(expr.entries.mapTo(mutableSetOf(), RecordEntry::attribute), null),
+        RecordType(expr.entries.mapTo(mutableSetOf(), RecordEntry::recordKey), null),
         typings.map { it.second },
         extraEqs = typings.map { it.first.type to it.second.monoType })
 }
@@ -330,7 +337,7 @@ private fun caseExprTyping(expr: CaseExpr): Typing {
     val exprTyping = valueExprTyping(expr.expr)
 
     val clauseTypings = expr.clauses.map { clause ->
-        if (clause.constructor.paramTypes?.size != clause.bindings?.size) TODO()
+        if (clause.variantKey.paramTypes?.size != clause.bindings?.size) TODO()
         clause to valueExprTyping(clause.bodyExpr)
     }
 
@@ -340,12 +347,15 @@ private fun caseExprTyping(expr: CaseExpr): Typing {
     return combine(returnType,
         typings = (clauseTypings.map { it.second } + exprTyping + defaultTyping).filterNotNull(),
         extraEqs = (
-            clauseTypings.map { exprTyping.monoType to it.first.constructor.dataType.monoType }
+            clauseTypings.map {
+                TODO()
+//                exprTyping.monoType to it.first.variantKey.monoType
+            }
                 + clauseTypings.map { returnType to it.second.monoType }
                 + defaultTyping?.let { returnType to it.monoType }).filterNotNull(),
         extraLVs = clauseTypings.flatMap { (clause, _) ->
-            if (clause.constructor.paramTypes != null && clause.bindings != null)
-                clause.bindings.zip(clause.constructor.paramTypes)
+            if (clause.variantKey.paramTypes != null && clause.bindings != null)
+                clause.bindings.zip(clause.variantKey.paramTypes)
             else emptyList()
         }
     )

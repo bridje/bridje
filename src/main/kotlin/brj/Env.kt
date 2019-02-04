@@ -12,39 +12,25 @@ abstract class GlobalVar internal constructor() {
 internal data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
 
 
-data class Attribute internal constructor(val sym: QSymbol, val type: MonoType) {
+data class RecordKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>?, val type: MonoType) {
     override fun toString() = sym.toString()
 }
 
-data class AttributeVar internal constructor(val attribute: Attribute, override var value: Any?) : GlobalVar() {
-    override val sym = attribute.sym
+data class RecordKeyVar internal constructor(val recordKey: RecordKey, override var value: Any?) : GlobalVar() {
+    override val sym = recordKey.sym
+
+    // function from record to type
     override val type: Type get() = TODO("not implemented")
 }
 
-
-data class DataType internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>?, val constructors: List<Symbol>) {
-    val monoType: MonoType
-
-    init {
-        val dataTypeType = DataTypeType(this)
-        monoType = if (typeVars == null) dataTypeType else AppliedType(dataTypeType, typeVars)
-    }
-
+data class VariantKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>?, val paramTypes: List<MonoType>?) {
     override fun toString() = sym.toString()
 }
 
-data class DataTypeConstructor internal constructor(val sym: QSymbol, val dataType: DataType, val paramTypes: List<MonoType>?)
-
-
-internal class ConstructorVar(val constructor: DataTypeConstructor, override var value: Any?) : GlobalVar() {
-    override val sym = constructor.sym
-    override val type =
-        Type(
-            if (constructor.paramTypes != null) FnType(constructor.paramTypes, constructor.dataType.monoType)
-            else constructor.dataType.monoType,
-            emptySet())
+data class VariantKeyVar internal constructor(val variantKey: VariantKey, override var value: Any?) : GlobalVar() {
+    override val sym = variantKey.sym
+    override val type: Type get() = TODO()
 }
-
 
 data class JavaImport internal constructor(val clazz: Class<*>, val sym: QSymbol, val type: Type)
 
@@ -60,10 +46,14 @@ data class NSEnv(val ns: Symbol,
                  val aliases: Map<Symbol, Symbol> = emptyMap(),
                  val javaImports: Map<QSymbol, JavaImport> = emptyMap(),
                  val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
+                 val recordKeys: Map<Symbol, RecordKey> = emptyMap(),
+                 val variantKeys: Map<Symbol, VariantKey> = emptyMap(),
                  val vars: Map<Symbol, GlobalVar> = emptyMap()) {
 
-    operator fun plus(newGlobalVar: GlobalVar): NSEnv = copy(vars = vars + (newGlobalVar.sym.base to newGlobalVar))
+    operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
+    operator fun plus(recordKey: RecordKey) = copy(recordKeys = recordKeys + (recordKey.sym.base to recordKey))
+    operator fun plus(variantKey: VariantKey) = copy(variantKeys = variantKeys + (variantKey.sym.base to variantKey))
 
     val deps: Set<Symbol> by lazy {
         aliases.values.toSet() + refers.values.map { it.ns }
