@@ -1,6 +1,7 @@
 package brj
 
-import brj.BridjeTypesGen.expectVariantObject
+import brj.BridjeTypesGen.*
+import brj.BrjLanguage.Companion.getCtx
 import brj.BrjLanguage.Companion.getLang
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
@@ -27,7 +28,7 @@ import java.math.BigInteger
     Boolean::class, String::class,
     Long::class, Double::class,
     BigInteger::class, BigDecimal::class,
-    BridjeFunction::class, VariantObject::class)
+    BridjeFunction::class, RecordObject::class, VariantObject::class)
 internal abstract class BridjeTypes
 
 @TypeSystemReference(BridjeTypes::class)
@@ -69,6 +70,8 @@ internal fun makeRootNode(node: ValueNode, frameDescriptor: FrameDescriptor = Fr
 
 internal fun createCallTarget(rootNode: RootNode) = Truffle.getRuntime().createCallTarget(rootNode)
 
+private fun constantly(obj: Any) = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(obj))
+
 private val functionForeignAccess = ForeignAccess.create(BridjeFunction::class.java, object : ForeignAccess.StandardFactory {
     override fun accessIsExecutable() = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(true))
     override fun accessExecute(argumentsLength: Int) = Truffle.getRuntime().createCallTarget(object : RootNode(getLang()) {
@@ -79,7 +82,7 @@ private val functionForeignAccess = ForeignAccess.create(BridjeFunction::class.j
         override fun execute(frame: VirtualFrame) =
         // FIXME I don't reckon this is very performant
             callNode.call(
-                (frame.arguments[0] as BridjeFunction).callTarget,
+                expectBridjeFunction(frame.arguments[0]).callTarget,
                 frame.arguments.sliceArray(1 until frame.arguments.size))
     })
 })!!
@@ -89,6 +92,59 @@ internal class BridjeFunction internal constructor(rootNode: RootNode) : Truffle
 
     override fun getForeignAccess() = functionForeignAccess
 }
+
+class RecordObject(val keys: List<RecordKey>, val dynamicObject: DynamicObject, private val faf: ForeignAccess.StandardFactory) : TruffleObject {
+    override fun getForeignAccess() = ForeignAccess.create(RecordObject::class.java, faf)
+
+    @TruffleBoundary
+    override fun toString(): String = "{${keys.joinToString(", ") { key -> "${key.sym} ${dynamicObject[key]}" }}}"
+}
+
+internal class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode() {
+    @Child
+    var readArgNode = ReadArgNode(0)
+
+    override fun execute(frame: VirtualFrame) = expectRecordObject(readArgNode.execute(frame)).dynamicObject[recordKey.sym.toString()]
+}
+
+internal class RecordKeyInteropReadNode : ValueNode() {
+    override fun execute(frame: VirtualFrame) = expectRecordObject(frame.arguments[0]).dynamicObject[expectString(frame.arguments[1])]
+}
+
+typealias RecordObjectFactory = (Array<Any?>) -> RecordObject
+
+internal object RecordEmitter {
+    private val LAYOUT = Layout.createLayout()
+
+    internal data class RecordObjectType(val keys: Set<RecordKey>) : ObjectType()
+
+    internal fun recordObjectFactory(keys: List<RecordKey>): RecordObjectFactory {
+        val allocator = LAYOUT.createAllocator()
+        var shape = LAYOUT.createShape(RecordObjectType(keys.toSet()))
+
+        keys.forEach { key ->
+            shape = shape.addProperty(Property.create(key.sym.toString(), allocator.locationForType(key.type.javaType), 0))
+        }
+
+        val factory = shape.createFactory()
+
+        val faf = object : ForeignAccess.StandardFactory {
+            override fun accessHasSize() = constantly(true)
+            override fun accessGetSize() = constantly(keys.size)
+            override fun accessHasKeys() = constantly(true)
+            override fun accessKeys() = constantly(getCtx().truffleEnv.asGuestValue(keys.map { it.sym.toString() }.toList()))
+
+            override fun accessRead(): CallTarget = Truffle.getRuntime().createCallTarget(makeRootNode(RecordKeyInteropReadNode()))
+        }
+
+        return { vals ->
+            RecordObject(keys, factory.newInstance(*vals), faf)
+        }
+    }
+
+    internal fun emitRecordKey(recordKey: RecordKey) = BridjeFunction(makeRootNode(RecordKeyReadNode(recordKey), FrameDescriptor()))
+}
+
 
 class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject, private val faf: ForeignAccess.StandardFactory) : TruffleObject {
     override fun getForeignAccess() = ForeignAccess.create(VariantObject::class.java, faf)!!
@@ -108,21 +164,13 @@ internal class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int)
 }
 
 internal class VariantKeyInteropReadNode(variantKey: VariantKey) : ValueNode() {
-    private val paramCount = variantKey.paramTypes?.size
+    private val paramCount = variantKey.paramTypes!!.size
 
     override fun execute(frame: VirtualFrame): Any {
-        val obj = frame.arguments[0] as VariantObject
-        val idxArg = frame.arguments[1]
-        return when (idxArg) {
-            is Long -> {
-                val idx = idxArg.toInt()
-                if (paramCount == null || idx >= paramCount) throw IndexOutOfBoundsException(idx)
+        val obj = expectVariantObject(frame.arguments[0])
+        val idx = expectLong(frame.arguments[1]).toInt()
 
-                obj.dynamicObject[idx]
-            }
-
-            else -> TODO()
-        }
+        return if (idx < paramCount) obj.dynamicObject[idx] else throw IndexOutOfBoundsException(idx)
     }
 }
 
@@ -144,7 +192,7 @@ internal class VariantConstructorNode(private val variantObjectFactory: VariantO
 internal object VariantEmitter {
     private val LAYOUT = Layout.createLayout()
 
-    internal class VariantObjectType(val variantKey: VariantKey) : ObjectType()
+    internal data class VariantObjectType(val variantKey: VariantKey) : ObjectType()
 
     private fun objectFactory(variantKey: VariantKey): VariantObjectFactory {
         val allocator = LAYOUT.createAllocator()
@@ -156,17 +204,14 @@ internal object VariantEmitter {
 
         val factory = shape.createFactory()
 
-        return { args ->
-            VariantObject(variantKey, factory.newInstance(*args), object : ForeignAccess.StandardFactory {
-                private fun constantly(obj: Any) = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(obj))
+        val faf = object : ForeignAccess.StandardFactory {
+            override fun accessHasSize(): CallTarget = constantly(variantKey.paramTypes != null)
+            override fun accessGetSize(): CallTarget? = variantKey.paramTypes?.let { constantly(it.size) }
 
-                override fun accessHasSize(): CallTarget = constantly(true)
-                override fun accessGetSize(): CallTarget? = variantKey.paramTypes?.let { constantly(it.size) }
-                override fun accessHasKeys(): CallTarget = constantly(true)
-
-                override fun accessRead(): CallTarget = Truffle.getRuntime().createCallTarget(makeRootNode(VariantKeyInteropReadNode(variantKey)))
-            })
+            override fun accessRead(): CallTarget = Truffle.getRuntime().createCallTarget(makeRootNode(VariantKeyInteropReadNode(variantKey)))
         }
+
+        return { args -> VariantObject(variantKey, factory.newInstance(*args), faf) }
     }
 
     fun emitVariant(variantKey: VariantKey): TruffleObject {

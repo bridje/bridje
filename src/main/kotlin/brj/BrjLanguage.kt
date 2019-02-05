@@ -21,7 +21,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
     override fun createContext(env: TruffleLanguage.Env) = BridjeContext(env, brj.Env())
 
     override fun isObjectOfLanguage(obj: Any): Boolean =
-        obj is VariantObject || obj is BridjeFunction
+        obj is RecordObject || obj is VariantObject || obj is BridjeFunction
 
     override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
         val source = request.source
@@ -51,6 +51,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
                 val evaluator = Evaluator(ctx.env, object : Emitter {
                     override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter.evalValueExpr(expr)
                     override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter.emitJavaImport(javaImport)
+                    override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter.emitRecordKey(recordKey)
                     override fun emitVariant(variantKey: VariantKey) = VariantEmitter.emitVariant(variantKey)
                 })
 

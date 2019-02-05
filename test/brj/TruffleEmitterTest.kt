@@ -5,6 +5,7 @@ import brj.Symbol.Companion.mkSym
 import brj.ValueExprEmitter.Companion.evalValueExpr
 import brj.VariantEmitter.emitVariant
 import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.Value
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -43,5 +44,25 @@ internal class TruffleEmitterTest {
                         CaseClause(variantKey, listOf(localVar), IntExpr(12)),
                         CaseClause(variantKey2, listOf(localVar), LocalVarExpr(localVar))),
                     IntExpr(43))))
+    }
+
+    @Test
+    internal fun `record introduction and elimination`() {
+        val count = mkQSym(":user/count")
+        val message = mkQSym(":user/message")
+
+        val countKey = RecordKey(count, null, IntType)
+        val messageKey = RecordKey(message, null, StringType)
+
+        val record = Value.asValue(evalValueExpr(
+            RecordExpr(listOf(
+                RecordEntry(countKey, IntExpr(42)),
+                RecordEntry(messageKey, StringExpr("Hello world!"))))))
+
+        assertEquals(setOf(count.toString(), message.toString()), record.memberKeys)
+        assertEquals(42L, record.getMember(count.toString()).asLong())
+        assertEquals("Hello world!", record.getMember(message.toString()).asString())
+
+        assertEquals(42L, Value.asValue(RecordEmitter.emitRecordKey(countKey)).execute(record).asLong())
     }
 }

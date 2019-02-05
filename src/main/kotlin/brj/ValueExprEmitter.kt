@@ -68,6 +68,28 @@ internal class ValueExprEmitter private constructor() {
         }
     }
 
+    inner class RecordNode(expr: RecordExpr) : ValueNode() {
+        val keys = expr.entries.map(RecordEntry::recordKey)
+        val factory = RecordEmitter.recordObjectFactory(keys)
+
+        @Children
+        val valNodes = expr.entries.map { emitValueExpr(it.expr) }.toTypedArray()
+
+        @TruffleBoundary
+        private fun buildRecord(vals: Array<Any?>) = factory(vals)
+
+        @ExplodeLoop
+        override fun execute(frame: VirtualFrame): Any {
+            val vals = arrayOfNulls<Any>(valNodes.size)
+
+            for (idx in valNodes.indices) {
+                vals[idx] = valNodes[idx].execute(frame)
+            }
+
+            return buildRecord(vals)
+        }
+    }
+
     inner class DoNode(expr: DoExpr) : ValueNode() {
         @Children
         val exprNodes = expr.exprs.map(::emitValueExpr).toTypedArray()
@@ -307,7 +329,7 @@ internal class ValueExprEmitter private constructor() {
             is VectorExpr -> VectorNode(expr)
             is SetExpr -> SetNode(expr)
 
-            is RecordExpr -> TODO()
+            is RecordExpr -> RecordNode(expr)
 
             is FnExpr -> {
                 val emitter = ValueExprEmitter()
