@@ -1,5 +1,6 @@
 package brj
 
+import brj.JavaImportEmitter.emitJavaImport
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.ValueExprEmitter.Companion.evalValueExpr
@@ -65,5 +66,11 @@ internal class TruffleEmitterTest {
         assertEquals("Hello world!", record.getMember(message.toString()).asString())
 
         assertEquals(42L, Value.asValue(RecordEmitter.emitRecordKey(countKey)).execute(record).asLong())
+    }
+
+    @Test
+    internal fun `java interop`() {
+        val fn = Value.asValue(emitJavaImport(JavaImport(Foo::class.java, mkQSym("Foo/plus"), Type(FnType(listOf(IntType, IntType), BoolType)))))
+        assertEquals(5, fn.execute(3, 2).asLong())
     }
 }
