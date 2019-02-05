@@ -96,7 +96,27 @@ internal class AnalyserTest {
         assertEquals(
             PolyVarDeclExpr(fooVar, typeVar2, Type(FnType(listOf(typeVar2), IntType))),
             polyDecl2)
+    }
 
+    @Test
+    fun `analyses record`() {
+        val user = mkSym("user")
+        val count = mkQSym(":user/count")
+        val message = mkQSym(":user/message")
+
+        val countKey = RecordKey(count, null, IntType)
+        val messageKey = RecordKey(message, null, StringType)
+
+        val nsEnv = NSEnv(user, vars = mapOf(
+            count.base to RecordKeyVar(countKey, null),
+            message.base to RecordKeyVar(messageKey, null)))
+
+        assertEquals(
+            DoExpr(emptyList(), RecordExpr(listOf(
+                RecordEntry(countKey, IntExpr(42)),
+                RecordEntry(messageKey, StringExpr("Hello world!"))))),
+
+            analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, readForms("""{:count 42, :message "Hello world!"}""")))
     }
 }
 

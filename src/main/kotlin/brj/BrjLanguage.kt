@@ -29,7 +29,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         val env = getCtx().env
         val forms = readForms(source.reader)
 
-        val expr = ValueExprAnalyser(env, NSEnv(USER)).analyseValueExpr(forms)
+        val expr = analyseValueExpr(env, NSEnv(USER), forms)
 
         println("type: ${valueExprType(expr)}")
 

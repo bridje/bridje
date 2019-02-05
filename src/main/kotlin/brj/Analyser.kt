@@ -80,12 +80,6 @@ internal data class AnalyserState(var forms: List<Form>) {
         val actualSym = expectSym()
         if (expectedSym == actualSym) return expectedSym else throw AnalyserError.ExpectedSymbol
     }
-
-    fun expectKw(): Symbol {
-        val sym = expectForm<SymbolForm>().sym
-        if (!sym.isKeyword) TODO()
-        return sym
-    }
 }
 
 class LocalVar(val sym: Symbol) {
@@ -407,7 +401,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
         val state = AnalyserState(form.forms)
         state.varargs {
-            val attr = (resolve(it.expectKw()) as? RecordKeyVar)?.recordKey ?: TODO()
+            val attr = (resolve(it.expectSym(RECORD_KEY_SYM)) as? RecordKeyVar)?.recordKey ?: TODO()
 
             entries += RecordEntry(attr, exprAnalyser(it))
         }
@@ -441,6 +435,8 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
     fun analyseValueExpr(forms: List<Form>): ValueExpr = doAnalyser(AnalyserState(forms))
 }
+
+fun analyseValueExpr(env: Env, nsEnv: NSEnv, forms: List<Form>): ValueExpr = ValueExprAnalyser(env, nsEnv).analyseValueExpr(forms)
 
 internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private val typeDefs: Map<Symbol, Type> = emptyMap()) {
 
@@ -498,8 +494,8 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
                 // (:: <sym> <type>)
                 when (sym.symbolType) {
                     VAR_SYM -> TypeDeclForm.VarDeclForm(sym)
-                    KEY_SYM -> TypeDeclForm.KeyDeclForm(sym)
-                    VARIANT_SYM -> TypeDeclForm.VariantDeclForm(sym)
+                    RECORD_KEY_SYM -> TypeDeclForm.KeyDeclForm(sym)
+                    VARIANT_KEY_SYM -> TypeDeclForm.VariantDeclForm(sym)
                     TYPE_ALIAS_SYM -> TypeDeclForm.TypeAliasDeclForm(sym)
                     POLYVAR_SYM -> TODO("polyvar sym needs a type-var")
                 }
@@ -514,8 +510,8 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
                                 VAR_SYM -> TypeDeclForm.VarDeclForm(sym, it.varargs { typeAnalyser.monoTypeAnalyser(it) })
 
                                 // (:: (:Ok a) a)
-                                KEY_SYM -> TypeDeclForm.KeyDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
-                                VARIANT_SYM -> TypeDeclForm.VariantDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
+                                RECORD_KEY_SYM -> TypeDeclForm.KeyDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
+                                VARIANT_KEY_SYM -> TypeDeclForm.VariantDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
 
                                 // (:: (.mzero a) a)
                                 POLYVAR_SYM -> TypeDeclForm.PolyVarDeclForm(sym, typeAnalyser.typeVarAnalyser(it))

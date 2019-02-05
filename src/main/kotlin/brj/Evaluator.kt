@@ -28,8 +28,8 @@ internal class Evaluator(var env: Env, private val emitter: Emitter) {
                 is VarDeclExpr -> nsEnv += decl.defVar
                 is PolyVarDeclExpr -> TODO()
                 is TypeAliasDeclExpr -> nsEnv += decl.typeAlias
-                is RecordKeyDeclExpr -> nsEnv += decl.recordKey
-                is VariantKeyDeclExpr -> nsEnv += decl.variantKey
+                is RecordKeyDeclExpr -> nsEnv += RecordKeyVar(decl.recordKey, TODO())
+                is VariantKeyDeclExpr -> nsEnv += VariantKeyVar(decl.variantKey, emitter.emitVariant(decl.variantKey))
             }
         }
 

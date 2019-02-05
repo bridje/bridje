@@ -46,14 +46,10 @@ data class NSEnv(val ns: Symbol,
                  val aliases: Map<Symbol, Symbol> = emptyMap(),
                  val javaImports: Map<QSymbol, JavaImport> = emptyMap(),
                  val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
-                 val recordKeys: Map<Symbol, RecordKey> = emptyMap(),
-                 val variantKeys: Map<Symbol, VariantKey> = emptyMap(),
                  val vars: Map<Symbol, GlobalVar> = emptyMap()) {
 
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
-    operator fun plus(recordKey: RecordKey) = copy(recordKeys = recordKeys + (recordKey.sym.base to recordKey))
-    operator fun plus(variantKey: VariantKey) = copy(variantKeys = variantKeys + (variantKey.sym.base to variantKey))
 
     val deps: Set<Symbol> by lazy {
         aliases.values.toSet() + refers.values.map { it.ns }

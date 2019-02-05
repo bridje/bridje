@@ -11,7 +11,7 @@ private class Interner<K, V>(val f: (K) -> V) {
 }
 
 internal enum class SymbolType {
-    VAR_SYM, KEY_SYM, VARIANT_SYM, TYPE_ALIAS_SYM, POLYVAR_SYM
+    VAR_SYM, RECORD_KEY_SYM, VARIANT_KEY_SYM, TYPE_ALIAS_SYM, POLYVAR_SYM
 }
 
 private fun symbolType(sym: Symbol): SymbolType {
@@ -19,7 +19,7 @@ private fun symbolType(sym: Symbol): SymbolType {
     val firstIsDot = sym.baseStr.first() == '.'
 
     return if (sym.isKeyword) {
-        if (firstIsUpper) VARIANT_SYM else KEY_SYM
+        if (firstIsUpper) VARIANT_KEY_SYM else RECORD_KEY_SYM
     } else {
         if (firstIsUpper) TYPE_ALIAS_SYM else if (firstIsDot) POLYVAR_SYM else VAR_SYM
     }
