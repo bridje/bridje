@@ -2,8 +2,8 @@ package brj
 
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
-import kotlin.test.Test
-import kotlin.test.assertEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 internal class AnalyserTest {
     fun analyseNS(s: String): NSEnv = NSAnalyser(Symbol.mkSym("foo")).analyseNS(AnalyserState(readForms(s)))
