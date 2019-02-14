@@ -4,7 +4,7 @@ import brj.BrjLanguage.Companion.require
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
 
-fun main(args: Array<String>) {
+fun main() {
     val ctx = Context.newBuilder("brj").allowAllAccess(true).build()
 
     ctx.enter()
@@ -23,7 +23,7 @@ fun main(args: Array<String>) {
                                (:: (plus Int Int) Int))}})
 
         (:: :Void)
-        (:: Void (+ :Void))
+        ;; (:: Void (+ :Void))
 
         (:: (:Just a) a)
         (:: :Nothing)
@@ -49,12 +49,12 @@ fun main(args: Array<String>) {
 
         (:: :first-name Str)
         (:: :last-name Str)
-        (:: User {:first-name :last-name})
+        ;; (:: User {:first-name :last-name})
 
-        (def (count-down x)
-          (loop [y x
-                 res #{}]
-            (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
+        ;; (def (count-down x)
+        ;;  (loop [y x
+        ;;         res #{}]
+        ;;    (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)

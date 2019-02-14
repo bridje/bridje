@@ -12,30 +12,22 @@ internal val BIG_INT = mkSym("BigInt")
 internal val BIG_FLOAT = mkSym("BigFloat")
 internal val FN_TYPE = mkSym("Fn")
 
-internal data class Mapping(val typeMapping: Map<TypeVarType, MonoType> = emptyMap(),
-                            val recordMapping: Map<RecordTypeVar, RecordType> = emptyMap()) {
+internal data class Mapping(val typeMapping: Map<TypeVarType, MonoType> = emptyMap()) {
     fun applyMapping(mapping: Mapping) =
-        Mapping(
-            this.typeMapping.mapValues { e -> e.value.applyMapping(mapping) }
-                .plus(mapping.typeMapping),
-
-            this.recordMapping.mapValues { e -> e.value.applyMapping(mapping) }
-                .plus(mapping.recordMapping))
-
-    fun map(tv: TypeVarType) = typeMapping.getOrDefault(tv, tv)
+        Mapping(this.typeMapping
+            .mapValues { e -> e.value.applyMapping(mapping) }
+            .plus(mapping.typeMapping))
 }
 
 typealias MonoEnv = Map<LocalVar, MonoType>
 
 internal class Instantiator {
     private val tvMapping = mutableMapOf<TypeVarType, TypeVarType>()
-    private val recordMapping = mutableMapOf<RecordTypeVar, RecordTypeVar>()
 
-    operator fun invoke(type: MonoType): MonoType {
+    fun instantiate(type: MonoType): MonoType {
         return when (type) {
-            is TypeVarType -> tvMapping.getOrPut(type) { TypeVarType() }
-            is RecordType -> if (type.recordTv == null) type else type.copy(recordTv = recordMapping.getOrPut(type.recordTv) { RecordTypeVar() })
-            else -> type.fmap(this::invoke)
+            is TypeVarType -> tvMapping.getOrPut(type, ::TypeVarType)
+            else -> type.fmap(this::instantiate)
         }
     }
 }
@@ -133,27 +125,14 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
     override fun toString(): String = "(Fn ${paramTypes.joinToString(separator = " ")} $returnType)"
 }
 
-class RecordTypeVar {
-    override fun toString() = "r${hashCode()}"
-}
-
-data class RecordType(val recordKeys: Set<RecordKey>, val recordTv: RecordTypeVar?) : MonoType() {
+data class RecordType(val hasKeys: Set<RecordKey>,
+                      val mustHaveKeys: Set<RecordKey>?,
+                      val typeVar: TypeVarType?) : MonoType() {
     override fun unifyEq(other: MonoType): List<TypeEq> {
         TODO()
     }
 
     override fun applyMapping(mapping: Mapping): RecordType {
-        return recordTv?.let { tv ->
-            mapping.recordMapping[tv]
-                ?.let { type -> RecordType(recordKeys + type.recordKeys, type.recordTv) }
-        } ?: this
-    }
-
-    override fun toString() = "{${recordKeys.joinToString()}${recordTv?.let { "& $it" }}}"
-}
-
-data class VariantType(val variantKeys: Set<VariantKey>) : MonoType() {
-    override fun unifyEq(other: MonoType): List<TypeEq> {
         TODO()
     }
 
@@ -161,24 +140,45 @@ data class VariantType(val variantKeys: Set<VariantKey>) : MonoType() {
         TODO()
     }
 
-    override fun applyMapping(mapping: Mapping): MonoType {
-        TODO()
-    }
+    override fun toString() = "{${hasKeys.joinToString()}${typeVar?.let { " & $it" }}}"
 }
 
-data class AppliedType(val type: MonoType, val params: List<MonoType>) : MonoType() {
-    override fun unifyEq(other: MonoType): List<TypeEq> {
-        val otherAppliedType = ensure<AppliedType>(other)
-        if (this.params.size != otherAppliedType.params.size) throw UnificationError(this, other)
+data class VariantType(val atLeastKeys: Set<VariantKey>?,
+                       val atMostKeys: Set<VariantKey>?,
+                       val typeVar: TypeVarType) : MonoType() {
 
-        return params.zip(otherAppliedType.params, ::TypeEq)
-            .plus(TypeEq(this.type, otherAppliedType.type))
+    private fun minus(otherVariant: VariantType, newTypeVar: TypeVarType): VariantType =
+        if (atMostKeys != null
+            && otherVariant.atLeastKeys != null
+            && otherVariant.atLeastKeys.minus(atMostKeys).isNotEmpty())
+
+            TODO()
+        else
+            VariantType(
+                otherVariant.atLeastKeys.orEmpty() - this.atLeastKeys.orEmpty(),
+                otherVariant.atMostKeys.orEmpty() - this.atMostKeys.orEmpty(),
+                newTypeVar)
+
+    override fun unifyEq(other: MonoType): List<TypeEq> {
+        val otherVariant = ensure<VariantType>(other)
+
+        val newTypeVar = TypeVarType()
+
+        return listOf(
+            typeVar to otherVariant.minus(this, newTypeVar),
+            otherVariant.typeVar to this.minus(otherVariant, newTypeVar))
     }
 
-    override fun fmap(f: (MonoType) -> MonoType): MonoType =
-        AppliedType(f(type), params.map(f))
-
-    override fun toString(): String = "($type ${params.joinToString(" ")})"
+    override fun applyMapping(mapping: Mapping): MonoType =
+        (mapping.typeMapping[typeVar] as? VariantType)?.let { other ->
+            VariantType(
+                atLeastKeys.orEmpty().union(other.atLeastKeys.orEmpty()),
+                if (atMostKeys == null || other.atMostKeys == null)
+                    atMostKeys ?: other.atMostKeys
+                else
+                    atMostKeys.intersect(other.atMostKeys),
+                other.typeVar)
+        } ?: this
 }
 
 sealed class TypeException : Exception() {
@@ -233,7 +233,10 @@ private fun combine(
             .flatMapTo(extraLVs.toMutableList()) { it.monoEnv.toList() }
             .mapTo(extraEqs.toMutableList()) { e -> TypeEq(lvTvs.getOrPut(e.first, ::TypeVarType), e.second) })
 
-    return Typing(returnType.applyMapping(mapping), lvTvs.mapValues { e -> mapping.map(e.value) }, typings.flatMapTo(HashSet(), Typing::effects))
+    return Typing(
+        returnType.applyMapping(mapping),
+        lvTvs.mapValues { e -> mapping.typeMapping.getOrDefault(e.value, e.value) },
+        typings.flatMapTo(HashSet(), Typing::effects))
 }
 
 private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<ValueExpr>): Typing {
@@ -247,7 +250,7 @@ private fun recordExprTyping(expr: RecordExpr): Typing {
     val typings = expr.entries.map { it.recordKey to valueExprTyping(it.expr) }
 
     return combine(
-        RecordType(expr.entries.mapTo(mutableSetOf(), RecordEntry::recordKey), null),
+        RecordType(expr.entries.mapTo(mutableSetOf(), RecordEntry::recordKey), null, TypeVarType()),
         typings.map { it.second },
         extraEqs = typings.map { it.first.type to it.second.monoType })
 }
@@ -347,11 +350,8 @@ private fun caseExprTyping(expr: CaseExpr): Typing {
     return combine(returnType,
         typings = (clauseTypings.map { it.second } + exprTyping + defaultTyping).filterNotNull(),
         extraEqs = (
-            clauseTypings.map {
-                TODO()
-//                exprTyping.monoType to it.first.variantKey.monoType
-            }
-                + clauseTypings.map { returnType to it.second.monoType }
+            clauseTypings.map { returnType to it.second.monoType }
+                + (exprTyping.monoType to VariantType(atLeastKeys = null, atMostKeys = clauseTypings.map { it.first.variantKey }.toSet(), typeVar = TypeVarType()))
                 + defaultTyping?.let { returnType to it.monoType }).filterNotNull(),
         extraLVs = clauseTypings.flatMap { (clause, _) ->
             if (clause.variantKey.paramTypes != null && clause.bindings != null)
@@ -386,7 +386,7 @@ private fun valueExprTyping(expr: ValueExpr): Typing =
         is RecurExpr -> recurExprTyping(expr)
 
         is LocalVarExpr -> localVarTyping(expr.localVar)
-        is GlobalVarExpr -> expr.globalVar.type.let { Typing(Instantiator()(it.monoType), effects = it.effects) }
+        is GlobalVarExpr -> expr.globalVar.type.let { Typing(Instantiator().instantiate(it.monoType), effects = it.effects) }
 
         is CaseExpr -> caseExprTyping(expr)
     }

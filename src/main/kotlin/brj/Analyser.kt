@@ -480,8 +480,8 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
 
     private sealed class TypeDeclForm {
         data class VarDeclForm(val sym: Symbol, val paramTypes: List<MonoType>? = null) : TypeDeclForm()
-        data class KeyDeclForm(val kw: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
-        data class VariantDeclForm(val kw: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
+        data class RecordKeyDeclForm(val kw: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
+        data class VariantKeyDeclForm(val kw: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
         data class TypeAliasDeclForm(val sym: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
         data class PolyVarDeclForm(val sym: Symbol, val typeVar: TypeVarType, val paramTypes: List<MonoType>? = null) : TypeDeclForm()
     }
@@ -494,8 +494,8 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
                 // (:: <sym> <type>)
                 when (sym.symbolType) {
                     VAR_SYM -> TypeDeclForm.VarDeclForm(sym)
-                    RECORD_KEY_SYM -> TypeDeclForm.KeyDeclForm(sym)
-                    VARIANT_KEY_SYM -> TypeDeclForm.VariantDeclForm(sym)
+                    RECORD_KEY_SYM -> TypeDeclForm.RecordKeyDeclForm(sym)
+                    VARIANT_KEY_SYM -> TypeDeclForm.VariantKeyDeclForm(sym)
                     TYPE_ALIAS_SYM -> TypeDeclForm.TypeAliasDeclForm(sym)
                     POLYVAR_SYM -> TODO("polyvar sym needs a type-var")
                 }
@@ -510,8 +510,8 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
                                 VAR_SYM -> TypeDeclForm.VarDeclForm(sym, it.varargs { typeAnalyser.monoTypeAnalyser(it) })
 
                                 // (:: (:Ok a) a)
-                                RECORD_KEY_SYM -> TypeDeclForm.KeyDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
-                                VARIANT_KEY_SYM -> TypeDeclForm.VariantDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
+                                RECORD_KEY_SYM -> TypeDeclForm.RecordKeyDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
+                                VARIANT_KEY_SYM -> TypeDeclForm.VariantKeyDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
 
                                 // (:: (.mzero a) a)
                                 POLYVAR_SYM -> TypeDeclForm.PolyVarDeclForm(sym, typeAnalyser.typeVarAnalyser(it))
@@ -540,8 +540,11 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
                 VarDeclExpr(DefVar(QSymbol.mkQSym(nsEnv.ns, decl.sym), Type(if (decl.paramTypes != null) FnType(decl.paramTypes, returnType) else returnType), null))
             }
 
-            is TypeDeclForm.KeyDeclForm -> RecordKeyDeclExpr(RecordKey(mkQSym(nsEnv.ns, decl.kw), decl.typeVars, typeAnalyser.monoTypeAnalyser(it)))
-            is TypeDeclForm.VariantDeclForm -> VariantKeyDeclExpr(VariantKey(mkQSym(nsEnv.ns, decl.kw), decl.typeVars, it.varargs { typeAnalyser.monoTypeAnalyser(it) }))
+            is TypeDeclForm.RecordKeyDeclForm -> RecordKeyDeclExpr(RecordKey(mkQSym(nsEnv.ns, decl.kw), decl.typeVars, typeAnalyser.monoTypeAnalyser(it)))
+
+            is TypeDeclForm.VariantKeyDeclForm ->
+                VariantKeyDeclExpr(VariantKey(mkQSym(nsEnv.ns, decl.kw), decl.typeVars, if (it.forms.isEmpty()) null else it.varargs { typeAnalyser.monoTypeAnalyser(it) }))
+
             is TypeDeclForm.TypeAliasDeclForm -> TypeAliasDeclExpr(TypeAlias(mkQSym(nsEnv.ns, decl.sym), decl.typeVars, Type(typeAnalyser.monoTypeAnalyser(it))))
 
             is TypeDeclForm.PolyVarDeclForm -> {
@@ -592,7 +595,7 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv) {
                     val types = it.varargs { monoTypeAnalyser(it) }
                     FnType(types.dropLast(1), types.last())
                 }
-                    ?: AppliedType(monoTypeAnalyser(it), it.varargs(::monoTypeAnalyser))
+                    ?: TODO()
             }
 
             else -> TODO()
