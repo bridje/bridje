@@ -25,7 +25,9 @@ private fun symbolType(sym: Symbol): SymbolType {
     }
 }
 
-class Symbol private constructor(val isKeyword: Boolean, val baseStr: String) {
+sealed class Ident
+
+class Symbol private constructor(val isKeyword: Boolean, val baseStr: String) : Ident() {
     private val stringRep = "${if (isKeyword) ":" else ""}$baseStr"
     internal val symbolType = brj.symbolType(this)
 
@@ -41,7 +43,7 @@ class Symbol private constructor(val isKeyword: Boolean, val baseStr: String) {
     override fun toString() = stringRep
 }
 
-class QSymbol private constructor(val ns: Symbol, val base: Symbol) {
+class QSymbol private constructor(val ns: Symbol, val base: Symbol) : Ident() {
     val isKeyword = base.isKeyword
     private val stringRep = "${if (isKeyword) ":" else ""}$ns/${base.baseStr}"
 

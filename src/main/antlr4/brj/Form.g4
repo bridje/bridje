@@ -13,7 +13,7 @@ fragment SYMBOL_HEAD : ~( [0-9]
 fragment SYMBOL_REST : SYMBOL_HEAD | [0-9] ;
 fragment SYMBOL_PART : SYMBOL_HEAD SYMBOL_REST* ;
 
-SYMBOL : ':'? (SYMBOL_PART '/')? SYMBOL_PART | '/' | '::' | '.' ;
+SYMBOL : ':'? SYMBOL_PART | '/' | '::' | '.' ;
 QSYMBOL : ':'? SYMBOL_PART '/' SYMBOL_PART ;
 
 INT: '-'? [0-9]+;

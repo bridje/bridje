@@ -51,10 +51,12 @@ fun main() {
         (:: :last-name Str)
         ;; (:: User {:first-name :last-name})
 
-        ;; (def (count-down x)
-        ;;  (loop [y x
-        ;;         res #{}]
-        ;;    (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
+        (def (count-down x)
+          (loop [y x
+                 res #{}]
+            (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
+
+        (def counted-down (count-down 5))
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)
