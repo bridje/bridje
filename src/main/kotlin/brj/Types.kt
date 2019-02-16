@@ -125,8 +125,21 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
     override fun toString(): String = "(Fn ${paramTypes.joinToString(separator = " ")} $returnType)"
 }
 
+private fun <E> Set<E>.plus(other: Set<E>?): Set<E> = if (other == null) this.plus(other) else this
+private fun <E> Set<E>.minus(other: Set<E>?): Set<E> = if (other == null) this.minus(other) else this
+
+private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R>> =
+    if (this != null && other != null) this.zip(other) else emptyList()
+
+private fun <E> Collection<E>.ifNotEmpty() = this.takeIf { it.isNotEmpty() }
+
+data class KeyType<K>(val key: K, val typeParams: List<MonoType>) {
+    internal fun fmap(f: (MonoType) -> MonoType) = KeyType(key, typeParams.map(f))
+}
+
 data class RecordType(val hasKeys: Set<RecordKey>,
                       val mustHaveKeys: Set<RecordKey>?,
+                      val keyTypes: Map<RecordKey, KeyType<RecordKey>>,
                       val typeVar: TypeVarType?) : MonoType() {
     override fun unifyEq(other: MonoType): List<TypeEq> {
         TODO()
@@ -143,39 +156,27 @@ data class RecordType(val hasKeys: Set<RecordKey>,
     override fun toString() = "{${hasKeys.joinToString()}${typeVar?.let { " & $it" }}}"
 }
 
-data class VariantKeyType(val variantKey: VariantKey, val typeParams: List<MonoType>) {
-    internal fun fmap(f: (MonoType) -> MonoType) = VariantKeyType(variantKey, typeParams.map(f))
-}
-
-private fun <E> Set<E>.plus(other: Set<E>?): Set<E> = if (other == null) this.plus(other) else this
-private fun <E> Set<E>.minus(other: Set<E>?): Set<E> = if (other == null) this.minus(other) else this
-
-private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R>> =
-    if (this != null && other != null) this.zip(other) else emptyList()
-
-private fun <E> Collection<E>.ifNotEmpty() = this.takeIf { it.isNotEmpty() }
-
-data class VariantType(val atLeastKeys: Set<VariantKey> = emptySet(),
-                       val atMostKeys: Set<VariantKey>?,
-                       val keyTypes: Map<VariantKey, VariantKeyType>,
+data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
+                       val allowedKeys: Set<VariantKey>?,
+                       val keyTypes: Map<VariantKey, KeyType<VariantKey>>,
                        val typeVar: TypeVarType) : MonoType() {
 
     companion object {
         internal fun constructorType(variantKey: VariantKey): MonoType {
-            val variantType = VariantType(setOf(variantKey), null, mapOf(variantKey to VariantKeyType(variantKey, variantKey.typeVars)), TypeVarType())
+            val variantType = VariantType(setOf(variantKey), null, mapOf(variantKey to KeyType(variantKey, variantKey.typeVars)), TypeVarType())
 
             return if (variantKey.paramTypes.isEmpty()) variantType else FnType(variantKey.paramTypes, variantType)
         }
     }
 
     override fun fmap(f: (MonoType) -> MonoType): MonoType =
-        VariantType(atLeastKeys, atMostKeys, keyTypes.mapValues { it.value.fmap(f) }, typeVar)
+        VariantType(possibleKeys, allowedKeys, keyTypes.mapValues { it.value.fmap(f) }, typeVar)
 
+    // TODO is this right?
     private fun minus(other: VariantType, newTypeVar: TypeVarType) =
         VariantType(
-            atLeastKeys.minus(other.atLeastKeys),
-            atMostKeys!!.minus(other.atMostKeys),
-            // TODO is this right?
+            possibleKeys.minus(other.possibleKeys),
+            allowedKeys!!.minus(other.allowedKeys),
             emptyMap(),
             newTypeVar)
 
@@ -186,8 +187,8 @@ data class VariantType(val atLeastKeys: Set<VariantKey> = emptySet(),
         fun disallowedKeys(atLeastKeys: Set<VariantKey>, atMostKeys: Set<VariantKey>?) =
             atLeastKeys.minus(atMostKeys).ifNotEmpty()
 
-        disallowedKeys(atLeastKeys, otherVariant.atMostKeys)?.let { TODO() }
-        disallowedKeys(otherVariant.atLeastKeys, atMostKeys)?.let { TODO() }
+        disallowedKeys(possibleKeys, otherVariant.allowedKeys)?.let { TODO() }
+        disallowedKeys(otherVariant.possibleKeys, allowedKeys)?.let { TODO() }
 
         val keyTypeEqs = keyTypes.keys.plus(otherVariant.keyTypes.keys)
             .flatMap { variantKey -> keyTypes[variantKey]?.typeParams.safeZip(otherVariant.keyTypes[variantKey]?.typeParams) }
@@ -207,8 +208,8 @@ data class VariantType(val atLeastKeys: Set<VariantKey> = emptySet(),
     override fun applyMapping(mapping: Mapping): MonoType =
         ((mapping.typeMapping[typeVar] as? VariantType)?.let { other ->
             VariantType(
-                atLeastKeys.union(other.atLeastKeys),
-                intersectionTop(atMostKeys, other.atMostKeys),
+                possibleKeys.union(other.possibleKeys),
+                intersectionTop(allowedKeys, other.allowedKeys),
                 // TODO not convinced about this either
                 keyTypes.mapValues { it.value.fmap { it.applyMapping(mapping) } },
                 other.typeVar)
@@ -384,7 +385,7 @@ private fun caseExprTyping(expr: CaseExpr): Typing {
     val instantiator = Instantiator()
 
     val variantKeys = clauseTypings.map { it.first.variantKey }.toSet()
-    val variantType = instantiator.instantiate(VariantType(emptySet(), variantKeys, variantKeys.associateWith { VariantKeyType(it, it.typeVars) }, TypeVarType()))
+    val variantType = instantiator.instantiate(VariantType(emptySet(), variantKeys, variantKeys.associateWith { KeyType(it, it.typeVars) }, TypeVarType()))
 
     return combine(returnType,
         typings = (clauseTypings.map { it.second } + exprTyping + defaultTyping).filterNotNull(),
