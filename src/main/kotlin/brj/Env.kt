@@ -25,20 +25,13 @@ data class RecordKeyVar internal constructor(val recordKey: RecordKey, override 
     }
 }
 
-data class VariantKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>?, val paramTypes: List<MonoType>?) {
+data class VariantKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>, val paramTypes: List<MonoType>) {
     override fun toString() = sym.toString()
 }
 
 data class VariantKeyVar internal constructor(val variantKey: VariantKey, override var value: Any?) : GlobalVar() {
     override val sym = variantKey.sym
-    override val type: Type by lazy {
-        val variantType = VariantType(setOf(variantKey), null, TypeVarType())
-
-        Type(if (variantKey.paramTypes != null)
-            FnType(variantKey.paramTypes, variantType)
-        else
-            variantType, emptySet())
-    }
+    override val type: Type = Type(VariantType.constructorType(variantKey), emptySet())
 }
 
 data class JavaImport internal constructor(val clazz: Class<*>, val sym: QSymbol, val type: Type)

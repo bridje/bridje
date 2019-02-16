@@ -70,11 +70,11 @@ internal class AnalyserTest {
         val fooVariant = mkQSym(":user/Foo")
 
         assertEquals(
-            VariantKeyDeclExpr(VariantKey(fooVariant, null, emptyList())),
+            VariantKeyDeclExpr(VariantKey(fooVariant, emptyList(), emptyList())),
             analyseDecl(":Foo"))
 
         assertEquals(
-            VariantKeyDeclExpr(VariantKey(fooVariant, null, listOf(IntType, StringType))),
+            VariantKeyDeclExpr(VariantKey(fooVariant, emptyList(), listOf(IntType, StringType))),
             analyseDecl(":Foo Int Str"))
 
     }

@@ -143,42 +143,77 @@ data class RecordType(val hasKeys: Set<RecordKey>,
     override fun toString() = "{${hasKeys.joinToString()}${typeVar?.let { " & $it" }}}"
 }
 
-data class VariantType(val atLeastKeys: Set<VariantKey>?,
+data class VariantKeyType(val variantKey: VariantKey, val typeParams: List<MonoType>) {
+    internal fun fmap(f: (MonoType) -> MonoType) = VariantKeyType(variantKey, typeParams.map(f))
+}
+
+private fun <E> Set<E>.plus(other: Set<E>?): Set<E> = if (other == null) this.plus(other) else this
+private fun <E> Set<E>.minus(other: Set<E>?): Set<E> = if (other == null) this.minus(other) else this
+
+private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R>> =
+    if (this != null && other != null) this.zip(other) else emptyList()
+
+private fun <E> Collection<E>.ifNotEmpty() = this.takeIf { it.isNotEmpty() }
+
+data class VariantType(val atLeastKeys: Set<VariantKey> = emptySet(),
                        val atMostKeys: Set<VariantKey>?,
+                       val keyTypes: Map<VariantKey, VariantKeyType>,
                        val typeVar: TypeVarType) : MonoType() {
 
-    private fun minus(otherVariant: VariantType, newTypeVar: TypeVarType): VariantType =
-        if (atMostKeys != null
-            && otherVariant.atLeastKeys != null
-            && otherVariant.atLeastKeys.minus(atMostKeys).isNotEmpty())
+    companion object {
+        internal fun constructorType(variantKey: VariantKey): MonoType {
+            val variantType = VariantType(setOf(variantKey), null, mapOf(variantKey to VariantKeyType(variantKey, variantKey.typeVars)), TypeVarType())
 
-            TODO()
-        else
-            VariantType(
-                otherVariant.atLeastKeys.orEmpty() - this.atLeastKeys.orEmpty(),
-                otherVariant.atMostKeys.orEmpty() - this.atMostKeys.orEmpty(),
-                newTypeVar)
+            return if (variantKey.paramTypes.isEmpty()) variantType else FnType(variantKey.paramTypes, variantType)
+        }
+    }
+
+    override fun fmap(f: (MonoType) -> MonoType): MonoType =
+        VariantType(atLeastKeys, atMostKeys, keyTypes.mapValues { it.value.fmap(f) }, typeVar)
+
+    private fun minus(other: VariantType, newTypeVar: TypeVarType) =
+        VariantType(
+            atLeastKeys.minus(other.atLeastKeys),
+            atMostKeys!!.minus(other.atMostKeys),
+            // TODO is this right?
+            emptyMap(),
+            newTypeVar)
 
     override fun unifyEq(other: MonoType): List<TypeEq> {
         val otherVariant = ensure<VariantType>(other)
 
+        @Suppress("NAME_SHADOWING", "NestedLambdaShadowedImplicitParameter")
+        fun disallowedKeys(atLeastKeys: Set<VariantKey>, atMostKeys: Set<VariantKey>?) =
+            atLeastKeys.minus(atMostKeys).ifNotEmpty()
+
+        disallowedKeys(atLeastKeys, otherVariant.atMostKeys)?.let { TODO() }
+        disallowedKeys(otherVariant.atLeastKeys, atMostKeys)?.let { TODO() }
+
+        val keyTypeEqs = keyTypes.keys.plus(otherVariant.keyTypes.keys)
+            .flatMap { variantKey -> keyTypes[variantKey]?.typeParams.safeZip(otherVariant.keyTypes[variantKey]?.typeParams) }
+
         val newTypeVar = TypeVarType()
 
-        return listOf(
+        val newTypeVarEqs = listOf(
             typeVar to otherVariant.minus(this, newTypeVar),
             otherVariant.typeVar to this.minus(otherVariant, newTypeVar))
+
+        return keyTypeEqs + newTypeVarEqs
     }
 
+    private fun <E> intersectionTop(left: Set<E>?, right: Set<E>?) =
+        if (left != null && right != null) left.intersect(right) else left ?: right
+
     override fun applyMapping(mapping: Mapping): MonoType =
-        (mapping.typeMapping[typeVar] as? VariantType)?.let { other ->
+        ((mapping.typeMapping[typeVar] as? VariantType)?.let { other ->
             VariantType(
-                atLeastKeys.orEmpty().union(other.atLeastKeys.orEmpty()),
-                if (atMostKeys == null || other.atMostKeys == null)
-                    atMostKeys ?: other.atMostKeys
-                else
-                    atMostKeys.intersect(other.atMostKeys),
+                atLeastKeys.union(other.atLeastKeys),
+                intersectionTop(atMostKeys, other.atMostKeys),
+                // TODO not convinced about this either
+                keyTypes.mapValues { it.value.fmap { it.applyMapping(mapping) } },
                 other.typeVar)
-        } ?: this
+        } ?: this)
+            .fmap { it.applyMapping(mapping) }
 }
 
 sealed class TypeException : Exception() {
@@ -340,24 +375,24 @@ private fun caseExprTyping(expr: CaseExpr): Typing {
     val exprTyping = valueExprTyping(expr.expr)
 
     val clauseTypings = expr.clauses.map { clause ->
-        if (clause.variantKey.paramTypes?.size != clause.bindings?.size) TODO()
+        if (clause.variantKey.paramTypes.size != clause.bindings.size) TODO()
         clause to valueExprTyping(clause.bodyExpr)
     }
 
-
     val defaultTyping = expr.defaultExpr?.let { valueExprTyping(it) }
+
+    val instantiator = Instantiator()
+
+    val variantKeys = clauseTypings.map { it.first.variantKey }.toSet()
+    val variantType = instantiator.instantiate(VariantType(emptySet(), variantKeys, variantKeys.associateWith { VariantKeyType(it, it.typeVars) }, TypeVarType()))
 
     return combine(returnType,
         typings = (clauseTypings.map { it.second } + exprTyping + defaultTyping).filterNotNull(),
         extraEqs = (
             clauseTypings.map { returnType to it.second.monoType }
-                + (exprTyping.monoType to VariantType(atLeastKeys = null, atMostKeys = clauseTypings.map { it.first.variantKey }.toSet(), typeVar = TypeVarType()))
+                + (exprTyping.monoType to variantType)
                 + defaultTyping?.let { returnType to it.monoType }).filterNotNull(),
-        extraLVs = clauseTypings.flatMap { (clause, _) ->
-            if (clause.variantKey.paramTypes != null && clause.bindings != null)
-                clause.bindings.zip(clause.variantKey.paramTypes)
-            else emptyList()
-        }
+        extraLVs = clauseTypings.flatMap { (clause, _) -> clause.bindings.zip(clause.variantKey.paramTypes.map(instantiator::instantiate)) }
     )
 }
 

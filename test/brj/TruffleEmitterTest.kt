@@ -33,8 +33,8 @@ internal class TruffleEmitterTest {
 
     @Test
     internal fun `variant introduction and elimination`() {
-        val variantKey = VariantKey(mkQSym(":user/Foo"), null, listOf(IntType))
-        val variantKey2 = VariantKey(mkQSym(":user/Foo2"), null, listOf(IntType))
+        val variantKey = VariantKey(mkQSym(":user/Foo"), emptyList(), listOf(IntType))
+        val variantKey2 = VariantKey(mkQSym(":user/Foo2"), emptyList(), listOf(IntType))
         val constructor = emitVariant(variantKey2)
         val localVar = LocalVar(mkSym("a"))
 

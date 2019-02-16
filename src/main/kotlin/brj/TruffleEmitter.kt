@@ -154,7 +154,7 @@ class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject
 
     @TruffleBoundary
     override fun toString(): String =
-        if (variantKey.paramTypes == null)
+        if (variantKey.paramTypes.isEmpty())
             variantKey.sym.toString()
         else
             "(${variantKey.sym} ${variantKey.paramTypes.mapIndexed { idx, _ -> dynamicObject[idx] }.joinToString(" ")})"
@@ -167,7 +167,7 @@ internal class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int)
 }
 
 internal class VariantKeyInteropReadNode(variantKey: VariantKey) : ValueNode() {
-    private val paramCount = variantKey.paramTypes!!.size
+    private val paramCount = variantKey.paramTypes.size
 
     override fun execute(frame: VirtualFrame): Any {
         val obj = expectVariantObject(frame.arguments[0])
@@ -201,15 +201,15 @@ internal object VariantEmitter {
         val allocator = LAYOUT.createAllocator()
         var shape = LAYOUT.createShape(VariantObjectType(variantKey))
 
-        variantKey.paramTypes?.forEachIndexed { idx, paramType ->
+        variantKey.paramTypes.forEachIndexed { idx, paramType ->
             shape = shape.addProperty(Property.create(idx, allocator.locationForType(paramType.javaType), 0))
         }
 
         val factory = shape.createFactory()
 
         val faf = object : ForeignAccess.StandardFactory {
-            override fun accessHasSize(): CallTarget = constantly(variantKey.paramTypes != null)
-            override fun accessGetSize(): CallTarget? = variantKey.paramTypes?.let { constantly(it.size) }
+            override fun accessHasSize(): CallTarget = constantly(true)
+            override fun accessGetSize(): CallTarget? = constantly(variantKey.paramTypes.size)
 
             override fun accessRead(): CallTarget = Truffle.getRuntime().createCallTarget(makeRootNode(VariantKeyInteropReadNode(variantKey)))
         }
@@ -219,7 +219,7 @@ internal object VariantEmitter {
 
     fun emitVariant(variantKey: VariantKey): TruffleObject {
         val variantObjectFactory = objectFactory(variantKey)
-        return if (variantKey.paramTypes != null)
+        return if (variantKey.paramTypes.isNotEmpty())
             BridjeFunction(makeRootNode(VariantConstructorNode(variantObjectFactory, variantKey.paramTypes)))
         else
             variantObjectFactory(emptyArray())

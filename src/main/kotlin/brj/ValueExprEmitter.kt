@@ -196,14 +196,11 @@ internal class ValueExprEmitter private constructor() {
 
         @Children
         val writeBindingNodes =
-            clause.bindings
-                ?.mapIndexed { idx, lv ->
-                    WriteLocalVarNodeGen.create(
-                        ReadVariantParamNode(ReadLocalVarNodeGen.create(dataSlot), idx),
-                        frameDescriptor.findOrAddFrameSlot(lv))
-                }
-                ?.toTypedArray()
-                ?: arrayOf()
+            clause.bindings.mapIndexed { idx, lv ->
+                WriteLocalVarNodeGen.create(
+                    ReadVariantParamNode(ReadLocalVarNodeGen.create(dataSlot), idx),
+                    frameDescriptor.findOrAddFrameSlot(lv))
+            }.toTypedArray()
 
         @Child
         var exprNode = emitValueExpr(clause.bodyExpr)
