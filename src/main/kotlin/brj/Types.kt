@@ -125,8 +125,9 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
     override fun toString(): String = "(Fn ${paramTypes.joinToString(separator = " ")} $returnType)"
 }
 
-private fun <E> Set<E>.plus(other: Set<E>?): Set<E> = if (other == null) this.plus(other) else this
-private fun <E> Set<E>.minus(other: Set<E>?): Set<E> = if (other == null) this.minus(other) else this
+private fun <E> Set<E>.safePlus(other: Set<E>?): Set<E> = if (other != null) this.plus(other) else this
+private fun <E> Set<E>.safeMinus(other: Set<E>?): Set<E> = if (other != null) this.minus(other) else this
+private fun <E> Set<E>.safeUnion(other: Set<E>?): Set<E> = if (other != null) this.union(other) else this
 
 private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R>> =
     if (this != null && other != null) this.zip(other) else emptyList()
@@ -140,7 +141,19 @@ data class KeyType<K>(val key: K, val typeParams: List<MonoType>) {
 data class RecordType(val hasKeys: Set<RecordKey>,
                       val mustHaveKeys: Set<RecordKey>?,
                       val keyTypes: Map<RecordKey, KeyType<RecordKey>>,
-                      val typeVar: TypeVarType?) : MonoType() {
+                      val typeVar: TypeVarType) : MonoType() {
+
+    companion object {
+        internal fun accessorType(recordKey: RecordKey): Type {
+            val variantType = RecordType(setOf(recordKey), setOf(recordKey), mapOf(recordKey to KeyType(recordKey, recordKey.typeVars)), TypeVarType())
+
+            return Type(FnType(listOf(recordKey.type), variantType), emptySet())
+        }
+    }
+
+    override fun fmap(f: (MonoType) -> MonoType) =
+        RecordType(hasKeys, mustHaveKeys, keyTypes.mapValues { it.value.fmap(f) }, typeVar)
+
     override fun unifyEq(other: MonoType): List<TypeEq> {
         TODO()
     }
@@ -149,11 +162,7 @@ data class RecordType(val hasKeys: Set<RecordKey>,
         TODO()
     }
 
-    override fun fmap(f: (MonoType) -> MonoType): MonoType {
-        TODO()
-    }
-
-    override fun toString() = "{${hasKeys.joinToString()}${typeVar?.let { " & $it" }}}"
+    override fun toString() = "{${keyTypes.toList().joinToString(" ")}}"
 }
 
 data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
@@ -162,10 +171,10 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
                        val typeVar: TypeVarType) : MonoType() {
 
     companion object {
-        internal fun constructorType(variantKey: VariantKey): MonoType {
+        internal fun constructorType(variantKey: VariantKey): Type {
             val variantType = VariantType(setOf(variantKey), null, mapOf(variantKey to KeyType(variantKey, variantKey.typeVars)), TypeVarType())
 
-            return if (variantKey.paramTypes.isEmpty()) variantType else FnType(variantKey.paramTypes, variantType)
+            return Type(if (variantKey.paramTypes.isEmpty()) variantType else FnType(variantKey.paramTypes, variantType), emptySet())
         }
     }
 
@@ -175,8 +184,8 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
     // TODO is this right?
     private fun minus(other: VariantType, newTypeVar: TypeVarType) =
         VariantType(
-            possibleKeys.minus(other.possibleKeys),
-            allowedKeys!!.minus(other.allowedKeys),
+            possibleKeys.safeMinus(other.possibleKeys),
+            allowedKeys!!.safeMinus(other.allowedKeys),
             emptyMap(),
             newTypeVar)
 
@@ -185,12 +194,12 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
 
         @Suppress("NAME_SHADOWING", "NestedLambdaShadowedImplicitParameter")
         fun disallowedKeys(atLeastKeys: Set<VariantKey>, atMostKeys: Set<VariantKey>?) =
-            atLeastKeys.minus(atMostKeys).ifNotEmpty()
+            atLeastKeys.safeMinus(atMostKeys).ifNotEmpty()
 
         disallowedKeys(possibleKeys, otherVariant.allowedKeys)?.let { TODO() }
         disallowedKeys(otherVariant.possibleKeys, allowedKeys)?.let { TODO() }
 
-        val keyTypeEqs = keyTypes.keys.plus(otherVariant.keyTypes.keys)
+        val keyTypeEqs = keyTypes.keys.safePlus(otherVariant.keyTypes.keys)
             .flatMap { variantKey -> keyTypes[variantKey]?.typeParams.safeZip(otherVariant.keyTypes[variantKey]?.typeParams) }
 
         val newTypeVar = TypeVarType()
@@ -208,13 +217,15 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
     override fun applyMapping(mapping: Mapping): MonoType =
         ((mapping.typeMapping[typeVar] as? VariantType)?.let { other ->
             VariantType(
-                possibleKeys.union(other.possibleKeys),
+                possibleKeys.safeUnion(other.possibleKeys),
                 intersectionTop(allowedKeys, other.allowedKeys),
                 // TODO not convinced about this either
                 keyTypes.mapValues { it.value.fmap { it.applyMapping(mapping) } },
                 other.typeVar)
         } ?: this)
             .fmap { it.applyMapping(mapping) }
+
+    override fun toString() = "(+ ${keyTypes.toList().joinToString(" ")})"
 }
 
 sealed class TypeException : Exception() {
@@ -285,10 +296,18 @@ private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<Value
 private fun recordExprTyping(expr: RecordExpr): Typing {
     val typings = expr.entries.map { it.recordKey to valueExprTyping(it.expr) }
 
+    val instantiator = Instantiator()
+
+    val recordType = RecordType(
+        expr.entries.mapTo(mutableSetOf(), RecordEntry::recordKey),
+        null,
+        expr.entries.associate { it.recordKey to KeyType(it.recordKey, it.recordKey.typeVars).fmap(instantiator::instantiate) },
+        TypeVarType())
+
     return combine(
-        RecordType(expr.entries.mapTo(mutableSetOf(), RecordEntry::recordKey), null, TypeVarType()),
+        recordType,
         typings.map { it.second },
-        extraEqs = typings.map { it.first.type to it.second.monoType })
+        extraEqs = typings.map { instantiator.instantiate(it.first.type) to it.second.monoType })
 }
 
 private fun ifExprTyping(expr: IfExpr): Typing {

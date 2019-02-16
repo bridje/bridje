@@ -7,6 +7,14 @@ import org.junit.jupiter.api.Test
 internal class TypesTest {
 
     @Test
+    internal fun `test record types`() {
+        val tv = TypeVarType()
+        val fooKey = RecordKey(mkQSym(":user/foo"), listOf(tv), tv)
+
+        println(valueExprType(CallExpr(GlobalVarExpr(RecordKeyVar(fooKey, null)), listOf(IntExpr(5)))))
+    }
+
+    @Test
     internal fun `test variant types`() {
         val tv = TypeVarType()
         val fooKey = VariantKey(mkQSym(":user/Foo"), listOf(tv), listOf(tv))
