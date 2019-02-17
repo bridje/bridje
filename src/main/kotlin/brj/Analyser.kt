@@ -473,10 +473,12 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
 
     private sealed class TypeDeclForm {
         data class VarDeclForm(val sym: Symbol, val paramTypes: List<MonoType>? = null) : TypeDeclForm()
-        data class RecordKeyDeclForm(val kw: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
-        data class VariantKeyDeclForm(val kw: Symbol, val typeVars: List<TypeVarType> = emptyList()) : TypeDeclForm()
-        data class TypeAliasDeclForm(val sym: Symbol, val typeVars: List<TypeVarType>? = null) : TypeDeclForm()
         data class PolyVarDeclForm(val sym: Symbol, val typeVar: TypeVarType, val paramTypes: List<MonoType>? = null) : TypeDeclForm()
+
+        data class RecordKeyDeclForm(val kw: Symbol, val typeVars: List<TypeVarType> = emptyList()) : TypeDeclForm()
+        data class VariantKeyDeclForm(val kw: Symbol, val typeVars: List<TypeVarType> = emptyList()) : TypeDeclForm()
+
+        data class TypeAliasDeclForm(val sym: Symbol, val typeVars: List<TypeVarType> = emptyList()) : TypeDeclForm()
     }
 
     fun declAnalyser(it: AnalyserState): DeclExpr {
@@ -500,11 +502,11 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
                         it.maybe { it.expectSym() }?.let { sym ->
                             when (sym.symbolType) {
                                 // (:: (foo Int) Str)
-                                VAR_SYM -> TypeDeclForm.VarDeclForm(sym, it.varargs { typeAnalyser.monoTypeAnalyser(it) })
+                                VAR_SYM -> TypeDeclForm.VarDeclForm(sym, it.varargs(typeAnalyser::monoTypeAnalyser))
 
                                 // (:: (:Ok a) a)
-                                RECORD_KEY_SYM -> TypeDeclForm.RecordKeyDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
-                                VARIANT_KEY_SYM -> TypeDeclForm.VariantKeyDeclForm(sym, it.varargs { typeAnalyser.typeVarAnalyser(it) })
+                                RECORD_KEY_SYM -> TypeDeclForm.RecordKeyDeclForm(sym, it.varargs(typeAnalyser::typeVarAnalyser))
+                                VARIANT_KEY_SYM -> TypeDeclForm.VariantKeyDeclForm(sym, it.varargs(typeAnalyser::typeVarAnalyser))
 
                                 // (:: (.mzero a) a)
                                 POLYVAR_SYM -> TypeDeclForm.PolyVarDeclForm(sym, typeAnalyser.typeVarAnalyser(it))

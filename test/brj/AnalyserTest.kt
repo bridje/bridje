@@ -56,11 +56,11 @@ internal class AnalyserTest {
     fun `analyses key decl`() {
         val fooKey = mkQSym(":user/foo")
         assertEquals(
-            RecordKeyDeclExpr(RecordKey(fooKey, null, IntType)),
+            RecordKeyDeclExpr(RecordKey(fooKey, emptyList(), IntType)),
             analyseDecl(":foo Int"))
 
         val decl = analyseDecl("(:foo a) a")
-        val typeVar = (decl as RecordKeyDeclExpr).recordKey.typeVars!!.first()
+        val typeVar = (decl as RecordKeyDeclExpr).recordKey.typeVars.first()
 
         assertEquals(
             RecordKeyDeclExpr(RecordKey(fooKey, listOf(typeVar), typeVar)),
@@ -104,8 +104,8 @@ internal class AnalyserTest {
         val count = mkQSym(":user/count")
         val message = mkQSym(":user/message")
 
-        val countKey = RecordKey(count, null, IntType)
-        val messageKey = RecordKey(message, null, StringType)
+        val countKey = RecordKey(count, emptyList(), IntType)
+        val messageKey = RecordKey(message, emptyList(), StringType)
 
         val nsEnv = NSEnv(user, vars = mapOf(
             count.base to RecordKeyVar(countKey, null),

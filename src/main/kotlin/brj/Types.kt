@@ -126,7 +126,7 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
 }
 
 private fun <E> Set<E>.safePlus(other: Set<E>?): Set<E> = if (other != null) this.plus(other) else this
-private fun <E> Set<E>.safeMinus(other: Set<E>?): Set<E> = if (other != null) this.minus(other) else this
+private fun <E> Set<E>?.safeMinus(other: Set<E>?): Set<E> = if (this != null && other != null) this.minus(other) else this.orEmpty()
 private fun <E> Set<E>.safeUnion(other: Set<E>?): Set<E> = if (other != null) this.union(other) else this
 
 private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R>> =
@@ -134,8 +134,13 @@ private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R
 
 private fun <E> Collection<E>.ifNotEmpty() = this.takeIf { it.isNotEmpty() }
 
+private fun <E> intersectionTop(left: Set<E>?, right: Set<E>?) =
+    if (left != null && right != null) left.intersect(right) else left ?: right
+
 data class KeyType<K>(val key: K, val typeParams: List<MonoType>) {
     internal fun fmap(f: (MonoType) -> MonoType) = KeyType(key, typeParams.map(f))
+
+    override fun toString() = if (typeParams.isNotEmpty()) "($key ${typeParams.joinToString(" ")})" else key.toString()
 }
 
 data class RecordType(val hasKeys: Set<RecordKey>,
@@ -145,24 +150,57 @@ data class RecordType(val hasKeys: Set<RecordKey>,
 
     companion object {
         internal fun accessorType(recordKey: RecordKey): Type {
-            val variantType = RecordType(setOf(recordKey), setOf(recordKey), mapOf(recordKey to KeyType(recordKey, recordKey.typeVars)), TypeVarType())
+            val recordType = RecordType(setOf(recordKey), setOf(recordKey), mapOf(recordKey to KeyType(recordKey, recordKey.typeVars)), TypeVarType())
 
-            return Type(FnType(listOf(recordKey.type), variantType), emptySet())
+            return Type(FnType(listOf(recordType), recordKey.type), emptySet())
         }
     }
+
+    // TODO is this right?
+    private fun minus(other: RecordType, newTypeVar: TypeVarType) =
+        RecordType(
+            hasKeys.minus(other.hasKeys),
+            mustHaveKeys!!.safeMinus(other.mustHaveKeys),
+            emptyMap(),
+            newTypeVar)
 
     override fun fmap(f: (MonoType) -> MonoType) =
         RecordType(hasKeys, mustHaveKeys, keyTypes.mapValues { it.value.fmap(f) }, typeVar)
 
     override fun unifyEq(other: MonoType): List<TypeEq> {
-        TODO()
+        val otherRecord = ensure<RecordType>(other)
+
+        @Suppress("NAME_SHADOWING", "NestedLambdaShadowedImplicitParameter")
+        fun missingKeys(hasKeys: Set<RecordKey>, mustHaveKeys: Set<RecordKey>?) =
+            mustHaveKeys.safeMinus(hasKeys).ifNotEmpty()
+
+        missingKeys(hasKeys, otherRecord.mustHaveKeys)?.let { TODO() }
+        missingKeys(otherRecord.hasKeys, mustHaveKeys)?.let { TODO() }
+
+        val keyTypeEqs = keyTypes.keys.safePlus(otherRecord.keyTypes.keys)
+            .flatMap { variantKey -> keyTypes[variantKey]?.typeParams.safeZip(otherRecord.keyTypes[variantKey]?.typeParams) }
+
+        val newTypeVar = TypeVarType()
+
+        val newTypeVarEqs = listOf(
+            typeVar to otherRecord.minus(this, newTypeVar),
+            otherRecord.typeVar to this.minus(otherRecord, newTypeVar))
+
+        return keyTypeEqs + newTypeVarEqs
     }
 
-    override fun applyMapping(mapping: Mapping): RecordType {
-        TODO()
-    }
+    override fun applyMapping(mapping: Mapping) =
+        ((mapping.typeMapping[typeVar] as? RecordType)?.let { other ->
+            RecordType(
+                hasKeys.union(other.hasKeys),
+                intersectionTop(mustHaveKeys, other.mustHaveKeys),
+                // TODO not convinced about this either
+                keyTypes.mapValues { it.value.fmap { it.applyMapping(mapping) } },
+                other.typeVar)
+        } ?: this)
+            .fmap { it.applyMapping(mapping) }
 
-    override fun toString() = "{${keyTypes.toList().joinToString(" ")}}"
+    override fun toString() = "{${keyTypes.values.joinToString(" ")}}"
 }
 
 data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
@@ -211,9 +249,6 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
         return keyTypeEqs + newTypeVarEqs
     }
 
-    private fun <E> intersectionTop(left: Set<E>?, right: Set<E>?) =
-        if (left != null && right != null) left.intersect(right) else left ?: right
-
     override fun applyMapping(mapping: Mapping): MonoType =
         ((mapping.typeMapping[typeVar] as? VariantType)?.let { other ->
             VariantType(
@@ -225,7 +260,7 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
         } ?: this)
             .fmap { it.applyMapping(mapping) }
 
-    override fun toString() = "(+ ${keyTypes.toList().joinToString(" ")})"
+    override fun toString() = "(+ ${keyTypes.values.joinToString(" ")})"
 }
 
 sealed class TypeException : Exception() {

@@ -53,8 +53,8 @@ internal class TruffleEmitterTest {
         val count = mkQSym(":user/count")
         val message = mkQSym(":user/message")
 
-        val countKey = RecordKey(count, null, IntType)
-        val messageKey = RecordKey(message, null, StringType)
+        val countKey = RecordKey(count, emptyList(), IntType)
+        val messageKey = RecordKey(message, emptyList(), StringType)
 
         val record = Value.asValue(evalValueExpr(
             RecordExpr(listOf(
