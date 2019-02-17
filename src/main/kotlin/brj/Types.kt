@@ -172,7 +172,7 @@ data class RecordType(val hasKeys: Set<RecordKey>,
 
         @Suppress("NAME_SHADOWING", "NestedLambdaShadowedImplicitParameter")
         fun missingKeys(hasKeys: Set<RecordKey>, mustHaveKeys: Set<RecordKey>?) =
-            mustHaveKeys.safeMinus(hasKeys).ifNotEmpty()
+            mustHaveKeys.orEmpty().minus(hasKeys).ifNotEmpty()
 
         missingKeys(hasKeys, otherRecord.mustHaveKeys)?.let { TODO() }
         missingKeys(otherRecord.hasKeys, mustHaveKeys)?.let { TODO() }

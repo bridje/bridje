@@ -217,7 +217,7 @@ internal object VariantEmitter {
         return { args -> VariantObject(variantKey, factory.newInstance(*args), faf) }
     }
 
-    fun emitVariant(variantKey: VariantKey): TruffleObject {
+    fun emitVariantKey(variantKey: VariantKey): TruffleObject {
         val variantObjectFactory = objectFactory(variantKey)
         return if (variantKey.paramTypes.isNotEmpty())
             BridjeFunction(makeRootNode(VariantConstructorNode(variantObjectFactory, variantKey.paramTypes)))

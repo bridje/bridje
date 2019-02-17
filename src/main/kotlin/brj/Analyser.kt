@@ -138,6 +138,7 @@ internal val RECUR = mkSym("recur")
 
 internal val DO = mkSym("do")
 internal val DEF = mkSym("def")
+internal val DEFMACRO = mkSym("defmacro")
 internal val DECL = mkSym("::")
 
 internal val NS = mkSym("ns")
@@ -314,8 +315,14 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
         return FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), bodyExpr)
     }
 
-    private fun callAnalyser(it: AnalyserState): ValueExpr =
-        CallExpr(exprAnalyser(it), it.varargs(::exprAnalyser))
+    private fun callAnalyser(it: AnalyserState): ValueExpr {
+        val fn = exprAnalyser(it)
+        if (fn is GlobalVarExpr && fn.globalVar is DefMacroVar) {
+            TODO()
+        } else {
+            return CallExpr(fn, it.varargs(::exprAnalyser))
+        }
+    }
 
     private fun doAnalyser(it: AnalyserState): ValueExpr {
         val exprs = listOf(exprAnalyser(it)).plus(it.varargs(::exprAnalyser))
@@ -420,9 +427,9 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             is VectorForm -> collAnalyser(::VectorExpr)(AnalyserState(form.forms))
             is SetForm -> collAnalyser(::SetExpr)(AnalyserState(form.forms))
             is RecordForm -> recordAnalyser(form)
-            is QuoteForm -> TODO()
-            is UnquoteForm -> TODO()
-            is UnquoteSplicingForm -> TODO()
+
+            is QuotedSymbolForm -> TODO()
+            is QuotedQSymbolForm -> TODO()
         }
     }
 

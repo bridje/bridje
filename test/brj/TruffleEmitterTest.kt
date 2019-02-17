@@ -4,7 +4,7 @@ import brj.JavaImportEmitter.emitJavaImport
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.ValueExprEmitter.Companion.evalValueExpr
-import brj.VariantEmitter.emitVariant
+import brj.VariantEmitter.emitVariantKey
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Value
 import org.junit.jupiter.api.AfterAll
@@ -35,7 +35,7 @@ internal class TruffleEmitterTest {
     internal fun `variant introduction and elimination`() {
         val variantKey = VariantKey(mkQSym(":user/Foo"), emptyList(), listOf(IntType))
         val variantKey2 = VariantKey(mkQSym(":user/Foo2"), emptyList(), listOf(IntType))
-        val constructor = emitVariant(variantKey2)
+        val constructor = emitVariantKey(variantKey2)
         val localVar = LocalVar(mkSym("a"))
 
         assertEquals(54L,

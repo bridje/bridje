@@ -61,6 +61,9 @@ fun main() {
         (:: (my-fn a a) [a])
         (def (my-fn x y)
           [y x])
+
+        (defmacro (if-not pred then else)
+          (:ListForm [(:SymbolForm 'if) else then]))
         """.trimIndent())
 
     val barSource = Source.create("brj", """

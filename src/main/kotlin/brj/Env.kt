@@ -8,9 +8,8 @@ abstract class GlobalVar internal constructor() {
     abstract val value: Any?
 }
 
-
 internal data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
-
+internal data class DefMacroVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
 
 data class RecordKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: MonoType) {
     override fun toString() = sym.toString()
