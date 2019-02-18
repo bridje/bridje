@@ -125,14 +125,12 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
     override fun toString(): String = "(Fn ${paramTypes.joinToString(separator = " ")} $returnType)"
 }
 
-private fun <E> Set<E>.safePlus(other: Set<E>?): Set<E> = if (other != null) this.plus(other) else this
-private fun <E> Set<E>?.safeMinus(other: Set<E>?): Set<E> = if (this != null && other != null) this.minus(other) else this.orEmpty()
 private fun <E> Set<E>.safeUnion(other: Set<E>?): Set<E> = if (other != null) this.union(other) else this
 
 private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R>> =
     if (this != null && other != null) this.zip(other) else emptyList()
 
-private fun <E> Collection<E>.ifNotEmpty() = this.takeIf { it.isNotEmpty() }
+private fun <E> Set<E>.ifNotEmpty() = this.takeIf { it.isNotEmpty() }
 
 private fun <E> intersectionTop(left: Set<E>?, right: Set<E>?) =
     if (left != null && right != null) left.intersect(right) else left ?: right
@@ -159,8 +157,9 @@ data class RecordType(val hasKeys: Set<RecordKey>,
     // TODO is this right?
     private fun minus(other: RecordType, newTypeVar: TypeVarType) =
         RecordType(
-            hasKeys.minus(other.hasKeys),
-            mustHaveKeys!!.safeMinus(other.mustHaveKeys),
+            hasKeys - other.hasKeys,
+            if (mustHaveKeys != null && other.mustHaveKeys != null) (mustHaveKeys - other.mustHaveKeys) else mustHaveKeys
+                ?: other.mustHaveKeys,
             emptyMap(),
             newTypeVar)
 
@@ -177,7 +176,7 @@ data class RecordType(val hasKeys: Set<RecordKey>,
         missingKeys(hasKeys, otherRecord.mustHaveKeys)?.let { TODO() }
         missingKeys(otherRecord.hasKeys, mustHaveKeys)?.let { TODO() }
 
-        val keyTypeEqs = keyTypes.keys.safePlus(otherRecord.keyTypes.keys)
+        val keyTypeEqs = (keyTypes.keys + otherRecord.keyTypes.keys)
             .flatMap { variantKey -> keyTypes[variantKey]?.typeParams.safeZip(otherRecord.keyTypes[variantKey]?.typeParams) }
 
         val newTypeVar = TypeVarType()
@@ -222,22 +221,22 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
     // TODO is this right?
     private fun minus(other: VariantType, newTypeVar: TypeVarType) =
         VariantType(
-            possibleKeys.safeMinus(other.possibleKeys),
-            allowedKeys!!.safeMinus(other.allowedKeys),
-            emptyMap(),
+            possibleKeys - other.possibleKeys,
+            (allowedKeys.orEmpty() - other.allowedKeys.orEmpty()).ifNotEmpty(),
+            keyTypes,
             newTypeVar)
 
     override fun unifyEq(other: MonoType): List<TypeEq> {
         val otherVariant = ensure<VariantType>(other)
 
         @Suppress("NAME_SHADOWING", "NestedLambdaShadowedImplicitParameter")
-        fun disallowedKeys(atLeastKeys: Set<VariantKey>, atMostKeys: Set<VariantKey>?) =
-            atLeastKeys.safeMinus(atMostKeys).ifNotEmpty()
+        fun disallowedKeys(possibleKeys: Set<VariantKey>, allowedKeys: Set<VariantKey>?) =
+            if (allowedKeys != null) (possibleKeys - allowedKeys).ifNotEmpty() else null
 
         disallowedKeys(possibleKeys, otherVariant.allowedKeys)?.let { TODO() }
         disallowedKeys(otherVariant.possibleKeys, allowedKeys)?.let { TODO() }
 
-        val keyTypeEqs = keyTypes.keys.safePlus(otherVariant.keyTypes.keys)
+        val keyTypeEqs = (keyTypes.keys + otherVariant.keyTypes.keys)
             .flatMap { variantKey -> keyTypes[variantKey]?.typeParams.safeZip(otherVariant.keyTypes[variantKey]?.typeParams) }
 
         val newTypeVar = TypeVarType()
