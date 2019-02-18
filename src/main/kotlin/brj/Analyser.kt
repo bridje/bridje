@@ -242,12 +242,12 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
     private fun symAnalyser(form: SymbolForm): ValueExpr {
         return ((locals[form.sym]?.let { LocalVarExpr(it) })
             ?: resolve(form.sym)?.let(::GlobalVarExpr)
-            ?: TODO())
+            ?: TODO("sym not found: ${form.sym}"))
     }
 
     private fun qsymAnalyser(form: QSymbolForm): ValueExpr {
         return (resolve(form.sym)?.let(::GlobalVarExpr)
-            ?: TODO())
+            ?: TODO("sym not found: ${form.sym}"))
     }
 
     private fun ifAnalyser(it: AnalyserState): ValueExpr {
