@@ -597,6 +597,17 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv) {
                     val types = it.varargs { monoTypeAnalyser(it) }
                     FnType(types.dropLast(1), types.last())
                 }
+                    ?: it.maybe { it.expectSym(VARIANT_TYPE) }?.let { _ ->
+                        it.varargs {
+                            val variantKey = (resolve(env, nsEnv, it.expectSym(VARIANT_KEY_SYM)) as? VariantKeyVar)?.variantKey
+                                ?: TODO()
+                            KeyType(variantKey, variantKey.typeVars)
+                        }.let { keyTypes ->
+                            VariantType(
+                                keyTypes = keyTypes.associate { it.key to it },
+                                typeVar = TypeVarType())
+                        }
+                    }
                     ?: TODO()
             }
 

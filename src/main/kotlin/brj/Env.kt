@@ -36,7 +36,7 @@ class JavaImportVar(javaImport: JavaImport, override val value: Any? = null) : G
     override val type = javaImport.type
 }
 
-data class TypeAlias(val sym: QSymbol, val typeVars: List<TypeVarType>?, val type: Type)
+data class TypeAlias(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: Type)
 
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),

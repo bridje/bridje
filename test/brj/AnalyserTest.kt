@@ -48,7 +48,7 @@ internal class AnalyserTest {
     fun `analyses type aliases`() {
         val foo = mkQSym("user/Foo")
         assertEquals(
-            TypeAliasDeclExpr(TypeAlias(foo, null, Type(FnType(listOf(IntType), StringType)))),
+            TypeAliasDeclExpr(TypeAlias(foo, emptyList(), Type(FnType(listOf(IntType), StringType)))),
             analyseDecl("Foo (Fn Int Str)"))
     }
 
@@ -117,6 +117,29 @@ internal class AnalyserTest {
                 RecordEntry(messageKey, StringExpr("Hello world!"))))),
 
             analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, readForms("""{:count 42, :message "Hello world!"}""")))
+    }
+
+
+    private val boolKey = VariantKey(mkQSym(":user/BooleanForm"), emptyList(), emptyList())
+    private val strKey = VariantKey(mkQSym(":user/StringForm"), emptyList(), emptyList())
+
+    private fun analyseMonoType(s: String): MonoType =
+        TypeAnalyser(Env(), NSEnv(mkSym("user"),
+            vars = mapOf(
+                boolKey.sym.base to VariantKeyVar(boolKey, null),
+                strKey.sym.base to VariantKeyVar(strKey, null))))
+            .monoTypeAnalyser(AnalyserState(readForms(s)))
+
+    @Test
+    internal fun `analyses variant type declaration`() {
+        val s = "(+ :BooleanForm :StringForm)"
+
+        assertEquals(
+            mapOf(
+                boolKey to KeyType(boolKey, emptyList()),
+                strKey to KeyType(strKey, emptyList())),
+            (analyseMonoType(s) as VariantType).keyTypes)
+
     }
 }
 

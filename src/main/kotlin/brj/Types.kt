@@ -11,6 +11,7 @@ internal val FLOAT = mkSym("Float")
 internal val BIG_INT = mkSym("BigInt")
 internal val BIG_FLOAT = mkSym("BigFloat")
 internal val FN_TYPE = mkSym("Fn")
+internal val VARIANT_TYPE = mkSym("+")
 
 internal data class Mapping(val typeMapping: Map<TypeVarType, MonoType> = emptyMap()) {
     fun applyMapping(mapping: Mapping) =
@@ -125,8 +126,6 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
     override fun toString(): String = "(Fn ${paramTypes.joinToString(separator = " ")} $returnType)"
 }
 
-private fun <E> Set<E>.safeUnion(other: Set<E>?): Set<E> = if (other != null) this.union(other) else this
-
 private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R>> =
     if (this != null && other != null) this.zip(other) else emptyList()
 
@@ -203,7 +202,7 @@ data class RecordType(val hasKeys: Set<RecordKey>,
 }
 
 data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
-                       val allowedKeys: Set<VariantKey>?,
+                       val allowedKeys: Set<VariantKey>? = null,
                        val keyTypes: Map<VariantKey, KeyType<VariantKey>>,
                        val typeVar: TypeVarType) : MonoType() {
 
@@ -236,6 +235,7 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
         disallowedKeys(possibleKeys, otherVariant.allowedKeys)?.let { TODO() }
         disallowedKeys(otherVariant.possibleKeys, allowedKeys)?.let { TODO() }
 
+        // TODO I reckon we should create a whole load more TypeEqs here, from type params through to new type vars
         val keyTypeEqs = (keyTypes.keys + otherVariant.keyTypes.keys)
             .flatMap { variantKey -> keyTypes[variantKey]?.typeParams.safeZip(otherVariant.keyTypes[variantKey]?.typeParams) }
 
@@ -251,10 +251,10 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
     override fun applyMapping(mapping: Mapping): MonoType =
         ((mapping.typeMapping[typeVar] as? VariantType)?.let { other ->
             VariantType(
-                possibleKeys.safeUnion(other.possibleKeys),
+                possibleKeys.union(other.possibleKeys),
                 intersectionTop(allowedKeys, other.allowedKeys),
                 // TODO not convinced about this either
-                keyTypes.mapValues { it.value.fmap { it.applyMapping(mapping) } },
+                other.keyTypes,
                 other.typeVar)
         } ?: this)
             .fmap { it.applyMapping(mapping) }
