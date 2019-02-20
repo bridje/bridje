@@ -1,5 +1,6 @@
 package brj
 
+import brj.ActionExprAnalyser.PartialDecl.*
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.SymbolType.*
@@ -476,6 +477,67 @@ internal data class ActionExprAnalyser(val env: Env, val nsEnv: NSEnv, private v
         }
 
         return DefExpr(sym, expr, (expectedType ?: actualType).copy(effects = actualType.effects))
+    }
+
+    internal sealed class PartialDecl {
+        abstract val sym: Symbol
+        abstract val typeVarSyms: List<Symbol>
+
+        data class PartialVarDecl(override val sym: Symbol, override val typeVarSyms: List<Symbol>, val paramTypeForms: List<Form>, val returnTypeForm: Form) : PartialDecl()
+        data class PartialTypeAliasDecl(override val sym: Symbol, override val typeVarSyms: List<Symbol>, val typeForm: Form) : PartialDecl()
+        data class PartialRecordKeyDecl(override val sym: Symbol, override val typeVarSyms: List<Symbol>, val typeForm: Form) : PartialDecl()
+        data class PartialVariantKeyDecl(override val sym: Symbol, override val typeVarSyms: List<Symbol>, val paramForms: List<Form>) : PartialDecl()
+    }
+
+    fun partialDeclAnalyser(it: AnalyserState): PartialDecl {
+        val typeAnalyser = TypeAnalyser(env, nsEnv)
+
+        data class Preamble(val sym: Symbol, val typeVarSyms: List<Symbol> = emptyList(), val paramTypeForms: List<Form> = emptyList())
+
+        val preamble = it.or({
+            it.maybe { it.expectSym() }?.let { sym ->
+                // (:: <sym> <type>)
+                when (sym.symbolType) {
+                    VAR_SYM, RECORD_KEY_SYM, VARIANT_KEY_SYM, TYPE_ALIAS_SYM -> Preamble(sym)
+                    POLYVAR_SYM -> TODO("polyvar sym needs a type-var")
+                }
+            }
+        }, {
+            it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
+                it.nested(listForm.forms) {
+                    it.or({
+                        it.maybe { it.expectSym() }?.let { sym ->
+                            when (sym.symbolType) {
+                                // (:: (foo Int) Str)
+                                VAR_SYM -> Preamble(sym, paramTypeForms = it.forms)
+
+                                // (:: (:Ok a) a)
+                                // (:: (Maybe a) (+ (:Ok a) :Nil))
+                                RECORD_KEY_SYM, VARIANT_KEY_SYM, TYPE_ALIAS_SYM -> Preamble(sym, typeVarSyms = it.varargs { it.expectSym(VAR_SYM) })
+
+                                // (:: (.mzero a) a)
+                                POLYVAR_SYM -> Preamble(sym, listOf(it.expectSym(VAR_SYM)))
+                            }
+                        }.also { _ -> it.expectEnd() }
+                    }, {
+                        // (:: ((.count a) a) Int)
+                        it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
+                            it.nested(listForm.forms) {
+                                Pair(it.expectSym(POLYVAR_SYM), it.expectSym(VAR_SYM))
+                                    .also { _ -> it.expectEnd() }
+                            }
+                        }?.let { (sym, tv) -> Preamble(sym, listOf(tv), it.forms) }
+                    })
+                }
+            }
+        }) ?: TODO()
+
+        return when (preamble.sym.symbolType) {
+            VAR_SYM, POLYVAR_SYM -> PartialVarDecl(preamble.sym, preamble.typeVarSyms, preamble.paramTypeForms, it.expectForm())
+            RECORD_KEY_SYM -> PartialRecordKeyDecl(preamble.sym, preamble.typeVarSyms, it.expectForm())
+            VARIANT_KEY_SYM -> PartialVariantKeyDecl(preamble.sym, preamble.typeVarSyms, it.varargs { it.expectForm<Form>() })
+            TYPE_ALIAS_SYM -> PartialTypeAliasDecl(preamble.sym, preamble.typeVarSyms, it.expectForm())
+        }.also { _ -> it.expectEnd() }
     }
 
     private sealed class TypeDeclForm {

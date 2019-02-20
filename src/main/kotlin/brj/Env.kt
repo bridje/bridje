@@ -38,6 +38,16 @@ class JavaImportVar(javaImport: JavaImport, override val value: Any? = null) : G
 
 data class TypeAlias(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: Type)
 
+data class NSDecl(val ns: Symbol,
+                  val refers: Map<Symbol, QSymbol> = emptyMap(),
+                  val aliases: Map<Symbol, Symbol> = emptyMap(),
+                  val javaImports: Map<QSymbol, JavaImport> = emptyMap(),
+
+                  val recordKeys: Map<Symbol, RecordKey> = emptyMap(),
+                  val variantKeys: Map<Symbol, VariantKey> = emptyMap(),
+
+                  val typeAliases: Map<Symbol, TypeAlias> = emptyMap())
+
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),
                  val aliases: Map<Symbol, Symbol> = emptyMap(),
