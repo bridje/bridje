@@ -3,6 +3,8 @@ package brj
 import brj.BrjLanguage.BridjeContext
 import brj.Symbol.Companion.mkSym
 import brj.ValueExprEmitter.Companion.emitValueExpr
+import brj.analyser.ValueExpr
+import brj.analyser.analyseValueExpr
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import org.graalvm.polyglot.Context
@@ -17,9 +19,9 @@ import org.graalvm.polyglot.Source
 @Suppress("unused")
 class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
-    data class BridjeContext(val truffleEnv: TruffleLanguage.Env, var env: brj.Env)
+    class BridjeContext internal constructor(val truffleEnv: TruffleLanguage.Env, var env: brj.Env)
 
-    override fun createContext(env: TruffleLanguage.Env) = BridjeContext(env, require(Env(), setOf(/*mkSym("brj.forms")*/)))
+    override fun createContext(truffleEnv: TruffleLanguage.Env) = BridjeContext(truffleEnv, require(Env(), setOf(/*mkSym("brj.forms")*/)))
 
     override fun isObjectOfLanguage(obj: Any): Boolean =
         obj is RecordObject || obj is VariantObject || obj is BridjeFunction
@@ -37,6 +39,22 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         return emitValueExpr(expr)
     }
 
+    internal class BrjNSLoader(private val sources: Map<Symbol, Source> = emptyMap()) : NSFormLoader {
+        private fun nsSource(ns: Symbol): Source? =
+            this::class.java.getResource("/${ns.baseStr.replace('.', '/')}.brj")
+                ?.let { url -> Source.newBuilder("brj", url).build() }
+
+        override fun loadNSForms(ns: Symbol): List<Form> =
+            readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
+    }
+
+    internal object BrjEmitter : Emitter {
+        override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter.evalValueExpr(expr)
+        override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter.emitJavaImport(javaImport)
+        override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter.emitRecordKey(recordKey)
+        override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter.emitVariantKey(variantKey)
+    }
+
     companion object {
         private val USER = mkSym("user")
 
@@ -44,20 +62,9 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         internal fun getCtx() = getCurrentContext(BrjLanguage::class.java)
 
         fun require(env: brj.Env, rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()): brj.Env {
-            val evaluator = Evaluator(env, object : Emitter {
-                override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter.evalValueExpr(expr)
-                override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter.emitJavaImport(javaImport)
-                override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter.emitRecordKey(recordKey)
-                override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter.emitVariantKey(variantKey)
-            })
+            val evaluator = Evaluator(env, BrjNSLoader(sources), BrjEmitter)
 
-            loadNSes(rootNses) { ns ->
-                fun nsSource(ns: Symbol): Source? =
-                    this::class.java.getResource("/${ns.baseStr.replace('.', '/')}.brj")
-                        ?.let { url -> Source.newBuilder("brj", url).build() }
-
-                readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
-            }.forEach(evaluator::evalNS)
+            evaluator.requireNSes(rootNses)
 
             return evaluator.env
         }

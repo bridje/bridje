@@ -25,11 +25,13 @@ private fun symbolType(sym: Symbol): SymbolType {
     }
 }
 
-sealed class Ident
+sealed class Ident {
+    internal abstract val symbolType: SymbolType
+}
 
 class Symbol private constructor(val isKeyword: Boolean, val baseStr: String) : Ident() {
     private val stringRep = "${if (isKeyword) ":" else ""}$baseStr"
-    internal val symbolType = brj.symbolType(this)
+    override val symbolType = brj.symbolType(this)
 
     companion object {
         private val INTERNER: Interner<String, Symbol> = Interner {
@@ -44,8 +46,8 @@ class Symbol private constructor(val isKeyword: Boolean, val baseStr: String) : 
 }
 
 class QSymbol private constructor(val ns: Symbol, val base: Symbol) : Ident() {
-    val isKeyword = base.isKeyword
-    private val stringRep = "${if (isKeyword) ":" else ""}$ns/${base.baseStr}"
+    override val symbolType = base.symbolType
+    private val stringRep = "${if (base.isKeyword) ":" else ""}$ns/${base.baseStr}"
 
     companion object {
         private val INTERNER: Interner<Pair<Symbol, Symbol>, QSymbol> = Interner { (ns, base) -> QSymbol(ns, base) }

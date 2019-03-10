@@ -2,6 +2,7 @@ package brj
 
 import brj.BridjeTypesGen.*
 import brj.BrjLanguage.Companion.getCtx
+import brj.analyser.*
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary

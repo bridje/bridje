@@ -100,7 +100,7 @@ class RecordObject(val keys: List<RecordKey>, val dynamicObject: DynamicObject, 
     override fun getForeignAccess() = ForeignAccess.create(RecordObject::class.java, faf)
 
     @TruffleBoundary
-    override fun toString(): String = "{${keys.joinToString(", ") { key -> "${key.sym} ${dynamicObject[key]}" }}}"
+    override fun toString(): String = "{${keys.joinToString(", ") { key -> "${key.sym} ${dynamicObject[key.sym.toString()]}" }}}"
 }
 
 internal class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode() {

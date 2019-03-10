@@ -2,11 +2,14 @@ package brj
 
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
+import brj.analyser.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 internal class AnalyserTest {
-    fun analyseNS(s: String): NSEnv = NSAnalyser(Symbol.mkSym("foo")).analyseNS(AnalyserState(readForms(s)))
+    val dummyVar = object : Any() {}
+
+    fun analyseNS(s: String): NSEnv = NSAnalyser(mkSym("foo")).analyseNS(readForms(s).first())
 
     @Test
     fun `analyses refers`() {
@@ -27,20 +30,20 @@ internal class AnalyserTest {
             nsEnv.javaImports)
     }
 
-    private val actionExprAnalyser = ActionExprAnalyser(Env(), NSEnv(mkSym("user")))
+    private val exprAnalyser = ExprAnalyser(Env(), NSEnv(mkSym("user")))
 
-    private fun analyseDecl(s: String) = actionExprAnalyser.declAnalyser(AnalyserState(readForms(s)))
+    private fun analyseDecl(s: String) = exprAnalyser.analyseDecl(ParserState(readForms(s)))
 
     @Test
     fun `analyses var declarations`() {
         val foo = mkQSym("user/foo")
 
         assertEquals(
-            VarDeclExpr(DefVar(foo, Type(IntType), null)),
+            VarDeclExpr(foo, Type(IntType)),
             analyseDecl("foo Int"))
 
         assertEquals(
-            VarDeclExpr(DefVar(foo, Type(FnType(listOf(IntType), StringType)), null)),
+            VarDeclExpr(foo, Type(FnType(listOf(IntType), StringType))),
             analyseDecl("(foo Int) Str"))
     }
 
@@ -81,7 +84,7 @@ internal class AnalyserTest {
 
     @Test
     fun `analyses polyvar`() {
-        val fooVar = mkSym(".foo")
+        val fooVar = mkQSym("user/.foo")
 
         val polyDecl = analyseDecl("(.foo a) a")
         val typeVar = (polyDecl as PolyVarDeclExpr).typeVar
@@ -108,8 +111,8 @@ internal class AnalyserTest {
         val messageKey = RecordKey(message, emptyList(), StringType)
 
         val nsEnv = NSEnv(user, vars = mapOf(
-            count.base to RecordKeyVar(countKey, null),
-            message.base to RecordKeyVar(messageKey, null)))
+            count.base to RecordKeyVar(countKey, dummyVar),
+            message.base to RecordKeyVar(messageKey, dummyVar)))
 
         assertEquals(
             DoExpr(emptyList(), RecordExpr(listOf(
@@ -126,9 +129,9 @@ internal class AnalyserTest {
     private fun analyseMonoType(s: String): MonoType =
         TypeAnalyser(Env(), NSEnv(mkSym("user"),
             vars = mapOf(
-                boolKey.sym.base to VariantKeyVar(boolKey, null),
-                strKey.sym.base to VariantKeyVar(strKey, null))))
-            .monoTypeAnalyser(AnalyserState(readForms(s)))
+                boolKey.sym.base to VariantKeyVar(boolKey, dummyVar),
+                strKey.sym.base to VariantKeyVar(strKey, dummyVar))))
+            .monoTypeAnalyser(ParserState(readForms(s)))
 
     @Test
     internal fun `analyses variant type declaration`() {

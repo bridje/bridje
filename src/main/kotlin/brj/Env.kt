@@ -15,7 +15,7 @@ data class RecordKey internal constructor(val sym: QSymbol, val typeVars: List<T
     override fun toString() = sym.toString()
 }
 
-data class RecordKeyVar internal constructor(val recordKey: RecordKey, override var value: Any?) : GlobalVar() {
+data class RecordKeyVar internal constructor(val recordKey: RecordKey, override var value: Any) : GlobalVar() {
     override val sym = recordKey.sym
     override val type: Type = RecordType.accessorType(recordKey)
 }
@@ -24,29 +24,19 @@ data class VariantKey internal constructor(val sym: QSymbol, val typeVars: List<
     override fun toString() = sym.toString()
 }
 
-data class VariantKeyVar internal constructor(val variantKey: VariantKey, override var value: Any?) : GlobalVar() {
+data class VariantKeyVar internal constructor(val variantKey: VariantKey, override var value: Any) : GlobalVar() {
     override val sym = variantKey.sym
     override val type: Type = VariantType.constructorType(variantKey)
 }
 
 data class JavaImport internal constructor(val clazz: Class<*>, val sym: QSymbol, val type: Type)
 
-class JavaImportVar(javaImport: JavaImport, override val value: Any? = null) : GlobalVar() {
+class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar() {
     override val sym = javaImport.sym
     override val type = javaImport.type
 }
 
-data class TypeAlias(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: Type)
-
-data class NSDecl(val ns: Symbol,
-                  val refers: Map<Symbol, QSymbol> = emptyMap(),
-                  val aliases: Map<Symbol, Symbol> = emptyMap(),
-                  val javaImports: Map<QSymbol, JavaImport> = emptyMap(),
-
-                  val recordKeys: Map<Symbol, RecordKey> = emptyMap(),
-                  val variantKeys: Map<Symbol, VariantKey> = emptyMap(),
-
-                  val typeAliases: Map<Symbol, TypeAlias> = emptyMap())
+data class TypeAlias(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: Type?)
 
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),
@@ -55,25 +45,22 @@ data class NSEnv(val ns: Symbol,
                  val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                  val vars: Map<Ident, GlobalVar> = emptyMap()) {
 
-
     operator fun plus(javaImportVar: JavaImportVar): NSEnv = copy(vars = vars + (javaImportVar.sym to javaImportVar))
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
-
-    val deps: Set<Symbol> by lazy {
-        aliases.values.toSet() + refers.values.map { it.ns }
-    }
 }
 
-fun resolve(env: Env, nsEnv: NSEnv, sym: Symbol): GlobalVar? =
-    nsEnv.vars[sym]
-        ?: nsEnv.refers[sym]?.let { refer -> env.nses[refer.ns]?.vars?.get(refer.base) }
-
-fun resolve(env: Env, nsEnv: NSEnv, sym: QSymbol): GlobalVar? =
-    nsEnv.vars[sym]
-        ?: env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)]?.let { it.vars[sym.base] }
 
 class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv) = Env(nses + (newNsEnv.ns to newNsEnv))
 }
+
+internal fun resolve(env: Env, nsEnv: NSEnv, sym: Ident): GlobalVar? =
+    nsEnv.vars[sym]
+        ?: when (sym) {
+            is Symbol -> nsEnv.refers[sym]?.let { qsym -> env.nses.getValue(qsym.ns).vars.getValue(qsym.base) }
+            is QSymbol ->
+                (env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)] ?: TODO("can't find NS"))
+                    .vars.getValue(sym.base)
+        }
 

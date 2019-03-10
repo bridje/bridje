@@ -1,9 +1,6 @@
 (ns brj.forms)
 
-(:: Form (+ :BooleanForm :StringForm
-            :IntForm :BigIntForm :FloatForm :BigFloatForm
-            :ListForm :SetForm :VectorForm :RecordForm
-            :SymbolForm :QSymbolForm))
+(:: Form)
 
 (:: :BooleanForm Bool)
 (:: :StringForm Str)
@@ -20,3 +17,8 @@
 
 (:: :SymbolForm Symbol)
 (:: :QSymbolForm QSymbol)
+
+(:: Form (+ :BooleanForm :StringForm
+            :IntForm :BigIntForm :FloatForm :BigFloatForm
+            :ListForm :SetForm :VectorForm :RecordForm
+            :SymbolForm :QSymbolForm))

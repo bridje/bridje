@@ -3,6 +3,7 @@ package brj
 import brj.Symbol.Companion.mkSym
 import brj.TypeException.ArityError
 import brj.TypeException.UnificationError
+import brj.analyser.*
 
 internal val STR = mkSym("Str")
 internal val BOOL = mkSym("Bool")

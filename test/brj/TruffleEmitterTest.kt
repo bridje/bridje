@@ -5,6 +5,7 @@ import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.ValueExprEmitter.Companion.evalValueExpr
 import brj.VariantEmitter.emitVariantKey
+import brj.analyser.*
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Value
 import org.junit.jupiter.api.AfterAll

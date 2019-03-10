@@ -8,7 +8,6 @@ import java.io.Reader
 import java.io.StringReader
 import java.math.BigDecimal
 import java.math.BigInteger
-import java.util.*
 
 sealed class Form
 
@@ -36,12 +35,15 @@ private fun quoteForm(form: Form): Form =
             is BooleanForm, is StringForm,
             is IntForm, is BigIntForm,
             is FloatForm, is BigFloatForm -> form
+
             is ListForm -> VectorForm(form.forms.map(::quoteForm))
             is SetForm -> VectorForm(form.forms.map(::quoteForm))
             is VectorForm -> VectorForm(form.forms.map(::quoteForm))
             is RecordForm -> VectorForm(form.forms.map(::quoteForm))
+
             is SymbolForm -> QuotedSymbolForm(form.sym)
             is QSymbolForm -> QuotedQSymbolForm(form.sym)
+
             else -> throw UnsupportedOperationException()
         }))
 
@@ -81,32 +83,3 @@ fun readForms(reader: Reader): List<Form> =
         .map(::transformForm)
 
 fun readForms(s: String): List<Form> = readForms(StringReader(s))
-
-internal data class NSFile(val nsEnv: NSEnv, val forms: List<Form>)
-
-internal fun loadNSes(rootNSes: Set<Symbol>, nsForms: (Symbol) -> List<Form>): List<NSFile> {
-    val stack = LinkedHashSet<Symbol>()
-
-    val res = LinkedList<NSFile>()
-    val seen = mutableSetOf<Symbol>()
-
-    fun loadNS(ns: Symbol) {
-        if (seen.contains(ns)) return
-        if (stack.contains(ns)) throw TODO("Cyclic NS")
-
-        stack += ns
-
-        val state = AnalyserState(nsForms(ns))
-        val nsEnv = NSAnalyser(ns).analyseNS(state)
-
-        (nsEnv.deps - seen).forEach(::loadNS)
-
-        res.add(NSFile(nsEnv, state.forms))
-
-        stack -= ns
-    }
-
-    rootNSes.forEach(::loadNS)
-
-    return res
-}
