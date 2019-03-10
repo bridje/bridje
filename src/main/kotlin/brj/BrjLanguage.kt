@@ -21,7 +21,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
     class BridjeContext internal constructor(val truffleEnv: TruffleLanguage.Env, var env: brj.Env)
 
-    override fun createContext(truffleEnv: TruffleLanguage.Env) = BridjeContext(truffleEnv, require(Env(), setOf(/*mkSym("brj.forms")*/)))
+    override fun createContext(truffleEnv: TruffleLanguage.Env) = BridjeContext(truffleEnv, Env())
 
     override fun isObjectOfLanguage(obj: Any): Boolean =
         obj is RecordObject || obj is VariantObject || obj is BridjeFunction
@@ -75,6 +75,10 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             val ctx = getCtx()
 
             synchronized(ctx) {
+                if (ctx.env.nses.isEmpty()) {
+                    ctx.env = require(ctx.env, setOf(mkSym("brj.forms")))
+                }
+
                 ctx.env = require(ctx.env, rootNses, sources)
             }
         }

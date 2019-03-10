@@ -91,7 +91,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
         }.also { _ -> it.expectEnd() }
     }
 
-    fun analyseDef(it: ParserState): Expr {
+    private fun analyseDef(it: ParserState): DefExpr {
         data class Preamble(val sym: QSymbol, val paramSyms: List<Symbol>? = null)
 
         val preamble = it.or({

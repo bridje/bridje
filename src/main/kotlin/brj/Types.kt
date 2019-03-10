@@ -263,6 +263,13 @@ data class VariantType(val possibleKeys: Set<VariantKey> = emptySet(),
     override fun toString() = "(+ ${keyTypes.values.joinToString(" ")})"
 }
 
+data class TypeAliasType(val typeAlias: TypeAlias, val typeParams: List<MonoType>) : MonoType() {
+    override fun fmap(f: (MonoType) -> MonoType): MonoType = TypeAliasType(typeAlias, typeParams.map { it.fmap(f) })
+    override fun unifyEq(other: MonoType): List<TypeEq> = TODO()
+
+    override fun toString() = if (typeParams.isEmpty()) typeAlias.sym.toString() else "(${typeAlias.sym} ${typeParams.joinToString(" ")})"
+}
+
 sealed class TypeException : Exception() {
     data class UnificationError(val t1: MonoType, val t2: MonoType) : TypeException()
     data class ExpectedFunction(val expr: ValueExpr, val type: MonoType) : TypeException()

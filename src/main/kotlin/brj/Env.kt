@@ -64,3 +64,11 @@ internal fun resolve(env: Env, nsEnv: NSEnv, sym: Ident): GlobalVar? =
                     .vars.getValue(sym.base)
         }
 
+internal fun resolveTypeAlias(env: Env, nsEnv: NSEnv, sym: Ident): TypeAlias? =
+    nsEnv.typeAliases[sym]
+        ?: when (sym) {
+            is Symbol -> nsEnv.refers[sym]?.let { qsym -> env.nses.getValue(qsym.ns).typeAliases.getValue(qsym.base) }
+            is QSymbol ->
+                (env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)] ?: TODO("can't find NS"))
+                    .typeAliases.getValue(sym.base)
+        }

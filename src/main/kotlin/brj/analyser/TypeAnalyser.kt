@@ -12,7 +12,9 @@ internal interface ITypeVarFactory {
     }
 }
 
-internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv, private val typeVarFactory: ITypeVarFactory = ITypeVarFactory.TypeVarFactory()) {
+internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv,
+                            private val instantiator: Instantiator = Instantiator(),
+                            private val typeVarFactory: ITypeVarFactory = ITypeVarFactory.TypeVarFactory()) {
 
     fun typeVarAnalyser(it: ParserState) = typeVarFactory.mkTypeVar(it.expectSym(SymbolType.VAR_SYM))
 
@@ -28,7 +30,14 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv, private val typeVarF
                     BIG_INT -> BigIntType
                     BIG_FLOAT -> BigFloatType
 
-                    else -> if (form.sym.symbolType == SymbolType.VAR_SYM) typeVarFactory.mkTypeVar(form.sym) else TODO()
+                    else -> when (form.sym.symbolType) {
+                        SymbolType.VAR_SYM -> typeVarFactory.mkTypeVar(form.sym)
+                        SymbolType.TYPE_ALIAS_SYM -> {
+                            // TODO kind check
+                            resolveTypeAlias(env, nsEnv, form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
+                        }
+                        else -> TODO()
+                    }
                 }
             }
 

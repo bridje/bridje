@@ -23,7 +23,7 @@ fun main() {
                                (:: (plus Int Int) Int))}})
 
         (:: :Void)
-        ;; (:: Void (+ :Void))
+        (:: Void (+ :Void))
 
         (:: (:Just a) a)
         (:: :Nothing)
@@ -62,8 +62,8 @@ fun main() {
         (def (my-fn x y)
           [y x])
 
-        ;; (defmacro (if-not pred then else)
-        ;; (:forms/ListForm [(:forms/SymbolForm 'if) else then]))
+        (defmacro (if-not pred then else)
+          (:forms/ListForm [(:forms/SymbolForm 'if) else then]))
         """.trimIndent())
 
     val barSource = Source.create("brj", """
