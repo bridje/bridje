@@ -14,7 +14,7 @@ fun main() {
 
     val fooSource = Source.create("brj", """
         (ns foo
-          {:aliases {b bar}
+          {:aliases {b bar, forms brj.forms}
            :refers {bar #{baz}}
            :imports {Foo (java brj.Foo
                                (:: (isZero Int) Bool)
@@ -63,7 +63,7 @@ fun main() {
           [y x])
 
         (defmacro (if-not pred then else)
-          (:forms/ListForm [(:forms/SymbolForm 'if) else then]))
+          (:forms/ListForm ['if else then]))
         """.trimIndent())
 
     val barSource = Source.create("brj", """

@@ -2,7 +2,7 @@ package brj.analyser
 
 import brj.*
 import brj.Symbol.Companion.mkSym
-import brj.SymbolType.RECORD_KEY_SYM
+import brj.SymbolKind.RECORD_KEY_SYM
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -18,6 +18,9 @@ data class IntExpr(val int: Long) : ValueExpr()
 data class BigIntExpr(val bigInt: BigInteger) : ValueExpr()
 data class FloatExpr(val float: Double) : ValueExpr()
 data class BigFloatExpr(val bigFloat: BigDecimal) : ValueExpr()
+
+data class QuotedSymbolExpr(val sym: Symbol) : ValueExpr()
+data class QuotedQSymbolExpr(val sym: QSymbol) : ValueExpr()
 
 data class VectorExpr(val exprs: List<ValueExpr>) : ValueExpr()
 data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr()
@@ -237,13 +240,13 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
             is SymbolForm -> symAnalyser(form)
             is QSymbolForm -> qsymAnalyser(form)
 
+            is QuotedSymbolForm -> QuotedSymbolExpr(form.sym)
+            is QuotedQSymbolForm -> QuotedQSymbolExpr(form.sym)
+
             is ListForm -> listAnalyser(ParserState(form.forms))
             is VectorForm -> collAnalyser(::VectorExpr)(ParserState(form.forms))
             is SetForm -> collAnalyser(::SetExpr)(ParserState(form.forms))
             is RecordForm -> recordAnalyser(form)
-
-            is QuotedSymbolForm -> TODO()
-            is QuotedQSymbolForm -> TODO()
         }
     }
 

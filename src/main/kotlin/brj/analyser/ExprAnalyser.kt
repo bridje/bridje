@@ -3,7 +3,7 @@ package brj.analyser
 import brj.*
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
-import brj.SymbolType.*
+import brj.SymbolKind.*
 
 internal val DO = mkSym("do")
 internal val DEF = mkSym("def")
@@ -12,6 +12,7 @@ internal val DECL = mkSym("::")
 
 internal sealed class Expr
 internal data class DefExpr(val sym: QSymbol, val expr: ValueExpr, val type: Type) : Expr()
+internal data class DefMacroExpr(val sym: QSymbol, val expr: ValueExpr, val type: Type) : Expr()
 internal data class VarDeclExpr(val sym: QSymbol, val type: Type) : Expr()
 internal data class PolyVarDeclExpr(val sym: QSymbol, val typeVar: TypeVarType, val type: Type) : Expr()
 internal data class TypeAliasDeclExpr(val typeAlias: TypeAlias) : Expr()
@@ -34,7 +35,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
         val preamble = it.or({
             it.maybe { it.expectSym() }?.let { sym ->
                 // (:: <sym> <type>)
-                when (sym.symbolType) {
+                when (sym.symbolKind) {
                     VAR_SYM, RECORD_KEY_SYM, VARIANT_KEY_SYM, TYPE_ALIAS_SYM -> Preamble(nsQSym(sym))
                     POLYVAR_SYM -> TODO("polyvar sym needs a type-var")
                 }
@@ -44,7 +45,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
                 it.nested(listForm.forms) {
                     it.or({
                         it.maybe { it.expectSym() }?.let { sym ->
-                            when (sym.symbolType) {
+                            when (sym.symbolKind) {
                                 // (:: (foo Int) Str)
                                 VAR_SYM -> Preamble(nsQSym(sym), paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
 
@@ -69,7 +70,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
             }
         }) ?: TODO()
 
-        return when (preamble.sym.symbolType) {
+        return when (preamble.sym.symbolKind) {
             VAR_SYM -> {
                 val returnType = typeAnalyser.monoTypeAnalyser(it)
                 val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType))
@@ -114,6 +115,31 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
         return DefExpr(preamble.sym, expr, valueExprType(expr))
     }
 
+    private fun isValidMacroType(type: MonoType): Boolean {
+        // TODO check param + return types
+        return true
+    }
+
+    private fun analyseDefMacro(it: ParserState): DefMacroExpr {
+        data class Preamble(val sym: QSymbol, val paramSyms: List<Symbol>)
+
+        val preamble = it.nested(ListForm::forms) {
+            val sym = nsQSym(it.expectSym(VAR_SYM))
+            Preamble(sym, it.varargs { it.expectSym(VAR_SYM) })
+        }
+
+        val locals = preamble.paramSyms.map { it to LocalVar(it) }
+
+        val bodyExpr = ValueExprAnalyser(env, nsEnv, locals.toMap()).doAnalyser(it)
+
+        val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
+
+        val exprType = valueExprType(expr)
+        if (!isValidMacroType(exprType.monoType)) TODO()
+
+        return DefMacroExpr(preamble.sym, expr, exprType)
+    }
+
     internal fun analyseExpr(form: Form): DoOrExprResult {
         if (form !is ListForm) TODO()
 
@@ -123,6 +149,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
             DO -> DoResult(state.forms)
             DEF -> ExprResult(analyseDef(state))
             DECL -> ExprResult(analyseDecl(state))
+            DEFMACRO -> ExprResult(analyseDefMacro(state))
             else -> TODO()
         }
     }

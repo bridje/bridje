@@ -11,6 +11,8 @@ internal val INT = mkSym("Int")
 internal val FLOAT = mkSym("Float")
 internal val BIG_INT = mkSym("BigInt")
 internal val BIG_FLOAT = mkSym("BigFloat")
+internal val SYMBOL = mkSym("Symbol")
+internal val QSYMBOL = mkSym("QSymbol")
 internal val FN_TYPE = mkSym("Fn")
 internal val VARIANT_TYPE = mkSym("+")
 
@@ -81,6 +83,14 @@ object FloatType : MonoType() {
 
 object BigFloatType : MonoType() {
     override fun toString(): String = "BigFloat"
+}
+
+object SymbolType : MonoType() {
+    override fun toString(): String = "Symbol"
+}
+
+object QSymbolType : MonoType() {
+    override fun toString(): String = "QSymbol"
 }
 
 class TypeVarType : MonoType() {
@@ -466,6 +476,9 @@ private fun valueExprTyping(expr: ValueExpr): Typing =
         is BigIntExpr -> Typing(BigIntType)
         is FloatExpr -> Typing(FloatType)
         is BigFloatExpr -> Typing(BigFloatType)
+
+        is QuotedSymbolExpr -> Typing(SymbolType)
+        is QuotedQSymbolExpr -> Typing(QSymbolType)
 
         is VectorExpr -> collExprTyping(::VectorType, expr.exprs)
         is SetExpr -> collExprTyping(::SetType, expr.exprs)

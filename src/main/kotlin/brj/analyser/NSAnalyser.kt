@@ -2,7 +2,7 @@ package brj.analyser
 
 import brj.*
 import brj.Symbol.Companion.mkSym
-import brj.SymbolType.VAR_SYM
+import brj.SymbolKind.VAR_SYM
 
 internal val NS = mkSym("ns")
 internal val REFERS = mkSym(":refers")

@@ -16,7 +16,7 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv,
                             private val instantiator: Instantiator = Instantiator(),
                             private val typeVarFactory: ITypeVarFactory = ITypeVarFactory.TypeVarFactory()) {
 
-    fun typeVarAnalyser(it: ParserState) = typeVarFactory.mkTypeVar(it.expectSym(SymbolType.VAR_SYM))
+    fun typeVarAnalyser(it: ParserState) = typeVarFactory.mkTypeVar(it.expectSym(SymbolKind.VAR_SYM))
 
     fun monoTypeAnalyser(it: ParserState): MonoType {
         val form = it.expectForm<Form>()
@@ -29,10 +29,12 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv,
                     FLOAT -> FloatType
                     BIG_INT -> BigIntType
                     BIG_FLOAT -> BigFloatType
+                    SYMBOL -> SymbolType
+                    QSYMBOL -> QSymbolType
 
-                    else -> when (form.sym.symbolType) {
-                        SymbolType.VAR_SYM -> typeVarFactory.mkTypeVar(form.sym)
-                        SymbolType.TYPE_ALIAS_SYM -> {
+                    else -> when (form.sym.symbolKind) {
+                        SymbolKind.VAR_SYM -> typeVarFactory.mkTypeVar(form.sym)
+                        SymbolKind.TYPE_ALIAS_SYM -> {
                             // TODO kind check
                             resolveTypeAlias(env, nsEnv, form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
                         }
@@ -52,7 +54,7 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv,
                 }
                     ?: it.maybe { it.expectSym(VARIANT_TYPE) }?.let { _ ->
                         it.varargs {
-                            val variantKey = (resolve(env, nsEnv, it.expectSym(SymbolType.VARIANT_KEY_SYM)) as? VariantKeyVar)?.variantKey
+                            val variantKey = (resolve(env, nsEnv, it.expectSym(SymbolKind.VARIANT_KEY_SYM)) as? VariantKeyVar)?.variantKey
                                 ?: TODO()
                             KeyType(variantKey, variantKey.typeVars)
                         }.let { keyTypes ->

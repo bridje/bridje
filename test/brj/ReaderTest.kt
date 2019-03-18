@@ -1,7 +1,8 @@
 package brj
 
 import brj.QSymbol.Companion.mkQSym
-import brj.ReaderTest.FormType.*
+import brj.ReaderTest.FormType.BOOLEAN
+import brj.ReaderTest.FormType.VECTOR
 import brj.Symbol.Companion.mkSym
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -30,7 +31,7 @@ internal class ReaderTest {
         assertEquals(
             listOf(collForm(VECTOR,
                 quotedForm(BOOLEAN, BooleanForm(true)),
-                quotedForm(SYMBOL, QuotedSymbolForm(mkSym("foo"))))),
+                quotedForm(FormType.SYMBOL, QuotedSymbolForm(mkSym("foo"))))),
 
             readForms("'[true foo]"))
     }

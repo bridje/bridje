@@ -15,11 +15,10 @@
 (:: :VectorForm [Form])
 (:: :RecordForm [Form])
 
-;(:: :SymbolForm Symbol)
-;(:: :QSymbolForm QSymbol)
+(:: :SymbolForm Symbol)
+(:: :QSymbolForm QSymbol)
 
 (:: Form (+ :BooleanForm :StringForm
             :IntForm :BigIntForm :FloatForm :BigFloatForm
             :ListForm :SetForm :VectorForm :RecordForm
-            ;:SymbolForm :QSymbolForm
-            ))
+            :SymbolForm :QSymbolForm))

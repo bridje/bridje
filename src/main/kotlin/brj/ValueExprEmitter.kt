@@ -324,6 +324,9 @@ internal class ValueExprEmitter private constructor() {
             is FloatExpr -> FloatNode(expr.float)
             is BigFloatExpr -> ObjectNode(expr.bigFloat)
 
+            is QuotedSymbolExpr -> ObjectNode(expr.sym)
+            is QuotedQSymbolExpr -> ObjectNode(expr.sym)
+
             is VectorExpr -> VectorNode(expr)
             is SetExpr -> SetNode(expr)
 

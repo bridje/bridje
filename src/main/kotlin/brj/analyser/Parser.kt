@@ -69,9 +69,9 @@ internal data class ParserState(var forms: List<Form>) {
 
     fun expectSym() = expectForm<SymbolForm>().sym
 
-    fun expectSym(vararg types: SymbolType): Symbol {
+    fun expectSym(vararg kinds: SymbolKind): Symbol {
         val sym = expectSym()
-        if (!types.contains(sym.symbolType)) TODO() else return sym
+        if (!kinds.contains(sym.symbolKind)) TODO() else return sym
     }
 
     fun expectSym(expectedSym: Symbol): Symbol {
@@ -88,9 +88,9 @@ internal data class ParserState(var forms: List<Form>) {
         }
     }
 
-    fun expectIdent(vararg types: SymbolType): Ident {
+    fun expectIdent(vararg kinds: SymbolKind): Ident {
         val ident = expectIdent()
-        if (!types.contains(ident.symbolType)) TODO() else return ident
+        if (!kinds.contains(ident.symbolKind)) TODO() else return ident
     }
 }
 
