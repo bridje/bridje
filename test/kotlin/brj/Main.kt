@@ -42,7 +42,7 @@ fun main() {
           (let [quux 10N]
             [quux baz]))
 
-        ;;   (:: (! (println! Str)) Void)
+        (:: (! (println! Str)) Void)
         ;;   (def (println! s) :Void)
 
         ;;   (:: (! (read-line!)) Str))
