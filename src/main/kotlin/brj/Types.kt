@@ -419,7 +419,7 @@ private fun fnExprTyping(expr: FnExpr): Typing {
 
 private fun callExprTyping(expr: CallExpr): Typing {
     val fnExpr = expr.f
-    val argExprs = expr.args
+    val argExprs = expr.args.let { args -> if (fnExpr is GlobalVarExpr && fnExpr.globalVar.type.effects.isNotEmpty()) args.drop(1) else args }
 
     val fnExprTyping = valueExprTyping(fnExpr)
 

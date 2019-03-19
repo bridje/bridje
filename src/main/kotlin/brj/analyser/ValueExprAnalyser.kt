@@ -52,20 +52,23 @@ internal val CASE = mkSym("case")
 internal val LOOP = mkSym("loop")
 internal val RECUR = mkSym("recur")
 
+internal val DEFAULT_EFFECT_LOCAL = LocalVar(mkSym("_fx"))
+
 @Suppress("NestedLambdaShadowedImplicitParameter")
-internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals: Map<Symbol, LocalVar> = emptyMap(), val loopLocals: List<LocalVar>? = null) {
+internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
+                                      val locals: Map<Symbol, LocalVar> = emptyMap(),
+                                      val loopLocals: List<LocalVar>? = null,
+                                      val effectLocal: LocalVar = DEFAULT_EFFECT_LOCAL) {
     private fun resolve(ident: Ident) = resolve(env, nsEnv, ident)
 
-    private fun symAnalyser(form: SymbolForm): ValueExpr {
-        return ((locals[form.sym]?.let { LocalVarExpr(it) })
+    private fun symAnalyser(form: SymbolForm): ValueExpr =
+        (locals[form.sym]?.let { LocalVarExpr(it) })
             ?: resolve(form.sym)?.let(::GlobalVarExpr)
-            ?: TODO("sym not found: ${form.sym}"))
-    }
+            ?: TODO("sym not found: ${form.sym}")
 
-    private fun qsymAnalyser(form: QSymbolForm): ValueExpr {
-        return (resolve(form.sym)?.let(::GlobalVarExpr)
-            ?: TODO("sym not found: ${form.sym}"))
-    }
+    private fun qsymAnalyser(form: QSymbolForm): ValueExpr =
+        resolve(form.sym)?.let(::GlobalVarExpr)
+            ?: TODO("sym not found: ${form.sym}")
 
     private fun ifAnalyser(it: ParserState): ValueExpr {
         val predExpr = exprAnalyser(it)
@@ -134,10 +137,13 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
 
     private fun callAnalyser(it: ParserState): ValueExpr {
         val fn = exprAnalyser(it)
+
         if (fn is GlobalVarExpr && fn.globalVar is DefMacroVar) {
             TODO()
         } else {
-            return CallExpr(fn, it.varargs(::exprAnalyser))
+            val effectLocals = if (fn is GlobalVarExpr && fn.globalVar.type.effects.isNotEmpty()) listOf(LocalVarExpr(effectLocal)) else listOf()
+
+            return CallExpr(fn, effectLocals + it.varargs(::exprAnalyser))
         }
     }
 
@@ -166,7 +172,6 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv, val locals
                 is ListForm -> {
                     it.nested(clauseForm.forms) {
                         Pair(resolveVariantKey(it.expectForm()).variantKey, it.varargs { it.expectForm<SymbolForm>().sym })
-
                     }
                 }
                 else -> TODO()

@@ -43,9 +43,9 @@ fun main() {
             [quux baz]))
 
         (:: (! (println! Str)) Void)
-        ;;   (def (println! s) :Void)
+        (def (! (println! s)) :Void)
 
-        ;;   (:: (! (read-line!)) Str))
+        (:: (! (read-line!)) Str)
 
         (:: :first-name Str)
         (:: :last-name Str)
@@ -60,10 +60,11 @@ fun main() {
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)
+          (println! "foo")
           [y x])
 
-        (defmacro (if-not pred then else)
-          (:forms/ListForm ['if else then]))
+        ;(defmacro (if-not pred then else)
+        ;  (:forms/ListForm ['if else then]))
         """.trimIndent())
 
     val barSource = Source.create("brj", """

@@ -130,8 +130,15 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
         val valueExprType = valueExprType(expr)
+        val effects = if (preamble.effect) setOf(preamble.sym) else valueExprType.effects
 
-        return DefExpr(preamble.sym, expr, if (preamble.effect) valueExprType.copy(effects = setOf(preamble.sym)) else valueExprType)
+        return if (effects.isEmpty())
+            DefExpr(preamble.sym, expr, valueExprType)
+        else {
+            if (expr !is FnExpr) TODO()
+            val params = listOf(DEFAULT_EFFECT_LOCAL) + expr.params
+            DefExpr(preamble.sym, expr.copy(params = params), valueExprType.copy(effects = effects))
+        }
     }
 
     private fun isValidMacroType(type: MonoType): Boolean {
