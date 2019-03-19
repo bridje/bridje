@@ -29,6 +29,20 @@ internal class ExprAnalyserTest {
             analyseDecl("(! (foo Int)) Str"))
     }
 
+    private fun analyseDef(s: String) = exprAnalyser.analyseDef(ParserState(readForms(s)))
+
+    @Test
+    internal fun `analyses var definitions`() {
+        val foo = mkQSym("user/foo")
+
+        assertEquals(
+            DefExpr(foo,
+                FnExpr(foo.base, emptyList(), DoExpr(emptyList(), IntExpr(4))),
+                Type(FnType(emptyList(), IntType), setOf(foo))),
+
+            analyseDef("(! (foo)) 4"))
+    }
+
     @Test
     fun `analyses type aliases`() {
         val foo = mkQSym("user/Foo")

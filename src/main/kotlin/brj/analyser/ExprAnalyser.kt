@@ -30,7 +30,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
                                  private val typeAnalyser: TypeAnalyser = TypeAnalyser(env, nsEnv)) {
     private fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
 
-    fun analyseDecl(it: ParserState): Expr {
+    internal fun analyseDecl(it: ParserState): Expr {
         data class Preamble(val sym: QSymbol, val typeVars: List<TypeVarType> = emptyList(), val paramTypes: List<MonoType>? = null, val effect: Boolean = false)
 
         val preamble = it.or({
@@ -101,15 +101,23 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
         }.also { _ -> it.expectEnd() }
     }
 
-    private fun analyseDef(it: ParserState): DefExpr {
-        data class Preamble(val sym: QSymbol, val paramSyms: List<Symbol>? = null)
+    internal fun analyseDef(it: ParserState): DefExpr {
+        data class Preamble(val sym: QSymbol, val paramSyms: List<Symbol>? = null, val effect: Boolean = false)
 
         val preamble = it.or({
             it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(nsQSym(it)) }
         }, {
             it.maybe { it.expectForm<ListForm>() }?.let { lf ->
                 it.nested(lf.forms) {
-                    Preamble(nsQSym(it.expectSym(VAR_SYM)), it.varargs { it.expectSym(VAR_SYM) })
+                    it.or({
+                        it.maybe { it.expectSym(EFFECT) }?.let { _ ->
+                            it.nested(ListForm::forms) {
+                                Preamble(nsQSym(it.expectSym(VAR_SYM)), it.varargs { it.expectSym(VAR_SYM) }, effect = true)
+                            }
+                        }
+                    }, {
+                        Preamble(nsQSym(it.expectSym(VAR_SYM)), it.varargs { it.expectSym(VAR_SYM) })
+                    })
                 }
             }
         })
@@ -121,7 +129,9 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
-        return DefExpr(preamble.sym, expr, valueExprType(expr))
+        val valueExprType = valueExprType(expr)
+
+        return DefExpr(preamble.sym, expr, if (preamble.effect) valueExprType.copy(effects = setOf(preamble.sym)) else valueExprType)
     }
 
     private fun isValidMacroType(type: MonoType): Boolean {
