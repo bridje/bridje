@@ -9,6 +9,7 @@ internal val DO = mkSym("do")
 internal val DEF = mkSym("def")
 internal val DEFMACRO = mkSym("defmacro")
 internal val DECL = mkSym("::")
+internal val EFFECT = mkSym("!")
 
 internal sealed class Expr
 internal data class DefExpr(val sym: QSymbol, val expr: ValueExpr, val type: Type) : Expr()
@@ -30,7 +31,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
     private fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
 
     fun analyseDecl(it: ParserState): Expr {
-        data class Preamble(val sym: QSymbol, val typeVars: List<TypeVarType> = emptyList(), val paramTypes: List<MonoType>? = null)
+        data class Preamble(val sym: QSymbol, val typeVars: List<TypeVarType> = emptyList(), val paramTypes: List<MonoType>? = null, val effect: Boolean = false)
 
         val preamble = it.or({
             it.maybe { it.expectSym() }?.let { sym ->
@@ -44,6 +45,13 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
             it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
                 it.nested(listForm.forms) {
                     it.or({
+                        // (:: (! (println! Str) Void))
+                        it.maybe { it.expectSym(EFFECT) }?.let { _ ->
+                            it.nested(ListForm::forms) {
+                                Preamble(nsQSym(it.expectSym(VAR_SYM)), paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser), effect = true)
+                            }
+                        }
+                    }, {
                         it.maybe { it.expectSym() }?.let { sym ->
                             when (sym.symbolKind) {
                                 // (:: (foo Int) Str)
@@ -73,7 +81,8 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
         return when (preamble.sym.symbolKind) {
             VAR_SYM -> {
                 val returnType = typeAnalyser.monoTypeAnalyser(it)
-                val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType))
+                val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType),
+                    effects = if (preamble.effect) setOf(preamble.sym) else emptySet())
                 VarDeclExpr(preamble.sym, type)
             }
 

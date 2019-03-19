@@ -23,6 +23,10 @@ internal class ExprAnalyserTest {
         assertEquals(
             VarDeclExpr(foo, Type(FnType(listOf(IntType), StringType))),
             analyseDecl("(foo Int) Str"))
+
+        assertEquals(
+            VarDeclExpr(foo, Type(FnType(listOf(IntType), StringType), effects = setOf(foo))),
+            analyseDecl("(! (foo Int)) Str"))
     }
 
     @Test
