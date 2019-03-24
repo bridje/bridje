@@ -9,6 +9,7 @@ abstract class GlobalVar internal constructor() {
 }
 
 data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
+data class EffectVar(override val sym: QSymbol, override val type: Type, val hasDefault: Boolean, override var value: Any?) : GlobalVar()
 data class DefMacroVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
 
 data class RecordKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: MonoType) {

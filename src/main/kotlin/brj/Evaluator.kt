@@ -39,12 +39,17 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
                     val expr = result.expr
 
                     when (expr) {
-                        is DefExpr -> nsEnv += DefVar(expr.sym, expr.type,
-                            if (expr.type.effects == setOf(expr.sym)) emitter.evalEffectExpr(expr.sym, emitter.evalValueExpr(expr.expr) as BridjeFunction)
-                            else emitter.evalValueExpr(expr.expr))
+                        is DefExpr -> nsEnv +=
+                            if (expr.type.effects == setOf(expr.sym))
+                                EffectVar(expr.sym, expr.type, true, emitter.evalEffectExpr(expr.sym, emitter.evalValueExpr(expr.expr) as BridjeFunction))
+                            else
+                                DefVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
 
-                        is VarDeclExpr -> nsEnv += DefVar(expr.sym, expr.type,
-                            if (expr.type.effects == setOf(expr.sym)) emitter.evalEffectExpr(expr.sym, defaultImpl = null) else null)
+                        is VarDeclExpr -> nsEnv +=
+                            if (expr.type.effects == setOf(expr.sym))
+                                EffectVar(expr.sym, expr.type, false, emitter.evalEffectExpr(expr.sym, defaultImpl = null))
+                            else
+                                DefVar(expr.sym, expr.type, null)
 
                         is PolyVarDeclExpr -> TODO()
                         is TypeAliasDeclExpr -> nsEnv += expr.typeAlias
