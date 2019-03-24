@@ -356,16 +356,25 @@ internal class ValueExprEmitter private constructor() {
         override fun execute(frame: VirtualFrame): Any = getCtx().truffleEnv.asGuestValue(node.execute(frame))
     }
 
+    inner class WrapFxNode(@Child var node: ValueNode) : ValueNode() {
+        override fun execute(frame: VirtualFrame): Any {
+            frame.setObject(frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL), Any())
+
+            return node.execute(frame)
+        }
+
+    }
+
     companion object {
         internal fun emitValueExpr(expr: ValueExpr): CallTarget {
             val emitter = ValueExprEmitter()
-            return createCallTarget(emitter.makeRootNode(emitter.WrapHostObjectNode(emitter.emitValueExpr(expr))))
+            return createCallTarget(emitter.makeRootNode(
+                emitter.WrapHostObjectNode(
+                    emitter.WrapFxNode(
+                        emitter.emitValueExpr(expr)))))
         }
 
-        internal fun evalValueExpr(expr: ValueExpr): Any {
-            val emitter = ValueExprEmitter()
-            return emitter.emitValueExpr(expr).execute(Truffle.getRuntime().createVirtualFrame(emptyArray(), emitter.frameDescriptor)!!)
-        }
+        internal fun evalValueExpr(expr: ValueExpr) = emitValueExpr(expr).call()
     }
 }
 

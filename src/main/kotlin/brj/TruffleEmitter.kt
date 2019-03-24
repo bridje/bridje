@@ -48,7 +48,6 @@ internal class ReadArgNode(val idx: Int) : ValueNode() {
 internal abstract class ReadLocalVarNode : ValueNode() {
     abstract fun getSlot(): FrameSlot
 
-
     @Specialization
     protected fun read(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())
 }
@@ -263,4 +262,32 @@ internal class JavaExecuteNode(@Child var fnNode: JavaInteropNode, javaImport: J
 internal object JavaImportEmitter {
     fun emitJavaImport(javaImport: JavaImport): BridjeFunction =
         BridjeFunction(makeRootNode(JavaExecuteNode(JavaStaticReadNode(javaImport), javaImport)))
+}
+
+internal object EffectEmitter {
+
+    internal class LookupEffectNode(val sym: QSymbol) : Node() {
+        fun execute(frame: VirtualFrame): BridjeFunction? =
+            ((frame.arguments[0] as? DynamicObject)?.get(sym.ns) as? DynamicObject)?.get(sym.base) as? BridjeFunction
+    }
+
+    internal class EffectFnBodyNode(sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode() {
+        @Child
+        var lookupEffectNode = LookupEffectNode(sym)
+
+        val defaultCallTarget =
+            if (defaultImpl != null) defaultImpl.callTarget
+            else Truffle.getRuntime().createCallTarget(object : RootNode(getLang()) {
+                override fun execute(frame: VirtualFrame?): Any = throw IllegalStateException("Can't find effect.")
+            })
+
+        @Child
+        var callNode = Truffle.getRuntime().createIndirectCallNode()!!
+
+        override fun execute(frame: VirtualFrame) =
+            callNode.call(lookupEffectNode.execute(frame)?.callTarget ?: defaultCallTarget, frame.arguments)
+    }
+
+    fun emitEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) =
+        BridjeFunction(makeRootNode(EffectFnBodyNode(sym, defaultImpl)))
 }

@@ -20,7 +20,8 @@ fun main() {
                                (:: (isZero Int) Bool)
                                (:: (dec Int) Int)
                                (:: (conj #{a} a) #{a})
-                               (:: (plus Int Int) Int))}})
+                               (:: (plus Int Int) Int)
+                               (:: (println Str) Str))}})
 
         (:: :Void)
         (:: Void (+ :Void))
@@ -43,7 +44,9 @@ fun main() {
             [quux baz]))
 
         (:: (! (println! Str)) Void)
-        (def (! (println! s)) :Void)
+        (def (! (println! s))
+          (Foo/println s)
+          :Void)
 
         (:: (! (read-line!)) Str)
 
@@ -60,7 +63,7 @@ fun main() {
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)
-          (println! "foo")
+          (println! "Hello world!")
           [y x])
 
         ;(defmacro (if-not pred then else)
@@ -77,7 +80,7 @@ fun main() {
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval(Source.create("brj", "{:foo/first-name \"James\"}"))
+    val value = ctx.eval(Source.create("brj", "(foo/my-fn 4 3)"))
 
     println("value: $value")
 

@@ -12,6 +12,7 @@ internal interface Emitter {
     fun emitJavaImport(javaImport: JavaImport): Any
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
+    fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
 }
 
 internal class Evaluator(var env: Env, private val loader: NSFormLoader, private val emitter: Emitter) {
@@ -38,8 +39,13 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
                     val expr = result.expr
 
                     when (expr) {
-                        is DefExpr -> nsEnv += DefVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
-                        is VarDeclExpr -> nsEnv += DefVar(expr.sym, expr.type, null)
+                        is DefExpr -> nsEnv += DefVar(expr.sym, expr.type,
+                            if (expr.type.effects == setOf(expr.sym)) emitter.evalEffectExpr(expr.sym, emitter.evalValueExpr(expr.expr) as BridjeFunction)
+                            else emitter.evalValueExpr(expr.expr))
+
+                        is VarDeclExpr -> nsEnv += DefVar(expr.sym, expr.type,
+                            if (expr.type.effects == setOf(expr.sym)) emitter.evalEffectExpr(expr.sym, defaultImpl = null) else null)
+
                         is PolyVarDeclExpr -> TODO()
                         is TypeAliasDeclExpr -> nsEnv += expr.typeAlias
                         is RecordKeyDeclExpr -> nsEnv += RecordKeyVar(expr.recordKey, emitter.emitRecordKey(expr.recordKey))

@@ -14,6 +14,13 @@ class Foo {
         @JvmStatic
         fun conj(set: Set<Any>, el: Any) = set + el
 
-        @JvmStatic fun plus(a: Long, b: Long) = a + b
+        @JvmStatic
+        fun plus(a: Long, b: Long) = a + b
+
+        @JvmStatic
+        fun println(str: String): String {
+            kotlin.io.println(str)
+            return str
+        }
     }
 }

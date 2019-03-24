@@ -37,7 +37,7 @@ internal class Instantiator {
 }
 
 data class Type(val monoType: MonoType, val effects: Set<QSymbol> = emptySet()) {
-    override fun toString() = if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}}"
+    override fun toString() = if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}})"
 
     // TODO check matching
     fun matches(expectedType: Type): Boolean = true
