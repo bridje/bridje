@@ -42,6 +42,17 @@ internal class ValueExprAnalyserTest {
         val expr = analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, readForms("""(with-fx [(def (println! s) "Hello!")] (println! "foo!"))"""))
         val withFxExpr = (expr as DoExpr).expr as WithFxExpr
 
-        println(withFxExpr)
+        assertEquals(1, withFxExpr.fx.size)
+        val effect = withFxExpr.fx.first()
+
+        assertEquals(println, effect.sym)
+
+        assertEquals(
+            DoExpr(emptyList(), StringExpr("Hello!")),
+            effect.expr)
+
+        assertEquals(
+            CallExpr(GlobalVarExpr(effectVar), listOf(LocalVarExpr(withFxExpr.newFxLocal), StringExpr("foo!"))),
+            withFxExpr.bodyExpr)
     }
 }
