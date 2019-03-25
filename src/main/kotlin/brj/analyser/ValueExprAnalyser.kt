@@ -3,6 +3,7 @@ package brj.analyser
 import brj.*
 import brj.Symbol.Companion.mkSym
 import brj.SymbolKind.RECORD_KEY_SYM
+import brj.SymbolKind.VAR_SYM
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -45,12 +46,19 @@ data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defa
 data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
 data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
+data class EffectDef(val sym: QSymbol, val expr: ValueExpr)
+data class WithFxExpr(val oldFxLocal: LocalVar,
+                      val fx: Set<EffectDef>,
+                      val newFxLocal: LocalVar,
+                      val bodyExpr: ValueExpr) : ValueExpr()
+
 internal val IF = mkSym("if")
 internal val FN = mkSym("fn")
 internal val LET = mkSym("let")
 internal val CASE = mkSym("case")
 internal val LOOP = mkSym("loop")
 internal val RECUR = mkSym("recur")
+internal val WITH_FX = mkSym("with-fx")
 
 internal val DEFAULT_EFFECT_LOCAL = LocalVar(mkSym("_fx"))
 
@@ -152,6 +160,33 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
         return DoExpr(exprs.dropLast(1), exprs.last())
     }
 
+    internal fun withFxAnalyser(it: ParserState): ValueExpr {
+        data class Preamble(val sym: Symbol, val paramSyms: List<Symbol>)
+
+        val fx = it.nested(VectorForm::forms) {
+            it.varargs {
+                it.nested(ListForm::forms) {
+                    it.expectSym(DEF)
+
+                    val preamble = it.nested(ListForm::forms) {
+                        Preamble(it.expectSym(VAR_SYM), it.varargs { it.expectSym(VAR_SYM) })
+                    }
+
+                    val sym = (resolve(preamble.sym) as? EffectVar)?.sym ?: TODO()
+
+                    val bodyExpr = doAnalyser(it)
+                    it.expectEnd()
+
+                    EffectDef(sym, bodyExpr)
+                }
+            }
+        }
+
+        val newEffectLocal = LocalVar(DEFAULT_EFFECT_LOCAL.sym)
+
+        return WithFxExpr(effectLocal, fx.toSet(), newEffectLocal, this.copy(effectLocal = newEffectLocal).exprAnalyser(it))
+    }
+
     private fun caseAnalyser(it: ParserState): ValueExpr {
         val expr = exprAnalyser(it)
 
@@ -196,7 +231,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
         return if (firstForm is SymbolForm) {
             when (firstForm.sym) {
-                IF, FN, LET, DO, CASE, LOOP, RECUR -> it.forms = it.forms.drop(1)
+                IF, FN, LET, DO, CASE, LOOP, RECUR, WITH_FX -> it.forms = it.forms.drop(1)
             }
 
             when (firstForm.sym) {
@@ -207,6 +242,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
                 CASE -> caseAnalyser(it)
                 LOOP -> loopAnalyser(it)
                 RECUR -> recurAnalyser(it)
+                WITH_FX -> withFxAnalyser(it)
                 else -> callAnalyser(it)
             }
         } else {

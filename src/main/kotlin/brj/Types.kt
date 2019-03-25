@@ -498,6 +498,8 @@ private fun valueExprTyping(expr: ValueExpr): Typing =
         is LocalVarExpr -> localVarTyping(expr.localVar)
         is GlobalVarExpr -> expr.globalVar.type.let { Typing(Instantiator().instantiate(it.monoType), effects = it.effects) }
 
+        is WithFxExpr -> TODO()
+
         is CaseExpr -> caseExprTyping(expr)
     }
 

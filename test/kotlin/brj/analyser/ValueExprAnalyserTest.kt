@@ -30,5 +30,18 @@ internal class ValueExprAnalyserTest {
             analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, readForms("""{:count 42, :message "Hello world!"}""")))
     }
 
+    @Test
+    internal fun `analyses with-fx`() {
+        val user = mkSym("user")
+        val println = mkQSym("user/println!")
 
+        val effectVar = EffectVar(println, Type(FnType(listOf(StringType), StringType), effects = setOf(println)), false, null)
+
+        val nsEnv = NSEnv(user, vars = mapOf(println.base to effectVar))
+
+        val expr = analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, readForms("""(with-fx [(def (println! s) "Hello!")] (println! "foo!"))"""))
+        val withFxExpr = (expr as DoExpr).expr as WithFxExpr
+
+        println(withFxExpr)
+    }
 }

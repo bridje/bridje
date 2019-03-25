@@ -349,6 +349,8 @@ internal class ValueExprEmitter private constructor() {
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
             is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
 
+            is WithFxExpr -> TODO()
+
             is CaseExpr -> CaseExprNode(expr)
         }
 
