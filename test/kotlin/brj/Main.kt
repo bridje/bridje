@@ -21,6 +21,7 @@ fun main() {
                                (:: (dec Int) Int)
                                (:: (conj #{a} a) #{a})
                                (:: (plus Int Int) Int)
+                               (:: (str Str Str) Str)
                                (:: (println Str) Str))}})
 
         (:: :Void)
@@ -63,8 +64,9 @@ fun main() {
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)
-          (println! "Hello world!")
-          [y x])
+          (with-fx [(def (println! s) (println! (Foo/str "intercepted: " s)))]
+            (println! "Hello world!")
+            [y x]))
 
         ;(defmacro (if-not pred then else)
         ;  (:forms/ListForm ['if else then]))

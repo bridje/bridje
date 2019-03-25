@@ -39,8 +39,6 @@ internal class Instantiator {
 data class Type(val monoType: MonoType, val effects: Set<QSymbol> = emptySet()) {
     override fun toString() = if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}})"
 
-    // TODO check matching
-    fun matches(expectedType: Type): Boolean = true
 }
 
 sealed class MonoType {
@@ -55,6 +53,9 @@ sealed class MonoType {
     open fun fmap(f: (MonoType) -> MonoType): MonoType = this
 
     internal open fun applyMapping(mapping: Mapping): MonoType = fmap { it.applyMapping(mapping) }
+
+    // TODO check matching
+    fun matches(expectedType: MonoType): Boolean = true
 }
 
 object BoolType : MonoType() {
@@ -441,6 +442,23 @@ private fun localVarTyping(lv: LocalVar): Typing {
     return combine(typeVar, extraLVs = listOf(lv to typeVar))
 }
 
+private fun withFxTyping(expr: WithFxExpr): Typing {
+    val fxTypings = expr.fx.map { it.effectVar to valueExprTyping(it.expr) }
+
+    fxTypings.forEach { if (!it.second.monoType.matches(it.first.type.monoType)) TODO("") }
+
+    val bodyExprTyping = valueExprTyping(expr.bodyExpr)
+
+    val combinedTyping = combine(bodyExprTyping.monoType,
+        fxTypings.map { it.second }.plus(bodyExprTyping))
+
+    val effects = combinedTyping.effects
+        .minus((fxTypings.map { it.first.sym }))
+        .plus(fxTypings.flatMap { it.second.effects })
+
+    return combinedTyping.copy(effects = effects)
+}
+
 private fun caseExprTyping(expr: CaseExpr): Typing {
     val returnType = TypeVarType()
 
@@ -498,7 +516,7 @@ private fun valueExprTyping(expr: ValueExpr): Typing =
         is LocalVarExpr -> localVarTyping(expr.localVar)
         is GlobalVarExpr -> expr.globalVar.type.let { Typing(Instantiator().instantiate(it.monoType), effects = it.effects) }
 
-        is WithFxExpr -> TODO()
+        is WithFxExpr -> withFxTyping(expr)
 
         is CaseExpr -> caseExprTyping(expr)
     }

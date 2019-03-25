@@ -45,11 +45,11 @@ internal class ValueExprAnalyserTest {
         assertEquals(1, withFxExpr.fx.size)
         val effect = withFxExpr.fx.first()
 
-        assertEquals(println, effect.sym)
+        assertEquals(println, effect.effectVar.sym)
 
         assertEquals(
             DoExpr(emptyList(), StringExpr("Hello!")),
-            effect.expr)
+            (effect.expr as FnExpr).expr)
 
         assertEquals(
             CallExpr(GlobalVarExpr(effectVar), listOf(LocalVarExpr(withFxExpr.newFxLocal), StringExpr("foo!"))),

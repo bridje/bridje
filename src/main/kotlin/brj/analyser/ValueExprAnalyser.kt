@@ -46,7 +46,7 @@ data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defa
 data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
 data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
-data class EffectDef(val sym: QSymbol, val expr: ValueExpr)
+data class EffectDef(val effectVar: EffectVar, val expr: ValueExpr)
 data class WithFxExpr(val oldFxLocal: LocalVar,
                       val fx: Set<EffectDef>,
                       val newFxLocal: LocalVar,
@@ -172,12 +172,17 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
                         Preamble(it.expectSym(VAR_SYM), it.varargs { it.expectSym(VAR_SYM) })
                     }
 
-                    val sym = (resolve(preamble.sym) as? EffectVar)?.sym ?: TODO()
+                    val effectVar = resolve(preamble.sym) as? EffectVar ?: TODO()
 
-                    val bodyExpr = doAnalyser(it)
+                    val locals = preamble.paramSyms.map { it to LocalVar(it) }
+
+                    val bodyExpr = this.copy(locals = locals.toMap(), loopLocals = locals.map { it.second }).doAnalyser(it)
+
+                    val expr = FnExpr(preamble.sym, locals.map { it.second }, bodyExpr)
+
                     it.expectEnd()
 
-                    EffectDef(sym, bodyExpr)
+                    EffectDef(effectVar, expr)
                 }
             }
         }

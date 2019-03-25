@@ -18,6 +18,9 @@ class Foo {
         fun plus(a: Long, b: Long) = a + b
 
         @JvmStatic
+        fun str(a: String, b: String) = a + b
+
+        @JvmStatic
         fun println(str: String): String {
             kotlin.io.println(str)
             return str
