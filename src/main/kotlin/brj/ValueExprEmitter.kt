@@ -314,6 +314,35 @@ internal class ValueExprEmitter private constructor() {
         }
     }
 
+    inner class WithFxNode(expr: WithFxExpr) : ValueNode() {
+        inner class ReadFxNode(expr: WithFxExpr) : Node() {
+            val slot = frameDescriptor.findOrAddFrameSlot(expr.oldFxLocal)
+
+            fun execute(frame: VirtualFrame) = (frame.getObject(slot) as? Map<Symbol, Map<Symbol, BridjeFunction>>)
+        }
+
+        inner class UpdateFxNode(expr: WithFxExpr) : ValueNode() {
+            @Child
+            var readFxNode = ReadFxNode(expr)
+
+            override fun execute(frame: VirtualFrame): Map<Symbol, Map<Symbol, BridjeFunction>> {
+                return readFxNode.execute(frame) ?: emptyMap()
+            }
+        }
+
+        @Child
+        var writeFxNode = WriteLocalVarNodeGen.create(UpdateFxNode(expr), frameDescriptor.findOrAddFrameSlot(expr.newFxLocal))
+
+        @Child
+        var bodyNode = emitValueExpr(expr.bodyExpr)
+
+        override fun execute(frame: VirtualFrame): Any {
+            writeFxNode.execute(frame)
+
+            return bodyNode.execute(frame)
+        }
+    }
+
     fun makeRootNode(node: ValueNode): RootNode = makeRootNode(node, frameDescriptor)
 
     fun emitValueExpr(expr: ValueExpr): ValueNode =
@@ -350,7 +379,7 @@ internal class ValueExprEmitter private constructor() {
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
             is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
 
-            is WithFxExpr -> TODO()
+            is WithFxExpr -> WithFxNode(expr)
 
             is CaseExpr -> CaseExprNode(expr)
         }
@@ -361,11 +390,10 @@ internal class ValueExprEmitter private constructor() {
 
     inner class WrapFxNode(@Child var node: ValueNode) : ValueNode() {
         override fun execute(frame: VirtualFrame): Any {
-            frame.setObject(frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL), Any())
+            frame.setObject(frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL), emptyMap<Symbol, Map<Symbol, BridjeFunction>>())
 
             return node.execute(frame)
         }
-
     }
 
     companion object {
