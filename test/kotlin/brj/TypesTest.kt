@@ -18,7 +18,7 @@ internal class TypesTest {
 
         val localVar = LocalVar(mkSym("r"))
 
-        val type = valueExprType(FnExpr(null, listOf(localVar), CallExpr(GlobalVarExpr(RecordKeyVar(fooKey, dummyVar)), listOf(LocalVarExpr(localVar))))).monoType
+        val type = valueExprType(FnExpr(null, listOf(localVar), CallExpr(GlobalVarExpr(RecordKeyVar(fooKey, dummyVar)), null, listOf(LocalVarExpr(localVar))))).monoType
 
         println(type)
 
@@ -30,7 +30,7 @@ internal class TypesTest {
         val tv = TypeVarType()
         val fooKey = VariantKey(mkQSym(":user/Foo"), listOf(tv), listOf(tv))
 
-        println(valueExprType(CallExpr(GlobalVarExpr(VariantKeyVar(fooKey, dummyVar)), listOf(IntExpr(5)))))
+        println(valueExprType(CallExpr(GlobalVarExpr(VariantKeyVar(fooKey, dummyVar)), null, listOf(IntExpr(5)))))
     }
 
     @Test

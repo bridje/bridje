@@ -42,7 +42,7 @@ internal class TruffleEmitterTest {
         assertEquals(54L,
             evalValueExpr(
                 CaseExpr(
-                    CallExpr(GlobalVarExpr(VariantKeyVar(variantKey2, constructor)), listOf(IntExpr(54))),
+                    CallExpr(GlobalVarExpr(VariantKeyVar(variantKey2, constructor)), null, listOf(IntExpr(54))),
                     listOf(
                         CaseClause(variantKey, listOf(localVar), IntExpr(12)),
                         CaseClause(variantKey2, listOf(localVar), LocalVarExpr(localVar))),

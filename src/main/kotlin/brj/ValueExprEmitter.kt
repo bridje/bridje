@@ -172,7 +172,8 @@ internal class ValueExprEmitter private constructor() {
         var fnNode = emitValueExpr(expr.f)
 
         @Children
-        val argNodes = expr.args.map(::emitValueExpr).toTypedArray()
+        val argNodes =
+            (listOfNotNull(expr.effectArg) + expr.args).map(::emitValueExpr).toTypedArray()
 
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {

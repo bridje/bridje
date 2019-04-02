@@ -64,9 +64,10 @@ fun main() {
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)
-          (with-fx [(def (println! s) (println! (Foo/str "intercepted: " s)))]
+          ;(with-fx [(def (println! s) (println! (Foo/str "intercepted: " s)))]
             (println! "Hello world!")
-            [y x]))
+            [y x])
+            ;)
 
         ;(defmacro (if-not pred then else)
         ;  (:forms/ListForm ['if else then]))

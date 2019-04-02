@@ -28,7 +28,7 @@ data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr()
 data class RecordEntry(val recordKey: RecordKey, val expr: ValueExpr)
 data class RecordExpr(val entries: List<RecordEntry>) : ValueExpr()
 
-data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>) : ValueExpr()
+data class CallExpr(val f: ValueExpr, val effectArg: LocalVarExpr?, val args: List<ValueExpr>) : ValueExpr()
 data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr()
 
 data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr()
@@ -146,12 +146,12 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
     private fun callAnalyser(it: ParserState): ValueExpr {
         val fn = exprAnalyser(it)
 
-        if (fn is GlobalVarExpr && fn.globalVar is DefMacroVar) {
+        return if (fn is GlobalVarExpr && fn.globalVar is DefMacroVar) {
             TODO()
         } else {
-            val effectLocals = if (fn is GlobalVarExpr && fn.globalVar.type.effects.isNotEmpty()) listOf(LocalVarExpr(effectLocal)) else listOf()
-
-            return CallExpr(fn, effectLocals + it.varargs(::exprAnalyser))
+            CallExpr(fn,
+                (if (fn is GlobalVarExpr && fn.globalVar.type.effects.isNotEmpty()) LocalVarExpr(effectLocal) else null),
+                it.varargs(::exprAnalyser))
         }
     }
 

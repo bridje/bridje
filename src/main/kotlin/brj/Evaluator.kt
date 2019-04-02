@@ -39,11 +39,20 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
                     val expr = result.expr
 
                     when (expr) {
-                        is DefExpr -> nsEnv +=
-                            if (expr.type.effects == setOf(expr.sym))
-                                EffectVar(expr.sym, expr.type, true, emitter.evalEffectExpr(expr.sym, emitter.evalValueExpr(expr.expr) as BridjeFunction))
-                            else
-                                DefVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
+                        is DefExpr -> {
+                            val valueExpr =
+                                if (expr.type.effects.isNotEmpty())
+                                    (expr.expr as FnExpr).let { it.copy(params = listOf(DEFAULT_EFFECT_LOCAL) + it.params) }
+                                else expr.expr
+
+                            val value = emitter.evalValueExpr(valueExpr)
+
+                            nsEnv +=
+                                if (expr.type.effects == setOf(expr.sym))
+                                    EffectVar(expr.sym, expr.type, true, emitter.evalEffectExpr(expr.sym, value as BridjeFunction))
+                                else
+                                    DefVar(expr.sym, expr.type, value)
+                        }
 
                         is VarDeclExpr -> nsEnv +=
                             if (expr.type.effects == setOf(expr.sym))

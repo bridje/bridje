@@ -136,8 +136,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
             DefExpr(preamble.sym, expr, valueExprType)
         else {
             if (expr !is FnExpr) TODO()
-            val params = listOf(DEFAULT_EFFECT_LOCAL) + expr.params
-            DefExpr(preamble.sym, expr.copy(params = params), valueExprType.copy(effects = effects))
+            DefExpr(preamble.sym, expr, valueExprType.copy(effects = effects))
         }
     }
 
