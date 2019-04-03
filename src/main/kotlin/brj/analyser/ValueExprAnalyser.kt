@@ -189,7 +189,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
         val newEffectLocal = LocalVar(DEFAULT_EFFECT_LOCAL.sym)
 
-        return WithFxExpr(effectLocal, fx.toSet(), newEffectLocal, this.copy(effectLocal = newEffectLocal).exprAnalyser(it))
+        return WithFxExpr(effectLocal, fx.toSet(), newEffectLocal, this.copy(effectLocal = newEffectLocal).doAnalyser(it))
     }
 
     private fun caseAnalyser(it: ParserState): ValueExpr {

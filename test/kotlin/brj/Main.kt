@@ -44,10 +44,9 @@ fun main() {
           (let [quux 10N]
             [quux baz]))
 
-        (:: (! (println! Str)) Void)
+        (:: (! (println! Str)) Str)
         (def (! (println! s))
-          (Foo/println s)
-          :Void)
+          (Foo/println s))
 
         (:: (! (read-line!)) Str)
 
@@ -64,7 +63,8 @@ fun main() {
 
         (:: (my-fn a a) [a])
         (def (my-fn x y)
-          (with-fx [(def (println! s) (println! (Foo/str "intercepted: " s)))]
+          (with-fx [(def (println! s)
+                      (Foo/println (Foo/str "intercepted: " s)))]
             (println! "Hello world!")
             [y x]))
 
