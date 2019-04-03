@@ -314,19 +314,41 @@ internal class ValueExprEmitter private constructor() {
         }
     }
 
+    internal class ReadFxNode(val slot: FrameSlot) : Node() {
+        @Suppress("UNCHECKED_CAST")
+        fun execute(frame: VirtualFrame) = (frame.getObject(slot) as? FxMap)
+    }
+
     inner class WithFxNode(expr: WithFxExpr) : ValueNode() {
-        inner class ReadFxNode(expr: WithFxExpr) : Node() {
-            val slot = frameDescriptor.findOrAddFrameSlot(expr.oldFxLocal)
-
-            fun execute(frame: VirtualFrame) = (frame.getObject(slot) as? Map<Symbol, Map<Symbol, BridjeFunction>>)
-        }
-
         inner class UpdateFxNode(expr: WithFxExpr) : ValueNode() {
             @Child
-            var readFxNode = ReadFxNode(expr)
+            var readFxNode = ReadFxNode(frameDescriptor.findOrAddFrameSlot(expr.oldFxLocal))
 
-            override fun execute(frame: VirtualFrame): Map<Symbol, Map<Symbol, BridjeFunction>> {
-                return readFxNode.execute(frame) ?: emptyMap()
+            inner class UpdateEffectNode(val sym: QSymbol, expr: WithFxExpr, fnExpr: FnExpr) : Node() {
+                @Child
+                var bodyNode = emitValueExpr(fnExpr.copy(params = listOf(expr.oldFxLocal) + fnExpr.params))
+
+                fun execute(frame: VirtualFrame) =
+                    Pair(sym, expectBridjeFunction(bodyNode.execute(frame)))
+            }
+
+            @Children
+            val effectNodes = expr.fx.map { UpdateEffectNode(it.effectVar.sym, expr, it.fnExpr) }.toTypedArray()
+
+            @TruffleBoundary
+            private fun updateFxMap(map: FxMap?, newFx: Array<Pair<QSymbol, BridjeFunction>?>): FxMap {
+                return (map ?: emptyMap()) + newFx.filterNotNull()
+            }
+
+            @ExplodeLoop
+            override fun execute(frame: VirtualFrame): FxMap {
+                val newFx = arrayOfNulls<Pair<QSymbol, BridjeFunction>>(effectNodes.size)
+
+                for (i in 0 until effectNodes.size) {
+                    newFx[i] = effectNodes[i].execute(frame)
+                }
+
+                return updateFxMap(readFxNode.execute(frame), newFx)
             }
         }
 
@@ -389,8 +411,13 @@ internal class ValueExprEmitter private constructor() {
     }
 
     inner class WrapFxNode(@Child var node: ValueNode) : ValueNode() {
+        @Child
+        var writeFxVarNode = WriteLocalVarNodeGen.create(
+            ObjectNode(emptyMap<QSymbol, BridjeFunction>()),
+            frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL))
+
         override fun execute(frame: VirtualFrame): Any {
-            frame.setObject(frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL), emptyMap<Symbol, Map<Symbol, BridjeFunction>>())
+            writeFxVarNode.execute(frame)
 
             return node.execute(frame)
         }

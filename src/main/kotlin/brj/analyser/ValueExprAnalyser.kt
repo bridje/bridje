@@ -46,7 +46,7 @@ data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defa
 data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
 data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
-data class EffectDef(val effectVar: EffectVar, val expr: ValueExpr)
+data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr)
 data class WithFxExpr(val oldFxLocal: LocalVar,
                       val fx: Set<EffectDef>,
                       val newFxLocal: LocalVar,

@@ -264,13 +264,13 @@ internal object JavaImportEmitter {
         BridjeFunction(makeRootNode(JavaExecuteNode(JavaStaticReadNode(javaImport), javaImport)))
 }
 
-internal typealias FxMap = Map<Symbol, Map<Symbol, BridjeFunction>>
+internal typealias FxMap = Map<QSymbol, BridjeFunction>
 
 internal object EffectEmitter {
 
     internal class LookupEffectNode(val sym: QSymbol) : Node() {
         fun execute(frame: VirtualFrame): BridjeFunction? =
-            (frame.arguments[0] as FxMap)[sym.ns]?.get(sym.base)
+            (frame.arguments[0] as Map<QSymbol, BridjeFunction>)[sym]
     }
 
     internal class EffectFnBodyNode(sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode() {

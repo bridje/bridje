@@ -443,7 +443,7 @@ private fun localVarTyping(lv: LocalVar): Typing {
 }
 
 private fun withFxTyping(expr: WithFxExpr): Typing {
-    val fxTypings = expr.fx.map { it.effectVar to valueExprTyping(it.expr) }
+    val fxTypings = expr.fx.map { it.effectVar to valueExprTyping(it.fnExpr) }
 
     fxTypings.forEach { if (!it.second.monoType.matches(it.first.type.monoType)) TODO("") }
 

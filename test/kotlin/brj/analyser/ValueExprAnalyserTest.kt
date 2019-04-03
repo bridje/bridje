@@ -49,7 +49,7 @@ internal class ValueExprAnalyserTest {
 
         assertEquals(
             DoExpr(emptyList(), StringExpr("Hello!")),
-            (effect.expr as FnExpr).expr)
+            (effect.fnExpr as FnExpr).expr)
 
         assertEquals(
             CallExpr(GlobalVarExpr(effectVar), LocalVarExpr(withFxExpr.newFxLocal), listOf(StringExpr("foo!"))),
