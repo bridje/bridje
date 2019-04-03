@@ -64,7 +64,7 @@ fun main() {
         (:: (my-fn a a) [a])
         (def (my-fn x y)
           (with-fx [(def (println! s)
-                      (Foo/println (Foo/str "intercepted: " s)))]
+                      (foo/println! (Foo/str "intercepted: " s)))]
             (println! "Hello world!")
             [y x]))
 

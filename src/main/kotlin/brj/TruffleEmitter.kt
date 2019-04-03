@@ -269,11 +269,12 @@ internal typealias FxMap = Map<QSymbol, BridjeFunction>
 internal object EffectEmitter {
 
     internal class LookupEffectNode(val sym: QSymbol) : Node() {
+        @Suppress("UNCHECKED_CAST")
         fun execute(frame: VirtualFrame): BridjeFunction? =
-            (frame.arguments[0] as Map<QSymbol, BridjeFunction>)[sym]
+            (frame.arguments[0] as List<FxMap>).first()[sym]
     }
 
-    internal class EffectFnBodyNode(sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode() {
+    internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode() {
         @Child
         var lookupEffectNode = LookupEffectNode(sym)
 
@@ -286,8 +287,21 @@ internal object EffectEmitter {
         @Child
         var callNode = Truffle.getRuntime().createIndirectCallNode()!!
 
-        override fun execute(frame: VirtualFrame) =
-            callNode.call(lookupEffectNode.execute(frame)?.callTarget ?: defaultCallTarget, frame.arguments)
+        @TruffleBoundary
+        fun transformArgs(args: Array<Any?>): Array<Any?> {
+            val args_ = args.clone()
+
+            @Suppress("UNCHECKED_CAST") val fx = (args[0] as List<FxMap>)
+
+            args_[0] = listOf(fx[0] + (sym to fx[1][sym])) + fx.drop(1)
+
+            return args_
+        }
+
+        override fun execute(frame: VirtualFrame): Any {
+            return callNode.call(lookupEffectNode.execute(frame)?.callTarget
+                ?: defaultCallTarget, transformArgs(frame.arguments))
+        }
     }
 
     fun emitEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) =
