@@ -79,7 +79,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
             ?: TODO("sym not found: ${form.sym}")
 
     private fun ifAnalyser(it: ParserState): ValueExpr {
-        val predExpr = exprAnalyser(it)
+        val predExpr = this.copy(loopLocals = null).exprAnalyser(it)
         val thenExpr = exprAnalyser(it)
         val elseExpr = exprAnalyser(it)
         it.expectEnd()
