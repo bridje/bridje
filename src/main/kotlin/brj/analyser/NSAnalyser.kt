@@ -54,6 +54,8 @@ internal class NSAnalyser(val ns: Symbol) {
                         val varDeclExpr = (ExprAnalyser(Env(), NSEnv(ns)).analyseDecl(it)) as? VarDeclExpr
                             ?: TODO()
 
+                        if (varDeclExpr.type.effects.isNotEmpty()) TODO()
+
                         val importSym = QSymbol.mkQSym(alias, varDeclExpr.sym.base)
                         javaImports[importSym] = JavaImport(clazz, importSym, varDeclExpr.type)
                     }
