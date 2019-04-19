@@ -14,11 +14,11 @@ internal class TypesTest {
         val tv = TypeVarType()
         val fooKey = RecordKey(mkQSym(":user/foo"), listOf(tv), tv)
 
-        println(valueExprType(RecordExpr(listOf(RecordEntry(fooKey, IntExpr(5))))))
+        println(valueExprType(RecordExpr(listOf(RecordEntry(fooKey, IntExpr(5)))), null))
 
         val localVar = LocalVar(mkSym("r"))
 
-        val type = valueExprType(FnExpr(null, listOf(localVar), CallExpr(GlobalVarExpr(RecordKeyVar(fooKey, dummyVar)), null, listOf(LocalVarExpr(localVar))))).monoType
+        val type = valueExprType(FnExpr(null, listOf(localVar), CallExpr(GlobalVarExpr(RecordKeyVar(fooKey, dummyVar)), null, listOf(LocalVarExpr(localVar)))), null).monoType
 
         println(type)
 
@@ -30,7 +30,7 @@ internal class TypesTest {
         val tv = TypeVarType()
         val fooKey = VariantKey(mkQSym(":user/Foo"), listOf(tv), listOf(tv))
 
-        println(valueExprType(CallExpr(GlobalVarExpr(VariantKeyVar(fooKey, dummyVar)), null, listOf(IntExpr(5)))))
+        println(valueExprType(CallExpr(GlobalVarExpr(VariantKeyVar(fooKey, dummyVar)), null, listOf(IntExpr(5))), null))
     }
 
     @Test
@@ -47,6 +47,6 @@ internal class TypesTest {
             listOf(
                 CaseClause(fooKey, listOf(bindingVar), LocalVarExpr(bindingVar)),
                 CaseClause(barKey, emptyList(), FloatExpr(5.3))),
-            null))))
+            null)), null))
     }
 }

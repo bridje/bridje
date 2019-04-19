@@ -34,7 +34,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
         val expr = analyseValueExpr(env, NSEnv(USER), forms)
 
-        val valueExprType = valueExprType(expr)
+        val valueExprType = valueExprType(expr, null)
 
         val noDefaultImpls = valueExprType.effects.filterNot { (env.nses.getValue(it.ns).vars.getValue(it.base) as EffectVar).hasDefault }
         if (noDefaultImpls.isNotEmpty()) throw IllegalArgumentException("not all effects have implementations: $noDefaultImpls")

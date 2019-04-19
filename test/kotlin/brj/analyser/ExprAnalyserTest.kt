@@ -47,7 +47,7 @@ internal class ExprAnalyserTest {
     fun `analyses type aliases`() {
         val foo = mkQSym("user/Foo")
         assertEquals(
-            TypeAliasDeclExpr(TypeAlias(foo, emptyList(), Type(FnType(listOf(IntType), StringType)))),
+            TypeAliasDeclExpr(TypeAlias_(foo, emptyList(), Type(FnType(listOf(IntType), StringType)))),
             analyseDecl("Foo (Fn Int Str)"))
     }
 

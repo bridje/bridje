@@ -94,7 +94,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
             RECORD_KEY_SYM -> RecordKeyDeclExpr(RecordKey(preamble.sym, preamble.typeVars, typeAnalyser.monoTypeAnalyser(it)))
             VARIANT_KEY_SYM -> VariantKeyDeclExpr(VariantKey(preamble.sym, preamble.typeVars, it.varargs(typeAnalyser::monoTypeAnalyser)))
-            TYPE_ALIAS_SYM -> TypeAliasDeclExpr(TypeAlias(preamble.sym,
+            TYPE_ALIAS_SYM -> TypeAliasDeclExpr(TypeAlias_(preamble.sym,
                 preamble.typeVars,
                 if (it.forms.isNotEmpty()) Type(typeAnalyser.monoTypeAnalyser(it)) else null))
 
@@ -129,7 +129,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
-        val valueExprType = valueExprType(expr)
+        val valueExprType = valueExprType(expr, nsEnv.vars[preamble.sym.base]?.type?.monoType)
         val effects = if (preamble.effect) setOf(preamble.sym) else valueExprType.effects
 
         return if (effects.isEmpty())
@@ -138,11 +138,6 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
             if (expr !is FnExpr) TODO()
             DefExpr(preamble.sym, expr, valueExprType.copy(effects = effects))
         }
-    }
-
-    private fun isValidMacroType(type: MonoType): Boolean {
-        // TODO check param + return types
-        return true
     }
 
     private fun analyseDefMacro(it: ParserState): DefMacroExpr {
@@ -159,8 +154,12 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
         val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
 
-        val exprType = valueExprType(expr)
-        if (!isValidMacroType(exprType.monoType)) TODO()
+        // TODO this needs to be done automagically
+        val formTypeAlias = TypeAlias_(mkQSym("brj.forms/Form"), emptyList(), null)
+        val formType = TypeAliasType(formTypeAlias, emptyList())
+        formTypeAlias.type = Type(formType)
+
+        val exprType = valueExprType(expr, FnType(generateSequence { formType }.take(locals.size).toList(), formType))
 
         return DefMacroExpr(preamble.sym, expr, exprType)
     }
