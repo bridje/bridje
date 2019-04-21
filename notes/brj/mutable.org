@@ -235,3 +235,42 @@ they can be 'moved' into a closure
 ** just allow it
 we could, of course, take a pragmatic decision to 'just allow' local mutable state.
 no built in functions, just functions in a namespace that are unsafe
+
+** (much later) more ownership:
+
+we create a mutable variable, which is then marked as part of the type of that variable. that variable immediately has
+an owner - essentially the LocalVar that stores it.
+
+mutable variables cannot be passed to functions that expect immutable variables (without being deref'd)
+if mutable variables are used within a closure, they're 'moved' - the original function cannot refer to them in any way
+after they're moved (or even 'potentially' moved - i.e. if one branch of an 'if' moves a variable)
+mutable variables can be explicitly 'moved' or 'lent' to a call
+
+#+BEGIN_SRC clojure
+  (def (drop n)
+    (let [&n (mut n)]
+      {:mapcat (fn [el]
+                 (if (zero? n)
+                   (:Cons el :Nil)
+                   (do
+                     (swap! &n dec)
+                     :Nil)))}))
+
+  (def (->vec)
+    {:init (transient [])
+     :step! (fn [&acc el]
+              (conj! &acc el)
+              :More)
+
+     :complete (fn [&acc] acc)})
+
+  (:: (:init a) (Fn &a))
+  (:: (:step a e) (Fn &a e (+ :More :Enough)))
+  (:: (:complete a r) (Fn &a r))
+
+  (:: (->vec) {(:init a) (:step a e) (:complete a r)})
+
+  (:: #{(.seq s)}
+      (reduce (s e) {(:init a) (:step a e) (:complete a r)})
+      r)
+#+END_SRC

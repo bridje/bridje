@@ -1,6 +1,7 @@
 package brj.analyser
 
 import brj.*
+import brj.types.*
 
 internal interface ITypeVarFactory {
     fun mkTypeVar(sym: Symbol): TypeVarType
@@ -53,15 +54,14 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv,
                     FnType(types.dropLast(1), types.last())
                 }
                     ?: it.maybe { it.expectSym(VARIANT_TYPE) }?.let { _ ->
-                        it.varargs {
-                            val variantKey = (resolve(env, nsEnv, it.expectSym(SymbolKind.VARIANT_KEY_SYM)) as? VariantKeyVar)?.variantKey
-                                ?: TODO()
-                            KeyType(variantKey, variantKey.typeVars)
-                        }.let { keyTypes ->
-                            VariantType(
-                                keyTypes = keyTypes.associate { it.key to it },
-                                typeVar = TypeVarType())
-                        }
+                        VariantType(
+                            possibleKeys = it.varargs {
+                                val variantKey = (resolve(env, nsEnv, it.expectSym(SymbolKind.VARIANT_KEY_SYM)) as? VariantKeyVar)?.variantKey
+                                    ?: TODO()
+                                variantKey to RowKey(variantKey.typeVars)
+                            }.toMap(),
+                            typeVar = RowTypeVar(true))
+
                     }
                     ?: TODO()
             }

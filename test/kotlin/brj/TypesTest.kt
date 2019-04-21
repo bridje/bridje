@@ -3,11 +3,13 @@ package brj
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.analyser.*
+import brj.types.TypeVarType
+import brj.types.valueExprType
 import org.junit.jupiter.api.Test
 
 internal class TypesTest {
 
-    val dummyVar = object : Any() {}
+    private val dummyVar = object : Any() {}
 
     @Test
     internal fun `test record types`() {
@@ -21,8 +23,6 @@ internal class TypesTest {
         val type = valueExprType(FnExpr(null, listOf(localVar), CallExpr(GlobalVarExpr(RecordKeyVar(fooKey, dummyVar)), null, listOf(LocalVarExpr(localVar)))), null).monoType
 
         println(type)
-
-
     }
 
     @Test

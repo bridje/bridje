@@ -3,6 +3,8 @@ package brj
 import brj.BridjeTypesGen.*
 import brj.BrjLanguage.Companion.getCtx
 import brj.BrjLanguage.Companion.getLang
+import brj.types.FnType
+import brj.types.MonoType
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle

@@ -4,6 +4,7 @@ import brj.*
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.SymbolKind.*
+import brj.types.*
 
 internal val DO = mkSym("do")
 internal val DEF = mkSym("def")
@@ -94,10 +95,13 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
             RECORD_KEY_SYM -> RecordKeyDeclExpr(RecordKey(preamble.sym, preamble.typeVars, typeAnalyser.monoTypeAnalyser(it)))
             VARIANT_KEY_SYM -> VariantKeyDeclExpr(VariantKey(preamble.sym, preamble.typeVars, it.varargs(typeAnalyser::monoTypeAnalyser)))
-            TYPE_ALIAS_SYM -> TypeAliasDeclExpr(TypeAlias_(preamble.sym,
-                preamble.typeVars,
-                if (it.forms.isNotEmpty()) Type(typeAnalyser.monoTypeAnalyser(it)) else null))
+            TYPE_ALIAS_SYM -> {
+                val type = if (it.forms.isNotEmpty()) typeAnalyser.monoTypeAnalyser(it) else null
 
+                TypeAliasDeclExpr(
+                    nsEnv.typeAliases[preamble.sym.base]?.also { (it as TypeAlias_).type = type }
+                        ?: TypeAlias_(preamble.sym, preamble.typeVars, type))
+            }
         }.also { _ -> it.expectEnd() }
     }
 
@@ -157,7 +161,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
         // TODO this needs to be done automagically
         val formTypeAlias = TypeAlias_(mkQSym("brj.forms/Form"), emptyList(), null)
         val formType = TypeAliasType(formTypeAlias, emptyList())
-        formTypeAlias.type = Type(formType)
+        formTypeAlias.type = formType
 
         val exprType = valueExprType(expr, FnType(generateSequence { formType }.take(locals.size).toList(), formType))
 

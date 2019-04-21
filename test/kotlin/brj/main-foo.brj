@@ -53,5 +53,10 @@
     (println! "Hello world!")
     [y x]))
 
+(def (say-hi person)
+  (case person
+    (:Just p) (Foo/str "Hi, " (:last-name p))))
+
+
 ;(defmacro (if-not pred then else)
 ;  (:forms/ListForm ['if else then]))

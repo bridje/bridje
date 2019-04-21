@@ -5,6 +5,7 @@ import brj.Symbol.Companion.mkSym
 import brj.ValueExprEmitter.Companion.emitValueExpr
 import brj.analyser.ValueExpr
 import brj.analyser.analyseValueExpr
+import brj.types.valueExprType
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import org.graalvm.polyglot.Context

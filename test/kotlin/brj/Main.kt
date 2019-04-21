@@ -18,11 +18,11 @@ fun main() {
 
     require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval(Source.create("brj", "(foo/my-fn 4 3)"))
+    val value = ctx.eval("brj", """(foo/say-hi (:foo/Just {}))""")
 
     println("value: $value")
 
-    println(ctx.eval(Source.create("brj", "foo/count-down")).execute(6))
+    println(ctx.eval("brj", "foo/count-down").execute(6))
 
     ctx.leave()
 }

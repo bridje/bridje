@@ -3,6 +3,10 @@ package brj.analyser
 import brj.*
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
+import brj.types.FnType
+import brj.types.IntType
+import brj.types.StringType
+import brj.types.Type
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

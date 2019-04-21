@@ -3,6 +3,8 @@ package brj.analyser
 import brj.*
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
+import brj.types.MonoType
+import brj.types.VariantType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -24,10 +26,8 @@ internal class TypeAnalyserTest {
         val s = "(+ :BooleanForm :StringForm)"
 
         assertEquals(
-            mapOf(
-                boolKey to KeyType(boolKey, emptyList()),
-                strKey to KeyType(strKey, emptyList())),
-            (analyseMonoType(s) as VariantType).keyTypes)
+            setOf(boolKey, strKey),
+            (analyseMonoType(s) as VariantType).possibleKeys)
 
     }
 }

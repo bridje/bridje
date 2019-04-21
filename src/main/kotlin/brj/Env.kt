@@ -2,6 +2,8 @@
 
 package brj
 
+import brj.types.*
+
 abstract class GlobalVar internal constructor() {
     abstract val sym: QSymbol
     abstract val type: Type
@@ -37,8 +39,23 @@ class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar
     override val type = javaImport.type
 }
 
-sealed class TypeAlias(open val sym: QSymbol, open val typeVars: List<TypeVarType>, open val type: Type?)
-internal data class TypeAlias_(override val sym: QSymbol, override val typeVars: List<TypeVarType>, override var type: Type?) : TypeAlias(sym, typeVars, type)
+sealed class TypeAlias(open val sym: QSymbol, open val typeVars: List<TypeVarType>, open val type: MonoType?)
+internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List<TypeVarType>, override var type: MonoType?) : TypeAlias(sym, typeVars, type) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as TypeAlias_
+
+        if (sym != other.sym) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return sym.hashCode()
+    }
+}
 
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),
