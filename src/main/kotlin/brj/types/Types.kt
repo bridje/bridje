@@ -84,7 +84,7 @@ class TypeVarType : MonoType() {
     }
 
     override fun toString(): String {
-        return "TV(${hashCode()})"
+        return "tv${hashCode() % 10000}"
     }
 }
 
@@ -123,7 +123,9 @@ class RowTypeVar(val open: Boolean) {
     override fun toString() = "r${hashCode()}${if (open) "*" else ""}"
 }
 
-data class RowKey(val typeParams: List<MonoType>)
+data class RowKey(val typeParams: List<MonoType>) {
+    internal fun fmap(f: (MonoType) -> MonoType) = RowKey(typeParams.map(f))
+}
 
 data class RecordType(val hasKeys: Map<RecordKey, RowKey>,
                       val typeVar: RowTypeVar) : MonoType() {
@@ -147,13 +149,15 @@ data class RecordType(val hasKeys: Map<RecordKey, RowKey>,
                 TODO("missing keys: ${keyDiff.keys}")
             }
 
-            return right.typeVar to (Pair(keyDiff, newTypeVar))
+            return right.typeVar to Pair(keyDiff, newTypeVar)
         }
 
         return Unification(recordEqs = mapOf(
             minus(otherRecord, this),
             minus(this, otherRecord)))
     }
+
+    override fun fmap(f: (MonoType) -> MonoType) = RecordType(hasKeys.mapValues { it.value.fmap(f) }, typeVar)
 
     override fun applyMapping(mapping: Mapping) =
         (mapping.recordMapping[typeVar]?.let { (newKeys, newTypeVar) -> RecordType(hasKeys + newKeys, newTypeVar) }
@@ -181,17 +185,25 @@ data class VariantType(val possibleKeys: Map<VariantKey, RowKey>, val typeVar: R
         fun minus(left: VariantType, right: VariantType): Pair<RowTypeVar, Pair<Map<VariantKey, RowKey>, RowTypeVar>> {
             val keyDiff = left.possibleKeys - right.possibleKeys.keys
             if (!right.typeVar.open && keyDiff.isNotEmpty()) {
-                TODO()
+                TODO("too many keys: ${keyDiff.keys}")
             }
 
-            return right.typeVar to (Pair(keyDiff, newTypeVar))
+            return right.typeVar to Pair(keyDiff, newTypeVar)
         }
 
-        return Unification(variantEqs = mapOf(
-            minus(this, otherVariant),
-            minus(otherVariant, this)
-        ))
+        val typeVarEqs: List<TypeEq> = (this.possibleKeys.keys + otherVariant.possibleKeys.keys).flatMap {
+            (possibleKeys[it]?.typeParams ?: emptyList()) zip (otherVariant.possibleKeys[it]?.typeParams ?: emptyList())
+        }
+
+        return Unification(
+            typeEqs = typeVarEqs,
+            variantEqs = mapOf(
+                minus(this, otherVariant),
+                minus(otherVariant, this)
+            ))
     }
+
+    override fun fmap(f: (MonoType) -> MonoType) = VariantType(possibleKeys.mapValues { it.value.fmap(f) }, typeVar)
 
     override fun applyMapping(mapping: Mapping): MonoType =
         (mapping.variantMapping[typeVar]?.let { (newKeys, newTypeVar) ->
@@ -199,7 +211,11 @@ data class VariantType(val possibleKeys: Map<VariantKey, RowKey>, val typeVar: R
         } ?: this)
             .fmap { it.applyMapping(mapping) }
 
-    override fun toString() = "(+ ${possibleKeys.keys.joinToString(" ")})"
+    override fun toString() =
+        "(+ " +
+            possibleKeys.map { if (it.value.typeParams.isNotEmpty()) "(${it.key} ${it.value.typeParams.joinToString(" ")})" else "${it.key}" }
+                .joinToString(" ") +
+            ")"
 }
 
 data class TypeAliasType(val typeAlias: TypeAlias, val typeParams: List<MonoType>) : MonoType() {

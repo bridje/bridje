@@ -5,7 +5,6 @@ import brj.RecordKey
 import brj.VariantKey
 import brj.analyser.*
 import brj.types.TypeException.ArityError
-import brj.types.TypeException.UnificationError
 import java.util.*
 import kotlin.collections.HashSet
 
@@ -127,22 +126,25 @@ private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<Value
 }
 
 private fun recordExprTyping(expr: RecordExpr, expectedType: MonoType?): Typing {
-    if (expectedType != null) {
-        if (expectedType is RecordType) {
-            val missingKeys = expectedType.hasKeys.keys - expr.entries.map { it.recordKey }.toSet()
-            if (missingKeys.isNotEmpty()) {
-                TODO("missing keys: ${missingKeys}")
-            }
-        } else TODO("unexpected record, expecting ${expectedType}")
-    }
-
     val typings = expr.entries.map { valueExprTyping(it.expr, it.recordKey.type) }
 
     val recordType = RecordType(
         expr.entries.map { it.recordKey }.associateWith { RowKey(it.typeVars) },
         RowTypeVar(false))
 
-    return combine(recordType, typings)
+    val extraEqs = when (expectedType) {
+        null -> emptyList()
+        is RecordType -> {
+            val missingKeys = expectedType.hasKeys.keys - expr.entries.map { it.recordKey }.toSet()
+            if (missingKeys.isNotEmpty()) {
+                TODO("missing keys: ${missingKeys}")
+            }
+            emptyList()
+        }
+        else -> listOf(TypeEq(expectedType, recordType))
+    }
+
+    return combine(recordType, typings, extraEqs = extraEqs)
 }
 
 private fun ifExprTyping(expr: IfExpr, expectedType: MonoType?): Typing {
@@ -205,16 +207,19 @@ private fun callExprTyping(expr: CallExpr, expectedType: MonoType?): Typing {
 
     val fnExprTyping = valueExprTyping(fnExpr)
 
-    val fnExprType = fnExprTyping.monoType.let {
+    var fnExprType = fnExprTyping.monoType.let {
         it as? FnType ?: throw TypeException.ExpectedFunction(fnExpr, it)
     }
 
     if (fnExprType.paramTypes.size != argExprs.size) throw ArityError(fnExprType, argExprs)
 
+    val expectedTypeTyping = combine(fnExprType, extraEqs = listOfNotNull(if (expectedType != null) TypeEq(fnExprType.returnType, expectedType) else null))
+    fnExprType = expectedTypeTyping.monoType as FnType
+
     val argTypings = argExprs.zip(fnExprType.paramTypes).map { valueExprTyping(it.first, it.second) }
 
     return combine(fnExprType.returnType,
-        typings = argTypings + fnExprTyping,
+        typings = argTypings + fnExprTyping + expectedTypeTyping,
         extraEqs = fnExprType.paramTypes.zip(argTypings.map(Typing::monoType)))
 }
 
@@ -252,7 +257,7 @@ private fun caseExprTyping(expr: CaseExpr, expectedType: MonoType?): Typing {
 
     val instantiator = Instantiator()
 
-    val variantKeys = clauseTypings.map { it.first.variantKey }.associateWith { RowKey(it.typeVars.map(instantiator::instantiate)) }
+    val variantKeys = clauseTypings.map { it.first.variantKey }.associateWith { RowKey(it.typeVars) }
     val variantType = instantiator.instantiate(VariantType(variantKeys, RowTypeVar(false)))
 
     return combine(returnType,
@@ -265,13 +270,8 @@ private fun caseExprTyping(expr: CaseExpr, expectedType: MonoType?): Typing {
     )
 }
 
-private fun primitiveExprTyping(actualType: MonoType, expectedType: MonoType?): Typing {
-    if (expectedType == null || expectedType == actualType) {
-        return Typing(actualType)
-    } else {
-        throw UnificationError(actualType, expectedType)
-    }
-}
+private fun primitiveExprTyping(actualType: MonoType, expectedType: MonoType?) =
+    if (expectedType == null) Typing(actualType) else combine(expectedType, extraEqs = listOf(TypeEq(expectedType, actualType)))
 
 private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Typing =
     when (expr) {

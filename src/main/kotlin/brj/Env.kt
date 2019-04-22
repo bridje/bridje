@@ -77,10 +77,10 @@ class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
 internal fun resolve(env: Env, nsEnv: NSEnv, sym: Ident): GlobalVar? =
     nsEnv.vars[sym]
         ?: when (sym) {
-            is Symbol -> nsEnv.refers[sym]?.let { qsym -> env.nses.getValue(qsym.ns).vars.getValue(qsym.base) }
+            is Symbol -> nsEnv.refers[sym]?.let { qsym -> env.nses[qsym.ns]?.vars?.get(qsym.base) }
             is QSymbol ->
                 (env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)] ?: TODO("can't find NS"))
-                    .vars.getValue(sym.base)
+                    .vars[sym.base]
         }
 
 internal fun resolveTypeAlias(env: Env, nsEnv: NSEnv, sym: Ident): TypeAlias? =

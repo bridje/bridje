@@ -20,14 +20,14 @@ import org.graalvm.polyglot.Source
 @Suppress("unused")
 class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
-    class BridjeContext internal constructor(val truffleEnv: TruffleLanguage.Env, var env: brj.Env)
+    class BridjeContext internal constructor(val truffleEnv: Env, var env: brj.Env)
 
-    override fun createContext(truffleEnv: TruffleLanguage.Env) = BridjeContext(truffleEnv, Env())
+    override fun createContext(truffleEnv: Env) = BridjeContext(truffleEnv, Env())
 
     override fun isObjectOfLanguage(obj: Any): Boolean =
         obj is RecordObject || obj is VariantObject || obj is BridjeFunction
 
-    override fun parse(request: TruffleLanguage.ParsingRequest): CallTarget {
+    override fun parse(request: ParsingRequest): CallTarget {
         val source = request.source
 
         val env = getCtx().env
@@ -76,7 +76,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             return evaluator.env
         }
 
-        fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()) {
+        fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()): brj.Env {
             Context.getCurrent().initialize("brj")
 
             val ctx = getCtx()
@@ -88,6 +88,8 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
                 ctx.env = require(ctx.env, rootNses, sources)
             }
+
+            return ctx.env
         }
     }
 }

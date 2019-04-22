@@ -15,7 +15,7 @@
 (:: (:Just a) a)
 (:: :Nothing)
 
-;; (:: foo [(+ (:Just Int) :Nothing)])
+; (:: foo [(+ (:Just Int) :Nothing)])
 (def foo [:Nothing (:Just 4)])
 
 (def bar
@@ -55,7 +55,7 @@
 
 (def (say-hi person)
   (case person
-    (:Just p) (Foo/str "Hi, " (:last-name p))))
+    (:Just p) (Foo/str "Hi, " (:first-name p))))
 
 
 ;(defmacro (if-not pred then else)
