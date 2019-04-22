@@ -31,7 +31,7 @@ internal class ValueExprAnalyserTest {
                 RecordEntry(countKey, IntExpr(42)),
                 RecordEntry(messageKey, StringExpr("Hello world!"))))),
 
-            analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, readForms("""{:count 42, :message "Hello world!"}""")))
+            analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, BrjLanguage.BrjEmitter, readForms("""{:count 42, :message "Hello world!"}""").first()))
     }
 
     @Test
@@ -43,7 +43,7 @@ internal class ValueExprAnalyserTest {
 
         val nsEnv = NSEnv(user, vars = mapOf(println.base to effectVar))
 
-        val expr = analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, readForms("""(with-fx [(def (println! s) "Hello!")] (println! "foo!"))"""))
+        val expr = analyseValueExpr(Env(mapOf(user to nsEnv)), nsEnv, BrjLanguage.BrjEmitter, readForms("""(with-fx [(def (println! s) "Hello!")] (println! "foo!"))""").first())
         val withFxExpr = (expr as DoExpr).expr as WithFxExpr
 
         assertEquals(1, withFxExpr.fx.size)

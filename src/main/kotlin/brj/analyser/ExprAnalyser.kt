@@ -27,7 +27,7 @@ internal data class ExprResult(val expr: Expr) : DoOrExprResult()
 
 // TODO allow forward declarations of type aliases
 
-internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
+internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv, val emitter: Emitter,
                                  private val typeAnalyser: TypeAnalyser = TypeAnalyser(env, nsEnv)) {
     private fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
 
@@ -129,7 +129,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
         val locals = preamble.paramSyms?.map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(env, nsEnv, (locals ?: emptyList()).toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(env, nsEnv, emitter, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
@@ -154,7 +154,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv,
 
         val locals = preamble.paramSyms.map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(env, nsEnv, locals.toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(env, nsEnv, emitter, locals.toMap()).doAnalyser(it)
 
         val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
 

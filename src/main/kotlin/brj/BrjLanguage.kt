@@ -31,9 +31,9 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         val source = request.source
 
         val env = getCtx().env
-        val forms = readForms(source.reader)
+        val form = readForms(source.reader).first()
 
-        val expr = analyseValueExpr(env, NSEnv(USER), forms)
+        val expr = analyseValueExpr(env, NSEnv(USER), BrjEmitter, form)
 
         val valueExprType = valueExprType(expr, null)
 
@@ -60,6 +60,11 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter.emitRecordKey(recordKey)
         override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter.emitVariantKey(variantKey)
         override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter.emitEffectExpr(sym, defaultImpl)
+
+        override fun evalMacro(macroVar: DefMacroVar, args: List<Form>): Form {
+            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        }
+
     }
 
     companion object {

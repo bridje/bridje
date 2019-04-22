@@ -15,25 +15,9 @@
 (:: (:Just a) a)
 (:: :Nothing)
 
-; (:: foo [(+ (:Just Int) :Nothing)])
-(def foo [:Nothing (:Just 4)])
-
-(def bar
-  (case (:Just 4)
-    (:Just x) x
-    :Nothing 0))
-
-(def just (:Just 4))
-
-(def x
-  (let [quux 10N]
-    [quux baz]))
-
 (:: (! (println! Str)) Str)
 (def (! (println! s))
   (Foo/println s))
-
-(:: (! (read-line!)) Str)
 
 (:: :first-name Str)
 (:: :last-name Str)
@@ -43,8 +27,6 @@
   (loop [y x
          res #{}]
     (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
-
-(def counted-down (count-down 5))
 
 (:: (my-fn a a) [a])
 (def (my-fn x y)
@@ -57,6 +39,5 @@
   (case person
     (:Just p) (Foo/str "Hi, " (:first-name p))))
 
-
-;(defmacro (if-not pred then else)
-;  (:forms/ListForm ['if else then]))
+(defmacro (if-not pred then else)
+  (:forms/ListForm ['if pred else then]))

@@ -432,7 +432,7 @@ internal class ValueExprEmitter private constructor() {
                         emitter.emitValueExpr(expr)))))
         }
 
-        internal fun evalValueExpr(expr: ValueExpr) = emitValueExpr(expr).call()
+        internal fun evalValueExpr(expr: ValueExpr) = emitValueExpr(expr).call()!!
     }
 }
 

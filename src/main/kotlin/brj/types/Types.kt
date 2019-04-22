@@ -220,7 +220,7 @@ data class VariantType(val possibleKeys: Map<VariantKey, RowKey>, val typeVar: R
 
 data class TypeAliasType(val typeAlias: TypeAlias, val typeParams: List<MonoType>) : MonoType() {
     override fun fmap(f: (MonoType) -> MonoType): MonoType = TypeAliasType(typeAlias, typeParams.map { it.fmap(f) })
-    override fun unifyEq(other: MonoType): Unification = TODO()
+    override fun unifyEq(other: MonoType): Unification = Unification(typeEqs = listOf(TypeEq(other, typeAlias.type!!)))
 
     override fun toString() = if (typeParams.isEmpty()) typeAlias.sym.toString() else "(${typeAlias.sym} ${typeParams.joinToString(" ")})"
 }

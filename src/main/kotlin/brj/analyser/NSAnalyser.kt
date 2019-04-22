@@ -51,7 +51,7 @@ internal class NSAnalyser(val ns: Symbol) {
                     it.nested(ListForm::forms) {
                         it.expectSym(DECL)
 
-                        val varDeclExpr = (ExprAnalyser(Env(), NSEnv(ns)).analyseDecl(it)) as? VarDeclExpr
+                        val varDeclExpr = (ExprAnalyser(Env(), NSEnv(ns), BrjLanguage.BrjEmitter).analyseDecl(it)) as? VarDeclExpr
                             ?: TODO()
 
                         if (varDeclExpr.type.effects.isNotEmpty()) TODO()

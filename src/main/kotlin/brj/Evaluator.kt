@@ -13,6 +13,7 @@ internal interface Emitter {
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
     fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
+    fun evalMacro(macroVar: DefMacroVar, args: List<Form>): Form
 }
 
 internal class Evaluator(var env: Env, private val loader: NSFormLoader, private val emitter: Emitter) {
@@ -30,7 +31,7 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
         }
 
         private fun evalForm(form: Form) {
-            val result = ExprAnalyser(env, nsEnv).analyseExpr(form)
+            val result = ExprAnalyser(env, nsEnv, emitter).analyseExpr(form)
 
             when (result) {
                 is DoResult -> result.forms.forEach(this::evalForm)
@@ -52,6 +53,11 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
                                     EffectVar(expr.sym, expr.type, true, emitter.evalEffectExpr(expr.sym, value as BridjeFunction))
                                 else
                                     DefVar(expr.sym, expr.type, value)
+                        }
+
+                        is DefMacroExpr -> {
+                            if (expr.type.effects.isNotEmpty()) TODO()
+                            nsEnv += DefMacroVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
                         }
 
                         is VarDeclExpr -> nsEnv +=

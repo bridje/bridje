@@ -66,7 +66,11 @@ private fun unifyEqs(eqs_: List<TypeEq>): Mapping {
     while (eqs.isNotEmpty()) {
         val eq = eqs.pop()
 
-        val (t1, t2) = if (eq.second is TypeVarType) (eq.second to eq.first) else eq
+        val (t1, t2) = when (eq.second) {
+            is TypeVarType -> eq.second to eq.first
+            is TypeAliasType -> eq.second to eq.first
+            else -> eq
+        }
 
         if (t1 == t2) {
             continue
