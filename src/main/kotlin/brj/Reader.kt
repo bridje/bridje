@@ -75,6 +75,7 @@ private fun transformForm(formContext: FormParser.FormContext): Form = formConte
     override fun visitRecord(ctx: FormParser.RecordContext) = RecordForm(ctx.form().map(::transformForm))
 
     override fun visitQuote(ctx: FormParser.QuoteContext) = quoteForm(transformForm(ctx.form()))
+    override fun visitSyntaxQuote(ctx: FormParser.SyntaxQuoteContext?) = TODO()
     override fun visitUnquoteSplicing(ctx: FormParser.UnquoteSplicingContext) = TODO()
     override fun visitUnquote(ctx: FormParser.UnquoteContext): Form = TODO()
 })

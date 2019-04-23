@@ -18,11 +18,9 @@ fun main() {
 
     val env = require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval("brj", """(foo/if-not false 5 3)""")
+    val value = ctx.eval("brj", """(foo/say-hi (:foo/Just {:foo/first-name "James"}))""")
 
     println("value: $value")
-
-    println(ctx.eval("brj", "foo/count-down").execute(6))
 
     ctx.leave()
 }

@@ -39,6 +39,7 @@ form : BOOLEAN # Boolean
      | '#{' form* '}' # Set
      | '{' form* '}' # Record
      | '\'' form # Quote
+     | '`' form # SyntaxQuote
      | '~' form # Unquote
      | '~@' form # UnquoteSplicing ;
 
