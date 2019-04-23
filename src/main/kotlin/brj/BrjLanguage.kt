@@ -10,6 +10,8 @@ import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source
+import java.math.BigDecimal
+import java.math.BigInteger
 
 @TruffleLanguage.Registration(
     id = "brj",
@@ -61,8 +63,46 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter.emitVariantKey(variantKey)
         override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter.emitEffectExpr(sym, defaultImpl)
 
+        private fun toVariant(form: Form): Any {
+            val arg = when (form.arg) {
+                is List<*> -> form.arg.map { toVariant(it as Form) }
+                is Form -> toVariant(form)
+                else -> form.arg
+            }
+
+            return (getCtx().env.nses.getValue(form.qsym.ns).vars[form.qsym.base]?.value as BridjeFunction).callTarget.call(arg)
+        }
+
+        private fun fromVariant(obj: VariantObject): Form {
+            val arg = obj.dynamicObject[0]
+
+            fun fromVariantList(arg: Any): List<Form> {
+                return (arg as List<*>).map { fromVariant(it as VariantObject) }
+            }
+
+            return when (obj.variantKey.sym.base.baseStr) {
+                "BooleanForm" -> BooleanForm(arg as Boolean)
+                "StringForm" -> StringForm(arg as String)
+                "IntForm" -> IntForm(arg as Long)
+                "FloatForm" -> FloatForm(arg as Double)
+                "BigIntForm" -> BigIntForm(arg as BigInteger)
+                "BigFloatForm" -> BigFloatForm(arg as BigDecimal)
+                "ListForm" -> ListForm(fromVariantList(arg))
+                "VectorForm" -> VectorForm(fromVariantList(arg))
+                "SetForm" -> SetForm(fromVariantList(arg))
+                "RecordForm" -> RecordForm(fromVariantList(arg))
+                "SymbolForm" -> SymbolForm(arg as Symbol)
+                "QSymbolForm" -> QSymbolForm(arg as QSymbol)
+                "QuotedSymbolForm" -> QuotedSymbolForm(arg as Symbol)
+                "QuotedQSymbolForm" -> QuotedQSymbolForm(arg as QSymbol)
+                else -> TODO()
+            }
+        }
+
         override fun evalMacro(macroVar: DefMacroVar, args: List<Form>): Form {
-            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            val macroFn = macroVar.value as BridjeFunction
+
+            return fromVariant(macroFn.callTarget.call(*(args.map(::toVariant).toTypedArray())) as VariantObject)
         }
 
     }

@@ -9,24 +9,27 @@ import java.io.StringReader
 import java.math.BigDecimal
 import java.math.BigInteger
 
-sealed class Form
-
-data class BooleanForm(val bool: Boolean) : Form()
-data class StringForm(val string: String) : Form()
-data class IntForm(val int: Long) : Form()
-data class BigIntForm(val bigInt: BigInteger) : Form()
-data class FloatForm(val float: Double) : Form()
-data class BigFloatForm(val bigFloat: BigDecimal) : Form()
-data class SymbolForm(val sym: Symbol) : Form()
-data class QSymbolForm(val sym: QSymbol) : Form()
-data class ListForm(val forms: List<Form>) : Form()
-data class VectorForm(val forms: List<Form>) : Form()
-data class SetForm(val forms: List<Form>) : Form()
-data class RecordForm(val forms: List<Form>) : Form()
-data class QuotedSymbolForm(val sym: Symbol) : Form()
-data class QuotedQSymbolForm(val sym: QSymbol) : Form()
-
 private val formNS = mkSym("brj.forms")
+
+
+sealed class Form(internal val arg: Any) {
+    internal val qsym: QSymbol = mkQSym(formNS, mkSym(":${this.javaClass.simpleName}"))
+}
+
+data class BooleanForm(val bool: Boolean) : Form(bool)
+data class StringForm(val string: String) : Form(string)
+data class IntForm(val int: Long) : Form(int)
+data class BigIntForm(val bigInt: BigInteger) : Form(bigInt)
+data class FloatForm(val float: Double) : Form(float)
+data class BigFloatForm(val bigFloat: BigDecimal) : Form(bigFloat)
+data class SymbolForm(val sym: Symbol) : Form(sym)
+data class QSymbolForm(val sym: QSymbol) : Form(sym)
+data class ListForm(val forms: List<Form>) : Form(forms)
+data class VectorForm(val forms: List<Form>) : Form(forms)
+data class SetForm(val forms: List<Form>) : Form(forms)
+data class RecordForm(val forms: List<Form>) : Form(forms)
+data class QuotedSymbolForm(val sym: Symbol) : Form(sym)
+data class QuotedQSymbolForm(val sym: QSymbol) : Form(sym)
 
 private fun quoteForm(form: Form): Form =
     ListForm(listOf(
@@ -63,8 +66,8 @@ private fun transformForm(formContext: FormParser.FormContext): Form = formConte
     override fun visitBigFloat(ctx: FormParser.BigFloatContext) =
         BigFloatForm(ctx.BIG_FLOAT().text.removeSuffix("M").toBigDecimal())
 
-    override fun visitSymbol(ctx: FormParser.SymbolContext): Form = SymbolForm(Symbol.mkSym(ctx.text))
-    override fun visitQSymbol(ctx: FormParser.QSymbolContext): Form = QSymbolForm(QSymbol.mkQSym(ctx.text))
+    override fun visitSymbol(ctx: FormParser.SymbolContext): Form = SymbolForm(mkSym(ctx.text))
+    override fun visitQSymbol(ctx: FormParser.QSymbolContext): Form = QSymbolForm(mkQSym(ctx.text))
 
     override fun visitList(ctx: FormParser.ListContext) = ListForm(ctx.form().map(::transformForm))
     override fun visitVector(ctx: FormParser.VectorContext) = VectorForm(ctx.form().map(::transformForm))
