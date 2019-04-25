@@ -26,6 +26,8 @@ STRING : '"' ( '\\"' | ~'"' )*? '"';
 
 LINE_COMMENT: ';' (.*?) ([\n\r]+ | EOF) -> skip;
 
+discardForm : '(#_' (form | discardForm)* ')';
+
 form : BOOLEAN # Boolean
      | STRING # String
      | SYMBOL # Symbol
@@ -34,13 +36,13 @@ form : BOOLEAN # Boolean
      | INT # Int
      | BIG_FLOAT # BigFloat
      | FLOAT # Float
-     | '(' form* ')' # List
-     | '[' form* ']' # Vector
-     | '#{' form* '}' # Set
-     | '{' form* '}' # Record
-     | '\'' form # Quote
-     | '`' form # SyntaxQuote
-     | '~' form # Unquote
-     | '~@' form # UnquoteSplicing ;
+     | '(' (form | discardForm)* ')' # List
+     | '[' (form | discardForm)* ']' # Vector
+     | '#{' (form | discardForm)* '}' # Set
+     | '{' (form | discardForm) * '}' # Record
+     | '\'' discardForm* form # Quote
+     | '`' discardForm* form # SyntaxQuote
+     | '~' discardForm* form # Unquote
+     | '~@' discardForm* form # UnquoteSplicing ;
 
-file : form* EOF;
+file : (form | discardForm)* EOF;
