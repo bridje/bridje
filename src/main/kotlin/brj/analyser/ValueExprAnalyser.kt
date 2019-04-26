@@ -207,6 +207,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
             fun resolveVariantKey(form: Form): VariantKeyVar {
                 return when (form) {
                     is SymbolForm -> resolve(form.sym)
+                    is QSymbolForm -> resolve(form.sym)
                     else -> TODO()
                 } as? VariantKeyVar ?: TODO()
             }

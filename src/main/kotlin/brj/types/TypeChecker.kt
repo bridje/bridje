@@ -262,7 +262,7 @@ private fun caseExprTyping(expr: CaseExpr, expectedType: MonoType?): Typing {
     val instantiator = Instantiator()
 
     val variantKeys = clauseTypings.map { it.first.variantKey }.associateWith { RowKey(it.typeVars) }
-    val variantType = instantiator.instantiate(VariantType(variantKeys, RowTypeVar(false)))
+    val variantType = instantiator.instantiate(VariantType(variantKeys, RowTypeVar(defaultTyping != null)))
 
     return combine(returnType,
         typings = (clauseTypings.map { it.second } + exprTyping + defaultTyping).filterNotNull(),
