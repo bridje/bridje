@@ -1,0 +1,7 @@
+(ns brj.core
+  {:aliases {forms brj.forms}
+   :imports {Core (java brj.CoreKt
+                        (:: (empty [a]) Bool)
+                        )}})
+
+(def (empty? v) (Core/empty v))

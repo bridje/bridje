@@ -2,6 +2,7 @@
 
 package brj
 
+import brj.Symbol.Companion.mkSym
 import brj.types.*
 
 abstract class GlobalVar internal constructor() {
@@ -74,12 +75,20 @@ class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv) = Env(nses + (newNsEnv.ns to newNsEnv))
 }
 
+private val CORE_NS = mkSym("brj.core")
+
+private fun resolveNS(ns: Symbol, env: Env, nsEnv: NSEnv): NSEnv? =
+    env.nses[(nsEnv.aliases[ns] ?: ns)]
+        ?: (if (!ns.baseStr.contains('.')) env.nses[mkSym("brj.$ns")] else null)
+
 internal fun resolve(env: Env, nsEnv: NSEnv, sym: Ident): GlobalVar? =
     nsEnv.vars[sym]
         ?: when (sym) {
-            is Symbol -> nsEnv.refers[sym]?.let { qsym -> env.nses[qsym.ns]?.vars?.get(qsym.base) }
+            is Symbol ->
+                nsEnv.refers[sym]?.let { qsym -> env.nses[qsym.ns]?.vars?.get(qsym.base) }
+                    ?: resolveNS(CORE_NS, env, nsEnv)!!.vars[sym]
             is QSymbol ->
-                (env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)] ?: TODO("can't find NS"))
+                (resolveNS(sym.ns, env, nsEnv) ?: TODO("can't find NS"))
                     .vars[sym.base]
         }
 

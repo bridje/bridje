@@ -127,7 +127,7 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
 
             synchronized(ctx) {
                 if (ctx.env.nses.isEmpty()) {
-                    ctx.env = require(ctx.env, setOf(mkSym("brj.forms")))
+                    ctx.env = require(ctx.env, setOf(mkSym("brj.forms"), mkSym("brj.core")))
                 }
 
                 ctx.env = require(ctx.env, rootNses, sources)

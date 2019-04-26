@@ -1,5 +1,5 @@
 (ns foo
-  {:aliases {b bar, forms brj.forms}
+  {:aliases {b bar}
    :refers {bar #{baz}}
    :imports {Foo (java brj.FooKt
                        (:: (isZero Int) Bool)
