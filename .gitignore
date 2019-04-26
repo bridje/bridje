@@ -1,7 +1,2 @@
 target/
-/node_modules/
-bridje-stuff/
-dist/
-.nrepl-port
-/.cpcache/
 /.idea/workspace.xml
