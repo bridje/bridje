@@ -99,12 +99,11 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             }
         }
 
-        override fun evalMacro(macroVar: DefMacroVar, args: List<Form>): Form {
-            val macroFn = macroVar.value as BridjeFunction
-
-            return fromVariant(macroFn.callTarget.call(*(args.map(::toVariant).toTypedArray())) as VariantObject)
-        }
-
+        override fun evalMacro(macroVar: DefMacroVar, args: List<Form>) =
+            fromVariant(
+                (macroVar.value as BridjeFunction).callTarget
+                    .call(*(args.map(::toVariant).toTypedArray()))
+                    as VariantObject)
     }
 
     companion object {

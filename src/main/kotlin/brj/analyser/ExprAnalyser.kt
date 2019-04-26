@@ -178,7 +178,21 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv, val emitter: Em
             DEF -> ExprResult(analyseDef(state))
             DECL -> ExprResult(analyseDecl(state))
             DEFMACRO -> ExprResult(analyseDefMacro(state))
-            else -> TODO()
+            else -> {
+                val forms = form.forms
+                if (forms.isNotEmpty()) {
+                    val firstForm = forms[0]
+                    val macroVar = when (firstForm) {
+                        is SymbolForm -> resolve(env, nsEnv, firstForm.sym) as? DefMacroVar
+                        is QSymbolForm -> resolve(env, nsEnv, firstForm.sym) as? DefMacroVar
+                        else -> null
+                    } ?: TODO()
+
+                    return analyseExpr(emitter.evalMacro(macroVar, forms.drop(1)))
+                }
+
+                TODO()
+            }
         }
     }
 }

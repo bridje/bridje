@@ -2,9 +2,7 @@ package brj
 
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
-import brj.analyser.FN
-import brj.analyser.IF
-import brj.analyser.LET
+import brj.analyser.*
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.io.Reader
@@ -96,7 +94,7 @@ private fun syntaxQuoteForm(form: Form, splicing: Boolean = false): Form {
         }
 
         is SymbolForm -> when (form.sym) {
-            IF, LET, FN -> quoteForm(form)
+            IF, LET, FN, DEF, WITH_FX -> quoteForm(form)
             else -> SyntaxQuotedSymbolForm(form.sym)
         }
 
