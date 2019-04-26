@@ -26,6 +26,7 @@ import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.NodeInfo
 import com.oracle.truffle.api.nodes.RootNode
+import org.graalvm.polyglot.Value
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -84,7 +85,7 @@ private val functionForeignAccess = ForeignAccess.create(BridjeFunction::class.j
         var callNode = Truffle.getRuntime().createIndirectCallNode()
 
         override fun execute(frame: VirtualFrame) =
-        // FIXME I don't reckon this is very performant
+            // FIXME I don't reckon this is very performant
             callNode.call(
                 expectBridjeFunction(frame.arguments[0]).callTarget,
                 frame.arguments.sliceArray(1 until frame.arguments.size))
@@ -158,7 +159,12 @@ class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject
         if (variantKey.paramTypes.isEmpty())
             variantKey.sym.toString()
         else
-            "(${variantKey.sym} ${variantKey.paramTypes.mapIndexed { idx, _ -> dynamicObject[idx] }.joinToString(" ")})"
+            "(${variantKey.sym} ${variantKey.paramTypes
+                .mapIndexed { idx, _ ->
+                    val el = Value.asValue(dynamicObject[idx])
+                    if (el.isHostObject) el.asHostObject<Any>().toString() else el.toString()
+                }
+                .joinToString(" ")})"
 }
 
 internal class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int) : ValueNode() {

@@ -1,29 +1,18 @@
 package brj
 
-class Foo {
-    companion object {
-        @JvmStatic
-        fun isZero(foo: Int) = foo == 0
+fun isZero(foo: Int) = foo == 0
 
-        @JvmStatic
-        fun dec(foo: Int) = foo - 1
+fun dec(foo: Int) = foo - 1
 
-        @JvmStatic
-        fun conj(list: List<Any>, el: Any) = list + el
+fun conj(list: List<Any>, el: Any) = list + el
 
-        @JvmStatic
-        fun conj(set: Set<Any>, el: Any) = set + el
+fun conj(set: Set<Any>, el: Any) = set + el
 
-        @JvmStatic
-        fun plus(a: Long, b: Long) = a + b
+fun plus(a: Long, b: Long) = a + b
 
-        @JvmStatic
-        fun str(a: String, b: String) = a + b
+fun str(a: String, b: String) = a + b
 
-        @JvmStatic
-        fun println(str: String): String {
-            kotlin.io.println(str)
-            return str
-        }
-    }
+fun println(str: String): String {
+    kotlin.io.println(str)
+    return str
 }

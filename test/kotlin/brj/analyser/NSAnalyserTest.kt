@@ -1,6 +1,6 @@
 package brj.analyser
 
-import brj.Foo
+import brj.BrjLanguage
 import brj.JavaImport
 import brj.NSEnv
 import brj.QSymbol.Companion.mkQSym
@@ -31,7 +31,7 @@ internal class NSAnalyserTest {
     fun `analyses Java imports`() {
         val nsEnv = analyseNS("(ns foo {:imports {Foo (java brj.Foo (:: (isZero Int) Bool))}})")
         assertEquals(mapOf(
-            mkQSym("Foo/isZero") to JavaImport(Foo::class.java, mkQSym("Foo/isZero"), Type(FnType(listOf(IntType), BoolType), setOf()))),
+            mkQSym("Foo/isZero") to JavaImport(BrjLanguage::class.java, mkQSym("Foo/isZero"), Type(FnType(listOf(IntType), BoolType), setOf()))),
             nsEnv.javaImports)
     }
 }

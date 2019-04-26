@@ -1,6 +1,7 @@
 package brj.analyser
 
 import brj.*
+import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.SymbolKind.RECORD_KEY_SYM
 import brj.SymbolKind.VAR_SYM
@@ -61,6 +62,8 @@ internal val RECUR = mkSym("recur")
 internal val WITH_FX = mkSym("with-fx")
 
 internal val DEFAULT_EFFECT_LOCAL = LocalVar(mkSym("_fx"))
+
+private val QSYMBOL_FORM = mkQSym(":brj.forms/QSymbolForm")
 
 @Suppress("NestedLambdaShadowedImplicitParameter")
 internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
@@ -273,6 +276,12 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
         return RecordExpr(entries)
     }
 
+    private fun syntaxQuoteAnalyser(ident: Ident): ValueExpr =
+        CallExpr(
+            GlobalVarExpr(resolve(QSYMBOL_FORM)!!),
+            null,
+            listOf(QuotedQSymbolExpr((resolve(ident) ?: TODO("sym not found: $ident")).sym)))
+
     private fun exprAnalyser(it: ParserState): ValueExpr {
         val form = it.expectForm<Form>()
 
@@ -294,6 +303,8 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
             is VectorForm -> collAnalyser(::VectorExpr)(ParserState(form.forms))
             is SetForm -> collAnalyser(::SetExpr)(ParserState(form.forms))
             is RecordForm -> recordAnalyser(form)
+            is SyntaxQuotedSymbolForm -> syntaxQuoteAnalyser(form.sym)
+            is SyntaxQuotedQSymbolForm -> syntaxQuoteAnalyser(form.sym)
         }
     }
 

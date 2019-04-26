@@ -2,6 +2,9 @@ package brj
 
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
+import brj.analyser.FN
+import brj.analyser.IF
+import brj.analyser.LET
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.io.Reader
@@ -11,6 +14,8 @@ import java.math.BigInteger
 
 private val formNS = mkSym("brj.forms")
 
+private val UNQUOTE = mkQSym(formNS, mkSym("unquote"))
+private val UNQUOTE_SPLICING = mkQSym(formNS, mkSym("unquote-splicing"))
 
 sealed class Form(internal val arg: Any) {
     internal val qsym: QSymbol = mkQSym(formNS, mkSym(":${this.javaClass.simpleName}"))
@@ -30,25 +35,83 @@ data class SetForm(val forms: List<Form>) : Form(forms)
 data class RecordForm(val forms: List<Form>) : Form(forms)
 data class QuotedSymbolForm(val sym: Symbol) : Form(sym)
 data class QuotedQSymbolForm(val sym: QSymbol) : Form(sym)
+data class SyntaxQuotedSymbolForm(val sym: Symbol) : Form(sym)
+data class SyntaxQuotedQSymbolForm(val sym: QSymbol) : Form(sym)
 
-private fun quoteForm(form: Form): Form =
-    ListForm(listOf(
-        QSymbolForm(mkQSym(formNS, mkSym(":${form.javaClass.simpleName}"))),
-        when (form) {
-            is BooleanForm, is StringForm,
-            is IntForm, is BigIntForm,
-            is FloatForm, is BigFloatForm -> form
+private fun quoteForm(form: Form): Form {
+    fun q(argForm: Form) = ListForm(listOf(QSymbolForm(form.qsym), argForm))
 
-            is ListForm -> VectorForm(form.forms.map(::quoteForm))
-            is SetForm -> VectorForm(form.forms.map(::quoteForm))
-            is VectorForm -> VectorForm(form.forms.map(::quoteForm))
-            is RecordForm -> VectorForm(form.forms.map(::quoteForm))
+    return when (form) {
+        is BooleanForm, is StringForm,
+        is IntForm, is BigIntForm,
+        is FloatForm, is BigFloatForm -> q(form)
 
-            is SymbolForm -> QuotedSymbolForm(form.sym)
-            is QSymbolForm -> QuotedQSymbolForm(form.sym)
+        is ListForm -> q(VectorForm(form.forms.map(::quoteForm)))
+        is SetForm -> q(VectorForm(form.forms.map(::quoteForm)))
+        is VectorForm -> q(VectorForm(form.forms.map(::quoteForm)))
+        is RecordForm -> q(VectorForm(form.forms.map(::quoteForm)))
 
-            else -> throw UnsupportedOperationException()
-        }))
+        is SymbolForm -> q(QuotedSymbolForm(form.sym))
+        is QSymbolForm -> q(QuotedQSymbolForm(form.sym))
+
+        // TODO we should support QuotedSymbolForm/QuotedQSymbolForm here for nested quotes
+        else -> throw UnsupportedOperationException()
+    }
+}
+
+private val CONCAT_QSYM_FORM = QSymbolForm(mkQSym(formNS, mkSym("concat")))
+
+private fun syntaxQuoteForm(form: Form, splicing: Boolean = false): Form {
+    fun firstQSym(forms: List<Form>): QSymbol? = (forms[0] as? QSymbolForm)?.sym
+
+    fun sq(argForm: Form) = ListForm(listOf(QSymbolForm(form.qsym), argForm))
+
+    fun sqSeq(forms: List<Form>): Form {
+        val nestedSplicingForm = forms.any { it is ListForm && firstQSym(it.forms) == UNQUOTE_SPLICING }
+        val expandedForms = VectorForm(forms.map { syntaxQuoteForm(it, nestedSplicingForm) })
+        return sq(if (nestedSplicingForm) ListForm(listOf(CONCAT_QSYM_FORM, expandedForms)) else expandedForms)
+    }
+
+    var unquoteSplicing = false
+
+    val expandedForm = when (form) {
+        is BooleanForm, is StringForm,
+        is IntForm, is BigIntForm,
+        is FloatForm, is BigFloatForm -> sq(form)
+
+        is ListForm -> {
+            when (firstQSym(form.forms)) {
+                UNQUOTE -> form.forms[1]
+                UNQUOTE_SPLICING -> {
+                    unquoteSplicing = true
+                    if (splicing) {
+                        form.forms[1]
+                    } else {
+                        throw IllegalStateException("unquote-splicing used outside of sequence")
+                    }
+                }
+
+                else -> sqSeq(form.forms)
+            }
+        }
+
+        is SymbolForm -> when (form.sym) {
+            IF, LET, FN -> quoteForm(form)
+            else -> SyntaxQuotedSymbolForm(form.sym)
+        }
+
+        is QSymbolForm -> SyntaxQuotedQSymbolForm(form.sym)
+
+        is SetForm -> sqSeq(form.forms)
+        is VectorForm -> sqSeq(form.forms)
+        is RecordForm -> sqSeq(form.forms)
+
+        // TODO we should support QuotedSymbolForm/QuotedQSymbolForm here for nested quotes
+        else -> throw UnsupportedOperationException()
+    }
+
+    return if (splicing && !unquoteSplicing) VectorForm(listOf(expandedForm)) else expandedForm
+}
 
 private fun transformForm(formContext: FormParser.FormContext): Form = formContext.accept(object : FormBaseVisitor<Form>() {
 
@@ -75,9 +138,9 @@ private fun transformForm(formContext: FormParser.FormContext): Form = formConte
     override fun visitRecord(ctx: FormParser.RecordContext) = RecordForm(ctx.form().map(::transformForm))
 
     override fun visitQuote(ctx: FormParser.QuoteContext) = quoteForm(transformForm(ctx.form()))
-    override fun visitSyntaxQuote(ctx: FormParser.SyntaxQuoteContext?) = TODO()
-    override fun visitUnquoteSplicing(ctx: FormParser.UnquoteSplicingContext) = TODO()
-    override fun visitUnquote(ctx: FormParser.UnquoteContext): Form = TODO()
+    override fun visitSyntaxQuote(ctx: FormParser.SyntaxQuoteContext) = syntaxQuoteForm(transformForm(ctx.form()))
+    override fun visitUnquote(ctx: FormParser.UnquoteContext): Form = ListForm(listOf(QSymbolForm(UNQUOTE), transformForm(ctx.form())))
+    override fun visitUnquoteSplicing(ctx: FormParser.UnquoteSplicingContext) = ListForm(listOf(QSymbolForm(mkQSym("brj.forms/unquote-splicing")), transformForm(ctx.form())))
 })
 
 fun readForms(reader: Reader): List<Form> =

@@ -1,4 +1,6 @@
-(ns brj.forms)
+(ns brj.forms
+  {:imports {Core (java brj.CoreKt
+                        (:: (concat [[a]]) [a]))}})
 
 (:: Form)
 
@@ -22,3 +24,6 @@
             :IntForm :BigIntForm :FloatForm :BigFloatForm
             :ListForm :SetForm :VectorForm :RecordForm
             :SymbolForm :QSymbolForm))
+
+(def (concat vecs)
+  (Core/concat vecs))

@@ -1,7 +1,7 @@
 (ns foo
   {:aliases {b bar, forms brj.forms}
    :refers {bar #{baz}}
-   :imports {Foo (java brj.Foo
+   :imports {Foo (java brj.FooKt
                        (:: (isZero Int) Bool)
                        (:: (dec Int) Int)
                        (:: (conj #{a} a) #{a})
@@ -40,4 +40,4 @@
     (:Just p) (Foo/str "Hi, " (:first-name p))))
 
 (defmacro (if-not pred then else)
-  (:forms/ListForm ['if pred else then]))
+  `(if ~pred ~else ~then))

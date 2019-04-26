@@ -72,7 +72,7 @@ internal class TruffleEmitterTest {
 
     @Test
     internal fun `java interop`() {
-        val fn = Value.asValue(emitJavaImport(JavaImport(Foo::class.java, mkQSym("Foo/plus"), Type(FnType(listOf(IntType, IntType), BoolType)))))
+        val fn = Value.asValue(emitJavaImport(JavaImport(BrjLanguage::class.java, mkQSym("Foo/plus"), Type(FnType(listOf(IntType, IntType), BoolType)))))
         assertEquals(5, fn.execute(3, 2).asLong())
     }
 }
