@@ -5,7 +5,7 @@
                         (:: (count [a]) Int)
                         (:: (first [a]) a)
                         (:: (rest [a]) [a])
-                        )}})
+                        (:: (str [Str]) Str))}})
 
 (def empty? Core/empty)
 (def count Core/count)
@@ -41,3 +41,8 @@
 
     :Nil
     form))
+
+(def str* Core/str)
+
+(defmacro (str & strs)
+  `(str* [~@strs]))
