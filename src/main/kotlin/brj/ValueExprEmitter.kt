@@ -185,7 +185,7 @@ internal class ValueExprEmitter private constructor() {
                 argValues[i] = argNodes[i].execute(frame)
             }
 
-            return callNode.call(fn.callTarget, argValues)
+            return callNode.call(fn.callTarget, *argValues)
         }
     }
 
