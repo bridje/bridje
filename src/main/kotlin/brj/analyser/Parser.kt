@@ -13,6 +13,17 @@ sealed class ParseError : Exception() {
 }
 
 internal data class ParserState(var forms: List<Form>) {
+    fun <R> many(a: FormsParser<R?>): List<R> {
+        val ret: MutableList<R> = mutableListOf()
+
+        while (forms.isNotEmpty()) {
+            val res = a(this) ?: return ret
+            ret += res
+        }
+
+        return ret
+    }
+
     fun <R> varargs(a: FormsParser<R>): List<R> {
         val ret: MutableList<R> = mutableListOf()
 

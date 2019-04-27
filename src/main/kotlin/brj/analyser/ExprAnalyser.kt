@@ -11,6 +11,7 @@ internal val DEF = mkSym("def")
 internal val DEFMACRO = mkSym("defmacro")
 internal val DECL = mkSym("::")
 internal val EFFECT = mkSym("!")
+internal val VARARGS = mkSym("&")
 
 internal sealed class Expr
 internal data class DefExpr(val sym: QSymbol, val expr: ValueExpr, val type: Type) : Expr()
@@ -145,25 +146,25 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv, val emitter: Em
     }
 
     private fun analyseDefMacro(it: ParserState): DefMacroExpr {
-        data class Preamble(val sym: QSymbol, val paramSyms: List<Symbol>)
+        data class Preamble(val sym: QSymbol, val fixedParamSyms: List<Symbol>, val varargsSym: Symbol?)
 
         val preamble = it.nested(ListForm::forms) {
             val sym = nsQSym(it.expectSym(VAR_SYM))
-            Preamble(sym, it.varargs { it.expectSym(VAR_SYM) })
+            Preamble(sym,
+                it.many { it.expectSym(VAR_SYM).takeIf { it != VARARGS } },
+                it.maybe { it.expectSym(VAR_SYM) })
+                .also { _ -> it.expectEnd() }
         }
 
-        val locals = preamble.paramSyms.map { it to LocalVar(it) }
+        val locals = (preamble.fixedParamSyms + listOfNotNull(preamble.varargsSym)).map { it to LocalVar(it) }
 
         val bodyExpr = ValueExprAnalyser(env, nsEnv, emitter, locals.toMap()).doAnalyser(it)
 
         val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
 
-        // TODO this needs to be done automagically
-        val formTypeAlias = TypeAlias_(mkQSym("brj.forms/Form"), emptyList(), null)
-        val formType = TypeAliasType(formTypeAlias, emptyList())
-        formTypeAlias.type = formType
+        val formType = TypeAliasType(resolveTypeAlias(env, nsEnv, mkQSym("brj.forms/Form"))!!, emptyList())
 
-        val exprType = valueExprType(expr, FnType(generateSequence { formType }.take(locals.size).toList(), formType))
+        val exprType = valueExprType(expr, FnType(preamble.fixedParamSyms.map { formType } + listOfNotNull(preamble.varargsSym).map { VectorType(formType) }, formType))
 
         return DefMacroExpr(preamble.sym, expr, exprType)
     }
@@ -188,7 +189,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv, val emitter: Em
                         else -> null
                     } ?: TODO()
 
-                    return analyseExpr(emitter.evalMacro(macroVar, forms.drop(1)))
+                    return analyseExpr(emitter.evalMacro(env, macroVar, forms.drop(1)))
                 }
 
                 TODO()

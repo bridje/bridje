@@ -21,6 +21,7 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv,
 
     fun monoTypeAnalyser(it: ParserState): MonoType {
         val form = it.expectForm<Form>()
+
         return when (form) {
             is SymbolForm -> {
                 when (form.sym) {
@@ -41,6 +42,16 @@ internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv,
                         }
                         else -> TODO()
                     }
+                }
+            }
+
+            is QSymbolForm -> {
+                when (form.sym.symbolKind) {
+                    SymbolKind.TYPE_ALIAS_SYM -> {
+                        // TODO kind check
+                        resolveTypeAlias(env, nsEnv, form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
+                    }
+                    else -> TODO()
                 }
             }
 

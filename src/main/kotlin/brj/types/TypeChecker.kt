@@ -198,11 +198,14 @@ private fun recurExprTyping(expr: RecurExpr): Typing {
         extraLVs = expr.exprs.map { it.first }.zip(exprTypings.map(Typing::monoType)))
 }
 
-private fun fnExprTyping(expr: FnExpr): Typing {
+private fun fnExprTyping(expr: FnExpr, expectedType: MonoType?): Typing {
     val params = expr.params.map { it to TypeVarType() }
     val exprTyping = valueExprTyping(expr.expr)
 
-    return combine(FnType(params.map { it.second }, exprTyping.monoType), listOf(exprTyping), extraLVs = params)
+    val combinedTyping = combine(FnType(params.map { it.second }, exprTyping.monoType), listOf(exprTyping), extraLVs = params)
+
+    // TODO needs to actually check the types
+    return if (expectedType != null) combinedTyping.copy(monoType = expectedType) else combinedTyping
 }
 
 private fun callExprTyping(expr: CallExpr, expectedType: MonoType?): Typing {
@@ -294,7 +297,7 @@ private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Ty
 
         is RecordExpr -> recordExprTyping(expr, expectedType)
 
-        is FnExpr -> fnExprTyping(expr)
+        is FnExpr -> fnExprTyping(expr, expectedType)
         is CallExpr -> callExprTyping(expr, expectedType)
 
         is IfExpr -> ifExprTyping(expr, expectedType)

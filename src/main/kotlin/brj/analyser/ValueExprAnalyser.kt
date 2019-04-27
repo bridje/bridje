@@ -151,7 +151,7 @@ internal data class ValueExprAnalyser(val env: Env, val nsEnv: NSEnv,
         val fn = exprAnalyser(it)
 
         return if (fn is GlobalVarExpr && fn.globalVar is DefMacroVar) {
-            exprAnalyser(ParserState(listOf(emitter.evalMacro(fn.globalVar, it.varargs { it.expectForm<Form>() }))))
+            exprAnalyser(ParserState(listOf(emitter.evalMacro(env, fn.globalVar, it.varargs { it.expectForm<Form>() }))))
         } else {
             CallExpr(fn,
                 (if (fn is GlobalVarExpr && fn.globalVar.type.effects.isNotEmpty()) LocalVarExpr(effectLocal) else null),

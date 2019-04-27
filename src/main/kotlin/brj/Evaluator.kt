@@ -13,7 +13,7 @@ internal interface Emitter {
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
     fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
-    fun evalMacro(macroVar: DefMacroVar, args: List<Form>): Form
+    fun evalMacro(env: Env, macroVar: DefMacroVar, argForms: List<Form>): Form
 }
 
 internal class Evaluator(var env: Env, private val loader: NSFormLoader, private val emitter: Emitter) {
@@ -99,6 +99,7 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
             if (stack.contains(ns)) throw TODO("Cyclic NS")
 
             stack += ns
+            seen += ns
 
             val state = ParserState(loader.loadNSForms(ns))
             val nsEnv = NSAnalyser(ns).analyseNS(state.expectForm())

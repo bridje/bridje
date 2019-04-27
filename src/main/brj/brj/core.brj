@@ -2,6 +2,29 @@
   {:aliases {forms brj.forms}
    :imports {Core (java brj.CoreKt
                         (:: (empty [a]) Bool)
+                        (:: (count [a]) Int)
+                        (:: (first [a]) a)
+                        (:: (rest [a]) [a])
                         )}})
 
-(def (empty? v) (Core/empty v))
+(def empty? Core/empty)
+(def count Core/count)
+(def first Core/first)
+(def rest Core/rest)
+
+(defmacro (if-not pred then else)
+  `(if ~pred ~else ~then))
+
+(:: (-> forms/Form [forms/Form]) forms/Form)
+
+(defmacro (-> form & forms)
+  (if (empty? forms)
+    form
+    `(-> ~(let [ff (first forms)]
+            (case ff
+              (:forms/ListForm fs) (if-not (empty? fs)
+                                     `(~form)
+                                     `(~(first fs) ~form ~@(rest fs)))
+              `(~ff ~form)))
+
+         ~@(rest forms))))

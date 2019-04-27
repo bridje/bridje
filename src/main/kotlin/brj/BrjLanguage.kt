@@ -5,6 +5,8 @@ import brj.Symbol.Companion.mkSym
 import brj.ValueExprEmitter.Companion.emitValueExpr
 import brj.analyser.ValueExpr
 import brj.analyser.analyseValueExpr
+import brj.types.FnType
+import brj.types.VectorType
 import brj.types.valueExprType
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
@@ -63,16 +65,6 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter.emitVariantKey(variantKey)
         override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter.emitEffectExpr(sym, defaultImpl)
 
-        private fun toVariant(form: Form): Any {
-            val arg = when (form.arg) {
-                is List<*> -> form.arg.map { toVariant(it as Form) }
-                is Form -> toVariant(form)
-                else -> form.arg
-            }
-
-            return (getCtx().env.nses.getValue(form.qsym.ns).vars[form.qsym.base]?.value as BridjeFunction).callTarget.call(arg)
-        }
-
         private fun fromVariant(obj: VariantObject): Form {
             val arg = obj.dynamicObject[0]
 
@@ -99,11 +91,30 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
             }
         }
 
-        override fun evalMacro(macroVar: DefMacroVar, args: List<Form>) =
-            fromVariant(
+        override fun evalMacro(env: brj.Env, macroVar: DefMacroVar, argForms: List<Form>): Form {
+            fun toVariant(form: Form): Any {
+                val arg = when (form.arg) {
+                    is List<*> -> form.arg.map { toVariant(it as Form) }
+                    is Form -> toVariant(form)
+                    else -> form.arg
+                }
+
+                return (env.nses.getValue(form.qsym.ns).vars[form.qsym.base]?.value as BridjeFunction).callTarget.call(arg)
+            }
+
+            val variantArgs = argForms.map(::toVariant)
+
+            val paramTypes = (macroVar.type.monoType as FnType).paramTypes
+            val isVarargs = paramTypes.last() is VectorType
+            val fixedArgCount = if (isVarargs) paramTypes.size - 1 else paramTypes.size
+
+            val args = variantArgs.take(fixedArgCount) + listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null)
+
+            return fromVariant(
                 (macroVar.value as BridjeFunction).callTarget
-                    .call(*(args.map(::toVariant).toTypedArray()))
+                    .call(*(args.toTypedArray()))
                     as VariantObject)
+        }
     }
 
     companion object {

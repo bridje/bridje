@@ -263,7 +263,12 @@ internal class JavaExecuteNode(@Child var fnNode: JavaInteropNode, javaImport: J
             params[i] = argNodes[i].execute(frame)
         }
 
-        return sendExecute(executeNode, fnNode.execute(frame), *params)
+        val res = sendExecute(executeNode, fnNode.execute(frame), *params)
+
+        // TODO use CachedContext
+        val truffleEnv = getCtx().truffleEnv
+
+        return if (truffleEnv.isHostObject(res)) truffleEnv.asHostObject(res) else res
     }
 }
 
