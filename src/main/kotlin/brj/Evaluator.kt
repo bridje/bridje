@@ -26,10 +26,6 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
             env += nsEnv
         }
 
-        private fun evalDefMacro(expr: DefExpr) {
-            nsEnv += DefMacroVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
-        }
-
         private fun evalForm(form: Form) {
             val result = ExprAnalyser(env, nsEnv, emitter).analyseExpr(form)
 

@@ -146,6 +146,11 @@ internal class ValueExprEmitter private constructor() {
         }
     }
 
+    class GlobalVarNode(val globalVar: GlobalVar) : ValueNode() {
+        // TODO specialise/cache
+        override fun execute(frame: VirtualFrame) = globalVar.value!!
+    }
+
     inner class FnBodyNode(expr: FnExpr) : ValueNode() {
         @Children
         val readArgNodes = expr.params
@@ -399,7 +404,7 @@ internal class ValueExprEmitter private constructor() {
             is RecurExpr -> RecurNode(expr)
 
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
-            is GlobalVarExpr -> ObjectNode(expr.globalVar.value!!)
+            is GlobalVarExpr -> GlobalVarNode(expr.globalVar)
 
             is WithFxExpr -> WithFxNode(expr)
 

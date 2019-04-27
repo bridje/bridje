@@ -15,16 +15,29 @@
 (defmacro (if-not pred then else)
   `(if ~pred ~else ~then))
 
+(:: (:Cons a) a [a])
+(:: :Nil)
+(:: (Seq a) (+ (:Cons a) :Nil))
+
+(:: (seq [a]) (Seq a))
+(def (seq v)
+  (if (empty? v)
+    :Nil
+    (:Cons (first v) (rest v))))
+
 (:: (-> forms/Form [forms/Form]) forms/Form)
 
 (defmacro (-> form & forms)
-  (if (empty? forms)
-    form
-    `(-> ~(let [ff (first forms)]
-            (case ff
-              (:forms/ListForm fs) (if-not (empty? fs)
-                                     `(~form)
-                                     `(~(first fs) ~form ~@(rest fs)))
-              `(~ff ~form)))
+  (case (seq forms)
+    (:Cons first-form more-forms)
+    `(-> ~(case first-form
+            (:forms/ListForm fs) (case (seq more-forms)
+                                   (:Cons f args) `(~f ~form ~@args)
+                                   :Nil form)
 
-         ~@(rest forms))))
+            `(~first-form ~form))
+
+         ~@more-forms)
+
+    :Nil
+    form))

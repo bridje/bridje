@@ -18,7 +18,7 @@ fun main() {
 
     val env = require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
 
-    val value = ctx.eval("brj", """(foo/if-not false 4 3)""")
+    val value = ctx.eval("brj", """(if-not false 4 3)""")
 
     println("value: $value")
 

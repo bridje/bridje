@@ -35,9 +35,10 @@
     (println! "Hello world!")
     [y x]))
 
-(def (say-hi person)
-  (case person
-    (:Just p) (Foo/str "Hi, " (:first-name p))))
+(def (vector el) [el])
 
-(defmacro (if-not pred then else)
-  `(if ~pred ~else ~then))
+(def foo
+  (-> []
+      :forms/VectorForm
+      vector
+      :forms/ListForm))
