@@ -1,0 +1,5 @@
+(ns bar {})
+
+(:: baz BigInt)
+(def baz 42N)
+(def a-set #{45N 90N})

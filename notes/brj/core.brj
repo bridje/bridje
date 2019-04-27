@@ -1,5 +1,5 @@
-(let [(foo 2)
-      (bar 1)]
+(let [foo 2
+      bar 1]
   (+ foo bar))
 
 ;; mutually recursive definitions

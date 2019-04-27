@@ -1,0 +1,44 @@
+(ns foo
+  {:aliases {b bar}
+   :refers {bar #{baz}}
+   :imports {Foo (java brj.FooKt
+                       (:: (isZero Int) Bool)
+                       (:: (dec Int) Int)
+                       (:: (conj #{a} a) #{a})
+                       (:: (plus Int Int) Int)
+                       (:: (str Str Str) Str)
+                       (:: (println Str) Str))}})
+
+(:: :Void)
+(:: Void (+ :Void))
+
+(:: (:Just a) a)
+(:: :Nothing)
+
+(:: (! (println! Str)) Str)
+(def (! (println! s))
+  (Foo/println s))
+
+(:: :first-name Str)
+(:: :last-name Str)
+;; (:: User {:first-name :last-name})
+
+(def (count-down x)
+  (loop [y x
+         res #{}]
+    (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
+
+(:: (my-fn a a) [a])
+(def (my-fn x y)
+  (with-fx [(def (println! s)
+              (foo/println! (Foo/str "intercepted: " s)))]
+    (println! "Hello world!")
+    [y x]))
+
+(def (vector el) [el])
+
+(def foo
+  (-> []
+      :forms/VectorForm
+      vector
+      :forms/ListForm))

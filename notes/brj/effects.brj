@@ -1,4 +1,4 @@
-(defdata Void :Void)
+(defunion Void Void)
 
 (defx Console
   (:: (print! Str) Void)
@@ -12,14 +12,10 @@
     ;; default implementation
     ...))
 
-(def (send-welcome-email! {User. {first-name}})
-  (send-email! (:Email {:subject (format "Welcome, %s!" first-name)
-                        :body "..."})))
+(def (send-welcome-email! {. {user/first-name}})
+  (send-email! (Email {{email/subject (format "Welcome, %s!" first-name)
+                        email/body "..."}})))
 
 (with-fx [(EmailProvider (def (send-email! email)
                            ...))]
-  (send-welcome-email! {User. {:first-name "James"}}))
-
-
-
-()
+  (send-welcome-email! {user/first-name "James"}))
