@@ -31,7 +31,7 @@ internal class NSAnalyserTest {
     fun `analyses Java imports`() {
         val nsEnv = analyseNS("(ns foo {:imports {Foo (java brj.Foo (:: (isZero Int) Bool))}})")
         assertEquals(mapOf(
-            mkQSym("Foo/isZero") to JavaImport(BrjLanguage::class.java, mkQSym("Foo/isZero"), Type(FnType(listOf(IntType), BoolType), setOf()))),
+            mkQSym("Foo/isZero") to JavaImport(mkQSym("Foo/isZero"), BrjLanguage::class.java, "isZero", Type(FnType(listOf(IntType), BoolType), setOf()))),
             nsEnv.javaImports)
     }
 }

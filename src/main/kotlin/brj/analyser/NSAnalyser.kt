@@ -37,8 +37,8 @@ internal class NSAnalyser(val ns: Symbol) {
         return aliases
     }
 
-    fun javaImportsAnalyser(it: ParserState): Map<QSymbol, JavaImport> {
-        val javaImports = mutableMapOf<QSymbol, JavaImport>()
+    fun javaImportsAnalyser(it: ParserState): Map<Symbol, JavaImport> {
+        val javaImports = mutableMapOf<Symbol, JavaImport>()
 
         it.varargs {
             val alias = it.expectForm<SymbolForm>().sym
@@ -56,8 +56,9 @@ internal class NSAnalyser(val ns: Symbol) {
 
                         if (varDeclExpr.type.effects.isNotEmpty()) TODO()
 
-                        val importSym = QSymbol.mkQSym(alias, varDeclExpr.sym.base)
-                        javaImports[importSym] = JavaImport(clazz, importSym, varDeclExpr.type)
+                        val name = varDeclExpr.sym.base.baseStr
+                        val sym = mkSym("$alias.$name")
+                        javaImports[sym] = JavaImport(QSymbol.mkQSym(ns, sym), clazz, name, varDeclExpr.type)
                     }
                 }
             }

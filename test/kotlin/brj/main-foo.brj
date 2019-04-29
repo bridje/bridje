@@ -17,7 +17,7 @@
 
 (:: (! (println! Str)) Str)
 (def (! (println! s))
-  (Foo/println s))
+  (Foo.println s))
 
 (:: :first-name Str)
 (:: :last-name Str)
@@ -26,12 +26,12 @@
 (def (count-down x)
   (loop [y x
          res #{}]
-    (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
+    (if (Foo.isZero y) res (recur (Foo.dec y) (Foo.conj res y)))))
 
 (:: (my-fn a a) [a])
 (def (my-fn x y)
   (with-fx [(def (println! s)
-              (foo/println! (Foo/str "intercepted: " s)))]
+              (foo/println! (Foo.str "intercepted: " s)))]
     (println! "Hello world!")
     [y x]))
 

@@ -26,4 +26,4 @@
             :SymbolForm :QSymbolForm))
 
 (def (concat vecs)
-  (Core/concat vecs))
+  (Core.concat vecs))

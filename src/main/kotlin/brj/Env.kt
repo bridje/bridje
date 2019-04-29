@@ -33,7 +33,7 @@ data class VariantKeyVar internal constructor(val variantKey: VariantKey, overri
     override val type: Type = VariantType.constructorType(variantKey)
 }
 
-data class JavaImport internal constructor(val clazz: Class<*>, val sym: QSymbol, val type: Type)
+data class JavaImport internal constructor(val sym: QSymbol, val clazz: Class<*>, val name: String, val type: Type)
 
 class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar() {
     override val sym = javaImport.sym
@@ -61,11 +61,11 @@ internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),
                  val aliases: Map<Symbol, Symbol> = emptyMap(),
-                 val javaImports: Map<QSymbol, JavaImport> = emptyMap(),
+                 val javaImports: Map<Symbol, JavaImport> = emptyMap(),
                  val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
-                 val vars: Map<Ident, GlobalVar> = emptyMap()) {
+                 val vars: Map<Symbol, GlobalVar> = emptyMap()) {
 
-    operator fun plus(javaImportVar: JavaImportVar): NSEnv = copy(vars = vars + (javaImportVar.sym to javaImportVar))
+    operator fun plus(javaImportVar: JavaImportVar): NSEnv = copy(vars = vars + (javaImportVar.sym.base to javaImportVar))
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
 }
