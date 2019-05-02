@@ -1,6 +1,7 @@
 package brj
 
-import brj.BridjeTypesGen.*
+import brj.BridjeTypesGen.expectRecordObject
+import brj.BridjeTypesGen.expectVariantObject
 import brj.BrjLanguage.Companion.getCtx
 import brj.BrjLanguage.Companion.getLang
 import brj.types.FnType
@@ -102,6 +103,7 @@ class RecordObject(val keys: List<RecordKey>, val dynamicObject: DynamicObject) 
     @ExportMessage
     fun hasMembers() = true
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun getMembers(includeInternal: Boolean) = truffleEnv.asGuestValue(keyStrings.keys.toList())
 
@@ -117,10 +119,6 @@ internal class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode() {
     var readArgNode = ReadArgNode(0)
 
     override fun execute(frame: VirtualFrame) = expectRecordObject(readArgNode.execute(frame)).dynamicObject[recordKey.sym.toString()]
-}
-
-internal class RecordKeyInteropReadNode : ValueNode() {
-    override fun execute(frame: VirtualFrame) = expectRecordObject(frame.arguments[0]).dynamicObject[expectString(frame.arguments[1])]
 }
 
 typealias RecordObjectFactory = (Array<Any?>) -> RecordObject
