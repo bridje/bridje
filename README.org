@@ -12,7 +12,7 @@ Its main features include:
   causes and side effects.
 - Type-safe macros.
 
-It is currently pre-alpha, and nowhere near finished. What follows below are
+*It is currently pre-alpha, and nowhere near finished.* What follows below are
 ideas for how I imagine the language would work!
 
 Bridje has a number of built-in forms, many similar to their Clojure
