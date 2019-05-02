@@ -5,7 +5,7 @@ import brj.BrjLanguage.Companion.getCtx
 import brj.BrjLanguage.Companion.getLang
 import brj.types.FnType
 import brj.types.MonoType
-import com.oracle.truffle.api.CallTarget
+import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.`object`.DynamicObject
@@ -17,11 +17,11 @@ import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.FrameUtil
 import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.ForeignAccess
-import com.oracle.truffle.api.interop.ForeignAccess.sendExecute
-import com.oracle.truffle.api.interop.ForeignAccess.sendRead
-import com.oracle.truffle.api.interop.Message
+import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.library.CachedLibrary
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.NodeInfo
@@ -77,32 +77,39 @@ internal fun createCallTarget(rootNode: RootNode) = Truffle.getRuntime().createC
 
 private fun constantly(obj: Any) = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(obj))
 
-private val functionForeignAccess = ForeignAccess.create(BridjeFunction::class.java, object : ForeignAccess.StandardFactory {
-    override fun accessIsExecutable() = Truffle.getRuntime().createCallTarget(RootNode.createConstantNode(true))
-    override fun accessExecute(argumentsLength: Int) = Truffle.getRuntime().createCallTarget(object : RootNode(getLang()) {
-
-        @Child
-        var callNode = Truffle.getRuntime().createIndirectCallNode()
-
-        override fun execute(frame: VirtualFrame) =
-            // FIXME I don't reckon this is very performant
-            callNode.call(
-                expectBridjeFunction(frame.arguments[0]).callTarget,
-                frame.arguments.sliceArray(1 until frame.arguments.size))
-    })
-})!!
-
+@ExportLibrary(InteropLibrary::class)
 internal class BridjeFunction internal constructor(rootNode: RootNode) : TruffleObject {
     val callTarget = Truffle.getRuntime().createCallTarget(rootNode)
 
-    override fun getForeignAccess() = functionForeignAccess
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun execute(args: Array<*>) = callTarget.call(*args)
 }
 
-class RecordObject(val keys: List<RecordKey>, val dynamicObject: DynamicObject, private val faf: ForeignAccess.StandardFactory) : TruffleObject {
-    override fun getForeignAccess() = ForeignAccess.create(RecordObject::class.java, faf)
+@ExportLibrary(InteropLibrary::class)
+class RecordObject(val keys: List<RecordKey>, val dynamicObject: DynamicObject) : TruffleObject {
+    private val truffleEnv = getCtx().truffleEnv
+
+    private val keyStrings by lazy {
+        keys.associate { it.sym.toString() to it.sym }
+    }
 
     @TruffleBoundary
     override fun toString(): String = "{${keys.joinToString(", ") { key -> "${key.sym} ${dynamicObject[key.sym.toString()]}" }}}"
+
+    @ExportMessage
+    fun hasMembers() = true
+
+    @ExportMessage
+    fun getMembers(includeInternal: Boolean) = truffleEnv.asGuestValue(keyStrings.keys.toList())
+
+    @ExportMessage
+    fun isMemberReadable(name: String) = keyStrings.keys.contains(name)
+
+    @ExportMessage
+    fun readMember(name: String) = dynamicObject[name]
 }
 
 internal class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode() {
@@ -133,26 +140,17 @@ internal object RecordEmitter {
 
         val factory = shape.createFactory()
 
-        val faf = object : ForeignAccess.StandardFactory {
-            override fun accessHasSize() = constantly(true)
-            override fun accessGetSize() = constantly(keys.size)
-            override fun accessHasKeys() = constantly(true)
-            override fun accessKeys() = constantly(getCtx().truffleEnv.asGuestValue(keys.map { it.sym.toString() }.toList()))
-
-            override fun accessRead(): CallTarget = Truffle.getRuntime().createCallTarget(makeRootNode(RecordKeyInteropReadNode()))
-        }
-
         return { vals ->
-            RecordObject(keys, factory.newInstance(*vals), faf)
+            RecordObject(keys, factory.newInstance(*vals))
         }
     }
 
     internal fun emitRecordKey(recordKey: RecordKey) = BridjeFunction(makeRootNode(RecordKeyReadNode(recordKey), FrameDescriptor()))
 }
 
-
-class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject, private val faf: ForeignAccess.StandardFactory) : TruffleObject {
-    override fun getForeignAccess() = ForeignAccess.create(VariantObject::class.java, faf)!!
+@ExportLibrary(InteropLibrary::class)
+class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject) : TruffleObject {
+    private val paramCount = variantKey.paramTypes.size
 
     @TruffleBoundary
     override fun toString(): String =
@@ -165,22 +163,28 @@ class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject
                     if (el.isHostObject) el.asHostObject<Any>().toString() else el.toString()
                 }
                 .joinToString(" ")})"
+
+    @ExportMessage
+    fun hasArrayElements() = true
+
+    @ExportMessage
+    fun getArraySize() = paramCount
+
+    @ExportMessage
+    fun isArrayElementReadable(idx: Long) = idx < paramCount
+
+    @ExportMessage
+    fun readArrayElement(idx: Long) =
+        if (isArrayElementReadable(idx)) dynamicObject[idx]
+        else {
+            CompilerDirectives.transferToInterpreter();
+            throw IndexOutOfBoundsException(idx.toInt())
+        }
 }
 
 internal class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int) : ValueNode() {
     override fun execute(frame: VirtualFrame): Any {
         return expectVariantObject(objNode.execute(frame)).dynamicObject[idx]
-    }
-}
-
-internal class VariantKeyInteropReadNode(variantKey: VariantKey) : ValueNode() {
-    private val paramCount = variantKey.paramTypes.size
-
-    override fun execute(frame: VirtualFrame): Any {
-        val obj = expectVariantObject(frame.arguments[0])
-        val idx = expectLong(frame.arguments[1]).toInt()
-
-        return if (idx < paramCount) obj.dynamicObject[idx] else throw IndexOutOfBoundsException(idx)
     }
 }
 
@@ -214,14 +218,7 @@ internal object VariantEmitter {
 
         val factory = shape.createFactory()
 
-        val faf = object : ForeignAccess.StandardFactory {
-            override fun accessHasSize(): CallTarget = constantly(true)
-            override fun accessGetSize(): CallTarget? = constantly(variantKey.paramTypes.size)
-
-            override fun accessRead(): CallTarget = Truffle.getRuntime().createCallTarget(makeRootNode(VariantKeyInteropReadNode(variantKey)))
-        }
-
-        return { args -> VariantObject(variantKey, factory.newInstance(*args), faf) }
+        return { args -> VariantObject(variantKey, factory.newInstance(*args)) }
     }
 
     fun emitVariantKey(variantKey: VariantKey): TruffleObject {
@@ -234,47 +231,43 @@ internal object VariantEmitter {
     }
 }
 
-internal abstract class JavaInteropNode : ValueNode() {
-    abstract override fun execute(frame: VirtualFrame): TruffleObject
-}
-
-internal class JavaStaticReadNode(javaImport: JavaImport) : JavaInteropNode() {
-    val clazzObj = getCtx().truffleEnv.lookupHostSymbol(javaImport.clazz.name) as TruffleObject
+internal abstract class JavaStaticReadNode(javaImport: JavaImport) : ValueNode() {
+    val clazz = getCtx().truffleEnv.lookupHostSymbol(javaImport.clazz.name)
     val name = javaImport.name
 
-    @Child
-    var readNode = Message.READ.createNode()
+    @Specialization
+    fun readMember(@CachedLibrary(limit = "1") interopLibrary: InteropLibrary): Any {
+        return interopLibrary.readMember(clazz, name)
+    }
 
-    override fun execute(frame: VirtualFrame) = sendRead(readNode, clazzObj, name) as TruffleObject
+    abstract override fun execute(frame: VirtualFrame): Any
 }
 
-internal class JavaExecuteNode(@Child var fnNode: JavaInteropNode, javaImport: JavaImport) : ValueNode() {
+@NodeChildren(NodeChild("fn", type = ValueNode::class))
+internal abstract class JavaExecuteNode(javaImport: JavaImport) : ValueNode() {
     @Children
     val argNodes = (0 until (javaImport.type.monoType as FnType).paramTypes.size).map { idx -> ReadArgNode(idx) }.toTypedArray()
 
-    @Child
-    var executeNode = Message.EXECUTE.createNode()
-
+    @Specialization(limit = "1")
     @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Any {
+    fun doExecute(frame: VirtualFrame, fn: Any,
+                  @CachedLibrary(value = "fn") interopLibrary: InteropLibrary): Any {
         val params = arrayOfNulls<Any>(argNodes.size)
 
         for (i in argNodes.indices) {
             params[i] = argNodes[i].execute(frame)
         }
 
-        val res = sendExecute(executeNode, fnNode.execute(frame), *params)
-
-        // TODO use CachedContext
-        val truffleEnv = getCtx().truffleEnv
-
-        return if (truffleEnv.isHostObject(res)) truffleEnv.asHostObject(res) else res
+        return interopLibrary.execute(fn, *params)
     }
+
+    @ExplodeLoop
+    abstract override fun execute(frame: VirtualFrame): Any
 }
 
 internal object JavaImportEmitter {
     fun emitJavaImport(javaImport: JavaImport): BridjeFunction =
-        BridjeFunction(makeRootNode(JavaExecuteNode(JavaStaticReadNode(javaImport), javaImport)))
+        BridjeFunction(makeRootNode(JavaExecuteNodeGen.create(javaImport, JavaStaticReadNodeGen.create(javaImport))))
 }
 
 internal typealias FxMap = Map<QSymbol, BridjeFunction>

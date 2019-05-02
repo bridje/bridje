@@ -10,10 +10,13 @@ import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.nodes.*
 import com.oracle.truffle.api.profiles.ConditionProfile
 
 internal class ValueExprEmitter private constructor() {
+    private val CORE = getCtx().truffleEnv.lookupHostSymbol("brj.CoreKt")!!
+
     val frameDescriptor = FrameDescriptor()
 
     class BoolNode(val boolean: Boolean) : ValueNode() {
@@ -32,46 +35,52 @@ internal class ValueExprEmitter private constructor() {
         override fun execute(frame: VirtualFrame): Any = obj
     }
 
-    inner class CollNode(exprs: List<ValueExpr>) : Node() {
+    inner class CollNode(exprs: List<ValueExpr>) : ValueNode() {
+        @Child
+        var interop = InteropLibrary.getFactory().createDispatched(1)
+        @Child
+        var truffleEnv = getCtx().truffleEnv
         @Children
-        val nodes = exprs.map(::emitValueExpr).toTypedArray()
-
-        @TruffleBoundary
-        private fun add(coll: MutableCollection<Any>, value: Any) = coll.add(value)
+        val elNodes = exprs.map(this@ValueExprEmitter::emitValueExpr).toTypedArray()
 
         @ExplodeLoop
-        fun execute(frame: VirtualFrame, coll: MutableCollection<Any>) {
-            for (node in nodes) {
-                add(coll, node.execute(frame))
+        override fun execute(frame: VirtualFrame): Any {
+            val els = truffleEnv.asGuestValue(arrayOfNulls<Any>(elNodes.size))
+
+            for (i in 0 until elNodes.size) {
+                interop.writeArrayElement(els, i.toLong(), elNodes[i].execute(frame))
             }
+
+            return els
         }
     }
 
     inner class VectorNode(expr: VectorExpr) : ValueNode() {
         @Child
+        var interop = InteropLibrary.getFactory().createDispatched(1)
+        @Child
         var collNode = CollNode(expr.exprs)
 
-        override fun execute(frame: VirtualFrame): List<Any> {
-            val coll = mutableListOf<Any>()
-            collNode.execute(frame, coll)
-            return coll
+        override fun execute(frame: VirtualFrame): Any {
+            val ret = interop.invokeMember(CORE, "vector", collNode.execute(frame))
+            return ret
         }
     }
 
     inner class SetNode(expr: SetExpr) : ValueNode() {
         @Child
+        var interop = InteropLibrary.getFactory().createDispatched(1)
+        @Child
         var collNode = CollNode(expr.exprs)
 
-        override fun execute(frame: VirtualFrame): Set<Any> {
-            val coll = mutableSetOf<Any>()
-            collNode.execute(frame, coll)
-            return coll
+        override fun execute(frame: VirtualFrame): Any {
+            val ret = interop.invokeMember(CORE, "set", collNode.execute(frame))
+            return ret
         }
     }
 
     inner class RecordNode(expr: RecordExpr) : ValueNode() {
-        val keys = expr.entries.map(RecordEntry::recordKey)
-        val factory = RecordEmitter.recordObjectFactory(keys)
+        val factory = RecordEmitter.recordObjectFactory(expr.entries.map(RecordEntry::recordKey))
 
         @Children
         val valNodes = expr.entries.map { emitValueExpr(it.expr) }.toTypedArray()
@@ -411,10 +420,6 @@ internal class ValueExprEmitter private constructor() {
             is CaseExpr -> CaseExprNode(expr)
         }
 
-    inner class WrapHostObjectNode(@Child var node: ValueNode) : ValueNode() {
-        override fun execute(frame: VirtualFrame): Any = getCtx().truffleEnv.asGuestValue(node.execute(frame))
-    }
-
     inner class WrapFxNode(@Child var node: ValueNode) : ValueNode() {
         @Child
         var writeFxVarNode = WriteLocalVarNodeGen.create(
@@ -432,12 +437,10 @@ internal class ValueExprEmitter private constructor() {
         internal fun emitValueExpr(expr: ValueExpr): CallTarget {
             val emitter = ValueExprEmitter()
             return createCallTarget(emitter.makeRootNode(
-                emitter.WrapHostObjectNode(
                     emitter.WrapFxNode(
-                        emitter.emitValueExpr(expr)))))
+                        emitter.emitValueExpr(expr))))
         }
 
         internal fun evalValueExpr(expr: ValueExpr) = emitValueExpr(expr).call()!!
     }
 }
-
