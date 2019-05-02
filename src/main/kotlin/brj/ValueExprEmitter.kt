@@ -37,7 +37,7 @@ internal class ValueExprEmitter private constructor() {
 
     inner class CollNode(exprs: List<ValueExpr>) : ValueNode() {
         @Child
-        var interop = InteropLibrary.getFactory().createDispatched(1)
+        var interop = InteropLibrary.getFactory().create(CORE)
         @Child
         var truffleEnv = getCtx().truffleEnv
         @Children
@@ -57,7 +57,7 @@ internal class ValueExprEmitter private constructor() {
 
     inner class VectorNode(expr: VectorExpr) : ValueNode() {
         @Child
-        var interop = InteropLibrary.getFactory().createDispatched(1)
+        var interop = InteropLibrary.getFactory().create(CORE)
         @Child
         var collNode = CollNode(expr.exprs)
 

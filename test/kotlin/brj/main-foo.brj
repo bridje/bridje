@@ -36,9 +36,3 @@
     [y x]))
 
 (def (vector el) [el])
-
-(def foo
-  (-> []
-      :forms/VectorForm
-      vector
-      :forms/ListForm))

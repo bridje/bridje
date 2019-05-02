@@ -66,11 +66,13 @@ class BrjLanguage : TruffleLanguage<BridjeContext>() {
         override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter.emitEffectExpr(sym, defaultImpl)
 
         private fun fromVariant(obj: VariantObject): Form {
-            val arg = obj.dynamicObject[0]
+            val truffleEnv = getCtx().truffleEnv
 
             fun fromVariantList(arg: Any): List<Form> {
-                return (arg as List<*>).map { fromVariant(it as VariantObject) }
+                return (truffleEnv.asHostObject(arg) as List<*>).map { fromVariant(it as VariantObject) }
             }
+
+            val arg = obj.dynamicObject[0]
 
             return when (obj.variantKey.sym.base.baseStr) {
                 "BooleanForm" -> BooleanForm(arg as Boolean)
