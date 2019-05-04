@@ -26,9 +26,8 @@ internal sealed class DoOrExprResult
 internal data class DoResult(val forms: List<Form>) : DoOrExprResult()
 internal data class ExprResult(val expr: Expr) : DoOrExprResult()
 
-// TODO allow forward declarations of type aliases
-
-internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv, val emitter: Emitter,
+internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
+                                 val macroEvaluator: MacroEvaluator,
                                  private val typeAnalyser: TypeAnalyser = TypeAnalyser(env, nsEnv)) {
     private fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
 
@@ -130,7 +129,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv, val emitter: Em
 
         val locals = preamble.paramSyms?.map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(env, nsEnv, emitter, (locals ?: emptyList()).toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(env, nsEnv, macroEvaluator, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
@@ -158,7 +157,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv, val emitter: Em
 
         val locals = (preamble.fixedParamSyms + listOfNotNull(preamble.varargsSym)).map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(env, nsEnv, emitter, locals.toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(env, nsEnv, macroEvaluator, locals.toMap()).doAnalyser(it)
 
         val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
 
@@ -189,7 +188,7 @@ internal data class ExprAnalyser(val env: Env, val nsEnv: NSEnv, val emitter: Em
                         else -> null
                     } ?: TODO()
 
-                    return analyseExpr(emitter.evalMacro(env, macroVar, forms.drop(1)))
+                    return analyseExpr(macroEvaluator.evalMacro(env, macroVar, forms.drop(1)))
                 }
 
                 TODO()

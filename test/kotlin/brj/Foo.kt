@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package brj
 
 fun isZero(foo: Int) = foo == 0

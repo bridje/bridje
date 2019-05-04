@@ -10,7 +10,11 @@ internal val ALIASES = mkSym(":aliases")
 internal val IMPORTS = mkSym(":imports")
 internal val JAVA = mkSym("java")
 
-internal class NSAnalyser(val ns: Symbol) {
+internal interface DeclAnalyser {
+    fun analyseDecl(state: ParserState): VarDeclExpr?
+}
+
+internal class NSAnalyser(val ns: Symbol, val declAnalyser: DeclAnalyser) {
     fun refersAnalyser(it: ParserState): Map<Symbol, QSymbol> {
         val refers = mutableMapOf<Symbol, QSymbol>()
 
@@ -51,8 +55,7 @@ internal class NSAnalyser(val ns: Symbol) {
                     it.nested(ListForm::forms) {
                         it.expectSym(DECL)
 
-                        val varDeclExpr = (ExprAnalyser(Env(), NSEnv(ns), BrjLanguage.BrjEmitter).analyseDecl(it)) as? VarDeclExpr
-                            ?: TODO()
+                        val varDeclExpr = declAnalyser.analyseDecl(it) ?: TODO()
 
                         if (varDeclExpr.type.effects.isNotEmpty()) TODO()
 

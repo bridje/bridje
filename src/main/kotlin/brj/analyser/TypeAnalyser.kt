@@ -14,7 +14,7 @@ internal interface ITypeVarFactory {
     }
 }
 
-internal class TypeAnalyser(val env: Env, val nsEnv: NSEnv,
+internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                             private val instantiator: Instantiator = Instantiator(),
                             private val typeVarFactory: ITypeVarFactory = ITypeVarFactory.TypeVarFactory()) {
 

@@ -71,17 +71,17 @@ data class NSEnv(val ns: Symbol,
 }
 
 
-class Env(val nses: Map<Symbol, NSEnv> = emptyMap()) {
-    operator fun plus(newNsEnv: NSEnv) = Env(nses + (newNsEnv.ns to newNsEnv))
+class RuntimeEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
+    operator fun plus(newNsEnv: NSEnv) = RuntimeEnv(nses + (newNsEnv.ns to newNsEnv))
 }
 
 private val CORE_NS = mkSym("brj.core")
 
-private fun resolveNS(ns: Symbol, env: Env, nsEnv: NSEnv): NSEnv? =
+private fun resolveNS(ns: Symbol, env: RuntimeEnv, nsEnv: NSEnv): NSEnv? =
     env.nses[(nsEnv.aliases[ns] ?: ns)]
         ?: (if (!ns.baseStr.contains('.')) env.nses[mkSym("brj.$ns")] else null)
 
-internal fun resolve(env: Env, nsEnv: NSEnv, sym: Ident): GlobalVar? =
+internal fun resolve(env: RuntimeEnv, nsEnv: NSEnv, sym: Ident): GlobalVar? =
     nsEnv.vars[sym]
         ?: when (sym) {
             is Symbol ->
@@ -92,7 +92,7 @@ internal fun resolve(env: Env, nsEnv: NSEnv, sym: Ident): GlobalVar? =
                     .vars[sym.base]
         }
 
-internal fun resolveTypeAlias(env: Env, nsEnv: NSEnv, sym: Ident): TypeAlias? =
+internal fun resolveTypeAlias(env: RuntimeEnv, nsEnv: NSEnv, sym: Ident): TypeAlias? =
     nsEnv.typeAliases[sym]
         ?: when (sym) {
             is Symbol -> nsEnv.refers[sym]?.let { qsym -> env.nses.getValue(qsym.ns).typeAliases.getValue(qsym.base) }

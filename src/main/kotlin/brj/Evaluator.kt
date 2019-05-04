@@ -13,10 +13,17 @@ internal interface Emitter {
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
     fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
-    fun evalMacro(env: Env, macroVar: DefMacroVar, argForms: List<Form>): Form
 }
 
-internal class Evaluator(var env: Env, private val loader: NSFormLoader, private val emitter: Emitter) {
+internal interface MacroEvaluator {
+    fun evalMacro(env: RuntimeEnv, macroVar: DefMacroVar, argForms: List<Form>): Form
+}
+
+internal class Evaluator(var env: RuntimeEnv,
+                         private val loader: NSFormLoader,
+                         private val emitter: Emitter,
+                         private val macroEvaluator: MacroEvaluator) {
+
     private inner class NSEvaluator(var nsEnv: NSEnv) {
         private fun evalJavaImports() {
             nsEnv.javaImports.values.forEach { import ->
@@ -27,7 +34,7 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
         }
 
         private fun evalForm(form: Form) {
-            val result = ExprAnalyser(env, nsEnv, emitter).analyseExpr(form)
+            val result = ExprAnalyser(env, nsEnv, macroEvaluator).analyseExpr(form)
 
             when (result) {
                 is DoResult -> result.forms.forEach(this::evalForm)
@@ -84,6 +91,12 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
     private fun nsDeps(nsEnv: NSEnv): Set<Symbol> =
         nsEnv.refers.values.mapTo(mutableSetOf()) { it.ns } + nsEnv.aliases.values.toSet()
 
+    private fun nsAnalyser(ns: Symbol) =
+        NSAnalyser(ns, object : DeclAnalyser {
+            override fun analyseDecl(state: ParserState): VarDeclExpr? =
+                ExprAnalyser(env, NSEnv(ns), macroEvaluator).analyseDecl(state) as? VarDeclExpr
+        })
+
     private fun loadNSForms(rootNSes: Set<Symbol>): List<NSFile> {
         val stack = LinkedHashSet<Symbol>()
 
@@ -98,7 +111,7 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
             seen += ns
 
             val state = ParserState(loader.loadNSForms(ns))
-            val nsEnv = NSAnalyser(ns).analyseNS(state.expectForm())
+            val nsEnv = nsAnalyser(ns).analyseNS(state.expectForm())
 
             (nsDeps(nsEnv) - seen).forEach(::loadNS)
 
