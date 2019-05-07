@@ -28,9 +28,16 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         override fun execute(frame: VirtualFrame): Double = float
     }
 
-    class ObjectNode(val obj: Any) : ValueNode() {
-        override fun execute(frame: VirtualFrame): Any = obj
+    class ConstantNode(val obj: Any) : ValueNode() {
+        override fun execute(frame: VirtualFrame) = obj
     }
+
+    inner class HostObjectNode(obj: Any) : ValueNode() {
+        val interopObj = ctx.truffleEnv.asGuestValue(obj)
+
+        override fun execute(frame: VirtualFrame) = interopObj
+    }
+
 
     inner class CollNode(exprs: List<ValueExpr>) : ValueNode() {
         @Children
@@ -373,14 +380,14 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     private fun emitValueNode(expr: ValueExpr): ValueNode =
         when (expr) {
             is BooleanExpr -> BoolNode(expr.boolean)
-            is StringExpr -> ObjectNode(expr.string)
+            is StringExpr -> ConstantNode(expr.string)
             is IntExpr -> IntNode(expr.int)
-            is BigIntExpr -> ObjectNode(expr.bigInt)
+            is BigIntExpr -> HostObjectNode(expr.bigInt)
             is FloatExpr -> FloatNode(expr.float)
-            is BigFloatExpr -> ObjectNode(expr.bigFloat)
+            is BigFloatExpr -> HostObjectNode(expr.bigFloat)
 
-            is QuotedSymbolExpr -> ObjectNode(expr.sym)
-            is QuotedQSymbolExpr -> ObjectNode(expr.sym)
+            is QuotedSymbolExpr -> HostObjectNode(expr.sym)
+            is QuotedQSymbolExpr -> HostObjectNode(expr.sym)
 
             is VectorExpr -> VectorNode(expr)
             is SetExpr -> SetNode(expr)
@@ -389,7 +396,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
             is FnExpr -> {
                 val emitter = ValueExprEmitter(ctx)
-                ObjectNode(BridjeFunction(emitter.makeRootNode(emitter.FnBodyNode(expr))))
+                ConstantNode(BridjeFunction(emitter.makeRootNode(emitter.FnBodyNode(expr))))
             }
 
             is CallExpr -> CallNode(expr)
@@ -412,7 +419,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     inner class WrapFxNode(@Child var node: ValueNode) : ValueNode() {
         @Child
         var writeFxVarNode = WriteLocalVarNodeGen.create(
-            ObjectNode(listOf(emptyMap<QSymbol, BridjeFunction>())),
+            HostObjectNode(listOf(emptyMap<QSymbol, BridjeFunction>())),
             frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL))
 
         override fun execute(frame: VirtualFrame): Any {
