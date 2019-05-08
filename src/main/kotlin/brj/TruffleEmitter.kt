@@ -287,11 +287,13 @@ internal class TruffleEmitter(val ctx: BridjeContext) : Emitter {
 
 internal class TruffleMacroEvaluator(private val ctx: BridjeContext) : MacroEvaluator {
     private fun fromVariant(obj: VariantObject): Form {
+        val truffleEnv = ctx.truffleEnv
+
         fun fromVariantList(arg: Any): List<Form> {
-            return (ctx.truffleEnv.asHostObject(arg) as List<*>).map { fromVariant(expectVariantObject(ctx.truffleEnv.asGuestValue(it))) }
+            return (arg as List<*>).map { fromVariant(expectVariantObject(truffleEnv.asGuestValue(it))) }
         }
 
-        val arg = obj.dynamicObject[0]
+        val arg = obj.dynamicObject[0].let { arg -> if (truffleEnv.isHostObject(arg)) truffleEnv.asHostObject(arg) else arg }
 
         return when (obj.variantKey.sym.base.baseStr) {
             "BooleanForm" -> BooleanForm(arg as Boolean)

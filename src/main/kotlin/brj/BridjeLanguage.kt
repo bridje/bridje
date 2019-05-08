@@ -2,8 +2,11 @@ package brj
 
 import brj.Symbol.Companion.mkSym
 import brj.analyser.ValueExprAnalyser
+import brj.analyser.parseNSSym
 import brj.types.valueExprType
 import com.oracle.truffle.api.CallTarget
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
+import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.dsl.TypeSystem
 import com.oracle.truffle.api.dsl.TypeSystemReference
@@ -30,7 +33,20 @@ internal abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
 }
 
-class BridjeContext internal constructor(internal val language: BridjeLanguage, internal val truffleEnv: TruffleLanguage.Env, internal var env: RuntimeEnv) {
+internal class BridjeNSLoader(private val sources: Map<Symbol, Source> = emptyMap(),
+                              private val forms: Map<Symbol, List<Form>> = emptyMap()) : NSFormLoader {
+    private fun nsSource(ns: Symbol): Source? =
+        this::class.java.getResource("/${ns.baseStr.replace('.', '/')}.brj")
+            ?.let { url -> Source.newBuilder("bridje", url).build() }
+
+    override fun loadNSForms(ns: Symbol): List<Form> =
+        forms[ns] ?: readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
+}
+
+class BridjeContext internal constructor(internal var env: RuntimeEnv,
+                                         internal val language: BridjeLanguage,
+                                         internal val truffleEnv: TruffleLanguage.Env) {
+
     internal fun makeRootNode(node: ValueNode, frameDescriptor: FrameDescriptor = FrameDescriptor()) =
         object : RootNode(language, frameDescriptor) {
             override fun execute(frame: VirtualFrame) = node.execute(frame)
@@ -49,7 +65,7 @@ private val USER = mkSym("user")
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun createContext(truffleEnv: Env): BridjeContext {
-        val ctx = BridjeContext(this, truffleEnv, RuntimeEnv())
+        val ctx = BridjeContext(RuntimeEnv(), this, truffleEnv)
 
         ctx.env = require(ctx, setOf(mkSym("brj.forms"), mkSym("brj.core")))
 
@@ -65,49 +81,53 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         val ctx = contextReference.get()
 
         val env = ctx.env
-        val form = readForms(source.reader).first()
+        val forms = readForms(source.reader)
 
-        val expr = ValueExprAnalyser(env, NSEnv(USER), TruffleMacroEvaluator(ctx)).analyseValueExpr(form)
+        val ns = parseNSSym(forms)
 
-        val valueExprType = valueExprType(expr, null)
+        return if (ns != null) {
+            Truffle.getRuntime().createCallTarget(object : RootNode(this) {
+                override fun execute(frame: VirtualFrame) = require(ctx, setOf(ns), BridjeNSLoader(forms = mapOf(ns to forms)))
+            })
+        } else {
+            val expr = ValueExprAnalyser(env, NSEnv(USER), TruffleMacroEvaluator(ctx)).analyseValueExpr(forms.first())
 
-        val noDefaultImpls = valueExprType.effects.filterNot { (env.nses.getValue(it.ns).vars.getValue(it.base) as EffectVar).hasDefault }
-        if (noDefaultImpls.isNotEmpty()) throw IllegalArgumentException("not all effects have implementations: $noDefaultImpls")
+            val valueExprType = valueExprType(expr, null)
 
-        println("type: $valueExprType")
+            val noDefaultImpls = valueExprType.effects.filterNot { (env.nses.getValue(it.ns).vars.getValue(it.base) as EffectVar).hasDefault }
+            if (noDefaultImpls.isNotEmpty()) throw IllegalArgumentException("not all effects have implementations: $noDefaultImpls")
 
-        return ValueExprEmitter(ctx).emitValueExpr(expr)
-    }
+            println("type: $valueExprType")
 
-    internal class BridjeNSLoader(private val sources: Map<Symbol, Source> = emptyMap()) : NSFormLoader {
-        private fun nsSource(ns: Symbol): Source? =
-            this::class.java.getResource("/${ns.baseStr.replace('.', '/')}.brj")
-                ?.let { url -> Source.newBuilder("bridje", url).build() }
-
-        override fun loadNSForms(ns: Symbol): List<Form> =
-            readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
-    }
-
-    internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()): RuntimeEnv {
-        val evaluator = Evaluator(ctx.env, BridjeNSLoader(sources), TruffleEmitter(ctx), TruffleMacroEvaluator(ctx))
-
-        evaluator.requireNSes(rootNses)
-
-        return evaluator.env
+            ValueExprEmitter(ctx).emitValueExpr(expr)
+        }
     }
 
     companion object {
         internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)!!
 
-        fun require(rootNses: Set<Symbol>, sources: Map<Symbol, Source> = emptyMap()): RuntimeEnv {
+        @TruffleBoundary
+        internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSFormLoader = BridjeNSLoader()): RuntimeEnv {
+            val evaluator = Evaluator(ctx.env, nsFormLoader, TruffleEmitter(ctx), TruffleMacroEvaluator(ctx))
+
+            evaluator.requireNSes(rootNses)
+
+            return evaluator.env
+        }
+
+        internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSFormLoader): RuntimeEnv {
             Context.getCurrent().initialize("bridje")
 
-            val lang = getCurrentLanguage(BridjeLanguage::class.java)
-            val ctx = getCurrentContext(BridjeLanguage::class.java)
+            val ctx = currentBridjeContext()
 
-            lang.require(ctx, rootNses, sources)
+            synchronized(ctx) {
+                ctx.env = require(ctx, rootNses, nsFormLoader)
+            }
 
             return ctx.env
         }
+
+        @JvmStatic
+        fun require(rootNses: Set<Symbol>) = require(rootNses, BridjeNSLoader())
     }
 }

@@ -17,7 +17,7 @@ fun main() {
 
         val barSource = Source.create("bridje", BridjeLanguage::class.java.getResource("main-bar.brj").readText())
 
-        val env = require(setOf(foo), mapOf(foo to fooSource, bar to barSource))
+        val env = require(setOf(foo), BridjeNSLoader(sources = mapOf(foo to fooSource, bar to barSource)))
 
         val value = ctx.eval("bridje", """(str "Hello" " " "world!")""")
 

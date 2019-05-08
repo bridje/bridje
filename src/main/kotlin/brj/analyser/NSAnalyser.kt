@@ -14,6 +14,10 @@ internal interface DeclAnalyser {
     fun analyseDecl(state: ParserState): VarDeclExpr?
 }
 
+internal fun parseNSSym(forms: List<Form>): Symbol? {
+    return ParserState(forms).maybe { it.nested(ListForm::forms) { it.expectSym(NS); it.expectSym(VAR_SYM) } }
+}
+
 internal class NSAnalyser(val ns: Symbol, val declAnalyser: DeclAnalyser) {
     fun refersAnalyser(it: ParserState): Map<Symbol, QSymbol> {
         val refers = mutableMapOf<Symbol, QSymbol>()
