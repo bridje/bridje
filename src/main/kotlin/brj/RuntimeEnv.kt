@@ -5,6 +5,13 @@ package brj
 import brj.Symbol.Companion.mkSym
 import brj.types.*
 
+sealed class Alias {
+    abstract val ns: Symbol
+}
+
+data class BridjeAlias(override val ns: Symbol) : Alias()
+data class JavaAlias(override val ns: Symbol, val clazz: Class<*>) : Alias()
+
 abstract class GlobalVar internal constructor() {
     abstract val sym: QSymbol
     abstract val type: Type
@@ -33,10 +40,10 @@ data class VariantKeyVar internal constructor(val variantKey: VariantKey, overri
     override val type: Type = VariantType.constructorType(variantKey)
 }
 
-data class JavaImport internal constructor(val sym: QSymbol, val clazz: Class<*>, val name: String, val type: Type)
+data class JavaImport internal constructor(val qsym: QSymbol, val clazz: Class<*>, val name: String, val type: Type)
 
-class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar() {
-    override val sym = javaImport.sym
+class JavaImportVar(val javaImport: JavaImport, override val value: Any) : GlobalVar() {
+    override val sym = javaImport.qsym
     override val type = javaImport.type
 }
 
@@ -60,16 +67,13 @@ internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List
 
 data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),
-                 val aliases: Map<Symbol, Symbol> = emptyMap(),
-                 val javaImports: Map<Symbol, JavaImport> = emptyMap(),
+                 val aliases: Map<Symbol, Alias> = emptyMap(),
                  val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                  val vars: Map<Symbol, GlobalVar> = emptyMap()) {
 
-    operator fun plus(javaImportVar: JavaImportVar): NSEnv = copy(vars = vars + (javaImportVar.sym.base to javaImportVar))
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
 }
-
 
 class RuntimeEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv) = RuntimeEnv(nses + (newNsEnv.ns to newNsEnv))
@@ -78,7 +82,7 @@ class RuntimeEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
 private val CORE_NS = mkSym("brj.core")
 
 private fun resolveNS(ns: Symbol, env: RuntimeEnv, nsEnv: NSEnv): NSEnv? =
-    env.nses[(nsEnv.aliases[ns] ?: ns)]
+    env.nses[(nsEnv.aliases[ns]?.ns ?: ns)]
         ?: (if (!ns.baseStr.contains('.')) env.nses[mkSym("brj.$ns")] else null)
 
 internal fun resolve(env: RuntimeEnv, nsEnv: NSEnv, sym: Ident): GlobalVar? =
@@ -97,6 +101,6 @@ internal fun resolveTypeAlias(env: RuntimeEnv, nsEnv: NSEnv, sym: Ident): TypeAl
         ?: when (sym) {
             is Symbol -> nsEnv.refers[sym]?.let { qsym -> env.nses.getValue(qsym.ns).typeAliases.getValue(qsym.base) }
             is QSymbol ->
-                (env.nses[(nsEnv.aliases[sym.ns] ?: sym.ns)] ?: TODO("can't find NS"))
+                (env.nses[(nsEnv.aliases[sym.ns]?.ns ?: sym.ns)] ?: TODO("can't find NS"))
                     .typeAliases.getValue(sym.base)
         }

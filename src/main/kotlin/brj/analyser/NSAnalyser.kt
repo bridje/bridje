@@ -2,23 +2,19 @@ package brj.analyser
 
 import brj.*
 import brj.Symbol.Companion.mkSym
+import brj.SymbolKind.TYPE_ALIAS_SYM
 import brj.SymbolKind.VAR_SYM
 
 internal val NS = mkSym("ns")
 internal val REFERS = mkSym(":refers")
 internal val ALIASES = mkSym(":aliases")
-internal val IMPORTS = mkSym(":imports")
 internal val JAVA = mkSym("java")
-
-internal interface DeclAnalyser {
-    fun analyseDecl(state: ParserState): VarDeclExpr?
-}
 
 internal fun parseNSSym(forms: List<Form>): Symbol? {
     return ParserState(forms).maybe { it.nested(ListForm::forms) { it.expectSym(NS); it.expectSym(VAR_SYM) } }
 }
 
-internal class NSAnalyser(val ns: Symbol, val declAnalyser: DeclAnalyser) {
+internal class NSAnalyser(val ns: Symbol) {
     fun refersAnalyser(it: ParserState): Map<Symbol, QSymbol> {
         val refers = mutableMapOf<Symbol, QSymbol>()
 
@@ -35,43 +31,19 @@ internal class NSAnalyser(val ns: Symbol, val declAnalyser: DeclAnalyser) {
         return refers
     }
 
-    fun aliasesAnalyser(it: ParserState): Map<Symbol, Symbol> {
-        val aliases = mutableMapOf<Symbol, Symbol>()
-
-        it.varargs {
-            aliases[it.expectForm<SymbolForm>().sym] = it.expectForm<SymbolForm>().sym
-        }
-
-        return aliases
-    }
-
-    fun javaImportsAnalyser(it: ParserState): Map<Symbol, JavaImport> {
-        val javaImports = mutableMapOf<Symbol, JavaImport>()
-
-        it.varargs {
-            val alias = it.expectForm<SymbolForm>().sym
-
-            it.nested(ListForm::forms) {
-                it.expectSym(JAVA)
-                val clazz = Class.forName(it.expectForm<SymbolForm>().sym.baseStr)
-
-                it.varargs {
-                    it.nested(ListForm::forms) {
-                        it.expectSym(DECL)
-
-                        val varDeclExpr = declAnalyser.analyseDecl(it) ?: TODO()
-
-                        if (varDeclExpr.type.effects.isNotEmpty()) TODO()
-
-                        val name = varDeclExpr.sym.base.baseStr
-                        val sym = mkSym("$alias.$name")
-                        javaImports[sym] = JavaImport(QSymbol.mkQSym(ns, sym), clazz, name, varDeclExpr.type)
-                    }
+    fun aliasesAnalyser(it: ParserState): Map<Symbol, Alias> {
+        return it.varargs {
+            it.or({
+                it.maybe { it.expectSym(VAR_SYM) }?.let { sym -> sym to BridjeAlias(it.expectSym(VAR_SYM)) }
+            }, {
+                it.maybe { it.expectSym(TYPE_ALIAS_SYM) }?.let { sym ->
+                    sym to JavaAlias(mkSym("$ns\$$sym"), it.nested(ListForm::forms) {
+                        it.expectSym(JAVA)
+                        Class.forName(it.expectSym(VAR_SYM).baseStr).also { _ -> it.expectEnd() }
+                    })
                 }
-            }
-        }
-
-        return javaImports
+            }) ?: TODO()
+        }.toMap()
     }
 
     internal fun analyseNS(form: Form): NSEnv =
@@ -90,10 +62,6 @@ internal class NSAnalyser(val ns: Symbol, val declAnalyser: DeclAnalyser) {
 
                             ALIASES -> {
                                 nsEnv.copy(aliases = it.nested(RecordForm::forms, ::aliasesAnalyser))
-                            }
-
-                            IMPORTS -> {
-                                nsEnv.copy(javaImports = it.nested(RecordForm::forms, ::javaImportsAnalyser))
                             }
 
                             else -> TODO()

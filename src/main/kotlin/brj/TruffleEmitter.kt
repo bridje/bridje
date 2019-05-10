@@ -322,7 +322,7 @@ internal class TruffleMacroEvaluator(private val ctx: BridjeContext) : MacroEval
                 else -> form.arg
             }
 
-            return (env.nses.getValue(form.qsym.ns).vars[form.qsym.base]?.value as BridjeFunction).callTarget.call(arg)
+            return (env.nses[form.qsym.ns]!!.vars[form.qsym.base]?.value as BridjeFunction).callTarget.call(arg)
         }
 
         val variantArgs = argForms.map(::toVariant)

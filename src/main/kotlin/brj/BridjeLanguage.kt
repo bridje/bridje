@@ -94,7 +94,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
             val valueExprType = valueExprType(expr, null)
 
-            val noDefaultImpls = valueExprType.effects.filterNot { (env.nses.getValue(it.ns).vars.getValue(it.base) as EffectVar).hasDefault }
+            val noDefaultImpls = valueExprType.effects.filterNot { (env.nses[it.ns]!!.vars.getValue(it.base) as EffectVar).hasDefault }
             if (noDefaultImpls.isNotEmpty()) throw IllegalArgumentException("not all effects have implementations: $noDefaultImpls")
 
             println("type: $valueExprType")

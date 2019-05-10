@@ -1,13 +1,14 @@
 (ns foo
-  {:aliases {b bar}
-   :refers {bar #{baz}}
-   :imports {Foo (java brj.FooKt
-                       (:: (isZero Int) Bool)
-                       (:: (dec Int) Int)
-                       (:: (conj #{a} a) #{a})
-                       (:: (plus Int Int) Int)
-                       (:: (str Str Str) Str)
-                       (:: (println Str) Str))}})
+  {:aliases {b bar
+             Foo (java brj.FooKt)}
+   :refers {bar #{baz}}})
+
+(:: (Foo/isZero Int) Bool)
+(:: (Foo/dec Int) Int)
+(:: (Foo/conj #{a} a) #{a})
+(:: (Foo/plus Int Int) Int)
+(:: (Foo/str Str Str) Str)
+(:: (Foo/println Str) Str)
 
 (:: :Void)
 (:: Void (+ :Void))
@@ -17,7 +18,7 @@
 
 (:: (! (println! Str)) Str)
 (def (! (println! s))
-  (Foo.println s))
+  (Foo/println s))
 
 (:: :first-name Str)
 (:: :last-name Str)
@@ -26,12 +27,12 @@
 (def (count-down x)
   (loop [y x
          res #{}]
-    (if (Foo.isZero y) res (recur (Foo.dec y) (Foo.conj res y)))))
+    (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
 
 (:: (my-fn a a) [a])
 (def (my-fn x y)
   (with-fx [(def (println! s)
-              (foo/println! (Foo.str "intercepted: " s)))]
+              (foo/println! (Foo/str "intercepted: " s)))]
     (println! "Hello world!")
     [y x]))
 

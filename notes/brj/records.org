@@ -8,7 +8,7 @@ we do probably want to specify /within/ those collections - i.e user has many
 addresses but we only care about the postal-codes in each one
 
 ** Some other ideas
-Native imports - end them with a =!= to declare a native effect
+Native imports - wrap them with a =!= to declare a native effect
 Don't /need/ to declare fx in advance, end with =!= and it's implicit
 =->?= for =some->=
 
@@ -206,7 +206,7 @@ you can zip two lazy sequences together
 
 ** TODO Project?
 #+BEGIN_SRC clojure
-  {:imports {ZDT (java java.time.ZonedDateTime)
+  {:aliases {ZDT (java java.time.ZonedDateTime)
              Inst (java java.time.Instant)}}
 
   ;; users
