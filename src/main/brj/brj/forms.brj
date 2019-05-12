@@ -1,6 +1,7 @@
 (ns brj.forms
-  {:imports {Core (java brj.CoreKt
-                        (:: (concat [[a]]) [a]))}})
+  {:aliases {Core (java brj.CoreKt)}})
+
+(:: (Core/concat [[a]]) [a])
 
 (:: Form)
 
@@ -26,4 +27,4 @@
             :SymbolForm :QSymbolForm))
 
 (def (concat vecs)
-  (Core.concat vecs))
+  (Core/concat vecs))

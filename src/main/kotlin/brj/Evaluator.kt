@@ -13,21 +13,20 @@ internal interface Emitter {
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
     fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
-    fun evalMacro(env: Env, macroVar: DefMacroVar, argForms: List<Form>): Form
 }
 
-internal class Evaluator(var env: Env, private val loader: NSFormLoader, private val emitter: Emitter) {
+internal interface MacroEvaluator {
+    fun evalMacro(env: RuntimeEnv, macroVar: DefMacroVar, argForms: List<Form>): Form
+}
+
+internal class Evaluator(var env: RuntimeEnv,
+                         private val loader: NSFormLoader,
+                         private val emitter: Emitter,
+                         private val macroEvaluator: MacroEvaluator) {
+
     private inner class NSEvaluator(var nsEnv: NSEnv) {
-        private fun evalJavaImports() {
-            nsEnv.javaImports.values.forEach { import ->
-                nsEnv += JavaImportVar(import, emitter.emitJavaImport(import))
-            }
-
-            env += nsEnv
-        }
-
         private fun evalForm(form: Form) {
-            val result = ExprAnalyser(env, nsEnv, emitter).analyseExpr(form)
+            val result = ExprAnalyser(env, nsEnv, macroEvaluator).analyseExpr(form)
 
             when (result) {
                 is DoResult -> result.forms.forEach(this::evalForm)
@@ -66,6 +65,11 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
                         is TypeAliasDeclExpr -> nsEnv += expr.typeAlias
                         is RecordKeyDeclExpr -> nsEnv += RecordKeyVar(expr.recordKey, emitter.emitRecordKey(expr.recordKey))
                         is VariantKeyDeclExpr -> nsEnv += VariantKeyVar(expr.variantKey, emitter.emitVariantKey(expr.variantKey))
+                        is JavaImportDeclExpr -> {
+                            val ns = expr.javaImport.qsym.ns
+                            env += (env.nses[ns] ?: NSEnv(ns)) +
+                                JavaImportVar(expr.javaImport, emitter.emitJavaImport(expr.javaImport))
+                        }
                     }
                 }
             }
@@ -74,7 +78,6 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
         }
 
         fun evalNS(forms: List<Form>) {
-            evalJavaImports()
             forms.forEach(this::evalForm)
         }
     }
@@ -82,7 +85,10 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
     internal data class NSFile(val nsEnv: NSEnv, val forms: List<Form>)
 
     private fun nsDeps(nsEnv: NSEnv): Set<Symbol> =
-        nsEnv.refers.values.mapTo(mutableSetOf()) { it.ns } + nsEnv.aliases.values.toSet()
+        nsEnv.refers.values.mapTo(mutableSetOf()) { it.ns } + nsEnv.aliases.values.mapNotNull { (it as? BridjeAlias)?.ns }.toSet()
+
+    private fun nsAnalyser(ns: Symbol) =
+        NSAnalyser(ns)
 
     private fun loadNSForms(rootNSes: Set<Symbol>): List<NSFile> {
         val stack = LinkedHashSet<Symbol>()
@@ -98,7 +104,7 @@ internal class Evaluator(var env: Env, private val loader: NSFormLoader, private
             seen += ns
 
             val state = ParserState(loader.loadNSForms(ns))
-            val nsEnv = NSAnalyser(ns).analyseNS(state.expectForm())
+            val nsEnv = nsAnalyser(ns).analyseNS(state.expectForm())
 
             (nsDeps(nsEnv) - seen).forEach(::loadNS)
 

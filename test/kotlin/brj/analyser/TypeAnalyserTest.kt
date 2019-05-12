@@ -4,6 +4,7 @@ import brj.*
 import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.types.MonoType
+import brj.types.RowKey
 import brj.types.VariantType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -15,7 +16,7 @@ internal class TypeAnalyserTest {
     private val strKey = VariantKey(mkQSym(":user/StringForm"), emptyList(), emptyList())
 
     private fun analyseMonoType(s: String): MonoType =
-        TypeAnalyser(Env(), NSEnv(mkSym("user"),
+        TypeAnalyser(RuntimeEnv(), NSEnv(mkSym("user"),
             vars = mapOf(
                 boolKey.sym.base to VariantKeyVar(boolKey, dummyVar),
                 strKey.sym.base to VariantKeyVar(strKey, dummyVar))))
@@ -26,7 +27,7 @@ internal class TypeAnalyserTest {
         val s = "(+ :BooleanForm :StringForm)"
 
         assertEquals(
-            setOf(boolKey, strKey),
+            mapOf(boolKey to RowKey(emptyList()), strKey to RowKey(emptyList())),
             (analyseMonoType(s) as VariantType).possibleKeys)
 
     }

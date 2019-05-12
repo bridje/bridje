@@ -16,12 +16,15 @@ internal enum class SymbolKind {
 
 private fun symbolKind(sym: Symbol): SymbolKind {
     val firstIsUpper = sym.baseStr.first().isUpperCase()
-    val firstIsDot = sym.baseStr.first() == '.'
 
     return if (sym.isKeyword) {
         if (firstIsUpper) VARIANT_KEY_SYM else RECORD_KEY_SYM
     } else {
-        if (firstIsUpper) TYPE_ALIAS_SYM else if (firstIsDot) POLYVAR_SYM else VAR_SYM
+        when {
+            firstIsUpper -> TYPE_ALIAS_SYM
+            sym.baseStr.first() == '.' -> POLYVAR_SYM
+            else -> VAR_SYM
+        }
     }
 }
 

@@ -12,7 +12,7 @@ Its main features include:
   causes and side effects.
 - Type-safe macros.
 
-It is currently pre-alpha, and nowhere near finished. What follows below are
+*It is currently pre-alpha, and nowhere near finished.* What follows below are
 ideas for how I imagine the language would work!
 
 Bridje has a number of built-in forms, many similar to their Clojure
@@ -371,17 +371,18 @@ similar to Clojure.
 
 ** Java Interop
 We can import functions from Java as if they are Bridje functions - we just need
-to declare their types in the namespace declaration.
+to declare their types.
 
 #+BEGIN_SRC clojure
   (ns my-ns
-    {:imports {R (java java.lang.Runtime
-                       (:: (getRuntime) Runtime)
-                       (:: (freeMemory Runtime) Int))}})
+    {:aliases {RT (java java.lang.Runtime)}})
 
-  ;; we can then use those functions using the `R` alias
+  ;; we can then use those functions using the `RT` alias
 
-  (R/freeMemory (R/getRuntime))
+  (:: (RT/getRuntime) RT)
+  (:: (RT/freeMemory RT) Int)
+
+  (RT/freeMemory (RT/getRuntime))
 #+END_SRC
 
 ** Polymorphism

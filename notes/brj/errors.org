@@ -74,7 +74,7 @@ or a Java exception. I imagine this to be used with a standard =case= expression
       (throw (:Error arg))))
 
   (ns foo
-    {:imports {Ex (java java.lang.Exception)}})
+    {:aliases {Ex (java java.lang.Exception)}})
 
   (def (catcher arg)
     (case (catch (assert-valid arg))

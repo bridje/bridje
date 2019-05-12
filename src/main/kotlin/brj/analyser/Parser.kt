@@ -82,7 +82,7 @@ internal data class ParserState(var forms: List<Form>) {
 
     fun expectSym(vararg kinds: SymbolKind): Symbol {
         val sym = expectSym()
-        if (!kinds.contains(sym.symbolKind)) TODO() else return sym
+        if (!kinds.contains(sym.symbolKind)) throw ParseError.ExpectedSymbol else return sym
     }
 
     fun expectSym(expectedSym: Symbol): Symbol {
