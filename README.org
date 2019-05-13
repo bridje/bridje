@@ -416,7 +416,7 @@ Polymorphic functions are declared in a similar way - prefixing their names with
 and returns an =Int=:
 
 #+BEGIN_SRC clojure
-  (:: ((.count a) a) Int)
+  (:: (. a) (count a) Int)
 #+END_SRC
 
 We can then define how =count= behaves for specific types using that same syntax
@@ -424,13 +424,13 @@ in a =def= form. In this case, let's define our own list structure, and define
 how to count it:
 
 #+BEGIN_SRC clojure
-  (:: ((.count a) a) Int)
+  (:: (. a) (count a) Int)
 
   (:: (:Cons a) a (List a))
   (:: :Nil)
   (:: (List a) (+ (:Cons a) :Nil))
 
-  (def ((.count (List a)) a)
+  (def (. (List a)) (count list)
     (case list
       (:Cons el rest) (+ 1 (count rest))
       :Nil 0))
@@ -440,13 +440,15 @@ We can also express 'higher-kinded' functionality, like how to map a function
 over a structure.
 
 #+BEGIN_SRC clojure
-  (:: ((.fmap f) (f a) (Fn a b)) (f b))
+  (:: (. f)
+      (fmap (f a) (Fn a b))
+      (f b))
 #+END_SRC
 
 We can then define how to map a function over our list type:
 
 #+BEGIN_SRC clojure
-  (def ((.fmap List) list f)
+  (def (. List) (fmap list f)
     (case list
       (:Cons el rest) (:Cons (f el) (fmap rest f))
       :Nil :Nil))
