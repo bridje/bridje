@@ -42,9 +42,15 @@ data class VariantKeyVar internal constructor(val variantKey: VariantKey, overri
 
 data class JavaImport internal constructor(val qsym: QSymbol, val clazz: Class<*>, val name: String, val type: Type)
 
-class JavaImportVar(val javaImport: JavaImport, override val value: Any) : GlobalVar() {
+class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar() {
     override val sym = javaImport.qsym
     override val type = javaImport.type
+}
+
+class PolyVar(override val sym: QSymbol, val polyTypeVar: TypeVarType, override val type: Type) : GlobalVar() {
+    override val value = null
+
+    override fun toString() = sym.toString()
 }
 
 sealed class TypeAlias(open val sym: QSymbol, open val typeVars: List<TypeVarType>, open val type: MonoType?)

@@ -45,3 +45,5 @@
 
 (defmacro (str & strs)
   `(Core/str [~@strs]))
+
+(:: (. a) (count a) Int)

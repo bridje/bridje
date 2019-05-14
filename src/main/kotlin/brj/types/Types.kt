@@ -18,7 +18,7 @@ internal val QSYMBOL = mkSym("QSymbol")
 internal val FN_TYPE = mkSym("Fn")
 internal val VARIANT_TYPE = mkSym("+")
 
-data class Type(val monoType: MonoType, val effects: Set<QSymbol> = emptySet()) {
+data class Type(val monoType: MonoType, val polyConstraints: Map<TypeVarType, Set<QSymbol>> = emptyMap(), val effects: Set<QSymbol> = emptySet()) {
     override fun toString() = if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}})"
 }
 
@@ -75,14 +75,6 @@ object QSymbolType : MonoType() {
 class TypeVarType : MonoType() {
     override fun applyMapping(mapping: Mapping): MonoType = mapping.typeMapping.getOrDefault(this, this)
 
-    override fun equals(other: Any?): Boolean {
-        return this === other
-    }
-
-    override fun hashCode(): Int {
-        return System.identityHashCode(this)
-    }
-
     override fun toString(): String {
         return "tv${hashCode() % 10000}"
     }
@@ -116,9 +108,6 @@ data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : Mo
     override fun toString(): String = "(Fn ${paramTypes.joinToString(separator = " ")} $returnType)"
 }
 
-private fun <L, R> Iterable<L>?.safeZip(other: Iterable<R>?): Iterable<Pair<L, R>> =
-    if (this != null && other != null) this.zip(other) else emptyList()
-
 class RowTypeVar(val open: Boolean) {
     override fun toString() = "r${hashCode()}${if (open) "*" else ""}"
 }
@@ -134,7 +123,7 @@ data class RecordType(val hasKeys: Map<RecordKey, RowKey>,
         internal fun accessorType(recordKey: RecordKey): Type {
             val recordType = RecordType(mapOf(recordKey to RowKey(recordKey.typeVars)), RowTypeVar(true))
 
-            return Type(FnType(listOf(recordType), recordKey.type), emptySet())
+            return Type(FnType(listOf(recordType), recordKey.type))
         }
     }
 
@@ -173,7 +162,7 @@ data class VariantType(val possibleKeys: Map<VariantKey, RowKey>, val typeVar: R
         internal fun constructorType(variantKey: VariantKey): Type {
             val variantType = VariantType(mapOf(variantKey to RowKey(variantKey.typeVars)), RowTypeVar(true))
 
-            return Type(if (variantKey.paramTypes.isEmpty()) variantType else FnType(variantKey.paramTypes, variantType), emptySet())
+            return Type(if (variantKey.paramTypes.isEmpty()) variantType else FnType(variantKey.paramTypes, variantType))
         }
     }
 

@@ -11,20 +11,17 @@ private class Interner<K, V>(val f: (K) -> V) {
 }
 
 internal enum class SymbolKind {
-    VAR_SYM, RECORD_KEY_SYM, VARIANT_KEY_SYM, TYPE_ALIAS_SYM, POLYVAR_SYM
+    VAR_SYM, RECORD_KEY_SYM, VARIANT_KEY_SYM, TYPE_ALIAS_SYM
 }
 
 private fun symbolKind(sym: Symbol): SymbolKind {
     val firstIsUpper = sym.baseStr.first().isUpperCase()
 
-    return if (sym.isKeyword) {
-        if (firstIsUpper) VARIANT_KEY_SYM else RECORD_KEY_SYM
-    } else {
-        when {
-            firstIsUpper -> TYPE_ALIAS_SYM
-            sym.baseStr.first() == '.' -> POLYVAR_SYM
-            else -> VAR_SYM
-        }
+    return when {
+        sym.isKeyword && firstIsUpper -> VARIANT_KEY_SYM
+        sym.isKeyword -> RECORD_KEY_SYM
+        firstIsUpper -> TYPE_ALIAS_SYM
+        else -> VAR_SYM
     }
 }
 

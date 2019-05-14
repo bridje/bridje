@@ -11,6 +11,7 @@ internal val DEF = mkSym("def")
 internal val DEFMACRO = mkSym("defmacro")
 internal val DECL = mkSym("::")
 internal val EFFECT = mkSym("!")
+internal val POLY = mkSym(".")
 internal val VARARGS = mkSym("&")
 
 internal sealed class Expr
@@ -33,16 +34,15 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
     private fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
 
     internal fun analyseDecl(it: ParserState): Expr {
-        data class Preamble(val sym: Ident, val typeVars: List<TypeVarType> = emptyList(), val paramTypes: List<MonoType>? = null, val effect: Boolean = false)
+        data class Preamble(val sym: Ident?,
+                            val polyTypeVar: TypeVarType? = null,
+                            val typeVars: List<TypeVarType> = emptyList(),
+                            val paramTypes: List<MonoType>? = null,
+                            val effect: Boolean = false)
 
         val preamble = it.or({
-            it.maybe { it.expectSym() }?.let { sym ->
-                // (:: <sym> <type>)
-                when (sym.symbolKind) {
-                    VAR_SYM, RECORD_KEY_SYM, VARIANT_KEY_SYM, TYPE_ALIAS_SYM -> Preamble(sym)
-                    POLYVAR_SYM -> TODO("polyvar sym needs a type-var")
-                }
-            }
+            // (:: <sym> <type>)
+            it.maybe { it.expectSym() }?.let { sym -> Preamble(sym) }
         }, {
             it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
                 it.nested(listForm.forms) {
@@ -55,6 +55,11 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                             }
                         }
                     }, {
+                        it.maybe { it.expectSym(POLY) }?.let { _ ->
+                            // (:: (. a) (count a) Int)
+                            Preamble(sym = null, polyTypeVar = typeAnalyser.typeVarAnalyser(it))
+                        }
+                    }, {
                         it.maybe { it.expectIdent() }?.let { sym ->
                             when (sym) {
                                 is Symbol ->
@@ -65,30 +70,41 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                                         // (:: (:Ok a) a)
                                         // (:: (Maybe a) (+ (:Ok a) :Nil))
                                         RECORD_KEY_SYM, VARIANT_KEY_SYM, TYPE_ALIAS_SYM -> Preamble(sym, typeVars = it.varargs(typeAnalyser::typeVarAnalyser))
-
-                                        // (:: (.mzero a) a)
-                                        POLYVAR_SYM -> Preamble(sym, listOf(typeAnalyser.typeVarAnalyser(it)))
-
                                     }.also { _ -> it.expectEnd() }
                                 is QSymbol -> {
                                     Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
                                 }
                             }
                         }
-                    }, {
-                        // (:: ((.count a) a) Int)
-                        it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
-                            it.nested(listForm.forms) {
-                                Pair(it.expectSym(POLYVAR_SYM), typeAnalyser.typeVarAnalyser(it))
-                                    .also { _ -> it.expectEnd() }
-                            }
-                        }?.let { (sym, tv) -> Preamble(nsQSym(sym), listOf(tv), it.varargs(typeAnalyser::monoTypeAnalyser)) }
                     })
                 }
             }
         }) ?: TODO()
 
         return when (preamble.sym) {
+            null -> {
+                data class PolyPreamble(val sym: Symbol, val paramTypes: List<MonoType>?)
+
+                val polyPreamble = it.or({
+                    it.maybe { it.expectSym() }?.let { sym -> PolyPreamble(sym, null) }
+                }, {
+                    it.maybe { it.expectForm<ListForm>() }?.forms?.let { forms -> it.nested(forms) {
+                        PolyPreamble(it.expectSym(VAR_SYM), it.varargs(typeAnalyser::monoTypeAnalyser))
+                    } }
+                }) ?: TODO()
+
+                val qSym = nsQSym(polyPreamble.sym)
+                val polyTypeVar = preamble.polyTypeVar!!
+                val returnType = typeAnalyser.monoTypeAnalyser(it)
+                it.expectEnd()
+
+                PolyVarDeclExpr(
+                    qSym, polyTypeVar,
+                    Type(
+                        if (polyPreamble.paramTypes != null) FnType(polyPreamble.paramTypes, returnType) else returnType,
+                        mapOf(preamble.polyTypeVar to setOf(qSym))))
+            }
+
             is Symbol ->
                 when (preamble.sym.symbolKind) {
                     VAR_SYM -> {
@@ -97,12 +113,6 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                         val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType),
                             effects = if (preamble.effect) setOf(qsym) else emptySet())
                         VarDeclExpr(qsym, type)
-                    }
-
-                    POLYVAR_SYM -> {
-                        val returnType = typeAnalyser.monoTypeAnalyser(it)
-                        val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType))
-                        PolyVarDeclExpr(nsQSym(preamble.sym), preamble.typeVars.first(), type)
                     }
 
                     RECORD_KEY_SYM -> RecordKeyDeclExpr(RecordKey(nsQSym(preamble.sym), preamble.typeVars, typeAnalyser.monoTypeAnalyser(it)))
