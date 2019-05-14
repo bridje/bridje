@@ -86,7 +86,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 data class PolyPreamble(val sym: Symbol, val paramTypes: List<MonoType>?)
 
                 val polyPreamble = it.or({
-                    it.maybe { it.expectSym() }?.let { sym -> PolyPreamble(sym, null) }
+                    it.maybe { it.expectSym(VAR_SYM) }?.let { sym -> PolyPreamble(sym, null) }
                 }, {
                     it.maybe { it.expectForm<ListForm>() }?.forms?.let { forms -> it.nested(forms) {
                         PolyPreamble(it.expectSym(VAR_SYM), it.varargs(typeAnalyser::monoTypeAnalyser))

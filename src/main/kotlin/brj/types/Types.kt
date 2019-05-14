@@ -19,7 +19,13 @@ internal val FN_TYPE = mkSym("Fn")
 internal val VARIANT_TYPE = mkSym("+")
 
 data class Type(val monoType: MonoType, val polyConstraints: Map<TypeVarType, Set<QSymbol>> = emptyMap(), val effects: Set<QSymbol> = emptySet()) {
-    override fun toString() = if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}})"
+    override fun toString(): String {
+        val effectStr = if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}}"
+
+        return if (polyConstraints.isNotEmpty())
+            "(Poly #{${polyConstraints.flatMap { it.value.map { qsym -> "($qsym ${it.key})" } }.joinToString(" ")}} $effectStr)"
+        else effectStr
+    }
 }
 
 sealed class MonoType {
