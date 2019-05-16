@@ -50,6 +50,9 @@ internal class Evaluator(var env: RuntimeEnv,
                                     DefVar(expr.sym, expr.type, value)
                         }
 
+                        is PolyVarDeclExpr -> nsEnv += expr.polyVar
+                        is PolyVarDefExpr -> nsEnv += PolyVarImpl(expr.polyVar, expr.implType, emitter.evalValueExpr(expr.expr))
+
                         is DefMacroExpr -> {
                             if (expr.type.effects.isNotEmpty()) TODO()
                             nsEnv += DefMacroVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
@@ -61,7 +64,6 @@ internal class Evaluator(var env: RuntimeEnv,
                             else
                                 DefVar(expr.sym, expr.type, null)
 
-                        is PolyVarDeclExpr -> nsEnv += PolyVar(expr.sym, expr.typeVar, expr.type)
                         is TypeAliasDeclExpr -> nsEnv += expr.typeAlias
                         is RecordKeyDeclExpr -> nsEnv += RecordKeyVar(expr.recordKey, emitter.emitRecordKey(expr.recordKey))
                         is VariantKeyDeclExpr -> nsEnv += VariantKeyVar(expr.variantKey, emitter.emitVariantKey(expr.variantKey))

@@ -53,6 +53,8 @@ class PolyVar(override val sym: QSymbol, val polyTypeVar: TypeVarType, override 
     override fun toString() = sym.toString()
 }
 
+class PolyVarImpl(val polyVar: PolyVar, val implType: MonoType, val value: Any)
+
 sealed class TypeAlias(open val sym: QSymbol, open val typeVars: List<TypeVarType>, open val type: MonoType?)
 internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List<TypeVarType>, override var type: MonoType?) : TypeAlias(sym, typeVars, type) {
     override fun equals(other: Any?): Boolean {
@@ -75,10 +77,16 @@ data class NSEnv(val ns: Symbol,
                  val refers: Map<Symbol, QSymbol> = emptyMap(),
                  val aliases: Map<Symbol, Alias> = emptyMap(),
                  val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
-                 val vars: Map<Symbol, GlobalVar> = emptyMap()) {
+                 val vars: Map<Symbol, GlobalVar> = emptyMap(),
+                 val polyVarImpls: Map<QSymbol, Map<MonoType, PolyVarImpl>> = emptyMap()) {
 
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
+    operator fun plus(impl: PolyVarImpl): NSEnv {
+        val sym = impl.polyVar.sym
+        return copy(polyVarImpls = polyVarImpls +
+            (sym to (polyVarImpls[sym] ?: emptyMap()) + (impl.implType to impl)))
+    }
 }
 
 class RuntimeEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {

@@ -87,18 +87,18 @@ internal class ExprAnalyserTest {
         val fooVar = mkQSym("user/foo")
 
         val polyDecl = analyseDecl("(. a) foo a")
-        val typeVar = (polyDecl as PolyVarDeclExpr).typeVar
+        val typeVar = (polyDecl as PolyVarDeclExpr).polyVar.polyTypeVar
 
         val polyConstraints = mapOf(typeVar to setOf(fooVar))
         assertEquals(
-            PolyVarDeclExpr(fooVar, typeVar, Type(typeVar, polyConstraints = polyConstraints)),
+            PolyVarDeclExpr(PolyVar(fooVar, typeVar, Type(typeVar, polyConstraints = polyConstraints))),
             polyDecl)
 
         val polyDecl2 = analyseDecl("(. a) (foo a) Int")
-        val typeVar2 = (polyDecl2 as PolyVarDeclExpr).typeVar
+        val typeVar2 = (polyDecl2 as PolyVarDeclExpr).polyVar.polyTypeVar
 
         assertEquals(
-            PolyVarDeclExpr(fooVar, typeVar2, Type(FnType(listOf(typeVar2), IntType), polyConstraints = polyConstraints)),
+            PolyVarDeclExpr(PolyVar(fooVar, typeVar2, Type(FnType(listOf(typeVar2), IntType), polyConstraints = polyConstraints))),
             polyDecl2)
     }
 

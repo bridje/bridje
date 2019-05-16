@@ -47,3 +47,5 @@
   `(Core/str [~@strs]))
 
 (:: (. a) (count a) Int)
+
+(def (. [a]) count Core/count)
