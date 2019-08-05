@@ -1,0 +1,23 @@
+* Polymorphism implementation
+- Need to have a value to pass to the GlobalVarExpr when we emit it
+- Don't really want to make it a partial application (though we could)
+- GlobalVarExpr needs to have a series of pre-args, maybe?
+- implementing with dictionary passing (in the absence of other ideas), so GlobalVars need to store what order those args
+  are passed in - unless we pass an object to any var that has type constraints, same as we do with effects
+- build up that dictionary at the CallExpr emission, same as we do with effects?
+- could be fun with higher-ranked types - we're going to need to 'keep some back' so that the callee can provide
+  implementations.
+- FnExpr - need to separate out the constraints at that point - these constraints are dynamic (unlike effects that are
+  static)
+- one option is to pass the first part of a dictionary
+- partially applying these functions? would need to doubly-partially apply them in the higher-ranked case (although this would be a simple wrapper node that merged the two dictionaries)
+- this being the case, maybe we should partially apply effects too?
+  - can we make effects work as a special case of typeclasses?
+  - typeclasses with zero type params?
+  - static vs dynamic would be interesting - don't think the typeclass system would behave this way by default -
+    especially with the behaviour around function boundaries.
+  - but we could certainly partially apply those functions, set up the effect read var into a materialized frame
+  - we could certainly make any function that had either effects or type constraints be partially applied, take effects
+    first, constraints second
+  - maybe even the same dict for both?
+  - we'd want to move the wrapping definition as high as possible within the function
