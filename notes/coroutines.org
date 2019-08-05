@@ -1,0 +1,233 @@
+OK, best start a new file if we're thinking about including co-routines at the top level of the language.
+
+Kotlin has a very low level idea about coroutines, users can do pretty much whatever they want
+we have a choice - follow that pattern or only allow very restricted functionality
+the quote in the effects paper is 'handlers are to delimited continuations as while is to goto'
+which does imply that we should probably be looking at the handlers end rather than the delimited continuations
+but does that mean we need the 'goto' as a fallback/as a primitive?
+
+at the very least, I suppose, there's a lot of material here about how to implement said coroutines.
+
+reason we're even considering this is that generators seem a decent pattern to implement things like transducers - a description about how to transform a sequence
+do we still want lazy sequences?
+hell, can we implement lazy sequences on top of whatever we were planning anyway?
+
+how can we best describe something like 'take'?
+
+#+begin_src clojure
+  (loop [n 3]
+    (if (pos? n)
+      (do
+        (yield (pull))
+        (recur (dec n)))))
+
+  (def (map f)
+    (let-obj []
+      (def (step el)
+        (&ret (:More [(f el)])))
+
+      (def (complete)
+        (&ret []))))
+
+  (def (take n)
+    (let-obj [n n]
+      (def (step el)
+        (if (pos? n)
+          (&ret (:More [el]))
+          (&ret (:Done [el]))))
+
+      (def (complete)
+        [])))
+
+  ;; step returning boolean, complete returning void
+
+  (def (take n)
+    (let-obj [n n]
+      (def (step el next)
+        (and (rf el) (pos? n)))
+
+      (def (complete next))))
+
+  (def (map f)
+    (let-obj []
+      (def (step el rf)
+        (rf (f el)))
+
+      (def (complete rf))))
+
+  (def (partition-all n)
+    (let-obj []
+      (def )))
+
+
+  ;; do it as mapcat is _way_ more functional
+  ;; but all the other implementations are trying to remove object allocation as much as possible
+  ;; would Graal be clever enough to realise that we're only ever pulling these apart, straight away?
+  ;; worst case scenario, we can make these nodes, for performance?
+  ;; oh for multiple return
+  ;; maybe it would definitely treat this as multiple return - i.e. if it could inline it
+  ;; we'd return the object as a map, which it would presumably then unwrap immediately
+  ;; guess the only way to do this would be to try it out, see what it does
+
+  (def (map f)
+    (let-obj []
+      (def (.step el)
+        (:More (:Cons el :Nil)))
+
+      (def (.complete)
+        :Nil)))
+
+  ;; thought about this being the same as a record, do we implement them the same?
+  ;; return needs to do two things - the return value, and the new values of the state
+#+end_src
+
+coroutines seem to have 'yield' as their means of ceding control back to the continuation, delimited continuations use shift/reset
+would it be out to just have handlers being the means of using delimited continuations - we say that asynchronous behaviour is confined to effects
+
+#+begin_src clojure
+  (with-fx [(fx (def (make-req url k)
+                  (k )))])
+
+  (with-obj [(obj [n 4]
+               (def (.dec)
+                 (let [n (dec n)]
+                   ($ret n n))))]
+    (shift [k]
+      (reset! !system k)))
+
+  (with-obj [(obj [server (start-server! {:handler (fn [req]
+                                                     )})]
+               (def ($finally)
+                 ))])
+
+  ;; still got multiple return issues
+  ;; unless we specifically allow things like 'set!' in here?
+  ;; benefits of being explicit, I guess
+
+  ;; maybe this is how we deal with 'systems'
+  ;; - we store the continuation within the with-obj in a global var
+  ;; - calling it later shuts down the system
+
+  (reset
+    (* (shift [k]
+         (+ 5 (k 3)))
+       3))
+
+  ;; -> 14
+
+  (let [fut (async ^{pool IO} [k]
+              )]
+    @fut)
+
+  ;; we could call `shift` `async` in here, it might have more meaning
+  ;; we'd want to be able to specify where that async block ran
+  ;; - an IO bound pool
+  ;; - a CPU bound pool
+  ;; - same thread
+  ;; - a single thread
+#+end_src
+
+so we could use async/await here? essentially a 'shift' function
+we have
+
+kotlin:
+suspendCoroutine seems like the primitive - takes (Fn Continuation Unit) - 'shift'
+continuation interceptor decides where to run the continuation - we can chuck it on a thread pool, run it on a specific thread, etc
+restricted suspension - suspend fns in this scope can only suspend using the provided primitives - they can't call suspendCoroutine.
+async seems separate - the code within runs in parallel
+
+generators:
+seems like lazy seqs are the functional equivalent of generators - are there functional equivalents of the others?
+lazy seqs are functional equivalents because they naturally (essentially) return a callback, which you then call 'seq' to get first/rest
+generators seem very imperative
+we could implement lazy seqs on top of coroutines - rather than yielding a value, they'd return a value (or seq) and then the 'rest' would be a 'suspend fn' of another lazy seq
+
+#+begin_src clojure
+  (def (map f)
+    (obj []
+      (def (.step el)
+        (yield (f el)))))
+
+  (def (partition-all n)
+    (obj [coll []]
+      (def (.step el)
+        (let [new-coll (conj coll el)]
+          (if (> (count coll) n)
+            (do
+              (yield coll)
+              (set! coll []))
+            (set! coll new-coll))))
+
+      (def (.complete)
+        (when (not-empty? coll)
+          (yield coll)))))
+
+  ;; possible object destructuring
+  (let [{.yield .done} ()]
+    )
+
+  (def (take n)
+    (obj [n n]
+      (def (.step el)
+        (yield el)
+        (when-not (pos? el)
+          (done))
+        )))
+#+end_src
+
+ok. time for some decisions:
+- what to do about sequences
+  - generators would be quite easy to reason about, and likely quite performant
+  - can we make them fit in with the coroutines without (necessarily) meaning multiple threads
+  - channels instead? preferably not around something so core as collection transformations
+- what are our coroutine primitives?
+  - quite like 'shift' or something similar
+  - async seems like it will cover launch
+- can they be used outside of effects?
+
+- objects vs typeclasses
+two different styles of polymorphism.
+can obviously have both, but would be nice to unify them, or we can possibly unify objects under records
+advantages of objects:
+ - can be
+advantages of typeclasses:
+ - probably strictly more powerful than objects
+ - do we need them, though? personally, I've not often missed them.
+ - think they can be simulated with objects - although not implicitly
+ - so do we make them implicits? worth looking at Scala's to see how they work
+
+#+begin_src clojure
+  (def (foo {.mzero mplus})
+    )
+
+  (:: .mzero a)
+  (:: )
+
+  (def ({.mzero .mplus} ))
+#+end_src
+
+#+begin_quote https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/
+Even if you don't use goto yourself, merely having it as an option in your language makes everything harder to use.
+Whenever you start using a third-party library, you can't treat it as a black box – you have to go read through it all
+to find out which functions are regular functions, and which ones are idiosyncratic flow control constructs in disguise.
+This is a serious obstacle to local reasoning. And you lose powerful language features like reliable resource cleanup
+and automatic error propagation. Better to remove goto entirely, in favor of control flow constructs that follow the
+"black box" rule.
+#+end_quote
+Nurseries/cancels - great articles
+cancels work well as a scope, especially when combined with nurseries - I suspect this is what Kotlin's doing under the hood
+
+ok, so, primitives:
+- need some kind of scope block
+- async/await? or 'shift'?
+- scope can possibly be one of our objects
+
+#+begin_src clojure
+  (:: (.future (Fn a)) (Async a))
+
+  (:: (open-scope!) {.future})
+  (def (open-scope! ) )
+
+  (with-obj [scp (open-scope! {.})]
+    )
+#+end_src
