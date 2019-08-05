@@ -184,8 +184,8 @@ Variant keys are distinguished from record keys by using an initial capital
 letter:
 
 #+BEGIN_SRC clojure
-  (:: :Int Int)
-  (:: :String Str)
+  (:: (:Int Int))
+  (:: (:String Str))
   (:: :Neither) ; variants don't *need* a value, necessarily; they can also have more than one.
 
   ;; we then construct instances of these variants using the key as a constructor:
@@ -218,10 +218,10 @@ Instead, we use variants - a macro is then a function that accepts a number of
 Forms, and returns a Form.
 
 #+BEGIN_SRC clojure
-  (:: :StringForm Str)
-  (:: :IntForm Int)
-  (:: :ListForm [Form])
-  (:: :VectorForm [Form])
+  (:: (:StringForm Str))
+  (:: (:IntForm Int))
+  (:: (:ListForm [Form]))
+  (:: (:VectorForm [Form]))
   ;; ...
 
   (:: Form (+ :StringForm :IntForm :ListForm :VectorForm ...))
@@ -395,7 +395,7 @@ the core library declares a polymorphic =:Ok= variant which can contain a value
 of any type:
 
 #+BEGIN_SRC clojure
-  (:: (:Ok a) a)
+  (:: (. a) (:Ok a))
 #+END_SRC
 
 This declaration is saying that the =:Ok= variant has a type parameter called
@@ -404,7 +404,7 @@ then use the =:Ok= variant as we would any other variant - introducing it using
 =(:Ok 42)= (which has type =(+ (:Ok Int))=) and eliminating it with =case=:
 
 #+BEGIN_SRC clojure
-  (:: (:Ok a) a)
+  (:: (. a) :Ok a)
 
   (case (:Ok 42)
     (:Ok int) (even? int)
@@ -426,9 +426,9 @@ how to count it:
 #+BEGIN_SRC clojure
   (:: (. a) (count a) Int)
 
-  (:: (:Cons a) a (List a))
+  (:: (. a) (:Cons a (List a)))
   (:: :Nil)
-  (:: (List a) (+ (:Cons a) :Nil))
+  (:: (List a) (+ (:Cons a) :Nil)) ; TODO confirm
 
   (def (. (List a)) (count list)
     (case list
