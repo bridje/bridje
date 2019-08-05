@@ -1,0 +1,41 @@
+* Interop
+Maybe we can think of interop as records - i.e. each object, each class is a record of it's fields and methods.
+
+How would calling a function work?
+it'd work in near enough the same way as
+
+** Typechecking
+Maybe the interop will be easier once we've got a bidirectional type system - at that point, we'll have all the
+information we need to know AoT, and we can check the function against what's already been specified.
+
+i.e. we declare a function on kotlin.collections.Set/size - it takes k.c.Set, returns Int.
+this won't work if we want those functions to be first class, though
+
+what about return type polymorphism? ah - maybe there's two types here:
+- one that's the concrete class, returned from methods - this is
+- one, a constraint - what that function accepts - can be passed any sub-type
+- so essentially we're implementing generic constraints
+
+does the same apply to records?
+i.e. when you return a record, you return a 'concrete' record, when you accept a record, you bring in 'constraints'
+issue: returning the same record, augmented?
+  you're essentially saying
+
+interop typing - we only allow use of primitive types (mapping into Java's iterables, sets and maps) and other classes
+defined within the namespace
+
+classes declared within the method sigs are contra-variant in the parameters, co-variant in the results.
+
+generics?
+
+** alternative - allow very little interop that isn't explicitly specified in Graal polyglot
+onus on the developer to write some Java/Kotlin if they want to interop.
+not a massive issue, probably - we've seen a whole load of Clojure libs that pretty much wrap Java libs, and I doubt
+it'd be massively difficult. just a bit of hassle, setting up a Java project. maybe we make the build tools compile Java
+too (or at least pinch Clojure's)
+
+what does interop look like if it's via Graal instead?
+what are we trying to make simpler?
+inheritance? just objects?
+- partly, we're looking to just make plain objects
+- we're going to have to implement Graal interop anyway
