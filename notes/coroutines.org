@@ -203,7 +203,9 @@ advantages of typeclasses:
   (:: .mzero a)
   (:: )
 
-  (def ({.mzero .mplus} ))
+  (def ({.mzero .mplus} )
+    (obj []
+      (def (.mzero ))))
 #+end_src
 
 #+begin_quote https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/
@@ -220,6 +222,9 @@ cancels work well as a scope, especially when combined with nurseries - I suspec
 ok, so, primitives:
 - need some kind of scope block
 - async/await? or 'shift'?
+  - don't use 'shift': http://okmij.org/ftp/continuations/against-callcc.html
+  - only really need 'one-shot' continuations: http://citeseerx.ist.psu.edu/viewdoc/download;jsessionid=C8E4E2CCA9C6EE3FE6339A945F03AFEE?doi=10.1.1.41.3782&rep=rep1&type=pdf
+  - in fact, this person in general: http://okmij.org/ftp/Computation/Computation.html
 - scope can possibly be one of our objects
 
 #+begin_src clojure
@@ -231,3 +236,90 @@ ok, so, primitives:
   (with-obj [scp (open-scope! {.})]
     )
 #+end_src
+
+- delimited continuations are good for altering control flow - you have full control over exactly what happens next
+- can a lot of this be achieved by macros?
+- reckon DCs are strictly more powerful
+- UCs apparently aren't as powerful - they 'can't express state' - you can't determine where the continuation ends
+- do we need full DCs? the effects folks say yes - this is how they do exceptions and other such things
+- we're saying that 'async' isn't an effect, in its own right - especially if we can limit the scope of the async behaviour
+- do we want to implement all the async primitives using DC (and hence expose DC to our users) or do we want a (larger) set of async primitives?
+- if we don't have 'shift', what do we need to add as primitives?
+  - a few built-ins, sure - we'll probably want some Java interop to open up futures/etc
+  - await? I suppose it can be an async fn on the future obj that comes back, which in turn would be dealt with by the CPS transformer
+  - does allowing DCs mean we in fact expose too much of the 'goto', and hence lose the ability to reason about the code?
+  - do we include a 'reset' primitive, or is that included as part of the 'with-*' blocks?
+  - is there a difference between DC and the asynchronicity? async, we necessarily need to propagate all the way up, DC we can escape out of, in theory
+  - Kotlin exposes shift, as 'suspendCoroutine'
+  - if we do expose that, we expose that calling a function containing 'shift' can determine whether/when the rest of the callee's body runs (although same with exceptions/async)
+  - shift doesn't necessarily need to call its continuation (but, then again, same with async)
+  - we may need 'shift' to call through to functions already expecting callbacks - that's our interop to non async/await code.
+  - where's the boundary?
+  - maybe suspendCoroutine is different - while it does (statically) allow multiple calls, it does say that the calling thread continues past that point
+    - surely it must be delimited /somewhere/? seems to be delimited by the containing coroutine block, whatever that may be
+
+So, we need:
+- =Future= type with an 'await' method
+- =Scope= type with a 'future' method
+- various Scope objects, with =$finally= blocks that wait for all the threads
+- async marker on functions, probably =&Fn= types
+
+#+begin_src clojure
+  ;; possible different record/object syntax - unifies records and objects, they're one and the same
+
+  (:: n Int)
+
+  {n 4
+
+   (def (.step el)
+     ($ret el {n (dec n)}))}
+
+  {n 4
+
+   (def (.step el)
+     {n (dec n)
+      $ret el})}
+
+    ;; how to mutate?
+#+end_src
+
+Kotlin:
+- suspendCoroutine : suspend (Fn Cont Unit) -> Unit
+- suspend ().startCoroutine : Cont -> Unit
+- ContinuationInterceptor.interceptContinuation : Cont -> Cont
+- launch : Context, (suspend () -> Unit) -> Unit
+- async : Context, (suspend () -> T) -> Deferred<T>
+- Continuation.resumeWith : Result<T> -> Unit
+- Deferred<T>.await : suspend () -> T
+- yield : suspend T -> Unit
+
+question: how do scopes keep track of the jobs?
+- what do they need to track? seems like it's just 'Jobs' (and, by extension, Deferreds)
+- scope has a threadpool (probably), call .async on it, adds the future to the list of futures to await
+- Jobs have parents and children
+- Job getting cancelled cancels all its parents and children
+- difference here between jobs that are spawned (presumably elsewhere) and normal suspending functions that can just be awaited
+- i.e. normal async HTTP call wouldn't be spawned into a new thread - it'd just suspend the current thread.
+- no need for anything calling the async HTTP call to have a context - it'd become a suspend fn. it's up to the caller of the suspend fn to decide what happens, whether it goes into a different thread, etc.
+- even those HTTP calls still need a scope - something that'll suspend until they're all finished
+- but they don't, because anything calling the HTTP call without a Job will suspend until it's done anyway.
+- so it really is just Jobs that need managing by the scope
+- and all jobs are called by a method on the scope, EZ.
+
+- can we tell the difference between coroutines that are asynchronous vs purely synchronous (i.e. just for coordination)?
+- do we need to?
+- it'd be nice to say that iterating through a sequence uses coroutines but isn't asynchronous
+- Kotlin doesn't call them asynchronous, it just marks them as 'suspend' - is that all we need?
+- if they're not asynchronous, users don't care whether they're suspend or not, do they?
+- they care if there's the possibility that it might not return
+- how do we determine that? if suspendCoroutine /might/ not call its continuation? but that's probably the case with 'yield'
+  - cases:
+    - function calls '.future' on a scope - return value is =(Future a)=
+    - function calls '.await' on a future - that coroutine is suspended, because await calls shift
+      - that coroutine, because it calls shift, may never return - there's nothing mandating that shift calls its continuation
+      - but halting problem - there's nothing mandating that sync functions ever return either
+      - do we say that scopes with timeouts don't necessarily have to be marked async?
+    - function calls a suspending function - needs to package up its continuation and passes it to the callee
+      - functions that call suspending functions are themselves suspending functions - they accept a continuation from their callers
+    - function uses 'yield' - do we know that yield's shift behaves differently?
+      - suspendCoroutine in this case stores the continuation, so it looks async
