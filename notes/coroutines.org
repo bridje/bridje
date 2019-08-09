@@ -291,6 +291,8 @@ Kotlin:
 - async : Context, (suspend () -> T) -> Deferred<T>
 - Continuation.resumeWith : Result<T> -> Unit
 - Deferred<T>.await : suspend () -> T
+- Deferred<T>.cancel : Cause -> Unit
+- Deferred<T>.join : suspend () -> Unit
 - yield : suspend T -> Unit
 
 question: how do scopes keep track of the jobs?
@@ -305,6 +307,8 @@ question: how do scopes keep track of the jobs?
 - but they don't, because anything calling the HTTP call without a Job will suspend until it's done anyway.
 - so it really is just Jobs that need managing by the scope
 - and all jobs are called by a method on the scope, EZ.
+- parent/child jobs. those jobs can spawn other jobs? they can if multiple coroutines can await them
+- so the jobs need to keep track of the various coroutines that await them
 
 - can we tell the difference between coroutines that are asynchronous vs purely synchronous (i.e. just for coordination)?
 - do we need to?
@@ -323,3 +327,55 @@ question: how do scopes keep track of the jobs?
       - functions that call suspending functions are themselves suspending functions - they accept a continuation from their callers
     - function uses 'yield' - do we know that yield's shift behaves differently?
       - suspendCoroutine in this case stores the continuation, so it looks async
+
+yield.
+- so, suspend fns, drop off the current thread
+- they don't keep anything running once they suspend.
+- need to cancel them if the parent's cancelled, though, because resources?
+- but we'd like to completely encapsulate usages of yield, if they're all done within a scope
+- yield will need a scope object, I reckon - we need to yield _to_ somewhere
+- in Kotlin, it's done with a SequenceScope object, which provides a yield suspend method
+- transducer pattern is pretty neat with yield
+- do we get the same guarantees if we're using generators?
+- what guarantees?
+- need a suspend fn to pull from sequences
+- this is channels, essentially, with zero buffer - co-operative coroutines
+- very much CSP style. quite like it.
+- need to be passed a yield function, somehow
+
+#+begin_src clojure
+  (def (->vec {.pull})
+    (loop [vec []]
+      (if-let [el (pull)]
+        (recur (conj vec el))
+        vec)))
+
+  (def (map seq f)
+    (fn [{.pull} {.yield}]
+      (loop []
+        (when-let [el (pull)]
+          (yield (f el))
+          (recur)))))
+
+  (def (take seq n)
+    (fn [{.pull} {.yield}]
+      (loop [n n]
+        (when (pos? n)
+          (when-let [el (pull)]
+            (yield el)
+            (recur (dec n)))))))
+
+  (def (partition-all n)
+    (fn [{.pull} {.yield}]
+      (loop [coll []]
+        (if-let [el (pull)]
+          (let [next-coll (conj coll el)]
+            (recur (if (>= (count next-coll) n)
+                     (do
+                       (yield next-coll)
+                       [])
+                     next-coll)))
+
+          (when-not (empty? coll)
+            (yield coll))))))
+#+end_src
