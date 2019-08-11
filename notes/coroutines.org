@@ -350,14 +350,14 @@ yield.
         (recur (conj vec el))
         vec)))
 
-  (def (map seq f)
+  (def (map f)
     (fn [{.pull} {.yield}]
       (loop []
         (when-let [el (pull)]
           (yield (f el))
           (recur)))))
 
-  (def (take seq n)
+  (def (take n)
     (fn [{.pull} {.yield}]
       (loop [n n]
         (when (pos? n)
@@ -379,3 +379,98 @@ yield.
           (when-not (empty? coll)
             (yield coll))))))
 #+end_src
+
+ok, but seems like we could get a lazy-sequence type function that'll work similarly?
+Clojure moved away from that, because of performance - they didn't want to create any of the intermediate sequences
+- means a lot of object allocation
+- so they turned everything into (essentially) calling the next function in the chain
+- and that's all we're doing here, right?
+- although here we're giving some control to the function slightly further down about how often to call the parent
+- ideally we'd like to be 'more declarative' - i.e. a description of what we want, rather than how to do it.
+- by allowing so much control over coroutines, we're also increasing how big a function's contract can be - we'd like it to be much smaller.
+- how can we make the contract smaller, though?
+
+overnight ideas:
+- what do we want from transducers?
+  - ability to transform any sequence like thing
+  - have the sequence stay as the same concrete type?
+  - maybe not even the same concrete type - we want to be able to specify the output type, though
+  - if map/etc do work with suspensions, it means they can definitely work on channels, np
+- `lazy-seq` built-in, like `loop` which allows you to make recursive calls, suspends the coroutine
+- reducible?
+
+- pull vs push sequences
+
+from Roman's video, evolving the prototype: https://www.youtube.com/watch?v=a3agLJQ6vt8
+- got to either return a value or the coroutine_suspended sentinel, to avoid stack overflow
+- CPS transformation
+  - coroutines are delimited as far as the function
+  - if it's a suspend function the caller passes their coroutine in.
+- want to do some TCO, pass the continuation directly
+- one primitive - suspendCoroutineOrReturn
+- coroutine context means that we abstract away where to schedule the continuation
+- asynchronous by default, synchronous (generator/yield) by opt in
+- stack traces are hard (although Graal might solve that?)
+- monitors/locks/threadlocals are hard (not too bothered)
+
+so seems like we should separate yield from async
+- even if the underlying implementation's the same we'd probably benefit from having two concepts at the language level
+- not particularly a fan of the 'restricting suspension', unless we can achieve it with effects
+- I quite like the idea of splitting this into reducible, transducer, reducer; source/xf/sink
+- lovely if we can fit these into objects
+- lovely if the transducer can work on multiple seq-like things
+
+'throwing a request, passing a continuation': https://dev.to/yelouafi/algebraic-effects-in-javascript-part-4---implementing-algebraic-effects-and-handlers-2703
+
+#+begin_src clojure
+  (def (map f)
+    (obj {}
+      (def (.step el)
+        (:More (:Cons (f el) :Nil)))))
+
+  (def (filter p)
+    (obj {}
+      (def (.step el)
+        (:More (if (p el)
+                 (:Cons el :Nil)
+                 :Nil)))))
+
+  (def (take n)
+    (if (pos? n)
+      (obj {n n}
+        (def (.step el)
+          (let [nn (dec n)]
+            (-> ((if (pos? nn) :More :Done) (:Cons el :Nil))
+                ($set {n nn})))))
+
+      (obj {} (def (.step el) (:Done :Nil)))))
+
+  (def (take-while p)
+    (obj {}
+      (def (.step el)
+        (if (p el)
+          (:More (:Cons el :Nil))
+          (:Done :Nil)))))
+
+  (def (drop n)
+    (obj {n n}
+      (def (.step el)
+        (if (pos? n)
+          (-> (:More :Nil)
+              ($set {n (dec n)}))
+
+          (-> (:More (:Cons el :Nil))
+              ($set {n 0}))))))
+
+  (def (drop-while p)
+    (obj {found? false}
+      (def (.step el)
+        (let [found? (or found? (p el))]
+          (-> (if found?
+                (:More (:Cons el :Nil))
+                (:More :Nil))
+              ($set {found? found?}))))))
+#+end_src
+
+(this seems like a pretty good object syntax - going to call this good and move on)
+so hang on, why are we even considering doing these with generators anyway?
