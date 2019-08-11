@@ -474,3 +474,28 @@ so seems like we should separate yield from async
 
 (this seems like a pretty good object syntax - going to call this good and move on)
 so hang on, why are we even considering doing these with generators anyway?
+
+sources and sinks can behave in a similar way (names tbc)
+
+#+begin_src clojure
+  (:: (line-seq File) (! {(.el Str)}))
+
+  (def (line-seq file)
+    (let [rdr (Reader/new file)]
+      (obj {}
+        (def (.el)
+          (if-let [line (Reader/.readLine rdr)]
+            (:Cons line :Nil)
+            :Nil))
+
+        (def ($finally)
+          (Reader/.close rdr)))))
+
+  (def (->vec)
+    (obj {vec []}
+      (def (.push-el el)
+        (-> :More
+            ($set {vec (conj vec el)})))
+      (def (.r-complete)
+        vec)))
+#+end_src
