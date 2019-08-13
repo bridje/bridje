@@ -499,3 +499,21 @@ sources and sinks can behave in a similar way (names tbc)
       (def (.r-complete)
         vec)))
 #+end_src
+
+so coroutines just for async bits n bobs?
+so the requirements are much smaller - we pretty much want 'run this elsewhere' and 'wait for this'/'cancel this'
+let's create a scope, needs an executor, a deadline, a grace period
+tbh, the mechanics of this are reasonably straightforward - as far as the compiler's concerned, it's the CPS transformation for suspend fns
+anything complex in the type system?
+- whenever we call a suspend fn, we mark the surrounding expressions as suspend, all the way up the tree to the nearest function
+- do we want to specify that certain functions are 'as suspending' as the functions that're passed in?
+- I reckon we say that, if you pass a suspend fn in, you have to expect that the function you passed it to's going to call it
+- alternative is that we say that functions have to explicitly declare if the function you pass them can be a suspend fn. (Kotlin does this)
+- how would we implement a more flexible version?
+- we compile each function twice (well, if not twice, we do it lazily, when it's needed)
+  - it becomes two different call targets depending on the functions we pass to it
+  - use cases for higher-order suspend fns? (that the function doesn't expect ahead of time)
+    - ... don't all shout at once
+    - overhead of making a function a suspend fn if it isn't already? suspect creating the
+    - thing is, if we do this, we can near enough remove all 'suspend' stuff from being user-visible
+  - we assume that if we're passing a suspend fn to something interop-y then we're essentially going to have to wrap it in run-blocking

@@ -994,3 +994,9 @@ things still to consider:
 - finalisation? we're assuming that the callback's called exactly once
 - sequencifying the resource? do we need to, or is this a pattern above?
 - how does async work within the type system - do we have to handle it separately if we spot a handler can be async?
+- implementation of async within Graal
+- can we give transducers a more loop-recur feel?
+
+Fitting for (currently) line 1000 - maybe we need to think async first, then effects/objects might be relatively straightforward.
+what are the primitives?
+co-routines seem to be pretty fundamental.

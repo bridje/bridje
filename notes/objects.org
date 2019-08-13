@@ -1,0 +1,95 @@
+we declare effectful functions using =::=
+
+#+begin_src clojure
+  (:: (foo! Int) (! Str))
+#+end_src
+
+seqs are going to require polymorphic methods
+
+what do we need?
+- it seems that methods are 'just' typeclasses that take the object type as the first param
+- can we treat them the same?
+- difference may be that, with methods, we can return any implementation we like
+  whereas, with typeclasses, the caller decides the implementation of the returned type
+- so maybe that's enough of a difference to justify having both concepts - with objects, there's a degree of encapsulation.
+- would make it simple for the emission - the caller decides where to get the function from.
+- means we need to decide, in the stdlib, whether these things are objects or typeclasses?
+- we can use the same functions - the difference is that the type variables in typeclasses apply to the whole signature
+- would we want to extend certain other objects? i.e. I want to say that my ConsList is countable, and can hence be passed to anything that accepts count?
+- maybe, if it's declared as a method-like signature, we can build the object AoT, and then pass that for functions that just expect something countable?
+
+#+begin_src clojure
+  (:: (. a) (.count a) Int)
+
+  (def (. []) (.count vec)
+    (,,,))
+
+  (:: (wants-something-countable {.count}) Int)
+
+  (def (wants-something-countable {.count})
+    (count))
+
+  (:: #{(.count a)} (wants-something-countable a) Int)
+  (def (wants-something-countable foo)
+    (.count foo))
+
+  (:: (returns-something-countable) {.count})
+  (def (returns-something-countable)
+    {(def (.count)
+       42)})
+
+  ;; polymorphic value (m0)
+  ;; polymorphic function, polymorphic return (m+)
+  ;; polymorphic variant (:Ok)
+  ;; polymorphic key?
+  ;; polymorphic type-alias
+  ;; any of the above accepting polymorphic typealias
+
+  ;; declarations
+  (:: a. (.count a) Int)
+  (:: a. (.zeros Int) a)
+  (:: a. .m0 a)
+  (:: a. (.m+ a a) a)
+  (:: a. .m1 a)
+  (:: a. (.m* a a) a)
+
+  (:: a. (:Cons a (a. Seq)))
+  (:: :Nil)
+  (:: a. Seq (+ (a. :Cons) :Nil))
+
+  (:: a. b. (.step a) b.Seq)
+
+  (:: a. :Ok a)
+
+  (:: [a] :Ok a)
+
+  (:: (∀ [a] :Ok a))
+
+  ;; there's an object type here too, it's not based on the a, the b, or even the pair
+  (:: (.step a) (Seq b))
+
+  ;; a.count for object types?
+
+  (def ([] .) (count vec)
+    ...)
+
+  ;; syntax aside, let's see what we need to construct the sugar from
+  ;; we could create this initially and then sort the sugar out later
+
+  (:: {:type-vars [a], :sym .count, :type (Fn a Int)})
+  (:: {:type-vars [a], :sym .m0, :type a})
+  (:: {:type-vars [a], :sym .m+, :type (Fn a a a)})
+  (:: {:type-vars [a], :sym :Cons, :params [a (Seq a)]})
+  (:: {:type-vars [a], :sym :Nil})
+  (:: {:type-vars [a], :sym Seq, :type (+ (:Cons a) :Nil)})
+  (:: {:type-vars [a b], :sym .step, :type (Fn a (Seq b))})
+
+  (def {:type-params [[]], :ident .count, :params [vec]}
+    )
+#+end_src
+
+- I like =(Seq a)=, =(:Cons a)= when we use them - it's like Seq/:Cons are type-level functions that're applied to their type params
+- would work for ={(.step Int Int)}= too
+- does that mean we should do the same in the overall type declaration?
+  - possibly, but we use the parens for function params there too, which I like because it looks like the =def= in the majority of cases
+  - the type params are meant to be scoped through the whole type declaration, so just including them in the param part seems wrong
