@@ -17,6 +17,37 @@ what do we need?
 - we can use the same functions - the difference is that the type variables in typeclasses apply to the whole signature
 - would we want to extend certain other objects? i.e. I want to say that my ConsList is countable, and can hence be passed to anything that accepts count?
 - maybe, if it's declared as a method-like signature, we can build the object AoT, and then pass that for functions that just expect something countable?
+- the difference is potentially in how many implementations there are for a given function on a different type
+  - i.e. 'step' has many implementations from 'a -> Seq b', count likely only has one for a given type
+  - who decides how many implementations there might be? choice of declarer, type author, caller, callee
+  - callee only cares that there's /at least/ one, caller doesn't particularly care because they know they have one
+  - Eq and mzero are good examples where the method one doesn't quite fit
+  - essentially, this can also be done with 'static' objects
+  - caller doesn't want to have to think about where the implementation is each time, so some degree of this has to be implicit
+- with an object, you're only going to be calling the methods on it; with a data type, you might want to destructure it
+  - so does this mean that the difference is whether people care about the underlying data type?
+  - with objects, I only really care that I can call the methods (with whatever params) - I'm not after access to the underlying data
+- with the typeclasses, you're passing a record of functions around
+  - particularly, there's no state attached to these - they're referentially transparent
+  - no difference between a stateless object and a record of functions?
+  - no difference between a typeclass and a record of functions, passed implicitly?
+  - so the difference is in the stateful objects
+    - and even then, wouldn't be if we cloned the state and got the caller to deal with it
+    - difference here is in resources that can't just be cloned
+    - transducers (and other non-resource objects), arguably, are closer to stateless objects than they are to resources
+    - can we write transducers as stateless objects and get the runtime to transform them into something more performant?
+    - that's essentially writing them under ST and getting the runtime to optimise the fuck out of ST
+    - and then we just treat resources differently - we understand that they're naturally stateful and just deal with it
+- I'm only really creating these objects for the transducing side of things - otherwise I'd have resources?
+  - other uses for objects, that aren't either resources or transducers?
+  - the need for resources can also be 'mutable state', hence transducers
+  - transducers don't seem to be far off 'synchronous actors', though
+  - resources - we're probably dealing with java objects anyway
+    - that may well be a decent interop opportunity - we treat Java objects the same way as we'd deal with our own
+      - we can say 'I don't care what it is, but this object has all the File methods on it'
+      - we'll probably want a shorthand for that, e.g. ={File/.*}=
+      - that might also be a way to declare our own interop, i.e. how to implement Java interfaces, should we need to (or even be able to, in Graal)
+- so normally we talk about focusing on the data, not on the behaviour
 
 #+begin_src clojure
   (:: (. a) (.count a) Int)
