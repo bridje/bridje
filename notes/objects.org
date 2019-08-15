@@ -49,6 +49,41 @@ what do we need?
       - that might also be a way to declare our own interop, i.e. how to implement Java interfaces, should we need to (or even be able to, in Graal)
 - so normally we talk about focusing on the data, not on the behaviour
 
+stateless objects under ST, then:
+#+begin_src clojure
+  (def (take n)
+    (obj [n n]
+      {(def (.step el)
+         (if (pos? n)
+           (-> (:More (:Cons el :Nil))
+               ($set {n (dec n)}))
+           (:Dons (:Cons el :Nil))))}))
+
+  (:: (.step a) (ST (Seq a)))
+  (:: (.complete) (ST (Seq b)))
+
+  (:: (reduce->vec [a]
+                   {(.step a b)
+                    (.?complete b)})
+      [b])
+
+  ;; we want something that's going to take in the result type, but also propagate
+  (def (reduce->vec vec xf)
+    (loop [vec vec
+           xf xf
+           res []]
+      (if-seq [(:Cons el more-els) vec]
+        (let [(:ST ret xf) (.step xf el)]
+          (case ret
+            (:More coll) (recur more-els xf (vconcat res coll))
+            (:Done coll) (vconcat res coll)))
+
+        res)))
+
+  ;; so if we're turning these into ST then we're essentially passing the state, and returning it
+  ;; if we want the compiler to turn this into mutable code, then this is borrowing again
+#+end_src
+
 #+begin_src clojure
   (:: (. a) (.count a) Int)
 
