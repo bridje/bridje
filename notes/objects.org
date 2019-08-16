@@ -70,18 +70,93 @@ stateless objects under ST, then:
   ;; we want something that's going to take in the result type, but also propagate
   (def (reduce->vec vec xf)
     (loop [vec vec
-           xf xf
            res []]
       (if-seq [(:Cons el more-els) vec]
-        (let [(:ST ret xf) (.step xf el)]
-          (case ret
-            (:More coll) (recur more-els xf (vconcat res coll))
-            (:Done coll) (vconcat res coll)))
+        (case (.step xf el)
+          (:More coll) (recur more-els (vconcat res coll))
+          (:Done coll) (vconcat res coll))
 
         res)))
+#+end_src
 
-  ;; so if we're turning these into ST then we're essentially passing the state, and returning it
-  ;; if we want the compiler to turn this into mutable code, then this is borrowing again
+- so if we're turning these into ST then we're essentially passing the state, and returning it
+- if we want the compiler to turn this into mutable code, then this is borrowing again
+- I'm not yet convinced this is worth it - maybe it's time to pull in a bit of Clojure's pragmatism?
+- thinking about borrowing, `reduce->vec` mutably borrows `xf`
+- we can probably be a little more powerful around borrowing now that we know about how async might work
+  - we can guarantee that anything there are only a few ways to spawn new threads
+  - and we only need to care about objects, too
+  - but that also means anything that can contain objects, remember?
+  - can we clone objects across those thread boundaries? efficiently? not if they contain resources, obv
+  - alternatively, we could say that you know what you're doing if you share stateful objs between threads, deal with it
+  - tbh, if you call object methods, you should know there's the potential to mutate the underlying object
+  - if you didn't want that, you'd /actually/ use a record of functions
+
+*ok, no ST, no borrowing :gavel:*
+
+so, types - what're the types of those objects?
+- we shouldn't need to care what state the objects carrying, nor give calling code any implicit access to it
+- only thing will be, if objects are 'just' records of functions, they should be able to be merged together
+- which I guess they can't, they won't have the same state
+- if we were doing this as stateful functions that returned their state, we'd have access to it
+- or maybe we wouldn't - maybe callers would be forced to generalise over that type
+
+right, so what's the difference between these and typeclass functions?
+- typeclass functions are declared over immutable, visible data
+- which is how we'd like the objects to behave, ideally
+- they'd have a record of state which would be 'returned' in addition to the return value
+
+I know we've said we're not going for borrowing, but
+- we're essentially assuming all objects are mutably borrowed
+- which means we can't pass them into closures, because those objects are then 'owned' in Rust
+- but let's say I do move them
+- if I move them into a vector, I can't then use them without moving them out of the vector
+- or, presumably, passing a function to the vector that borrows them?
+- I can call methods on them if I borrow them - mutable methods if I borrow it mutably; immutable methods if I only borrow it immutably
+- do we say we can't make composite types out of objects? i.e. we can only either pass them around or call methods on them?
+- let's say we made a record key whose type was an object, would that be useful?
+  - the 'system' would benefit from having that, if we were to do that manually
+    - (separately, I love the way the system pattern Just Works with normal lifecycle objects now that we have coroutines)
+  - way too complex for what we need
+  - I guess we like creating/manipulating these data structures much more than a traditional OO lang, which would encapsulate them
+- so that's borrowing ruled out, for definite this time, honest.
+
+ST.
+- feels like it fits the functional pattern much better.
+- if we insist that the state pattern for these objects only carries a single record
+
+(:: (. a b) (.step a) (Seq b))
+
+what's the type of =(take n)= ?
+
+#+begin_src clojure
+  (def (take n)
+    ;; assume positive n
+    (obj {n (dec n)}
+      (def (.step el)
+        (-> (if (pos? n)
+              (:More (:Cons el :Nil))
+              (:Done (:Cons el :Nil)))
+            (setting {n (dec n)})))))
+
+  (:: (take Int) {(.step a a)})
+  (:: (. a b) (.step a) (Seq b))
+#+end_src
+
+Haskell has
+#+begin_src haskell
+  class Monoid a where
+    mzero :: a
+    mplus :: a -> a -> a
+#+end_src
+
+but this doesn't really use the same pattern
+in Haskell, step would have one type, or it'd have functional dependencies - the type of the object determines the type of the other params
+
+#+begin_src haskell
+  class Mapper o a b | o -> a b where
+    step :: a -> State o (Seq b)
+    complete :: State o (Seq b)
 #+end_src
 
 #+begin_src clojure
