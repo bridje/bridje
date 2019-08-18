@@ -163,15 +163,18 @@ fuck. so that kinda resets how I'm thinking about objects - that makes them way 
 
 #+begin_src clojure
   (:: (. a b) :Mapper (Fn a b))
-  (:: :Taker Int)
+  (:: :Taker (Mut Int))
 
-  (:: (. o -> a b) (.step (& o) a) (Seq b))
-  (:: (. o -> b) (.complete (& o)) (Seq b))
+  (:: (. o) (.more? o) Bool)
+  (:: (. o -> a b) (.step o a) (Seq b))
+  (:: (. o -> b) (.complete o) (Seq b))
 
   (:: (. a) (.count a) Int)
 
+  (def (. (:Mapper a b)) (.more? _) true)
+
   (def (. a b (:Mapper a b)) (.step (:Mapper f) el)
-    (:More (:Cons (f el) :Nil)))
+    (:Cons (f el) :Nil))
 
   (def (. a b (:Mapper a b)) (.complete _) :Nil)
 
@@ -180,33 +183,31 @@ fuck. so that kinda resets how I'm thinking about objects - that makes them way 
   (def (map f)
     (:Mapper f))
 
-  (def (. :Taker) (.step (& (:Taker n)) el)
-    (let [c (if (pos? n) :More :Done)]
-      (-> (c (:Cons el :Nil))
-          (set! (:Taker (dec n))))))
+  (def (. :Taker) (.more? (:Taker n)) (pos? n))
+
+  (def (. :Taker) (.step (:Taker n) el)
+    (set! n (dec n))
+    (:Cons el :Nil))
 
   (def (. :Taker) (.complete _) :Nil)
 
-  (:: :None)
-
-  (def (. :None) (.step _ el)
-    (:Done :Nil))
-
-  (def (. :None) (.complete _) :Nil)
-
   (def (take n)
-    (if (pos? n)
-      (:Taker (dec n))
-      :None))
+    (:Taker (mut n)))
 
-  (def (. (:Partition-Aller a)) (.step (& (:Partition-Aller n coll)) el)
+  (:: (. a) :Partition-Aller Int (Mut [a]))
+
+  (def (. (:Partition-Aller a)) (.more? _) true)
+
+  (def (. (:Partition-Aller a)) (.step (:Partition-Aller n coll) el)
     (let [new-coll (conj coll el)]
-      (if (= (count coll) n)
-        (-> (:More (:Cons coll :Nil))
-            (set! (:Partition-Aller n [])))
+      (if (= (count new-coll) n)
+        (do
+          (set! coll [])
+          (:Cons new-coll :Nil))
 
-        (-> (:More :Nil)
-            (set! )))))
+        (do
+          (set! coll new-coll)
+          :Nil))))
 
   (def (. (:Partition-Aller a)) (.complete (:Partition-Aller n coll))
     (if-not (empty? coll)
@@ -214,11 +215,12 @@ fuck. so that kinda resets how I'm thinking about objects - that makes them way 
       :Nil))
 
   (def (partition-all n)
-    (:Partition-Aller n []))
+    (:Partition-Aller n (mut [])))
 #+end_src
 
 wow. yeah, that's it. still not massively happy about the =(. ...)= syntax, but that's a much smaller problem
 how does the mutability propagate out?
+changed - it's now within the object, it's going to be rare, in performance-critical code, and callers should probably know about it
 
 #+begin_src clojure
   (:: (. a) (.count a) Int)
