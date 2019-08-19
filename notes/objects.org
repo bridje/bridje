@@ -231,13 +231,13 @@ changed - it's now within the object, it's going to be rare, in performance-crit
   (:: (. a) m1 a)
   (:: (. a) (m* a a) a)
 
-  (:: (:Cons a) a (Seq a))
+  (:: (. a) (:Cons a (Seq a)))
   (:: :Nil)
-  (:: (Seq a) (+ (:Cons a) :Nil))
+  (:: (. a) Seq (+ (:Cons a) :Nil))
+
+  (:: (. a) (:Ok a))
 
   (:: (. o -> a b) (step o a) (Seq b))
-
-  (:: (:Ok a) a)
 
   (def (. [a]) (count vec)
     ...)
