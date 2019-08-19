@@ -110,7 +110,7 @@ We define keys using =::=:
      :a-big-number 52N})
 #+END_SRC
 
-As in Clojure, we can destructure records, although the syntax is quite
+As in Clojure, we can destructure records, although the syntax is a little
 different. In particular, in the long-hand form, the destructuring matches the
 structure of the record itself. Here are some examples:
 
@@ -134,7 +134,6 @@ structure of the record itself. Here are some examples:
     )
 #+END_SRC
 
-
 Records can also be nested. Drawing inspiration from hints in Rich Hickey's
 'Maybe Not' talk, we do not specify ahead of time what keys a record type
 contains, only that it is a record. When the record is used, the type system
@@ -153,7 +152,6 @@ then decides which keys the user of the record requires at that particular site.
   ;; - a function from a record containing a `:name` key to a string
   (def (say-hi user)
     (format "Hi, %s!" (:name user)))
-
 
   ;; we can also nest the destructuring. N.B. whereas Clojure's destructuring
   ;; syntax is 'inside-out', Bridje's more closely matches the structure of the
@@ -294,8 +292,8 @@ In Bridje, we declare an effectful function by wrapping the declaration with
 lower-level effects.
 
 #+BEGIN_SRC clojure
-  (:: (! (print! Str)) Void)
-  (:: (! (read-line!)) Str)
+  (:: (print! Str) (! Void))
+  (:: (read-line!) (! Str))
 
   (def (print! s)
     ;; interop
@@ -428,7 +426,7 @@ how to count it:
 
   (:: (. a) (:Cons a (List a)))
   (:: :Nil)
-  (:: (List a) (+ (:Cons a) :Nil)) ; TODO confirm
+  (:: (. a) List (+ (:Cons a) :Nil))
 
   (def (. (List a)) (count list)
     (case list
