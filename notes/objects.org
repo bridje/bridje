@@ -223,24 +223,27 @@ how does the mutability propagate out?
 changed - it's now within the object, it's going to be rare, in performance-critical code, and callers should probably know about it
 
 #+begin_src clojure
-  (:: (. a) (.count a) Int)
+  (:: (. a) (count a) Int)
 
-  (def (. []) (.count vec)
+  (def (. []) (count vec)
     (,,,))
 
-  (:: (wants-something-countable {.count}) Int)
+  (:: (. o -> a b) (.step o a) (Seq b))
 
-  (def (wants-something-countable {.count})
-    (count))
+  (:: #{(count a)} (wants-something-countable a) Int)
 
-  (:: #{(.count a)} (wants-something-countable a) Int)
   (def (wants-something-countable foo)
-    (.count foo))
+    (count foo))
 
-  (:: (returns-something-countable) {.count})
+  (:: :ConstantlyCountable Int)
+  (def (. :ConstantlyCountable) (count (:ConstantlyCountable x))
+    x)
+
+  (:: (returns-something-countable) :ConstantlyCountable)
   (def (returns-something-countable)
-    {(def (.count)
-       42)})
+    (:ConstantlyCountable 42))
+
+  ;; need to define the order of type vars in typeclass functions, everywhere else, we don't need to?
 
   ;; polymorphic value (m0)
   ;; polymorphic function, polymorphic return (m+)
@@ -250,50 +253,38 @@ changed - it's now within the object, it's going to be rare, in performance-crit
   ;; any of the above accepting polymorphic typealias
 
   ;; declarations
-  (:: a. (.count a) Int)
-  (:: a. (.zeros Int) a)
-  (:: a. .m0 a)
-  (:: a. (.m+ a a) a)
-  (:: a. .m1 a)
-  (:: a. (.m* a a) a)
+  (:: (. a) (count a) Int)
+  (:: (. a) (zeros Int) a)
+  (:: (. a) m0 a)
+  (:: (. a) (m+ a a) a)
+  (:: (. a) m1 a)
+  (:: (. a) (m* a a) a)
 
-  (:: a. (:Cons a (a. Seq)))
+  (:: (. a) (:Cons a (Seq a)))
   (:: :Nil)
-  (:: a. Seq (+ (a. :Cons) :Nil))
+  (:: (. a) Seq (+ :a.Cons :Nil))
 
-  (:: a. b. (.step a) b.Seq)
+  (:: (. o -> a b) (step o a) (Seq b))
 
-  (:: a. :Ok a)
+  (:: (. a) (:Ok a))
 
-  (:: [a] :Ok a)
-
-  (:: (∀ [a] :Ok a))
-
-  ;; there's an object type here too, it's not based on the a, the b, or even the pair
-  (:: (.step a) (Seq b))
-
-  ;; a.count for object types?
-
-  (def ([] .) (count vec)
+  (def (. [a]) (count vec)
     ...)
 
-  ;; syntax aside, let's see what we need to construct the sugar from
-  ;; we could create this initially and then sort the sugar out later
+  (:: #{(count a)} (wants-something-countable a) Str)
 
-  (:: {:type-vars [a], :sym .count, :type (Fn a Int)})
-  (:: {:type-vars [a], :sym .m0, :type a})
-  (:: {:type-vars [a], :sym .m+, :type (Fn a a a)})
-  (:: {:type-vars [a], :sym :Cons, :params [a (Seq a)]})
-  (:: {:type-vars [a], :sym :Nil})
-  (:: {:type-vars [a], :sym Seq, :type (+ (:Cons a) :Nil)})
-  (:: {:type-vars [a b], :sym .step, :type (Fn a (Seq b))})
+  (def (wants-something-countable foo)
+    (format "%d element(s) in the list" (count foo)))
 
-  (def {:type-params [[]], :ident .count, :params [vec]}
-    )
+  (def (. (:Mapper a b) a b) (step (:Mapper f) el)
+    (:Cons (f el) :Nil))
+
+  (:: #{(step o a b) (complete o b)}
+      (mapcat-ish o [a]) [b])
 #+end_src
 
 - I like =(Seq a)=, =(:Cons a)= when we use them - it's like Seq/:Cons are type-level functions that're applied to their type params
-- would work for ={(.step Int Int)}= too
+- would work for ={(step Int Int)}= too
 - does that mean we should do the same in the overall type declaration?
   - possibly, but we use the parens for function params there too, which I like because it looks like the =def= in the majority of cases
   - the type params are meant to be scoped through the whole type declaration, so just including them in the param part seems wrong
