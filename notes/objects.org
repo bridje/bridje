@@ -223,35 +223,6 @@ how does the mutability propagate out?
 changed - it's now within the object, it's going to be rare, in performance-critical code, and callers should probably know about it
 
 #+begin_src clojure
-  (:: (. a) (count a) Int)
-
-  (def (. []) (count vec)
-    (,,,))
-
-  (:: (. o -> a b) (.step o a) (Seq b))
-
-  (:: #{(count a)} (wants-something-countable a) Int)
-
-  (def (wants-something-countable foo)
-    (count foo))
-
-  (:: :ConstantlyCountable Int)
-  (def (. :ConstantlyCountable) (count (:ConstantlyCountable x))
-    x)
-
-  (:: (returns-something-countable) :ConstantlyCountable)
-  (def (returns-something-countable)
-    (:ConstantlyCountable 42))
-
-  ;; need to define the order of type vars in typeclass functions, everywhere else, we don't need to?
-
-  ;; polymorphic value (m0)
-  ;; polymorphic function, polymorphic return (m+)
-  ;; polymorphic variant (:Ok)
-  ;; polymorphic key?
-  ;; polymorphic type-alias
-  ;; any of the above accepting polymorphic typealias
-
   ;; declarations
   (:: (. a) (count a) Int)
   (:: (. a) (zeros Int) a)
@@ -260,13 +231,13 @@ changed - it's now within the object, it's going to be rare, in performance-crit
   (:: (. a) m1 a)
   (:: (. a) (m* a a) a)
 
-  (:: (. a) (:Cons a (Seq a)))
+  (:: (:Cons a) a (Seq a))
   (:: :Nil)
-  (:: (. a) Seq (+ :a.Cons :Nil))
+  (:: (Seq a) (+ (:Cons a) :Nil))
 
   (:: (. o -> a b) (step o a) (Seq b))
 
-  (:: (. a) (:Ok a))
+  (:: (:Ok a) a)
 
   (def (. [a]) (count vec)
     ...)
