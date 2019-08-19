@@ -194,11 +194,11 @@ fuck. so that kinda resets how I'm thinking about objects - that makes them way 
   (def (take n)
     (:Taker (mut n)))
 
-  (:: (. a) :Partition-Aller Int (Mut [a]))
+  (:: (. a) :PartitionAller Int (Mut [a]))
 
-  (def (. (:Partition-Aller a)) (.more? _) true)
+  (def (. (:PartitionAller a)) (.more? _) true)
 
-  (def (. (:Partition-Aller a)) (.step (:Partition-Aller n coll) el)
+  (def (. (:PartitionAller a)) (.step (:PartitionAller n coll) el)
     (let [new-coll (conj coll el)]
       (if (= (count new-coll) n)
         (do
@@ -209,13 +209,13 @@ fuck. so that kinda resets how I'm thinking about objects - that makes them way 
           (set! coll new-coll)
           :Nil))))
 
-  (def (. (:Partition-Aller a)) (.complete (:Partition-Aller n coll))
+  (def (. (:PartitionAller a)) (.complete (:PartitionAller n coll))
     (if-not (empty? coll)
       (:Cons coll :Nil)
       :Nil))
 
   (def (partition-all n)
-    (:Partition-Aller n (mut [])))
+    (:PartitionAller n (mut [])))
 #+end_src
 
 wow. yeah, that's it. still not massively happy about the =(. ...)= syntax, but that's a much smaller problem
