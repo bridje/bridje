@@ -259,3 +259,33 @@ changed - it's now within the object, it's going to be rare, in performance-crit
 - does that mean we should do the same in the overall type declaration?
   - possibly, but we use the parens for function params there too, which I like because it looks like the =def= in the majority of cases
   - the type params are meant to be scoped through the whole type declaration, so just including them in the param part seems wrong
+
+open questions:
+- how does interop/'finally' work in these circumstances?
+- are we sure we've got all the overlap between polymorphism, effects and rank-n?
+  - do we need rank-n yet? biggest use was for transducers
+  - GADTs I think are sorted because we separate constructors anyway, but confirm
+- not convinced we've yet got the full impact of the spec-like records on the type-system
+  - particularly, the 'don't always have to carry all the keys' part
+
+#+begin_src clojure
+  (ns foo
+    {:imports {RT java.lang.Runtime
+               LL java.util.LinkedList}})
+
+  ;; if we were to write the objects in full, in Bridje
+  (:: (. a) :add (Fn a Void))
+  (:: (. a) (:LL {(:add a)}))
+  (:: (LL/new) (:LL a))
+  (:: (. o -> a) (ll-add o a) Void)
+
+  (def (. (:LL a) a) (ll-add (:LL {add}) a)
+    (add a))
+
+  ;; but that's obviously pretty verbose.
+  ;; let's add some sugar:
+
+  (:: (LL/new) (LL a))
+  (:: (LL/new.with-coll [a]) (LL a)) ; overloads
+  (:: (LL/.add (LL a) a) Void)
+#+end_src
