@@ -288,4 +288,101 @@ open questions:
   (:: (LL/new) (LL a))
   (:: (LL/new.with-coll [a]) (LL a)) ; overloads
   (:: (LL/.add (LL a) a) Void)
+
+  ;; so does that mean we should do the same in Bridje and save ourselves the fuss?
+  ;; nah, because in Bridje these are just functions, or they're polys
+
+  ;; having said that, it's quite a neat syntax difference and differentiates between the two quite nicely
+
+  (:: (. o) (.count o) Int)
+  (:: (. a) m0 a)
+
+
+  (:: (. o) (.more? o) Bool)
+  (:: (. o a b) (.step o a) (Seq b))
+  (:: (. o b) (.complete o) (Seq b))
+
+
+  (:: (. a b) (:Mapper (Fn a b)))
+
+  (def (. (:Mapper a b)) (.more? _)
+    true)
+
+  (def (. (:Mapper a b) a b) (.step (:Mapper f) el)
+    (:Cons (f el) :Nil))
+
+  (def (. (:Mapper a b) b) (.complete _)
+    :Nil)
+
+  (:: (map (Fn a b)) (:Mapper a b))
+  (def (map f)
+    (:Mapper f))
+
+
+  (:: (:Taker (& Int)))
+
+  (def (. :Taker) (.more? (:Taker n))
+    (pos? n))
+
+  (def (. :Taker a a) (.step (:Taker n) el)
+    (-> (:Cons el :Nil)
+        (set! (dec n))))
+
+  (def (. :Taker a) (.complete _)
+    :Nil)
+
+  (def (take n)
+    (:Taker n))
+
+
+  (def (. (:PartitionAller a)) (.more? _) true)
+
+  (def (. (:PartitionAller a) a [a]) (.step (:PartitionAller n coll) el)
+    (let [new-coll (conj coll el)]
+      (if (>= (count new-coll) n)
+        (-> (:Cons coll :Nil)
+            (set! n []))
+        (-> :Nil
+            (set! n new-coll)))))
+
+  (def (. (:PartitionAller a) [a]) (.complete (:PartitionAller n coll))
+    (if-not (empty? coll)
+      (-> (:Cons coll :Nil)
+          (set! n []))
+
+      :Nil))
+
+  (def (partition-all n)
+    (:PartitionAller n []))
+
+
+  (:: (. a) (:Filter (Fn a Bool)))
+
+  (def (. (:Filter a)) (.more? _) true)
+
+  (def (. (:Filter a) a a) (.step (:Filter p) el)
+    (if (p el)
+      (:Cons el :Nil)
+      :Nil))
+
+  (def (. (:Filter a) a) (.complete _) :Nil)
+
+  (def (filter p)
+    (:Filter p))
+
+
+  ;; so how much of the map syntax do we want to allow?
+  ;; we _could_ treat them, near enough, like objects
+
+  (:: (mapcat-ish [a] {(.more? o) (.step o a b) (.complete o b)})
+      [b])
+
+  ;; or we could say that they're fancy typeclasses
+
+  (:: #{(.more? o) (.step o a b) (.complete o b)}
+      (mapcat-ish [a] o)
+      [b])
+
+  ;; this precludes us from returning objects, but does mean that we can express things like
+  ;; a function returning a data structure of the same type
 #+end_src
