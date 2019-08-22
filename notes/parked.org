@@ -1,1 +1,2 @@
 - Java generics
+- finally? how does this work with our new shiny objects?
