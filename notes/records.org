@@ -50,13 +50,36 @@ if we do update a nested map, it means we do need to specify type params all the
 lenses?
 what's a lens for updating a nested structure going to look like?
 #+begin_src clojure
-  (:: :foo Int)
+    (:: :foo Int)
 
-  (:: :FooLens)
+    (:: :FooLens)
 
-  (def (. :FooLens {:foo (& a)} Int) (.focus _ {foo})
-    foo)
+    (:: (. o a b) (.focus o a) b)
+    (:: (. o a b b2 a2) (.update o a (Fn b b2)) a2)
 
-  (def (. :FooLens {:foo (& a)} Int Int {:foo (& a)}) (.fmap _ {foo (* r)} f)
-    (assoc r :foo (f foo)))
+    (def (. :FooLens {:foo (& a)} Int) (.focus _ {foo})
+      foo)
+
+    (def (. :FooLens {:foo (& r)} Int Int {:foo (& r)}) (.update _ {foo (* r)} f)
+      (assoc r :foo (f foo)))
+
+    (defmacro (#lens kw)
+      (let [k-type (key-type kw)
+            Lens (keyword (str (str/->CamelCase (name kw)) "Lens"))]
+        `(do
+           (:: ~Lens)
+
+           (def (. ~Lens {~kw (& r#)} ~k-type) (.focus _ r#)
+             (~kw r#))
+
+           (def (. ~Lens {~kw (& r#)} ~k-type ~k-type {~kw (& r#)}) (.update _ r# f#)
+             (assoc r# ~kw (f# (~kw r#))))
+
+           ~Lens)))
+
+    (def (update o lens f)
+      (.update lens o f))
+
+    (-> {:foo 54}
+        (update (#lens :foo) inc))
 #+end_src
