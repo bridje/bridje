@@ -103,13 +103,6 @@
                                 <sourceDir>src/main/kotlin</sourceDir>
                                 <sourceDir>target/generated-sources/antlr4</sourceDir>
                             </sourceDirs>
-                            <annotationProcessorPaths>
-                                <annotationProcessorPath>
-                                    <groupId>com.oracle.truffle</groupId>
-                                    <artifactId>truffle-dsl-processor</artifactId>
-                                    <version>${graalvm.version}</version>
-                                </annotationProcessorPath>
-                            </annotationProcessorPaths>
                         </configuration>
                     </execution>
                     <execution>
@@ -161,6 +154,39 @@
                     <source>1.8</source>
                     <target>1.8</target>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestFile>META-INF/MANIFEST.MF</manifestFile>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <finalName>brj</finalName>
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>junit:junit</exclude>
+                                    <exclude>org.graalvm.truffle:truffle-api</exclude>
+                                    <exclude>org.graalvm.truffle:truffle-dsl-processor</exclude>
+                                    <exclude>org.graalvm.truffle:truffle-tck</exclude>
+                                    <exclude>org.graalvm:graal-sdk</exclude>
+                                </excludes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
 

@@ -1,0 +1,5 @@
+Bundle-Name: Bridje
+Bundle-Symbolic-Name: brj
+Bundle-Version: 0.0.1
+Bundle-RequireCapability: org.graalvm; filter:="(&(graalvm_version=19.2.0)(os_arch=amd64))"
+x-GraalVM-Polyglot-Part: True
