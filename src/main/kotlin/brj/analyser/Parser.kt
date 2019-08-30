@@ -24,6 +24,12 @@ internal data class ParserState(var forms: List<Form>) {
         return ret
     }
 
+    fun consume(): List<Form> {
+        val ret = forms
+        forms = emptyList()
+        return ret
+    }
+
     fun <R> varargs(a: FormsParser<R>): List<R> {
         val ret: MutableList<R> = mutableListOf()
 
@@ -77,6 +83,7 @@ internal data class ParserState(var forms: List<Form>) {
     fun <R> nested(forms: List<Form>, a: FormsParser<R>): R = a(ParserState(forms))
 
     inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsParser<R>): R = nested(f(expectForm()), a)
+    inline fun <reified F : Form> nested(f: (F) -> List<Form>): ParserState = nested(f(expectForm())) { it }
 
     fun expectSym() = expectForm<SymbolForm>().sym
 

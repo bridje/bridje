@@ -1,9 +1,10 @@
 package brj
 
 import brj.Symbol.Companion.mkSym
-import brj.analyser.ValueExprAnalyser
-import brj.analyser.parseNSSym
-import brj.types.valueExprType
+import brj.analyser.FormsParser
+import brj.analyser.NSHeader
+import brj.analyser.NSHeader.Companion.nsHeaderParser
+import brj.analyser.ParserState
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
@@ -67,7 +68,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     override fun createContext(truffleEnv: Env): BridjeContext {
         val ctx = BridjeContext(RuntimeEnv(), this, truffleEnv)
 
-        ctx.env = require(ctx, setOf(mkSym("brj.forms"), mkSym("brj.core")))
+        // TODO re-require core
+        // ctx.env = require(ctx, setOf(mkSym("brj.forms"), mkSym("brj.core")))
 
         return ctx
     }
@@ -75,32 +77,62 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     override fun isObjectOfLanguage(obj: Any): Boolean =
         obj is RecordObject || obj is VariantObject || obj is BridjeFunction
 
+    sealed class ParseRequest {
+        data class RequireRequest(val nses: Set<Symbol>) : ParseRequest()
+        data class ValueRequest(val form: Form) : ParseRequest()
+        data class NSRequest(val nsHeader: NSHeader, val forms: List<Form>) : ParseRequest()
+    }
+
+    private val requireParser: FormsParser<Set<Symbol>?> = {
+        it.maybe { it.expectSym(mkSym("require")) }?.let { _ ->
+            it.varargs { it.expectSym(SymbolKind.VAR_SYM) }.toSet()
+        }
+    }
+
+    private val formsParser: FormsParser<List<ParseRequest>> = {
+        it.varargs {
+            it.maybe { it.nested(ListForm::forms) }?.let {
+                it.or({
+                    it.maybe(requireParser)?.let { nses -> ParseRequest.RequireRequest(nses) }
+                }, {
+                    it.maybe(nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) }
+                })
+            }
+                ?: ParseRequest.ValueRequest(it.expectForm())
+        }
+    }
+
     override fun parse(request: ParsingRequest): CallTarget {
         val source = request.source
 
         val ctx = contextReference.get()
 
         val env = ctx.env
-        val forms = readForms(source.reader)
 
-        val ns = parseNSSym(forms)
+        val reqs = formsParser(ParserState(readForms(source.reader))).toString()
 
-        return if (ns != null) {
-            Truffle.getRuntime().createCallTarget(object : RootNode(this) {
-                override fun execute(frame: VirtualFrame) = require(ctx, setOf(ns), BridjeNSLoader(forms = mapOf(ns to forms)))
-            })
-        } else {
-            val expr = ValueExprAnalyser(env, NSEnv(USER), TruffleMacroEvaluator(ctx)).analyseValueExpr(forms.first())
+        return Truffle.getRuntime().createCallTarget(object : RootNode(this) {
+            override fun execute(frame: VirtualFrame?): Any = reqs
+        })
 
-            val valueExprType = valueExprType(expr, null)
-
-            val noDefaultImpls = valueExprType.effects.filterNot { (env.nses[it.ns]!!.vars.getValue(it.base) as EffectVar).hasDefault }
-            if (noDefaultImpls.isNotEmpty()) throw IllegalArgumentException("not all effects have implementations: $noDefaultImpls")
-
-            println("type: $valueExprType")
-
-            ValueExprEmitter(ctx).emitValueExpr(expr)
-        }
+//        val ns = parseNSSym(forms)
+//
+//        return if (ns != null) {
+//            Truffle.getRuntime().createCallTarget(object : RootNode(this) {
+//                override fun execute(frame: VirtualFrame) = require(ctx, setOf(ns), BridjeNSLoader(forms = mapOf(ns to forms)))
+//            })
+//        } else {
+//            val expr = ValueExprAnalyser(env, NSEnv(USER), TruffleMacroEvaluator(ctx)).analyseValueExpr(forms.first())
+//
+//            val valueExprType = valueExprType(expr, null)
+//
+//            val noDefaultImpls = valueExprType.effects.filterNot { (env.nses[it.ns]!!.vars.getValue(it.base) as EffectVar).hasDefault }
+//            if (noDefaultImpls.isNotEmpty()) throw IllegalArgumentException("not all effects have implementations: $noDefaultImpls")
+//
+//            println("type: $valueExprType")
+//
+//            ValueExprEmitter(ctx).emitValueExpr(expr)
+//        }
     }
 
     companion object {
