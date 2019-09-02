@@ -7,9 +7,19 @@ import brj.Symbol.Companion.mkSym
 import brj.SymbolKind.TYPE_ALIAS_SYM
 import brj.SymbolKind.VAR_SYM
 
-data class NSHeader(val ns: Symbol,
-                    val refers: Map<Symbol, QSymbol> = emptyMap(),
-                    val aliases: Map<Symbol, Alias> = emptyMap()) {
+internal data class NSHeader(val ns: Symbol,
+                             val refers: Map<Symbol, QSymbol> = emptyMap(),
+                             val aliases: Map<Symbol, Alias> = emptyMap()) {
+
+    val deps by lazy {
+        refers.values.mapTo(mutableSetOf()) { it.ns } +
+            aliases.values.mapNotNull {
+                when (it) {
+                    is BridjeAlias -> it.ns
+                    is JavaAlias -> null
+                }
+            }
+    }
 
     companion object {
         private val NS = mkSym("ns")

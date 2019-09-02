@@ -67,7 +67,6 @@ private val QSYMBOL_FORM = mkQSym(":brj.forms/QSymbolForm")
 
 @Suppress("NestedLambdaShadowedImplicitParameter")
 internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
-                                      val macroEvaluator: MacroEvaluator,
                                       val locals: Map<Symbol, LocalVar> = emptyMap(),
                                       val loopLocals: List<LocalVar>? = null,
                                       val effectLocal: LocalVar = DEFAULT_EFFECT_LOCAL) {
@@ -151,7 +150,7 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
         val fn = exprAnalyser(it)
 
         return if (fn is GlobalVarExpr && fn.globalVar is DefMacroVar) {
-            exprAnalyser(ParserState(listOf(macroEvaluator.evalMacro(env, fn.globalVar, it.varargs { it.expectForm<Form>() }))))
+            exprAnalyser(ParserState(listOf(fn.globalVar.evalMacro(it.varargs { it.expectForm<Form>() }))))
         } else {
             CallExpr(fn,
                 (if (fn is GlobalVarExpr && fn.globalVar.type.effects.isNotEmpty()) LocalVarExpr(effectLocal) else null),

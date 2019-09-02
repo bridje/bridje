@@ -4,12 +4,12 @@ set -e
 set -x
 
 rm -rf dist
-mvn package
+# mvn package
 
 mkdir dist
 
 pushd dist
 mkdir -p jre/languages
 cp ../target/brj.jar jre/languages/
-jar -cfm bridje.jar ../META-INF/MANIFEST.MF
+jar -cfm bridje.jar ../META-INF/MANIFEST.MF .
 popd

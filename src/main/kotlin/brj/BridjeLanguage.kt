@@ -1,6 +1,7 @@
 package brj
 
 import brj.Symbol.Companion.mkSym
+import brj.SymbolKind.VAR_SYM
 import brj.analyser.FormsParser
 import brj.analyser.NSHeader
 import brj.analyser.NSHeader.Companion.nsHeaderParser
@@ -35,12 +36,12 @@ internal abstract class ValueNode : Node() {
 }
 
 internal class BridjeNSLoader(private val sources: Map<Symbol, Source> = emptyMap(),
-                              private val forms: Map<Symbol, List<Form>> = emptyMap()) : NSFormLoader {
+                              private val forms: Map<Symbol, List<Form>> = emptyMap()) : NSForms.Loader {
     private fun nsSource(ns: Symbol): Source? =
         this::class.java.getResource("/${ns.baseStr.replace('.', '/')}.brj")
             ?.let { url -> Source.newBuilder("bridje", url).build() }
 
-    override fun loadNSForms(ns: Symbol): List<Form> =
+    override fun loadForms(ns: Symbol): List<Form> =
         forms[ns] ?: readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
 }
 
@@ -53,8 +54,6 @@ class BridjeContext internal constructor(internal var env: RuntimeEnv,
             override fun execute(frame: VirtualFrame) = node.execute(frame)
         }
 }
-
-private val USER = mkSym("user")
 
 @TruffleLanguage.Registration(
     id = "bridje",
@@ -77,28 +76,35 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     override fun isObjectOfLanguage(obj: Any): Boolean =
         obj is RecordObject || obj is VariantObject || obj is BridjeFunction
 
-    sealed class ParseRequest {
+    internal sealed class ParseRequest {
         data class RequireRequest(val nses: Set<Symbol>) : ParseRequest()
+        data class AliasRequest(val aliases: Map<Symbol, Symbol>) : ParseRequest()
         data class ValueRequest(val form: Form) : ParseRequest()
         data class NSRequest(val nsHeader: NSHeader, val forms: List<Form>) : ParseRequest()
     }
 
     private val requireParser: FormsParser<Set<Symbol>?> = {
-        it.maybe { it.expectSym(mkSym("require")) }?.let { _ ->
-            it.varargs { it.expectSym(SymbolKind.VAR_SYM) }.toSet()
+        it.maybe {
+            it.nested(ListForm::forms) { it.expectSym(mkSym("require!")); it }
+        }?.let { it.varargs { it.expectSym(VAR_SYM) }.toSet() }
+    }
+
+
+    private val aliasParser: FormsParser<Map<Symbol, Symbol>?> = {
+        it.maybe { it.nested(ListForm::forms) { it.expectSym(mkSym("alias!")); it } }?.let {
+            it.nested(RecordForm::forms) {
+                it.varargs { Pair(it.expectSym(VAR_SYM), it.expectSym(VAR_SYM)) }
+            }.toMap()
         }
     }
 
     private val formsParser: FormsParser<List<ParseRequest>> = {
         it.varargs {
-            it.maybe { it.nested(ListForm::forms) }?.let {
-                it.or({
-                    it.maybe(requireParser)?.let { nses -> ParseRequest.RequireRequest(nses) }
-                }, {
-                    it.maybe(nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) }
-                })
-            }
-                ?: ParseRequest.ValueRequest(it.expectForm())
+            it.or(
+                { it.maybe(nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) } },
+                { it.maybe(requireParser)?.let { nses -> ParseRequest.RequireRequest(nses) } },
+                { it.maybe(aliasParser)?.let { aliases -> ParseRequest.AliasRequest(aliases) } }
+            ) ?: ParseRequest.ValueRequest(it.expectForm())
         }
     }
 
@@ -122,7 +128,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 //                override fun execute(frame: VirtualFrame) = require(ctx, setOf(ns), BridjeNSLoader(forms = mapOf(ns to forms)))
 //            })
 //        } else {
-//            val expr = ValueExprAnalyser(env, NSEnv(USER), TruffleMacroEvaluator(ctx)).analyseValueExpr(forms.first())
+//            val expr = ValueExprAnalyser(env, NSEnv(USER)).analyseValueExpr(forms.first())
 //
 //            val valueExprType = valueExprType(expr, null)
 //
@@ -139,15 +145,15 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)!!
 
         @TruffleBoundary
-        internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSFormLoader = BridjeNSLoader()): RuntimeEnv {
-            val evaluator = Evaluator(ctx.env, nsFormLoader, TruffleEmitter(ctx), TruffleMacroEvaluator(ctx))
+        internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader = BridjeNSLoader()): RuntimeEnv {
+            val evaluator = Evaluator(ctx.env, TruffleEmitter(ctx))
 
-            evaluator.requireNSes(rootNses)
+            NSForms.loadNSes(rootNses, nsFormLoader).forEach(evaluator::evalNS)
 
             return evaluator.env
         }
 
-        internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSFormLoader): RuntimeEnv {
+        internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader): RuntimeEnv {
             Context.getCurrent().initialize("bridje")
 
             val ctx = currentBridjeContext()

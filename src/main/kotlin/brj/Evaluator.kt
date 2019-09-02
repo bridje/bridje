@@ -1,11 +1,6 @@
 package brj
 
 import brj.analyser.*
-import java.util.*
-
-internal interface NSFormLoader {
-    fun loadNSForms(ns: Symbol): List<Form>
-}
 
 internal interface Emitter {
     fun evalValueExpr(expr: ValueExpr): Any
@@ -13,20 +8,14 @@ internal interface Emitter {
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
     fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
+    fun emitDefMacroVar(expr: DefMacroExpr): DefMacroVar
 }
 
-internal interface MacroEvaluator {
-    fun evalMacro(env: RuntimeEnv, macroVar: DefMacroVar, argForms: List<Form>): Form
-}
-
-internal class Evaluator(var env: RuntimeEnv,
-                         private val loader: NSFormLoader,
-                         private val emitter: Emitter,
-                         private val macroEvaluator: MacroEvaluator) {
+internal class Evaluator(var env: RuntimeEnv, private val emitter: Emitter) {
 
     private inner class NSEvaluator(var nsEnv: NSEnv) {
-        private fun evalForm(form: Form) {
-            val result = ExprAnalyser(env, nsEnv, macroEvaluator).analyseExpr(form)
+        internal fun evalForm(form: Form) {
+            val result = ExprAnalyser(env, nsEnv).analyseExpr(form)
 
             when (result) {
                 is DoResult -> result.forms.forEach(this::evalForm)
@@ -55,7 +44,7 @@ internal class Evaluator(var env: RuntimeEnv,
 
                         is DefMacroExpr -> {
                             if (expr.type.effects.isNotEmpty()) TODO()
-                            nsEnv += DefMacroVar(expr.sym, expr.type, emitter.evalValueExpr(expr.expr))
+                            nsEnv += emitter.emitDefMacroVar(expr)
                         }
 
                         is VarDeclExpr -> nsEnv +=
@@ -78,49 +67,10 @@ internal class Evaluator(var env: RuntimeEnv,
 
             env += nsEnv
         }
-
-        fun evalNS(forms: List<Form>) {
-            forms.forEach(this::evalForm)
-        }
     }
 
-    internal data class NSFile(val nsEnv: NSEnv, val forms: List<Form>)
-
-    private fun nsDeps(nsEnv: NSEnv): Set<Symbol> =
-        nsEnv.refers.values.mapTo(mutableSetOf()) { it.ns } + nsEnv.aliases.values.mapNotNull { (it as? BridjeAlias)?.ns }.toSet()
-
-    private fun nsAnalyser(ns: Symbol) =
-        NSAnalyser(ns)
-
-    private fun loadNSForms(rootNSes: Set<Symbol>): List<NSFile> {
-        val stack = LinkedHashSet<Symbol>()
-
-        val res = LinkedList<NSFile>()
-        val seen = mutableSetOf<Symbol>()
-
-        fun loadNS(ns: Symbol) {
-            if (seen.contains(ns)) return
-            if (stack.contains(ns)) throw TODO("Cyclic NS")
-
-            stack += ns
-            seen += ns
-
-            val state = ParserState(loader.loadNSForms(ns))
-            val nsEnv = nsAnalyser(ns).analyseNS(state.expectForm())
-
-            (nsDeps(nsEnv) - seen).forEach(::loadNS)
-
-            res.add(NSFile(nsEnv, state.forms))
-
-            stack -= ns
-        }
-
-        rootNSes.forEach(::loadNS)
-
-        return res
-    }
-
-    fun requireNSes(rootNSes: Set<Symbol>) {
-        loadNSForms(rootNSes).forEach { NSEvaluator(it.nsEnv).evalNS(it.forms) }
+    fun evalNS(nsForms: NSForms) {
+        val evaluator = NSEvaluator(NSEnv(nsForms.nsHeader.ns, nsForms.nsHeader.refers, nsForms.nsHeader.aliases))
+        nsForms.forms.forEach(evaluator::evalForm)
     }
 }

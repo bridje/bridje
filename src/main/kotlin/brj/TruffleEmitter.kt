@@ -2,10 +2,10 @@ package brj
 
 import brj.BridjeTypesGen.expectRecordObject
 import brj.BridjeTypesGen.expectVariantObject
+import brj.analyser.DefMacroExpr
 import brj.analyser.ValueExpr
 import brj.types.FnType
 import brj.types.MonoType
-import brj.types.VectorType
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
@@ -28,8 +28,6 @@ import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RootNode
 import org.graalvm.polyglot.Value
-import java.math.BigDecimal
-import java.math.BigInteger
 
 internal class ReadArgNode(val idx: Int) : ValueNode() {
     override fun execute(frame: VirtualFrame) = frame.arguments[idx]!!
@@ -283,60 +281,6 @@ internal class TruffleEmitter(val ctx: BridjeContext) : Emitter {
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
     override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
     override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter(ctx).emitEffectExpr(sym, defaultImpl)
-}
-
-internal class TruffleMacroEvaluator(private val ctx: BridjeContext) : MacroEvaluator {
-    private fun fromVariant(obj: VariantObject): Form {
-        val truffleEnv = ctx.truffleEnv
-
-        fun fromVariantList(arg: Any): List<Form> {
-            return (arg as List<*>).map { fromVariant(expectVariantObject(truffleEnv.asGuestValue(it))) }
-        }
-
-        val arg = obj.dynamicObject[0].let { arg -> if (truffleEnv.isHostObject(arg)) truffleEnv.asHostObject(arg) else arg }
-
-        return when (obj.variantKey.sym.base.baseStr) {
-            "BooleanForm" -> BooleanForm(arg as Boolean)
-            "StringForm" -> StringForm(arg as String)
-            "IntForm" -> IntForm(arg as Long)
-            "FloatForm" -> FloatForm(arg as Double)
-            "BigIntForm" -> BigIntForm(arg as BigInteger)
-            "BigFloatForm" -> BigFloatForm(arg as BigDecimal)
-            "ListForm" -> ListForm(fromVariantList(arg))
-            "VectorForm" -> VectorForm(fromVariantList(arg))
-            "SetForm" -> SetForm(fromVariantList(arg))
-            "RecordForm" -> RecordForm(fromVariantList(arg))
-            "SymbolForm" -> SymbolForm(arg as Symbol)
-            "QSymbolForm" -> QSymbolForm(arg as QSymbol)
-            "QuotedSymbolForm" -> QuotedSymbolForm(arg as Symbol)
-            "QuotedQSymbolForm" -> QuotedQSymbolForm(arg as QSymbol)
-            else -> TODO()
-        }
-    }
-
-    override fun evalMacro(env: RuntimeEnv, macroVar: DefMacroVar, argForms: List<Form>): Form {
-        fun toVariant(form: Form): Any {
-            val arg = when (form.arg) {
-                is List<*> -> form.arg.map { toVariant(it as Form) }
-                is Form -> toVariant(form)
-                else -> form.arg
-            }
-
-            return (env.nses[form.qsym.ns]!!.vars[form.qsym.base]?.value as BridjeFunction).callTarget.call(arg)
-        }
-
-        val variantArgs = argForms.map(::toVariant)
-
-        val paramTypes = (macroVar.type.monoType as FnType).paramTypes
-        val isVarargs = paramTypes.last() is VectorType
-        val fixedArgCount = if (isVarargs) paramTypes.size - 1 else paramTypes.size
-
-        val args = variantArgs.take(fixedArgCount) + listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null)
-
-        return fromVariant(
-            (macroVar.value as BridjeFunction).callTarget
-                .call(*(args.toTypedArray()))
-                as VariantObject)
-    }
+    override fun emitDefMacroVar(expr: DefMacroExpr): DefMacroVar = DefMacroVar(ctx, expr.sym, expr.type, evalValueExpr(expr.expr))
 }
 

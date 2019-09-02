@@ -4,6 +4,9 @@ package brj
 
 import brj.Symbol.Companion.mkSym
 import brj.types.*
+import com.oracle.truffle.api.TruffleLanguage
+import java.math.BigDecimal
+import java.math.BigInteger
 
 sealed class Alias {
     abstract val ns: Symbol
@@ -20,7 +23,58 @@ abstract class GlobalVar internal constructor() {
 
 data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
 data class EffectVar(override val sym: QSymbol, override val type: Type, val hasDefault: Boolean, override var value: Any?) : GlobalVar()
-data class DefMacroVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
+data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar() {
+    private fun fromVariant(obj: VariantObject): Form {
+        fun fromVariantList(arg: Any): List<Form> {
+            return (arg as List<*>).map { fromVariant(BridjeTypesGen.expectVariantObject(truffleEnv.asGuestValue(it))) }
+        }
+
+        val arg = obj.dynamicObject[0].let { arg -> if (truffleEnv.isHostObject(arg)) truffleEnv.asHostObject(arg) else arg }
+
+        return when (obj.variantKey.sym.base.baseStr) {
+            "BooleanForm" -> BooleanForm(arg as Boolean)
+            "StringForm" -> StringForm(arg as String)
+            "IntForm" -> IntForm(arg as Long)
+            "FloatForm" -> FloatForm(arg as Double)
+            "BigIntForm" -> BigIntForm(arg as BigInteger)
+            "BigFloatForm" -> BigFloatForm(arg as BigDecimal)
+            "ListForm" -> ListForm(fromVariantList(arg))
+            "VectorForm" -> VectorForm(fromVariantList(arg))
+            "SetForm" -> SetForm(fromVariantList(arg))
+            "RecordForm" -> RecordForm(fromVariantList(arg))
+            "SymbolForm" -> SymbolForm(arg as Symbol)
+            "QSymbolForm" -> QSymbolForm(arg as QSymbol)
+            "QuotedSymbolForm" -> QuotedSymbolForm(arg as Symbol)
+            "QuotedQSymbolForm" -> QuotedQSymbolForm(arg as QSymbol)
+            else -> TODO()
+        }
+    }
+
+    fun evalMacro(env: RuntimeEnv, argForms: List<Form>): Form {
+        fun toVariant(form: Form): Any {
+            val arg = when (form.arg) {
+                is List<*> -> form.arg.map { toVariant(it as Form) }
+                is Form -> toVariant(form)
+                else -> form.arg
+            }
+
+            return (env.nses[form.qsym.ns]!!.vars[form.qsym.base]?.value as BridjeFunction).callTarget.call(arg)
+        }
+
+        val variantArgs = argForms.map(::toVariant)
+
+        val paramTypes = (type.monoType as FnType).paramTypes
+        val isVarargs = paramTypes.last() is VectorType
+        val fixedArgCount = if (isVarargs) paramTypes.size - 1 else paramTypes.size
+
+        val args = variantArgs.take(fixedArgCount) + listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null)
+
+        return fromVariant(
+            (value as BridjeFunction).callTarget
+                .call(*(args.toTypedArray()))
+                as VariantObject)
+    }
+}
 
 data class RecordKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: MonoType) {
     override fun toString() = sym.toString()
@@ -48,7 +102,7 @@ class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar
 }
 
 class PolyVar(override val sym: QSymbol, val polyTypeVar: TypeVarType, override val type: Type) : GlobalVar() {
-    override val value = null
+    override val value: Any? = null
 
     override fun toString() = sym.toString()
 }
@@ -59,12 +113,8 @@ sealed class TypeAlias(open val sym: QSymbol, open val typeVars: List<TypeVarTyp
 internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List<TypeVarType>, override var type: MonoType?) : TypeAlias(sym, typeVars, type) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as TypeAlias_
-
+        if (other !is TypeAlias) return false
         if (sym != other.sym) return false
-
         return true
     }
 

@@ -30,7 +30,6 @@ internal data class DoResult(val forms: List<Form>) : DoOrExprResult()
 internal data class ExprResult(val expr: Expr) : DoOrExprResult()
 
 internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
-                                 val macroEvaluator: MacroEvaluator,
                                  private val typeAnalyser: TypeAnalyser = TypeAnalyser(env, nsEnv)) {
     private fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
 
