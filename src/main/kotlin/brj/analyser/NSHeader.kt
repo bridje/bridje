@@ -58,7 +58,7 @@ internal data class NSHeader(val ns: Symbol,
             }.toMap()
         }
 
-        internal val nsHeaderParser: FormsParser<NSHeader?> = {
+        internal fun nsHeaderParser(it: ParserState): NSHeader? =
             it.maybe {
                 it.nested(ListForm::forms) {
                     it.expectSym(NS)
@@ -93,7 +93,6 @@ internal data class NSHeader(val ns: Symbol,
                     nsHeader
                 }
             }
-        }
     }
 }
 

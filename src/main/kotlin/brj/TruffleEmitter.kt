@@ -281,6 +281,6 @@ internal class TruffleEmitter(val ctx: BridjeContext) : Emitter {
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
     override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
     override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter(ctx).emitEffectExpr(sym, defaultImpl)
-    override fun emitDefMacroVar(expr: DefMacroExpr): DefMacroVar = DefMacroVar(ctx, expr.sym, expr.type, evalValueExpr(expr.expr))
+    override fun emitDefMacroVar(expr: DefMacroExpr): DefMacroVar = DefMacroVar(ctx.truffleEnv, expr.sym, expr.type, evalValueExpr(expr.expr))
 }
 

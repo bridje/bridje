@@ -17,8 +17,8 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.NodeInfo
 import com.oracle.truffle.api.nodes.RootNode
+import com.oracle.truffle.api.source.Source
 import org.graalvm.polyglot.Context
-import org.graalvm.polyglot.Source
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -35,6 +35,10 @@ internal abstract class ValueNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any
 }
 
+internal fun readSourceForms(source: Source) =
+    FormReader(source).readForms(source.reader)
+
+
 internal class BridjeNSLoader(private val sources: Map<Symbol, Source> = emptyMap(),
                               private val forms: Map<Symbol, List<Form>> = emptyMap()) : NSForms.Loader {
     private fun nsSource(ns: Symbol): Source? =
@@ -42,7 +46,7 @@ internal class BridjeNSLoader(private val sources: Map<Symbol, Source> = emptyMa
             ?.let { url -> Source.newBuilder("bridje", url).build() }
 
     override fun loadForms(ns: Symbol): List<Form> =
-        forms[ns] ?: readForms((sources[ns] ?: nsSource(ns) ?: TODO("ns not found")).reader)
+        forms[ns] ?: readSourceForms(sources[ns] ?: nsSource(ns) ?: TODO("ns not found"))
 }
 
 class BridjeContext internal constructor(internal var env: RuntimeEnv,
@@ -101,7 +105,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     private val formsParser: FormsParser<List<ParseRequest>> = {
         it.varargs {
             it.or(
-                { it.maybe(nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) } },
+                { it.maybe(::nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) } },
                 { it.maybe(requireParser)?.let { nses -> ParseRequest.RequireRequest(nses) } },
                 { it.maybe(aliasParser)?.let { aliases -> ParseRequest.AliasRequest(aliases) } }
             ) ?: ParseRequest.ValueRequest(it.expectForm())
@@ -115,7 +119,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
         val env = ctx.env
 
-        val reqs = formsParser(ParserState(readForms(source.reader))).toString()
+        val reqs = formsParser(ParserState(readSourceForms(source))).toString()
 
         return Truffle.getRuntime().createCallTarget(object : RootNode(this) {
             override fun execute(frame: VirtualFrame?): Any = reqs

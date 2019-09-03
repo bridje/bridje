@@ -165,7 +165,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val locals = preamble.paramSyms?.map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(env, nsEnv, macroEvaluator, (locals ?: emptyList()).toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(env, nsEnv, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
@@ -200,7 +200,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val locals = (preamble.fixedParamSyms + listOfNotNull(preamble.varargsSym)).map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(env, nsEnv, macroEvaluator, locals.toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(env, nsEnv, locals.toMap()).doAnalyser(it)
 
         val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
 
@@ -232,7 +232,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                         else -> null
                     } ?: TODO()
 
-                    return analyseExpr(macroEvaluator.evalMacro(env, macroVar, forms.drop(1)))
+                    return analyseExpr(macroVar.evalMacro(env, forms.drop(1)) as Form)
                 }
 
                 TODO()

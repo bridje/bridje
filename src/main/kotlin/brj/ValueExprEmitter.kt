@@ -209,7 +209,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    inner class CaseMatched(val res: Any) : ControlFlowException()
+    class CaseMatched(val res: Any) : ControlFlowException()
 
     inner class CaseClauseNode(dataSlot: FrameSlot, clause: CaseClause) : Node() {
 
