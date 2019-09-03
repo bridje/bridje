@@ -43,24 +43,24 @@ data class SyntaxQuotedQSymbolForm(override val loc: SourceSection?, val sym: QS
 
 internal class FormReader(val source: Source) {
 
-    private fun makeLoc() = source.createUnavailableSection()
+    private val noLoc = source.createUnavailableSection()
     private fun makeLoc(ctx: FormParser.FormContext) = source.createSection(ctx.start.line, ctx.start.charPositionInLine, ctx.stop.line, ctx.stop.charPositionInLine)
 
-    private val concatQSymForm = QSymbolForm(makeLoc(), mkQSym(formNS, mkSym("concat")))
-    private val unquoteSplicingQSym = QSymbolForm(makeLoc(), mkQSym(formNS, mkSym("unquote-splicing")))
+    private val concatQSymForm = QSymbolForm(noLoc, mkQSym(formNS, mkSym("concat")))
+    private val unquoteSplicingQSym = QSymbolForm(noLoc, mkQSym(formNS, mkSym("unquote-splicing")))
 
     fun quoteForm(form: Form): Form {
-        fun q(argForm: Form) = ListForm(argForm.loc, listOf(QSymbolForm(argForm.loc, form.qsym), argForm))
+        fun q(argForm: Form) = ListForm(argForm.loc, listOf(QSymbolForm(noLoc, form.qsym), argForm))
 
         return when (form) {
             is BooleanForm, is StringForm,
             is IntForm, is BigIntForm,
             is FloatForm, is BigFloatForm -> q(form)
 
-            is ListForm -> q(VectorForm(form.loc, form.forms.map(::quoteForm)))
-            is SetForm -> q(VectorForm(form.loc, form.forms.map(::quoteForm)))
-            is VectorForm -> q(VectorForm(form.loc, form.forms.map(::quoteForm)))
-            is RecordForm -> q(VectorForm(form.loc, form.forms.map(::quoteForm)))
+            is ListForm -> q(VectorForm(noLoc, form.forms.map(::quoteForm)))
+            is SetForm -> q(VectorForm(noLoc, form.forms.map(::quoteForm)))
+            is VectorForm -> q(VectorForm(noLoc, form.forms.map(::quoteForm)))
+            is RecordForm -> q(VectorForm(noLoc, form.forms.map(::quoteForm)))
 
             is SymbolForm -> q(QuotedSymbolForm(form.loc, form.sym))
             is QSymbolForm -> q(QuotedQSymbolForm(form.loc, form.sym))
@@ -73,12 +73,12 @@ internal class FormReader(val source: Source) {
     fun syntaxQuoteForm(form: Form, splicing: Boolean = false): Form {
         fun firstQSym(forms: List<Form>): QSymbol? = (forms[0] as? QSymbolForm)?.sym
 
-        fun sq(argForm: Form) = ListForm(argForm.loc, listOf(QSymbolForm(makeLoc(), form.qsym), argForm))
+        fun sq(argForm: Form) = ListForm(argForm.loc, listOf(QSymbolForm(noLoc, form.qsym), argForm))
 
         fun sqSeq(forms: List<Form>): Form {
             val nestedSplicingForm = forms.any { it is ListForm && firstQSym(it.forms) == UNQUOTE_SPLICING }
-            val expandedForms = VectorForm(makeLoc(), forms.map { syntaxQuoteForm(it, nestedSplicingForm) })
-            return sq(if (nestedSplicingForm) ListForm(makeLoc(), listOf(concatQSymForm, expandedForms)) else expandedForms)
+            val expandedForms = VectorForm(noLoc, forms.map { syntaxQuoteForm(it, nestedSplicingForm) })
+            return sq(if (nestedSplicingForm) ListForm(noLoc, listOf(concatQSymForm, expandedForms)) else expandedForms)
         }
 
         var unquoteSplicing = false
@@ -119,7 +119,7 @@ internal class FormReader(val source: Source) {
             else -> throw UnsupportedOperationException()
         }
 
-        return if (splicing && !unquoteSplicing) VectorForm(makeLoc(), listOf(expandedForm)) else expandedForm
+        return if (splicing && !unquoteSplicing) VectorForm(noLoc, listOf(expandedForm)) else expandedForm
     }
 
     private fun transformForm(formContext: FormParser.FormContext): Form = formContext.accept(object : FormBaseVisitor<Form>() {
