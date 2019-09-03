@@ -4,9 +4,13 @@ import brj.QSymbol.Companion.mkQSym
 import brj.ReaderTest.FormType.BOOLEAN
 import brj.ReaderTest.FormType.VECTOR
 import brj.Symbol.Companion.mkSym
+import com.oracle.truffle.api.source.Source
 import org.junit.jupiter.api.Test
-import java.io.StringReader
 import kotlin.test.assertEquals
+
+internal fun readForms(s: String): List<Form> = Source.newBuilder("bridje", s, "testSource").build().let { source ->
+    FormReader(source).readForms(source.reader)
+}
 
 internal class ReaderTest {
 
@@ -18,20 +22,12 @@ internal class ReaderTest {
         private val formNS = mkSym("brj.forms")
 
         val qSym = QSymbolForm(null, mkQSym(formNS, mkSym(":${this.name.toLowerCase().capitalize()}Form")))
-
     }
 
-    object MockLocFactory : LocFactory<Nothing?> {
-        override fun makeLoc(): Nothing? = null
-        override fun makeLoc(startIndex: Int, stopIndex: Int): Nothing? = null
-    }
-
-    fun readForms(s: String): List<Form> = FormReader(MockLocFactory).readForms(StringReader(s))
-
-    private fun collForm(formType: FormType, vararg forms: Form<Nothing?>): Form<Nothing?> =
+    private fun collForm(formType: FormType, vararg forms: Form): Form =
         ListForm(null, listOf(formType.qSym, VectorForm(null, forms.toList())))
 
-    private fun quotedForm(formType: FormType, form: Form<Nothing?>): Form<Nothing?> =
+    private fun quotedForm(formType: FormType, form: Form): Form =
         ListForm(null, listOf(formType.qSym, form))
 
     @Test
