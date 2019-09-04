@@ -167,7 +167,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val bodyExpr = ValueExprAnalyser(env, nsEnv, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
-        val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
+        val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr, bodyExpr.loc) else bodyExpr
 
         return if (polyVarPreamble != null) {
             val polyVar = resolve(env, nsEnv, preamble.sym) as? PolyVar ?: TODO()
@@ -202,7 +202,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val bodyExpr = ValueExprAnalyser(env, nsEnv, locals.toMap()).doAnalyser(it)
 
-        val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
+        val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr, bodyExpr.loc)
 
         val formType = TypeAliasType(resolveTypeAlias(env, nsEnv, mkQSym("brj.forms/Form"))!!, emptyList())
 

@@ -2,6 +2,7 @@ package brj.analyser
 
 import brj.*
 import brj.analyser.ParseError.ExpectedIdent
+import com.oracle.truffle.api.source.SourceSection
 
 internal typealias FormsParser<R> = (ParserState) -> R
 
@@ -12,7 +13,7 @@ sealed class ParseError : Exception() {
     object ExpectedIdent : ParseError()
 }
 
-internal data class ParserState(var forms: List<Form>) {
+internal data class ParserState(var forms: List<Form>, val outerLoc: SourceSection? = null) {
     fun <R> many(a: FormsParser<R?>): List<R> {
         val ret: MutableList<R> = mutableListOf()
 
