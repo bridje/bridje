@@ -21,29 +21,29 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
     val frameDescriptor = FrameDescriptor()
 
-    class BoolNode(val boolean: Boolean) : ValueNode() {
+    class BoolNode(val boolean: Boolean, loc: Loc?) : ValueNode(loc) {
         override fun execute(frame: VirtualFrame): Boolean = boolean
     }
 
-    class IntNode(val int: Long) : ValueNode() {
+    class IntNode(val int: Long, loc: Loc?) : ValueNode(loc) {
         override fun execute(frame: VirtualFrame): Long = int
     }
 
-    class FloatNode(val float: Double) : ValueNode() {
+    class FloatNode(val float: Double, loc: Loc?) : ValueNode(loc) {
         override fun execute(frame: VirtualFrame): Double = float
     }
 
-    class ConstantNode(val obj: Any) : ValueNode() {
+    class ConstantNode(val obj: Any, loc: Loc?) : ValueNode(loc) {
         override fun execute(frame: VirtualFrame) = obj
     }
 
-    inner class HostObjectNode(obj: Any) : ValueNode() {
+    inner class HostObjectNode(obj: Any, loc: Loc?) : ValueNode(loc) {
         val interopObj = ctx.truffleEnv.asGuestValue(obj)
 
         override fun execute(frame: VirtualFrame) = interopObj
     }
 
-    abstract class CollNode(val truffleEnv: TruffleLanguage.Env, @Children val elNodes: Array<ValueNode>) : ValueNode() {
+    abstract class CollNode(val truffleEnv: TruffleLanguage.Env, @Children val elNodes: Array<ValueNode>) : ValueNode(loc = null) {
         @ExplodeLoop
         @Specialization
         fun doExecute(frame: VirtualFrame,
@@ -63,7 +63,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
     private fun collNode(exprs: List<ValueExpr>): CollNode = CollNodeGen.create(ctx.truffleEnv, exprs.map(this::emitValueNode).toTypedArray())
 
-    class VectorNode(val truffleEnv: TruffleLanguage.Env, @Child var collNode: CollNode) : ValueNode() {
+    class VectorNode(val truffleEnv: TruffleLanguage.Env, @Child var collNode: CollNode, loc: Loc?) : ValueNode(loc) {
         @TruffleBoundary(allowInlining = true)
         private fun makeVector(els: Array<*>) = els.toList()
 
@@ -72,9 +72,9 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
     }
 
-    private fun vectorNode(expr: VectorExpr) = VectorNode(ctx.truffleEnv, collNode(expr.exprs))
+    private fun vectorNode(expr: VectorExpr) = VectorNode(ctx.truffleEnv, collNode(expr.exprs), expr.loc)
 
-    class SetNode(val truffleEnv: TruffleLanguage.Env, @Child var collNode: CollNode) : ValueNode() {
+    class SetNode(val truffleEnv: TruffleLanguage.Env, @Child var collNode: CollNode, loc: Loc?) : ValueNode(loc) {
 
         @TruffleBoundary(allowInlining = true)
         private fun makeSet(els: Array<*>) = els.toSet()
@@ -83,9 +83,9 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             truffleEnv.asGuestValue(makeSet(collNode.execute(frame)))!!
     }
 
-    private fun setNode(expr: SetExpr) = SetNode(ctx.truffleEnv, collNode(expr.exprs))
+    private fun setNode(expr: SetExpr) = SetNode(ctx.truffleEnv, collNode(expr.exprs), expr.loc)
 
-    inner class RecordNode(expr: RecordExpr) : ValueNode() {
+    inner class RecordNode(expr: RecordExpr) : ValueNode(expr.loc) {
         val factory = RecordEmitter(ctx).recordObjectFactory(expr.entries.map(RecordEntry::recordKey))
 
         @Children
@@ -106,7 +106,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    inner class DoNode(expr: DoExpr) : ValueNode() {
+    inner class DoNode(expr: DoExpr) : ValueNode(expr.loc) {
         @Children
         val exprNodes = expr.exprs.map(::emitValueNode).toTypedArray()
         @Child
@@ -125,7 +125,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    inner class IfNode(expr: IfExpr) : ValueNode() {
+    inner class IfNode(expr: IfExpr) : ValueNode(expr.loc) {
         @Child
         var predNode = emitValueNode(expr.predExpr)
         @Child
@@ -139,7 +139,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             (if (conditionProfile.profile(expectBoolean(predNode.execute(frame)))) thenNode else elseNode).execute(frame)
     }
 
-    inner class LetNode(expr: LetExpr) : ValueNode() {
+    inner class LetNode(expr: LetExpr) : ValueNode(expr.loc) {
         @Children
         val bindingNodes = expr.bindings
             .map { WriteLocalVarNodeGen.create(emitValueNode(it.expr), frameDescriptor.findOrAddFrameSlot(it.localVar)) }
@@ -161,12 +161,12 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    class GlobalVarNode(val globalVar: GlobalVar) : ValueNode() {
+    class GlobalVarNode(val globalVar: GlobalVar, loc: Loc?) : ValueNode(loc) {
         // TODO specialise/cache
         override fun execute(frame: VirtualFrame) = globalVar.value!!
     }
 
-    inner class FnBodyNode(expr: FnExpr) : ValueNode() {
+    inner class FnBodyNode(expr: FnExpr) : ValueNode(expr.loc) {
         @Children
         val readArgNodes = expr.params
             .mapIndexed { idx, it -> WriteLocalVarNodeGen.create(ReadArgNode(idx), frameDescriptor.findOrAddFrameSlot(it)) }
@@ -184,7 +184,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    inner class CallNode(expr: CallExpr) : ValueNode() {
+    inner class CallNode(expr: CallExpr) : ValueNode(expr.loc) {
         @Child
         var callNode = Truffle.getRuntime().createIndirectCallNode()!!
 
@@ -244,7 +244,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    inner class CaseExprNode(expr: CaseExpr) : ValueNode() {
+    inner class CaseExprNode(expr: CaseExpr) : ValueNode(expr.loc) {
         private val dataSlot: FrameSlot = frameDescriptor.findOrAddFrameSlot(this)
 
         @Child
@@ -275,7 +275,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     internal class LoopReturnException(val res: Any) : ControlFlowException()
     internal object RecurException : ControlFlowException()
 
-    inner class LoopNode(expr: LoopExpr) : ValueNode() {
+    inner class LoopNode(expr: LoopExpr) : ValueNode(expr.loc) {
         @Children
         val bindingNodes = expr.bindings
             .map {
@@ -316,7 +316,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    inner class RecurNode(expr: RecurExpr) : ValueNode() {
+    inner class RecurNode(expr: RecurExpr) : ValueNode(expr.loc) {
         @Children
         val recurNodes = expr.exprs.map {
             WriteLocalVarNodeGen.create(
@@ -334,15 +334,15 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    internal class ReadFxNode(val slot: FrameSlot) : Node() {
+    internal class ReadFxNode(val slot: FrameSlot, loc: Loc?) : Node() {
         @Suppress("UNCHECKED_CAST")
         fun execute(frame: VirtualFrame) = (frame.getObject(slot) as? List<FxMap>)
     }
 
-    inner class WithFxNode(expr: WithFxExpr) : ValueNode() {
-        inner class UpdateFxNode(expr: WithFxExpr) : ValueNode() {
+    inner class WithFxNode(expr: WithFxExpr) : ValueNode(expr.loc) {
+        inner class UpdateFxNode(expr: WithFxExpr) : ValueNode(loc) {
             @Child
-            var readFxNode = ReadFxNode(frameDescriptor.findOrAddFrameSlot(expr.oldFxLocal))
+            var readFxNode = ReadFxNode(frameDescriptor.findOrAddFrameSlot(expr.oldFxLocal), loc = null)
 
             inner class UpdateEffectNode(val sym: QSymbol, expr: WithFxExpr, fnExpr: FnExpr) : Node() {
                 @Child
@@ -389,15 +389,15 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
     private fun emitValueNode(expr: ValueExpr): ValueNode =
         when (expr) {
-            is BooleanExpr -> BoolNode(expr.boolean)
-            is StringExpr -> ConstantNode(expr.string)
-            is IntExpr -> IntNode(expr.int)
-            is BigIntExpr -> HostObjectNode(expr.bigInt)
-            is FloatExpr -> FloatNode(expr.float)
-            is BigFloatExpr -> HostObjectNode(expr.bigFloat)
+            is BooleanExpr -> BoolNode(expr.boolean, expr.loc)
+            is StringExpr -> ConstantNode(expr.string, expr.loc)
+            is IntExpr -> IntNode(expr.int, expr.loc)
+            is BigIntExpr -> HostObjectNode(expr.bigInt, expr.loc)
+            is FloatExpr -> FloatNode(expr.float, expr.loc)
+            is BigFloatExpr -> HostObjectNode(expr.bigFloat, expr.loc)
 
-            is QuotedSymbolExpr -> HostObjectNode(expr.sym)
-            is QuotedQSymbolExpr -> HostObjectNode(expr.sym)
+            is QuotedSymbolExpr -> HostObjectNode(expr.sym, expr.loc)
+            is QuotedQSymbolExpr -> HostObjectNode(expr.sym, expr.loc)
 
             is VectorExpr -> vectorNode(expr)
             is SetExpr -> setNode(expr)
@@ -406,7 +406,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
             is FnExpr -> {
                 val emitter = ValueExprEmitter(ctx)
-                ConstantNode(BridjeFunction(emitter.makeRootNode(emitter.FnBodyNode(expr))))
+                ConstantNode(BridjeFunction(emitter.makeRootNode(emitter.FnBodyNode(expr))), expr.loc)
             }
 
             is CallExpr -> CallNode(expr)
@@ -419,17 +419,17 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             is RecurExpr -> RecurNode(expr)
 
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
-            is GlobalVarExpr -> GlobalVarNode(expr.globalVar)
+            is GlobalVarExpr -> GlobalVarNode(expr.globalVar, expr.loc)
 
             is WithFxExpr -> WithFxNode(expr)
 
             is CaseExpr -> CaseExprNode(expr)
         }
 
-    inner class WrapFxNode(@Child var node: ValueNode) : ValueNode() {
+    inner class WrapFxNode(@Child var node: ValueNode) : ValueNode(null) {
         @Child
         var writeFxVarNode = WriteLocalVarNodeGen.create(
-            HostObjectNode(listOf(emptyMap<QSymbol, BridjeFunction>())),
+            HostObjectNode(listOf(emptyMap<QSymbol, BridjeFunction>()), null),
             frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL))
 
         override fun execute(frame: VirtualFrame): Any {

@@ -34,8 +34,10 @@ internal abstract class BridjeTypes
 
 @TypeSystemReference(BridjeTypes::class)
 @NodeInfo(language = "bridje")
-internal abstract class ValueNode : Node() {
+internal abstract class ValueNode(val loc: Loc?) : Node() {
     abstract fun execute(frame: VirtualFrame): Any
+
+    override fun getSourceSection() = loc
 }
 
 internal fun readSourceForms(source: Source) =
