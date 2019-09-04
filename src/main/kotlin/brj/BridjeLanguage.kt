@@ -18,9 +18,12 @@ import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.NodeInfo
 import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.Source
+import com.oracle.truffle.api.source.SourceSection
 import org.graalvm.polyglot.Context
 import java.math.BigDecimal
 import java.math.BigInteger
+
+typealias Loc = SourceSection
 
 @TypeSystem(
     Boolean::class, String::class,
@@ -37,7 +40,6 @@ internal abstract class ValueNode : Node() {
 
 internal fun readSourceForms(source: Source) =
     FormReader(source).readForms(source.reader)
-
 
 internal class BridjeNSLoader(private val sources: Map<Symbol, Source> = emptyMap(),
                               private val forms: Map<Symbol, List<Form>> = emptyMap()) : NSForms.Loader {

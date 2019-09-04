@@ -52,7 +52,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             it.maybe { it.expectSym() }?.let { sym -> Preamble(sym) }
         }, {
             it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
-                it.nested(listForm.forms) {
+                it.nested(listForm.forms, listForm.loc) {
                     it.or({
                         // (:: (! (println! Str) Void))
                         it.maybe { it.expectSym(EFFECT) }?.let { _ ->
@@ -148,7 +148,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(nsQSym(it)) }
         }, {
             it.maybe { it.expectForm<ListForm>() }?.let { lf ->
-                it.nested(lf.forms) {
+                it.nested(lf.forms, lf.loc) {
                     it.or({
                         it.maybe { it.expectSym(EFFECT) }?.let { _ ->
                             it.nested(ListForm::forms) {
@@ -232,7 +232,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                         else -> null
                     } ?: TODO()
 
-                    return analyseExpr(macroVar.evalMacro(env, forms.drop(1)) as Form)
+                    return analyseExpr(macroVar.evalMacro(env, forms.drop(1)))
                 }
 
                 TODO()

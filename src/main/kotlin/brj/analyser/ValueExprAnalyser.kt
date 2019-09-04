@@ -5,7 +5,6 @@ import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.SymbolKind.RECORD_KEY_SYM
 import brj.SymbolKind.VAR_SYM
-import com.oracle.truffle.api.source.SourceSection
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -14,48 +13,48 @@ class LocalVar(val sym: Symbol) {
 }
 
 sealed class ValueExpr {
-    abstract val loc: SourceSection?
+    abstract val loc: Loc?
 }
 
-data class BooleanExpr(val boolean: Boolean, override val loc: SourceSection? = null) : ValueExpr()
-data class StringExpr(val string: String, override val loc: SourceSection? = null) : ValueExpr()
-data class IntExpr(val int: Long, override val loc: SourceSection? = null) : ValueExpr()
-data class BigIntExpr(val bigInt: BigInteger, override val loc: SourceSection? = null) : ValueExpr()
-data class FloatExpr(val float: Double, override val loc: SourceSection? = null) : ValueExpr()
-data class BigFloatExpr(val bigFloat: BigDecimal, override val loc: SourceSection? = null) : ValueExpr()
+data class BooleanExpr(val boolean: Boolean, override val loc: Loc? = null) : ValueExpr()
+data class StringExpr(val string: String, override val loc: Loc? = null) : ValueExpr()
+data class IntExpr(val int: Long, override val loc: Loc? = null) : ValueExpr()
+data class BigIntExpr(val bigInt: BigInteger, override val loc: Loc? = null) : ValueExpr()
+data class FloatExpr(val float: Double, override val loc: Loc? = null) : ValueExpr()
+data class BigFloatExpr(val bigFloat: BigDecimal, override val loc: Loc? = null) : ValueExpr()
 
-data class QuotedSymbolExpr(val sym: Symbol, override val loc: SourceSection? = null) : ValueExpr()
-data class QuotedQSymbolExpr(val sym: QSymbol, override val loc: SourceSection? = null) : ValueExpr()
+data class QuotedSymbolExpr(val sym: Symbol, override val loc: Loc? = null) : ValueExpr()
+data class QuotedQSymbolExpr(val sym: QSymbol, override val loc: Loc? = null) : ValueExpr()
 
-data class VectorExpr(val exprs: List<ValueExpr>, override val loc: SourceSection? = null) : ValueExpr()
-data class SetExpr(val exprs: List<ValueExpr>, override val loc: SourceSection? = null) : ValueExpr()
+data class VectorExpr(val exprs: List<ValueExpr>, override val loc: Loc? = null) : ValueExpr()
+data class SetExpr(val exprs: List<ValueExpr>, override val loc: Loc? = null) : ValueExpr()
 data class RecordEntry(val recordKey: RecordKey, val expr: ValueExpr)
-data class RecordExpr(val entries: List<RecordEntry>, override val loc: SourceSection? = null) : ValueExpr()
+data class RecordExpr(val entries: List<RecordEntry>, override val loc: Loc? = null) : ValueExpr()
 
-data class CallExpr(val f: ValueExpr, val effectArg: LocalVarExpr?, val args: List<ValueExpr>, override val loc: SourceSection? = null) : ValueExpr()
-data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr, override val loc: SourceSection? = null) : ValueExpr()
+data class CallExpr(val f: ValueExpr, val effectArg: LocalVarExpr?, val args: List<ValueExpr>, override val loc: Loc? = null) : ValueExpr()
+data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr, override val loc: Loc? = null) : ValueExpr()
 
-data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr, override val loc: SourceSection? = null) : ValueExpr()
-data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override val loc: SourceSection? = null) : ValueExpr()
+data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr, override val loc: Loc? = null) : ValueExpr()
+data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override val loc: Loc? = null) : ValueExpr()
 
 data class LetBinding(val localVar: LocalVar, val expr: ValueExpr)
-data class LetExpr(val bindings: List<LetBinding>, val expr: ValueExpr, override val loc: SourceSection? = null) : ValueExpr()
+data class LetExpr(val bindings: List<LetBinding>, val expr: ValueExpr, override val loc: Loc? = null) : ValueExpr()
 
-data class LoopExpr(val bindings: List<LetBinding>, val expr: ValueExpr, override val loc: SourceSection? = null) : ValueExpr()
-data class RecurExpr(val exprs: List<Pair<LocalVar, ValueExpr>>, override val loc: SourceSection? = null) : ValueExpr()
+data class LoopExpr(val bindings: List<LetBinding>, val expr: ValueExpr, override val loc: Loc? = null) : ValueExpr()
+data class RecurExpr(val exprs: List<Pair<LocalVar, ValueExpr>>, override val loc: Loc? = null) : ValueExpr()
 
 data class CaseClause(val variantKey: VariantKey, val bindings: List<LocalVar>, val bodyExpr: ValueExpr)
-data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?, override val loc: SourceSection? = null) : ValueExpr()
+data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?, override val loc: Loc? = null) : ValueExpr()
 
-data class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection? = null) : ValueExpr()
-data class GlobalVarExpr(val globalVar: GlobalVar, override val loc: SourceSection? = null) : ValueExpr()
+data class LocalVarExpr(val localVar: LocalVar, override val loc: Loc? = null) : ValueExpr()
+data class GlobalVarExpr(val globalVar: GlobalVar, override val loc: Loc? = null) : ValueExpr()
 
 data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr)
 data class WithFxExpr(val oldFxLocal: LocalVar,
                       val fx: Set<EffectDef>,
                       val newFxLocal: LocalVar,
                       val bodyExpr: ValueExpr,
-                      override val loc: SourceSection? = null) : ValueExpr()
+                      override val loc: Loc? = null) : ValueExpr()
 
 internal val IF = mkSym("if")
 internal val FN = mkSym("fn")
@@ -218,7 +217,7 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             val (variantKey, paramSyms) = when (clauseForm) {
                 is SymbolForm -> Pair(resolveVariantKey(clauseForm).variantKey, emptyList())
                 is ListForm -> {
-                    it.nested(clauseForm.forms) {
+                    it.nested(clauseForm.forms, clauseForm.loc) {
                         Pair(resolveVariantKey(it.expectForm()).variantKey, it.varargs { it.expectForm<SymbolForm>().sym })
                     }
                 }
@@ -263,7 +262,7 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
         }
     }
 
-    private fun collAnalyser(transform: (List<ValueExpr>, SourceSection?) -> ValueExpr): FormsParser<ValueExpr> = {
+    private fun collAnalyser(transform: (List<ValueExpr>, Loc?) -> ValueExpr): FormsParser<ValueExpr> = {
         transform(it.varargs(::exprAnalyser), it.outerLoc)
     }
 
@@ -280,10 +279,10 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
         return RecordExpr(entries, form.loc)
     }
 
-    private fun syntaxQuoteAnalyser(loc: SourceSection?, ident: Ident): ValueExpr =
-        CallExpr(GlobalVarExpr(resolve(QSYMBOL_FORM)!!),
+    private fun syntaxQuoteAnalyser(loc: Loc?, ident: Ident): ValueExpr =
+        CallExpr(GlobalVarExpr(resolve(QSYMBOL_FORM)!!, loc = null),
             null,
-            listOf(QuotedQSymbolExpr((resolve(ident) ?: TODO("sym not found: $ident")).sym)),
+            listOf(QuotedQSymbolExpr((resolve(ident) ?: TODO("sym not found: $ident")).sym, loc = null)),
             loc)
 
     private fun exprAnalyser(it: ParserState): ValueExpr {

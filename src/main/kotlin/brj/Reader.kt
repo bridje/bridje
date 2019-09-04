@@ -4,7 +4,6 @@ import brj.QSymbol.Companion.mkQSym
 import brj.Symbol.Companion.mkSym
 import brj.analyser.*
 import com.oracle.truffle.api.source.Source
-import com.oracle.truffle.api.source.SourceSection
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.io.Reader
@@ -17,29 +16,29 @@ private val UNQUOTE = mkQSym(formNS, mkSym("unquote"))
 private val UNQUOTE_SPLICING = mkQSym(formNS, mkSym("unquote-splicing"))
 
 sealed class Form(internal val arg: Any) {
-    abstract val loc: SourceSection?
+    abstract val loc: Loc?
 
     val qsym by lazy {
         mkQSym(formNS, mkSym(":${javaClass.simpleName}"))
     }
 }
 
-data class BooleanForm(override val loc: SourceSection?, val bool: Boolean) : Form(bool)
-data class StringForm(override val loc: SourceSection?, val string: String) : Form(string)
-data class IntForm(override val loc: SourceSection?, val int: Long) : Form(int)
-data class BigIntForm(override val loc: SourceSection?, val bigInt: BigInteger) : Form(bigInt)
-data class FloatForm(override val loc: SourceSection?, val float: Double) : Form(float)
-data class BigFloatForm(override val loc: SourceSection?, val bigFloat: BigDecimal) : Form(bigFloat)
-data class SymbolForm(override val loc: SourceSection?, val sym: Symbol) : Form(sym)
-data class QSymbolForm(override val loc: SourceSection?, val sym: QSymbol) : Form(sym)
-data class ListForm(override val loc: SourceSection?, val forms: List<Form>) : Form(forms)
-data class VectorForm(override val loc: SourceSection?, val forms: List<Form>) : Form(forms)
-data class SetForm(override val loc: SourceSection?, val forms: List<Form>) : Form(forms)
-data class RecordForm(override val loc: SourceSection?, val forms: List<Form>) : Form(forms)
-data class QuotedSymbolForm(override val loc: SourceSection?, val sym: Symbol) : Form(sym)
-data class QuotedQSymbolForm(override val loc: SourceSection?, val sym: QSymbol) : Form(sym)
-data class SyntaxQuotedSymbolForm(override val loc: SourceSection?, val sym: Symbol) : Form(sym)
-data class SyntaxQuotedQSymbolForm(override val loc: SourceSection?, val sym: QSymbol) : Form(sym)
+data class BooleanForm(override val loc: Loc?, val bool: Boolean) : Form(bool)
+data class StringForm(override val loc: Loc?, val string: String) : Form(string)
+data class IntForm(override val loc: Loc?, val int: Long) : Form(int)
+data class BigIntForm(override val loc: Loc?, val bigInt: BigInteger) : Form(bigInt)
+data class FloatForm(override val loc: Loc?, val float: Double) : Form(float)
+data class BigFloatForm(override val loc: Loc?, val bigFloat: BigDecimal) : Form(bigFloat)
+data class SymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
+data class QSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
+data class ListForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
+data class VectorForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
+data class SetForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
+data class RecordForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
+data class QuotedSymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
+data class QuotedQSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
+data class SyntaxQuotedSymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
+data class SyntaxQuotedQSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
 
 internal class FormReader(val source: Source) {
 

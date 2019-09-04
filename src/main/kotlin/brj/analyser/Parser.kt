@@ -2,7 +2,6 @@ package brj.analyser
 
 import brj.*
 import brj.analyser.ParseError.ExpectedIdent
-import com.oracle.truffle.api.source.SourceSection
 
 internal typealias FormsParser<R> = (ParserState) -> R
 
@@ -13,7 +12,7 @@ sealed class ParseError : Exception() {
     object ExpectedIdent : ParseError()
 }
 
-internal data class ParserState(var forms: List<Form>, val outerLoc: SourceSection? = null) {
+internal data class ParserState(var forms: List<Form>, val outerLoc: Loc? = null) {
     fun <R> many(a: FormsParser<R?>): List<R> {
         val ret: MutableList<R> = mutableListOf()
 
@@ -81,10 +80,17 @@ internal data class ParserState(var forms: List<Form>, val outerLoc: SourceSecti
         return null
     }
 
-    fun <R> nested(forms: List<Form>, a: FormsParser<R>): R = a(ParserState(forms))
+    fun <R> nested(forms: List<Form>, outerLoc: Loc?, a: FormsParser<R>): R = a(ParserState(forms, outerLoc))
 
-    inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsParser<R>): R = nested(f(expectForm()), a)
-    inline fun <reified F : Form> nested(f: (F) -> List<Form>): ParserState = nested(f(expectForm())) { it }
+    inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsParser<R>): R {
+        val form = expectForm<F>()
+        return nested(f(form), form.loc, a)
+    }
+
+    inline fun <reified F : Form> nested(f: (F) -> List<Form>): ParserState {
+        val form = expectForm<F>()
+        return nested(f(form), form.loc) { it }
+    }
 
     fun expectSym() = expectForm<SymbolForm>().sym
 
