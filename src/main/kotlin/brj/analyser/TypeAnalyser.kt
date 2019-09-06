@@ -38,7 +38,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                         VAR_SYM -> typeVarFactory.mkTypeVar(form.sym)
                         TYPE_ALIAS_SYM -> {
                             // TODO kind check
-                            resolveTypeAlias(env, nsEnv, form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
+                            nsEnv.resolveTypeAlias(form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
                         }
                         else -> TODO()
                     }
@@ -49,7 +49,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 when (form.sym.symbolKind) {
                     TYPE_ALIAS_SYM -> {
                         // TODO kind check
-                        resolveTypeAlias(env, nsEnv, form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
+                        nsEnv.resolveTypeAlias(form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
                     }
                     else -> TODO()
                 }
@@ -77,7 +77,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                                     it.maybe { it.expectForm<ListForm>() }?.let { lf -> it.nested(lf.forms, lf.loc) { Preamble(it.expectIdent(VARIANT_KEY_SYM), it.varargs { monoTypeAnalyser(it) }) } }
                                 }) ?: TODO()
 
-                                val variantKey = (resolve(env, nsEnv, preamble.variantSym) as? VariantKeyVar)?.variantKey
+                                val variantKey = (nsEnv.resolve(preamble.variantSym) as? VariantKeyVar)?.variantKey
                                     ?: TODO()
 
                                 // TODO check kind
@@ -89,7 +89,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 }, {
                     it.maybe { it.expectSym(TYPE_ALIAS_SYM) }?.let { sym ->
                         // TODO kind check
-                        TypeAliasType(resolveTypeAlias(env, nsEnv, sym) ?: TODO(), it.varargs(this::monoTypeAnalyser))
+                        TypeAliasType(nsEnv.resolveTypeAlias(sym) ?: TODO(), it.varargs(this::monoTypeAnalyser))
                     }
                 }) ?: TODO()
             }

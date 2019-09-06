@@ -174,6 +174,6 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         }
 
         @JvmStatic
-        fun require(rootNses: Set<Symbol>) = require(rootNses, BridjeNSLoader())
+        internal fun require(rootNses: Set<Symbol>) = require(rootNses, BridjeNSLoader())
     }
 }

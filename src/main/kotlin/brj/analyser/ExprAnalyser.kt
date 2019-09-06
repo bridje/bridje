@@ -165,12 +165,12 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val locals = preamble.paramSyms?.map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(env, nsEnv, (locals ?: emptyList()).toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(nsEnv, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr, bodyExpr.loc) else bodyExpr
 
         return if (polyVarPreamble != null) {
-            val polyVar = resolve(env, nsEnv, preamble.sym) as? PolyVar ?: TODO()
+            val polyVar = nsEnv.resolve(preamble.sym) as? PolyVar ?: TODO()
             valueExprType(expr, polyVar.type.monoType)
             PolyVarDefExpr(polyVar, polyVarPreamble.implType, expr)
         } else {
@@ -200,11 +200,11 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val locals = (preamble.fixedParamSyms + listOfNotNull(preamble.varargsSym)).map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(env, nsEnv, locals.toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(nsEnv, locals.toMap()).doAnalyser(it)
 
         val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr, bodyExpr.loc)
 
-        val formType = TypeAliasType(resolveTypeAlias(env, nsEnv, mkQSym("brj.forms/Form"))!!, emptyList())
+        val formType = TypeAliasType(nsEnv.resolveTypeAlias(mkQSym("brj.forms/Form"))!!, emptyList())
 
         val exprType = valueExprType(expr, FnType(preamble.fixedParamSyms.map { formType } + listOfNotNull(preamble.varargsSym).map { VectorType(formType) }, formType))
 
@@ -227,12 +227,12 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 if (forms.isNotEmpty()) {
                     val firstForm = forms[0]
                     val macroVar = when (firstForm) {
-                        is SymbolForm -> resolve(env, nsEnv, firstForm.sym) as? DefMacroVar
-                        is QSymbolForm -> resolve(env, nsEnv, firstForm.sym) as? DefMacroVar
+                        is SymbolForm -> nsEnv.resolve(firstForm.sym) as? DefMacroVar
+                        is QSymbolForm -> nsEnv.resolve(firstForm.sym) as? DefMacroVar
                         else -> null
                     } ?: TODO()
 
-                    return analyseExpr(macroVar.evalMacro(env, forms.drop(1)))
+                    return analyseExpr(macroVar.evalMacro(forms.drop(1)))
                 }
 
                 TODO()

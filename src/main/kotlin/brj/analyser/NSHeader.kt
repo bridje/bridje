@@ -8,11 +8,12 @@ import brj.SymbolKind.TYPE_ALIAS_SYM
 import brj.SymbolKind.VAR_SYM
 
 internal data class NSHeader(val ns: Symbol,
-                             val refers: Map<Symbol, QSymbol> = emptyMap(),
+                             val varRefers: Map<Symbol, QSymbol> = emptyMap(),
+                             val typeAliasRefers: Map<Symbol, QSymbol> = emptyMap(),
                              val aliases: Map<Symbol, Alias> = emptyMap()) {
 
     val deps by lazy {
-        refers.values.mapTo(mutableSetOf()) { it.ns } +
+        varRefers.values.mapTo(mutableSetOf()) { it.ns } +
             aliases.values.mapNotNull {
                 when (it) {
                     is BridjeAlias -> it.ns
@@ -76,7 +77,7 @@ internal data class NSHeader(val ns: Symbol,
                                 val sym = it.expectForm<SymbolForm>().sym
                                 nsHeader = when (sym) {
                                     REFERS -> {
-                                        nsHeader.copy(refers = it.nested(RecordForm::forms, ::refersAnalyser))
+                                        nsHeader.copy(varRefers = it.nested(RecordForm::forms, ::refersAnalyser))
                                     }
 
                                     ALIASES -> {

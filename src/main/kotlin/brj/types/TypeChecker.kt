@@ -8,7 +8,7 @@ import brj.types.TypeException.ArityError
 import java.util.*
 import kotlin.collections.HashSet
 
-typealias RowTypeMapping<K> = Map<RowTypeVar, Pair<Map<K, RowKey>, RowTypeVar>>
+internal typealias RowTypeMapping<K> = Map<RowTypeVar, Pair<Map<K, RowKey>, RowTypeVar>>
 
 internal data class Mapping(val typeMapping: Map<TypeVarType, MonoType> = emptyMap(),
                             val recordMapping: RowTypeMapping<RecordKey> = emptyMap(),
@@ -34,7 +34,7 @@ internal data class Mapping(val typeMapping: Map<TypeVarType, MonoType> = emptyM
                 .plus(mapping.variantMapping))
 }
 
-typealias MonoEnv = Map<LocalVar, MonoType>
+internal typealias MonoEnv = Map<LocalVar, MonoType>
 
 internal class Instantiator {
     private val tvMapping = mutableMapOf<TypeVarType, TypeVarType>()
@@ -47,13 +47,13 @@ internal class Instantiator {
     }
 }
 
-sealed class TypeException : Exception() {
+internal sealed class TypeException : Exception() {
     data class UnificationError(val t1: MonoType, val t2: MonoType) : TypeException()
     data class ExpectedFunction(val expr: ValueExpr, val type: MonoType) : TypeException()
     data class ArityError(val fnType: FnType, val argExprs: List<ValueExpr>) : TypeException()
 }
 
-typealias TypeEq = Pair<MonoType, MonoType>
+internal typealias TypeEq = Pair<MonoType, MonoType>
 
 internal data class Unification(val typeEqs: List<TypeEq> = emptyList(),
                                 val recordEqs: RowTypeMapping<RecordKey> = emptyMap(),
@@ -317,4 +317,4 @@ private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Ty
         is CaseExpr -> caseExprTyping(expr, expectedType)
     }
 
-fun valueExprType(expr: ValueExpr, expectedType: MonoType?) = valueExprTyping(expr, expectedType).let { Type(it.monoType, it.polyConstraints, it.effects) }
+internal fun valueExprType(expr: ValueExpr, expectedType: MonoType?) = valueExprTyping(expr, expectedType).let { Type(it.monoType, it.polyConstraints, it.effects) }

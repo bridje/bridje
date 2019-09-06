@@ -2,6 +2,7 @@ package brj
 
 import brj.BridjeTypesGen.expectRecordObject
 import brj.BridjeTypesGen.expectVariantObject
+import brj.Symbol.Companion.mkSym
 import brj.analyser.DefMacroExpr
 import brj.analyser.ValueExpr
 import brj.types.FnType
@@ -66,7 +67,7 @@ internal class BridjeFunction internal constructor(rootNode: RootNode) : Truffle
 }
 
 @ExportLibrary(InteropLibrary::class)
-class RecordObject(private val truffleEnv: TruffleLanguage.Env, val keys: List<RecordKey>, val dynamicObject: DynamicObject) : TruffleObject {
+internal class RecordObject(private val truffleEnv: TruffleLanguage.Env, val keys: List<RecordKey>, val dynamicObject: DynamicObject) : TruffleObject {
     private val keyStrings by lazy {
         keys.associate { it.sym.toString() to it.sym }
     }
@@ -95,7 +96,7 @@ internal class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode(loc = nul
     override fun execute(frame: VirtualFrame) = expectRecordObject(readArgNode.execute(frame)).dynamicObject[recordKey.sym.toString()]!!
 }
 
-typealias RecordObjectFactory = (Array<Any?>) -> RecordObject
+internal typealias RecordObjectFactory = (Array<Any?>) -> RecordObject
 
 internal class RecordEmitter(val ctx: BridjeContext) {
     companion object {
@@ -123,7 +124,7 @@ internal class RecordEmitter(val ctx: BridjeContext) {
 }
 
 @ExportLibrary(InteropLibrary::class)
-class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject) : TruffleObject {
+internal class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject) : TruffleObject {
     private val paramCount = variantKey.paramTypes.size
 
     @TruffleBoundary
@@ -162,7 +163,7 @@ internal class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int)
     }
 }
 
-typealias VariantObjectFactory = (Array<Any?>) -> VariantObject
+internal typealias VariantObjectFactory = (Array<Any?>) -> VariantObject
 
 internal class VariantConstructorNode(private val variantObjectFactory: VariantObjectFactory, private val paramTypes: List<MonoType>) : ValueNode(loc = null) {
     @ExplodeLoop
@@ -281,6 +282,8 @@ internal class TruffleEmitter(val ctx: BridjeContext) : Emitter {
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
     override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
     override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter(ctx).emitEffectExpr(sym, defaultImpl)
-    override fun emitDefMacroVar(expr: DefMacroExpr): DefMacroVar = DefMacroVar(ctx.truffleEnv, expr.sym, expr.type, evalValueExpr(expr.expr))
+    override fun emitDefMacroVar(expr: DefMacroExpr): DefMacroVar =
+        // HACK where should I be getting the brj.forms NSEnv from?
+        DefMacroVar(ctx.truffleEnv, expr.sym, expr.type, ctx.env.nses[mkSym("brj.forms")]!!, evalValueExpr(expr.expr))
 }
 

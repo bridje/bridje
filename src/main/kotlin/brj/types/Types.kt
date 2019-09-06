@@ -18,7 +18,7 @@ internal val QSYMBOL = mkSym("QSymbol")
 internal val FN_TYPE = mkSym("Fn")
 internal val VARIANT_TYPE = mkSym("+")
 
-data class Type(val monoType: MonoType, val polyConstraints: Map<TypeVarType, Set<QSymbol>> = emptyMap(), val effects: Set<QSymbol> = emptySet()) {
+internal data class Type(val monoType: MonoType, val polyConstraints: Map<TypeVarType, Set<QSymbol>> = emptyMap(), val effects: Set<QSymbol> = emptySet()) {
     override fun toString(): String {
         val effectStr = if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}}"
 
@@ -28,7 +28,7 @@ data class Type(val monoType: MonoType, val polyConstraints: Map<TypeVarType, Se
     }
 }
 
-sealed class MonoType {
+internal sealed class MonoType {
     internal open val javaType: Class<*>? = Object::class.java
 
     internal open fun unifyEq(other: MonoType): Unification =
@@ -42,43 +42,43 @@ sealed class MonoType {
     internal open fun applyMapping(mapping: Mapping): MonoType = fmap { it.applyMapping(mapping) }
 }
 
-object BoolType : MonoType() {
+internal object BoolType : MonoType() {
     override val javaType: Class<*>? = Boolean::class.javaPrimitiveType
 
     override fun toString(): String = "Bool"
 }
 
-object StringType : MonoType() {
+internal object StringType : MonoType() {
     override fun toString(): String = "Str"
 }
 
-object IntType : MonoType() {
+internal object IntType : MonoType() {
     override val javaType: Class<*>? = Long::class.javaPrimitiveType
     override fun toString(): String = "Int"
 }
 
-object BigIntType : MonoType() {
+internal object BigIntType : MonoType() {
     override fun toString(): String = "BigInt"
 }
 
-object FloatType : MonoType() {
+internal object FloatType : MonoType() {
     override val javaType: Class<*>? = Double::class.javaPrimitiveType
     override fun toString(): String = "Float"
 }
 
-object BigFloatType : MonoType() {
+internal object BigFloatType : MonoType() {
     override fun toString(): String = "BigFloat"
 }
 
-object SymbolType : MonoType() {
+internal object SymbolType : MonoType() {
     override fun toString(): String = "Symbol"
 }
 
-object QSymbolType : MonoType() {
+internal object QSymbolType : MonoType() {
     override fun toString(): String = "QSymbol"
 }
 
-class TypeVarType : MonoType() {
+internal class TypeVarType : MonoType() {
     override fun applyMapping(mapping: Mapping): MonoType = mapping.typeMapping.getOrDefault(this, this)
 
     override fun toString(): String {
@@ -86,21 +86,21 @@ class TypeVarType : MonoType() {
     }
 }
 
-data class VectorType(val elType: MonoType) : MonoType() {
+internal data class VectorType(val elType: MonoType) : MonoType() {
     override fun unifyEq(other: MonoType) = Unification(listOf(TypeEq(elType, ensure<VectorType>(other).elType)))
     override fun fmap(f: (MonoType) -> MonoType): MonoType = VectorType(f(elType))
 
     override fun toString(): String = "[$elType]"
 }
 
-data class SetType(val elType: MonoType) : MonoType() {
+internal data class SetType(val elType: MonoType) : MonoType() {
     override fun unifyEq(other: MonoType) = Unification(listOf(TypeEq(elType, ensure<SetType>(other).elType)))
     override fun fmap(f: (MonoType) -> MonoType): MonoType = SetType(f(elType))
 
     override fun toString(): String = "#{$elType}"
 }
 
-data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : MonoType() {
+internal data class FnType(val paramTypes: List<MonoType>, val returnType: MonoType) : MonoType() {
     override fun unifyEq(other: MonoType): Unification {
         val otherFnType = ensure<FnType>(other)
         if (paramTypes.size != otherFnType.paramTypes.size) throw UnificationError(this, other)
@@ -118,12 +118,12 @@ class RowTypeVar(val open: Boolean) {
     override fun toString() = "r${hashCode()}${if (open) "*" else ""}"
 }
 
-data class RowKey(val typeParams: List<MonoType>) {
+internal data class RowKey(val typeParams: List<MonoType>) {
     internal fun fmap(f: (MonoType) -> MonoType) = RowKey(typeParams.map(f))
 }
 
-data class RecordType(val hasKeys: Map<RecordKey, RowKey>,
-                      val typeVar: RowTypeVar) : MonoType() {
+internal data class RecordType(val hasKeys: Map<RecordKey, RowKey>,
+                               val typeVar: RowTypeVar) : MonoType() {
 
     companion object {
         internal fun accessorType(recordKey: RecordKey): Type {
@@ -162,7 +162,7 @@ data class RecordType(val hasKeys: Map<RecordKey, RowKey>,
     override fun toString() = "{${hasKeys.keys.joinToString(" ")}}"
 }
 
-data class VariantType(val possibleKeys: Map<VariantKey, RowKey>, val typeVar: RowTypeVar) : MonoType() {
+internal data class VariantType(val possibleKeys: Map<VariantKey, RowKey>, val typeVar: RowTypeVar) : MonoType() {
 
     companion object {
         internal fun constructorType(variantKey: VariantKey): Type {
@@ -213,7 +213,7 @@ data class VariantType(val possibleKeys: Map<VariantKey, RowKey>, val typeVar: R
             ")"
 }
 
-data class TypeAliasType(val typeAlias: TypeAlias, val typeParams: List<MonoType>) : MonoType() {
+internal data class TypeAliasType(val typeAlias: TypeAlias, val typeParams: List<MonoType>) : MonoType() {
     override fun fmap(f: (MonoType) -> MonoType): MonoType = TypeAliasType(typeAlias, typeParams.map { it.fmap(f) })
     override fun unifyEq(other: MonoType): Unification = Unification(typeEqs = listOf(TypeEq(other, typeAlias.type!!)))
 

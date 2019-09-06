@@ -70,7 +70,20 @@ internal class Evaluator(var env: RuntimeEnv, private val emitter: Emitter) {
     }
 
     fun evalNS(nsForms: NSForms) {
-        val evaluator = NSEvaluator(NSEnv(nsForms.nsHeader.ns, nsForms.nsHeader.refers, nsForms.nsHeader.aliases))
+        val evaluator = NSEvaluator(NSEnv(nsForms.nsHeader.ns,
+            nsForms.nsHeader.varRefers.entries.associate {
+                it.key to
+                    ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
+                        .vars[it.value.base] ?: TODO("can't find refer ${it.value}"))
+            },
+            nsForms.nsHeader.typeAliasRefers.entries.associate {
+                it.key to ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
+                    .typeAliases[it.value.base] ?: TODO("can't find refer ${it.value}"))
+            },
+            nsForms.nsHeader.aliases.entries.associate {
+                it.key to (env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
+            }))
+
         nsForms.forms.forEach(evaluator::evalForm)
     }
 }
