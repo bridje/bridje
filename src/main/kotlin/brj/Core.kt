@@ -13,7 +13,3 @@ fun <E> first(vec: List<E>) = vec.first()
 fun <E> rest(vec: List<E>) = vec.drop(1)
 
 fun str(strs: List<String>) = strs.joinToString("")
-
-fun main() {
-    println(vector(arrayOf(listOf(1), listOf(2))))
-}
