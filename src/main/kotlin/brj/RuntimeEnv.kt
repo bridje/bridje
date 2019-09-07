@@ -146,6 +146,6 @@ internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
 internal fun NSEnv.resolveTypeAlias(ident: Ident): TypeAlias? =
     typeAliases[ident]
         ?: when (ident) {
-            is Symbol -> referTypeAliases[ident]
+            is Symbol -> typeAliases[ident] ?: referTypeAliases[ident]
             is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).typeAliases[ident.base]
         }
