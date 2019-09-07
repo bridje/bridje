@@ -14,6 +14,7 @@ import com.oracle.truffle.api.dsl.TypeSystem
 import com.oracle.truffle.api.dsl.TypeSystemReference
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.NodeInfo
 import com.oracle.truffle.api.nodes.RootNode
@@ -29,8 +30,11 @@ typealias Loc = SourceSection
     Boolean::class, String::class,
     Long::class, Double::class,
     BigInteger::class, BigDecimal::class,
-    BridjeFunction::class, RecordObject::class, VariantObject::class)
+    BridjeFunction::class, RecordObject::class, VariantObject::class,
+    Symbol::class, QSymbol::class)
 internal abstract class BridjeTypes
+
+internal interface BridjeObject : TruffleObject
 
 @TypeSystemReference(BridjeTypes::class)
 @NodeInfo(language = "bridje")
@@ -81,8 +85,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         return ctx
     }
 
-    override fun isObjectOfLanguage(obj: Any): Boolean =
-        obj is RecordObject || obj is VariantObject || obj is BridjeFunction
+    override fun isObjectOfLanguage(obj: Any) = obj is BridjeObject
 
     internal sealed class ParseRequest {
         data class RequireRequest(val nses: Set<Symbol>) : ParseRequest()

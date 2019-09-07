@@ -37,12 +37,6 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         override fun execute(frame: VirtualFrame) = obj
     }
 
-    inner class HostObjectNode(obj: Any, loc: Loc?) : ValueNode(loc) {
-        val interopObj = ctx.truffleEnv.asGuestValue(obj)
-
-        override fun execute(frame: VirtualFrame) = interopObj
-    }
-
     abstract class CollNode(val truffleEnv: TruffleLanguage.Env, @Children val elNodes: Array<ValueNode>) : ValueNode(loc = null) {
         @ExplodeLoop
         @Specialization
@@ -392,12 +386,12 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             is BooleanExpr -> BoolNode(expr.boolean, expr.loc)
             is StringExpr -> ConstantNode(expr.string, expr.loc)
             is IntExpr -> IntNode(expr.int, expr.loc)
-            is BigIntExpr -> HostObjectNode(expr.bigInt, expr.loc)
+            is BigIntExpr -> ConstantNode(ctx.truffleEnv.asGuestValue(expr.bigInt), expr.loc)
             is FloatExpr -> FloatNode(expr.float, expr.loc)
-            is BigFloatExpr -> HostObjectNode(expr.bigFloat, expr.loc)
+            is BigFloatExpr -> ConstantNode(ctx.truffleEnv.asGuestValue(expr.bigFloat), expr.loc)
 
-            is QuotedSymbolExpr -> HostObjectNode(expr.sym, expr.loc)
-            is QuotedQSymbolExpr -> HostObjectNode(expr.sym, expr.loc)
+            is QuotedSymbolExpr -> ConstantNode(expr.sym, expr.loc)
+            is QuotedQSymbolExpr -> ConstantNode(expr.sym, expr.loc)
 
             is VectorExpr -> vectorNode(expr)
             is SetExpr -> setNode(expr)
@@ -429,7 +423,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     inner class WrapFxNode(@Child var node: ValueNode) : ValueNode(null) {
         @Child
         var writeFxVarNode = WriteLocalVarNodeGen.create(
-            HostObjectNode(listOf(emptyMap<QSymbol, BridjeFunction>()), null),
+            ConstantNode(listOf(emptyMap<QSymbol, BridjeFunction>()), null),
             frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL))
 
         override fun execute(frame: VirtualFrame): Any {

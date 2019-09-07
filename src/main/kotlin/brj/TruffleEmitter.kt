@@ -56,7 +56,7 @@ internal abstract class WriteLocalVarNode : Node() {
 }
 
 @ExportLibrary(InteropLibrary::class)
-internal class BridjeFunction internal constructor(rootNode: RootNode) : TruffleObject {
+internal class BridjeFunction internal constructor(rootNode: RootNode) : BridjeObject {
     val callTarget = Truffle.getRuntime().createCallTarget(rootNode)!!
 
     @ExportMessage
@@ -67,7 +67,7 @@ internal class BridjeFunction internal constructor(rootNode: RootNode) : Truffle
 }
 
 @ExportLibrary(InteropLibrary::class)
-internal class RecordObject(private val truffleEnv: TruffleLanguage.Env, val keys: List<RecordKey>, val dynamicObject: DynamicObject) : TruffleObject {
+internal class RecordObject(private val truffleEnv: TruffleLanguage.Env, val keys: List<RecordKey>, val dynamicObject: DynamicObject) : BridjeObject {
     private val keyStrings by lazy {
         keys.associate { it.sym.toString() to it.sym }
     }
@@ -124,7 +124,7 @@ internal class RecordEmitter(val ctx: BridjeContext) {
 }
 
 @ExportLibrary(InteropLibrary::class)
-internal class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject) : TruffleObject {
+internal class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject) : BridjeObject {
     private val paramCount = variantKey.paramTypes.size
 
     @TruffleBoundary

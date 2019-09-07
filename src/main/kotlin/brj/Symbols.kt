@@ -25,7 +25,7 @@ private fun symbolKind(sym: Symbol): SymbolKind {
     }
 }
 
-sealed class Ident {
+sealed class Ident : BridjeObject {
     internal abstract val symbolKind: SymbolKind
 }
 
