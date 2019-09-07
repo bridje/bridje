@@ -7,14 +7,14 @@ import com.oracle.truffle.api.TruffleLanguage
 import java.math.BigDecimal
 import java.math.BigInteger
 
-sealed class Alias {
+internal sealed class Alias {
     abstract val ns: Symbol
 }
 
-data class BridjeAlias(override val ns: Symbol) : Alias()
-data class JavaAlias(override val ns: Symbol, val clazz: Class<*>) : Alias()
+internal data class BridjeAlias(override val ns: Symbol) : Alias()
+internal data class JavaAlias(override val ns: Symbol, val clazz: Class<*>) : Alias()
 
-internal abstract class GlobalVar internal constructor() {
+internal abstract class GlobalVar {
     abstract val sym: QSymbol
     abstract val type: Type
     abstract val value: Any?
@@ -75,25 +75,25 @@ internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, ove
     }
 }
 
-internal data class RecordKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: MonoType) {
+internal data class RecordKey(val sym: QSymbol, val typeVars: List<TypeVarType>, val type: MonoType) {
     override fun toString() = sym.toString()
 }
 
-internal data class RecordKeyVar internal constructor(val recordKey: RecordKey, override var value: Any) : GlobalVar() {
+internal data class RecordKeyVar(val recordKey: RecordKey, override var value: Any) : GlobalVar() {
     override val sym = recordKey.sym
     override val type: Type = RecordType.accessorType(recordKey)
 }
 
-internal data class VariantKey internal constructor(val sym: QSymbol, val typeVars: List<TypeVarType>, val paramTypes: List<MonoType>) {
+internal data class VariantKey(val sym: QSymbol, val typeVars: List<TypeVarType>, val paramTypes: List<MonoType>) {
     override fun toString() = sym.toString()
 }
 
-internal data class VariantKeyVar internal constructor(val variantKey: VariantKey, override var value: Any) : GlobalVar() {
+internal data class VariantKeyVar(val variantKey: VariantKey, override var value: Any) : GlobalVar() {
     override val sym = variantKey.sym
     override val type: Type = VariantType.constructorType(variantKey)
 }
 
-internal data class JavaImport internal constructor(val qsym: QSymbol, val clazz: Class<*>, val name: String, val type: Type)
+internal data class JavaImport(val qsym: QSymbol, val clazz: Class<*>, val name: String, val type: Type)
 
 internal class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar() {
     override val sym = javaImport.qsym
