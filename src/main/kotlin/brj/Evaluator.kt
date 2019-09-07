@@ -1,5 +1,6 @@
 package brj
 
+import brj.SymbolKind.TYPE_ALIAS_SYM
 import brj.analyser.*
 
 internal interface Emitter {
@@ -71,14 +72,15 @@ internal class Evaluator(var env: RuntimeEnv, private val emitter: Emitter) {
 
     fun evalNS(nsForms: NSForms) {
         val evaluator = NSEvaluator(NSEnv(nsForms.nsHeader.ns,
-            nsForms.nsHeader.varRefers.entries.associate {
+            nsForms.nsHeader.refers.filterKeys { it.symbolKind != TYPE_ALIAS_SYM }.entries.associate {
                 it.key to
                     ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
                         .vars[it.value.base] ?: TODO("can't find refer ${it.value}"))
             },
-            nsForms.nsHeader.typeAliasRefers.entries.associate {
-                it.key to ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
-                    .typeAliases[it.value.base] ?: TODO("can't find refer ${it.value}"))
+            nsForms.nsHeader.refers.filterKeys { it.symbolKind == TYPE_ALIAS_SYM }.entries.associate {
+                it.key to
+                    ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
+                        .typeAliases[it.value.base] ?: TODO("can't find refer ${it.value}"))
             },
             nsForms.nsHeader.aliases.entries.associate {
                 it.key to (env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
