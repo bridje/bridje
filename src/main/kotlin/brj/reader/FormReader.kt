@@ -1,52 +1,26 @@
-package brj
+package brj.reader
 
-import brj.QSymbol.Companion.mkQSym
-import brj.Symbol.Companion.mkSym
+import brj.FormBaseVisitor
+import brj.FormLexer
+import brj.FormParser
 import brj.analyser.*
+import brj.emitter.QSymbol
+import brj.emitter.QSymbol.Companion.mkQSym
+import brj.emitter.Symbol.Companion.mkSym
 import com.oracle.truffle.api.source.Source
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.io.Reader
-import java.math.BigDecimal
-import java.math.BigInteger
-
-private val formNS = mkSym("brj.forms")
-
-private val UNQUOTE = mkQSym(formNS, mkSym("unquote"))
-private val UNQUOTE_SPLICING = mkQSym(formNS, mkSym("unquote-splicing"))
-
-sealed class Form(internal val arg: Any) {
-    abstract val loc: Loc?
-
-    val qsym by lazy {
-        mkQSym(formNS, mkSym(":${javaClass.simpleName}"))
-    }
-}
-
-data class BooleanForm(override val loc: Loc?, val bool: Boolean) : Form(bool)
-data class StringForm(override val loc: Loc?, val string: String) : Form(string)
-data class IntForm(override val loc: Loc?, val int: Long) : Form(int)
-data class BigIntForm(override val loc: Loc?, val bigInt: BigInteger) : Form(bigInt)
-data class FloatForm(override val loc: Loc?, val float: Double) : Form(float)
-data class BigFloatForm(override val loc: Loc?, val bigFloat: BigDecimal) : Form(bigFloat)
-data class SymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
-data class QSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
-data class ListForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
-data class VectorForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
-data class SetForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
-data class RecordForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
-data class QuotedSymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
-data class QuotedQSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
-data class SyntaxQuotedSymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
-data class SyntaxQuotedQSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
 
 internal class FormReader(val source: Source) {
 
     private val noLoc = source.createUnavailableSection()
-    private fun makeLoc(ctx: FormParser.FormContext) = source.createSection(ctx.start.line, ctx.start.charPositionInLine, ctx.stop.line, ctx.stop.charPositionInLine)
+    private fun makeLoc(ctx: FormParser.FormContext) =
+        source.createSection(ctx.start.line, ctx.start.charPositionInLine, ctx.stop.line, ctx.stop.charPositionInLine)
 
-    private val concatQSymForm = QSymbolForm(noLoc, mkQSym(formNS, mkSym("concat")))
-    private val unquoteSplicingQSym = QSymbolForm(noLoc, mkQSym(formNS, mkSym("unquote-splicing")))
+    private val concatQSymForm = QSymbolForm(noLoc, mkQSym(FORM_NS, mkSym("concat")))
+    private val unquoteForm = QSymbolForm(noLoc, UNQUOTE)
+    private val unquoteSplicingForm = QSymbolForm(noLoc, UNQUOTE_SPLICING)
 
     fun quoteForm(form: Form): Form {
         fun q(argForm: Form) = ListForm(argForm.loc, listOf(QSymbolForm(noLoc, form.qsym), argForm))
@@ -121,6 +95,7 @@ internal class FormReader(val source: Source) {
         return if (splicing && !unquoteSplicing) VectorForm(noLoc, listOf(expandedForm)) else expandedForm
     }
 
+
     private fun transformForm(formContext: FormParser.FormContext): Form = formContext.accept(object : FormBaseVisitor<Form>() {
         override fun visitBoolean(ctx: FormParser.BooleanContext) = BooleanForm(makeLoc(ctx), ctx.text == "true")
 
@@ -144,8 +119,8 @@ internal class FormReader(val source: Source) {
 
         override fun visitQuote(ctx: FormParser.QuoteContext) = quoteForm(transformForm(ctx.form()))
         override fun visitSyntaxQuote(ctx: FormParser.SyntaxQuoteContext) = syntaxQuoteForm(transformForm(ctx.form()))
-        override fun visitUnquote(ctx: FormParser.UnquoteContext) = ListForm(makeLoc(ctx), listOf(QSymbolForm(makeLoc(ctx), UNQUOTE), transformForm(ctx.form())))
-        override fun visitUnquoteSplicing(ctx: FormParser.UnquoteSplicingContext) = ListForm(makeLoc(ctx), listOf(unquoteSplicingQSym, transformForm(ctx.form())))
+        override fun visitUnquote(ctx: FormParser.UnquoteContext) = ListForm(makeLoc(ctx), listOf(unquoteForm, transformForm(ctx.form())))
+        override fun visitUnquoteSplicing(ctx: FormParser.UnquoteSplicingContext) = ListForm(makeLoc(ctx), listOf(unquoteSplicingForm, transformForm(ctx.form())))
     })
 
     fun readForms(reader: Reader): List<Form> =
@@ -153,4 +128,9 @@ internal class FormReader(val source: Source) {
             .file().form()
             .toList()
             .map(::transformForm)
+
+    companion object {
+        internal fun readSourceForms(source: Source) =
+            FormReader(source).readForms(source.reader)
+    }
 }

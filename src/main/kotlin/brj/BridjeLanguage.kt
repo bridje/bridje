@@ -1,88 +1,79 @@
 package brj
 
-import brj.Symbol.Companion.mkSym
-import brj.SymbolKind.VAR_SYM
 import brj.analyser.FormsParser
 import brj.analyser.NSHeader
 import brj.analyser.NSHeader.Companion.nsHeaderParser
 import brj.analyser.ParserState
+import brj.emitter.BridjeObject
+import brj.emitter.Symbol
+import brj.emitter.Symbol.Companion.mkSym
+import brj.emitter.SymbolKind.VAR_SYM
+import brj.emitter.TruffleEmitter
+import brj.emitter.ValueNode
+import brj.reader.Form
+import brj.reader.FormReader.Companion.readSourceForms
+import brj.reader.ListForm
+import brj.reader.NSForms
+import brj.reader.NSForms.Loader.Companion.ClasspathLoader
+import brj.reader.RecordForm
+import brj.runtime.RuntimeEnv
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.dsl.TypeSystem
-import com.oracle.truffle.api.dsl.TypeSystemReference
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.nodes.Node
-import com.oracle.truffle.api.nodes.NodeInfo
 import com.oracle.truffle.api.nodes.RootNode
-import com.oracle.truffle.api.source.Source
 import com.oracle.truffle.api.source.SourceSection
 import org.graalvm.polyglot.Context
-import java.math.BigDecimal
-import java.math.BigInteger
 
 typealias Loc = SourceSection
 
-@TypeSystem(
-    Boolean::class, String::class,
-    Long::class, Double::class,
-    BigInteger::class, BigDecimal::class,
-    BridjeFunction::class, RecordObject::class, VariantObject::class,
-    Symbol::class, QSymbol::class)
-internal abstract class BridjeTypes
-
-internal interface BridjeObject : TruffleObject
-
-@TypeSystemReference(BridjeTypes::class)
-@NodeInfo(language = "bridje")
-internal abstract class ValueNode(val loc: Loc?) : Node() {
-    abstract fun execute(frame: VirtualFrame): Any
-
-    override fun getSourceSection() = loc
-}
-
-internal fun readSourceForms(source: Source) =
-    FormReader(source).readForms(source.reader)
-
-internal class BridjeNSLoader(private val sources: Map<Symbol, Source> = emptyMap(),
-                              private val forms: Map<Symbol, List<Form>> = emptyMap()) : NSForms.Loader {
-    private fun nsSource(ns: Symbol): Source? =
-        this::class.java.getResource("/${ns.baseStr.replace('.', '/')}.brj")
-            ?.let { url -> Source.newBuilder("bridje", url).build() }
-
-    override fun loadForms(ns: Symbol): List<Form> =
-        forms[ns] ?: readSourceForms(sources[ns] ?: nsSource(ns) ?: TODO("ns not found"))
-}
-
-class BridjeContext internal constructor(internal var env: RuntimeEnv,
-                                         internal val language: BridjeLanguage,
-                                         internal val truffleEnv: TruffleLanguage.Env) {
+class BridjeContext internal constructor(internal val language: BridjeLanguage,
+                                         internal val truffleEnv: TruffleLanguage.Env,
+                                         internal var env: RuntimeEnv = RuntimeEnv()) {
 
     internal fun makeRootNode(node: ValueNode, frameDescriptor: FrameDescriptor = FrameDescriptor()) =
         object : RootNode(language, frameDescriptor) {
             override fun execute(frame: VirtualFrame) = node.execute(frame)
         }
+
+    internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
+        Context.getCurrent().initialize("brj")
+
+        synchronized(this) {
+            env = require(this, rootNses, nsFormLoader)
+        }
+
+        return env
+    }
+
+    companion object {
+        @TruffleBoundary
+        internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
+            val evaluator = Evaluator(ctx.env, TruffleEmitter(ctx))
+
+            NSForms.loadNSes(rootNses, nsFormLoader ?: ClasspathLoader()).forEach(evaluator::evalNS)
+
+            return evaluator.env
+        }
+    }
 }
 
 @TruffleLanguage.Registration(
-    id = "bridje",
+    id = "brj",
     name = "Bridje",
     defaultMimeType = "application/brj",
     characterMimeTypes = ["application/brj"],
-    contextPolicy = TruffleLanguage.ContextPolicy.SHARED)
+    contextPolicy = TruffleLanguage.ContextPolicy.EXCLUSIVE)
 @Suppress("unused")
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
-    override fun createContext(truffleEnv: Env): BridjeContext {
-        val ctx = BridjeContext(RuntimeEnv(), this, truffleEnv)
+    override fun createContext(truffleEnv: Env) =
+        BridjeContext(this, truffleEnv)
 
-        // TODO re-require core
-        // ctx.env = require(ctx, setOf(mkSym("brj.forms"), mkSym("brj.core")))
-
-        return ctx
+    override fun initializeContext(ctx: BridjeContext) {
+        ctx.require(setOf(mkSym("brj.forms"), mkSym("brj.core")))
     }
 
     override fun isObjectOfLanguage(obj: Any) = obj is BridjeObject
@@ -100,9 +91,10 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         }?.let { it.varargs { it.expectSym(VAR_SYM) }.toSet() }
     }
 
-
     private val aliasParser: FormsParser<Map<Symbol, Symbol>?> = {
-        it.maybe { it.nested(ListForm::forms) { it.expectSym(mkSym("alias!")); it } }?.let {
+        it.maybe {
+            it.nested(ListForm::forms) { it.expectSym(mkSym("alias!")); it }
+        }?.let {
             it.nested(RecordForm::forms) {
                 it.varargs { Pair(it.expectSym(VAR_SYM), it.expectSym(VAR_SYM)) }
             }.toMap()
@@ -119,21 +111,17 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         }
     }
 
+    internal class EvalRootNode(lang: BridjeLanguage, val reqs: List<ParseRequest>) : RootNode(lang) {
+        override fun execute(frame: VirtualFrame) {
+            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        }
+    }
+
     override fun parse(request: ParsingRequest): CallTarget {
-        val source = request.source
+        val reqs = formsParser(ParserState(readSourceForms(request.source)))
 
-        val ctx = contextReference.get()
+        return Truffle.getRuntime().createCallTarget(EvalRootNode(this, reqs))
 
-        val env = ctx.env
-
-        val reqs = formsParser(ParserState(readSourceForms(source))).toString()
-
-        return Truffle.getRuntime().createCallTarget(object : RootNode(this) {
-            override fun execute(frame: VirtualFrame?): Any = reqs
-        })
-
-//        val ns = parseNSSym(forms)
-//
 //        return if (ns != null) {
 //            Truffle.getRuntime().createCallTarget(object : RootNode(this) {
 //                override fun execute(frame: VirtualFrame) = require(ctx, setOf(ns), BridjeNSLoader(forms = mapOf(ns to forms)))
@@ -153,30 +141,10 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     companion object {
-        internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)!!
+        internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)
 
-        @TruffleBoundary
-        internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader = BridjeNSLoader()): RuntimeEnv {
-            val evaluator = Evaluator(ctx.env, TruffleEmitter(ctx))
-
-            NSForms.loadNSes(rootNses, nsFormLoader).forEach(evaluator::evalNS)
-
-            return evaluator.env
+        internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null) {
+            currentBridjeContext().require(rootNses, nsFormLoader)
         }
-
-        internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader): RuntimeEnv {
-            Context.getCurrent().initialize("bridje")
-
-            val ctx = currentBridjeContext()
-
-            synchronized(ctx) {
-                ctx.env = require(ctx, rootNses, nsFormLoader)
-            }
-
-            return ctx.env
-        }
-
-        @JvmStatic
-        internal fun require(rootNses: Set<Symbol>) = require(rootNses, BridjeNSLoader())
     }
 }

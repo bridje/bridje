@@ -1,7 +1,13 @@
 package brj.analyser
 
-import brj.*
+import brj.Loc
 import brj.analyser.ParseError.ExpectedIdent
+import brj.emitter.Ident
+import brj.emitter.Symbol
+import brj.emitter.SymbolKind
+import brj.reader.Form
+import brj.reader.QSymbolForm
+import brj.reader.SymbolForm
 
 internal typealias FormsParser<R> = (ParserState) -> R
 

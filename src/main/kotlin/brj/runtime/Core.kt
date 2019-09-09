@@ -1,6 +1,6 @@
 @file:Suppress("unused")
 
-package brj
+package brj.runtime
 
 fun <E> concat(vecs: List<List<E>>) = vecs.flatten()
 

@@ -1,8 +1,11 @@
-package brj
+package brj.emitter
 
-import brj.BridjeTypesGen.*
-import brj.ValueExprEmitterFactory.CollNodeGen
+import brj.BridjeContext
+import brj.Loc
 import brj.analyser.*
+import brj.emitter.BridjeTypesGen.*
+import brj.emitter.ValueExprEmitterFactory.CollNodeGen
+import brj.runtime.GlobalVar
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
@@ -45,7 +48,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             val els = arrayOfNulls<Any>(elNodes.size)
             val elsInterop = truffleEnv.asGuestValue(els)
 
-            for (i in 0 until elNodes.size) {
+            for (i in elNodes.indices) {
                 interop.writeArrayElement(elsInterop, i.toLong(), elNodes[i].execute(frame))
             }
 
@@ -328,7 +331,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    internal class ReadFxNode(val slot: FrameSlot, loc: Loc?) : Node() {
+    internal class ReadFxNode(val slot: FrameSlot) : Node() {
         @Suppress("UNCHECKED_CAST")
         fun execute(frame: VirtualFrame) = (frame.getObject(slot) as? List<FxMap>)
     }
@@ -336,7 +339,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     inner class WithFxNode(expr: WithFxExpr) : ValueNode(expr.loc) {
         inner class UpdateFxNode(expr: WithFxExpr) : ValueNode(loc) {
             @Child
-            var readFxNode = ReadFxNode(frameDescriptor.findOrAddFrameSlot(expr.oldFxLocal), loc = null)
+            var readFxNode = ReadFxNode(frameDescriptor.findOrAddFrameSlot(expr.oldFxLocal))
 
             inner class UpdateEffectNode(val sym: QSymbol, expr: WithFxExpr, fnExpr: FnExpr) : Node() {
                 @Child
@@ -358,7 +361,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             override fun execute(frame: VirtualFrame): List<FxMap> {
                 val newFx = arrayOfNulls<Pair<QSymbol, BridjeFunction>>(effectNodes.size)
 
-                for (i in 0 until effectNodes.size) {
+                for (i in effectNodes.indices) {
                     newFx[i] = effectNodes[i].execute(frame)
                 }
 

@@ -1,9 +1,16 @@
 package brj.analyser
 
-import brj.*
-import brj.QSymbol.Companion.mkQSym
-import brj.Symbol.Companion.mkSym
-import brj.SymbolKind.*
+import brj.emitter.Ident
+import brj.emitter.QSymbol
+import brj.emitter.QSymbol.Companion.mkQSym
+import brj.emitter.Symbol
+import brj.emitter.Symbol.Companion.mkSym
+import brj.emitter.SymbolKind.*
+import brj.reader.Form
+import brj.reader.ListForm
+import brj.reader.QSymbolForm
+import brj.reader.SymbolForm
+import brj.runtime.*
 import brj.types.*
 
 internal val DO = mkSym("do")
@@ -106,13 +113,19 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                         }
                     }.also { _ -> it.expectEnd() }
                 is QSymbol -> {
-                    val alias = nsEnv.aliases[preamble.sym.ns] as? JavaAlias ?: TODO()
-                    val qsym = mkQSym(alias.ns, preamble.sym.base)
-                    val returnType = typeAnalyser.monoTypeAnalyser(it)
-                    val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType),
-                        effects = if (preamble.effect) setOf(qsym) else emptySet())
+                    val aliasNSEnv = nsEnv.aliases[preamble.sym.ns] ?: TODO()
+                    when (val interopNS = aliasNSEnv.interopNS) {
+                        is InteropNS.JavaInteropNS -> {
+                            val qsym = mkQSym(aliasNSEnv.ns, preamble.sym.base)
+                            val returnType = typeAnalyser.monoTypeAnalyser(it)
+                            val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType),
+                                effects = if (preamble.effect) setOf(qsym) else emptySet())
 
-                    JavaImportDeclExpr(JavaImport(qsym, alias.clazz, preamble.sym.base.baseStr, type))
+                            JavaImportDeclExpr(JavaImport(qsym, interopNS.clazz, preamble.sym.base.baseStr, type))
+                        }
+
+                        null -> TODO()
+                    }
                 }
             }
         } else {
@@ -225,8 +238,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             else -> {
                 val forms = form.forms
                 if (forms.isNotEmpty()) {
-                    val firstForm = forms[0]
-                    val macroVar = when (firstForm) {
+                    val macroVar = when (val firstForm = forms[0]) {
                         is SymbolForm -> nsEnv.resolve(firstForm.sym) as? DefMacroVar
                         is QSymbolForm -> nsEnv.resolve(firstForm.sym) as? DefMacroVar
                         else -> null

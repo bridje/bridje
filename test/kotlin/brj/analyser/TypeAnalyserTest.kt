@@ -1,8 +1,12 @@
 package brj.analyser
 
-import brj.*
-import brj.QSymbol.Companion.mkQSym
-import brj.Symbol.Companion.mkSym
+import brj.emitter.QSymbol.Companion.mkQSym
+import brj.emitter.Symbol.Companion.mkSym
+import brj.readForms
+import brj.runtime.NSEnv
+import brj.runtime.RuntimeEnv
+import brj.runtime.VariantKey
+import brj.runtime.VariantKeyVar
 import brj.types.MonoType
 import brj.types.RowKey
 import brj.types.VariantType

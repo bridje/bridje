@@ -1,10 +1,17 @@
-package brj
+package brj.emitter
 
-import brj.BridjeTypesGen.expectRecordObject
-import brj.BridjeTypesGen.expectVariantObject
-import brj.Symbol.Companion.mkSym
+import brj.BridjeContext
+import brj.Emitter
+import brj.Loc
 import brj.analyser.DefMacroExpr
 import brj.analyser.ValueExpr
+import brj.emitter.BridjeTypesGen.expectRecordObject
+import brj.emitter.BridjeTypesGen.expectVariantObject
+import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.DefMacroVar
+import brj.runtime.JavaImport
+import brj.runtime.RecordKey
+import brj.runtime.VariantKey
 import brj.types.FnType
 import brj.types.MonoType
 import com.oracle.truffle.api.CompilerDirectives
@@ -15,9 +22,7 @@ import com.oracle.truffle.api.`object`.DynamicObject
 import com.oracle.truffle.api.`object`.Layout
 import com.oracle.truffle.api.`object`.ObjectType
 import com.oracle.truffle.api.`object`.Property
-import com.oracle.truffle.api.dsl.NodeChild
-import com.oracle.truffle.api.dsl.NodeField
-import com.oracle.truffle.api.dsl.Specialization
+import com.oracle.truffle.api.dsl.*
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.FrameUtil
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -27,8 +32,11 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
+import com.oracle.truffle.api.nodes.NodeInfo
 import com.oracle.truffle.api.nodes.RootNode
 import org.graalvm.polyglot.Value
+import java.math.BigDecimal
+import java.math.BigInteger
 
 internal class ReadArgNode(val idx: Int) : ValueNode(loc = null) {
     override fun execute(frame: VirtualFrame) = frame.arguments[idx]!!
@@ -208,13 +216,13 @@ internal class VariantEmitter(val ctx: BridjeContext) {
 
 internal class JavaImportEmitter(private val ctx: BridjeContext) {
     internal inner class JavaExecuteNode(javaImport: JavaImport) : ValueNode(loc = null) {
-        val fn = InteropLibrary.getFactory().uncached.readMember(ctx.truffleEnv.asHostSymbol(javaImport.clazz), javaImport.name)
+        val fn = InteropLibrary.getFactory().uncached.readMember(ctx.truffleEnv.asHostSymbol(javaImport.clazz.java), javaImport.name)
 
         @Child
         var interop = InteropLibrary.getFactory().create(fn)
 
         @Children
-        val argNodes = (0 until (javaImport.type.monoType as FnType).paramTypes.size).map(::ReadArgNode).toTypedArray()
+        val argNodes = ((javaImport.type.monoType as FnType).paramTypes.indices).map(::ReadArgNode).toTypedArray()
 
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
@@ -286,4 +294,23 @@ internal class TruffleEmitter(val ctx: BridjeContext) : Emitter {
         // HACK where should I be getting the brj.forms NSEnv from?
         DefMacroVar(ctx.truffleEnv, expr.sym, expr.type, ctx.env.nses[mkSym("brj.forms")]!!, evalValueExpr(expr.expr))
 }
+
+@TypeSystem(
+    Boolean::class, String::class,
+    Long::class, Double::class,
+    BigInteger::class, BigDecimal::class,
+    BridjeFunction::class, RecordObject::class, VariantObject::class,
+    Symbol::class, QSymbol::class)
+internal abstract class BridjeTypes
+
+internal interface BridjeObject : TruffleObject
+
+@TypeSystemReference(BridjeTypes::class)
+@NodeInfo(language = "bridje")
+internal abstract class ValueNode(val loc: Loc?) : Node() {
+    abstract fun execute(frame: VirtualFrame): Any
+
+    override fun getSourceSection() = loc
+}
+
 

@@ -1,9 +1,17 @@
 package brj
 
 import brj.BridjeLanguage.Companion.currentBridjeContext
-import brj.QSymbol.Companion.mkQSym
-import brj.Symbol.Companion.mkSym
 import brj.analyser.*
+import brj.emitter.QSymbol.Companion.mkQSym
+import brj.emitter.RecordEmitter
+import brj.emitter.Symbol.Companion.mkSym
+import brj.emitter.TruffleEmitter
+import brj.emitter.ValueExprEmitter
+import brj.emitter.VariantEmitter
+import brj.runtime.JavaImport
+import brj.runtime.RecordKey
+import brj.runtime.VariantKey
+import brj.runtime.VariantKeyVar
 import brj.types.*
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Value
@@ -16,7 +24,7 @@ import kotlin.test.assertEquals
 
 @TestInstance(PER_CLASS)
 internal class TruffleEmitterTest {
-    private val ctx = Context.newBuilder("bridje")
+    private val ctx = Context.newBuilder("brj")
         .allowAllAccess(true)
         .build()
 
@@ -74,7 +82,7 @@ internal class TruffleEmitterTest {
 
     @Test
     internal fun `java interop`() {
-        val javaImport = JavaImport(mkQSym("Foo/plus"), Class.forName("brj.FooKt"), "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
+        val javaImport = JavaImport(mkQSym("Foo/plus"), Class.forName("brj.FooKt").kotlin, "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
 
         val fn = Value.asValue(TruffleEmitter(currentBridjeContext()).emitJavaImport(javaImport))
 

@@ -1,10 +1,10 @@
 package brj.types
 
-import brj.QSymbol
-import brj.RecordKey
-import brj.Symbol.Companion.mkSym
-import brj.TypeAlias
-import brj.VariantKey
+import brj.emitter.QSymbol
+import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.RecordKey
+import brj.runtime.TypeAlias
+import brj.runtime.VariantKey
 import brj.types.TypeException.UnificationError
 
 internal val STR = mkSym("Str")

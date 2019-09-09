@@ -2,10 +2,18 @@
 
 package brj.analyser
 
-import brj.*
-import brj.Symbol.Companion.mkSym
-import brj.SymbolKind.TYPE_ALIAS_SYM
-import brj.SymbolKind.VAR_SYM
+import brj.emitter.QSymbol
+import brj.emitter.Symbol
+import brj.emitter.Symbol.Companion.mkSym
+import brj.emitter.SymbolKind.TYPE_ALIAS_SYM
+import brj.emitter.SymbolKind.VAR_SYM
+import brj.reader.ListForm
+import brj.reader.RecordForm
+import brj.reader.SetForm
+import brj.reader.SymbolForm
+import brj.runtime.Alias
+import brj.runtime.BridjeAlias
+import brj.runtime.JavaAlias
 
 internal data class NSHeader(val ns: Symbol,
                              val refers: Map<Symbol, QSymbol> = emptyMap(),
@@ -51,7 +59,7 @@ internal data class NSHeader(val ns: Symbol,
                     it.maybe { it.expectSym(TYPE_ALIAS_SYM) }?.let { sym ->
                         sym to JavaAlias(mkSym("$ns\$$sym"), it.nested(ListForm::forms) {
                             it.expectSym(JAVA)
-                            Class.forName(it.expectSym(VAR_SYM).baseStr).also { _ -> it.expectEnd() }
+                            Class.forName(it.expectSym(VAR_SYM).baseStr).kotlin.also { _ -> it.expectEnd() }
                         })
                     }
                 }) ?: TODO()

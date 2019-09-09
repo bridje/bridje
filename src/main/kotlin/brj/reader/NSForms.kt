@@ -1,16 +1,31 @@
-package brj
+package brj.reader
 
 import brj.analyser.NSHeader
 import brj.analyser.ParserState
+import brj.emitter.Symbol
+import brj.reader.NSForms.Loader.Companion.ClasspathLoader
+import com.oracle.truffle.api.source.Source
 
 internal data class NSForms(val nsHeader: NSHeader, val forms: List<Form>) {
 
     internal interface Loader {
         fun loadForms(ns: Symbol): List<Form>
+
+        companion object {
+            class ClasspathLoader(private val sources: Map<Symbol, Source> = emptyMap(),
+                                  private val forms: Map<Symbol, List<Form>> = emptyMap()) : Loader {
+                private fun nsSource(ns: Symbol): Source? =
+                    this::class.java.getResource("/${ns.baseStr.replace('.', '/')}.brj")
+                        ?.let { url -> Source.newBuilder("bridje", url).build() }
+
+                override fun loadForms(ns: Symbol): List<Form> =
+                    forms[ns] ?: FormReader.readSourceForms(sources[ns] ?: nsSource(ns) ?: TODO("ns not found"))
+            }
+        }
     }
 
     companion object {
-        fun loadNSes(rootNSes: Set<Symbol>, loader: Loader): List<NSForms> {
+        fun loadNSes(rootNSes: Set<Symbol>, loader: Loader = ClasspathLoader()): List<NSForms> {
             val stack = mutableSetOf<Symbol>()
 
             val res = mutableListOf<NSForms>()

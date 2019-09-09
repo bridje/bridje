@@ -1,18 +1,22 @@
 @file:Suppress("NestedLambdaShadowedImplicitParameter")
 
-package brj
+package brj.runtime
 
+import brj.analyser.NSHeader
+import brj.emitter.*
+import brj.reader.*
 import brj.types.*
 import com.oracle.truffle.api.TruffleLanguage
 import java.math.BigDecimal
 import java.math.BigInteger
+import kotlin.reflect.KClass
 
 internal sealed class Alias {
     abstract val ns: Symbol
 }
 
 internal data class BridjeAlias(override val ns: Symbol) : Alias()
-internal data class JavaAlias(override val ns: Symbol, val clazz: Class<*>) : Alias()
+internal data class JavaAlias(override val ns: Symbol, val clazz: KClass<*>) : Alias()
 
 internal abstract class GlobalVar {
     abstract val sym: QSymbol
@@ -93,7 +97,7 @@ internal data class VariantKeyVar(val variantKey: VariantKey, override var value
     override val type: Type = VariantType.constructorType(variantKey)
 }
 
-internal data class JavaImport(val qsym: QSymbol, val clazz: Class<*>, val name: String, val type: Type)
+internal data class JavaImport(val qsym: QSymbol, val clazz: KClass<*>, val name: String, val type: Type)
 
 internal class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar() {
     override val sym = javaImport.qsym
@@ -122,7 +126,12 @@ internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List
     }
 }
 
+internal sealed class InteropNS {
+    data class JavaInteropNS(val clazz: KClass<*>) : InteropNS()
+}
+
 internal data class NSEnv(val ns: Symbol,
+                          val interopNS: InteropNS? = null,
                           val referVars: Map<Symbol, GlobalVar> = emptyMap(),
                           val referTypeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                           val aliases: Map<Symbol, NSEnv> = emptyMap(),
@@ -136,6 +145,28 @@ internal data class NSEnv(val ns: Symbol,
         val sym = impl.polyVar.sym
         return copy(polyVarImpls = polyVarImpls +
             (sym to (polyVarImpls[sym] ?: emptyMap()) + (impl.implType to impl)))
+    }
+
+
+    companion object {
+        fun create(env: RuntimeEnv, nsHeader: NSHeader) =
+            NSEnv(nsHeader.ns,
+                referVars = nsHeader.refers.filterKeys { it.symbolKind != SymbolKind.TYPE_ALIAS_SYM }.entries.associate {
+                    it.key to
+                        ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
+                            .vars[it.value.base] ?: TODO("can't find refer ${it.value}"))
+                },
+                referTypeAliases = nsHeader.refers.filterKeys { it.symbolKind == SymbolKind.TYPE_ALIAS_SYM }.entries.associate {
+                    it.key to
+                        ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
+                            .typeAliases[it.value.base] ?: TODO("can't find refer ${it.value}"))
+                },
+                aliases = nsHeader.aliases.entries.associate {
+                    when (val alias = it.value) {
+                        is BridjeAlias -> it.key to (env.nses[alias.ns] ?: TODO("can't find ${alias.ns} NS"))
+                        is JavaAlias -> it.key to NSEnv(alias.ns, InteropNS.JavaInteropNS(alias.clazz))
+                    }
+                })
     }
 }
 

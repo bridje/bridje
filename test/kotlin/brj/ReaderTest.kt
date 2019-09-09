@@ -1,9 +1,10 @@
 package brj
 
-import brj.QSymbol.Companion.mkQSym
 import brj.ReaderTest.FormType.BOOLEAN
 import brj.ReaderTest.FormType.VECTOR
-import brj.Symbol.Companion.mkSym
+import brj.emitter.QSymbol.Companion.mkQSym
+import brj.emitter.Symbol.Companion.mkSym
+import brj.reader.*
 import com.oracle.truffle.api.source.Source
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals

@@ -1,7 +1,13 @@
 package brj.analyser
 
-import brj.*
-import brj.SymbolKind.*
+import brj.emitter.Ident
+import brj.emitter.Symbol
+import brj.emitter.SymbolKind.*
+import brj.reader.*
+import brj.runtime.NSEnv
+import brj.runtime.RuntimeEnv
+import brj.runtime.VariantKeyVar
+import brj.runtime.resolveTypeAlias
 import brj.types.*
 
 internal interface ITypeVarFactory {

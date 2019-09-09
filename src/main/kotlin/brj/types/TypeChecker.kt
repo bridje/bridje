@@ -1,9 +1,9 @@
 package brj.types
 
-import brj.QSymbol
-import brj.RecordKey
-import brj.VariantKey
 import brj.analyser.*
+import brj.emitter.QSymbol
+import brj.runtime.RecordKey
+import brj.runtime.VariantKey
 import brj.types.TypeException.ArityError
 import java.util.*
 import kotlin.collections.HashSet

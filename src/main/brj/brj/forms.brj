@@ -2,6 +2,7 @@
   {:aliases {Core (java brj.CoreKt)}})
 
 (:: (Core/concat [[a]]) [a])
+(def concat Core/concat)
 
 (:: Form)
 
@@ -25,6 +26,3 @@
             :IntForm :BigIntForm :FloatForm :BigFloatForm
             :ListForm :SetForm :VectorForm :RecordForm
             :SymbolForm :QSymbolForm))
-
-(def (concat vecs)
-  (Core/concat vecs))

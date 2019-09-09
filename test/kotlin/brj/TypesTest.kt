@@ -1,8 +1,12 @@
 package brj
 
-import brj.QSymbol.Companion.mkQSym
-import brj.Symbol.Companion.mkSym
 import brj.analyser.*
+import brj.emitter.QSymbol.Companion.mkQSym
+import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.RecordKey
+import brj.runtime.RecordKeyVar
+import brj.runtime.VariantKey
+import brj.runtime.VariantKeyVar
 import brj.types.TypeVarType
 import brj.types.valueExprType
 import org.junit.jupiter.api.Test

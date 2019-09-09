@@ -1,6 +1,6 @@
-package brj
+package brj.emitter
 
-import brj.SymbolKind.*
+import brj.emitter.SymbolKind.*
 
 private class Interner<K, V>(val f: (K) -> V) {
     val interned = mutableMapOf<K, V>()
