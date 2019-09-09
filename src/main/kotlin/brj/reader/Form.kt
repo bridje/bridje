@@ -1,5 +1,6 @@
 package brj.reader
 
+import brj.BridjeLanguage
 import brj.Loc
 import brj.emitter.QSymbol
 import brj.emitter.Symbol
@@ -11,28 +12,46 @@ internal val FORM_NS = Symbol.mkSym("brj.forms")
 internal val UNQUOTE = QSymbol.mkQSym(FORM_NS, Symbol.mkSym("unquote"))
 internal val UNQUOTE_SPLICING = QSymbol.mkQSym(FORM_NS, Symbol.mkSym("unquote-splicing"))
 
-sealed class Form(internal val arg: Any) {
-    abstract val loc: Loc?
-
+internal sealed class Form(val arg: Any, val loc: Loc?) {
     val qsym by lazy {
         QSymbol.mkQSym(FORM_NS, Symbol.mkSym(":${javaClass.simpleName}"))
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Form) return false
+        if (this.javaClass != other.javaClass) return false
+        if (arg != other.arg) return false
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return arg.hashCode()
+    }
+
+    open fun argToString(): String = arg.toString()
+
+    private val stringRep by lazy {
+        "(:${javaClass.simpleName} ${BridjeLanguage.toString(arg)})"
+    }
+
+    override fun toString() = stringRep
 }
 
-data class BooleanForm(override val loc: Loc?, val bool: Boolean) : Form(bool)
-data class StringForm(override val loc: Loc?, val string: String) : Form(string)
-data class IntForm(override val loc: Loc?, val int: Long) : Form(int)
-data class BigIntForm(override val loc: Loc?, val bigInt: BigInteger) : Form(bigInt)
-data class FloatForm(override val loc: Loc?, val float: Double) : Form(float)
-data class BigFloatForm(override val loc: Loc?, val bigFloat: BigDecimal) : Form(bigFloat)
-data class SymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
-data class QSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
-data class ListForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
-data class VectorForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
-data class SetForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
-data class RecordForm(override val loc: Loc?, val forms: List<Form>) : Form(forms)
-data class QuotedSymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
-data class QuotedQSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
-data class SyntaxQuotedSymbolForm(override val loc: Loc?, val sym: Symbol) : Form(sym)
-data class SyntaxQuotedQSymbolForm(override val loc: Loc?, val sym: QSymbol) : Form(sym)
+internal class BooleanForm(val bool: Boolean, loc: Loc?) : Form(bool, loc)
+internal class StringForm(val string: String, loc: Loc?) : Form(string, loc)
+internal class IntForm(val int: Long, loc: Loc?) : Form(int, loc)
+internal class BigIntForm(val bigInt: BigInteger, loc: Loc?) : Form(bigInt, loc)
+internal class FloatForm(val float: Double, loc: Loc?) : Form(float, loc)
+internal class BigFloatForm(val bigFloat: BigDecimal, loc: Loc?) : Form(bigFloat, loc)
+internal class SymbolForm(val sym: Symbol, loc: Loc?) : Form(sym, loc)
+internal class QSymbolForm(val sym: QSymbol, loc: Loc?) : Form(sym, loc)
+internal class ListForm(val forms: List<Form>, loc: Loc?) : Form(forms, loc)
+internal class VectorForm(val forms: List<Form>, loc: Loc?) : Form(forms, loc)
+internal class SetForm(val forms: List<Form>, loc: Loc?) : Form(forms, loc)
+internal class RecordForm(val forms: List<Form>, loc: Loc?) : Form(forms, loc)
+internal class QuotedSymbolForm(val sym: Symbol, loc: Loc?) : Form(sym, loc)
+internal class QuotedQSymbolForm(val sym: QSymbol, loc: Loc?) : Form(sym, loc)
+internal class SyntaxQuotedSymbolForm(val sym: Symbol, loc: Loc?) : Form(sym, loc)
+internal class SyntaxQuotedQSymbolForm(val sym: QSymbol, loc: Loc?) : Form(sym, loc)
 

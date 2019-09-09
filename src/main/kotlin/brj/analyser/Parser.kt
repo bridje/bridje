@@ -11,7 +11,7 @@ import brj.reader.SymbolForm
 
 internal typealias FormsParser<R> = (ParserState) -> R
 
-sealed class ParseError : Exception() {
+internal sealed class ParseError : Exception() {
     object ExpectedForm : ParseError()
     data class UnexpectedForms(val forms: List<Form>) : ParseError()
     object ExpectedSymbol : ParseError()

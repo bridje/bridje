@@ -26,6 +26,8 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.SourceSection
 import org.graalvm.polyglot.Context
+import java.math.BigDecimal
+import java.math.BigInteger
 
 typealias Loc = SourceSection
 
@@ -140,11 +142,22 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 //        }
     }
 
+    override fun toString(context: BridjeContext, value: Any): String {
+        return toString(value)
+    }
+
     companion object {
         internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)
 
         internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null) {
             currentBridjeContext().require(rootNses, nsFormLoader)
+        }
+
+        internal fun toString(value: Any) = when (value) {
+            is BigInteger -> "${value}N"
+            is BigDecimal -> "${value}M"
+            is List<*> -> "[${value.joinToString(" ")}]"
+            else -> value.toString()
         }
     }
 }

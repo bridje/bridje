@@ -31,7 +31,7 @@ internal class TruffleEmitterTest {
     @BeforeAll
     internal fun setUp() {
         ctx.enter()
-        ctx.initialize("bridje")
+        ctx.initialize("brj")
     }
 
     @AfterAll
