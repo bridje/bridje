@@ -59,7 +59,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             it.maybe { it.expectSym() }?.let { sym -> Preamble(sym) }
         }, {
             it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
-                it.nested(listForm.forms, listForm.loc) {
+                it.nested(listForm.forms) {
                     it.or({
                         // (:: (! (println! Str) Void))
                         it.maybe { it.expectSym(EFFECT) }?.let { _ ->
@@ -161,7 +161,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(nsQSym(it)) }
         }, {
             it.maybe { it.expectForm<ListForm>() }?.let { lf ->
-                it.nested(lf.forms, lf.loc) {
+                it.nested(lf.forms) {
                     it.or({
                         it.maybe { it.expectSym(EFFECT) }?.let { _ ->
                             it.nested(ListForm::forms) {
@@ -180,7 +180,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val bodyExpr = ValueExprAnalyser(nsEnv, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
-        val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr, bodyExpr.loc) else bodyExpr
+        val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
         return if (polyVarPreamble != null) {
             val polyVar = nsEnv.resolve(preamble.sym) as? PolyVar ?: TODO()
@@ -215,7 +215,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val bodyExpr = ValueExprAnalyser(nsEnv, locals.toMap()).doAnalyser(it)
 
-        val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr, bodyExpr.loc)
+        val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
 
         val formType = TypeAliasType(nsEnv.resolveTypeAlias(mkQSym("brj.forms/Form"))!!, emptyList())
 

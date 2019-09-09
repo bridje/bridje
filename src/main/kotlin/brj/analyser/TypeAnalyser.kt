@@ -61,11 +61,11 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 }
             }
 
-            is VectorForm -> VectorType(it.nested(form.forms, form.loc) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
+            is VectorForm -> VectorType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
 
-            is SetForm -> SetType(it.nested(form.forms, form.loc) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
+            is SetForm -> SetType(it.nested(form.forms) { monoTypeAnalyser(it).also { _ -> it.expectEnd() } })
 
-            is ListForm -> it.nested(form.forms, form.loc) {
+            is ListForm -> it.nested(form.forms) {
                 it.or({
                     it.maybe { it.expectSym(FN_TYPE) }?.let { _ ->
                         val types = it.varargs { monoTypeAnalyser(it) }
@@ -80,7 +80,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                                 val preamble = it.or({
                                     it.maybe { it.expectIdent(VARIANT_KEY_SYM) }?.let { Preamble(it, emptyList()) }
                                 }, {
-                                    it.maybe { it.expectForm<ListForm>() }?.let { lf -> it.nested(lf.forms, lf.loc) { Preamble(it.expectIdent(VARIANT_KEY_SYM), it.varargs { monoTypeAnalyser(it) }) } }
+                                    it.maybe { it.expectForm<ListForm>() }?.let { lf -> it.nested(lf.forms) { Preamble(it.expectIdent(VARIANT_KEY_SYM), it.varargs { monoTypeAnalyser(it) }) } }
                                 }) ?: TODO()
 
                                 val variantKey = (nsEnv.resolve(preamble.variantSym) as? VariantKeyVar)?.variantKey

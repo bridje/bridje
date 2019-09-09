@@ -1,6 +1,5 @@
 package brj.analyser
 
-import brj.Loc
 import brj.analyser.ParseError.ExpectedIdent
 import brj.emitter.Ident
 import brj.emitter.Symbol
@@ -18,7 +17,7 @@ internal sealed class ParseError : Exception() {
     object ExpectedIdent : ParseError()
 }
 
-internal data class ParserState(var forms: List<Form>, val outerLoc: Loc? = null) {
+internal data class ParserState(var forms: List<Form>) {
     fun <R> many(a: FormsParser<R?>): List<R> {
         val ret: MutableList<R> = mutableListOf()
 
@@ -86,16 +85,16 @@ internal data class ParserState(var forms: List<Form>, val outerLoc: Loc? = null
         return null
     }
 
-    fun <R> nested(forms: List<Form>, outerLoc: Loc?, a: FormsParser<R>): R = a(ParserState(forms, outerLoc))
+    fun <R> nested(forms: List<Form>, a: FormsParser<R>): R = a(ParserState(forms))
 
     inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsParser<R>): R {
         val form = expectForm<F>()
-        return nested(f(form), form.loc, a)
+        return nested(f(form), a)
     }
 
     inline fun <reified F : Form> nested(f: (F) -> List<Form>): ParserState {
         val form = expectForm<F>()
-        return nested(f(form), form.loc) { it }
+        return nested(f(form)) { it }
     }
 
     fun expectSym() = expectForm<SymbolForm>().sym
