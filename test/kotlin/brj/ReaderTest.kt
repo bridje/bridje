@@ -22,21 +22,21 @@ internal class ReaderTest {
 
         private val formNS = mkSym("brj.forms")
 
-        val qSym = QSymbolForm(mkQSym(formNS, mkSym(":${this.name.toLowerCase().capitalize()}Form")), null)
+        val qSym = QSymbolForm(mkQSym(formNS, mkSym(":${this.name.toLowerCase().capitalize()}Form")))
     }
 
     private fun collForm(formType: FormType, vararg forms: Form): Form =
-        ListForm(listOf(formType.qSym, VectorForm(forms.toList(), null)), null)
+        ListForm(listOf(formType.qSym, VectorForm(forms.toList())))
 
     private fun quotedForm(formType: FormType, form: Form): Form =
-        ListForm(listOf(formType.qSym, form), null)
+        ListForm(listOf(formType.qSym, form))
 
     @Test
     internal fun `test quoting`() {
         assertEquals(
             listOf(collForm(VECTOR,
-                quotedForm(BOOLEAN, BooleanForm(true, null)),
-                quotedForm(FormType.SYMBOL, QuotedSymbolForm(mkSym("foo"), null)))),
+                quotedForm(BOOLEAN, BooleanForm(true)),
+                quotedForm(FormType.SYMBOL, QuotedSymbolForm(mkSym("foo"))))),
 
             readForms("'[true foo]"))
     }
