@@ -35,24 +35,19 @@ internal data class NSHeader(val ns: Symbol,
         private val ALIASES = mkSym(":aliases")
         private val JAVA = mkSym("java")
 
-        private fun refersAnalyser(it: ParserState): Map<Symbol, QSymbol> {
-            val refers = mutableMapOf<Symbol, QSymbol>()
-
+        private fun refersAnalyser(it: ParserState) =
             it.varargs {
                 val nsSym = it.expectForm<SymbolForm>().sym
                 it.nested(SetForm::forms) {
                     it.varargs {
                         val sym = it.expectForm<SymbolForm>().sym
-                        refers[sym] = QSymbol.mkQSym(nsSym, sym)
+                        sym to QSymbol.mkQSym(nsSym, sym)
                     }
                 }
-            }
+            }.flatten().toMap()
 
-            return refers
-        }
-
-        private fun aliasesAnalyser(it: ParserState, ns: Symbol): Map<Symbol, Alias> {
-            return it.varargs {
+        private fun aliasesAnalyser(it: ParserState, ns: Symbol) =
+            it.varargs {
                 it.or({
                     it.maybe { it.expectSym(VAR_SYM) }?.let { sym -> sym to BridjeAlias(it.expectSym(VAR_SYM)) }
                 }, {
@@ -64,7 +59,6 @@ internal data class NSHeader(val ns: Symbol,
                     }
                 }) ?: TODO()
             }.toMap()
-        }
 
         internal fun nsHeaderParser(it: ParserState): NSHeader? =
             it.maybe {
