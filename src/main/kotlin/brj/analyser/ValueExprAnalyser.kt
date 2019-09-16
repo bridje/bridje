@@ -77,19 +77,13 @@ internal val DEFAULT_EFFECT_LOCAL = LocalVar(mkSym("_fx"))
 
 private val QSYMBOL_FORM = mkQSym(":brj.forms/QSymbolForm")
 
-internal fun NSEnv.resolve(ident: Ident): GlobalVar? = vars[ident]
-    ?: when (ident) {
-        is Symbol -> referVars[ident]
-        is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).vars[ident.base]
-    }
-
 @Suppress("NestedLambdaShadowedImplicitParameter")
-internal data class ValueExprAnalyser(val nsEnv: NSEnv,
+internal data class ValueExprAnalyser(val resolver: Resolver,
                                       val locals: Map<Symbol, LocalVar> = emptyMap(),
                                       val loopLocals: List<LocalVar>? = null,
                                       val effectLocal: LocalVar = DEFAULT_EFFECT_LOCAL) {
 
-    private fun resolve(ident: Ident) = nsEnv.resolve(ident)
+    private fun resolve(ident: Ident) = resolver.resolveVar(ident)
 
     private fun symAnalyser(form: SymbolForm): ValueExpr =
         (locals[form.sym]?.let { LocalVarExpr(it).withLoc(form.loc) })

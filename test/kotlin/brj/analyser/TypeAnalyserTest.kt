@@ -1,10 +1,11 @@
 package brj.analyser
 
+import brj.emitter.Ident
 import brj.emitter.QSymbol.Companion.mkQSym
-import brj.emitter.Symbol.Companion.mkSym
+import brj.emitter.Symbol
 import brj.readForms
-import brj.runtime.NSEnv
-import brj.runtime.RuntimeEnv
+import brj.runtime.GlobalVar
+import brj.runtime.TypeAlias
 import brj.runtime.VariantKey
 import brj.runtime.VariantKeyVar
 import brj.types.MonoType
@@ -19,11 +20,19 @@ internal class TypeAnalyserTest {
     private val boolKey = VariantKey(mkQSym(":user/BooleanForm"), emptyList(), emptyList())
     private val strKey = VariantKey(mkQSym(":user/StringForm"), emptyList(), emptyList())
 
+    class DummyResolver(private val vars: Map<Ident, GlobalVar> = emptyMap(),
+                        private val typeAliases: Map<Symbol, TypeAlias> = emptyMap()) : Resolver {
+        override fun resolveVar(ident: Ident) = vars[ident]
+
+        override fun resolveTypeAlias(ident: Ident) = typeAliases[ident]
+
+    }
+
     private fun analyseMonoType(s: String): MonoType =
-        TypeAnalyser(RuntimeEnv(), NSEnv(mkSym("user"),
-            vars = mapOf(
-                boolKey.sym.base to VariantKeyVar(boolKey, dummyVar),
-                strKey.sym.base to VariantKeyVar(strKey, dummyVar))))
+        TypeAnalyser(DummyResolver(vars = mapOf(
+            boolKey.sym.base to VariantKeyVar(boolKey, dummyVar),
+            strKey.sym.base to VariantKeyVar(strKey, dummyVar))))
+
             .monoTypeAnalyser(ParserState(readForms(s)))
 
     @Test

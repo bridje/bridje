@@ -3,6 +3,7 @@
 package brj.runtime
 
 import brj.analyser.NSHeader
+import brj.analyser.Resolver
 import brj.emitter.*
 import brj.reader.*
 import brj.types.*
@@ -137,7 +138,7 @@ internal data class NSEnv(val ns: Symbol,
                           val aliases: Map<Symbol, NSEnv> = emptyMap(),
                           val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                           val vars: Map<Symbol, GlobalVar> = emptyMap(),
-                          val polyVarImpls: Map<QSymbol, Map<MonoType, PolyVarImpl>> = emptyMap()) {
+                          val polyVarImpls: Map<QSymbol, Map<MonoType, PolyVarImpl>> = emptyMap()) : Resolver {
 
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
@@ -147,6 +148,19 @@ internal data class NSEnv(val ns: Symbol,
             (sym to (polyVarImpls[sym] ?: emptyMap()) + (impl.implType to impl)))
     }
 
+    // HACK these need to go elsewhere
+    override fun resolveVar(ident: Ident) =
+        vars[ident] ?: when (ident) {
+            is Symbol -> referVars[ident]
+            is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).vars[ident.base]
+        }
+
+    override fun resolveTypeAlias(ident: Ident) =
+        typeAliases[ident]
+            ?: when (ident) {
+                is Symbol -> typeAliases[ident] ?: referTypeAliases[ident]
+                is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).typeAliases[ident.base]
+            }
 
     companion object {
         fun create(env: RuntimeEnv, nsHeader: NSHeader) =
@@ -173,10 +187,3 @@ internal data class NSEnv(val ns: Symbol,
 internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv) = RuntimeEnv(nses + (newNsEnv.ns to newNsEnv))
 }
-
-internal fun NSEnv.resolveTypeAlias(ident: Ident): TypeAlias? =
-    typeAliases[ident]
-        ?: when (ident) {
-            is Symbol -> typeAliases[ident] ?: referTypeAliases[ident]
-            is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).typeAliases[ident.base]
-        }

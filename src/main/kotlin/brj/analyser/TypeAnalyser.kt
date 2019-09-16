@@ -4,10 +4,7 @@ import brj.emitter.Ident
 import brj.emitter.Symbol
 import brj.emitter.SymbolKind.*
 import brj.reader.*
-import brj.runtime.NSEnv
-import brj.runtime.RuntimeEnv
 import brj.runtime.VariantKeyVar
-import brj.runtime.resolveTypeAlias
 import brj.types.*
 
 internal interface ITypeVarFactory {
@@ -20,7 +17,7 @@ internal interface ITypeVarFactory {
     }
 }
 
-internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
+internal class TypeAnalyser(private val resolver: Resolver,
                             private val typeVarFactory: ITypeVarFactory = ITypeVarFactory.TypeVarFactory()) {
 
     fun typeVarAnalyser(it: ParserState) = typeVarFactory.mkTypeVar(it.expectSym(VAR_SYM))
@@ -44,7 +41,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                         VAR_SYM -> typeVarFactory.mkTypeVar(form.sym)
                         TYPE_ALIAS_SYM -> {
                             // TODO kind check
-                            nsEnv.resolveTypeAlias(form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
+                            resolver.resolveTypeAlias(form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
                         }
                         else -> TODO()
                     }
@@ -55,7 +52,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 when (form.sym.symbolKind) {
                     TYPE_ALIAS_SYM -> {
                         // TODO kind check
-                        nsEnv.resolveTypeAlias(form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
+                        resolver.resolveTypeAlias(form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
                     }
                     else -> TODO()
                 }
@@ -83,7 +80,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                                     it.maybe { it.expectForm<ListForm>() }?.let { lf -> it.nested(lf.forms) { Preamble(it.expectIdent(VARIANT_KEY_SYM), it.varargs { monoTypeAnalyser(it) }) } }
                                 }) ?: TODO()
 
-                                val variantKey = (nsEnv.resolve(preamble.variantSym) as? VariantKeyVar)?.variantKey
+                                val variantKey = (resolver.resolveVar(preamble.variantSym) as? VariantKeyVar)?.variantKey
                                     ?: TODO()
 
                                 // TODO check kind
@@ -95,7 +92,7 @@ internal class TypeAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 }, {
                     it.maybe { it.expectSym(TYPE_ALIAS_SYM) }?.let { sym ->
                         // TODO kind check
-                        TypeAliasType(nsEnv.resolveTypeAlias(sym) ?: TODO(), it.varargs(this::monoTypeAnalyser))
+                        TypeAliasType(resolver.resolveTypeAlias(sym) ?: TODO(), it.varargs(this::monoTypeAnalyser))
                     }
                 }) ?: TODO()
             }

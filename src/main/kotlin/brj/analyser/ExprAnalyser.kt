@@ -37,7 +37,7 @@ internal data class DoResult(val forms: List<Form>) : DoOrExprResult()
 internal data class ExprResult(val expr: Expr) : DoOrExprResult()
 
 internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
-                                 private val typeAnalyser: TypeAnalyser = TypeAnalyser(env, nsEnv)) {
+                                 private val typeAnalyser: TypeAnalyser = TypeAnalyser(resolver = nsEnv)) {
     private fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
 
     internal fun analyseDecl(it: ParserState): Expr {
@@ -183,7 +183,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
         return if (polyVarPreamble != null) {
-            val polyVar = nsEnv.resolve(preamble.sym) as? PolyVar ?: TODO()
+            val polyVar = nsEnv.resolveVar(preamble.sym) as? PolyVar ?: TODO()
             valueExprType(expr, polyVar.type.monoType)
             PolyVarDefExpr(polyVar, polyVarPreamble.implType, expr)
         } else {
@@ -239,8 +239,8 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 val forms = form.forms
                 if (forms.isNotEmpty()) {
                     val macroVar = when (val firstForm = forms[0]) {
-                        is SymbolForm -> nsEnv.resolve(firstForm.sym) as? DefMacroVar
-                        is QSymbolForm -> nsEnv.resolve(firstForm.sym) as? DefMacroVar
+                        is SymbolForm -> nsEnv.resolveVar(firstForm.sym) as? DefMacroVar
+                        is QSymbolForm -> nsEnv.resolveVar(firstForm.sym) as? DefMacroVar
                         else -> null
                     } ?: TODO()
 
