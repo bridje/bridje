@@ -3,7 +3,10 @@ package brj.analyser
 import brj.emitter.QSymbol.Companion.mkQSym
 import brj.emitter.Symbol.Companion.mkSym
 import brj.readForms
-import brj.runtime.*
+import brj.runtime.NSEnv
+import brj.runtime.PolyVar
+import brj.runtime.RecordKey
+import brj.runtime.VariantKey
 import brj.types.FnType
 import brj.types.IntType
 import brj.types.StringType
@@ -50,9 +53,9 @@ internal class ExprAnalyserTest {
 
     @Test
     fun `analyses type aliases`() {
-        val foo = mkQSym("user/Foo")
+        val foo = mkSym("Foo")
         assertEquals(
-            TypeAliasDeclExpr(TypeAlias_(foo, emptyList(), FnType(listOf(IntType), StringType))),
+            TypeAliasDeclExpr(foo, emptyList(), FnType(listOf(IntType), StringType)),
             analyseDecl("Foo (Fn Int Str)"))
     }
 

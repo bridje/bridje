@@ -15,6 +15,11 @@ import brj.runtime.Alias
 import brj.runtime.BridjeAlias
 import brj.runtime.JavaAlias
 
+private val NS = mkSym("ns")
+private val REFERS = mkSym(":refers")
+private val ALIASES = mkSym(":aliases")
+private val JAVA = mkSym("java")
+
 internal data class NSHeader(val ns: Symbol,
                              val refers: Map<Symbol, QSymbol> = emptyMap(),
                              val aliases: Map<Symbol, Alias> = emptyMap()) {
@@ -30,11 +35,6 @@ internal data class NSHeader(val ns: Symbol,
     }
 
     companion object {
-        private val NS = mkSym("ns")
-        private val REFERS = mkSym(":refers")
-        private val ALIASES = mkSym(":aliases")
-        private val JAVA = mkSym("java")
-
         private fun refersAnalyser(it: ParserState) =
             it.varargs {
                 val nsSym = it.expectForm<SymbolForm>().sym

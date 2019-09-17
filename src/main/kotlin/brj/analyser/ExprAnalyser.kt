@@ -1,3 +1,5 @@
+@file:Suppress("NestedLambdaShadowedImplicitParameter")
+
 package brj.analyser
 
 import brj.emitter.Ident
@@ -27,7 +29,7 @@ internal data class PolyVarDefExpr(val polyVar: PolyVar, val implType: MonoType,
 internal data class DefMacroExpr(val sym: QSymbol, val expr: ValueExpr, val type: Type) : Expr()
 internal data class VarDeclExpr(val sym: QSymbol, val type: Type) : Expr()
 internal data class PolyVarDeclExpr(val polyVar: PolyVar) : Expr()
-internal data class TypeAliasDeclExpr(val typeAlias: TypeAlias) : Expr()
+internal data class TypeAliasDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val type: MonoType?) : Expr()
 internal data class RecordKeyDeclExpr(val recordKey: RecordKey) : Expr()
 internal data class VariantKeyDeclExpr(val variantKey: VariantKey) : Expr()
 internal data class JavaImportDeclExpr(val javaImport: JavaImport) : Expr()
@@ -118,13 +120,7 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
 
                 RECORD_KEY_SYM -> RecordKeyDeclExpr(RecordKey(nsQSym(preamble.sym), preamble.typeVars, typeAnalyser.monoTypeAnalyser(it)))
                 VARIANT_KEY_SYM -> VariantKeyDeclExpr(VariantKey(nsQSym(preamble.sym), preamble.typeVars, it.varargs(typeAnalyser::monoTypeAnalyser)))
-                TYPE_ALIAS_SYM -> {
-                    val type = if (it.forms.isNotEmpty()) typeAnalyser.monoTypeAnalyser(it) else null
-
-                    TypeAliasDeclExpr(
-                        resolver.resolveLocalTypeAlias(preamble.sym)?.also { (it as TypeAlias_).type = type }
-                            ?: TypeAlias_(nsQSym(preamble.sym), preamble.typeVars, type))
-                }
+                TYPE_ALIAS_SYM -> TypeAliasDeclExpr(preamble.sym, preamble.typeVars, if (it.forms.isNotEmpty()) typeAnalyser.monoTypeAnalyser(it) else null)
             }.also { _ -> it.expectEnd() }
         }
     }
@@ -171,7 +167,7 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
             valueExprType(expr, polyVar.type.monoType)
             PolyVarDefExpr(polyVar, polyVarPreamble.implType, expr)
         } else {
-            val valueExprType = valueExprType(expr, resolver.resolveLocalVar(preamble.sym.base)?.type?.monoType)
+            val valueExprType = valueExprType(expr, resolver.expectedType(preamble.sym.base)?.monoType)
             val effects = if (preamble.effect) setOf(preamble.sym) else valueExprType.effects
 
             if (effects.isEmpty())
