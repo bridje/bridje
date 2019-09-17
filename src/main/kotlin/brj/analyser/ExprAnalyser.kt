@@ -24,10 +24,10 @@ internal val POLY = mkSym(".")
 internal val VARARGS = mkSym("&")
 
 internal sealed class Expr
-internal data class DefExpr(val sym: QSymbol, val expr: ValueExpr, val type: Type) : Expr()
+internal data class DefExpr(val sym: Symbol, val expr: ValueExpr, val isEffect: Boolean, val type: Type) : Expr()
 internal data class PolyVarDefExpr(val polyVar: PolyVar, val implType: MonoType, val expr: ValueExpr) : Expr()
 internal data class DefMacroExpr(val sym: QSymbol, val expr: ValueExpr, val type: Type) : Expr()
-internal data class VarDeclExpr(val sym: QSymbol, val type: Type) : Expr()
+internal data class VarDeclExpr(val sym: QSymbol, val isEffect: Boolean, val type: Type) : Expr()
 internal data class PolyVarDeclExpr(val polyVar: PolyVar) : Expr()
 internal data class TypeAliasDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val type: MonoType?) : Expr()
 internal data class RecordKeyDeclExpr(val recordKey: RecordKey) : Expr()
@@ -42,12 +42,48 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
                                  private val typeAnalyser: TypeAnalyser = TypeAnalyser(resolver)) {
     private fun nsQSym(sym: Symbol) = mkQSym(ns, sym)
 
+    private fun firstSymAnalyser(sym: Symbol): (ParserState) -> ParserState = {
+        it.nested(ListForm::forms) {
+            it.expectSym(sym)
+            it
+        }
+    }
+
+    internal val defAnalyser: FormsParser<DefExpr> =
+        firstSymAnalyser(DEF).then {
+            class Preamble(val sym: Symbol, val paramSyms: List<Symbol>? = null, val isEffect: Boolean = false)
+
+            val preamble = it.or({
+                it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(it) }
+            }, {
+                it.maybe { it.nested(ListForm::forms) { it } }?.let {
+                    it.or({
+                        it.maybe { it.expectSym(EFFECT) }?.let { _ ->
+                            it.nested(ListForm::forms) {
+                                Preamble(it.expectSym(VAR_SYM), paramSyms = it.varargs { it.expectSym(VAR_SYM) }, isEffect = true)
+                            }
+                        }
+                    }, {
+                        Preamble(it.expectSym(VAR_SYM), paramSyms = it.varargs { it.expectSym(VAR_SYM) })
+                    })
+                }
+            }) ?: TODO()
+
+            val locals = preamble.paramSyms?.map { it to LocalVar(it) }
+
+            val bodyExpr = ValueExprAnalyser(resolver, (locals ?: emptyList()).toMap()).doAnalyser(it)
+
+            val expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
+
+            DefExpr(preamble.sym, expr, preamble.isEffect, valueExprType(expr, resolver.expectedType(preamble.sym)?.monoType))
+        }
+
     internal fun analyseDecl(it: ParserState): Expr {
         data class PolyVarPreamble(val polyTypeVar: TypeVarType)
         data class Preamble(val sym: Ident,
                             val typeVars: List<TypeVarType> = emptyList(),
                             val paramTypes: List<MonoType>? = null,
-                            val effect: Boolean = false)
+                            val isEffect: Boolean = false)
 
         val polyVarPreamble = it.maybe {
             it.nested(ListForm::forms) {
@@ -67,7 +103,7 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
                         it.maybe { it.expectSym(EFFECT) }?.let { _ ->
                             it.nested(ListForm::forms) {
                                 // TODO interop syms can be effects too
-                                Preamble(it.expectSym(VAR_SYM), paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser), effect = true)
+                                Preamble(it.expectSym(VAR_SYM), paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser), isEffect = true)
                             }
                         }
                     }, {
@@ -113,9 +149,8 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
                 VAR_SYM -> {
                     val returnType = typeAnalyser.monoTypeAnalyser(it)
                     val qsym = nsQSym(preamble.sym)
-                    val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType),
-                        effects = if (preamble.effect) setOf(qsym) else emptySet())
-                    VarDeclExpr(qsym, type)
+                    val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType), effects = emptySet())
+                    VarDeclExpr(qsym, preamble.isEffect, type)
                 }
 
                 RECORD_KEY_SYM -> RecordKeyDeclExpr(RecordKey(nsQSym(preamble.sym), preamble.typeVars, typeAnalyser.monoTypeAnalyser(it)))
@@ -123,61 +158,6 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
                 TYPE_ALIAS_SYM -> TypeAliasDeclExpr(preamble.sym, preamble.typeVars, if (it.forms.isNotEmpty()) typeAnalyser.monoTypeAnalyser(it) else null)
             }.also { _ -> it.expectEnd() }
         }
-    }
-
-
-    internal fun analyseDef(it: ParserState): Expr {
-        class PolyVarPreamble(val implType: MonoType)
-        class Preamble(val sym: QSymbol, val paramSyms: List<Symbol>? = null, val effect: Boolean = false)
-
-        val polyVarPreamble = it.maybe {
-            it.nested(ListForm::forms) {
-                it.expectSym(POLY)
-                PolyVarPreamble(typeAnalyser.monoTypeAnalyser(it)).also { _ -> it.expectEnd() }
-            }
-        }
-
-        val preamble = it.or({
-            it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(nsQSym(it)) }
-        }, {
-            it.maybe { it.expectForm<ListForm>() }?.let { lf ->
-                it.nested(lf.forms) {
-                    it.or({
-                        it.maybe { it.expectSym(EFFECT) }?.let { _ ->
-                            it.nested(ListForm::forms) {
-                                Preamble(nsQSym(it.expectSym(VAR_SYM)), paramSyms = it.varargs { it.expectSym(VAR_SYM) }, effect = true)
-                            }
-                        }
-                    }, {
-                        Preamble(nsQSym(it.expectSym(VAR_SYM)), paramSyms = it.varargs { it.expectSym(VAR_SYM) })
-                    })
-                }
-            }
-        })
-            ?: TODO()
-
-        val locals = preamble.paramSyms?.map { it to LocalVar(it) }
-
-        val bodyExpr = ValueExprAnalyser(resolver, (locals ?: emptyList()).toMap()).doAnalyser(it)
-
-        val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
-
-        return if (polyVarPreamble != null) {
-            val polyVar = resolver.resolveVar(preamble.sym) as? PolyVar ?: TODO()
-            valueExprType(expr, polyVar.type.monoType)
-            PolyVarDefExpr(polyVar, polyVarPreamble.implType, expr)
-        } else {
-            val valueExprType = valueExprType(expr, resolver.expectedType(preamble.sym.base)?.monoType)
-            val effects = if (preamble.effect) setOf(preamble.sym) else valueExprType.effects
-
-            if (effects.isEmpty())
-                DefExpr(preamble.sym, expr, valueExprType)
-            else {
-                if (expr !is FnExpr) TODO()
-                DefExpr(preamble.sym, expr, valueExprType.copy(effects = effects))
-            }
-        }
-
     }
 
     private fun analyseDefMacro(it: ParserState): DefMacroExpr {
@@ -204,19 +184,15 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
         return DefMacroExpr(preamble.sym, expr, exprType)
     }
 
-    internal fun analyseExpr(form: Form): DoOrExprResult {
-        if (form !is ListForm) TODO()
+    internal fun analyseExpr(form: Form): DoOrExprResult =
+        ParserState(listOf(form)).or(
+            firstSymAnalyser(DO).then { DoResult(it.forms) },
+            defAnalyser.then(::ExprResult),
+            firstSymAnalyser(DECL).then { ExprResult(analyseDecl(it)) },
+            firstSymAnalyser(DEFMACRO).then { ExprResult(analyseDefMacro(it)) },
 
-        val state = ParserState(form.forms)
-
-        return when (state.expectSym()) {
-            DO -> DoResult(state.forms)
-            DEF -> ExprResult(analyseDef(state))
-            DECL -> ExprResult(analyseDecl(state))
-            DEFMACRO -> ExprResult(analyseDefMacro(state))
-
-            else -> {
-                val forms = form.forms
+            {
+                val forms = it.forms
                 if (forms.isNotEmpty()) {
                     val macroVar = when (val firstForm = forms[0]) {
                         is SymbolForm -> resolver.resolveVar(firstForm.sym) as? DefMacroVar
@@ -224,11 +200,9 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
                         else -> null
                     } ?: TODO()
 
-                    return analyseExpr(macroVar.evalMacro(forms.drop(1)))
+                    analyseExpr(macroVar.evalMacro(forms.drop(1)))
                 }
-
                 TODO()
             }
-        }
-    }
+        ) ?: TODO()
 }

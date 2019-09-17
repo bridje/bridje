@@ -25,30 +25,31 @@ internal class ExprAnalyserTest {
         val foo = mkQSym("user/foo")
 
         assertEquals(
-            VarDeclExpr(foo, Type(IntType)),
+            VarDeclExpr(foo, false, Type(IntType)),
             analyseDecl("foo Int"))
 
         assertEquals(
-            VarDeclExpr(foo, Type(FnType(listOf(IntType), StringType))),
+            VarDeclExpr(foo, false, Type(FnType(listOf(IntType), StringType))),
             analyseDecl("(foo Int) Str"))
 
         assertEquals(
-            VarDeclExpr(foo, Type(FnType(listOf(IntType), StringType), effects = setOf(foo))),
+            VarDeclExpr(foo, true, Type(FnType(listOf(IntType), StringType))),
             analyseDecl("(! (foo Int)) Str"))
     }
 
-    private fun analyseDef(s: String) = exprAnalyser.analyseDef(ParserState(readForms(s)))
+    private fun analyseDef(s: String) = exprAnalyser.defAnalyser(ParserState(readForms(s)))
 
     @Test
     internal fun `analyses var definitions`() {
-        val foo = mkQSym("user/foo")
+        val foo = mkSym("foo")
 
         assertEquals(
             DefExpr(foo,
-                FnExpr(foo.base, emptyList(), DoExpr(emptyList(), IntExpr(4))),
-                Type(FnType(emptyList(), IntType), emptyMap(), setOf(foo))),
+                FnExpr(foo, emptyList(), DoExpr(emptyList(), IntExpr(4))),
+                true,
+                Type(FnType(emptyList(), IntType), emptyMap(), emptySet())),
 
-            analyseDef("(! (foo)) 4"))
+            analyseDef("(def (! (foo)) 4)"))
     }
 
     @Test

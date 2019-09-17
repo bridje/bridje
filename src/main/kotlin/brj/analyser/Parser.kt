@@ -17,6 +17,8 @@ internal sealed class ParseError : Exception() {
     object ExpectedIdent : ParseError()
 }
 
+internal fun <T, U> FormsParser<T>.then(f: (T) -> U): FormsParser<U> = { f(this(it)) }
+
 internal data class ParserState(var forms: List<Form>) {
     fun <R> many(a: FormsParser<R?>): List<R> {
         val ret: MutableList<R> = mutableListOf()
