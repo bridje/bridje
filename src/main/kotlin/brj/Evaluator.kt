@@ -3,6 +3,7 @@ package brj
 import brj.analyser.*
 import brj.emitter.BridjeFunction
 import brj.emitter.QSymbol
+import brj.emitter.QSymbol.Companion.mkQSym
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
@@ -58,7 +59,10 @@ internal class Evaluator(var env: RuntimeEnv, private val emitter: Emitter) {
                             else
                                 DefVar(expr.sym, expr.type, null)
 
-                        is TypeAliasDeclExpr -> nsEnv += expr.typeAlias
+                        is TypeAliasDeclExpr -> nsEnv +=
+                            (nsEnv.typeAliases[expr.sym] as? TypeAlias_)?.also { it.type = expr.type }
+                                ?: TypeAlias_(mkQSym(nsEnv.ns, expr.sym), expr.typeVars, expr.type)
+
                         is RecordKeyDeclExpr -> nsEnv += RecordKeyVar(expr.recordKey, emitter.emitRecordKey(expr.recordKey))
                         is VariantKeyDeclExpr -> nsEnv += VariantKeyVar(expr.variantKey, emitter.emitVariantKey(expr.variantKey))
                         is JavaImportDeclExpr -> {

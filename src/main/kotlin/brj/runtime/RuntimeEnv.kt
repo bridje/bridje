@@ -148,16 +148,14 @@ internal data class NSEnv(val ns: Symbol,
             (sym to (polyVarImpls[sym] ?: emptyMap()) + (impl.implType to impl)))
     }
 
-    // HACK these need to go elsewhere
-    override fun resolveLocalVar(ident: Ident) = vars[ident]
+    // HACK these should be elsewhere
+    override fun expectedType(sym: Symbol) = vars[sym]?.type
 
     override fun resolveVar(ident: Ident) =
         vars[ident] ?: when (ident) {
             is Symbol -> referVars[ident]
             is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).vars[ident.base]
         }
-
-    override fun resolveLocalTypeAlias(ident: Ident) = typeAliases[ident]
 
     override fun resolveTypeAlias(ident: Ident) =
         typeAliases[ident]
