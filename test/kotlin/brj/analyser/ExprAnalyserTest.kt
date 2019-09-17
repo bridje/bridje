@@ -18,7 +18,7 @@ internal class ExprAnalyserTest {
 
     private val exprAnalyser = ExprAnalyser(mkSym("user"), NSEnv(mkSym("user")))
 
-    private fun analyseDecl(s: String) = exprAnalyser.analyseDecl(ParserState(readForms(s)))
+    private fun analyseDecl(s: String) = exprAnalyser.declAnalyser(ParserState(readForms(s)))
 
     @Test
     fun `analyses var declarations`() {
@@ -26,15 +26,15 @@ internal class ExprAnalyserTest {
 
         assertEquals(
             VarDeclExpr(foo, false, Type(IntType)),
-            analyseDecl("foo Int"))
+            analyseDecl("(:: foo Int)"))
 
         assertEquals(
             VarDeclExpr(foo, false, Type(FnType(listOf(IntType), StringType))),
-            analyseDecl("(foo Int) Str"))
+            analyseDecl("(:: (foo Int) Str)"))
 
         assertEquals(
             VarDeclExpr(foo, true, Type(FnType(listOf(IntType), StringType))),
-            analyseDecl("(! (foo Int)) Str"))
+            analyseDecl("(:: (! (foo Int)) Str)"))
     }
 
     private fun analyseDef(s: String) = exprAnalyser.defAnalyser(ParserState(readForms(s)))
@@ -57,7 +57,7 @@ internal class ExprAnalyserTest {
         val foo = mkSym("Foo")
         assertEquals(
             TypeAliasDeclExpr(foo, emptyList(), FnType(listOf(IntType), StringType)),
-            analyseDecl("Foo (Fn Int Str)"))
+            analyseDecl("(:: Foo (Fn Int Str))"))
     }
 
     @Test
@@ -65,9 +65,9 @@ internal class ExprAnalyserTest {
         val fooKey = mkQSym(":user/foo")
         assertEquals(
             RecordKeyDeclExpr(RecordKey(fooKey, emptyList(), IntType)),
-            analyseDecl(":foo Int"))
+            analyseDecl("(:: :foo Int)"))
 
-        val decl = analyseDecl("(:foo a) a")
+        val decl = analyseDecl("(:: (:foo a) a)")
         val typeVar = (decl as RecordKeyDeclExpr).recordKey.typeVars.first()
 
         assertEquals(
@@ -79,11 +79,11 @@ internal class ExprAnalyserTest {
 
         assertEquals(
             VariantKeyDeclExpr(VariantKey(fooVariant, emptyList(), emptyList())),
-            analyseDecl(":Foo"))
+            analyseDecl("(:: :Foo)"))
 
         assertEquals(
             VariantKeyDeclExpr(VariantKey(fooVariant, emptyList(), listOf(IntType, StringType))),
-            analyseDecl(":Foo Int Str"))
+            analyseDecl("(:: :Foo Int Str)"))
 
     }
 
@@ -91,7 +91,7 @@ internal class ExprAnalyserTest {
     fun `analyses polyvar`() {
         val fooVar = mkQSym("user/foo")
 
-        val polyDecl = analyseDecl("(. a) foo a")
+        val polyDecl = analyseDecl("(:: (. a) foo a)")
         val typeVar = (polyDecl as PolyVarDeclExpr).polyVar.polyTypeVar
 
         val polyConstraints = mapOf(typeVar to setOf(fooVar))
@@ -99,7 +99,7 @@ internal class ExprAnalyserTest {
             PolyVarDeclExpr(PolyVar(fooVar, typeVar, Type(typeVar, polyConstraints = polyConstraints))),
             polyDecl)
 
-        val polyDecl2 = analyseDecl("(. a) (foo a) Int")
+        val polyDecl2 = analyseDecl("(:: (. a) (foo a) Int)")
         val typeVar2 = (polyDecl2 as PolyVarDeclExpr).polyVar.polyTypeVar
 
         assertEquals(

@@ -42,14 +42,16 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
                                  private val typeAnalyser: TypeAnalyser = TypeAnalyser(resolver)) {
     private fun nsQSym(sym: Symbol) = mkQSym(ns, sym)
 
-    private fun firstSymAnalyser(sym: Symbol): (ParserState) -> ParserState = {
-        it.nested(ListForm::forms) {
-            it.expectSym(sym)
-            it
+    private fun firstSymAnalyser(sym: Symbol): (ParserState) -> ParserState? = {
+        it.maybe {
+            it.nested(ListForm::forms) {
+                it.expectSym(sym)
+                it
+            }
         }
     }
 
-    internal val defAnalyser: FormsParser<DefExpr> =
+    internal val defAnalyser =
         firstSymAnalyser(DEF).then {
             class Preamble(val sym: Symbol, val paramSyms: List<Symbol>? = null, val isEffect: Boolean = false)
 
@@ -78,7 +80,7 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
             DefExpr(preamble.sym, expr, preamble.isEffect, valueExprType(expr, resolver.expectedType(preamble.sym)?.monoType))
         }
 
-    internal fun analyseDecl(it: ParserState): Expr {
+    internal val declAnalyser = firstSymAnalyser(DECL).then {
         data class PolyVarPreamble(val polyTypeVar: TypeVarType)
         data class Preamble(val sym: Ident,
                             val typeVars: List<TypeVarType> = emptyList(),
@@ -128,7 +130,7 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
             }
         }) ?: TODO()
 
-        return if (polyVarPreamble != null) {
+        if (polyVarPreamble != null) {
             preamble.sym.symbolKind == VAR_SYM || TODO()
             preamble.sym as Symbol
 
@@ -160,7 +162,7 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
         }
     }
 
-    private fun analyseDefMacro(it: ParserState): DefMacroExpr {
+    private val defMacroAnalyser = firstSymAnalyser(DEFMACRO).then {
         data class Preamble(val sym: QSymbol, val fixedParamSyms: List<Symbol>, val varargsSym: Symbol?)
 
         val preamble = it.nested(ListForm::forms) {
@@ -181,15 +183,15 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
 
         val exprType = valueExprType(expr, FnType(preamble.fixedParamSyms.map { formType } + listOfNotNull(preamble.varargsSym).map { VectorType(formType) }, formType))
 
-        return DefMacroExpr(preamble.sym, expr, exprType)
+        DefMacroExpr(preamble.sym, expr, exprType)
     }
 
     internal fun analyseExpr(form: Form): DoOrExprResult =
         ParserState(listOf(form)).or(
             firstSymAnalyser(DO).then { DoResult(it.forms) },
             defAnalyser.then(::ExprResult),
-            firstSymAnalyser(DECL).then { ExprResult(analyseDecl(it)) },
-            firstSymAnalyser(DEFMACRO).then { ExprResult(analyseDefMacro(it)) },
+            declAnalyser.then(::ExprResult),
+            defMacroAnalyser.then(::ExprResult),
 
             {
                 val forms = it.forms
