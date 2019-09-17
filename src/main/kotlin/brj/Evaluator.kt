@@ -20,7 +20,7 @@ internal class Evaluator(var env: RuntimeEnv, private val emitter: Emitter) {
 
     private inner class NSEvaluator(var nsEnv: NSEnv) {
         internal fun evalForm(form: Form) {
-            val result = ExprAnalyser(env, nsEnv).analyseExpr(form)
+            val result = ExprAnalyser(nsEnv.ns, nsEnv).analyseExpr(form)
 
             when (result) {
                 is DoResult -> result.forms.forEach(this::evalForm)

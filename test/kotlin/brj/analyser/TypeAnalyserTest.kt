@@ -20,12 +20,15 @@ internal class TypeAnalyserTest {
     private val boolKey = VariantKey(mkQSym(":user/BooleanForm"), emptyList(), emptyList())
     private val strKey = VariantKey(mkQSym(":user/StringForm"), emptyList(), emptyList())
 
-    class DummyResolver(private val vars: Map<Ident, GlobalVar> = emptyMap(),
+    class DummyResolver(private val localVars: Map<Ident, GlobalVar> = emptyMap(),
+                        private val vars: Map<Ident, GlobalVar> = emptyMap(),
+                        private val localTypeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                         private val typeAliases: Map<Symbol, TypeAlias> = emptyMap()) : Resolver {
+        override fun resolveLocalVar(ident: Ident) = localVars[ident]
         override fun resolveVar(ident: Ident) = vars[ident]
 
+        override fun resolveLocalTypeAlias(ident: Ident) = localTypeAliases[ident]
         override fun resolveTypeAlias(ident: Ident) = typeAliases[ident]
-
     }
 
     private fun analyseMonoType(s: String): MonoType =

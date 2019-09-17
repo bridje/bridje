@@ -150,6 +150,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)
 
         internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null) {
+            Context.getCurrent().initialize("brj")
             currentBridjeContext().require(rootNses, nsFormLoader)
         }
 

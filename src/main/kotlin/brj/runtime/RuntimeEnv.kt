@@ -149,11 +149,15 @@ internal data class NSEnv(val ns: Symbol,
     }
 
     // HACK these need to go elsewhere
+    override fun resolveLocalVar(ident: Ident) = vars[ident]
+
     override fun resolveVar(ident: Ident) =
         vars[ident] ?: when (ident) {
             is Symbol -> referVars[ident]
             is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).vars[ident.base]
         }
+
+    override fun resolveLocalTypeAlias(ident: Ident) = typeAliases[ident]
 
     override fun resolveTypeAlias(ident: Ident) =
         typeAliases[ident]

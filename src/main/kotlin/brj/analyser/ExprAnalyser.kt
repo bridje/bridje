@@ -36,9 +36,9 @@ internal sealed class DoOrExprResult
 internal data class DoResult(val forms: List<Form>) : DoOrExprResult()
 internal data class ExprResult(val expr: Expr) : DoOrExprResult()
 
-internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
-                                 private val typeAnalyser: TypeAnalyser = TypeAnalyser(resolver = nsEnv)) {
-    private fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
+internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
+                                 private val typeAnalyser: TypeAnalyser = TypeAnalyser(resolver)) {
+    private fun nsQSym(sym: Symbol) = mkQSym(ns, sym)
 
     internal fun analyseDecl(it: ParserState): Expr {
         data class PolyVarPreamble(val polyTypeVar: TypeVarType)
@@ -90,45 +90,7 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             }
         }) ?: TODO()
 
-        return if (polyVarPreamble == null) {
-            when (preamble.sym) {
-                is Symbol ->
-                    when (preamble.sym.symbolKind) {
-                        VAR_SYM -> {
-                            val returnType = typeAnalyser.monoTypeAnalyser(it)
-                            val qsym = nsQSym(preamble.sym)
-                            val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType),
-                                effects = if (preamble.effect) setOf(qsym) else emptySet())
-                            VarDeclExpr(qsym, type)
-                        }
-
-                        RECORD_KEY_SYM -> RecordKeyDeclExpr(RecordKey(nsQSym(preamble.sym), preamble.typeVars, typeAnalyser.monoTypeAnalyser(it)))
-                        VARIANT_KEY_SYM -> VariantKeyDeclExpr(VariantKey(nsQSym(preamble.sym), preamble.typeVars, it.varargs(typeAnalyser::monoTypeAnalyser)))
-                        TYPE_ALIAS_SYM -> {
-                            val type = if (it.forms.isNotEmpty()) typeAnalyser.monoTypeAnalyser(it) else null
-
-                            TypeAliasDeclExpr(
-                                nsEnv.typeAliases[preamble.sym]?.also { (it as TypeAlias_).type = type }
-                                    ?: TypeAlias_(nsQSym(preamble.sym), preamble.typeVars, type))
-                        }
-                    }.also { _ -> it.expectEnd() }
-                is QSymbol -> {
-                    val aliasNSEnv = nsEnv.aliases[preamble.sym.ns] ?: TODO()
-                    when (val interopNS = aliasNSEnv.interopNS) {
-                        is InteropNS.JavaInteropNS -> {
-                            val qsym = mkQSym(aliasNSEnv.ns, preamble.sym.base)
-                            val returnType = typeAnalyser.monoTypeAnalyser(it)
-                            val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType),
-                                effects = if (preamble.effect) setOf(qsym) else emptySet())
-
-                            JavaImportDeclExpr(JavaImport(qsym, interopNS.clazz, preamble.sym.base.baseStr, type))
-                        }
-
-                        null -> TODO()
-                    }
-                }
-            }
-        } else {
+        return if (polyVarPreamble != null) {
             preamble.sym.symbolKind == VAR_SYM || TODO()
             preamble.sym as Symbol
 
@@ -142,6 +104,28 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 Type(
                     if (preamble.paramTypes != null) FnType(preamble.paramTypes, returnType) else returnType,
                     mapOf(polyVarPreamble.polyTypeVar to setOf(qSym)))))
+        } else {
+            preamble.sym as Symbol
+
+            when (preamble.sym.symbolKind) {
+                VAR_SYM -> {
+                    val returnType = typeAnalyser.monoTypeAnalyser(it)
+                    val qsym = nsQSym(preamble.sym)
+                    val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType),
+                        effects = if (preamble.effect) setOf(qsym) else emptySet())
+                    VarDeclExpr(qsym, type)
+                }
+
+                RECORD_KEY_SYM -> RecordKeyDeclExpr(RecordKey(nsQSym(preamble.sym), preamble.typeVars, typeAnalyser.monoTypeAnalyser(it)))
+                VARIANT_KEY_SYM -> VariantKeyDeclExpr(VariantKey(nsQSym(preamble.sym), preamble.typeVars, it.varargs(typeAnalyser::monoTypeAnalyser)))
+                TYPE_ALIAS_SYM -> {
+                    val type = if (it.forms.isNotEmpty()) typeAnalyser.monoTypeAnalyser(it) else null
+
+                    TypeAliasDeclExpr(
+                        resolver.resolveLocalTypeAlias(preamble.sym)?.also { (it as TypeAlias_).type = type }
+                            ?: TypeAlias_(nsQSym(preamble.sym), preamble.typeVars, type))
+                }
+            }.also { _ -> it.expectEnd() }
         }
     }
 
@@ -178,16 +162,16 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val locals = preamble.paramSyms?.map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(nsEnv, (locals ?: emptyList()).toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(resolver, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
         val expr = if (locals != null) FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr) else bodyExpr
 
         return if (polyVarPreamble != null) {
-            val polyVar = nsEnv.resolveVar(preamble.sym) as? PolyVar ?: TODO()
+            val polyVar = resolver.resolveVar(preamble.sym) as? PolyVar ?: TODO()
             valueExprType(expr, polyVar.type.monoType)
             PolyVarDefExpr(polyVar, polyVarPreamble.implType, expr)
         } else {
-            val valueExprType = valueExprType(expr, nsEnv.vars[preamble.sym.base]?.type?.monoType)
+            val valueExprType = valueExprType(expr, resolver.resolveLocalVar(preamble.sym.base)?.type?.monoType)
             val effects = if (preamble.effect) setOf(preamble.sym) else valueExprType.effects
 
             if (effects.isEmpty())
@@ -213,11 +197,11 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val locals = (preamble.fixedParamSyms + listOfNotNull(preamble.varargsSym)).map { it to LocalVar(it) }
 
-        val bodyExpr = ValueExprAnalyser(nsEnv, locals.toMap()).doAnalyser(it)
+        val bodyExpr = ValueExprAnalyser(resolver, locals.toMap()).doAnalyser(it)
 
         val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
 
-        val formType = TypeAliasType(nsEnv.resolveTypeAlias(mkQSym("brj.forms/Form"))!!, emptyList())
+        val formType = TypeAliasType(resolver.resolveTypeAlias(mkQSym("brj.forms/Form"))!!, emptyList())
 
         val exprType = valueExprType(expr, FnType(preamble.fixedParamSyms.map { formType } + listOfNotNull(preamble.varargsSym).map { VectorType(formType) }, formType))
 
@@ -239,8 +223,8 @@ internal data class ExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
                 val forms = form.forms
                 if (forms.isNotEmpty()) {
                     val macroVar = when (val firstForm = forms[0]) {
-                        is SymbolForm -> nsEnv.resolveVar(firstForm.sym) as? DefMacroVar
-                        is QSymbolForm -> nsEnv.resolveVar(firstForm.sym) as? DefMacroVar
+                        is SymbolForm -> resolver.resolveVar(firstForm.sym) as? DefMacroVar
+                        is QSymbolForm -> resolver.resolveVar(firstForm.sym) as? DefMacroVar
                         else -> null
                     } ?: TODO()
 

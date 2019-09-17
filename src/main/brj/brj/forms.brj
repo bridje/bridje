@@ -1,5 +1,5 @@
 (ns brj.forms
-  {:aliases {Core (java brj.CoreKt
+  {:aliases {Core (java brj.runtime.CoreKt
                         (:: (concat [[a]]) [a]))}})
 
 (def concat Core/concat)

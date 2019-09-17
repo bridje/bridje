@@ -1,6 +1,6 @@
 (ns brj.core
   {:aliases {forms brj.forms
-             Core (java brj.CoreKt
+             Core (java brj.runtime.CoreKt
                         (:: (empty [a]) Bool)
                         (:: (count [a]) Int)
                         (:: (first [a]) a)

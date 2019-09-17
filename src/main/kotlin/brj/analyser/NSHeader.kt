@@ -67,33 +67,31 @@ internal data class NSHeader(val ns: Symbol,
                     it
                 }
             }?.let {
-                it.nested(ListForm::forms) {
-                    it.expectSym(NS)
-                    val ns = it.expectSym(VAR_SYM)
-                    var nsHeader = NSHeader(ns)
+                val ns = it.expectSym(VAR_SYM)
 
-                    if (it.forms.isNotEmpty()) {
-                        it.nested(RecordForm::forms) {
-                            it.varargs {
-                                val sym = it.expectForm<SymbolForm>().sym
-                                nsHeader = when (sym) {
-                                    REFERS -> {
-                                        nsHeader.copy(refers = it.nested(RecordForm::forms, ::refersAnalyser))
-                                    }
+                var nsHeader = NSHeader(ns)
 
-                                    ALIASES -> {
-                                        nsHeader.copy(aliases = it.nested(RecordForm::forms) { aliasesAnalyser(it, ns) })
-                                    }
-
-                                    else -> TODO()
+                if (it.forms.isNotEmpty()) {
+                    it.nested(RecordForm::forms) {
+                        it.varargs {
+                            val sym = it.expectForm<SymbolForm>().sym
+                            nsHeader = when (sym) {
+                                REFERS -> {
+                                    nsHeader.copy(refers = it.nested(RecordForm::forms, ::refersAnalyser))
                                 }
+
+                                ALIASES -> {
+                                    nsHeader.copy(aliases = it.nested(RecordForm::forms) { aliasesAnalyser(it, ns) })
+                                }
+
+                                else -> TODO()
                             }
                         }
                     }
-
-                    it.expectEnd()
-                    nsHeader
                 }
+
+                it.expectEnd()
+                nsHeader
             }
     }
 }

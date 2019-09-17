@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 
 internal class ExprAnalyserTest {
 
-    private val exprAnalyser = ExprAnalyser(RuntimeEnv(), NSEnv(mkSym("user")))
+    private val exprAnalyser = ExprAnalyser(mkSym("user"), NSEnv(mkSym("user")))
 
     private fun analyseDecl(s: String) = exprAnalyser.analyseDecl(ParserState(readForms(s)))
 
