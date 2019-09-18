@@ -2,8 +2,8 @@ package brj
 
 import brj.ReaderTest.FormType.BOOLEAN
 import brj.ReaderTest.FormType.VECTOR
-import brj.emitter.QSymbol.Companion.mkQSym
-import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.QSymbol.Companion.mkQSym
+import brj.runtime.Symbol.Companion.mkSym
 import brj.reader.*
 import com.oracle.truffle.api.source.Source
 import org.junit.jupiter.api.Test

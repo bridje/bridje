@@ -1,8 +1,8 @@
 package brj.reader
 
 import brj.Loc
-import brj.emitter.QSymbol
-import brj.emitter.Symbol
+import brj.runtime.QSymbol
+import brj.runtime.Symbol
 import java.math.BigDecimal
 import java.math.BigInteger
 

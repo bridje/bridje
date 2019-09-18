@@ -8,9 +8,10 @@ import brj.analyser.Resolver
 import brj.analyser.ValueExpr
 import brj.emitter.BridjeTypesGen.expectRecordObject
 import brj.emitter.BridjeTypesGen.expectVariantObject
-import brj.emitter.QSymbol.Companion.mkQSym
+import brj.runtime.*
 import brj.runtime.DefMacroVar
 import brj.runtime.JavaImport
+import brj.runtime.QSymbol.Companion.mkQSym
 import brj.runtime.RecordKey
 import brj.runtime.VariantKey
 import brj.types.FnType

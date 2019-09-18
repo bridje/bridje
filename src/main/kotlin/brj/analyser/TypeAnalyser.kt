@@ -1,8 +1,8 @@
 package brj.analyser
 
-import brj.emitter.Ident
-import brj.emitter.Symbol
-import brj.emitter.SymbolKind.*
+import brj.runtime.Ident
+import brj.runtime.Symbol
+import brj.runtime.SymbolKind.*
 import brj.reader.*
 import brj.runtime.VariantKeyVar
 import brj.types.*

@@ -1,8 +1,8 @@
 package brj
 
 import brj.analyser.*
-import brj.emitter.QSymbol.Companion.mkQSym
-import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.QSymbol.Companion.mkQSym
+import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.RecordKey
 import brj.runtime.RecordKeyVar
 import brj.runtime.VariantKey

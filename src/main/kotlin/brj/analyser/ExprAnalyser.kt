@@ -2,12 +2,12 @@
 
 package brj.analyser
 
-import brj.emitter.Ident
-import brj.emitter.QSymbol
-import brj.emitter.QSymbol.Companion.mkQSym
-import brj.emitter.Symbol
-import brj.emitter.Symbol.Companion.mkSym
-import brj.emitter.SymbolKind.*
+import brj.runtime.Ident
+import brj.runtime.QSymbol
+import brj.runtime.QSymbol.Companion.mkQSym
+import brj.runtime.Symbol
+import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymbolKind.*
 import brj.reader.Form
 import brj.reader.ListForm
 import brj.reader.QSymbolForm

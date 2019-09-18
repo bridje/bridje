@@ -2,9 +2,9 @@ package brj
 
 import brj.analyser.*
 import brj.emitter.BridjeFunction
-import brj.emitter.QSymbol
-import brj.emitter.QSymbol.Companion.mkQSym
-import brj.emitter.Symbol
+import brj.runtime.QSymbol
+import brj.runtime.QSymbol.Companion.mkQSym
+import brj.runtime.Symbol
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*

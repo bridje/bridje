@@ -6,6 +6,7 @@ import brj.analyser.*
 import brj.emitter.BridjeTypesGen.*
 import brj.emitter.ValueExprEmitterFactory.CollNodeGen
 import brj.runtime.GlobalVar
+import brj.runtime.QSymbol
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary

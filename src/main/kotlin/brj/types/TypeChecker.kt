@@ -1,7 +1,7 @@
 package brj.types
 
 import brj.analyser.*
-import brj.emitter.QSymbol
+import brj.runtime.QSymbol
 import brj.runtime.RecordKey
 import brj.runtime.VariantKey
 import brj.types.TypeException.ArityError

@@ -2,7 +2,7 @@ package brj.reader
 
 import brj.analyser.NSHeader
 import brj.analyser.ParserState
-import brj.emitter.Symbol
+import brj.runtime.Symbol
 import brj.reader.NSForms.Loader.Companion.ClasspathLoader
 import com.oracle.truffle.api.source.Source
 

@@ -2,9 +2,9 @@ package brj
 
 import brj.BridjeLanguage.Companion.currentBridjeContext
 import brj.analyser.*
-import brj.emitter.QSymbol.Companion.mkQSym
+import brj.runtime.QSymbol.Companion.mkQSym
 import brj.emitter.RecordEmitter
-import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.Symbol.Companion.mkSym
 import brj.emitter.TruffleEmitter
 import brj.emitter.ValueExprEmitter
 import brj.emitter.VariantEmitter

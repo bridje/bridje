@@ -1,9 +1,9 @@
 package brj.reader
 
 import brj.analyser.*
-import brj.emitter.QSymbol
-import brj.emitter.QSymbol.Companion.mkQSym
-import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.QSymbol
+import brj.runtime.QSymbol.Companion.mkQSym
+import brj.runtime.Symbol.Companion.mkSym
 import com.oracle.truffle.api.source.Source
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream

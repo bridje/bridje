@@ -1,9 +1,9 @@
 package brj.analyser
 
 import brj.analyser.ParseError.ExpectedIdent
-import brj.emitter.Ident
-import brj.emitter.Symbol
-import brj.emitter.SymbolKind
+import brj.runtime.Ident
+import brj.runtime.Symbol
+import brj.runtime.SymbolKind
 import brj.reader.Form
 import brj.reader.QSymbolForm
 import brj.reader.SymbolForm

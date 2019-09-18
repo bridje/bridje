@@ -1,13 +1,13 @@
 package brj.analyser
 
 import brj.Loc
-import brj.emitter.Ident
-import brj.emitter.QSymbol
-import brj.emitter.QSymbol.Companion.mkQSym
-import brj.emitter.Symbol
-import brj.emitter.Symbol.Companion.mkSym
-import brj.emitter.SymbolKind.RECORD_KEY_SYM
-import brj.emitter.SymbolKind.VAR_SYM
+import brj.runtime.Ident
+import brj.runtime.QSymbol
+import brj.runtime.QSymbol.Companion.mkQSym
+import brj.runtime.Symbol
+import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymbolKind.RECORD_KEY_SYM
+import brj.runtime.SymbolKind.VAR_SYM
 import brj.reader.*
 import brj.runtime.*
 import java.math.BigDecimal

@@ -1,6 +1,6 @@
 package brj.analyser
 
-import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.Symbol.Companion.mkSym
 import brj.readForms
 import brj.types.FnType
 import brj.types.IntType

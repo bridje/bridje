@@ -1,13 +1,6 @@
 package brj.analyser
 
-import brj.emitter.Ident
-import brj.emitter.QSymbol
-import brj.emitter.Symbol
-import brj.emitter.SymbolKind
-import brj.runtime.GlobalVar
-import brj.runtime.NSEnv
-import brj.runtime.RuntimeEnv
-import brj.runtime.TypeAlias
+import brj.runtime.*
 
 internal interface Resolver {
     fun resolveVar(ident: Ident): GlobalVar?

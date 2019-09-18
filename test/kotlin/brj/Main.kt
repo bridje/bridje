@@ -1,6 +1,6 @@
 package brj
 
-import brj.emitter.Symbol
+import brj.runtime.Symbol
 import brj.reader.NSForms.Loader.Companion.ClasspathLoader
 import com.oracle.truffle.api.source.Source
 import org.graalvm.polyglot.Context

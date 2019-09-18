@@ -1,7 +1,7 @@
 package brj.types
 
-import brj.emitter.QSymbol
-import brj.emitter.Symbol.Companion.mkSym
+import brj.runtime.QSymbol
+import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.RecordKey
 import brj.runtime.TypeAlias
 import brj.runtime.VariantKey

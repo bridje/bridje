@@ -2,11 +2,11 @@
 
 package brj.analyser
 
-import brj.emitter.QSymbol
-import brj.emitter.Symbol
-import brj.emitter.Symbol.Companion.mkSym
-import brj.emitter.SymbolKind.TYPE_ALIAS_SYM
-import brj.emitter.SymbolKind.VAR_SYM
+import brj.runtime.QSymbol
+import brj.runtime.Symbol
+import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymbolKind.TYPE_ALIAS_SYM
+import brj.runtime.SymbolKind.VAR_SYM
 import brj.reader.ListForm
 import brj.reader.RecordForm
 import brj.reader.SetForm
