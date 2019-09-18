@@ -2,20 +2,22 @@ package brj
 
 import brj.analyser.FormsParser
 import brj.analyser.NSHeader
+import brj.analyser.NSHeader.Companion.nsHeaderParser
 import brj.analyser.ParserState
 import brj.analyser.Resolver
-import brj.emitter.*
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.SymbolKind.VAR_SYM
+import brj.emitter.BridjeObject
+import brj.emitter.TruffleEmitter
+import brj.emitter.ValueNode
 import brj.reader.Form
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.reader.ListForm
 import brj.reader.NSForms
 import brj.reader.NSForms.Loader.Companion.ClasspathLoader
 import brj.reader.RecordForm
-import brj.runtime.Ident
 import brj.runtime.RuntimeEnv
 import brj.runtime.Symbol
+import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymbolKind.VAR_SYM
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
@@ -100,18 +102,10 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         }
     }
 
-    private val dummyHeaderParser = NSHeader.Parser(object : Resolver {
-        // HACK
-        override fun resolveVar(ident: Ident) = null
-
-        override fun resolveTypeAlias(ident: Ident) = null
-    })
-
     private val formsParser: FormsParser<List<ParseRequest>> = {
-        val headerParser = NSHeader.Parser()
         it.varargs {
             it.or(
-                { it.maybe(dummyHeaderParser::nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) } },
+                { it.maybe(::nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) } },
                 { it.maybe(requireParser)?.let { nses -> ParseRequest.RequireRequest(nses) } },
                 { it.maybe(aliasParser)?.let { aliases -> ParseRequest.AliasRequest(aliases) } }
             ) ?: ParseRequest.ValueRequest(it.expectForm())
@@ -120,6 +114,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     internal class EvalRootNode(lang: BridjeLanguage, val reqs: List<ParseRequest>) : RootNode(lang) {
         override fun execute(frame: VirtualFrame) {
+            println(reqs)
             TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
         }
     }

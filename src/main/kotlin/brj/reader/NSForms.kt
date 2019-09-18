@@ -1,9 +1,10 @@
 package brj.reader
 
 import brj.analyser.NSHeader
+import brj.analyser.NSHeader.Companion.nsHeaderParser
 import brj.analyser.ParserState
-import brj.runtime.Symbol
 import brj.reader.NSForms.Loader.Companion.ClasspathLoader
+import brj.runtime.Symbol
 import com.oracle.truffle.api.source.Source
 
 internal data class NSForms(val nsHeader: NSHeader, val forms: List<Form>) {
@@ -39,7 +40,7 @@ internal data class NSForms(val nsHeader: NSHeader, val forms: List<Form>) {
                 seen += ns
 
                 val state = ParserState(loader.loadForms(ns))
-                val nsHeader = NSHeader.Parser().nsHeaderParser(state) ?: TODO()
+                val nsHeader = nsHeaderParser(state) ?: TODO()
                 nsHeader.ns == ns || TODO()
 
                 (nsHeader.deps - seen).forEach(::loadNS)

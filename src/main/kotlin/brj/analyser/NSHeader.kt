@@ -2,19 +2,14 @@
 
 package brj.analyser
 
-import brj.runtime.QSymbol
-import brj.runtime.Symbol
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.SymbolKind.TYPE_ALIAS_SYM
-import brj.runtime.SymbolKind.VAR_SYM
 import brj.reader.ListForm
 import brj.reader.RecordForm
 import brj.reader.SetForm
 import brj.reader.SymbolForm
-import brj.runtime.Alias
-import brj.runtime.BridjeAlias
-import brj.runtime.JavaAlias
-import brj.runtime.JavaInteropDecl
+import brj.runtime.*
+import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymbolKind.TYPE_ALIAS_SYM
+import brj.runtime.SymbolKind.VAR_SYM
 
 private val NS = mkSym("ns")
 private val REFERS = mkSym(":refers")
@@ -35,8 +30,8 @@ internal data class NSHeader(val ns: Symbol,
             }
     }
 
-    class Parser(val resolver: Resolver = Resolver.NSResolver()) {
-        private val exprAnalyser = ExprAnalyser(resolver)
+    companion object {
+        private val exprAnalyser = ExprAnalyser(Resolver.NSResolver())
 
         private fun refersAnalyser(it: ParserState) =
             it.varargs {

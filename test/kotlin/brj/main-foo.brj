@@ -1,14 +1,13 @@
 (ns foo
   {:aliases {b bar
-             Foo (java brj.FooKt)}
+             Foo (java brj.FooKt
+                       (:: (isZero Int) Bool)
+                       (:: (dec Int) Int)
+                       (:: (conj #{a} a) #{a})
+                       (:: (plus Int Int) Int)
+                       (:: (str Str Str) Str)
+                       (:: (println Str) Str))}
    :refers {bar #{baz}}})
-
-(:: (Foo/isZero Int) Bool)
-(:: (Foo/dec Int) Int)
-(:: (Foo/conj #{a} a) #{a})
-(:: (Foo/plus Int Int) Int)
-(:: (Foo/str Str Str) Str)
-(:: (Foo/println Str) Str)
 
 (:: :Void)
 (:: Void (+ :Void))
@@ -38,8 +37,8 @@
 
 (def (vector el) [el])
 
-(def foo
-  (-> []
-      :forms/VectorForm
-      vector
-      :forms/ListForm))
+;(def foo
+;  (-> []
+;      :forms/VectorForm
+;      vector
+;      :forms/ListForm))

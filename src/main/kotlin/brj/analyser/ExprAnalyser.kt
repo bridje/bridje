@@ -2,18 +2,14 @@
 
 package brj.analyser
 
-import brj.runtime.Ident
-import brj.runtime.QSymbol
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.SymbolKind.*
 import brj.reader.Form
 import brj.reader.ListForm
 import brj.reader.QSymbolForm
 import brj.reader.SymbolForm
-import brj.runtime.DefMacroVar
-import brj.runtime.PolyVar
+import brj.runtime.*
+import brj.runtime.QSymbol.Companion.mkQSym
+import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymbolKind.*
 import brj.types.*
 
 internal val DO = mkSym("do")
@@ -140,7 +136,7 @@ internal data class ExprAnalyser(val resolver: Resolver,
             PolyVarDeclExpr(preamble.sym, polyTypeVar,
                 if (preamble.paramTypes != null) FnType(preamble.paramTypes, returnType) else returnType)
         } else {
-            preamble.sym as Symbol
+            preamble.sym as? Symbol ?: TODO()
 
             when (preamble.sym.symbolKind) {
                 VAR_SYM -> {
