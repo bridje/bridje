@@ -84,7 +84,7 @@ internal class TruffleEmitterTest {
     internal fun `java interop`() {
         val javaImport = JavaImport(mkQSym("Foo/plus"), Class.forName("brj.FooKt").kotlin, "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
 
-        val fn = Value.asValue(TruffleEmitter(currentBridjeContext()).emitJavaImport(javaImport))
+        val fn = Value.asValue(TruffleEmitter(currentBridjeContext(), Resolver.NSResolver()).emitJavaImport(javaImport))
 
         assertEquals(5, fn.execute(3, 2).asLong())
     }

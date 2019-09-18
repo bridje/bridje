@@ -4,11 +4,15 @@ import brj.BridjeContext
 import brj.Emitter
 import brj.Loc
 import brj.analyser.DefMacroExpr
+import brj.analyser.Resolver
 import brj.analyser.ValueExpr
 import brj.emitter.BridjeTypesGen.expectRecordObject
 import brj.emitter.BridjeTypesGen.expectVariantObject
 import brj.emitter.QSymbol.Companion.mkQSym
-import brj.runtime.*
+import brj.runtime.DefMacroVar
+import brj.runtime.JavaImport
+import brj.runtime.RecordKey
+import brj.runtime.VariantKey
 import brj.types.FnType
 import brj.types.MonoType
 import com.oracle.truffle.api.CompilerDirectives
@@ -281,14 +285,14 @@ internal class EffectEmitter(val ctx: BridjeContext) {
         BridjeFunction(ctx.makeRootNode(EffectFnBodyNode(sym, defaultImpl)))
 }
 
-internal class TruffleEmitter(val ctx: BridjeContext) : Emitter {
+internal class TruffleEmitter(private val ctx: BridjeContext, private val formsResolver: Resolver) : Emitter {
     override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter(ctx).evalValueExpr(expr)
     override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter(ctx).emitJavaImport(javaImport)
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
     override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
     override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter(ctx).emitEffectExpr(sym, defaultImpl)
-    override fun emitDefMacroVar(expr: DefMacroExpr, formsNS: NSEnv, ns: Symbol): DefMacroVar =
-        DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, formsNS, evalValueExpr(expr.expr))
+    override fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar =
+        DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, formsResolver, evalValueExpr(expr.expr))
 }
 
 @TypeSystem(

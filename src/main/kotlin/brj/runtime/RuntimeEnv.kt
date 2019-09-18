@@ -2,7 +2,6 @@
 
 package brj.runtime
 
-import brj.analyser.NSHeader
 import brj.analyser.Resolver
 import brj.emitter.*
 import brj.reader.*
@@ -17,7 +16,8 @@ internal sealed class Alias {
 }
 
 internal data class BridjeAlias(override val ns: Symbol) : Alias()
-internal data class JavaAlias(override val ns: Symbol, val clazz: KClass<*>) : Alias()
+internal data class JavaInteropDecl(val sym: Symbol, val type: MonoType)
+internal data class JavaAlias(override val ns: Symbol, val clazz: KClass<*>, val decls: Map<Symbol, JavaInteropDecl>) : Alias()
 
 internal abstract class GlobalVar {
     abstract val sym: QSymbol
@@ -27,7 +27,7 @@ internal abstract class GlobalVar {
 
 internal data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
 internal data class EffectVar(override val sym: QSymbol, override val type: Type, val hasDefault: Boolean, override var value: Any?) : GlobalVar()
-internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, val formsNS: NSEnv, override var value: Any?) : GlobalVar() {
+internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, val formsResolver: Resolver, override var value: Any?) : GlobalVar() {
     private fun fromVariant(obj: VariantObject): Form {
         fun fromVariantList(arg: Any): List<Form> {
             return (arg as List<*>).map { fromVariant(BridjeTypesGen.expectVariantObject(truffleEnv.asGuestValue(it))) }
@@ -62,7 +62,7 @@ internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, ove
                 else -> form.arg
             }
 
-            return (formsNS.vars[form.qsym.base]!!.value as BridjeFunction).callTarget.call(arg)
+            return (formsResolver.resolveVar(form.qsym)!!.value as BridjeFunction).callTarget.call(arg)
         }
 
         val variantArgs = argForms.map(::toVariant)
@@ -127,18 +127,10 @@ internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List
     }
 }
 
-internal sealed class InteropNS {
-    data class JavaInteropNS(val clazz: KClass<*>) : InteropNS()
-}
-
 internal data class NSEnv(val ns: Symbol,
-                          val interopNS: InteropNS? = null,
-                          val referVars: Map<Symbol, GlobalVar> = emptyMap(),
-                          val referTypeAliases: Map<Symbol, TypeAlias> = emptyMap(),
-                          val aliases: Map<Symbol, NSEnv> = emptyMap(),
                           val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                           val vars: Map<Symbol, GlobalVar> = emptyMap(),
-                          val polyVarImpls: Map<QSymbol, Map<MonoType, PolyVarImpl>> = emptyMap()) : Resolver {
+                          val polyVarImpls: Map<QSymbol, Map<MonoType, PolyVarImpl>> = emptyMap()) {
 
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
@@ -147,45 +139,9 @@ internal data class NSEnv(val ns: Symbol,
         return copy(polyVarImpls = polyVarImpls +
             (sym to (polyVarImpls[sym] ?: emptyMap()) + (impl.implType to impl)))
     }
-
-    // HACK these should be elsewhere
-    override fun expectedType(sym: Symbol) = vars[sym]?.type
-
-    override fun resolveVar(ident: Ident) =
-        vars[ident] ?: when (ident) {
-            is Symbol -> referVars[ident]
-            is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).vars[ident.base]
-        }
-
-    override fun resolveTypeAlias(ident: Ident) =
-        typeAliases[ident]
-            ?: when (ident) {
-                is Symbol -> typeAliases[ident] ?: referTypeAliases[ident]
-                is QSymbol -> (aliases[ident.ns] ?: TODO("can't find NS")).typeAliases[ident.base]
-            }
-
-    companion object {
-        fun create(env: RuntimeEnv, nsHeader: NSHeader) =
-            NSEnv(nsHeader.ns,
-                referVars = nsHeader.refers.filterKeys { it.symbolKind != SymbolKind.TYPE_ALIAS_SYM }.entries.associate {
-                    it.key to
-                        ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
-                            .vars[it.value.base] ?: TODO("can't find refer ${it.value}"))
-                },
-                referTypeAliases = nsHeader.refers.filterKeys { it.symbolKind == SymbolKind.TYPE_ALIAS_SYM }.entries.associate {
-                    it.key to
-                        ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
-                            .typeAliases[it.value.base] ?: TODO("can't find refer ${it.value}"))
-                },
-                aliases = nsHeader.aliases.entries.associate {
-                    when (val alias = it.value) {
-                        is BridjeAlias -> it.key to (env.nses[alias.ns] ?: TODO("can't find ${alias.ns} NS"))
-                        is JavaAlias -> it.key to NSEnv(alias.ns, InteropNS.JavaInteropNS(alias.clazz))
-                    }
-                })
-    }
 }
 
 internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
     operator fun plus(newNsEnv: NSEnv) = RuntimeEnv(nses + (newNsEnv.ns to newNsEnv))
+    operator fun plus(newNsEnvs: Iterable<NSEnv>) = RuntimeEnv(nses + newNsEnvs.map { it.ns to it })
 }

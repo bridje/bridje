@@ -2,7 +2,6 @@ package brj.analyser
 
 import brj.emitter.Symbol.Companion.mkSym
 import brj.readForms
-import brj.runtime.NSEnv
 import brj.types.FnType
 import brj.types.IntType
 import brj.types.StringType
@@ -12,7 +11,7 @@ import org.junit.jupiter.api.Test
 
 internal class ExprAnalyserTest {
 
-    private val exprAnalyser = ExprAnalyser(NSEnv(mkSym("user")))
+    private val exprAnalyser = ExprAnalyser(Resolver.NSResolver())
 
     private fun analyseDecl(s: String) = exprAnalyser.declAnalyser(ParserState(readForms(s)))
 

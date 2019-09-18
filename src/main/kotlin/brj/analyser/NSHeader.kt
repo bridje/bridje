@@ -14,6 +14,7 @@ import brj.reader.SymbolForm
 import brj.runtime.Alias
 import brj.runtime.BridjeAlias
 import brj.runtime.JavaAlias
+import brj.runtime.JavaInteropDecl
 
 private val NS = mkSym("ns")
 private val REFERS = mkSym(":refers")
@@ -34,7 +35,9 @@ internal data class NSHeader(val ns: Symbol,
             }
     }
 
-    companion object {
+    class Parser(val resolver: Resolver = Resolver.NSResolver()) {
+        private val exprAnalyser = ExprAnalyser(resolver)
+
         private fun refersAnalyser(it: ParserState) =
             it.varargs {
                 val nsSym = it.expectForm<SymbolForm>().sym
@@ -52,10 +55,16 @@ internal data class NSHeader(val ns: Symbol,
                     it.maybe { it.expectSym(VAR_SYM) }?.let { sym -> sym to BridjeAlias(it.expectSym(VAR_SYM)) }
                 }, {
                     it.maybe { it.expectSym(TYPE_ALIAS_SYM) }?.let { sym ->
-                        sym to JavaAlias(mkSym("$ns\$$sym"), it.nested(ListForm::forms) {
+                        it.nested(ListForm::forms) {
                             it.expectSym(JAVA)
-                            Class.forName(it.expectSym(VAR_SYM).baseStr).kotlin.also { _ -> it.expectEnd() }
-                        })
+                            sym to JavaAlias(
+                                mkSym("$ns\$${sym}"),
+                                Class.forName(it.expectSym(VAR_SYM).baseStr).kotlin,
+                                it.varargs {
+                                    val expr = exprAnalyser.declAnalyser(it) as VarDeclExpr
+                                    expr.sym to JavaInteropDecl(expr.sym, expr.type.monoType)
+                                }.toMap())
+                        }
                     }
                 }) ?: TODO()
             }.toMap()

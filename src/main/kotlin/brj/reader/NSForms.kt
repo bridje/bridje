@@ -39,7 +39,7 @@ internal data class NSForms(val nsHeader: NSHeader, val forms: List<Form>) {
                 seen += ns
 
                 val state = ParserState(loader.loadForms(ns))
-                val nsHeader = NSHeader.nsHeaderParser(state) ?: TODO()
+                val nsHeader = NSHeader.Parser().nsHeaderParser(state) ?: TODO()
                 nsHeader.ns == ns || TODO()
 
                 (nsHeader.deps - seen).forEach(::loadNS)

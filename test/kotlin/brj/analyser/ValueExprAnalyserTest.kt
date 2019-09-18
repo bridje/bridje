@@ -35,7 +35,7 @@ internal class ValueExprAnalyserTest {
                 RecordEntry(countKey, IntExpr(42)),
                 RecordEntry(messageKey, StringExpr("Hello world!"))))),
 
-            ValueExprAnalyser(nsEnv).analyseValueExpr(readForms("""{:count 42, :message "Hello world!"}""").first()))
+            ValueExprAnalyser(Resolver.NSResolver(nsEnv = nsEnv)).analyseValueExpr(readForms("""{:count 42, :message "Hello world!"}""").first()))
     }
 
     @Test
@@ -47,7 +47,7 @@ internal class ValueExprAnalyserTest {
 
         val nsEnv = NSEnv(user, vars = mapOf(println.base to effectVar))
 
-        val expr = ValueExprAnalyser(nsEnv)
+        val expr = ValueExprAnalyser(Resolver.NSResolver(nsEnv = nsEnv))
             .analyseValueExpr(readForms("""(with-fx [(def (println! s) "Hello!")] (println! "foo!"))""").first())
 
         val withFxExpr = (expr as DoExpr).expr as WithFxExpr

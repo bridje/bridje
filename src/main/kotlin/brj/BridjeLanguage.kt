@@ -2,14 +2,11 @@ package brj
 
 import brj.analyser.FormsParser
 import brj.analyser.NSHeader
-import brj.analyser.NSHeader.Companion.nsHeaderParser
 import brj.analyser.ParserState
-import brj.emitter.BridjeObject
-import brj.emitter.Symbol
+import brj.analyser.Resolver
+import brj.emitter.*
 import brj.emitter.Symbol.Companion.mkSym
 import brj.emitter.SymbolKind.VAR_SYM
-import brj.emitter.TruffleEmitter
-import brj.emitter.ValueNode
 import brj.reader.Form
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.reader.ListForm
@@ -53,11 +50,9 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
     companion object {
         @TruffleBoundary
         internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
-            val evaluator = Evaluator(ctx.env, TruffleEmitter(ctx))
-
-            NSForms.loadNSes(rootNses, nsFormLoader ?: ClasspathLoader()).forEach(evaluator::evalNS)
-
-            return evaluator.env
+            return NSForms.loadNSes(rootNses, nsFormLoader ?: ClasspathLoader()).fold(ctx.env) { env, forms ->
+                Evaluator(TruffleEmitter(ctx, Resolver.NSResolver(env))).evalNS(env, forms)
+            }
         }
     }
 }
@@ -103,10 +98,18 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         }
     }
 
+    private val dummyHeaderParser = NSHeader.Parser(object : Resolver {
+        // HACK
+        override fun resolveVar(ident: Ident) = null
+
+        override fun resolveTypeAlias(ident: Ident) = null
+    })
+
     private val formsParser: FormsParser<List<ParseRequest>> = {
+        val headerParser = NSHeader.Parser()
         it.varargs {
             it.or(
-                { it.maybe(::nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) } },
+                { it.maybe(dummyHeaderParser::nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) } },
                 { it.maybe(requireParser)?.let { nses -> ParseRequest.RequireRequest(nses) } },
                 { it.maybe(aliasParser)?.let { aliases -> ParseRequest.AliasRequest(aliases) } }
             ) ?: ParseRequest.ValueRequest(it.expectForm())

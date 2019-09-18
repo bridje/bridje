@@ -76,7 +76,7 @@ internal data class ExprAnalyser(val resolver: Resolver,
 
             val expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
 
-            DefExpr(preamble.sym, expr, preamble.isEffect, valueExprType(expr, resolver.expectedType(preamble.sym)?.monoType))
+            DefExpr(preamble.sym, expr, preamble.isEffect, valueExprType(expr, resolver.resolveVar(preamble.sym)?.type?.monoType))
         }
 
     internal val declAnalyser = firstSymAnalyser(DECL).then {
