@@ -12,7 +12,8 @@ import brj.reader.Form
 import brj.reader.ListForm
 import brj.reader.QSymbolForm
 import brj.reader.SymbolForm
-import brj.runtime.*
+import brj.runtime.DefMacroVar
+import brj.runtime.PolyVar
 import brj.types.*
 
 internal val DO = mkSym("do")
@@ -26,21 +27,19 @@ internal val VARARGS = mkSym("&")
 internal sealed class Expr
 internal data class DefExpr(val sym: Symbol, val expr: ValueExpr, val isEffect: Boolean, val type: Type) : Expr()
 internal data class PolyVarDefExpr(val polyVar: PolyVar, val implType: MonoType, val expr: ValueExpr) : Expr()
-internal data class DefMacroExpr(val sym: QSymbol, val expr: ValueExpr, val type: Type) : Expr()
-internal data class VarDeclExpr(val sym: QSymbol, val isEffect: Boolean, val type: Type) : Expr()
-internal data class PolyVarDeclExpr(val polyVar: PolyVar) : Expr()
+internal data class DefMacroExpr(val sym: Symbol, val expr: ValueExpr, val type: Type) : Expr()
+internal data class VarDeclExpr(val sym: Symbol, val isEffect: Boolean, val type: Type) : Expr()
+internal data class PolyVarDeclExpr(val sym: Symbol, val polyTypeVar: TypeVarType, val type: MonoType) : Expr()
 internal data class TypeAliasDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val type: MonoType?) : Expr()
-internal data class RecordKeyDeclExpr(val recordKey: RecordKey) : Expr()
-internal data class VariantKeyDeclExpr(val variantKey: VariantKey) : Expr()
-internal data class JavaImportDeclExpr(val javaImport: JavaImport) : Expr()
+internal data class RecordKeyDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val type: MonoType) : Expr()
+internal data class VariantKeyDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val paramTypes: List<MonoType>) : Expr()
 
 internal sealed class DoOrExprResult
 internal data class DoResult(val forms: List<Form>) : DoOrExprResult()
 internal data class ExprResult(val expr: Expr) : DoOrExprResult()
 
-internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
+internal data class ExprAnalyser(val resolver: Resolver,
                                  private val typeAnalyser: TypeAnalyser = TypeAnalyser(resolver)) {
-    private fun nsQSym(sym: Symbol) = mkQSym(ns, sym)
 
     private fun firstSymAnalyser(sym: Symbol): (ParserState) -> ParserState? = {
         it.maybe {
@@ -134,39 +133,34 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
             preamble.sym.symbolKind == VAR_SYM || TODO()
             preamble.sym as Symbol
 
-            val qSym = nsQSym(preamble.sym)
             val polyTypeVar = polyVarPreamble.polyTypeVar
             val returnType = typeAnalyser.monoTypeAnalyser(it)
             it.expectEnd()
 
-            PolyVarDeclExpr(PolyVar(
-                qSym, polyTypeVar,
-                Type(
-                    if (preamble.paramTypes != null) FnType(preamble.paramTypes, returnType) else returnType,
-                    mapOf(polyVarPreamble.polyTypeVar to setOf(qSym)))))
+            PolyVarDeclExpr(preamble.sym, polyTypeVar,
+                if (preamble.paramTypes != null) FnType(preamble.paramTypes, returnType) else returnType)
         } else {
             preamble.sym as Symbol
 
             when (preamble.sym.symbolKind) {
                 VAR_SYM -> {
                     val returnType = typeAnalyser.monoTypeAnalyser(it)
-                    val qsym = nsQSym(preamble.sym)
                     val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType), effects = emptySet())
-                    VarDeclExpr(qsym, preamble.isEffect, type)
+                    VarDeclExpr(preamble.sym, preamble.isEffect, type)
                 }
 
-                RECORD_KEY_SYM -> RecordKeyDeclExpr(RecordKey(nsQSym(preamble.sym), preamble.typeVars, typeAnalyser.monoTypeAnalyser(it)))
-                VARIANT_KEY_SYM -> VariantKeyDeclExpr(VariantKey(nsQSym(preamble.sym), preamble.typeVars, it.varargs(typeAnalyser::monoTypeAnalyser)))
+                RECORD_KEY_SYM -> RecordKeyDeclExpr(preamble.sym, preamble.typeVars, typeAnalyser.monoTypeAnalyser(it))
+                VARIANT_KEY_SYM -> VariantKeyDeclExpr(preamble.sym, preamble.typeVars, it.varargs(typeAnalyser::monoTypeAnalyser))
                 TYPE_ALIAS_SYM -> TypeAliasDeclExpr(preamble.sym, preamble.typeVars, if (it.forms.isNotEmpty()) typeAnalyser.monoTypeAnalyser(it) else null)
             }.also { _ -> it.expectEnd() }
         }
     }
 
     private val defMacroAnalyser = firstSymAnalyser(DEFMACRO).then {
-        data class Preamble(val sym: QSymbol, val fixedParamSyms: List<Symbol>, val varargsSym: Symbol?)
+        data class Preamble(val sym: Symbol, val fixedParamSyms: List<Symbol>, val varargsSym: Symbol?)
 
         val preamble = it.nested(ListForm::forms) {
-            val sym = nsQSym(it.expectSym(VAR_SYM))
+            val sym = it.expectSym(VAR_SYM)
             Preamble(sym,
                 it.many { it.expectSym(VAR_SYM).takeIf { it != VARARGS } },
                 it.maybe { it.expectSym(VAR_SYM) })
@@ -177,7 +171,7 @@ internal data class ExprAnalyser(val ns: Symbol, val resolver: Resolver,
 
         val bodyExpr = ValueExprAnalyser(resolver, locals.toMap()).doAnalyser(it)
 
-        val expr = FnExpr(preamble.sym.base, locals.map { it.second }, bodyExpr)
+        val expr = FnExpr(preamble.sym, locals.map { it.second }, bodyExpr)
 
         val formType = TypeAliasType(resolver.resolveTypeAlias(mkQSym("brj.forms/Form"))!!, emptyList())
 

@@ -1,12 +1,8 @@
 package brj.analyser
 
-import brj.emitter.QSymbol.Companion.mkQSym
 import brj.emitter.Symbol.Companion.mkSym
 import brj.readForms
 import brj.runtime.NSEnv
-import brj.runtime.PolyVar
-import brj.runtime.RecordKey
-import brj.runtime.VariantKey
 import brj.types.FnType
 import brj.types.IntType
 import brj.types.StringType
@@ -16,13 +12,13 @@ import org.junit.jupiter.api.Test
 
 internal class ExprAnalyserTest {
 
-    private val exprAnalyser = ExprAnalyser(mkSym("user"), NSEnv(mkSym("user")))
+    private val exprAnalyser = ExprAnalyser(NSEnv(mkSym("user")))
 
     private fun analyseDecl(s: String) = exprAnalyser.declAnalyser(ParserState(readForms(s)))
 
     @Test
     fun `analyses var declarations`() {
-        val foo = mkQSym("user/foo")
+        val foo = mkSym("foo")
 
         assertEquals(
             VarDeclExpr(foo, false, Type(IntType)),
@@ -62,48 +58,47 @@ internal class ExprAnalyserTest {
 
     @Test
     fun `analyses key decl`() {
-        val fooKey = mkQSym(":user/foo")
+        val fooKey = mkSym(":foo")
         assertEquals(
-            RecordKeyDeclExpr(RecordKey(fooKey, emptyList(), IntType)),
+            RecordKeyDeclExpr(fooKey, emptyList(), IntType),
             analyseDecl("(:: :foo Int)"))
 
         val decl = analyseDecl("(:: (:foo a) a)")
-        val typeVar = (decl as RecordKeyDeclExpr).recordKey.typeVars.first()
+        val typeVar = (decl as RecordKeyDeclExpr).typeVars.first()
 
         assertEquals(
-            RecordKeyDeclExpr(RecordKey(fooKey, listOf(typeVar), typeVar)),
+            RecordKeyDeclExpr(fooKey, listOf(typeVar), typeVar),
             decl)
 
 
-        val fooVariant = mkQSym(":user/Foo")
+        val fooVariant = mkSym(":Foo")
 
         assertEquals(
-            VariantKeyDeclExpr(VariantKey(fooVariant, emptyList(), emptyList())),
+            VariantKeyDeclExpr(fooVariant, emptyList(), emptyList()),
             analyseDecl("(:: :Foo)"))
 
         assertEquals(
-            VariantKeyDeclExpr(VariantKey(fooVariant, emptyList(), listOf(IntType, StringType))),
+            VariantKeyDeclExpr(fooVariant, emptyList(), listOf(IntType, StringType)),
             analyseDecl("(:: :Foo Int Str)"))
 
     }
 
     @Test
     fun `analyses polyvar`() {
-        val fooVar = mkQSym("user/foo")
+        val fooVar = mkSym("foo")
 
         val polyDecl = analyseDecl("(:: (. a) foo a)")
-        val typeVar = (polyDecl as PolyVarDeclExpr).polyVar.polyTypeVar
+        val typeVar = (polyDecl as PolyVarDeclExpr).polyTypeVar
 
-        val polyConstraints = mapOf(typeVar to setOf(fooVar))
         assertEquals(
-            PolyVarDeclExpr(PolyVar(fooVar, typeVar, Type(typeVar, polyConstraints = polyConstraints))),
+            PolyVarDeclExpr(fooVar, typeVar, typeVar),
             polyDecl)
 
         val polyDecl2 = analyseDecl("(:: (. a) (foo a) Int)")
-        val typeVar2 = (polyDecl2 as PolyVarDeclExpr).polyVar.polyTypeVar
+        val typeVar2 = (polyDecl2 as PolyVarDeclExpr).polyTypeVar
 
         assertEquals(
-            PolyVarDeclExpr(PolyVar(fooVar, typeVar2, Type(FnType(listOf(typeVar2), IntType), polyConstraints = polyConstraints))),
+            PolyVarDeclExpr(fooVar, typeVar2, FnType(listOf(typeVar2), IntType)),
             polyDecl2)
     }
 

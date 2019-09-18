@@ -7,11 +7,8 @@ import brj.analyser.DefMacroExpr
 import brj.analyser.ValueExpr
 import brj.emitter.BridjeTypesGen.expectRecordObject
 import brj.emitter.BridjeTypesGen.expectVariantObject
-import brj.emitter.Symbol.Companion.mkSym
-import brj.runtime.DefMacroVar
-import brj.runtime.JavaImport
-import brj.runtime.RecordKey
-import brj.runtime.VariantKey
+import brj.emitter.QSymbol.Companion.mkQSym
+import brj.runtime.*
 import brj.types.FnType
 import brj.types.MonoType
 import com.oracle.truffle.api.CompilerDirectives
@@ -290,9 +287,8 @@ internal class TruffleEmitter(val ctx: BridjeContext) : Emitter {
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
     override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
     override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter(ctx).emitEffectExpr(sym, defaultImpl)
-    override fun emitDefMacroVar(expr: DefMacroExpr): DefMacroVar =
-        // HACK where should I be getting the brj.forms NSEnv from?
-        DefMacroVar(ctx.truffleEnv, expr.sym, expr.type, ctx.env.nses[mkSym("brj.forms")]!!, evalValueExpr(expr.expr))
+    override fun emitDefMacroVar(expr: DefMacroExpr, formsNS: NSEnv, ns: Symbol): DefMacroVar =
+        DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, formsNS, evalValueExpr(expr.expr))
 }
 
 @TypeSystem(

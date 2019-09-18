@@ -5,9 +5,11 @@ import brj.emitter.BridjeFunction
 import brj.emitter.QSymbol
 import brj.emitter.QSymbol.Companion.mkQSym
 import brj.emitter.Symbol
+import brj.emitter.Symbol.Companion.mkSym
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
+import brj.types.Type
 
 internal interface Emitter {
     fun evalValueExpr(expr: ValueExpr): Any
@@ -15,7 +17,7 @@ internal interface Emitter {
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
     fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
-    fun emitDefMacroVar(expr: DefMacroExpr): DefMacroVar
+    fun emitDefMacroVar(expr: DefMacroExpr, formsNS: NSEnv, ns: Symbol): DefMacroVar
 }
 
 internal class Evaluator(var env: RuntimeEnv, private val emitter: Emitter) {
@@ -24,7 +26,7 @@ internal class Evaluator(var env: RuntimeEnv, private val emitter: Emitter) {
         fun nsQSym(sym: Symbol) = mkQSym(nsEnv.ns, sym)
         
         internal fun evalForm(form: Form) {
-            when (val result = ExprAnalyser(nsEnv.ns, nsEnv).analyseExpr(form)) {
+            when (val result = ExprAnalyser(nsEnv).analyseExpr(form)) {
                 is DoResult -> result.forms.forEach(this::evalForm)
 
                 is ExprResult -> {
@@ -46,30 +48,38 @@ internal class Evaluator(var env: RuntimeEnv, private val emitter: Emitter) {
                                     DefVar(qSym, expr.type, value)
                         }
 
-                        is PolyVarDeclExpr -> nsEnv += expr.polyVar
+                        is PolyVarDeclExpr -> nsEnv += PolyVar(
+                            nsQSym(expr.sym),
+                            expr.polyTypeVar,
+                            Type(expr.type, mapOf(expr.polyTypeVar to setOf(nsQSym(expr.sym)))))
+
                         is PolyVarDefExpr -> nsEnv += PolyVarImpl(expr.polyVar, expr.implType, emitter.evalValueExpr(expr.expr))
 
                         is DefMacroExpr -> {
                             if (expr.type.effects.isNotEmpty()) TODO()
-                            nsEnv += emitter.emitDefMacroVar(expr)
+                            nsEnv += emitter.emitDefMacroVar(expr, env.nses[mkSym("brj.forms")]!!, nsEnv.ns)
                         }
 
-                        is VarDeclExpr -> nsEnv +=
-                            if (expr.isEffect)
-                                EffectVar(expr.sym, expr.type, false, emitter.evalEffectExpr(expr.sym, defaultImpl = null))
-                            else
-                                DefVar(expr.sym, expr.type, null)
+                        is VarDeclExpr -> {
+                            val qsym = nsQSym(expr.sym)
+                            nsEnv +=
+                                if (expr.isEffect)
+                                    EffectVar(qsym, expr.type, false, emitter.evalEffectExpr(qsym, defaultImpl = null))
+                                else
+                                    DefVar(qsym, expr.type, null)
+                        }
 
                         is TypeAliasDeclExpr -> nsEnv +=
                             (nsEnv.typeAliases[expr.sym] as? TypeAlias_)?.also { it.type = expr.type }
                                 ?: TypeAlias_(mkQSym(nsEnv.ns, expr.sym), expr.typeVars, expr.type)
 
-                        is RecordKeyDeclExpr -> nsEnv += RecordKeyVar(expr.recordKey, emitter.emitRecordKey(expr.recordKey))
-                        is VariantKeyDeclExpr -> nsEnv += VariantKeyVar(expr.variantKey, emitter.emitVariantKey(expr.variantKey))
-                        is JavaImportDeclExpr -> {
-                            val ns = expr.javaImport.qsym.ns
-                            env += (env.nses[ns] ?: NSEnv(ns)) +
-                                JavaImportVar(expr.javaImport, emitter.emitJavaImport(expr.javaImport))
+                        is RecordKeyDeclExpr -> {
+                            val recordKey = RecordKey(nsQSym(expr.sym), expr.typeVars, expr.type)
+                            nsEnv += RecordKeyVar(recordKey, emitter.emitRecordKey(recordKey))
+                        }
+                        is VariantKeyDeclExpr -> {
+                            val variantKey = VariantKey(nsQSym(expr.sym), expr.typeVars, expr.paramTypes)
+                            nsEnv += VariantKeyVar(variantKey, emitter.emitVariantKey(variantKey))
                         }
                     }
                 }
