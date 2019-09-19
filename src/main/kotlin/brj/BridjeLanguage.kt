@@ -1,12 +1,10 @@
 package brj
 
-import brj.analyser.FormsParser
-import brj.analyser.NSHeader
+import brj.analyser.*
 import brj.analyser.NSHeader.Companion.nsHeaderParser
-import brj.analyser.ParserState
-import brj.analyser.Resolver
 import brj.emitter.BridjeObject
 import brj.emitter.TruffleEmitter
+import brj.emitter.ValueExprEmitter
 import brj.emitter.ValueNode
 import brj.reader.Form
 import brj.reader.FormReader.Companion.readSourceForms
@@ -18,7 +16,7 @@ import brj.runtime.RuntimeEnv
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.SymbolKind.VAR_SYM
-import com.oracle.truffle.api.CallTarget
+import brj.types.valueExprType
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
@@ -53,11 +51,11 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
 
     companion object {
         @TruffleBoundary
-        internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
-            return NSForms.loadNSes(rootNses, nsFormLoader ?: ClasspathLoader()).fold(ctx.env) { env, forms ->
-                Evaluator(TruffleEmitter(ctx, Resolver.NSResolver(env))).evalNS(env, forms)
-            }
-        }
+        internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv =
+            NSForms.loadNSes(rootNses, nsFormLoader ?: ClasspathLoader())
+                .fold(ctx.env) { env, forms ->
+                    Evaluator(TruffleEmitter(ctx, Resolver.NSResolver(env))).evalNS(env, forms)
+                }
     }
 }
 
@@ -113,34 +111,38 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     internal class EvalRootNode(lang: BridjeLanguage, val reqs: List<ParseRequest>) : RootNode(lang) {
-        override fun execute(frame: VirtualFrame) {
-            println(reqs)
-            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-        }
-    }
+        private val ctxRef = lang.contextReference
 
-    override fun parse(request: ParsingRequest): CallTarget {
-        val reqs = formsParser(ParserState(readSourceForms(request.source)))
+        @TruffleBoundary
+        private fun evalValueRequest(req: ParseRequest.ValueRequest): Any? {
+            val ctx = ctxRef.get()
+            val expr = ValueExprAnalyser(Resolver.NSResolver(ctx.env)).analyseValueExpr(req.form)
 
-        return Truffle.getRuntime().createCallTarget(EvalRootNode(this, reqs))
+            valueExprType(expr, null)
 
-//        return if (ns != null) {
-//            Truffle.getRuntime().createCallTarget(object : RootNode(this) {
-//                override fun execute(frame: VirtualFrame) = require(ctx, setOf(ns), BridjeNSLoader(forms = mapOf(ns to forms)))
-//            })
-//        } else {
-//            val expr = ValueExprAnalyser(env, NSEnv(USER)).analyseValueExpr(forms.first())
-//
-//            val valueExprType = valueExprType(expr, null)
-//
+            // HACK
 //            val noDefaultImpls = valueExprType.effects.filterNot { (env.nses[it.ns]!!.vars.getValue(it.base) as EffectVar).hasDefault }
 //            if (noDefaultImpls.isNotEmpty()) throw IllegalArgumentException("not all effects have implementations: $noDefaultImpls")
-//
-//            println("type: $valueExprType")
-//
-//            ValueExprEmitter(ctx).emitValueExpr(expr)
-//        }
+
+            return ValueExprEmitter(ctx).evalValueExpr(expr)
+        }
+
+        override fun execute(frame: VirtualFrame): Any? =
+            reqs.fold(null as Any?) { _, req ->
+                when (req) {
+                    is ParseRequest.ValueRequest -> evalValueRequest(req)
+                    is ParseRequest.RequireRequest -> TODO()
+                    is ParseRequest.AliasRequest -> TODO()
+                    is ParseRequest.NSRequest -> TODO()
+                }
+            }
     }
+
+    override fun parse(request: ParsingRequest) =
+        Truffle.getRuntime().createCallTarget(
+            EvalRootNode(
+                this,
+                formsParser(ParserState(readSourceForms(request.source)))))
 
     override fun toString(context: BridjeContext, value: Any): String {
         return toString(value)
