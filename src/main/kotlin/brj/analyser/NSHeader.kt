@@ -6,15 +6,26 @@ import brj.reader.ListForm
 import brj.reader.RecordForm
 import brj.reader.SetForm
 import brj.reader.SymbolForm
-import brj.runtime.*
+import brj.runtime.QSymbol
+import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.SymbolKind.TYPE_ALIAS_SYM
 import brj.runtime.SymbolKind.VAR_SYM
+import brj.types.MonoType
+import kotlin.reflect.KClass
 
 private val NS = mkSym("ns")
 private val REFERS = mkSym(":refers")
 private val ALIASES = mkSym(":aliases")
 private val JAVA = mkSym("java")
+
+internal sealed class Alias {
+    abstract val ns: Symbol
+}
+
+internal data class BridjeAlias(override val ns: Symbol) : Alias()
+internal data class JavaInteropDecl(val sym: Symbol, val type: MonoType)
+internal data class JavaAlias(override val ns: Symbol, val clazz: KClass<*>, val decls: Map<Symbol, JavaInteropDecl>) : Alias()
 
 internal data class NSHeader(val ns: Symbol,
                              val refers: Map<Symbol, QSymbol> = emptyMap(),

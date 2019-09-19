@@ -2,12 +2,10 @@ package brj
 
 import brj.analyser.*
 import brj.emitter.BridjeFunction
-import brj.runtime.QSymbol
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
+import brj.runtime.QSymbol.Companion.mkQSym
 import brj.types.Type
 
 internal interface Emitter {
@@ -20,7 +18,7 @@ internal interface Emitter {
 }
 
 internal class Evaluator(private val emitter: Emitter) {
-    inner class NSEvaluator(val env: RuntimeEnv, val nsHeader: NSHeader) {
+    private inner class NSEvaluator(val env: RuntimeEnv, val nsHeader: NSHeader) {
         fun nsQSym(sym: Symbol) = mkQSym(nsHeader.ns, sym)
 
         private val resolver = Resolver.NSResolver.create(env, nsHeader)

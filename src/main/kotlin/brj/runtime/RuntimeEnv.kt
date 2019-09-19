@@ -3,21 +3,15 @@
 package brj.runtime
 
 import brj.analyser.Resolver
-import brj.emitter.*
+import brj.emitter.BridjeFunction
+import brj.emitter.BridjeTypesGen
+import brj.emitter.VariantObject
 import brj.reader.*
 import brj.types.*
 import com.oracle.truffle.api.TruffleLanguage
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.reflect.KClass
-
-internal sealed class Alias {
-    abstract val ns: Symbol
-}
-
-internal data class BridjeAlias(override val ns: Symbol) : Alias()
-internal data class JavaInteropDecl(val sym: Symbol, val type: MonoType)
-internal data class JavaAlias(override val ns: Symbol, val clazz: KClass<*>, val decls: Map<Symbol, JavaInteropDecl>) : Alias()
 
 internal abstract class GlobalVar {
     abstract val sym: QSymbol
