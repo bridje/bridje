@@ -12,12 +12,14 @@ import brj.reader.ListForm
 import brj.reader.NSForms
 import brj.reader.NSForms.Loader.Companion.ClasspathLoader
 import brj.reader.RecordForm
+import brj.runtime.EffectVar
 import brj.runtime.RuntimeEnv
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.SymbolKind.VAR_SYM
 import brj.types.valueExprType
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
+import com.oracle.truffle.api.RootCallTarget
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -62,6 +64,7 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
 @TruffleLanguage.Registration(
     id = "brj",
     name = "Bridje",
+    version = "0.0.1",
     defaultMimeType = "application/brj",
     characterMimeTypes = ["application/brj"],
     contextPolicy = TruffleLanguage.ContextPolicy.EXCLUSIVE)
@@ -116,13 +119,13 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         @TruffleBoundary
         private fun evalValueRequest(req: ParseRequest.ValueRequest): Any? {
             val ctx = ctxRef.get()
-            val expr = ValueExprAnalyser(Resolver.NSResolver(ctx.env)).analyseValueExpr(req.form)
+            val resolver = Resolver.NSResolver(ctx.env)
+            val expr = ValueExprAnalyser(resolver).analyseValueExpr(req.form)
 
-            valueExprType(expr, null)
+            val valueExprType = valueExprType(expr, null)
 
-            // HACK
-//            val noDefaultImpls = valueExprType.effects.filterNot { (env.nses[it.ns]!!.vars.getValue(it.base) as EffectVar).hasDefault }
-//            if (noDefaultImpls.isNotEmpty()) throw IllegalArgumentException("not all effects have implementations: $noDefaultImpls")
+            val noDefaultImpls = valueExprType.effects.filterNot { (resolver.resolveVar(it) as EffectVar).hasDefault }
+            require(noDefaultImpls.isEmpty()) { "not all effects have implementations: $noDefaultImpls" }
 
             return ValueExprEmitter(ctx).evalValueExpr(expr)
         }
@@ -138,7 +141,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             }
     }
 
-    override fun parse(request: ParsingRequest) =
+    override fun parse(request: ParsingRequest): RootCallTarget =
         Truffle.getRuntime().createCallTarget(
             EvalRootNode(
                 this,
