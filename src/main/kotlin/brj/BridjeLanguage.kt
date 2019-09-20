@@ -154,9 +154,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     companion object {
         internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)
 
-        internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null) {
+        internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
             Context.getCurrent().initialize("brj")
-            currentBridjeContext().require(rootNses, nsFormLoader)
+            return currentBridjeContext().require(rootNses, nsFormLoader)
         }
 
         internal fun toString(value: Any) = when (value) {

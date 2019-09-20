@@ -6,6 +6,7 @@ import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
+import brj.types.PolyConstraint
 import brj.types.Type
 
 internal interface Emitter {
@@ -46,10 +47,7 @@ internal class Evaluator(private val emitter: Emitter) {
                                     DefVar(qSym, expr.type, value)
                         }
 
-                        is PolyVarDeclExpr -> nsEnv + PolyVar(
-                            nsQSym(expr.sym),
-                            expr.polyTypeVar,
-                            Type(expr.type, mapOf(expr.polyTypeVar to setOf(nsQSym(expr.sym)))))
+                        is PolyVarDeclExpr -> nsEnv + PolyVar(PolyConstraint(nsQSym(expr.sym), expr.primaryTVs, expr.secondaryTVs), expr.type)
 
                         is PolyVarDefExpr -> nsEnv + PolyVarImpl(expr.polyVar, expr.implType, emitter.evalValueExpr(expr.expr))
 

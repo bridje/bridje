@@ -1,17 +1,25 @@
 package brj.analyser
 
-import brj.runtime.Symbol.Companion.mkSym
 import brj.readForms
-import brj.types.FnType
-import brj.types.IntType
-import brj.types.StringType
-import brj.types.Type
+import brj.runtime.Symbol
+import brj.runtime.Symbol.Companion.mkSym
+import brj.types.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 internal class ExprAnalyserTest {
 
-    private val exprAnalyser = ExprAnalyser(Resolver.NSResolver())
+    private val aSym = mkSym("a")
+    private val aTypeVar = TypeVarType()
+
+    private val resolver = Resolver.NSResolver()
+
+    private val tvFactory = object : ITypeVarFactory {
+        private val tvs: MutableMap<Symbol, TypeVarType> = mutableMapOf(aSym to aTypeVar)
+        override fun mkTypeVar(sym: Symbol) = tvs.getOrPut(sym) { TypeVarType() }
+    }
+
+    private val exprAnalyser = ExprAnalyser(resolver, TypeAnalyser(resolver, tvFactory))
 
     private fun analyseDecl(s: String) = exprAnalyser.declAnalyser(ParserState(readForms(s)))
 
@@ -42,7 +50,7 @@ internal class ExprAnalyserTest {
             DefExpr(foo,
                 FnExpr(foo, emptyList(), DoExpr(emptyList(), IntExpr(4))),
                 true,
-                Type(FnType(emptyList(), IntType), emptyMap(), emptySet())),
+                Type(FnType(emptyList(), IntType))),
 
             analyseDef("(def (! (foo)) 4)"))
     }
@@ -86,18 +94,16 @@ internal class ExprAnalyserTest {
     fun `analyses polyvar`() {
         val fooVar = mkSym("foo")
 
-        val polyDecl = analyseDecl("(:: (. a) foo a)")
-        val typeVar = (polyDecl as PolyVarDeclExpr).polyTypeVar
+        val polyDecl = analyseDecl("(:: (. a) foo a)") as PolyVarDeclExpr
 
         assertEquals(
-            PolyVarDeclExpr(fooVar, typeVar, typeVar),
+            PolyVarDeclExpr(fooVar, listOf(aTypeVar), emptyList(), aTypeVar),
             polyDecl)
 
         val polyDecl2 = analyseDecl("(:: (. a) (foo a) Int)")
-        val typeVar2 = (polyDecl2 as PolyVarDeclExpr).polyTypeVar
 
         assertEquals(
-            PolyVarDeclExpr(fooVar, typeVar2, FnType(listOf(typeVar2), IntType)),
+            PolyVarDeclExpr(fooVar, listOf(aTypeVar), emptyList(), FnType(listOf(aTypeVar), IntType)),
             polyDecl2)
     }
 

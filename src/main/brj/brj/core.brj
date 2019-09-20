@@ -20,8 +20,10 @@
 (:: :Nil)
 (:: (Seq a) (+ (:Cons a) :Nil))
 
-;(:: (seq [a]) (Seq a))
-;(def (seq v)
+(:: (. a) (count a) Int)
+;(:: (. s) (seq (s a)) (Seq a))
+
+;(def (. []) (seq v)
 ;  (if (empty? v)
 ;    :Nil
 ;    (:Cons (first v) (rest v))))

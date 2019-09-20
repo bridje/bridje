@@ -97,7 +97,7 @@ private fun unifyEqs(eqs_: List<TypeEq>): Mapping {
 
 private data class Typing(val monoType: MonoType,
                           val monoEnv: MonoEnv = emptyMap(),
-                          val polyConstraints: Map<TypeVarType, Set<QSymbol>> = emptyMap(),
+                          val polyConstraints: PolyConstraints = emptySet(),
                           val effects: Set<QSymbol> = emptySet())
 
 private fun combine(
@@ -117,7 +117,7 @@ private fun combine(
     return Typing(
         returnType.applyMapping(mapping),
         lvTvs.mapValues { e -> mapping.typeMapping.getOrDefault(e.value, e.value) },
-        if (typings.flatMapTo(HashSet()) {it.polyConstraints.entries}.isNotEmpty()) TODO() else emptyMap(),
+        if (typings.flatMapTo(HashSet()) { it.polyConstraints }.isNotEmpty()) TODO() else emptySet(),
         typings.flatMapTo(HashSet(), Typing::effects))
 }
 

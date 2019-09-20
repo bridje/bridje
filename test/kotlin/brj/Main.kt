@@ -17,6 +17,7 @@ fun main() {
         val fooSource = Source.newBuilder("brj", BridjeLanguage::class.java.getResource("main-foo.brj").readText(), "foo").build()
         val barSource = Source.newBuilder("brj", BridjeLanguage::class.java.getResource("main-bar.brj").readText(), "bar").build()
 
+        @Suppress("UNUSED_VARIABLE")
         val env = BridjeLanguage.require(setOf(foo), ClasspathLoader(sources = mapOf(foo to fooSource, bar to barSource)))
 
         val value = ctx.eval("brj", """(str "Hello" " " "world!")""")
