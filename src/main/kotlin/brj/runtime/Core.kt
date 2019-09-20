@@ -8,7 +8,8 @@ fun vector(els: Array<*>) = els.toList()
 fun set(els: Array<*>) = els.toSet()
 
 fun <E> empty(vec: List<E>) = vec.isEmpty()
-fun <E> count(vec: List<E>) = vec.size
+fun <E> countVec(vec: List<E>) = vec.size
+fun <E> countSet(set: Set<E>) = set.size
 fun <E> first(vec: List<E>) = vec.first()
 fun <E> rest(vec: List<E>) = vec.drop(1)
 

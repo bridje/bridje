@@ -2,13 +2,13 @@
   {:aliases {forms brj.forms
              Core (java brj.runtime.CoreKt
                         (:: (empty [a]) Bool)
-                        (:: (count [a]) Int)
+                        (:: (countVec [a]) Int)
+                        (:: (countSet [a]) Int)
                         (:: (first [a]) a)
                         (:: (rest [a]) [a])
                         (:: (str [Str]) Str))}})
 
 (def empty? Core/empty)
-(def count Core/count)
 (def first Core/first)
 (def rest Core/rest)
 
@@ -21,6 +21,13 @@
 (:: (Seq a) (+ (:Cons a) :Nil))
 
 (:: (. a) (count a) Int)
+
+(def (. [a]) (count v)
+  (Core/countVec v))
+
+(def (. #{a}) (count s)
+  (Core/countSet s))
+
 ;(:: (. s) (seq (s a)) (Seq a))
 
 ;(def (. []) (seq v)

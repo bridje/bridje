@@ -107,7 +107,7 @@ internal data class PolyVar(val polyConstraint: PolyConstraint, val monoType: Mo
     override fun toString() = sym.toString()
 }
 
-internal class PolyVarImpl(val polyVar: PolyVar, val implType: MonoType, val value: Any)
+internal data class PolyVarImpl(val polyVar: PolyVar, val primaryImplTypes: List<MonoType>, val secondaryImplTypes: List<MonoType>, val value: Any)
 
 internal sealed class TypeAlias(open val sym: QSymbol, open val typeVars: List<TypeVarType>, open val type: MonoType?)
 internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List<TypeVarType>, override var type: MonoType?) : TypeAlias(sym, typeVars, type) {
@@ -126,14 +126,14 @@ internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List
 internal data class NSEnv(val ns: Symbol,
                           val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                           val vars: Map<Symbol, GlobalVar> = emptyMap(),
-                          val polyVarImpls: Map<QSymbol, Map<MonoType, PolyVarImpl>> = emptyMap()) {
+                          val polyVarImpls: Map<QSymbol, List<PolyVarImpl>> = emptyMap()) {
 
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
     operator fun plus(impl: PolyVarImpl): NSEnv {
         val sym = impl.polyVar.sym
         return copy(polyVarImpls = polyVarImpls +
-            (sym to (polyVarImpls[sym] ?: emptyMap()) + (impl.implType to impl)))
+            (sym to (polyVarImpls[sym] ?: emptyList()).filterNot { it.primaryImplTypes == impl.primaryImplTypes } + impl))
     }
 }
 

@@ -21,12 +21,16 @@ internal val POLY = mkSym(".")
 internal val VARARGS = mkSym("&")
 
 internal sealed class Expr
-internal data class DefExpr(val sym: Symbol, val expr: ValueExpr, val isEffect: Boolean, val type: Type) : Expr()
-internal data class PolyVarDefExpr(val polyVar: PolyVar, val implType: MonoType, val expr: ValueExpr) : Expr()
-internal data class DefMacroExpr(val sym: Symbol, val expr: ValueExpr, val type: Type) : Expr()
+
 internal data class VarDeclExpr(val sym: Symbol, val isEffect: Boolean, val type: Type) : Expr()
-internal data class PolyVarDeclExpr(val sym: Symbol, val primaryTVs: List<TypeVarType>, val secondaryTVs: List<TypeVarType>, val type: MonoType) : Expr()
 internal data class TypeAliasDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val type: MonoType?) : Expr()
+
+internal data class DefExpr(val sym: Symbol, val expr: ValueExpr, val isEffect: Boolean, val type: Type) : Expr()
+internal data class DefMacroExpr(val sym: Symbol, val expr: ValueExpr, val type: Type) : Expr()
+
+internal data class PolyVarDeclExpr(val sym: Symbol, val primaryTVs: List<TypeVarType>, val secondaryTVs: List<TypeVarType>, val type: MonoType) : Expr()
+internal data class PolyVarDefExpr(val polyVar: PolyVar, val primaryPolyTypes: List<MonoType>, val secondaryPolyTypes: List<MonoType>, val expr: ValueExpr) : Expr()
+
 internal data class RecordKeyDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val type: MonoType) : Expr()
 internal data class VariantKeyDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val paramTypes: List<MonoType>) : Expr()
 
@@ -48,7 +52,15 @@ internal data class ExprAnalyser(val resolver: Resolver,
 
     internal val defAnalyser =
         firstSymAnalyser(DEF).then {
+            data class PolyVarPreamble(val polyTypes: List<MonoType>)
             class Preamble(val sym: Symbol, val paramSyms: List<Symbol>? = null, val isEffect: Boolean = false)
+
+            val polyVarPreamble = it.maybe {
+                it.nested(ListForm::forms) {
+                    it.expectSym(POLY)
+                    PolyVarPreamble(it.varargs { typeAnalyser.monoTypeAnalyser(it) })
+                }
+            }
 
             val preamble = it.or({
                 it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(it) }
@@ -72,7 +84,22 @@ internal data class ExprAnalyser(val resolver: Resolver,
 
             val expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
 
-            DefExpr(preamble.sym, expr, preamble.isEffect, valueExprType(expr, resolver.resolveVar(preamble.sym)?.type?.monoType))
+            if (polyVarPreamble != null) {
+                val polyVar = resolver.resolveVar(preamble.sym) as? PolyVar ?: TODO()
+                val polyConstraint = polyVar.polyConstraint
+                val primaryTVs = polyConstraint.primaryTVs
+                val secondaryTVs = polyConstraint.secondaryTVs
+
+                val polyTypes = polyVarPreamble.polyTypes
+
+                polyTypes.size == primaryTVs.size + secondaryTVs.size || TODO()
+
+                // TODO type-check the expr
+                PolyVarDefExpr(polyVar, polyTypes.take(primaryTVs.size), polyTypes.drop(primaryTVs.size), expr)
+
+            } else {
+                DefExpr(preamble.sym, expr, preamble.isEffect, valueExprType(expr, resolver.resolveVar(preamble.sym)?.type?.monoType))
+            }
         }
 
     internal val declAnalyser = firstSymAnalyser(DECL).then {

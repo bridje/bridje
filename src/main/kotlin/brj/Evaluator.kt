@@ -49,7 +49,7 @@ internal class Evaluator(private val emitter: Emitter) {
 
                         is PolyVarDeclExpr -> nsEnv + PolyVar(PolyConstraint(nsQSym(expr.sym), expr.primaryTVs, expr.secondaryTVs), expr.type)
 
-                        is PolyVarDefExpr -> nsEnv + PolyVarImpl(expr.polyVar, expr.implType, emitter.evalValueExpr(expr.expr))
+                        is PolyVarDefExpr -> nsEnv + PolyVarImpl(expr.polyVar, expr.primaryPolyTypes, expr.secondaryPolyTypes, emitter.evalValueExpr(expr.expr))
 
                         is DefMacroExpr -> {
                             if (expr.type.effects.isNotEmpty()) TODO()
