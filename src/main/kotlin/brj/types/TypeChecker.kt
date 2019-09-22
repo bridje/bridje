@@ -39,12 +39,18 @@ internal typealias MonoEnv = Map<LocalVar, MonoType>
 internal class Instantiator {
     private val tvMapping = mutableMapOf<TypeVarType, TypeVarType>()
 
-    fun instantiate(type: MonoType): MonoType {
-        return when (type) {
-            is TypeVarType -> tvMapping.getOrPut(type, ::TypeVarType)
+    fun instantiate(type: TypeVarType): TypeVarType = tvMapping.getOrPut(type, ::TypeVarType)
+
+    fun instantiate(type: MonoType): MonoType =
+        when (type) {
+            is TypeVarType -> instantiate(type)
             else -> type.fmap(this::instantiate)
         }
-    }
+
+    fun instantiate(polyConstraints: PolyConstraints): PolyConstraints =
+        polyConstraints.map {
+            it.copy(primaryTVs = it.primaryTVs.map(this::instantiate), secondaryTVs = it.secondaryTVs.map(this::instantiate))
+        }.toSet()
 }
 
 internal sealed class TypeException : Exception() {
@@ -97,7 +103,7 @@ private fun unifyEqs(eqs_: List<TypeEq>): Mapping {
 
 private data class Typing(val monoType: MonoType,
                           val monoEnv: MonoEnv = emptyMap(),
-                          val polyConstraints: PolyConstraints = emptySet(),
+                          val polyConstraints: PolyConstraints,
                           val effects: Set<QSymbol> = emptySet())
 
 private fun combine(
@@ -121,14 +127,20 @@ private fun combine(
         typings.flatMapTo(HashSet(), Typing::effects))
 }
 
-private inline fun <reified CT> expectedElemType(elemType: (CT) -> MonoType, expectedType: MonoType?): MonoType? =
-    expectedType?.let { if (it is CT) elemType(it) else TODO() }
-
-private fun collExprTyping(mkCollType: (MonoType) -> MonoType, exprs: List<ValueExpr>, expectedElemType: MonoType?): Typing {
-    val typings = exprs.map { valueExprTyping(it, expectedElemType) }
+private fun vectorExprTyping(expr: VectorExpr, expectedType: MonoType?): Typing {
+    val typings = expr.exprs.map { valueExprTyping(it, (expectedType as? VectorType)?.elType) }
     val returnType = TypeVarType()
+    val vectorType = VectorType(returnType)
 
-    return combine(mkCollType(returnType), typings, extraEqs = typings.map { it.monoType to returnType })
+    return combine(vectorType, typings, extraEqs = typings.map { it.monoType to returnType } + listOfNotNull(expectedType?.let { it to vectorType }))
+}
+
+private fun setExprTyping(expr: SetExpr, expectedType: MonoType?): Typing {
+    val typings = expr.exprs.map { valueExprTyping(it, (expectedType as? SetType)?.elType) }
+    val returnType = TypeVarType()
+    val setType = SetType(returnType)
+
+    return combine(setType, typings, extraEqs = typings.map { it.monoType to returnType } + listOfNotNull(expectedType?.let { it to setType }))
 }
 
 private fun recordExprTyping(expr: RecordExpr, expectedType: MonoType?): Typing {
@@ -237,6 +249,11 @@ private fun localVarTyping(lv: LocalVar, expectedType: MonoType?): Typing {
     return combine(typeVar, extraLVs = listOf(lv to typeVar))
 }
 
+private fun globalVarTyping(expr: GlobalVarExpr): Typing {
+    val instantiator = Instantiator()
+    return expr.globalVar.type.let { Typing(instantiator.instantiate(it.monoType), polyConstraints = instantiator.instantiate(it.polyConstraints), effects = it.effects) }
+}
+
 private fun withFxTyping(expr: WithFxExpr, expectedType: MonoType?): Typing {
     val fxTypings = expr.fx.map { it.effectVar to valueExprTyping(it.fnExpr, it.effectVar.type.monoType) }
 
@@ -280,7 +297,7 @@ private fun caseExprTyping(expr: CaseExpr, expectedType: MonoType?): Typing {
 }
 
 private fun primitiveExprTyping(actualType: MonoType, expectedType: MonoType?) =
-    if (expectedType == null) Typing(actualType) else combine(expectedType, extraEqs = listOf(TypeEq(expectedType, actualType)))
+    if (expectedType == null) Typing(actualType, polyConstraints = emptySet()) else combine(expectedType, extraEqs = listOf(TypeEq(expectedType, actualType)))
 
 private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Typing =
     when (expr) {
@@ -294,8 +311,8 @@ private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Ty
         is QuotedSymbolExpr -> primitiveExprTyping(SymbolType, expectedType)
         is QuotedQSymbolExpr -> primitiveExprTyping(QSymbolType, expectedType)
 
-        is VectorExpr -> collExprTyping(::VectorType, expr.exprs, expectedElemType(VectorType::elType, expectedType))
-        is SetExpr -> collExprTyping(::SetType, expr.exprs, expectedElemType(SetType::elType, expectedType))
+        is VectorExpr -> vectorExprTyping(expr, expectedType)
+        is SetExpr -> setExprTyping(expr, expectedType)
 
         is RecordExpr -> recordExprTyping(expr, expectedType)
 
@@ -310,7 +327,7 @@ private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Ty
         is RecurExpr -> recurExprTyping(expr)
 
         is LocalVarExpr -> localVarTyping(expr.localVar, expectedType)
-        is GlobalVarExpr -> expr.globalVar.type.let { Typing(Instantiator().instantiate(it.monoType), effects = it.effects) }
+        is GlobalVarExpr -> globalVarTyping(expr)
 
         is WithFxExpr -> withFxTyping(expr, expectedType)
 

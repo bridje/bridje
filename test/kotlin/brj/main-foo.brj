@@ -37,6 +37,8 @@
 
 (def (vector el) [el])
 
+(def list-length (count [1 2 3]))
+
 ;(def foo
 ;  (-> []
 ;      :forms/VectorForm
