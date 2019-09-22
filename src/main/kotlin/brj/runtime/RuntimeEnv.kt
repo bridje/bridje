@@ -99,10 +99,9 @@ internal class JavaImportVar(javaImport: JavaImport, override val value: Any) : 
     override val type = javaImport.type
 }
 
-internal data class PolyVar(val polyConstraint: PolyConstraint, val monoType: MonoType) : GlobalVar() {
+internal data class PolyVar(val polyConstraint: PolyConstraint, val monoType: MonoType, override val value: Any) : GlobalVar() {
     override val sym = polyConstraint.sym
     override val type = Type(monoType, setOf(polyConstraint))
-    override val value: Any? = null
 
     override fun toString() = sym.toString()
 }

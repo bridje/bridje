@@ -9,13 +9,10 @@ import brj.analyser.ValueExpr
 import brj.emitter.BridjeTypesGen.expectRecordObject
 import brj.emitter.BridjeTypesGen.expectVariantObject
 import brj.runtime.*
-import brj.runtime.DefMacroVar
-import brj.runtime.JavaImport
 import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.RecordKey
-import brj.runtime.VariantKey
 import brj.types.FnType
 import brj.types.MonoType
+import brj.types.PolyConstraint
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
@@ -294,6 +291,8 @@ internal class TruffleEmitter(private val ctx: BridjeContext, private val formsR
     override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter(ctx).emitEffectExpr(sym, defaultImpl)
     override fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar =
         DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, formsResolver, evalValueExpr(expr.expr))
+
+    override fun emitPolyVar(polyConstraint: PolyConstraint) = ValueExprEmitter(ctx).emitPolyVar()
 }
 
 @TypeSystem(

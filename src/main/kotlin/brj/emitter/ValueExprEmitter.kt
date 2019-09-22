@@ -444,4 +444,9 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     }
 
     internal fun evalValueExpr(expr: ValueExpr) = emitValueExpr(expr).call()!!
+
+    fun emitPolyVar(): Any =
+        BridjeFunction(ctx.makeRootNode(object : ValueNode(loc = null) {
+            override fun execute(frame: VirtualFrame) = frame.arguments[0]
+        }))
 }

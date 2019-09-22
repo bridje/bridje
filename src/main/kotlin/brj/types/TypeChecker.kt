@@ -6,7 +6,6 @@ import brj.runtime.RecordKey
 import brj.runtime.VariantKey
 import brj.types.TypeException.ArityError
 import java.util.*
-import kotlin.collections.HashSet
 
 internal typealias RowTypeMapping<K> = Map<RowTypeVar, Pair<Map<K, RowKey>, RowTypeVar>>
 
@@ -106,11 +105,10 @@ private data class Typing(val monoType: MonoType,
                           val polyConstraints: PolyConstraints,
                           val effects: Set<QSymbol> = emptySet())
 
-private fun combine(
-    returnType: MonoType,
-    typings: Iterable<Typing> = emptyList(),
-    extraEqs: Iterable<TypeEq> = emptyList(),
-    extraLVs: Iterable<Pair<LocalVar, MonoType>> = emptyList()
+private fun combine(returnType: MonoType,
+                    typings: Iterable<Typing> = emptyList(),
+                    extraEqs: Iterable<TypeEq> = emptyList(),
+                    extraLVs: Iterable<Pair<LocalVar, MonoType>> = emptyList()
 ): Typing {
 
     val lvTvs: MutableMap<LocalVar, TypeVarType> = mutableMapOf()
@@ -123,8 +121,9 @@ private fun combine(
     return Typing(
         returnType.applyMapping(mapping),
         lvTvs.mapValues { e -> mapping.typeMapping.getOrDefault(e.value, e.value) },
-        if (typings.flatMapTo(HashSet()) { it.polyConstraints }.isNotEmpty()) TODO() else emptySet(),
-        typings.flatMapTo(HashSet(), Typing::effects))
+        // TODO actually gotta combine these
+        typings.flatMapTo(mutableSetOf()) { it.polyConstraints },
+        typings.flatMapTo(mutableSetOf(), Typing::effects))
 }
 
 private fun vectorExprTyping(expr: VectorExpr, expectedType: MonoType?): Typing {

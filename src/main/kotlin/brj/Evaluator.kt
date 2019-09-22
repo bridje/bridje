@@ -16,6 +16,7 @@ internal interface Emitter {
     fun emitVariantKey(variantKey: VariantKey): Any
     fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
     fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar
+    fun emitPolyVar(polyConstraint: PolyConstraint): Any
 }
 
 internal class Evaluator(private val emitter: Emitter) {
@@ -47,7 +48,10 @@ internal class Evaluator(private val emitter: Emitter) {
                                     DefVar(qSym, expr.type, value)
                         }
 
-                        is PolyVarDeclExpr -> nsEnv + PolyVar(PolyConstraint(nsQSym(expr.sym), expr.primaryTVs, expr.secondaryTVs), expr.type)
+                        is PolyVarDeclExpr -> {
+                            val polyConstraint = PolyConstraint(nsQSym(expr.sym), expr.primaryTVs, expr.secondaryTVs)
+                            nsEnv + PolyVar(polyConstraint, expr.type, emitter.emitPolyVar(polyConstraint))
+                        }
 
                         is PolyVarDefExpr -> nsEnv + PolyVarImpl(expr.polyVar, expr.primaryPolyTypes, expr.secondaryPolyTypes, emitter.evalValueExpr(expr.expr))
 
@@ -99,5 +103,4 @@ internal class Evaluator(private val emitter: Emitter) {
         val nsEvaluator = NSEvaluator(env + javaImportNSEnvs, nsForms.nsHeader)
         return nsEvaluator.env + nsForms.forms.fold(NSEnv(nsForms.nsHeader.ns), nsEvaluator::evalForm)
     }
-
 }
