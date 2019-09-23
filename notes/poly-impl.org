@@ -21,3 +21,21 @@
     first, constraints second
   - maybe even the same dict for both?
   - we'd want to move the wrapping definition as high as possible within the function
+
+back to the simple implementation
+- emitter needs to know, for any fn, what poly constraints they are
+- also still need to decide what form those poly constraints take
+- easy case, defn, looks at the overall type of the expression
+- anonymous polymorphic fn - counts whatever's passed to it (say)
+- so let's say each polymorphic call carries around an id of the poly call, which then gets unified, same way as params/return-type
+- sgna mean that one fnexprs aren't data classes - or perhaps they can be, if the parameter isn't required through the primary constructor
+- call expressions are also going to need information about the functions they're calling - do we need to pass poly params?
+- we can probably keep this as part of the analyser, or maybe a separate pass afterwards
+- do we need to touch the emitter at all? or can this all be done as part of the analyser?
+  - we can certainly deal with the effects system (mostly) as part of the analyser, would be surprised if we couldn't do the same with polys
+  - let's make it a separate pass, after the analyser?
+  - it's certainly going to need to be after the type-checker - that's what decides what implementations we use for each callsite
+  - let's refactor how the effects work as part of this, it'll be a similar pass
+
+implementation-wise:
+- implement 'cata' on expressions
