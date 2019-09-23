@@ -1,15 +1,12 @@
 package brj.analyser
 
 import brj.Loc
-import brj.runtime.Ident
-import brj.runtime.QSymbol
+import brj.reader.*
+import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.SymbolKind.RECORD_KEY_SYM
 import brj.runtime.SymbolKind.VAR_SYM
-import brj.reader.*
-import brj.runtime.*
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -17,11 +14,20 @@ internal class LocalVar(val sym: Symbol) {
     override fun toString() = "LV($sym)"
 }
 
-internal sealed class ValueExpr {
-    var loc: Loc? = null
+internal interface PostWalkable<T : PostWalkable<T>> {
+    fun postWalk(f: (ValueExpr) -> ValueExpr): T
 }
 
-fun <T : ValueExpr> T.withLoc(loc: Loc?): T {
+internal fun <T : PostWalkable<T>> List<T>.postWalk(f: (ValueExpr) -> ValueExpr): List<T> = map { it.postWalk(f) }
+internal fun <T : PostWalkable<T>> Set<T>.postWalk(f: (ValueExpr) -> ValueExpr): Set<T> = mapTo(mutableSetOf()) { it.postWalk(f) }
+
+internal sealed class ValueExpr : PostWalkable<ValueExpr> {
+    var loc: Loc? = null
+
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(this)
+}
+
+internal fun <T : ValueExpr> T.withLoc(loc: Loc?): T {
     this.loc = loc
     return this
 }
@@ -36,34 +42,74 @@ internal data class BigFloatExpr(val bigFloat: BigDecimal) : ValueExpr()
 internal data class QuotedSymbolExpr(val sym: Symbol) : ValueExpr()
 internal data class QuotedQSymbolExpr(val sym: QSymbol) : ValueExpr()
 
-internal data class VectorExpr(val exprs: List<ValueExpr>) : ValueExpr()
-internal data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr()
-internal data class RecordEntry(val recordKey: RecordKey, val expr: ValueExpr)
-internal data class RecordExpr(val entries: List<RecordEntry>) : ValueExpr()
+internal data class VectorExpr(val exprs: List<ValueExpr>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(exprs = exprs.map { it.postWalk(f) }))
+}
 
-internal data class CallExpr(val f: ValueExpr, val effectArg: LocalVarExpr?, val args: List<ValueExpr>) : ValueExpr()
-internal data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr()
+internal data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(exprs = exprs.map { it.postWalk(f) }))
+}
 
-internal data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr()
-internal data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr) : ValueExpr()
+internal data class RecordEntry(val recordKey: RecordKey, val expr: ValueExpr) : PostWalkable<RecordEntry> {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(expr = expr.postWalk(f))
+}
 
-internal data class LetBinding(val localVar: LocalVar, val expr: ValueExpr)
-internal data class LetExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr()
+internal data class RecordExpr(val entries: List<RecordEntry>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr): ValueExpr = f(copy(entries = entries.postWalk(f)))
+}
 
-internal data class LoopExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr()
-internal data class RecurExpr(val exprs: List<Pair<LocalVar, ValueExpr>>) : ValueExpr()
+internal data class CallExpr(val f: ValueExpr, val effectArg: LocalVarExpr?, val args: List<ValueExpr>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(f = this.f.postWalk(f), args = args.postWalk(f)))
+}
 
-internal data class CaseClause(val variantKey: VariantKey, val bindings: List<LocalVar>, val bodyExpr: ValueExpr)
-internal data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?) : ValueExpr()
+internal data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(expr = expr.postWalk(f)))
+}
+
+internal data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(predExpr = predExpr.postWalk(f), thenExpr = thenExpr.postWalk(f), elseExpr = elseExpr.postWalk(f)))
+}
+
+internal data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(exprs = exprs.postWalk(f), expr = expr.postWalk(f)))
+}
+
+internal data class LetBinding(val localVar: LocalVar, val expr: ValueExpr) : PostWalkable<LetBinding> {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(expr = expr.postWalk(f))
+}
+
+internal data class LetExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(bindings = bindings.postWalk(f), expr = expr.postWalk(f)))
+}
+
+internal data class LoopExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(bindings = bindings.postWalk(f), expr = expr.postWalk(f)))
+}
+
+internal data class RecurExpr(val exprs: List<Pair<LocalVar, ValueExpr>>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(exprs = exprs.map { it.copy(second = it.second.postWalk(f)) }))
+}
+
+internal data class CaseClause(val variantKey: VariantKey, val bindings: List<LocalVar>, val bodyExpr: ValueExpr) : PostWalkable<CaseClause> {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(bodyExpr = bodyExpr.postWalk(f))
+}
+
+internal data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(expr = expr.postWalk(f), clauses = clauses.postWalk(f), defaultExpr = defaultExpr?.postWalk(f)))
+}
 
 internal data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
 internal data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
 
-internal data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr)
+internal data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr) : PostWalkable<EffectDef> {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(fnExpr = fnExpr.postWalk(f) as FnExpr)
+}
 internal data class WithFxExpr(val oldFxLocal: LocalVar,
                                val fx: Set<EffectDef>,
                                val newFxLocal: LocalVar,
-                               val bodyExpr: ValueExpr) : ValueExpr()
+                               val bodyExpr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(fx = fx.postWalk(f), bodyExpr = bodyExpr.postWalk(f)))
+}
 
 internal val IF = mkSym("if")
 internal val FN = mkSym("fn")

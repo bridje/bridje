@@ -160,8 +160,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     }
 
     class GlobalVarNode(val globalVar: GlobalVar, loc: Loc?) : ValueNode(loc) {
-        // TODO specialise/cache
-        override fun execute(frame: VirtualFrame) = globalVar.value!!
+        override fun execute(frame: VirtualFrame): Any = globalVar.value!!
     }
 
     inner class FnBodyNode(expr: FnExpr) : ValueNode(expr.loc) {
