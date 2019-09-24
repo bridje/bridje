@@ -37,5 +37,25 @@ back to the simple implementation
   - it's certainly going to need to be after the type-checker - that's what decides what implementations we use for each callsite
   - let's refactor how the effects work as part of this, it'll be a similar pass
 
-implementation-wise:
-- implement 'cata' on expressions
+things to consider:
+- when we get down to the actual effect call, we need to pass through all the effects except the current implementation, so that the handler can call through to the inner handler
+- if the effectful var's resolved outside of a callexpr, who supplies the effects?
+  - seems like it should be wherever it's resolved
+  - how do we then resolve the inner handler's effects?
+  - unless they're done within the with-fx call. that would make a lot of sense.
+    - at that point, we don't need to care about passing through the inner handlers - they'll already have them
+    - fair bit of this is passed dynamically, though
+  - optimisation: we'll want to hoist these out of the innermost loops, though, doesn't make sense to keep calling these intermediate functions
+- they're carried down as lexical scope - is there an easier way?
+
+- option A: do we 'just' pass the lexical scope down regardless, make it a proper dynamic scope?
+  - this means that closures just ignore their dynamic scope (fine)
+  - overhead to passing on every call?
+- option B: how can we efficiently write closures in Graal?
+  - will likely need to create an object,
+  - unless we can materialise the frame
+  - we'll likely need this solution when we come to polys, regardless?
+    - in this case though, we need it - we may well pass a poly to something more specific
+    - e.g. passing count to a (Fn #{Str} Int)
+- option C: hoist /all/ the effectful vars
+  - going to be way more vars that depend on effects than actual effects, though
