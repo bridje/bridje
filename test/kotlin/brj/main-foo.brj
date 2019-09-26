@@ -16,7 +16,8 @@
 (:: :Nothing)
 
 (:: (! (println! Str)) Str)
-(def (! (println! s))
+
+(def (println! s)
   (Foo/println s))
 
 (:: :first-name Str)
@@ -30,10 +31,10 @@
 
 (:: (my-fn a a) [a])
 (def (my-fn x y)
-  (with-fx [(def (println! s)
-              (foo/println! (Foo/str "intercepted: " s)))]
-    (println! "Hello world!")
-    [y x]))
+  (#_ (with-fx [(def (println! s)
+                  (foo/println! (Foo/str "intercepted: " s)))]))
+  (println! "Hello world!")
+  [y x])
 
 (def (vector el) [el])
 

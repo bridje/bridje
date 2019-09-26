@@ -37,12 +37,14 @@ import org.graalvm.polyglot.Value
 import java.math.BigDecimal
 import java.math.BigInteger
 
-internal class ReadArgNode(val idx: Int) : ValueNode(loc = null) {
+internal data class ReadArgNode(val idx: Int) : ValueNode() {
+    override val loc: Loc? = null
     override fun execute(frame: VirtualFrame) = frame.arguments[idx]!!
 }
 
 @NodeField(name = "slot", type = FrameSlot::class)
-internal abstract class ReadLocalVarNode : ValueNode(loc = null) {
+internal abstract class ReadLocalVarNode : ValueNode() {
+    override val loc: Loc? = null
     abstract fun getSlot(): FrameSlot
 
     @Specialization
@@ -63,7 +65,7 @@ internal abstract class WriteLocalVarNode : Node() {
 }
 
 @ExportLibrary(InteropLibrary::class)
-internal class BridjeFunction internal constructor(rootNode: RootNode) : BridjeObject {
+internal class BridjeFunction(rootNode: RootNode) : BridjeObject {
     val callTarget = Truffle.getRuntime().createCallTarget(rootNode)!!
 
     @ExportMessage
@@ -96,7 +98,9 @@ internal class RecordObject(private val truffleEnv: TruffleLanguage.Env, val key
     fun readMember(name: String) = dynamicObject[name]!!
 }
 
-internal class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode(loc = null) {
+internal data class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode() {
+    override val loc: Loc? = null
+
     @Child
     var readArgNode = ReadArgNode(0)
 
@@ -164,7 +168,9 @@ internal class VariantObject(val variantKey: VariantKey, val dynamicObject: Dyna
         }
 }
 
-internal class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int) : ValueNode(loc = null) {
+internal data class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int) : ValueNode() {
+    override val loc: Loc? = null
+
     override fun execute(frame: VirtualFrame): Any {
         return expectVariantObject(objNode.execute(frame)).dynamicObject[idx]
     }
@@ -172,7 +178,9 @@ internal class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int)
 
 internal typealias VariantObjectFactory = (Array<Any?>) -> VariantObject
 
-internal class VariantConstructorNode(private val variantObjectFactory: VariantObjectFactory, private val paramTypes: List<MonoType>) : ValueNode(loc = null) {
+internal data class VariantConstructorNode(private val variantObjectFactory: VariantObjectFactory, private val paramTypes: List<MonoType>) : ValueNode() {
+    override val loc: Loc? = null
+
     @ExplodeLoop
     override fun execute(frame: VirtualFrame): Any {
         val params = arrayOfNulls<Any>(paramTypes.size)
@@ -214,7 +222,9 @@ internal class VariantEmitter(val ctx: BridjeContext) {
 }
 
 internal class JavaImportEmitter(private val ctx: BridjeContext) {
-    internal inner class JavaExecuteNode(javaImport: JavaImport) : ValueNode(loc = null) {
+    internal inner class JavaExecuteNode(javaImport: JavaImport) : ValueNode() {
+        override val loc: Loc? = null
+
         val fn = InteropLibrary.getFactory().uncached.readMember(ctx.truffleEnv.asHostSymbol(javaImport.clazz.java), javaImport.name)
 
         @Child
@@ -241,46 +251,15 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
 
 internal typealias FxMap = Map<QSymbol, BridjeFunction>
 
-internal class EffectEmitter(val ctx: BridjeContext) {
+internal class EffectFnBodyNode(val sym: QSymbol) : ValueNode() {
+    override val loc: Loc? = null
 
-    internal class LookupEffectNode(val sym: QSymbol) : Node() {
-        @Suppress("UNCHECKED_CAST")
-        fun execute(frame: VirtualFrame): BridjeFunction? =
-            (frame.arguments[0] as List<FxMap>).first()[sym]
-    }
+    @Child
+    var callNode = Truffle.getRuntime().createIndirectCallNode()!!
 
-    internal inner class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode(loc = null) {
-        @Child
-        var lookupEffectNode = LookupEffectNode(sym)
-
-        val defaultCallTarget =
-            if (defaultImpl != null) defaultImpl.callTarget
-            else Truffle.getRuntime().createCallTarget(ctx.makeRootNode(object : ValueNode(loc = null) {
-                override fun execute(frame: VirtualFrame): Any = throw IllegalStateException("Can't find effect.")
-            }))
-
-        @Child
-        var callNode = Truffle.getRuntime().createIndirectCallNode()!!
-
-        @TruffleBoundary
-        fun transformArgs(args: Array<Any?>): Array<Any?> {
-            val args_ = args.clone()
-
-            @Suppress("UNCHECKED_CAST") val fx = (args[0] as List<FxMap>)
-
-            args_[0] = listOf(fx[0] + (sym to fx[1][sym])) + fx.drop(1)
-
-            return args_
-        }
-
-        override fun execute(frame: VirtualFrame): Any {
-            return callNode.call(lookupEffectNode.execute(frame)?.callTarget
-                ?: defaultCallTarget, transformArgs(frame.arguments))
-        }
-    }
-
-    fun emitEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) =
-        BridjeFunction(ctx.makeRootNode(EffectFnBodyNode(sym, defaultImpl)))
+    @Suppress("UNCHECKED_CAST")
+    override fun execute(frame: VirtualFrame): Any =
+        callNode.call((frame.arguments[0] as FxMap)[sym]!!.callTarget, *frame.arguments)
 }
 
 internal class TruffleEmitter(private val ctx: BridjeContext, private val formsResolver: Resolver) : Emitter {
@@ -288,7 +267,8 @@ internal class TruffleEmitter(private val ctx: BridjeContext, private val formsR
     override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter(ctx).emitJavaImport(javaImport)
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
     override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
-    override fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?) = EffectEmitter(ctx).emitEffectExpr(sym, defaultImpl)
+    override fun emitEffectFn(sym: QSymbol) = BridjeFunction(ctx.makeRootNode(EffectFnBodyNode(sym)))
+
     override fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar =
         DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, formsResolver, evalValueExpr(expr.expr))
 
@@ -307,7 +287,8 @@ internal interface BridjeObject : TruffleObject
 
 @TypeSystemReference(BridjeTypes::class)
 @NodeInfo(language = "bridje")
-internal abstract class ValueNode(val loc: Loc?) : Node() {
+internal abstract class ValueNode() : Node() {
+    abstract val loc: Loc?
     abstract fun execute(frame: VirtualFrame): Any
 
     override fun getSourceSection() = loc

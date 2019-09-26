@@ -1,12 +1,12 @@
 package brj.analyser
 
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol.Companion.mkSym
 import brj.readForms
 import brj.runtime.EffectVar
 import brj.runtime.NSEnv
+import brj.runtime.QSymbol.Companion.mkQSym
 import brj.runtime.RecordKey
 import brj.runtime.RecordKeyVar
+import brj.runtime.Symbol.Companion.mkSym
 import brj.types.FnType
 import brj.types.IntType
 import brj.types.StringType
@@ -43,7 +43,7 @@ internal class ValueExprAnalyserTest {
         val user = mkSym("user")
         val println = mkQSym("user/println!")
 
-        val effectVar = EffectVar(println, Type(FnType(listOf(StringType), StringType), effects = setOf(println)), false, null)
+        val effectVar = EffectVar(println, Type(FnType(listOf(StringType), StringType), effects = setOf(println)), defaultImpl = null, value = null)
 
         val nsEnv = NSEnv(user, vars = mapOf(println.base to effectVar))
 
@@ -61,8 +61,10 @@ internal class ValueExprAnalyserTest {
             DoExpr(emptyList(), StringExpr("Hello!")),
             effect.fnExpr.expr)
 
+        val effectLocal = LocalVar(mkSym("fx"))
+
         assertEquals(
-            DoExpr(emptyList(), CallExpr(GlobalVarExpr(effectVar), LocalVarExpr(withFxExpr.newFxLocal), listOf(StringExpr("foo!")))),
+            DoExpr(emptyList(), CallExpr(GlobalVarExpr(effectVar, effectLocal), listOf(StringExpr("foo!")), effectLocal)),
             withFxExpr.bodyExpr)
     }
 }

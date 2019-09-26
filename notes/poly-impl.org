@@ -59,3 +59,55 @@ things to consider:
     - e.g. passing count to a (Fn #{Str} Int)
 - option C: hoist /all/ the effectful vars
   - going to be way more vars that depend on effects than actual effects, though
+
+what do other langs do?
+- OO. dynamic dispatch a decent chunk of the time.
+  - let's say we were doing this with dependency injection
+  - we'd have an object per effectful fn, the dependencies would be set up ahead of time.
+    - we allow dependencies to be changed at runtime, maybe this isn't the same
+- Clojure (component systems) - define the object tree, each function only sees the top-level components it depends on
+  - dispatch is probably pretty quick after the tree's been constructed
+  - means that =with-fx= call might be pretty expensive though, although we're looking to reserve those for tests and system start
+  - quite like this one
+  - what does this mean for polys? can we work in the same way?
+    - not convinced we can, polys seem a lot more dynamic
+    - what /can/ happen?
+      - function can call polymorphic function with no idea what instance to use - delegates to caller
+      - function can call polymorphic function with an exact instance - inlined
+      - function can call function which depends on poly function - needs to specify an implementation
+    - does it always either know what implementation to pass, or get it provided?
+      - assuming it does, would it mean that we could generate the tree at the top?
+      - assuming we could, would it be beneficial to?
+      - could we cache it?
+    - think we'd want to make it a per-function, per poly thing - we're likely going to have to manipulate this a lot more often
+- Haskell - dictionary passing
+  - although Haskell already deals with closures very efficiently, it probably isn't a fair comparison
+
+so, implementation:
+- when we resolve a global var with any kind of effects, we're going to want to pull it from the effect local
+- with-fx changes pretty significantly, as does the top-level REPL call
+- what's on the effectful var? what's on the root effect var?
+  - something here needs to pass effectful vars through
+  - something here needs to
+- what does the globalvar emitter need to do?
+  - the globalvar expr probably needs to look the var up in the effectlocal and then return the value,
+- what does the top-level resolver need to do?
+- are we putting effectful vars in that map, or just effect vars?
+  - effectful vars are presumably numerous, effect vars much fewer
+  - although that does mean that we'll need to handle the cases differently
+  - we will need to pass that effect map as an argument
+- effect vars have no dependencies - it's the implementations that have dependencies
+- effectful vars do - the underlying effect vars
+- so maybe we do pass down a flat map of the effect vars, much easier to construct
+- effectful vars then pass them on
+- maybe all functions pass them on, tbh - as first argument - that way, we don't have to worry about the tree
+  - case to think about here is where we resolve the globalvar separately from the call
+  - if we pass the globalvar to another function, we're going to want to have resolved the effects already
+    - hence the tree, including all effectful vars
+- ok, so effectful var needs to put its map of effectful vars in the effect local
+  - this is assuming the var is a function
+  - if it's a value? we can ban effects from being values, say they're always (at least) 0-arg functions
+- cycles are problematic.
+- maybe the effect var can do both - a closure and the full function, depending on how many args it's passed - benefits?
+  - if we spot we're using the globalvar outside of a call, we can close over the effects already
+  - it's going to be pretty unusual that we do this, I reckon, so a little performance hit here should be fine, in return for simplicity

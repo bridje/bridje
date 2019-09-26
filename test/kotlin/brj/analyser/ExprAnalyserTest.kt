@@ -49,10 +49,9 @@ internal class ExprAnalyserTest {
         assertEquals(
             DefExpr(foo,
                 FnExpr(foo, emptyList(), DoExpr(emptyList(), IntExpr(4))),
-                true,
                 Type(FnType(emptyList(), IntType))),
 
-            analyseDef("(def (! (foo)) 4)"))
+            analyseDef("(def (foo) 4)"))
     }
 
     @Test

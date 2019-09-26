@@ -58,7 +58,7 @@ internal data class RecordExpr(val entries: List<RecordEntry>) : ValueExpr() {
     override fun postWalk(f: (ValueExpr) -> ValueExpr): ValueExpr = f(copy(entries = entries.postWalk(f)))
 }
 
-internal data class CallExpr(val f: ValueExpr, val effectArg: LocalVarExpr?, val args: List<ValueExpr>) : ValueExpr() {
+internal data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>, val effectLocal: LocalVar) : ValueExpr() {
     override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(f = this.f.postWalk(f), args = args.postWalk(f)))
 }
 
@@ -99,7 +99,7 @@ internal data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>,
 }
 
 internal data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
-internal data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
+internal data class GlobalVarExpr(val globalVar: GlobalVar, val effectLocal: LocalVar) : ValueExpr() {}
 
 internal data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr) : PostWalkable<EffectDef> {
     override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(fnExpr = fnExpr.postWalk(f) as FnExpr)
@@ -133,11 +133,11 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
 
     private fun symAnalyser(form: SymbolForm): ValueExpr =
         (locals[form.sym]?.let { LocalVarExpr(it).withLoc(form.loc) })
-            ?: resolve(form.sym)?.let { GlobalVarExpr(it).withLoc(form.loc) }
+            ?: resolve(form.sym)?.let { GlobalVarExpr(it, effectLocal).withLoc(form.loc) }
             ?: TODO("sym not found: ${form.sym}")
 
     private fun qsymAnalyser(form: QSymbolForm): ValueExpr =
-        resolve(form.sym)?.let { GlobalVarExpr(it).withLoc(form.loc) }
+        resolve(form.sym)?.let { GlobalVarExpr(it, effectLocal).withLoc(form.loc) }
             ?: TODO("sym not found: ${form.sym}")
 
     private fun ifAnalyser(it: ParserState): ValueExpr {
@@ -209,8 +209,7 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
         return if (fn is GlobalVarExpr && fn.globalVar is DefMacroVar) {
             exprAnalyser(ParserState(listOf(fn.globalVar.evalMacro(it.varargs { it.expectForm<Form>() }))))
         } else {
-            CallExpr(fn, (if (fn is GlobalVarExpr && fn.globalVar.type.effects.isNotEmpty()) LocalVarExpr(effectLocal).withLoc(fn.loc) else null),
-                it.varargs(::exprAnalyser))
+            CallExpr(fn, it.varargs(::exprAnalyser), effectLocal)
         }
     }
 
@@ -333,9 +332,7 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
     }
 
     private fun syntaxQuoteAnalyser(ident: Ident): ValueExpr =
-        CallExpr(GlobalVarExpr(resolve(QSYMBOL_FORM)!!),
-            null,
-            listOf(QuotedQSymbolExpr((resolve(ident) ?: TODO("sym not found: $ident")).sym)))
+        CallExpr(GlobalVarExpr(resolve(QSYMBOL_FORM)!!, effectLocal), listOf(QuotedQSymbolExpr((resolve(ident) ?: TODO("sym not found: $ident")).sym)), effectLocal)
 
     private fun exprAnalyser(it: ParserState): ValueExpr {
         val form = it.expectForm<Form>()

@@ -2,9 +2,9 @@ package brj
 
 import brj.analyser.*
 import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.RecordKey
 import brj.runtime.RecordKeyVar
+import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.VariantKey
 import brj.runtime.VariantKeyVar
 import brj.types.TypeVarType
@@ -23,8 +23,14 @@ internal class TypesTest {
         println(valueExprType(RecordExpr(listOf(RecordEntry(fooKey, IntExpr(5)))), null))
 
         val localVar = LocalVar(mkSym("r"))
+        val effectLocal = LocalVar(mkSym("fx"))
 
-        val type = valueExprType(FnExpr(null, listOf(localVar), CallExpr(GlobalVarExpr(RecordKeyVar(fooKey, dummyVar)), null, listOf(LocalVarExpr(localVar)))), null).monoType
+        val type = valueExprType(
+            FnExpr(null, listOf(localVar),
+                CallExpr(
+                    GlobalVarExpr(RecordKeyVar(fooKey, dummyVar), effectLocal), listOf(LocalVarExpr(localVar)),
+                    effectLocal)),
+            null).monoType
 
         println(type)
     }
@@ -33,8 +39,9 @@ internal class TypesTest {
     internal fun `test variant types`() {
         val tv = TypeVarType()
         val fooKey = VariantKey(mkQSym(":user/Foo"), listOf(tv), listOf(tv))
+        val effectLocal = LocalVar(mkSym("fx"))
 
-        println(valueExprType(CallExpr(GlobalVarExpr(VariantKeyVar(fooKey, dummyVar)), null, listOf(IntExpr(5))), null))
+        println(valueExprType(CallExpr(GlobalVarExpr(VariantKeyVar(fooKey, dummyVar), effectLocal), listOf(IntExpr(5)), effectLocal), null))
     }
 
     @Test

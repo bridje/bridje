@@ -2,14 +2,14 @@ package brj
 
 import brj.BridjeLanguage.Companion.currentBridjeContext
 import brj.analyser.*
-import brj.runtime.QSymbol.Companion.mkQSym
 import brj.emitter.RecordEmitter
-import brj.runtime.Symbol.Companion.mkSym
 import brj.emitter.TruffleEmitter
 import brj.emitter.ValueExprEmitter
 import brj.emitter.VariantEmitter
 import brj.runtime.JavaImport
+import brj.runtime.QSymbol.Companion.mkQSym
 import brj.runtime.RecordKey
+import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.VariantKey
 import brj.runtime.VariantKeyVar
 import brj.types.*
@@ -47,11 +47,12 @@ internal class TruffleEmitterTest {
         val variantKey2 = VariantKey(mkQSym(":user/Foo2"), emptyList(), listOf(IntType))
         val constructor = VariantEmitter(brjCtx).emitVariantKey(variantKey2)
         val localVar = LocalVar(mkSym("a"))
+        val effectLocal = LocalVar(mkSym("fx"))
 
         assertEquals(54L,
             ValueExprEmitter(brjCtx).evalValueExpr(
                 CaseExpr(
-                    CallExpr(GlobalVarExpr(VariantKeyVar(variantKey2, constructor)), null, listOf(IntExpr(54))),
+                    CallExpr(GlobalVarExpr(VariantKeyVar(variantKey2, constructor), effectLocal), listOf(IntExpr(54)), effectLocal),
                     listOf(
                         CaseClause(variantKey, listOf(localVar), IntExpr(12)),
                         CaseClause(variantKey2, listOf(localVar), LocalVarExpr(localVar))),

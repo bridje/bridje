@@ -20,7 +20,7 @@ fun main() {
         @Suppress("UNUSED_VARIABLE")
         val env = BridjeLanguage.require(setOf(foo), ClasspathLoader(sources = mapOf(foo to fooSource, bar to barSource)))
 
-        val value = ctx.eval("brj", """(str "Hello" " " "world!")""")
+        val value = ctx.eval("brj", """(foo/my-fn "Hello" "world!")""")
 
         println("value: $value")
     } finally {

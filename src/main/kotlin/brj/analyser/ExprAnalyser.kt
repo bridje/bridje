@@ -25,7 +25,7 @@ internal sealed class Expr
 internal data class VarDeclExpr(val sym: Symbol, val isEffect: Boolean, val type: Type) : Expr()
 internal data class TypeAliasDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val type: MonoType?) : Expr()
 
-internal data class DefExpr(val sym: Symbol, val expr: ValueExpr, val isEffect: Boolean, val type: Type) : Expr()
+internal data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type) : Expr()
 internal data class DefMacroExpr(val sym: Symbol, val expr: ValueExpr, val type: Type) : Expr()
 
 internal data class PolyVarDeclExpr(val sym: Symbol, val primaryTVs: List<TypeVarType>, val secondaryTVs: List<TypeVarType>, val type: MonoType) : Expr()
@@ -53,7 +53,7 @@ internal data class ExprAnalyser(val resolver: Resolver,
     internal val defAnalyser =
         firstSymAnalyser(DEF).then {
             data class PolyVarPreamble(val polyTypes: List<MonoType>)
-            class Preamble(val sym: Symbol, val paramSyms: List<Symbol>? = null, val isEffect: Boolean = false)
+            class Preamble(val sym: Symbol, val paramSyms: List<Symbol>? = null)
 
             val polyVarPreamble = it.maybe {
                 it.nested(ListForm::forms) {
@@ -66,15 +66,7 @@ internal data class ExprAnalyser(val resolver: Resolver,
                 it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(it) }
             }, {
                 it.maybe { it.nested(ListForm::forms) { it } }?.let {
-                    it.or({
-                        it.maybe { it.expectSym(EFFECT) }?.let { _ ->
-                            it.nested(ListForm::forms) {
-                                Preamble(it.expectSym(VAR_SYM), paramSyms = it.varargs { it.expectSym(VAR_SYM) }, isEffect = true)
-                            }
-                        }
-                    }, {
-                        Preamble(it.expectSym(VAR_SYM), paramSyms = it.varargs { it.expectSym(VAR_SYM) })
-                    })
+                    Preamble(it.expectSym(VAR_SYM), paramSyms = it.varargs { it.expectSym(VAR_SYM) })
                 }
             }) ?: TODO()
 
@@ -82,7 +74,7 @@ internal data class ExprAnalyser(val resolver: Resolver,
 
             val bodyExpr = ValueExprAnalyser(resolver, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
-            val expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
+            var expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
 
             if (polyVarPreamble != null) {
                 val polyVar = resolver.resolveVar(preamble.sym) as? PolyVar ?: TODO()
@@ -98,7 +90,12 @@ internal data class ExprAnalyser(val resolver: Resolver,
                 PolyVarDefExpr(polyVar, polyTypes.take(primaryTVs.size), polyTypes.drop(primaryTVs.size), expr)
 
             } else {
-                DefExpr(preamble.sym, expr, preamble.isEffect, valueExprType(expr, resolver.resolveVar(preamble.sym)?.type?.monoType))
+                val type = valueExprType(expr, resolver.resolveVar(preamble.sym)?.type?.monoType)
+
+                if (resolver.resolveVar(preamble.sym) is EffectVar || type.effects.isNotEmpty())
+                    expr = (expr as FnExpr).let { it.copy(params = listOf(DEFAULT_EFFECT_LOCAL) + it.params) }
+
+                DefExpr(preamble.sym, expr, type)
             }
         }
 

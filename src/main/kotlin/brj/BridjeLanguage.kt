@@ -2,10 +2,7 @@ package brj
 
 import brj.analyser.*
 import brj.analyser.NSHeader.Companion.nsHeaderParser
-import brj.emitter.BridjeObject
-import brj.emitter.TruffleEmitter
-import brj.emitter.ValueExprEmitter
-import brj.emitter.ValueNode
+import brj.emitter.*
 import brj.reader.Form
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.reader.ListForm
@@ -120,14 +117,22 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         private fun evalValueRequest(req: ParseRequest.ValueRequest): Any? {
             val ctx = ctxRef.get()
             val resolver = Resolver.NSResolver(ctx.env)
-            val expr = ValueExprAnalyser(resolver).analyseValueExpr(req.form)
+            var expr = ValueExprAnalyser(resolver).analyseValueExpr(req.form)
 
             val valueExprType = valueExprType(expr, null)
 
-            val noDefaultImpls = valueExprType.effects.filterNot { (resolver.resolveVar(it) as EffectVar).hasDefault }
-            require(noDefaultImpls.isEmpty()) { "not all effects have implementations: $noDefaultImpls" }
+            val effects = valueExprType.effects
+            val isEffectful = effects.isNotEmpty()
 
-            return ValueExprEmitter(ctx).evalValueExpr(expr)
+            if (isEffectful)
+                expr = FnExpr(params = listOf(DEFAULT_EFFECT_LOCAL), expr = expr)
+
+            var res = ValueExprEmitter(ctx).evalValueExpr(expr)
+
+            if (isEffectful)
+                res = (res as BridjeFunction).callTarget.call(effects.associate { qsym -> qsym to (resolver.resolveVar(qsym) as EffectVar).defaultImpl!! })
+
+            return res
         }
 
         override fun execute(frame: VirtualFrame): Any? =

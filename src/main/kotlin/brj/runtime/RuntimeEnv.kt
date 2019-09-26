@@ -20,7 +20,7 @@ internal abstract class GlobalVar {
 }
 
 internal data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
-internal data class EffectVar(override val sym: QSymbol, override val type: Type, val hasDefault: Boolean, override var value: Any?) : GlobalVar()
+internal data class EffectVar(override val sym: QSymbol, override val type: Type, val defaultImpl: BridjeFunction?, override var value: Any?) : GlobalVar()
 internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, val formsResolver: Resolver, override var value: Any?) : GlobalVar() {
     private fun fromVariant(obj: VariantObject): Form {
         fun fromVariantList(arg: Any): List<Form> {

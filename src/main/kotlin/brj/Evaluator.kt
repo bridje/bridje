@@ -14,7 +14,7 @@ internal interface Emitter {
     fun emitJavaImport(javaImport: JavaImport): Any
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
-    fun evalEffectExpr(sym: QSymbol, defaultImpl: BridjeFunction?): Any
+    fun emitEffectFn(sym: QSymbol): Any
     fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar
     fun emitPolyVar(polyConstraint: PolyConstraint): Any
 }
@@ -34,16 +34,11 @@ internal class Evaluator(private val emitter: Emitter) {
                         is DefExpr -> {
                             val qSym = nsQSym(expr.sym)
 
-                            val valueExpr =
-                                if (expr.type.effects.isNotEmpty())
-                                    (expr.expr as FnExpr).let { it.copy(params = listOf(DEFAULT_EFFECT_LOCAL) + it.params) }
-                                else expr.expr
-
-                            val value = emitter.evalValueExpr(valueExpr)
+                            val value = emitter.evalValueExpr(expr.expr)
 
                             nsEnv +
-                                if (expr.isEffect || nsEnv.vars[expr.sym] is EffectVar)
-                                    EffectVar(qSym, expr.type, true, emitter.evalEffectExpr(qSym, value as BridjeFunction))
+                                if (nsEnv.vars[expr.sym] is EffectVar)
+                                    EffectVar(qSym, expr.type.copy(effects = setOf(qSym)), value as BridjeFunction, emitter.emitEffectFn(qSym))
                                 else
                                     DefVar(qSym, expr.type, value)
                         }
@@ -64,7 +59,7 @@ internal class Evaluator(private val emitter: Emitter) {
                             val qsym = nsQSym(expr.sym)
                             nsEnv +
                                 if (expr.isEffect)
-                                    EffectVar(qsym, expr.type, false, emitter.evalEffectExpr(qsym, defaultImpl = null))
+                                    EffectVar(qsym, expr.type, defaultImpl = null, value = emitter.emitEffectFn(qsym))
                                 else
                                     DefVar(qsym, expr.type, null)
                         }
