@@ -159,7 +159,7 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
                 LetBinding(localVar, expr)
             }
         },
-            ana.exprAnalyser(it))
+            ana.doAnalyser(it))
     }
 
     private fun loopAnalyser(it: ParserState): ValueExpr {
