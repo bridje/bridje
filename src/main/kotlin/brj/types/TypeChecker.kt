@@ -4,7 +4,6 @@ import brj.analyser.*
 import brj.runtime.QSymbol
 import brj.runtime.RecordKey
 import brj.runtime.VariantKey
-import brj.types.TypeException.ArityError
 import java.util.*
 
 internal typealias RowTypeMapping<K> = Map<RowTypeVar, Pair<Map<K, RowKey>, RowTypeVar>>
@@ -225,22 +224,15 @@ private fun callExprTyping(expr: CallExpr, expectedType: MonoType?): Typing {
     val fnExpr = expr.f
     val argExprs = expr.args
 
-    val fnExprTyping = valueExprTyping(fnExpr)
+    val argTVs = generateSequence { TypeVarType() }.take(argExprs.size).toList()
+    val returnType = expectedType ?: TypeVarType()
 
-    var fnExprType = fnExprTyping.monoType.let {
-        it as? FnType ?: throw TypeException.ExpectedFunction(fnExpr, it)
-    }
-
-    if (fnExprType.paramTypes.size != argExprs.size) throw ArityError(fnExprType, argExprs)
-
-    val expectedTypeTyping = combine(fnExprType, extraEqs = listOfNotNull(if (expectedType != null) TypeEq(fnExprType.returnType, expectedType) else null))
-    fnExprType = expectedTypeTyping.monoType as FnType
+    val fnExprTyping = valueExprTyping(fnExpr, FnType(argTVs, returnType))
+    val fnExprType = fnExprTyping.monoType.let { monoType -> monoType as? FnType ?: throw TypeException.ExpectedFunction(fnExpr, monoType) }
 
     val argTypings = argExprs.zip(fnExprType.paramTypes).map { valueExprTyping(it.first, it.second) }
 
-    return combine(fnExprType.returnType,
-        typings = argTypings + fnExprTyping + expectedTypeTyping,
-        extraEqs = fnExprType.paramTypes.zip(argTypings.map(Typing::monoType)))
+    return combine(fnExprType.returnType, typings = argTypings + fnExprTyping)
 }
 
 private fun localVarTyping(lv: LocalVar, expectedType: MonoType?): Typing {
