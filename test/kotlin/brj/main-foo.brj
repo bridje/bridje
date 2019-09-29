@@ -33,8 +33,9 @@
 (def (my-fn x y)
   (#_ (with-fx [(def (println! s)
                   (foo/println! (Foo/str "intercepted: " s)))]))
-  (println! "Hello world!")
-  [y x])
+  (let [foo println!]
+    (foo "Hello world!")
+    [y x]))
 
 (def (vector el) [el])
 

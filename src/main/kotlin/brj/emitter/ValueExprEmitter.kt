@@ -5,13 +5,13 @@ import brj.Loc
 import brj.analyser.*
 import brj.emitter.BridjeTypesGen.*
 import brj.emitter.ValueExprEmitterFactory.CollNodeGen
+import brj.runtime.GlobalVar
 import brj.runtime.QSymbol
 import brj.runtime.Symbol.Companion.mkSym
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.`object`.DynamicObject
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
@@ -107,7 +107,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    data class DoNode(@Children val exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode, override val loc: Loc?) : ValueNode() {
+    class DoNode(@Children val exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode, override val loc: Loc?) : ValueNode() {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
             val exprCount = exprNodes.size
@@ -158,22 +158,34 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         LetNode(
             expr.bindings
                 .map { WriteLocalVarNodeGen.create(emitValueNode(it.expr), frameDescriptor.findOrAddFrameSlot(it.localVar)) }
-                .toTypedArray<WriteLocalVarNode>(),
+                .toTypedArray(),
             emitValueNode(expr.expr),
             expr.loc)
 
-    data class GlobalVarNode(val expr: GlobalVarExpr) : ValueNode() {
-        override val loc = expr.loc
+    data class GlobalVarNode(val globalVar: GlobalVar, override val loc: Loc?) : ValueNode() {
+        override fun execute(frame: VirtualFrame) = globalVar.value!!
+    }
 
+    class EffectClosure(val fn: BridjeFunction, val fxFrameSlot: FrameSlot, override val loc: Loc?) : ValueNode() {
         override fun execute(frame: VirtualFrame): Any {
-            val globalVar = expr.globalVar
+            val fx = frame.getObject(fxFrameSlot)
 
-            return if (globalVar.type.effects.isNotEmpty()) {
-                (frame.arguments[0] as DynamicObject).get(globalVar)
-            } else {
-                globalVar.value!!
-            }
+            return BridjeFunction(object : RootNode(null) {
+                @Child
+                var callNode = Truffle.getRuntime().createDirectCallNode(fn.callTarget)
+
+                override fun execute(frame: VirtualFrame): Any {
+                    return callNode.call(fx, *frame.arguments)
+                }
+            })
         }
+    }
+
+    private fun emitGlobalVar(expr: GlobalVarExpr): ValueNode {
+        val globalVar = expr.globalVar
+        return if (globalVar.type.effects.isNotEmpty()) {
+            EffectClosure(globalVar.value as BridjeFunction, frameDescriptor.findOrAddFrameSlot(expr.effectLocal), expr.loc)
+        } else GlobalVarNode(globalVar, expr.loc)
     }
 
     inner class FnBodyNode(expr: FnExpr) : ValueNode() {
@@ -195,7 +207,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    data class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>, override val loc: Loc? = null) : ValueNode() {
+    class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>, override val loc: Loc? = null) : ValueNode() {
         @Child
         var callNode = Truffle.getRuntime().createIndirectCallNode()!!
 
@@ -318,7 +330,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
                     return true
                 }
             }
-        })
+        })!!
 
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
@@ -355,17 +367,13 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    internal abstract class FxMapNode() : Node() {
+    internal abstract class FxMapNode : Node() {
         abstract fun execute(frame: VirtualFrame): FxMap
     }
 
     internal class ReadFxMapNode(val slot: FrameSlot) : FxMapNode() {
         @Suppress("UNCHECKED_CAST")
         override fun execute(frame: VirtualFrame) = (frame.getObject(slot) as FxMap)
-    }
-
-    internal class ConstantFxMapNode(val fxMap: FxMap) : FxMapNode() {
-        override fun execute(frame: VirtualFrame) = fxMap
     }
 
     class UpdateEffectNode(val sym: QSymbol, @Child var bodyNode: ValueNode) : Node() {
@@ -437,7 +445,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             is RecurExpr -> RecurNode(expr)
 
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
-            is GlobalVarExpr -> GlobalVarNode(expr)
+            is GlobalVarExpr -> emitGlobalVar(expr)
 
             is WithFxExpr -> emitWithFx(expr)
 
@@ -445,12 +453,12 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
 
     inner class WrapFxNode(@Child var node: ValueNode) : ValueNode() {
-        override val loc = null
+        override val loc: Loc? = null
 
         @Child
         var writeFxVarNode = WriteLocalVarNodeGen.create(
             ConstantNode(emptyMap<QSymbol, BridjeFunction>(), null),
-            frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL))
+            frameDescriptor.findOrAddFrameSlot(DEFAULT_EFFECT_LOCAL))!!
 
         override fun execute(frame: VirtualFrame): Any {
             writeFxVarNode.execute(frame)
@@ -466,7 +474,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
     fun emitPolyVar(): Any =
         BridjeFunction(makeRootNode(object : ValueNode() {
-            override val loc = null
+            override val loc: Loc? = null
 
             override fun execute(frame: VirtualFrame) = frame.arguments[0]
         }))

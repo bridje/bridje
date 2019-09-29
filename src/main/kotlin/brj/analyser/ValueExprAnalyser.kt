@@ -104,6 +104,7 @@ internal data class GlobalVarExpr(val globalVar: GlobalVar, val effectLocal: Loc
 internal data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr) : PostWalkable<EffectDef> {
     override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(fnExpr = fnExpr.postWalk(f) as FnExpr)
 }
+
 internal data class WithFxExpr(val oldFxLocal: LocalVar,
                                val fx: Set<EffectDef>,
                                val newFxLocal: LocalVar,

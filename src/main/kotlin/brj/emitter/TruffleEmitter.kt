@@ -161,9 +161,9 @@ internal class VariantObject(val variantKey: VariantKey, val dynamicObject: Dyna
 
     @ExportMessage
     fun readArrayElement(idx: Long) =
-        if (isArrayElementReadable(idx)) dynamicObject[idx]
+        if (isArrayElementReadable(idx)) dynamicObject[idx]!!
         else {
-            CompilerDirectives.transferToInterpreter();
+            CompilerDirectives.transferToInterpreter()
             throw IndexOutOfBoundsException(idx.toInt())
         }
 }
@@ -225,10 +225,10 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
     internal inner class JavaExecuteNode(javaImport: JavaImport) : ValueNode() {
         override val loc: Loc? = null
 
-        val fn = InteropLibrary.getFactory().uncached.readMember(ctx.truffleEnv.asHostSymbol(javaImport.clazz.java), javaImport.name)
+        val fn = InteropLibrary.getFactory().uncached.readMember(ctx.truffleEnv.asHostSymbol(javaImport.clazz.java), javaImport.name)!!
 
         @Child
-        var interop = InteropLibrary.getFactory().create(fn)
+        var interop = InteropLibrary.getFactory().create(fn)!!
 
         @Children
         val argNodes = ((javaImport.type.monoType as FnType).paramTypes.indices).map(::ReadArgNode).toTypedArray()
@@ -287,7 +287,7 @@ internal interface BridjeObject : TruffleObject
 
 @TypeSystemReference(BridjeTypes::class)
 @NodeInfo(language = "bridje")
-internal abstract class ValueNode() : Node() {
+internal abstract class ValueNode : Node() {
     abstract val loc: Loc?
     abstract fun execute(frame: VirtualFrame): Any
 

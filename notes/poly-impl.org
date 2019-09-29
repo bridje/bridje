@@ -111,3 +111,4 @@ so, implementation:
 - maybe the effect var can do both - a closure and the full function, depending on how many args it's passed - benefits?
   - if we spot we're using the globalvar outside of a call, we can close over the effects already
   - it's going to be pretty unusual that we do this, I reckon, so a little performance hit here should be fine, in return for simplicity
+  - the value of the effect var looks itself up
