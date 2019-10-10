@@ -2,3 +2,5 @@
 - finally? how does this work with our new shiny objects?
 - don't think '$set' is the primitive here, unless we only allow object updates within its own fns?
 - nested transients? can we give the user a lot of help?
+- Truffle parts in Java, so that we don't have to deal with Kotlin compiling to something that can't be optimised?
+- more into ANTLR?

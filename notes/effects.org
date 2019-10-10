@@ -1,0 +1,46 @@
+#+begin_src clojure
+  (def foo
+    (fn [fn]
+      (println! "Hello, " fn)))
+
+  (def (foo fn)
+    (println! "Hello, " fn))
+#+end_src
+
+what's the difference between these two?
+we say that fns take the effects from the lexical environment, but with the former case, there's nowhere for them to pull the effects from
+when we resolve foo, do we need to supply the effects?
+do we need to change how we think about how effects are passed?
+
+do we need to have effect maps only being passed as part of functions?
+as far as global vars are concerned, by the time it gets into the env it'll be the function at the top level
+but the above example shows we can essentially run any code at the top level, at compile time
+
+what would we do outside of Bridje?
+java static - can't mock that
+haskell - can't do effects at the top level - has to be part of main
+  - I reckon this'll be closer to what we end up with
+
+so we're back on the action bollocks again.
+
+in Haskell, it'd be the inner function that's effectful - you essentially have to specify the IO behaviour in order to use it.
+you essentially supply all the arguments, then, finally, you get back an action
+let's say this was CPS - the monad takes a function as the last argument - it's this last application that runs the action
+it means the behaviour /has/ to be supplied by the immediate caller, or delegated
+if we're doing structured concurrency, do a lot of the problems of dynamically scoping effects go away?
+- function types would then specify all the effects that they'd cause if they're called
+- top level definitions still couldn't have effects - but I don't think that'd matter
+- does mean that we need to have type-params for effects too though? as in, the function takes on the effects of the functions passed to it?
+- in the mappings, we'll need to have a mapping for effect type params through to effects and more type params
+
+although I don't think it's /just/ structured concurrency, it's also laziness - functions being returned that will lose their context.
+can we still say that functions pick up the context of where they're created?
+- not if we want effects to work in top-level forms - somehow something's different about them.
+- so we have effect fns that are created as part of top-level forms, and effect fns that are created in calls? do they behave differently? /can/ they behave differently?
+  - I don't see why not - within a fn the effects can be supplied from the context; top level we can prevent effects entirely if need be (or, at least, non-defaulted effects)
+  - OT: what do we want to do about top-level effects, outside of a function? run the side effect every time it runs?
+
+so, three states - top-level, outside fn, top-level first fn, and inner fn?
+- top-level, effect local is null, we disallow effects
+- top-level fn sets the effect local
+- if the effect local is already set, we don't need to set it again

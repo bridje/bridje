@@ -112,3 +112,16 @@ so, implementation:
   - if we spot we're using the globalvar outside of a call, we can close over the effects already
   - it's going to be pretty unusual that we do this, I reckon, so a little performance hit here should be fine, in return for simplicity
   - the value of the effect var looks itself up
+
+what feels uneasy about implementing closures this way?
+- creating a node on every invocation, because it can't get optimised
+so how can we avoid creating a node, what needs to happen?
+- is it the same shape of node?
+- we probably know how many nodes need to be allocated each time, which local variables it needs to be
+- the inner function needs access to an object, is the problem - a different object every time.
+- we don't do this when we create a function, because the node's known ahead-of-time
+- it is necessarily different on each call, that's the trouble.
+- can we store the closure as prefix args on the bridjefunction object? calling convention is then to call the function with the prefix args provided?
+- the calltarget for a given node won't ever change, so that'll get sufficiently optimised
+
+doesn't look like SL has the concept of closures. fun.
