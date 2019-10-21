@@ -43,4 +43,78 @@ can we still say that functions pick up the context of where they're created?
 so, three states - top-level, outside fn, top-level first fn, and inner fn?
 - top-level, effect local is null, we disallow effects
 - top-level fn sets the effect local
+  - does this need to be passed regardless of whether the function is effectful? any way we can elide it if we don't need it?
+  - the top level expr isn't necessarily a fnexpr, so we can't automagically set it
+  - but we can see what type it is and pass null if it's not required
+  - we could also 'just' pass through the current effect local, which we know won't be used
+  - this is far easier - we know that all top-level fns have an effect local, even if they're not used?
+    - any way for a top-level fn to /not/ have an effect local?
+    - if we're outside a fn, and we try to call a top-level fn - we know the top-level fn can't depend on any non-defaulted effects (but we still need to pass them)
+      - or do we? if we say that default effects aren't in the map (i.e. we pass an empty dynamic object at the top level) then passing empty map is fine
+      - and this way, we can statically link to default effects, which'll likely be much more efficient for the normal case.
+  - who's responsible for checking for effects?
+    - analyser can check for effects at the top-level - there won't be an effect-local set and we know we're referencing a global-var
 - if the effect local is already set, we don't need to set it again
+
+this is valid Bridje, but the effects are out of kilter
+#+begin_src clojure
+  (def foo
+    (let [bar! (fn []
+                 (println! "Hello"))]
+      (fn []
+        (bar!))))
+#+end_src
+
+which implies that we can only really allow effects in top-level fns in tail position, which is a weird constraint
+particularly, we want the tail-position fn to take its effects from the dynamic context, but the let-bound fn to take them from the lexical context
+we need a better solution to top-level effects
+
+does everything need to be dynamic context?
+- only impacts if a closure escapes its with-fx - likely?
+- means that we're moving closer to a effects-paper-style effect type-system - means that effects are realised when they're called?
+- need to make sure that effects are passed over thread boundaries
+- interop-boundaries? we can't expect interop callers to call the function with an effects param
+- which then seems like we have to bundle effectful fns up with the effects as and when the function object's created
+  - except the top-level, tail position ones, those we want to take on the dynamic context. gah.
+- is it going to be awkward to debug if the effects are executed a long way away from where they're overridden?
+- can we take two sources of overrides? one from dynamic, one from lexical?
+  - which would we prioritise? presumably dynamic, they're 'closer'
+  - what about if one override is an interceptor, calls through to the existing effect?
+
+maybe we do dynamic, but allow binding effects lexically as a special case?
+- interop functions could then be specified to take functions with zero effects - could we type-check that?
+  - if we didn't, we'd be looking at a runtime error - an effect without a default impl may not have been specified
+  - would we need to be able to specify that a function takes a pure function?
+    - but that function could be nested down within a data structure
+- could we auto-bind lexically over an interop point?
+  - we certainly know when a fn's been called over interop vs being called from Bridje
+  - it may well be a relatively slow call anyway
+
+maybe we do it lexically, but dynamically (i.e. top-level tail-position) is the special case?
+- i.e. all functions record the lexical effects
+- some are passed effects at top level - these take preference over whatever they were given lexically?
+- type checking that?
+  - function would need to know what effects they call, so that they can be overridden
+  - there'd be effects from the expression, and effects from within the function
+  - 'foo', in the example above, wouldn't have any dynamic effects, would have println as a lexical effect
+  - we couldn't 'just' remove the dynamic effects from the lexical set - could be in both
+  - lexical effects would come from non-tail, dynamic effects from tail
+  - fnexprs would convert all lexical effects into dynamic effects
+  - but then we could have =(let [foo (fn [] (println! "Hello"))] foo)= which wouldn't work this way. sad.
+    - in this case, we'd say that foo, because it's in the lexical position, takes the effects of the lexical context
+  - maybe we do make an explicit exception for that top-level first tail position function?
+
+if we were to give the user explicit choice over it, what would this mean?
+- this is essentially the bound-fn approach?
+- maybe we make 'with-fx' behave that way?
+  - 'with-fx' can return anything - we'd want lex-fx to capture it for, well, the whole returned DS?
+  - but the whole returned DS could be nested - this'd be problematic
+
+what about if lex were the default, but we give users the ability to make certain effects dynamic?
+- would mean that we'd need to special case the top-level tail-position
+- but the vast majority of the time, this'll be handled by the =(def (foo x y) ...)= sugar any way
+- and if you do faff about with =(def foo (let [f (fn [x y] ...)] foo))=, it's up to you to Deal With It™.
+- does mean we need a new special form, dyn-fx? can we wrap any form with this?
+  - optimisations-wise, we'd want to wrap an fn directly, so that the effects can be passed as first arg, single call?
+  - so looks like we'd want a =dyn-fn= special form, behaves like =fn=
+  - and that way, the =def= sugar only needs to return its body as a DynFnExpr, and it /should/ get handled throughout.
