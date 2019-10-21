@@ -118,3 +118,17 @@ what about if lex were the default, but we give users the ability to make certai
   - optimisations-wise, we'd want to wrap an fn directly, so that the effects can be passed as first arg, single call?
   - so looks like we'd want a =dyn-fn= special form, behaves like =fn=
   - and that way, the =def= sugar only needs to return its body as a DynFnExpr, and it /should/ get handled throughout.
+- the type system would have to be able to handle both dynamic and lexical effects, but I don't think that scares me?
+  - we already handle lex-fx, adding dyn-fx would mean that functions would also need the more traditional algebraic effects semantics
+  - worth the hassle? haha
+- the only thing I don't like about this solution is that it has two different concepts, would rather just have one.
+  - but I think this is the best of the 'two-concept' systems
+  - it does mean that the entire system needs to handle lex and dyn fx - with the 'tail position' hack, would it limit the impact?
+  - i.e. it's not possible to pass dyn-fx fns to other fns - we resolve the fx when we resolve the GV.
+  - which is something we could enforce anyway
+- so there's a spectrum of solutions here, from least to most permissive
+  - least permissive - only available through =def= sugar?
+    - in this case, we'd put the effects on the GV, most likely
+  - in the middle is the 'top-level, tail position' hack
+  - most permissive - =dyn-fn= special form?
+    - in this case, each fntype would (potentially) have a set of fx
