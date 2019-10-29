@@ -10,3 +10,6 @@
   - can we add a node on top whose job is to check for invalidations?
   - caller langs won't re-parse the source every time, that'd be crazy - so they'd have a node in hand
 - have we sorted out spec2 implications yet? i.e. how to specify nested record keys
+  - Alex's talk at Clojutre:
+    - unqualified keys given a type for a specific schema
+    - select - must match the all the specified keys
