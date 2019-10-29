@@ -129,6 +129,30 @@ what about if lex were the default, but we give users the ability to make certai
 - so there's a spectrum of solutions here, from least to most permissive
   - least permissive - only available through =def= sugar?
     - in this case, we'd put the effects on the GV, most likely
-  - in the middle is the 'top-level, tail position' hack
   - most permissive - =dyn-fn= special form?
     - in this case, each fntype would (potentially) have a set of fx
+  - in the middle is the 'top-level, tail position' hack
+    - likewise, effects would only be on the GV
+    - we'd only allow defaultable/overridden effects outside of this tail-fn
+    - would disallow effects in things like =(-> (fn [...] ...) (wrap-... ...))=
+      - we'd want this to behave the same within a function as we'd want at top-level - would be quite a gotcha to move a form and it not behave the same.
+      - we legitimately can't optimise this, though - the handler fn's passed to the middleware, which calls it
+      - we'd want this to be passed lexically
+  - we've also got 'the function that gets returned from a top-level form'
+    - which I think we have to put effects on the fntype too
+  - is there a halfway house here whereby 'taking effects from the lexical environment' means dynamic for the whole of the top-level GV?
+    - we could optimise it for the most common cases - turn it into one call when we know it's just a function in tail position
+    - would mean that we wouldn't be able to have a top-level value (not fn) that was effectful but where the effects were only called once
+      - maybe we could eval such effects at the start of a REPL call that we know requires it
+    - so the practice is that 'whoever resolves the GV resolves the effects' - can that still apply here?
+  - a different special form? i.e. =def!= for where we expect top-level side effects?
+    - I do like the idea of users having to explicitly declare that they want compile-time effects
+    - under this, =def= would implicitly be a 0-arg (1 with fx) function if it contained effects
+    - no undefaultable effects in =def!=
+    - we could optimise the tail-position case to be one call
+- does this mean there's legitimately two different behaviours required by users in top-level definitions?
+  - lexical for one-shot, top-level effects, dynamic for everything else?
+  - even function calls - we may well want the middleware in the example above to use dynamic effects
+- easier - we make the requirement that effectful defs have a fnexpr at the top-level - gives the user control over when the effects are resolved
+
+the reason we're doing this is to prevent effects escaping a =with-fx= block, I think? otherwise we'd go full dynamic
