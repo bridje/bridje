@@ -154,5 +154,19 @@ what about if lex were the default, but we give users the ability to make certai
   - lexical for one-shot, top-level effects, dynamic for everything else?
   - even function calls - we may well want the middleware in the example above to use dynamic effects
 - easier - we make the requirement that effectful defs have a fnexpr at the top-level - gives the user control over when the effects are resolved
+  - how do top-level effects work in this case?
+  - split into two - functions defined to be effects and functions calling effects
+  - start with examples of legit top level effects - config, read at startup?
+  - top level being 'compile time', essentially - which, if we're AoT compiling, I doubt we want?
+  - alternatively, we don't ban it, we just say that dynamic effects only apply to ... the top-level tail function, again
+    - we could resolve the GVs when they're included in the env, save them being 'compile-time' effects
+    - still got the gotcha of extracting a function out, they might be within a with-fx scope where they were originally defined but move to global scope when they're extracted
+      - maybe that means that these GVs should be automatically created as 0-arg functions if they're known to have effects
+      - unless they're marked =def!=, which would run the effects at load time.
+    - we could make it an /implicit/ zero-arg fn, if it doesn't have any arguments
 
 the reason we're doing this is to prevent effects escaping a =with-fx= block, I think? otherwise we'd go full dynamic
+- how often does this happen?
+  - usages of with-fx
+    - we're assuming them to be either at the top-level, or to satisfy 'reader'-like patterns
+    - reader-like patterns could be quite local, in theory - just to satisfy a dependency of a block of code
