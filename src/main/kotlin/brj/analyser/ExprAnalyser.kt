@@ -74,7 +74,7 @@ internal data class ExprAnalyser(val resolver: Resolver,
 
             val bodyExpr = ValueExprAnalyser(resolver, (locals ?: emptyList()).toMap()).doAnalyser(it)
 
-            var expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
+            val expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
 
             if (polyVarPreamble != null) {
                 val polyVar = resolver.resolveVar(preamble.sym) as? PolyVar ?: TODO()
@@ -91,9 +91,6 @@ internal data class ExprAnalyser(val resolver: Resolver,
 
             } else {
                 val type = valueExprType(expr, resolver.resolveVar(preamble.sym)?.type?.monoType)
-
-                if (resolver.resolveVar(preamble.sym) is EffectVar || type.effects.isNotEmpty())
-                    expr = (expr as FnExpr).let { it.copy(params = listOf(DEFAULT_EFFECT_LOCAL) + it.params) }
 
                 DefExpr(preamble.sym, expr, type)
             }
@@ -172,7 +169,7 @@ internal data class ExprAnalyser(val resolver: Resolver,
             when (preamble.sym.symbolKind) {
                 VAR_SYM -> {
                     val returnType = typeAnalyser.monoTypeAnalyser(it)
-                    val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType), effects = emptySet())
+                    val type = Type(if (preamble.paramTypes == null) returnType else FnType(preamble.paramTypes, returnType))
                     VarDeclExpr(preamble.sym, preamble.isEffect, type)
                 }
 

@@ -1,7 +1,6 @@
 package brj
 
 import brj.analyser.*
-import brj.emitter.BridjeFunction
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
@@ -36,11 +35,7 @@ internal class Evaluator(private val emitter: Emitter) {
 
                             val value = emitter.evalValueExpr(expr.expr)
 
-                            nsEnv +
-                                if (nsEnv.vars[expr.sym] is EffectVar)
-                                    EffectVar(qSym, expr.type.copy(effects = setOf(qSym)), value as BridjeFunction, emitter.emitEffectFn(qSym))
-                                else
-                                    DefVar(qSym, expr.type, value)
+                            nsEnv + DefVar(qSym, expr.type, value)
                         }
 
                         is PolyVarDeclExpr -> {
@@ -51,7 +46,6 @@ internal class Evaluator(private val emitter: Emitter) {
                         is PolyVarDefExpr -> nsEnv + PolyVarImpl(expr.polyVar, expr.primaryPolyTypes, expr.secondaryPolyTypes, emitter.evalValueExpr(expr.expr))
 
                         is DefMacroExpr -> {
-                            if (expr.type.effects.isNotEmpty()) TODO()
                             nsEnv + emitter.emitDefMacroVar(expr, nsEnv.ns)
                         }
 

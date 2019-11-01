@@ -8,6 +8,7 @@ import brj.analyser.Resolver
 import brj.analyser.ValueExpr
 import brj.emitter.BridjeTypesGen.expectRecordObject
 import brj.emitter.BridjeTypesGen.expectVariantObject
+import brj.emitter.ValueExprEmitter.BridjeFunction
 import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
 import brj.types.FnType
@@ -32,7 +33,6 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.NodeInfo
-import com.oracle.truffle.api.nodes.RootNode
 import org.graalvm.polyglot.Value
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -48,7 +48,7 @@ internal abstract class ReadLocalVarNode : ValueNode() {
     abstract fun getSlot(): FrameSlot
 
     @Specialization
-    fun readObject(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot())!!
+    fun readObject(frame: VirtualFrame): Any = FrameUtil.getObjectSafe(frame, getSlot()) ?: TODO()
 }
 
 @NodeChild("value", type = ValueNode::class)
@@ -62,17 +62,6 @@ internal abstract class WriteLocalVarNode : Node() {
     }
 
     abstract fun execute(frame: VirtualFrame)
-}
-
-@ExportLibrary(InteropLibrary::class)
-internal class BridjeFunction(rootNode: RootNode) : BridjeObject {
-    val callTarget = Truffle.getRuntime().createCallTarget(rootNode)!!
-
-    @ExportMessage
-    fun isExecutable() = true
-
-    @ExportMessage
-    fun execute(args: Array<*>) = callTarget.call(*args)!!
 }
 
 @ExportLibrary(InteropLibrary::class)
@@ -288,7 +277,7 @@ internal interface BridjeObject : TruffleObject
 @TypeSystemReference(BridjeTypes::class)
 @NodeInfo(language = "bridje")
 internal abstract class ValueNode : Node() {
-    abstract val loc: Loc?
+    open val loc: Loc? = null
     abstract fun execute(frame: VirtualFrame): Any
 
     override fun getSourceSection() = loc

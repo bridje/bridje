@@ -101,7 +101,6 @@ private fun unifyEqs(eqs_: List<TypeEq>): Mapping {
 
 private data class Typing(val monoType: MonoType,
                           val monoEnv: MonoEnv = emptyMap(),
-                          val polyConstraints: PolyConstraints,
                           val effects: Set<QSymbol> = emptySet())
 
 private fun combine(returnType: MonoType,
@@ -119,10 +118,8 @@ private fun combine(returnType: MonoType,
 
     return Typing(
         returnType.applyMapping(mapping),
-        lvTvs.mapValues { e -> mapping.typeMapping.getOrDefault(e.value, e.value) },
-        // TODO actually gotta combine these
-        typings.flatMapTo(mutableSetOf()) { it.polyConstraints },
-        typings.flatMapTo(mutableSetOf(), Typing::effects))
+        lvTvs.mapValues { e -> mapping.typeMapping.getOrDefault(e.value, e.value) }
+    )
 }
 
 private fun vectorExprTyping(expr: VectorExpr, expectedType: MonoType?): Typing {
@@ -242,7 +239,7 @@ private fun localVarTyping(lv: LocalVar, expectedType: MonoType?): Typing {
 
 private fun globalVarTyping(expr: GlobalVarExpr): Typing {
     val instantiator = Instantiator()
-    return expr.globalVar.type.let { Typing(instantiator.instantiate(it.monoType), polyConstraints = instantiator.instantiate(it.polyConstraints), effects = it.effects) }
+    return expr.globalVar.type.let { Typing(instantiator.instantiate(it.monoType), effects = it.effects) }
 }
 
 private fun withFxTyping(expr: WithFxExpr, expectedType: MonoType?): Typing {
@@ -288,7 +285,7 @@ private fun caseExprTyping(expr: CaseExpr, expectedType: MonoType?): Typing {
 }
 
 private fun primitiveExprTyping(actualType: MonoType, expectedType: MonoType?) =
-    if (expectedType == null) Typing(actualType, polyConstraints = emptySet()) else combine(expectedType, extraEqs = listOf(TypeEq(expectedType, actualType)))
+    if (expectedType == null) Typing(actualType) else combine(expectedType, extraEqs = listOf(TypeEq(expectedType, actualType)))
 
 private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Typing =
     when (expr) {
@@ -325,4 +322,4 @@ private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Ty
         is CaseExpr -> caseExprTyping(expr, expectedType)
     }
 
-internal fun valueExprType(expr: ValueExpr, expectedType: MonoType?) = valueExprTyping(expr, expectedType).let { Type(it.monoType, it.polyConstraints, it.effects) }
+internal fun valueExprType(expr: ValueExpr, expectedType: MonoType?) = valueExprTyping(expr, expectedType).let { Type(it.monoType) }

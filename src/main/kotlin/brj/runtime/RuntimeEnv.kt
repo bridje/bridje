@@ -3,8 +3,8 @@
 package brj.runtime
 
 import brj.analyser.Resolver
-import brj.emitter.BridjeFunction
 import brj.emitter.BridjeTypesGen
+import brj.emitter.ValueExprEmitter.BridjeFunction
 import brj.emitter.VariantObject
 import brj.reader.*
 import brj.types.*
@@ -101,7 +101,7 @@ internal class JavaImportVar(javaImport: JavaImport, override val value: Any) : 
 
 internal data class PolyVar(val polyConstraint: PolyConstraint, val monoType: MonoType, override val value: Any) : GlobalVar() {
     override val sym = polyConstraint.sym
-    override val type = Type(monoType, setOf(polyConstraint))
+    override val type = Type(monoType)
 
     override fun toString() = sym.toString()
 }

@@ -24,11 +24,9 @@ internal data class PolyConstraint(val sym: QSymbol, val primaryTVs: List<TypeVa
 
 internal typealias PolyConstraints = Set<PolyConstraint>
 
-internal data class Type(val monoType: MonoType, val polyConstraints: PolyConstraints = emptySet(), val effects: Set<QSymbol> = emptySet()) {
+internal data class Type(val monoType: MonoType, val effects: Set<QSymbol> = emptySet()) {
     override fun toString(): String {
-        val effectStr = if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}}"
-
-        return if (polyConstraints.isNotEmpty()) "(Poly #{${polyConstraints.joinToString(" ")}} $effectStr)" else effectStr
+        return if (effects.isEmpty()) monoType.toString() else "(! $monoType #{${effects.joinToString(", ")}}"
     }
 }
 

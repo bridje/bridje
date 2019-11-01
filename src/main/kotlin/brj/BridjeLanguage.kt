@@ -2,14 +2,16 @@ package brj
 
 import brj.analyser.*
 import brj.analyser.NSHeader.Companion.nsHeaderParser
-import brj.emitter.*
+import brj.emitter.BridjeObject
+import brj.emitter.TruffleEmitter
+import brj.emitter.ValueExprEmitter
+import brj.emitter.ValueNode
 import brj.reader.Form
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.reader.ListForm
 import brj.reader.NSForms
 import brj.reader.NSForms.Loader.Companion.ClasspathLoader
 import brj.reader.RecordForm
-import brj.runtime.EffectVar
 import brj.runtime.RuntimeEnv
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.mkSym
@@ -117,22 +119,11 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         private fun evalValueRequest(req: ParseRequest.ValueRequest): Any? {
             val ctx = ctxRef.get()
             val resolver = Resolver.NSResolver(ctx.env)
-            var expr = ValueExprAnalyser(resolver).analyseValueExpr(req.form)
+            val expr = ValueExprAnalyser(resolver).analyseValueExpr(req.form)
 
             val valueExprType = valueExprType(expr, null)
 
-            val effects = valueExprType.effects
-            val isEffectful = effects.isNotEmpty()
-
-            if (isEffectful)
-                expr = FnExpr(params = listOf(DEFAULT_EFFECT_LOCAL), expr = expr)
-
-            var res = ValueExprEmitter(ctx).evalValueExpr(expr)
-
-            if (isEffectful)
-                res = (res as BridjeFunction).callTarget.call(effects.associate { qsym -> qsym to (resolver.resolveVar(qsym) as EffectVar).defaultImpl!! })
-
-            return res
+            return ValueExprEmitter(ctx).evalValueExpr(expr)
         }
 
         override fun execute(frame: VirtualFrame): Any? =
