@@ -5,12 +5,20 @@ import brj.runtime.Symbol
 import com.oracle.truffle.api.source.Source
 import org.graalvm.polyglot.Context
 
-fun main() {
+fun <R> withCtx(f: (Context) -> R): R {
     val ctx = Context.newBuilder("brj").allowAllAccess(true).build()
 
     try {
         ctx.enter()
+        return f(ctx)
+    } finally {
+        ctx.leave()
+        ctx.close()
+    }
+}
 
+fun main() {
+    withCtx { ctx ->
         val foo = Symbol.mkSym("foo")
         val bar = Symbol.mkSym("bar")
 
@@ -20,12 +28,9 @@ fun main() {
         @Suppress("UNUSED_VARIABLE")
         val env = BridjeLanguage.require(setOf(foo), ClasspathLoader(sources = mapOf(foo to fooSource, bar to barSource)))
 
+        println(ctx.eval("brj", "[1 2]"))
+
         val value = ctx.eval("brj", """(foo/my-fn "Hello" "world!")""")
-
         println("value: $value")
-    } finally {
-        ctx.leave()
-        ctx.close(true)
     }
-
 }
