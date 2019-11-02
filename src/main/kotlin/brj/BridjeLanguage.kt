@@ -123,7 +123,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
             val valueExprType = valueExprType(expr, null)
 
-            return ValueExprEmitter(ctx).evalValueExpr(expr)
+            val fn = (ValueExprEmitter(ctx).evalValueExpr(FnExpr(params = emptyList(), expr = expr))) as ValueExprEmitter.BridjeFunction
+
+            return fn.execute(emptyArray<Any>())
         }
 
         override fun execute(frame: VirtualFrame): Any? =
