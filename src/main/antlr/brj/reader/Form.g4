@@ -1,5 +1,9 @@
 grammar Form;
 
+@header {
+package brj.reader;
+}
+
 WHITESPACE: [\p{White_Space},] -> skip;
 
 BOOLEAN : 'true' | 'false';

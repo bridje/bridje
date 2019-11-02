@@ -47,6 +47,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         @Specialization
         fun doExecute(frame: VirtualFrame,
                       @CachedLibrary(limit = "1") interop: InteropLibrary): Array<*> {
+            // HACK gah this is horrible, and doesn't always seem to work
             val els = arrayOfNulls<Any>(elNodes.size)
             val elsInterop = truffleEnv.asGuestValue(els)
 
