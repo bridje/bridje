@@ -47,7 +47,7 @@ internal class VariantObject(val variantKey: VariantKey, val dynamicObject: Dyna
         if (isArrayElementReadable(idx)) dynamicObject[idx]!!
         else {
             CompilerDirectives.transferToInterpreter()
-            throw IndexOutOfBoundsException(idx.toInt())
+            throw IndexOutOfBoundsException()
         }
 }
 

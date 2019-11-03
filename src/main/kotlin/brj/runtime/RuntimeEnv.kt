@@ -26,7 +26,7 @@ internal data class EffectVar(override val sym: QSymbol, override val type: Type
 internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, val formsResolver: Resolver, override val value: Any?) : GlobalVar() {
     private fun fromVariant(obj: VariantObject): Form {
         fun fromVariantList(arg: Any): List<Form> {
-            return (arg as List<*>).map { fromVariant(BridjeTypesGen.expectVariantObject(truffleEnv.asGuestValue(it))) }
+            return (arg as List<*>).map { fromVariant(BridjeTypesGen.expectVariantObject(it)) }
         }
 
         val arg = obj.dynamicObject[0].let { arg -> if (truffleEnv.isHostObject(arg)) truffleEnv.asHostObject(arg) else arg }
@@ -67,7 +67,7 @@ internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, ove
         val isVarargs = paramTypes.last() is VectorType
         val fixedArgCount = if (isVarargs) paramTypes.size - 1 else paramTypes.size
 
-        val args = variantArgs.take(fixedArgCount) + truffleEnv.asGuestValue(listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null))
+        val args = variantArgs.take(fixedArgCount) + listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null)
 
         return fromVariant(
             (value as BridjeFunction).callTarget

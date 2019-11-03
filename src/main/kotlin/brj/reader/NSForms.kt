@@ -17,7 +17,7 @@ internal data class NSForms(val nsHeader: NSHeader, val forms: List<Form>) {
                                   private val forms: Map<Symbol, List<Form>> = emptyMap()) : Loader {
                 private fun nsSource(ns: Symbol): Source? =
                     this::class.java.getResource("/${ns.baseStr.replace('.', '/')}.brj")
-                        ?.let { url -> Source.newBuilder("bridje", url).build() }
+                        ?.let { url -> Source.newBuilder("brj", url).build() }
 
                 override fun loadForms(ns: Symbol): List<Form> =
                     forms[ns] ?: FormReader.readSourceForms(sources[ns] ?: nsSource(ns) ?: TODO("ns not found"))
