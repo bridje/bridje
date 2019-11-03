@@ -1,6 +1,6 @@
 package brj.analyser
 
-import brj.readForms
+import brj.reader.readForms
 import brj.runtime.EffectVar
 import brj.runtime.NSEnv
 import brj.runtime.QSymbol.Companion.mkQSym
