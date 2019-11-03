@@ -23,6 +23,7 @@ import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.nodes.ExecutableNode
 import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.SourceSection
 import org.graalvm.polyglot.Context
@@ -37,7 +38,8 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
 
     internal fun makeRootNode(node: ValueNode, frameDescriptor: FrameDescriptor = FrameDescriptor()) =
         object : RootNode(language, frameDescriptor) {
-            override fun execute(frame: VirtualFrame) = node.execute(frame)
+            @Child var valueNode = node
+            override fun execute(frame: VirtualFrame) = valueNode.execute(frame)
         }
 
     internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
@@ -140,10 +142,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     override fun parse(request: ParsingRequest): RootCallTarget =
-        Truffle.getRuntime().createCallTarget(
-            EvalRootNode(
-                this,
-                formsParser(ParserState(readSourceForms(request.source)))))
+        Truffle.getRuntime().createCallTarget(EvalRootNode(this, formsParser(ParserState(readSourceForms(request.source)))))
 
     override fun toString(context: BridjeContext, value: Any): String {
         return toString(value)
