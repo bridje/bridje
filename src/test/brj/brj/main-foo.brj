@@ -5,8 +5,7 @@
                        (:: (dec Int) Int)
                        (:: (conj #{a} a) #{a})
                        (:: (plus Int Int) Int)
-                       (:: (str Str Str) Str)
-                       (:: (println Str) Str))}
+                       (:: (str Str Str) Str))}
    :refers {bar #{baz}}})
 
 (:: :Void)
@@ -14,11 +13,6 @@
 
 (:: (:Just a) a)
 (:: :Nothing)
-
-(:: (! (println! Str)) Str)
-
-(#_ (def (println! s)
-      (Foo/println s)))
 
 (:: :first-name Str)
 (:: :last-name Str)
@@ -28,13 +22,6 @@
   (loop [y x
          res #{}]
     (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
-
-(:: (my-fn a a) [a])
-(def (my-fn x y)
-  (#_ (with-fx [(def (println! s)
-                  (foo/println! (Foo/str "intercepted: " s)))]
-        (println! "Hello world!")))
-  [y x])
 
 (def (vector el) [el])
 

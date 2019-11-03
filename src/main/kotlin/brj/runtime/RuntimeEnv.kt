@@ -20,8 +20,10 @@ internal abstract class GlobalVar {
 }
 
 internal data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
-internal data class EffectVar(override val sym: QSymbol, override val type: Type, val defaultImpl: BridjeFunction?, override var value: Any?) : GlobalVar()
-internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, val formsResolver: Resolver, override var value: Any?) : GlobalVar() {
+
+internal data class EffectVar(override val sym: QSymbol, override val type: Type, var defaultImpl: BridjeFunction?, override val value: Any) : GlobalVar()
+
+internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, val formsResolver: Resolver, override val value: Any?) : GlobalVar() {
     private fun fromVariant(obj: VariantObject): Form {
         fun fromVariantList(arg: Any): List<Form> {
             return (arg as List<*>).map { fromVariant(BridjeTypesGen.expectVariantObject(truffleEnv.asGuestValue(it))) }
@@ -65,7 +67,7 @@ internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, ove
         val isVarargs = paramTypes.last() is VectorType
         val fixedArgCount = if (isVarargs) paramTypes.size - 1 else paramTypes.size
 
-        val args = variantArgs.take(fixedArgCount) + listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null)
+        val args = variantArgs.take(fixedArgCount) + truffleEnv.asGuestValue(listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null))
 
         return fromVariant(
             (value as BridjeFunction).callTarget
@@ -78,7 +80,7 @@ internal data class RecordKey(val sym: QSymbol, val typeVars: List<TypeVarType>,
     override fun toString() = sym.toString()
 }
 
-internal data class RecordKeyVar(val recordKey: RecordKey, override var value: Any) : GlobalVar() {
+internal data class RecordKeyVar(val recordKey: RecordKey, override val value: Any) : GlobalVar() {
     override val sym = recordKey.sym
     override val type: Type = RecordType.accessorType(recordKey)
 }
@@ -87,7 +89,7 @@ internal data class VariantKey(val sym: QSymbol, val typeVars: List<TypeVarType>
     override fun toString() = sym.toString()
 }
 
-internal data class VariantKeyVar(val variantKey: VariantKey, override var value: Any) : GlobalVar() {
+internal data class VariantKeyVar(val variantKey: VariantKey, override val value: Any) : GlobalVar() {
     override val sym = variantKey.sym
     override val type: Type = VariantType.constructorType(variantKey)
 }

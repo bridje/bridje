@@ -1,6 +1,7 @@
 package brj
 
 import brj.analyser.*
+import brj.emitter.ValueExprEmitter
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
@@ -35,7 +36,10 @@ internal class Evaluator(private val emitter: Emitter) {
 
                             val value = emitter.evalValueExpr(expr.expr)
 
-                            nsEnv + DefVar(qSym, expr.type, value)
+                            nsEnv + when(val eVar = (nsEnv.vars[expr.sym] as? EffectVar)) {
+                                null -> DefVar(qSym, expr.type, value)
+                                else -> eVar.also { it.defaultImpl = value as ValueExprEmitter.BridjeFunction }
+                            }
                         }
 
                         is PolyVarDeclExpr -> {

@@ -43,7 +43,7 @@ internal class ValueExprAnalyserTest {
         val user = mkSym("user")
         val println = mkQSym("user/println!")
 
-        val effectVar = EffectVar(println, Type(FnType(listOf(StringType), StringType)), defaultImpl = null, value = null)
+        val effectVar = EffectVar(println, Type(FnType(listOf(StringType), StringType)), defaultImpl = null, value = "ohno")
 
         val nsEnv = NSEnv(user, vars = mapOf(println.base to effectVar))
 

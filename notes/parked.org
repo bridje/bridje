@@ -4,6 +4,9 @@
 - nested transients? can we give the user a lot of help?
 - Truffle parts in Java, so that we don't have to deal with Kotlin compiling to something that can't be optimised?
 - more into ANTLR?
+- what's going on with how we construct collections?
+  - looks like graal-js has its own collection objects, they're not expected to be lists
+  - maybe we could wrap Java immutable lists?
 - polyglot interop - caching
   - Graal says we should try cache the source - but we don't have dynamic lookup in Bridje - we'd statically link any function calls at compile time
   - unless we don't cache those? will be a PITA for calling Bridje from Java - they'll never get optimised

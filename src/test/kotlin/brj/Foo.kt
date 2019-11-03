@@ -14,7 +14,3 @@ fun plus(a: Long, b: Long) = a + b
 
 fun str(a: String, b: String) = a + b
 
-fun println(str: String): String {
-    kotlin.io.println(str)
-    return str
-}
