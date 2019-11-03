@@ -5,18 +5,15 @@ import brj.BridjeLanguage
 import brj.Loc
 import brj.analyser.*
 import brj.emitter.BridjeTypesGen.*
-import brj.emitter.ValueExprEmitterFactory.CollNodeGen
 import brj.runtime.QSymbol
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
-import com.oracle.truffle.api.library.CachedLibrary
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.*
@@ -42,48 +39,23 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         override fun execute(frame: VirtualFrame) = obj
     }
 
-    abstract class CollNode(val truffleEnv: TruffleLanguage.Env, @Children val elNodes: Array<ValueNode>) : ValueNode() {
-        @ExplodeLoop
-        @Specialization
-        fun doExecute(frame: VirtualFrame,
-                      @CachedLibrary(limit = "1") interop: InteropLibrary): Array<*> {
-            // HACK gah this is horrible, and doesn't always seem to work
-            val els = arrayOfNulls<Any>(elNodes.size)
-            val elsInterop = truffleEnv.asGuestValue(els)
-
-            for (i in elNodes.indices) {
-                interop.writeArrayElement(elsInterop, i.toLong(), elNodes[i].execute(frame))
-            }
-
-            return els
-        }
-
-        abstract override fun execute(frame: VirtualFrame): Array<*>
-    }
-
-    private fun collNode(exprs: List<ValueExpr>): CollNode = CollNodeGen.create(ctx.truffleEnv, exprs.map(this::emitValueNode).toTypedArray())
-
-    class VectorNode(val truffleEnv: TruffleLanguage.Env, @Child var collNode: CollNode, override val loc: Loc?) : ValueNode() {
+    class VectorNode(@Child var elsNode: ArrayNode, val truffleEnv: TruffleLanguage.Env, override val loc: Loc?) : ValueNode() {
         @TruffleBoundary(allowInlining = true)
         private fun makeVector(els: Array<*>) = els.toList()
 
-        override fun execute(frame: VirtualFrame) =
-            truffleEnv.asGuestValue(makeVector(collNode.execute(frame)))!!
-
+        override fun execute(frame: VirtualFrame) = truffleEnv.asGuestValue(makeVector(elsNode.execute(frame)))
     }
 
-    private fun emitVector(expr: VectorExpr) = VectorNode(ctx.truffleEnv, collNode(expr.exprs), expr.loc)
+    private fun emitVector(expr: VectorExpr) = VectorNode(ArrayNode(expr.exprs.map(this::emitValueNode).toTypedArray()), ctx.truffleEnv, expr.loc)
 
-    class SetNode(val truffleEnv: TruffleLanguage.Env, @Child var collNode: CollNode, override val loc: Loc?) : ValueNode() {
-
+    class SetNode(@Child var elsNode: ArrayNode, val truffleEnv: TruffleLanguage.Env, override val loc: Loc?) : ValueNode() {
         @TruffleBoundary(allowInlining = true)
         private fun makeSet(els: Array<*>) = els.toSet()
 
-        override fun execute(frame: VirtualFrame) =
-            truffleEnv.asGuestValue(makeSet(collNode.execute(frame)))!!
+        override fun execute(frame: VirtualFrame) = truffleEnv.asGuestValue(makeSet(elsNode.execute(frame)))
     }
 
-    private fun emitSet(expr: SetExpr) = SetNode(ctx.truffleEnv, collNode(expr.exprs), expr.loc)
+    private fun emitSet(expr: SetExpr) = SetNode(ArrayNode(expr.exprs.map(this::emitValueNode).toTypedArray()), ctx.truffleEnv, expr.loc)
 
     inner class RecordNode(expr: RecordExpr) : ValueNode() {
         override val loc = expr.loc

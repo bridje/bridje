@@ -51,6 +51,19 @@ internal abstract class WriteLocalVarNode : Node() {
     abstract fun execute(frame: VirtualFrame)
 }
 
+internal class ArrayNode(@Children val valueNodes: Array<ValueNode>): ValueNode() {
+    @ExplodeLoop
+    override fun execute(frame: VirtualFrame): Array<*> {
+        val res = arrayOfNulls<Any>(valueNodes.size)
+
+        for (i in valueNodes.indices) {
+            res[i] = valueNodes[i].execute(frame)
+        }
+
+        return res
+    }
+}
+
 internal class JavaImportEmitter(private val ctx: BridjeContext) {
     internal inner class JavaExecuteNode(javaImport: JavaImport) : ValueNode() {
         override val loc: Loc? = null

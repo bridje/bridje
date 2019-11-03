@@ -159,7 +159,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         internal fun toString(value: Any) = when (value) {
             is BigInteger -> "${value}N"
             is BigDecimal -> "${value}M"
-            is List<*> -> "[${value.joinToString(" ")}]"
+            is List<*> -> value.joinToString(prefix = "[", separator = ", ", postfix = "]")
+            is Set<*> -> value.joinToString(prefix = "#{", separator = ", ", postfix = "}")
             else -> value.toString()
         }
     }
