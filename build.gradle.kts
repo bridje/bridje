@@ -35,6 +35,10 @@ sourceSets {
 
 tasks.compileKotlin {
     dependsOn(tasks.generateGrammarSource)
+    java {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
 }
 
 tasks.generateGrammarSource {
@@ -43,4 +47,30 @@ tasks.generateGrammarSource {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.jar {
+    group = "build"
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+}
+
+tasks.register("component", type = Jar::class) {
+    group = "build"
+    description = "Build component JAR suitable for adding into GraalVM"
+    baseName = "${project.name}-component"
+
+    dependsOn("jar")
+
+    manifest {
+        attributes(
+            "Bundle-Symbolic-Name" to "brj",
+            "Bundle-RequireCapability" to """org.graalvm; filter:="(&(graalvm_version=19.2.0)(os_arch=amd64))"""",
+            "Bundle-Name" to "Bridje",
+            "Bundle-Version" to "0.0.1",
+            "x-GraalVM-Polyglot-Part" to "True")
+    }
+
+    into("jre/languages/") {
+        from(tasks.jar.get().outputs)
+    }
 }
