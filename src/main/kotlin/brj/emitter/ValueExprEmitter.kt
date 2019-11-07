@@ -40,9 +40,11 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     }
 
     class UnwrapNode(@Child var node: ValueNode, val truffleEnv: TruffleLanguage.Env) : ValueNode() {
+        private val profile = ConditionProfile.createBinaryProfile()
+
         override fun execute(frame: VirtualFrame): Any {
             val res = node.execute(frame)
-            return if (truffleEnv.isHostObject(res)) truffleEnv.asHostObject(res) else res
+            return if (profile.profile(truffleEnv.isHostObject(res))) truffleEnv.asHostObject(res) else res
         }
     }
 
@@ -53,7 +55,8 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         override fun execute(frame: VirtualFrame) = truffleEnv.asGuestValue(makeVector(elsNode.execute(frame)))
     }
 
-    private fun emitVector(expr: VectorExpr) = VectorNode(ArrayNode(expr.exprs.map(this::emitValueNode).map { UnwrapNode(it, ctx.truffleEnv) }.toTypedArray()), ctx.truffleEnv, expr.loc)
+    private fun emitVector(expr: VectorExpr) =
+        VectorNode(ArrayNode(expr.exprs.map(this::emitValueNode).map { UnwrapNode(it, ctx.truffleEnv) }.toTypedArray()), ctx.truffleEnv, expr.loc)
 
     class SetNode(@Child var elsNode: ArrayNode, val truffleEnv: TruffleLanguage.Env, override val loc: Loc?) : ValueNode() {
         @TruffleBoundary(allowInlining = true)
@@ -62,7 +65,8 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         override fun execute(frame: VirtualFrame) = truffleEnv.asGuestValue(makeSet(elsNode.execute(frame)))
     }
 
-    private fun emitSet(expr: SetExpr) = SetNode(ArrayNode(expr.exprs.map(this::emitValueNode).map { UnwrapNode(it, ctx.truffleEnv) }.toTypedArray()), ctx.truffleEnv, expr.loc)
+    private fun emitSet(expr: SetExpr) =
+        SetNode(ArrayNode(expr.exprs.map(this::emitValueNode).map { UnwrapNode(it, ctx.truffleEnv) }.toTypedArray()), ctx.truffleEnv, expr.loc)
 
     inner class RecordNode(expr: RecordExpr) : ValueNode() {
         override val loc = expr.loc

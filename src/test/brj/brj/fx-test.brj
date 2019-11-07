@@ -13,7 +13,7 @@
 (def (intercepted s)
   (with-fx [(def (println! s)
               (brj.fx-test/println! (str "intercepted: " s)))]
-    (println! "Hello world!")))
+    (println! s)))
 
 (def (closure-println s)
   (let [p println!]
