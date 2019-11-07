@@ -4,7 +4,7 @@ package brj.runtime
 
 import brj.analyser.Resolver
 import brj.emitter.BridjeTypesGen
-import brj.emitter.ValueExprEmitter.BridjeFunction
+import brj.emitter.BridjeFunction
 import brj.emitter.VariantObject
 import brj.reader.*
 import brj.types.*
@@ -21,7 +21,7 @@ internal abstract class GlobalVar {
 
 internal data class DefVar(override val sym: QSymbol, override val type: Type, override var value: Any?) : GlobalVar()
 
-internal data class EffectVar(override val sym: QSymbol, override val type: Type, var defaultImpl: BridjeFunction?, override val value: Any) : GlobalVar()
+internal data class EffectVar(override val sym: QSymbol, override val type: Type, var defaultImpl: BridjeFunction?, override var value: Any) : GlobalVar()
 
 internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, val formsResolver: Resolver, override val value: Any?) : GlobalVar() {
     private fun fromVariant(obj: VariantObject): Form {
@@ -58,7 +58,7 @@ internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, ove
                 else -> form.arg
             }
 
-            return (formsResolver.resolveVar(form.qsym)!!.value as BridjeFunction).callTarget.call(arg)
+            return (formsResolver.resolveVar(form.qsym)!!.value as BridjeFunction).callTarget.call(null, arg)
         }
 
         val variantArgs = argForms.map(::toVariant)
@@ -67,7 +67,7 @@ internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, ove
         val isVarargs = paramTypes.last() is VectorType
         val fixedArgCount = if (isVarargs) paramTypes.size - 1 else paramTypes.size
 
-        val args = variantArgs.take(fixedArgCount) + listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null)
+        val args = listOf(null) + variantArgs.take(fixedArgCount) + listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null)
 
         return fromVariant(
             (value as BridjeFunction).callTarget

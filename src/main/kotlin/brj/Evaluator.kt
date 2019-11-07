@@ -1,7 +1,7 @@
 package brj
 
 import brj.analyser.*
-import brj.emitter.ValueExprEmitter
+import brj.emitter.BridjeFunction
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
@@ -14,9 +14,8 @@ internal interface Emitter {
     fun emitJavaImport(javaImport: JavaImport): Any
     fun emitRecordKey(recordKey: RecordKey): Any
     fun emitVariantKey(variantKey: VariantKey): Any
-    fun emitEffectFn(sym: QSymbol): Any
+    fun emitEffectFn(sym: QSymbol, defaultImpl: BridjeFunction?): BridjeFunction
     fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar
-    fun emitPolyVar(polyConstraint: PolyConstraint): Any
 }
 
 internal class Evaluator(private val emitter: Emitter) {
@@ -36,15 +35,21 @@ internal class Evaluator(private val emitter: Emitter) {
 
                             val value = emitter.evalValueExpr(expr.expr)
 
+                            /*
+                            ok.
+                            we want to add an extra MF arg to this function if it has either closed over locals, or effects.
+                            means we generate two different implementations and store them in the defvar?
+                            maybe let's work back?
+                             */
+
                             nsEnv + when(val eVar = (nsEnv.vars[expr.sym] as? EffectVar)) {
                                 null -> DefVar(qSym, expr.type, value)
-                                else -> eVar.also { it.defaultImpl = value as ValueExprEmitter.BridjeFunction }
+                                else -> eVar.also { it.defaultImpl = value as BridjeFunction; it.value = emitter.emitEffectFn(qSym, value) }
                             }
                         }
 
                         is PolyVarDeclExpr -> {
-                            val polyConstraint = PolyConstraint(nsQSym(expr.sym), expr.primaryTVs, expr.secondaryTVs)
-                            nsEnv + PolyVar(polyConstraint, expr.type, emitter.emitPolyVar(polyConstraint))
+                            TODO()
                         }
 
                         is PolyVarDefExpr -> nsEnv + PolyVarImpl(expr.polyVar, expr.primaryPolyTypes, expr.secondaryPolyTypes, emitter.evalValueExpr(expr.expr))
@@ -57,7 +62,7 @@ internal class Evaluator(private val emitter: Emitter) {
                             val qsym = nsQSym(expr.sym)
                             nsEnv +
                                 if (expr.isEffect)
-                                    EffectVar(qsym, expr.type, defaultImpl = null, value = emitter.emitEffectFn(qsym))
+                                    EffectVar(qsym, expr.type, defaultImpl = null, value = emitter.emitEffectFn(qsym, null))
                                 else
                                     DefVar(qsym, expr.type, null)
                         }

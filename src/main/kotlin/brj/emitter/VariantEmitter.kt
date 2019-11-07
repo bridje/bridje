@@ -69,7 +69,7 @@ internal data class VariantConstructorNode(private val variantObjectFactory: Var
         val params = arrayOfNulls<Any>(paramTypes.size)
 
         for (i in paramTypes.indices) {
-            params[i] = frame.arguments[i]
+            params[i] = frame.arguments[i + 1]
         }
 
         return variantObjectFactory(params)
@@ -97,7 +97,7 @@ internal class VariantEmitter(val ctx: BridjeContext) {
     fun emitVariantKey(variantKey: VariantKey): TruffleObject {
         val variantObjectFactory = objectFactory(variantKey)
         return if (variantKey.paramTypes.isNotEmpty())
-            ValueExprEmitter.BridjeFunction(ctx.makeRootNode(VariantConstructorNode(variantObjectFactory, variantKey.paramTypes)))
+            BridjeFunction(ctx.makeRootNode(VariantConstructorNode(variantObjectFactory, variantKey.paramTypes)))
         else
             variantObjectFactory(emptyArray())
 

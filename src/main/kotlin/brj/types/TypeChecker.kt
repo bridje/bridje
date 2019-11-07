@@ -150,7 +150,7 @@ private fun recordExprTyping(expr: RecordExpr, expectedType: MonoType?): Typing 
         is RecordType -> {
             val missingKeys = expectedType.hasKeys.keys - expr.entries.map { it.recordKey }.toSet()
             if (missingKeys.isNotEmpty()) {
-                TODO("missing keys: ${missingKeys}")
+                TODO("missing keys: $missingKeys")
             }
             emptyList()
         }
@@ -322,4 +322,4 @@ private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Ty
         is CaseExpr -> caseExprTyping(expr, expectedType)
     }
 
-internal fun valueExprType(expr: ValueExpr, expectedType: MonoType?) = valueExprTyping(expr, expectedType).let { Type(it.monoType) }
+internal fun valueExprType(expr: ValueExpr, expectedType: MonoType?) = Type(valueExprTyping(expr, expectedType).monoType)

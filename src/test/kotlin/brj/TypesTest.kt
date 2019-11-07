@@ -8,8 +8,8 @@ import brj.runtime.Symbol.Companion.mkSym
 import brj.runtime.VariantKey
 import brj.runtime.VariantKeyVar
 import brj.types.TypeVarType
-import brj.types.valueExprType
 import org.junit.jupiter.api.Test
+import brj.types.valueExprType
 
 internal class TypesTest {
 

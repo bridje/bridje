@@ -41,7 +41,7 @@ internal data class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode() {
     override val loc: Loc? = null
 
     @Child
-    var readArgNode = ReadArgNode(0)
+    var readArgNode = ReadArgNode(1)
 
     override fun execute(frame: VirtualFrame) = BridjeTypesGen.expectRecordObject(readArgNode.execute(frame)).dynamicObject[recordKey.sym.toString()]!!
 }
@@ -70,7 +70,7 @@ internal class RecordEmitter(val ctx: BridjeContext) {
         }
     }
 
-    internal fun emitRecordKey(recordKey: RecordKey) = ValueExprEmitter.BridjeFunction(ctx.makeRootNode(RecordKeyReadNode(recordKey)))
+    internal fun emitRecordKey(recordKey: RecordKey) = BridjeFunction(ctx.makeRootNode(RecordKeyReadNode(recordKey)))
 }
 
 

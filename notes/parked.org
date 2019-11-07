@@ -16,3 +16,5 @@
   - Alex's talk at Clojutre:
     - unqualified keys given a type for a specific schema
     - select - must match the all the specified keys
+
+- I think we /may/ be able to implement java interfaces? bottom of 'ToHostNode.java'

@@ -20,37 +20,40 @@
 (:: :Nil)
 (:: (Seq a) (+ (:Cons a) :Nil))
 
-(:: (. a) (count a) Int)
+(#_
+ (:: (. a) (count a) Int)
 
-(def (. [a]) (count v)
-  (Core/countVec v))
+ (def (. [a]) (count v)
+   (Core/countVec v))
 
-(def (. #{a}) (count s)
-  (Core/countSet s))
+ (def (. #{a}) (count s)
+   (Core/countSet s)))
 
-;(:: (. s) (seq (s a)) (Seq a))
+(#_
+ (:: (. s) (seq (s a)) (Seq a))
 
-;(def (. []) (seq v)
-;  (if (empty? v)
-;    :Nil
-;    (:Cons (first v) (rest v))))
+ (def (. []) (seq v)
+   (if (empty? v)
+     :Nil
+     (:Cons (first v) (rest v)))))
 
-;(:: (-> forms/Form [forms/Form]) forms/Form)
+(#_
+ (:: (-> forms/Form [forms/Form]) forms/Form)
 
-;(defmacro (-> form & forms)
-;  (case (seq forms)
-;    (:Cons first-form more-forms)
-;    `(-> ~(case first-form
-;            (:forms/ListForm fs) (case (seq more-forms)
-;                                   (:Cons f args) `(~f ~form ~@args)
-;                                   :Nil form)
-;
-;            `(~first-form ~form))
-;
-;         ~@more-forms)
-;
-;    :Nil
-;    form))
+ (defmacro (-> form & forms)
+   (case (seq forms)
+     (:Cons first-form more-forms)
+     `(-> ~(case first-form
+             (:forms/ListForm fs) (case (seq more-forms)
+                                    (:Cons f args) `(~f ~form ~@args)
+                                    :Nil form)
+
+             `(~first-form ~form))
+
+          ~@more-forms)
+
+     :Nil
+     form)))
 
 (defmacro (str & strs)
   `(Core/str [~@strs]))

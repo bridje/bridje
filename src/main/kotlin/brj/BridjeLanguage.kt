@@ -2,6 +2,7 @@ package brj
 
 import brj.analyser.*
 import brj.analyser.NSHeader.Companion.nsHeaderParser
+import brj.emitter.BridjeFunction
 import brj.emitter.BridjeObject
 import brj.emitter.TruffleEmitter
 import brj.emitter.ValueExprEmitter
@@ -124,7 +125,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
             val valueExprType = valueExprType(expr, null)
 
-            val fn = (ValueExprEmitter(ctx).evalValueExpr(FnExpr(params = emptyList(), expr = expr))) as ValueExprEmitter.BridjeFunction
+            val fn = (ValueExprEmitter(ctx).evalValueExpr(FnExpr(params = emptyList(), expr = expr))) as BridjeFunction
 
             return fn.execute(emptyArray<Any>())
         }

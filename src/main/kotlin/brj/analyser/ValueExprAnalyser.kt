@@ -64,6 +64,8 @@ internal data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>, val ef
 
 internal data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr() {
     override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(expr = expr.postWalk(f)))
+
+    fun closedOverLocals(): Set<LocalVar> = emptySet() // TODO
 }
 
 internal data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr() {

@@ -6,21 +6,25 @@ import brj.Loc
 import brj.analyser.DefMacroExpr
 import brj.analyser.Resolver
 import brj.analyser.ValueExpr
-import brj.emitter.ValueExprEmitter.BridjeFunction
+import brj.emitter.BridjeTypesGen.expectVirtualFrame
 import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
 import brj.types.FnType
-import brj.types.PolyConstraint
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.dsl.*
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.FrameUtil
+import com.oracle.truffle.api.frame.MaterializedFrame
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.NodeInfo
+import com.oracle.truffle.api.nodes.RootNode
+import com.oracle.truffle.api.profiles.ConditionProfile
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -64,6 +68,42 @@ internal class ArrayNode(@Children val valueNodes: Array<ValueNode>): ValueNode(
     }
 }
 
+/*
+tough bit here seems to be passing the closure over the function boundary
+- we ideally want the thing inside the function boundary to be a static node that depends only on its arguments, if we can?
+- i.e. we don't want to be creating a new root node object every time it's called, that'd be crazy.
+- so the only way to not create a root node every time is to prepend/append the closure to the arguments?
+- but that means creating/copying the array, unless there's an easier way? what does graaljs do?
+- unless it's calling convention of every object within Bridje that it supplies the closure first?
+- calling convention is that callers look the lexical scope of a BridjeFunction up before they call it, and pass it as first arg
+- GVs - the lex scope will likely just be the effect var
+- think we can pass quite a lot
+- do we need to completely build/re-build the lexical scope? yes, because memory leaks?
+  - advantages: we don't keep the whole frame in memory if we're only going to use part of it
+  - disadvantages: time constructing the frame, especially if it's in a tight loop
+- do we need to pull the lexical frame into the current frame? yeah - I reckon those'll get inlined
+  - advantages: anything that reads an LV does it from one location
+  - disadvantages: extra writes at the start of each function (although I think these'll get inlined?)
+ */
+
+private val emptyFrame = Truffle.getRuntime().createMaterializedFrame(emptyArray())
+
+@ExportLibrary(InteropLibrary::class)
+internal class BridjeFunction(rootNode: RootNode, val lexFrame: MaterializedFrame = emptyFrame) : BridjeObject {
+    internal val callTarget = Truffle.getRuntime().createCallTarget(rootNode)
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun execute(args: Array<*>): Any? {
+        val argsWithScope = arrayOfNulls<Any>(args.size + 1)
+        System.arraycopy(args, 0, argsWithScope, 1, args.size)
+        argsWithScope[0] = lexFrame
+        return callTarget.call(*argsWithScope)
+    }
+}
+
 internal class JavaImportEmitter(private val ctx: BridjeContext) {
     internal inner class JavaExecuteNode(javaImport: JavaImport) : ValueNode() {
         override val loc: Loc? = null
@@ -74,7 +114,7 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
         var interop = InteropLibrary.getFactory().create(fn)!!
 
         @Children
-        val argNodes = ((javaImport.type.monoType as FnType).paramTypes.indices).map(::ReadArgNode).toTypedArray()
+        val argNodes = ((javaImport.type.monoType as FnType).paramTypes.indices).map { ReadArgNode(it + 1) }.toTypedArray()
 
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
@@ -92,17 +132,27 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
         BridjeFunction(ctx.makeRootNode(JavaExecuteNode(javaImport)))
 }
 
-internal typealias FxMap = Map<QSymbol, BridjeFunction>
-
-internal class EffectFnBodyNode(val sym: QSymbol) : ValueNode() {
+internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode() {
     override val loc: Loc? = null
 
     @Child
-    var callNode = Truffle.getRuntime().createIndirectCallNode()!!
+    var indirectCallNode = Truffle.getRuntime().createIndirectCallNode()!!
+
+    @Child
+    var directCallNode = if (defaultImpl != null) Truffle.getRuntime().createDirectCallNode(defaultImpl.callTarget) else null
+
+    private val conditionProfile: ConditionProfile = ConditionProfile.createBinaryProfile()
 
     @Suppress("UNCHECKED_CAST")
-    override fun execute(frame: VirtualFrame): Any =
-        callNode.call((frame.arguments[0] as FxMap)[sym]!!.callTarget, *frame.arguments)
+    override fun execute(frame: VirtualFrame): Any {
+        val f = expectVirtualFrame(frame.arguments[0]) as BridjeFunction?
+
+        return if(conditionProfile.profile(f == null)) {
+            directCallNode!!.call(*frame.arguments)
+        } else {
+            indirectCallNode.call(f!!.callTarget, *frame.arguments)
+        }
+    }
 }
 
 internal class TruffleEmitter(private val ctx: BridjeContext, private val formsResolver: Resolver) : Emitter {
@@ -110,12 +160,12 @@ internal class TruffleEmitter(private val ctx: BridjeContext, private val formsR
     override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter(ctx).emitJavaImport(javaImport)
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
     override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
-    override fun emitEffectFn(sym: QSymbol) = BridjeFunction(ctx.makeRootNode(EffectFnBodyNode(sym)))
+
+    override fun emitEffectFn(sym: QSymbol, defaultImpl: BridjeFunction?) =
+        BridjeFunction(ctx.makeRootNode(EffectFnBodyNode(sym, defaultImpl)))
 
     override fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar =
         DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, formsResolver, evalValueExpr(expr.expr))
-
-    override fun emitPolyVar(polyConstraint: PolyConstraint) = ValueExprEmitter(ctx).emitPolyVar()
 }
 
 @TypeSystem(
@@ -123,7 +173,8 @@ internal class TruffleEmitter(private val ctx: BridjeContext, private val formsR
     Long::class, Double::class,
     BigInteger::class, BigDecimal::class,
     BridjeFunction::class, RecordObject::class, VariantObject::class,
-    Symbol::class, QSymbol::class)
+    Symbol::class, QSymbol::class,
+    VirtualFrame::class)
 internal abstract class BridjeTypes
 
 internal interface BridjeObject : TruffleObject

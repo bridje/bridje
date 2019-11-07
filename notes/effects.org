@@ -170,3 +170,29 @@ the reason we're doing this is to prevent effects escaping a =with-fx= block, I 
   - usages of with-fx
     - we're assuming them to be either at the top-level, or to satisfy 'reader'-like patterns
     - reader-like patterns could be quite local, in theory - just to satisfy a dependency of a block of code
+
+how many calling patterns do we have?
+- callee
+  - effect fn
+  - default impl
+  - effectful fn
+  - fn with closed over variables
+  - effectful fn with closed over variables
+    - think this is the same as the previous case, but with one extra closed over LV
+  - with-fx fn
+    - likewise
+- caller
+  - call expr with GV in first position
+  - effectful GV outside of a call-expr first position
+  - top-level call (something has to make the effect map?)
+
+- effect fn and effectful fn look the same, to a caller
+- closed over fn has a statically known set of closed over variables
+  - in a closed over fn, we have a MF passed as the first argument, say?
+  - we iterate over the FrameSlots of the MF (statically known) to re-set the locals
+  - outer fn calling the inner fn keeps the MF
+- we can inline the default impl into the effectvar's value
+  - just need to keep track of the fact that there /is/ a default impl
+- what's the data type?
+- so do we have a 'closure' object separate to the others?
+- or does BridjeFunction just have 'closed over variables', possibly empty?
