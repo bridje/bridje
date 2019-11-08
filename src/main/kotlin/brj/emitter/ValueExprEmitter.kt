@@ -5,8 +5,11 @@ import brj.BridjeLanguage
 import brj.Loc
 import brj.analyser.*
 import brj.emitter.BridjeTypesGen.*
+import brj.runtime.GlobalVar
 import brj.runtime.QSymbol
 import com.oracle.truffle.api.CompilerAsserts
+import com.oracle.truffle.api.CompilerDirectives
+import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
@@ -207,7 +210,21 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         return FnNode(FnRootNode(ctx.language, innerFrameDescriptor, fnBodyNode), lexFrameDescriptor, fnExpr.loc)
     }
 
-    private fun emitGlobalVar(expr: GlobalVarExpr): ValueNode = ConstantNode(expr.globalVar.value!!, expr.loc)
+    class GlobalVarNode(val globalVar: GlobalVar, override val loc: Loc?) : ValueNode() {
+        @CompilationFinal
+        var value: Any? = null
+
+        override fun execute(frame: VirtualFrame): Any {
+            if (value == null) {
+                CompilerDirectives.transferToInterpreterAndInvalidate()
+                value = globalVar.value!!
+            }
+
+            return value!!
+        }
+    }
+
+    private fun emitGlobalVar(expr: GlobalVarExpr): ValueNode = GlobalVarNode(expr.globalVar, expr.loc)
 
     class CallNode(@Child var fnNode: ValueNode, @Children val argNodes: Array<ValueNode>, override val loc: Loc? = null) : ValueNode() {
         @Child
