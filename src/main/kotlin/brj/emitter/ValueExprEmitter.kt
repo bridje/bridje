@@ -170,19 +170,31 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    class FnNode(val fnRootNode: RootNode, val lexFrameDescriptor: FrameDescriptor, override val loc: Loc?): ValueNode() {
+    class WriteLexLocalNode(): ValueNode() {
+        override fun execute(frame: VirtualFrame): Any {
+            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        }
+    }
+
+    class FnNode(@Children val writeLexLocalNodes: Array<WriteLexLocalNode>,
+                 val fnRootNode: RootNode,
+                 val lexFrameDescriptor: FrameDescriptor,
+                 override val loc: Loc?) : ValueNode() {
         val emptyArgs = emptyArray<Any>()
 
+        @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
             val lexFrame = Truffle.getRuntime().createMaterializedFrame(emptyArgs, lexFrameDescriptor)
 
-            // TODO fill up the lexFrame
+            for (i in writeLexLocalNodes.indices) {
+                writeLexLocalNodes[i].execute(lexFrame)
+            }
 
             return BridjeFunction(fnRootNode, lexFrame)
         }
     }
 
-    class ReadLexLocalVarNode(@Child var readLocalNode: ReadLocalVarNode): ValueNode() {
+    class ReadLexLocalVarNode(@Child var readLocalNode: ReadLocalVarNode) : ValueNode() {
         override fun execute(frame: VirtualFrame) = readLocalNode.execute(expectVirtualFrame(frame.arguments[0]))
     }
 
@@ -196,18 +208,20 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
         val lexFrameDescriptor = FrameDescriptor()
 
-        val lexLocalNodes = fnExpr.closedOverLocals().map { lv ->
+        val readLexLocalNodes = fnExpr.closedOverLocals.map { lv ->
             WriteLocalVarNodeGen.create(
                 ReadLexLocalVarNode(ReadLocalVarNodeGen.create(lexFrameDescriptor.findOrAddFrameSlot(lv))),
                 innerFrameDescriptor.findOrAddFrameSlot(lv))
         }
 
+        val writeLexLocalNodes: List<WriteLexLocalNode> = fnExpr.closedOverLocals.map { TODO() }
+
         val fnBodyNode = WriteLocalsNode(
-            (argNodes + lexLocalNodes).toTypedArray(),
+            (argNodes + readLexLocalNodes).toTypedArray(),
             innerEmitter.emitValueNode(fnExpr.expr),
             fnExpr.expr.loc)
 
-        return FnNode(FnRootNode(ctx.language, innerFrameDescriptor, fnBodyNode), lexFrameDescriptor, fnExpr.loc)
+        return FnNode(writeLexLocalNodes.toTypedArray(), FnRootNode(ctx.language, innerFrameDescriptor, fnBodyNode), lexFrameDescriptor, fnExpr.loc)
     }
 
     class GlobalVarNode(val globalVar: GlobalVar, override val loc: Loc?) : ValueNode() {
@@ -218,6 +232,8 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             if (value == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate()
                 value = globalVar.value!!
+
+                if (globalVar.type.effects.isNotEmpty()) TODO()
             }
 
             return value!!

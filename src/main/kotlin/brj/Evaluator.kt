@@ -6,7 +6,6 @@ import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
-import brj.types.PolyConstraint
 import brj.types.Type
 
 internal interface Emitter {
@@ -33,19 +32,19 @@ internal class Evaluator(private val emitter: Emitter) {
                         is DefExpr -> {
                             val qSym = nsQSym(expr.sym)
 
-                            val value = emitter.evalValueExpr(expr.expr)
+                            val eVar = (nsEnv.vars[expr.sym] as? EffectVar)
 
-                            /*
-                            ok.
-                            we want to add an extra MF arg to this function if it has either closed over locals, or effects.
-                            means we generate two different implementations and store them in the defvar?
-                            maybe let's work back?
-                             */
+                            val valueExpr = if (eVar != null || expr.type.effects.isNotEmpty()) {
+                                (expr.expr as FnExpr).copy(closedOverLocals = setOf(DEFAULT_EFFECT_LOCAL))
+                            } else expr.expr
 
-                            nsEnv + when(val eVar = (nsEnv.vars[expr.sym] as? EffectVar)) {
-                                null -> DefVar(qSym, expr.type, value)
-                                else -> eVar.also { it.defaultImpl = value as BridjeFunction; it.value = emitter.emitEffectFn(qSym, value) }
-                            }
+                            val value = emitter.evalValueExpr(valueExpr)
+
+                            @Suppress("IfThenToElvis") // more readable this way?
+                            nsEnv + if (eVar == null)
+                                DefVar(qSym, expr.type, value)
+                            else
+                                eVar.also { it.defaultImpl = value as BridjeFunction; it.value = emitter.emitEffectFn(qSym, value) }
                         }
 
                         is PolyVarDeclExpr -> {
