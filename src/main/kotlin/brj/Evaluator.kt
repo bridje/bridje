@@ -47,11 +47,8 @@ internal class Evaluator(private val emitter: Emitter) {
                                 eVar.also { it.defaultImpl = value as BridjeFunction; it.value = emitter.emitEffectFn(qSym, value) }
                         }
 
-                        is PolyVarDeclExpr -> {
-                            TODO()
-                        }
-
-                        is PolyVarDefExpr -> nsEnv + PolyVarImpl(expr.polyVar, expr.primaryPolyTypes, expr.secondaryPolyTypes, emitter.evalValueExpr(expr.expr))
+                        is PolyVarDeclExpr -> TODO()
+                        is PolyVarDefExpr -> TODO()
 
                         is DefMacroExpr -> {
                             nsEnv + emitter.emitDefMacroVar(expr, nsEnv.ns)

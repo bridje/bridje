@@ -18,7 +18,7 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.*
 import com.oracle.truffle.api.profiles.ConditionProfile
 
-// HACK
+// TODO this probably wants to be a DynamicObject
 internal typealias FxMap = Map<QSymbol, BridjeFunction>
 
 internal class ValueExprEmitter(val ctx: BridjeContext) {
@@ -334,7 +334,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
                 return e.res
             }
 
-            return defaultNode?.execute(frame) ?: TODO()
+            return defaultNode!!.execute(frame)
         }
     }
 

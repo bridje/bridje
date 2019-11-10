@@ -292,10 +292,10 @@ In Bridje, we declare an effectful function by wrapping the declaration with
 lower-level effects.
 
 #+BEGIN_SRC clojure
-  (:: (print! Str) (! Void))
-  (:: (read-line!) (! Str))
+  (:: (! (print! Str)) Void)
+  (:: (! (read-line!)) Str)
 
-  (def (print! s)
+  (def (! (print! s))
     ;; interop
     )
 
@@ -341,13 +341,6 @@ the block.
     (log! :Info "Hello!"))
 #+END_SRC
 
-=with-fx= introduces a non-trivial overhead to swap out the implementation (in
-order to make the default implementations faster) - it is advisable not to use
-this in performance-critical code.
-
-There is one 'base' effect, =IO=, which interacts with the outside world. This
-is built-in and cannot be explicitly handled.
-
 *** 'Internal' mutable state
 #+BEGIN_QUOTE
 If a pure function mutates some local data in order to produce an immutable return value, is that ok?
@@ -373,13 +366,11 @@ to declare their types.
 
 #+BEGIN_SRC clojure
   (ns my-ns
-    {:aliases {RT (java java.lang.Runtime)}})
+    {:aliases {RT (java java.lang.Runtime
+                        (:: (getRuntime) RT)
+                        (:: (freeMemory RT) Int))}})
 
   ;; we can then use those functions using the `RT` alias
-
-  (:: (RT/getRuntime) RT)
-  (:: (RT/freeMemory RT) Int)
-
   (RT/freeMemory (RT/getRuntime))
 #+END_SRC
 
