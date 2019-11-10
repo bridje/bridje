@@ -6,7 +6,6 @@ import brj.Loc
 import brj.analyser.DefMacroExpr
 import brj.analyser.Resolver
 import brj.analyser.ValueExpr
-import brj.emitter.BridjeTypesGen.expectVirtualFrame
 import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
 import brj.types.FnType
@@ -14,7 +13,6 @@ import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.dsl.*
 import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.FrameUtil
-import com.oracle.truffle.api.frame.MaterializedFrame
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
@@ -55,9 +53,9 @@ internal abstract class WriteLocalVarNode : Node() {
     abstract fun execute(frame: VirtualFrame)
 }
 
-internal class ArrayNode(@Children val valueNodes: Array<ValueNode>): ValueNode() {
+internal class ArrayNode<N : ValueNode>(@Children val valueNodes: Array<N>) : ValueNode() {
     @ExplodeLoop
-    override fun execute(frame: VirtualFrame): Array<*> {
+    override fun execute(frame: VirtualFrame): Array<Any?> {
         val res = arrayOfNulls<Any>(valueNodes.size)
 
         for (i in valueNodes.indices) {
@@ -68,28 +66,8 @@ internal class ArrayNode(@Children val valueNodes: Array<ValueNode>): ValueNode(
     }
 }
 
-/*
-tough bit here seems to be passing the closure over the function boundary
-- we ideally want the thing inside the function boundary to be a static node that depends only on its arguments, if we can?
-- i.e. we don't want to be creating a new root node object every time it's called, that'd be crazy.
-- so the only way to not create a root node every time is to prepend/append the closure to the arguments?
-- but that means creating/copying the array, unless there's an easier way? what does graaljs do?
-- unless it's calling convention of every object within Bridje that it supplies the closure first?
-- calling convention is that callers look the lexical scope of a BridjeFunction up before they call it, and pass it as first arg
-- GVs - the lex scope will likely just be the effect var
-- think we can pass quite a lot
-- do we need to completely build/re-build the lexical scope? yes, because memory leaks?
-  - advantages: we don't keep the whole frame in memory if we're only going to use part of it
-  - disadvantages: time constructing the frame, especially if it's in a tight loop
-- do we need to pull the lexical frame into the current frame? yeah - I reckon those'll get inlined
-  - advantages: anything that reads an LV does it from one location
-  - disadvantages: extra writes at the start of each function (although I think these'll get inlined?)
- */
-
-private val emptyFrame = Truffle.getRuntime().createMaterializedFrame(emptyArray())
-
 @ExportLibrary(InteropLibrary::class)
-internal class BridjeFunction(rootNode: RootNode, val lexFrame: MaterializedFrame = emptyFrame) : BridjeObject {
+internal class BridjeFunction(val rootNode: RootNode, val lexObj: Any? = null) : BridjeObject {
     internal val callTarget = Truffle.getRuntime().createCallTarget(rootNode)
 
     @ExportMessage
@@ -99,7 +77,7 @@ internal class BridjeFunction(rootNode: RootNode, val lexFrame: MaterializedFram
     fun execute(args: Array<*>): Any? {
         val argsWithScope = arrayOfNulls<Any>(args.size + 1)
         System.arraycopy(args, 0, argsWithScope, 1, args.size)
-        argsWithScope[0] = lexFrame
+        argsWithScope[0] = lexObj
         return callTarget.call(*argsWithScope)
     }
 }
@@ -143,9 +121,8 @@ internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) 
 
     private val conditionProfile: ConditionProfile = ConditionProfile.createBinaryProfile()
 
-    @Suppress("UNCHECKED_CAST")
     override fun execute(frame: VirtualFrame): Any {
-        val f = expectVirtualFrame(frame.arguments[0]) as BridjeFunction?
+        val f = (frame.arguments[0] as FxMap)[sym]
 
         return if(conditionProfile.profile(f == null)) {
             directCallNode!!.call(*frame.arguments)
@@ -180,12 +157,11 @@ internal abstract class BridjeTypes
 internal interface BridjeObject : TruffleObject
 
 @TypeSystemReference(BridjeTypes::class)
-@NodeInfo(language = "bridje")
+@NodeInfo(language = "brj")
 internal abstract class ValueNode : Node() {
     open val loc: Loc? = null
-    abstract fun execute(frame: VirtualFrame): Any
 
     override fun getSourceSection() = loc
+
+    abstract fun execute(frame: VirtualFrame): Any?
 }
-
-

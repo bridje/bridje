@@ -2,11 +2,7 @@ package brj
 
 import brj.analyser.*
 import brj.analyser.NSHeader.Companion.nsHeaderParser
-import brj.emitter.BridjeFunction
-import brj.emitter.BridjeObject
-import brj.emitter.TruffleEmitter
-import brj.emitter.ValueExprEmitter
-import brj.emitter.ValueNode
+import brj.emitter.*
 import brj.reader.Form
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.reader.ListForm
@@ -38,7 +34,9 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
 
     internal fun makeRootNode(node: ValueNode, frameDescriptor: FrameDescriptor = FrameDescriptor()) =
         object : RootNode(language, frameDescriptor) {
-            @Child var valueNode = node
+            @Child
+            var valueNode = node
+
             override fun execute(frame: VirtualFrame) = valueNode.execute(frame)
         }
 
@@ -125,7 +123,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
             val valueExprType = valueExprType(expr, null)
 
-            val fn = (ValueExprEmitter(ctx).evalValueExpr(FnExpr(params = emptyList(), expr = expr))) as BridjeFunction
+            val fnExpr = FnExpr(params = emptyList(), expr = expr, closedOverLocals = setOf(DEFAULT_EFFECT_LOCAL))
+            val fn = (ValueExprEmitter(ctx).evalValueExpr(fnExpr)) as BridjeFunction
 
             return fn.execute(emptyArray<Any>())
         }

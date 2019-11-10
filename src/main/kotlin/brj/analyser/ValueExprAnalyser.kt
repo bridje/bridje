@@ -65,6 +65,7 @@ internal data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>, val ef
 internal data class FnExpr(val fnName: Symbol? = null,
                            val params: List<LocalVar>,
                            val expr: ValueExpr,
+                           val effectLocal: LocalVar? = null,
                            val closedOverLocals: Set<LocalVar> = emptySet()) : ValueExpr() {
     override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(expr = expr.postWalk(f)))
 }
@@ -102,7 +103,7 @@ internal data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>,
 }
 
 internal data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
-internal data class GlobalVarExpr(val globalVar: GlobalVar, val effectLocal: LocalVar) : ValueExpr() {}
+internal data class GlobalVarExpr(val globalVar: GlobalVar, val effectLocal: LocalVar) : ValueExpr()
 
 internal data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr) : PostWalkable<EffectDef> {
     override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(fnExpr = fnExpr.postWalk(f) as FnExpr)
@@ -204,7 +205,7 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
 
         val bodyExpr = ana.doAnalyser(it)
 
-        return FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), bodyExpr)
+        return FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), bodyExpr, effectLocal)
     }
 
     private fun callAnalyser(it: ParserState): ValueExpr {
@@ -240,7 +241,7 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
 
                     val bodyExpr = this.copy(locals = locals.toMap(), loopLocals = locals.map { it.second }).doAnalyser(it)
 
-                    val expr = FnExpr(preamble.sym, locals.map { it.second }, bodyExpr)
+                    val expr = FnExpr(preamble.sym, locals.map { it.second }, bodyExpr, effectLocal)
 
                     it.expectEnd()
 

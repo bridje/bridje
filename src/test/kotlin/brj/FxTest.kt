@@ -14,6 +14,7 @@ internal class FxTest {
         withCtx {ctx ->
             BridjeLanguage.require(setOf(Symbol.mkSym("brj.fx-test")))
             ctx.eval("brj", """(brj.fx-test/straight-println "Hello")""")
+            ctx.eval("brj", """(brj.fx-test/intercepted "Hello")""")
             ctx.eval("brj", """(brj.fx-test/closure-println "Hello")""")
         }
     }

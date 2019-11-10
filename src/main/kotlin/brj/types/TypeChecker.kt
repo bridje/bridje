@@ -118,7 +118,8 @@ private fun combine(returnType: MonoType,
 
     return Typing(
         returnType.applyMapping(mapping),
-        lvTvs.mapValues { e -> mapping.typeMapping.getOrDefault(e.value, e.value) }
+        lvTvs.mapValues { e -> mapping.typeMapping.getOrDefault(e.value, e.value) },
+        typings.flatMapTo(mutableSetOf()) { it.effects }
     )
 }
 
@@ -322,4 +323,7 @@ private fun valueExprTyping(expr: ValueExpr, expectedType: MonoType? = null): Ty
         is CaseExpr -> caseExprTyping(expr, expectedType)
     }
 
-internal fun valueExprType(expr: ValueExpr, expectedType: MonoType?) = Type(valueExprTyping(expr, expectedType).monoType)
+internal fun valueExprType(expr: ValueExpr, expectedType: MonoType?): Type {
+    val valueExprTyping = valueExprTyping(expr, expectedType)
+    return Type(valueExprTyping.monoType, valueExprTyping.effects)
+}

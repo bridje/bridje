@@ -61,7 +61,7 @@ internal class Evaluator(private val emitter: Emitter) {
                             val qsym = nsQSym(expr.sym)
                             nsEnv +
                                 if (expr.isEffect)
-                                    EffectVar(qsym, expr.type, defaultImpl = null, value = emitter.emitEffectFn(qsym, null))
+                                    EffectVar(qsym, expr.type.copy(effects = setOf(qsym)), defaultImpl = null, value = emitter.emitEffectFn(qsym, null))
                                 else
                                     DefVar(qsym, expr.type, null)
                         }
