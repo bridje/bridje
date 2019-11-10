@@ -241,7 +241,8 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
 
                     val bodyExpr = this.copy(locals = locals.toMap(), loopLocals = locals.map { it.second }).doAnalyser(it)
 
-                    val expr = FnExpr(preamble.sym, locals.map { it.second }, bodyExpr, effectLocal)
+                    // TODO needs a few more closedOverLocals in here, most likely
+                    val expr = FnExpr(preamble.sym, locals.map { it.second }, bodyExpr, effectLocal, closedOverLocals = setOf(effectLocal))
 
                     it.expectEnd()
 
