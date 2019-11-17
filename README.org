@@ -5,7 +5,7 @@ Haskell. It currently runs on the Graal JVM, but is fundamentally a hosted
 language - the intention being to have it run on the JavaScript ecosystem too
 (eventually).
 
-Its main features include:
+Its main features will include:
 - Polymorphic records and variants with type-checked keys, similar to Clojure's
   'spec' library
 - A monad-less 'effect system' to statically determine an expression's side

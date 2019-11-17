@@ -319,7 +319,7 @@ open questions:
     (:Mapper f))
 
 
-  (:: (:Taker (& Int)))
+  (:: (:Taker (Mut Int)))
 
   (def (. :Taker) (.more? (:Taker n))
     (pos? n))
@@ -334,6 +334,8 @@ open questions:
   (def (take n)
     (:Taker n))
 
+
+  (:: (. a) (:PartitionAller Int (Mut [a])))
 
   (def (. (:PartitionAller a)) (.more? _) true)
 
