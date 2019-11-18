@@ -1,0 +1,6 @@
+(ns brj.interop-test
+  {:aliases {IT (java brj.InteropTestKt
+                      (:: (reverse Str) Str))}})
+
+(def (str-reverse s)
+  (IT/reverse s))

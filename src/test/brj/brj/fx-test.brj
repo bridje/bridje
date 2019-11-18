@@ -1,0 +1,22 @@
+(ns brj.fx-test
+  {:aliases {Foo (java brj.FxTestKt
+                       (:: (println Str) Str))}})
+
+(:: (! (println! Str)) Str)
+
+(def (println! s)
+  (Foo/println s))
+
+(def (straight-println s)
+  (println! s))
+
+(def (intercepted s)
+  (with-fx [(def (println! s)
+              (brj.fx-test/println! (str "intercepted: " s)))]
+    (println! s)))
+
+(def (closure-println s)
+  (let [p println!]
+    (with-fx [(def (println! s)
+                (brj.fx-test/println! (str "intercepted: " s)))]
+      (p s))))

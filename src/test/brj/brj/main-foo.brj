@@ -1,0 +1,34 @@
+(ns foo
+  {:aliases {b bar
+             Foo (java brj.FooKt
+                       (:: (isZero Int) Bool)
+                       (:: (dec Int) Int)
+                       (:: (conj #{a} a) #{a})
+                       (:: (plus Int Int) Int)
+                       (:: (str Str Str) Str))}
+   :refers {bar #{baz}}})
+
+(:: :Void)
+(:: Void (+ :Void))
+
+(:: (:Just a) a)
+(:: :Nothing)
+
+(:: :first-name Str)
+(:: :last-name Str)
+;; (:: User {:first-name :last-name})
+
+(def (count-down x)
+  (loop [y x
+         res #{}]
+    (if (Foo/isZero y) res (recur (Foo/dec y) (Foo/conj res y)))))
+
+(def (vector el) [el])
+
+; (def list-length (count [1 2 3]))
+
+;(def foo
+;  (-> []
+;      :forms/VectorForm
+;      vector
+;      :forms/ListForm))

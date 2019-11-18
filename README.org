@@ -5,7 +5,7 @@ Haskell. It currently runs on the Graal JVM, but is fundamentally a hosted
 language - the intention being to have it run on the JavaScript ecosystem too
 (eventually).
 
-Its main features include:
+Its main features will include:
 - Polymorphic records and variants with type-checked keys, similar to Clojure's
   'spec' library
 - A monad-less 'effect system' to statically determine an expression's side
@@ -110,7 +110,7 @@ We define keys using =::=:
      :a-big-number 52N})
 #+END_SRC
 
-As in Clojure, we can destructure records, although the syntax is quite
+As in Clojure, we can destructure records, although the syntax is a little
 different. In particular, in the long-hand form, the destructuring matches the
 structure of the record itself. Here are some examples:
 
@@ -134,7 +134,6 @@ structure of the record itself. Here are some examples:
     )
 #+END_SRC
 
-
 Records can also be nested. Drawing inspiration from hints in Rich Hickey's
 'Maybe Not' talk, we do not specify ahead of time what keys a record type
 contains, only that it is a record. When the record is used, the type system
@@ -153,7 +152,6 @@ then decides which keys the user of the record requires at that particular site.
   ;; - a function from a record containing a `:name` key to a string
   (def (say-hi user)
     (format "Hi, %s!" (:name user)))
-
 
   ;; we can also nest the destructuring. N.B. whereas Clojure's destructuring
   ;; syntax is 'inside-out', Bridje's more closely matches the structure of the
@@ -184,8 +182,8 @@ Variant keys are distinguished from record keys by using an initial capital
 letter:
 
 #+BEGIN_SRC clojure
-  (:: :Int Int)
-  (:: :String Str)
+  (:: (:Int Int))
+  (:: (:String Str))
   (:: :Neither) ; variants don't *need* a value, necessarily; they can also have more than one.
 
   ;; we then construct instances of these variants using the key as a constructor:
@@ -218,10 +216,10 @@ Instead, we use variants - a macro is then a function that accepts a number of
 Forms, and returns a Form.
 
 #+BEGIN_SRC clojure
-  (:: :StringForm Str)
-  (:: :IntForm Int)
-  (:: :ListForm [Form])
-  (:: :VectorForm [Form])
+  (:: (:StringForm Str))
+  (:: (:IntForm Int))
+  (:: (:ListForm [Form]))
+  (:: (:VectorForm [Form]))
   ;; ...
 
   (:: Form (+ :StringForm :IntForm :ListForm :VectorForm ...))
@@ -297,7 +295,7 @@ lower-level effects.
   (:: (! (print! Str)) Void)
   (:: (! (read-line!)) Str)
 
-  (def (print! s)
+  (def (! (print! s))
     ;; interop
     )
 
@@ -343,13 +341,6 @@ the block.
     (log! :Info "Hello!"))
 #+END_SRC
 
-=with-fx= introduces a non-trivial overhead to swap out the implementation (in
-order to make the default implementations faster) - it is advisable not to use
-this in performance-critical code.
-
-There is one 'base' effect, =IO=, which interacts with the outside world. This
-is built-in and cannot be explicitly handled.
-
 *** 'Internal' mutable state
 #+BEGIN_QUOTE
 If a pure function mutates some local data in order to produce an immutable return value, is that ok?
@@ -375,13 +366,11 @@ to declare their types.
 
 #+BEGIN_SRC clojure
   (ns my-ns
-    {:aliases {RT (java java.lang.Runtime)}})
+    {:aliases {RT (java java.lang.Runtime
+                        (:: (getRuntime) RT)
+                        (:: (freeMemory RT) Int))}})
 
   ;; we can then use those functions using the `RT` alias
-
-  (:: (RT/getRuntime) RT)
-  (:: (RT/freeMemory RT) Int)
-
   (RT/freeMemory (RT/getRuntime))
 #+END_SRC
 
@@ -395,7 +384,7 @@ the core library declares a polymorphic =:Ok= variant which can contain a value
 of any type:
 
 #+BEGIN_SRC clojure
-  (:: (:Ok a) a)
+  (:: (. a) (:Ok a))
 #+END_SRC
 
 This declaration is saying that the =:Ok= variant has a type parameter called
@@ -404,7 +393,7 @@ then use the =:Ok= variant as we would any other variant - introducing it using
 =(:Ok 42)= (which has type =(+ (:Ok Int))=) and eliminating it with =case=:
 
 #+BEGIN_SRC clojure
-  (:: (:Ok a) a)
+  (:: (. a) :Ok a)
 
   (case (:Ok 42)
     (:Ok int) (even? int)
@@ -426,9 +415,9 @@ how to count it:
 #+BEGIN_SRC clojure
   (:: (. a) (count a) Int)
 
-  (:: (:Cons a) a (List a))
+  (:: (. a) (:Cons a (List a)))
   (:: :Nil)
-  (:: (List a) (+ (:Cons a) :Nil))
+  (:: (. a) List (+ (:Cons a) :Nil))
 
   (def (. (List a)) (count list)
     (case list

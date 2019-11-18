@@ -1,16 +1,23 @@
 package brj.analyser
 
-import brj.*
 import brj.analyser.ParseError.ExpectedIdent
+import brj.runtime.Ident
+import brj.runtime.Symbol
+import brj.runtime.SymbolKind
+import brj.reader.Form
+import brj.reader.QSymbolForm
+import brj.reader.SymbolForm
 
 internal typealias FormsParser<R> = (ParserState) -> R
 
-sealed class ParseError : Exception() {
+internal sealed class ParseError : Exception() {
     object ExpectedForm : ParseError()
     data class UnexpectedForms(val forms: List<Form>) : ParseError()
     object ExpectedSymbol : ParseError()
     object ExpectedIdent : ParseError()
 }
+
+internal fun <T, U> FormsParser<T?>.then(f: (T) -> U?): FormsParser<U?> = { this(it)?.let(f) }
 
 internal data class ParserState(var forms: List<Form>) {
     fun <R> many(a: FormsParser<R?>): List<R> {
@@ -21,6 +28,12 @@ internal data class ParserState(var forms: List<Form>) {
             ret += res
         }
 
+        return ret
+    }
+
+    fun consume(): List<Form> {
+        val ret = forms
+        forms = emptyList()
         return ret
     }
 
@@ -76,7 +89,15 @@ internal data class ParserState(var forms: List<Form>) {
 
     fun <R> nested(forms: List<Form>, a: FormsParser<R>): R = a(ParserState(forms))
 
-    inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsParser<R>): R = nested(f(expectForm()), a)
+    inline fun <reified F : Form, R> nested(f: (F) -> List<Form>, noinline a: FormsParser<R>): R {
+        val form = expectForm<F>()
+        return nested(f(form), a)
+    }
+
+    inline fun <reified F : Form> nested(f: (F) -> List<Form>): ParserState {
+        val form = expectForm<F>()
+        return nested(f(form)) { it }
+    }
 
     fun expectSym() = expectForm<SymbolForm>().sym
 

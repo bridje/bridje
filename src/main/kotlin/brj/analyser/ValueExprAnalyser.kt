@@ -1,57 +1,120 @@
 package brj.analyser
 
-import brj.*
-import brj.QSymbol.Companion.mkQSym
-import brj.Symbol.Companion.mkSym
-import brj.SymbolKind.RECORD_KEY_SYM
-import brj.SymbolKind.VAR_SYM
+import brj.Loc
+import brj.reader.*
+import brj.runtime.*
+import brj.runtime.QSymbol.Companion.mkQSym
+import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymbolKind.RECORD_KEY_SYM
+import brj.runtime.SymbolKind.VAR_SYM
 import java.math.BigDecimal
 import java.math.BigInteger
 
-class LocalVar(val sym: Symbol) {
+internal class LocalVar(val sym: Symbol) {
     override fun toString() = "LV($sym)"
 }
 
-sealed class ValueExpr
+internal interface PostWalkable<T : PostWalkable<T>> {
+    fun postWalk(f: (ValueExpr) -> ValueExpr): T
+}
 
-data class BooleanExpr(val boolean: Boolean) : ValueExpr()
-data class StringExpr(val string: String) : ValueExpr()
-data class IntExpr(val int: Long) : ValueExpr()
-data class BigIntExpr(val bigInt: BigInteger) : ValueExpr()
-data class FloatExpr(val float: Double) : ValueExpr()
-data class BigFloatExpr(val bigFloat: BigDecimal) : ValueExpr()
+internal fun <T : PostWalkable<T>> List<T>.postWalk(f: (ValueExpr) -> ValueExpr): List<T> = map { it.postWalk(f) }
+internal fun <T : PostWalkable<T>> Set<T>.postWalk(f: (ValueExpr) -> ValueExpr): Set<T> = mapTo(mutableSetOf()) { it.postWalk(f) }
 
-data class QuotedSymbolExpr(val sym: Symbol) : ValueExpr()
-data class QuotedQSymbolExpr(val sym: QSymbol) : ValueExpr()
+internal sealed class ValueExpr : PostWalkable<ValueExpr> {
+    var loc: Loc? = null
 
-data class VectorExpr(val exprs: List<ValueExpr>) : ValueExpr()
-data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr()
-data class RecordEntry(val recordKey: RecordKey, val expr: ValueExpr)
-data class RecordExpr(val entries: List<RecordEntry>) : ValueExpr()
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(this)
+}
 
-data class CallExpr(val f: ValueExpr, val effectArg: LocalVarExpr?, val args: List<ValueExpr>) : ValueExpr()
-data class FnExpr(val fnName: Symbol? = null, val params: List<LocalVar>, val expr: ValueExpr) : ValueExpr()
+internal fun <T : ValueExpr> T.withLoc(loc: Loc?): T {
+    this.loc = loc
+    return this
+}
 
-data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr()
-data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr) : ValueExpr()
+internal data class BooleanExpr(val boolean: Boolean) : ValueExpr()
+internal data class StringExpr(val string: String) : ValueExpr()
+internal data class IntExpr(val int: Long) : ValueExpr()
+internal data class BigIntExpr(val bigInt: BigInteger) : ValueExpr()
+internal data class FloatExpr(val float: Double) : ValueExpr()
+internal data class BigFloatExpr(val bigFloat: BigDecimal) : ValueExpr()
 
-data class LetBinding(val localVar: LocalVar, val expr: ValueExpr)
-data class LetExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr()
+internal data class QuotedSymbolExpr(val sym: Symbol) : ValueExpr()
+internal data class QuotedQSymbolExpr(val sym: QSymbol) : ValueExpr()
 
-data class LoopExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr()
-data class RecurExpr(val exprs: List<Pair<LocalVar, ValueExpr>>) : ValueExpr()
+internal data class VectorExpr(val exprs: List<ValueExpr>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(exprs = exprs.map { it.postWalk(f) }))
+}
 
-data class CaseClause(val variantKey: VariantKey, val bindings: List<LocalVar>, val bodyExpr: ValueExpr)
-data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?) : ValueExpr()
+internal data class SetExpr(val exprs: List<ValueExpr>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(exprs = exprs.map { it.postWalk(f) }))
+}
 
-data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
-data class GlobalVarExpr(val globalVar: GlobalVar) : ValueExpr()
+internal data class RecordEntry(val recordKey: RecordKey, val expr: ValueExpr) : PostWalkable<RecordEntry> {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(expr = expr.postWalk(f))
+}
 
-data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr)
-data class WithFxExpr(val oldFxLocal: LocalVar,
-                      val fx: Set<EffectDef>,
-                      val newFxLocal: LocalVar,
-                      val bodyExpr: ValueExpr) : ValueExpr()
+internal data class RecordExpr(val entries: List<RecordEntry>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr): ValueExpr = f(copy(entries = entries.postWalk(f)))
+}
+
+internal data class CallExpr(val f: ValueExpr, val args: List<ValueExpr>, val effectLocal: LocalVar) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(f = this.f.postWalk(f), args = args.postWalk(f)))
+}
+
+internal data class FnExpr(val fnName: Symbol? = null,
+                           val params: List<LocalVar>,
+                           val expr: ValueExpr,
+                           val effectLocal: LocalVar? = null,
+                           val closedOverLocals: Set<LocalVar> = emptySet()) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(expr = expr.postWalk(f)))
+}
+
+internal data class IfExpr(val predExpr: ValueExpr, val thenExpr: ValueExpr, val elseExpr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(predExpr = predExpr.postWalk(f), thenExpr = thenExpr.postWalk(f), elseExpr = elseExpr.postWalk(f)))
+}
+
+internal data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(exprs = exprs.postWalk(f), expr = expr.postWalk(f)))
+}
+
+internal data class LetBinding(val localVar: LocalVar, val expr: ValueExpr) : PostWalkable<LetBinding> {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(expr = expr.postWalk(f))
+}
+
+internal data class LetExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(bindings = bindings.postWalk(f), expr = expr.postWalk(f)))
+}
+
+internal data class LoopExpr(val bindings: List<LetBinding>, val expr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(bindings = bindings.postWalk(f), expr = expr.postWalk(f)))
+}
+
+internal data class RecurExpr(val exprs: List<Pair<LocalVar, ValueExpr>>) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(exprs = exprs.map { it.copy(second = it.second.postWalk(f)) }))
+}
+
+internal data class CaseClause(val variantKey: VariantKey, val bindings: List<LocalVar>, val bodyExpr: ValueExpr) : PostWalkable<CaseClause> {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(bodyExpr = bodyExpr.postWalk(f))
+}
+
+internal data class CaseExpr(val expr: ValueExpr, val clauses: List<CaseClause>, val defaultExpr: ValueExpr?) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(expr = expr.postWalk(f), clauses = clauses.postWalk(f), defaultExpr = defaultExpr?.postWalk(f)))
+}
+
+internal data class LocalVarExpr(val localVar: LocalVar) : ValueExpr()
+internal data class GlobalVarExpr(val globalVar: GlobalVar, val effectLocal: LocalVar) : ValueExpr()
+
+internal data class EffectDef(val effectVar: EffectVar, val fnExpr: FnExpr) : PostWalkable<EffectDef> {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = copy(fnExpr = fnExpr.postWalk(f) as FnExpr)
+}
+
+internal data class WithFxExpr(val oldFxLocal: LocalVar,
+                               val fx: Set<EffectDef>,
+                               val newFxLocal: LocalVar,
+                               val bodyExpr: ValueExpr) : ValueExpr() {
+    override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(fx = fx.postWalk(f), bodyExpr = bodyExpr.postWalk(f)))
+}
 
 internal val IF = mkSym("if")
 internal val FN = mkSym("fn")
@@ -66,20 +129,20 @@ internal val DEFAULT_EFFECT_LOCAL = LocalVar(mkSym("_fx"))
 private val QSYMBOL_FORM = mkQSym(":brj.forms/QSymbolForm")
 
 @Suppress("NestedLambdaShadowedImplicitParameter")
-internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
-                                      val macroEvaluator: MacroEvaluator,
+internal data class ValueExprAnalyser(val resolver: Resolver,
                                       val locals: Map<Symbol, LocalVar> = emptyMap(),
                                       val loopLocals: List<LocalVar>? = null,
                                       val effectLocal: LocalVar = DEFAULT_EFFECT_LOCAL) {
-    private fun resolve(ident: Ident) = resolve(env, nsEnv, ident)
+
+    private fun resolve(ident: Ident) = resolver.resolveVar(ident)
 
     private fun symAnalyser(form: SymbolForm): ValueExpr =
-        (locals[form.sym]?.let { LocalVarExpr(it) })
-            ?: resolve(form.sym)?.let(::GlobalVarExpr)
+        (locals[form.sym]?.let { LocalVarExpr(it).withLoc(form.loc) })
+            ?: resolve(form.sym)?.let { GlobalVarExpr(it, effectLocal).withLoc(form.loc) }
             ?: TODO("sym not found: ${form.sym}")
 
     private fun qsymAnalyser(form: QSymbolForm): ValueExpr =
-        resolve(form.sym)?.let(::GlobalVarExpr)
+        resolve(form.sym)?.let { GlobalVarExpr(it, effectLocal).withLoc(form.loc) }
             ?: TODO("sym not found: ${form.sym}")
 
     private fun ifAnalyser(it: ParserState): ValueExpr {
@@ -92,18 +155,16 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
     private fun letAnalyser(it: ParserState): ValueExpr {
         var ana = this
-        return LetExpr(
-            it.nested(VectorForm::forms) { bindingState ->
-                bindingState.varargs {
-                    val localVar = LocalVar(it.expectForm<SymbolForm>().sym)
-                    val expr = ana.copy(loopLocals = null).exprAnalyser(it)
+        return LetExpr(it.nested(VectorForm::forms) { bindingState ->
+            bindingState.varargs {
+                val localVar = LocalVar(it.expectSym(VAR_SYM))
+                val expr = ana.copy(loopLocals = null).exprAnalyser(it)
 
-                    ana = ana.copy(locals = ana.locals.plus(localVar.sym to localVar))
-                    LetBinding(localVar, expr)
-                }
-            },
-
-            ana.exprAnalyser(it))
+                ana = ana.copy(locals = ana.locals.plus(localVar.sym to localVar))
+                LetBinding(localVar, expr)
+            }
+        },
+            ana.doAnalyser(it))
     }
 
     private fun loopAnalyser(it: ParserState): ValueExpr {
@@ -144,18 +205,16 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
         val bodyExpr = ana.doAnalyser(it)
 
-        return FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), bodyExpr)
+        return FnExpr(fnName, newLocals.map(Pair<Symbol, LocalVar>::second), bodyExpr, effectLocal)
     }
 
     private fun callAnalyser(it: ParserState): ValueExpr {
         val fn = exprAnalyser(it)
 
         return if (fn is GlobalVarExpr && fn.globalVar is DefMacroVar) {
-            exprAnalyser(ParserState(listOf(macroEvaluator.evalMacro(env, fn.globalVar, it.varargs { it.expectForm<Form>() }))))
+            exprAnalyser(ParserState(listOf(fn.globalVar.evalMacro(it.varargs { it.expectForm<Form>() }))))
         } else {
-            CallExpr(fn,
-                (if (fn is GlobalVarExpr && fn.globalVar.type.effects.isNotEmpty()) LocalVarExpr(effectLocal) else null),
-                it.varargs(::exprAnalyser))
+            CallExpr(fn, it.varargs(::exprAnalyser), effectLocal)
         }
     }
 
@@ -182,7 +241,8 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
 
                     val bodyExpr = this.copy(locals = locals.toMap(), loopLocals = locals.map { it.second }).doAnalyser(it)
 
-                    val expr = FnExpr(preamble.sym, locals.map { it.second }, bodyExpr)
+                    // TODO needs a few more closedOverLocals in here, most likely
+                    val expr = FnExpr(preamble.sym, locals.map { it.second }, bodyExpr, effectLocal, closedOverLocals = setOf(effectLocal))
 
                     it.expectEnd()
 
@@ -274,14 +334,11 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             entries += RecordEntry(attr, exprAnalyser(it))
         }
 
-        return RecordExpr(entries)
+        return RecordExpr(entries).withLoc(form.loc)
     }
 
     private fun syntaxQuoteAnalyser(ident: Ident): ValueExpr =
-        CallExpr(
-            GlobalVarExpr(resolve(QSYMBOL_FORM)!!),
-            null,
-            listOf(QuotedQSymbolExpr((resolve(ident) ?: TODO("sym not found: $ident")).sym)))
+        CallExpr(GlobalVarExpr(resolve(QSYMBOL_FORM)!!, effectLocal), listOf(QuotedQSymbolExpr((resolve(ident) ?: TODO("sym not found: $ident")).sym)), effectLocal)
 
     private fun exprAnalyser(it: ParserState): ValueExpr {
         val form = it.expectForm<Form>()
@@ -306,7 +363,7 @@ internal data class ValueExprAnalyser(val env: RuntimeEnv, val nsEnv: NSEnv,
             is RecordForm -> recordAnalyser(form)
             is SyntaxQuotedSymbolForm -> syntaxQuoteAnalyser(form.sym)
             is SyntaxQuotedQSymbolForm -> syntaxQuoteAnalyser(form.sym)
-        }
+        }.withLoc(form.loc)
     }
 
     fun analyseValueExpr(form: Form): ValueExpr = doAnalyser(ParserState(listOf(form)))

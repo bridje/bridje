@@ -1,0 +1,24 @@
+* Rank N Types paper
+** Basics of polytypes
+- Monotype: τ, σ^{0} : a | τ_1 → τ_2
+- Polytype: σ^{n+1} : σ^n | σ^n → σ^{n+1} | ∀a.σ^{n+1}
+
+Int → Int - rank 0
+∀a. a → a - rank 1
+Int → (∀a. a → a) - rank 1
+(∀a. a → a) → Int - rank 2
+
+We introduce ρ-types as the type we're looking to infer from an expression - in a rank-1 type system, ρ-types are just
+mono-types, τ, but in our arbitrary rank type systems, ρ-types are τ | σ -> σ.
+
+** Subsumption
+A form of sub-typing, where σ_{off} ≤ σ_{req} says that σ_{off} is 'at least as polymorphic as' σ_{req} - referred to throughout as
+σ_{off} is 'more polymorphic than' σ_{req} - there are fewer implementations of the former than of the latter.
+
+Contravariant in the parameters:
+- Int ≤ Int
+- Int → Bool ≤ Int → Bool
+- ∀a. a → a ≤ Int → Int
+- ∀a. a → a ≤ ∀b. [b] → [b]
+- ∀a. a → a ≤ ∀bc. (b, c) → (b, c)
+- ∀ab. (a, b) → (b, a) ≤ ∀c. c → c

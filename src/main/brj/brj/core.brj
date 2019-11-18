@@ -1,47 +1,59 @@
 (ns brj.core
   {:aliases {forms brj.forms
-             Core (java brj.CoreKt)}})
-
-(:: (Core/empty [a]) Bool)
-(:: (Core/count [a]) Int)
-(:: (Core/first [a]) a)
-(:: (Core/rest [a]) [a])
-(:: (Core/str [Str]) Str)
+             Core (java brj.runtime.CoreKt
+                        (:: (empty [a]) Bool)
+                        (:: (countVec [a]) Int)
+                        (:: (countSet [a]) Int)
+                        (:: (first [a]) a)
+                        (:: (rest [a]) [a])
+                        (:: (str [Str]) Str))}})
 
 (def empty? Core/empty)
-(def count Core/count)
 (def first Core/first)
 (def rest Core/rest)
 
 (defmacro (if-not pred then else)
   `(if ~pred ~else ~then))
 
-(:: (:Cons a) a [a])
+(:: (Seq a))
+(:: (:Cons a) a (Seq a))
 (:: :Nil)
 (:: (Seq a) (+ (:Cons a) :Nil))
 
-(:: (seq [a]) (Seq a))
-(def (seq v)
-  (if (empty? v)
-    :Nil
-    (:Cons (first v) (rest v))))
+(#_
+ (:: (. a) (count a) Int)
 
-(:: (-> forms/Form [forms/Form]) forms/Form)
+ (def (. [a]) (count v)
+   (Core/countVec v))
 
-(defmacro (-> form & forms)
-  (case (seq forms)
-    (:Cons first-form more-forms)
-    `(-> ~(case first-form
-            (:forms/ListForm fs) (case (seq more-forms)
-                                   (:Cons f args) `(~f ~form ~@args)
-                                   :Nil form)
+ (def (. #{a}) (count s)
+   (Core/countSet s)))
 
-            `(~first-form ~form))
+(#_
+ (:: (. s) (seq (s a)) (Seq a))
 
-         ~@more-forms)
+ (def (. []) (seq v)
+   (if (empty? v)
+     :Nil
+     (:Cons (first v) (rest v)))))
 
-    :Nil
-    form))
+(#_
+ (:: (-> forms/Form [forms/Form]) forms/Form)
+
+ (defmacro (-> form & forms)
+   (case (seq forms)
+     (:Cons first-form more-forms)
+     `(-> ~(case first-form
+             (:forms/ListForm fs) (case (seq more-forms)
+                                    (:Cons f args) `(~f ~form ~@args)
+                                    :Nil form)
+
+             `(~first-form ~form))
+
+          ~@more-forms)
+
+     :Nil
+     form)))
 
 (defmacro (str & strs)
   `(Core/str [~@strs]))
