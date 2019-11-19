@@ -2,7 +2,7 @@
   {:aliases {Foo (java brj.FxTestKt
                        (:: (println Str) Str))}})
 
-(:: (! (println! Str)) Str)
+(:: (println! Str) (! Str))
 
 (def (println! s)
   (Foo/println s))

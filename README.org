@@ -19,7 +19,7 @@ Bridje has a number of built-in forms, many similar to their Clojure
 counterparts. It also has a few additions, particularly regarding the record
 data structures, and its effect and typeclass systems.
 
-** Basic forms
+** Basic forms (implemented)
 
 Primitives in Bridje are mostly the same as Clojure:
 
@@ -59,7 +59,7 @@ function.
       y))
 #+END_SRC
 
-** Naming values, defining functions
+** Naming values, defining functions (implemented)
 
 We define both values and functions using =def=. We can optionally specify the
 type of a value/function explicitly using =::=- it's not required, but it's checked, and
@@ -81,7 +81,7 @@ useful as documentation.
 Values are all defined within a namespace, specified at the top of the file.
 More on this later, including how to refer to values declared in other namespaces.
 
-** Collections
+** Collections (implemented)
 
 Vectors and sets in Bridje are *homogenous*, unlike Clojure's heterogeneous
 collections. They are immutable, and can be arbitrarily nested.
@@ -94,7 +94,7 @@ collections. They are immutable, and can be arbitrarily nested.
 Bridje does have homogenous maps, but they do not have a specific syntax - they
 are constructed from sequences of tuples.
 
-** Records
+** Records (basic keys/records implemented)
 In a similar manner to Clojure's 'spec', we define the type of a key, then any
 value of that key, throughout the program, is guaranteed to have the same type.
 
@@ -174,7 +174,7 @@ We can define type aliases for common sets of keys:
   (:: (say-hi BaseUser) Str)
 #+END_SRC
 
-** Variants ('union'/'sum' types)
+** Variants ('union'/'sum' types) (implemented)
 
 In addition to records, with a set of keys, Bridje also allows developers to
 declare 'variants' - a data structure that has /one/ of a possible set of keys.
@@ -206,7 +206,7 @@ letter:
   (:: IntOrString (+ :Int :String :Neither))
 #+END_SRC
 
-** Macros
+** Macros (implemented)
 
 Bridje macros aim to operate as similar to Clojure's macros as possible -
 however, without a heterogeneous list type, we need another way of expressing
@@ -238,7 +238,7 @@ Forms, and returns a Form.
        ~then))
 #+END_SRC
 
-** Namespaces
+** Namespaces (partially implemented, reload to come)
 
 Namespaces are collections of symbols and keys. In the namespace declaration
 (which must be the first declaration in the file) we can specify which symbols
@@ -281,7 +281,7 @@ don't want re-declaring a definition to invalidate the type guarantees. You can,
 however, evaluate other forms (that don't change the contents of a namespace)
 individually at the REPL.
 
-** Effects
+** Effects (implemented)
 
 One of Bridje's main features is its effect system - a way of knowing at
 compile-time what side causes/side effects a function depends on.
@@ -292,10 +292,10 @@ In Bridje, we declare an effectful function by wrapping the declaration with
 lower-level effects.
 
 #+BEGIN_SRC clojure
-  (:: (! (print! Str)) Void)
-  (:: (! (read-line!)) Str)
+  (:: (print! Str) (! Void))
+  (:: (read-line!) (! Str))
 
-  (def (! (print! s))
+  (def (print! s)
     ;; interop
     )
 
@@ -315,7 +315,7 @@ lower-level effects.
   (:: Level (+ :Debug :Info :Warn :Error))
 
 
-  (:: (! (log! Level Str)) Void)
+  (:: (log! Level Str) (! Void))
 
   (def (log! level s)
     (print! (format "Log [%s]: %s" (pr-str level) s)))
@@ -341,7 +341,7 @@ the block.
     (log! :Info "Hello!"))
 #+END_SRC
 
-*** 'Internal' mutable state
+*** 'Internal' mutable state (planned)
 #+BEGIN_QUOTE
 If a pure function mutates some local data in order to produce an immutable return value, is that ok?
 
@@ -360,7 +360,7 @@ At its lowest level, the mutable primitives that Bridje exposes are mutable
 references (a =mut=, pronounced 'mute') and 'transient' collections,
 similar to Clojure.
 
-** Java Interop
+** Java Interop (partially implemented)
 We can import functions from Java as if they are Bridje functions - we just need
 to declare their types.
 
@@ -374,7 +374,7 @@ to declare their types.
   (RT/freeMemory (RT/getRuntime))
 #+END_SRC
 
-** Polymorphism
+** Polymorphism (planned)
 
 Polymorphism appears in Bridje in two forms - polymorphic keys and polymorphic
 functions.
@@ -443,7 +443,7 @@ We can then define how to map a function over our list type:
       :Nil :Nil))
 #+END_SRC
 
-** Error handling
+** Error handling (initial thoughts)
 
 There are two types of error in Bridje - we make a distinction between errors
 that the immediate caller is expected to handle, and errors that they aren't.

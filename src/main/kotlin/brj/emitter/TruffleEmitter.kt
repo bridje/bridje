@@ -127,8 +127,9 @@ internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) 
         return if(conditionProfile.profile(f == null)) {
             directCallNode!!.call(*frame.arguments)
         } else {
-            frame.arguments[0] = f!!.lexObj
-            indirectCallNode.call(f!!.callTarget, *frame.arguments)
+            f!! // we know that we only hit the else if `f!!`, but the compiler doesn't
+            frame.arguments[0] = f.lexObj
+            indirectCallNode.call(f.callTarget, *frame.arguments)
         }
     }
 }
