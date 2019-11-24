@@ -70,12 +70,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
     private fun emitSet(expr: SetExpr) =
         SetNode(ArrayNode(expr.exprs.map(this::emitValueNode).map { UnwrapNode(it, ctx.truffleEnv) }.toTypedArray()), ctx.truffleEnv, expr.loc)
 
-    inner class RecordNode(expr: RecordExpr) : ValueNode() {
-        override val loc = expr.loc
-        val factory = RecordEmitter(ctx).recordObjectFactory(expr.entries.map(RecordEntry::recordKey))
-
-        @Child
-        var valArrayNode = ArrayNode(expr.entries.map { emitValueNode(it.expr) }.toTypedArray())
+    class RecordNode(private val factory: RecordObjectFactory, @Child private var valArrayNode: ArrayNode<*>, override val loc: Loc?) : ValueNode() {
 
         @TruffleBoundary
         private fun buildRecord(vals: Array<Any?>) = factory(vals)
@@ -83,6 +78,12 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame) = buildRecord(valArrayNode.execute(frame))
     }
+
+    private fun emitRecord(expr: RecordExpr): ValueNode =
+        RecordNode(
+            RecordEmitter(ctx).recordObjectFactory(expr.entries.map(RecordEntry::recordKey)),
+            ArrayNode(expr.entries.map { emitValueNode(it.expr) }.toTypedArray()),
+            expr.loc)
 
     class DoNode(@Children val exprNodes: Array<ValueNode>, @Child var exprNode: ValueNode, override val loc: Loc?) : ValueNode() {
         @ExplodeLoop
@@ -275,28 +276,16 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
 
     class CaseMatched(val res: Any?) : ControlFlowException()
 
-    inner class CaseClauseNode(dataSlot: FrameSlot, clause: CaseClause) : Node() {
-
-        @Child
-        var readSlot = ReadLocalVarNodeGen.create(dataSlot)!!
-
-        @Children
-        val writeBindingNodes =
-            clause.bindings.mapIndexed { idx, lv ->
-                WriteLocalVarNodeGen.create(
-                    ReadVariantParamNode(ReadLocalVarNodeGen.create(dataSlot), idx),
-                    frameDescriptor.findOrAddFrameSlot(lv))
-            }.toTypedArray()
-
-        @Child
-        var exprNode = emitValueNode(clause.bodyExpr)
+    class CaseClauseNode(@Child private var caseValueNode: ReadLocalVarNode,
+                         @Children private val writeBindingNodes: Array<WriteLocalVarNode>,
+                         @Child private var exprNode: ValueNode,
+                         private val variantSym: QSymbol) : Node() {
 
         private val conditionProfile = ConditionProfile.createBinaryProfile()!!
-        private val variantSym = clause.variantKey.sym
 
         @ExplodeLoop
         fun execute(frame: VirtualFrame) {
-            val value = expectVariantObject(readSlot.execute(frame))
+            val value = expectVariantObject(caseValueNode.execute(frame))
 
             if (conditionProfile.profile(value.variantKey.sym == variantSym)) {
                 for (node in writeBindingNodes) {
@@ -308,19 +297,20 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    inner class CaseExprNode(expr: CaseExpr) : ValueNode() {
-        override val loc = expr.loc
+    private fun emitCaseClauseNode(dataSlot: FrameSlot, clause: CaseClause): CaseClauseNode =
+        CaseClauseNode(ReadLocalVarNodeGen.create(dataSlot),
+            clause.bindings.mapIndexed { idx, lv ->
+                WriteLocalVarNodeGen.create(
+                    ReadVariantParamNode(ReadLocalVarNodeGen.create(dataSlot), idx),
+                    frameDescriptor.findOrAddFrameSlot(lv))
+            }.toTypedArray(),
+            emitValueNode(clause.bodyExpr),
+            clause.variantKey.sym)
 
-        private val dataSlot: FrameSlot = frameDescriptor.findOrAddFrameSlot(this)
-
-        @Child
-        var exprNode = WriteLocalVarNodeGen.create(emitValueNode(expr.expr), dataSlot)!!
-
-        @Children
-        val clauseNodes = expr.clauses.map { CaseClauseNode(dataSlot, it) }.toTypedArray()
-
-        @Child
-        var defaultNode = expr.defaultExpr?.let(::emitValueNode)
+    class CaseExprNode(@Child private var exprNode: WriteLocalVarNode,
+                       @Children private val clauseNodes: Array<CaseClauseNode>,
+                       @Child var defaultNode: ValueNode?,
+                       override var loc: Loc?) : ValueNode() {
 
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any? {
@@ -338,24 +328,20 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
+    private fun emitCase(expr: CaseExpr): ValueNode {
+        val dataSlot: FrameSlot = frameDescriptor.findOrAddFrameSlot(this)
+
+        return CaseExprNode(
+            WriteLocalVarNodeGen.create(emitValueNode(expr.expr), dataSlot)!!,
+            expr.clauses.map { emitCaseClauseNode(dataSlot, it) }.toTypedArray(),
+            expr.defaultExpr?.let(::emitValueNode),
+            expr.loc)
+    }
+
     internal class LoopReturnException(val res: Any?) : ControlFlowException()
     internal object RecurException : ControlFlowException()
 
-    inner class LoopNode(expr: LoopExpr) : ValueNode() {
-        override val loc = expr.loc
-
-        @Children
-        val bindingNodes = expr.bindings
-            .map {
-                WriteLocalVarNodeGen.create(
-                    emitValueNode(it.expr),
-                    frameDescriptor.findOrAddFrameSlot(it.localVar))
-            }
-            .toTypedArray()
-
-        @Child
-        var bodyNode = emitValueNode(expr.expr)
-
+    class LoopNode(@Children val bindingNodes: Array<WriteLocalVarNode>, @Child var bodyNode: ValueNode, override val loc: Loc?) : ValueNode() {
         @Child
         var loopBodyNode = Truffle.getRuntime().createLoopNode(object : Node(), RepeatingNode {
             override fun executeRepeating(frame: VirtualFrame): Boolean {
@@ -374,7 +360,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             }
 
             try {
-                loopBodyNode.executeLoop(frame)
+                loopBodyNode.execute(frame)
                 throw IllegalStateException("Loop didn't exit properly")
             } catch (e: LoopReturnException) {
                 return e.res
@@ -382,16 +368,19 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
         }
     }
 
-    inner class RecurNode(expr: RecurExpr) : ValueNode() {
-        override val loc = expr.loc
+    private fun emitLoop(expr: LoopExpr) =
+        LoopNode(
+            expr.bindings
+                .map {
+                    WriteLocalVarNodeGen.create(
+                        emitValueNode(it.expr),
+                        frameDescriptor.findOrAddFrameSlot(it.localVar))
+                }
+                .toTypedArray(),
+            emitValueNode(expr.expr),
+            expr.loc)
 
-        @Children
-        val recurNodes = expr.exprs.map {
-            WriteLocalVarNodeGen.create(
-                emitValueNode(it.second),
-                frameDescriptor.findOrAddFrameSlot(it.first))
-        }.toTypedArray()
-
+    class RecurNode(@Children private val recurNodes: Array<WriteLocalVarNode>, override val loc: Loc?) : ValueNode() {
         @ExplodeLoop
         override fun execute(frame: VirtualFrame): Any {
             for (node in recurNodes) {
@@ -401,6 +390,15 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             throw RecurException
         }
     }
+
+    private fun emitRecur(expr: RecurExpr) =
+        RecurNode(
+            expr.exprs.map {
+                WriteLocalVarNodeGen.create(
+                    emitValueNode(it.second),
+                    frameDescriptor.findOrAddFrameSlot(it.first))
+            }.toTypedArray(),
+            expr.loc)
 
     internal abstract class FxMapNode : Node() {
         abstract fun execute(frame: VirtualFrame): FxMap
@@ -463,7 +461,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             is VectorExpr -> emitVector(expr)
             is SetExpr -> emitSet(expr)
 
-            is RecordExpr -> RecordNode(expr)
+            is RecordExpr -> emitRecord(expr)
 
             is FnExpr -> emitFnExpr(expr)
 
@@ -473,15 +471,15 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             is DoExpr -> emitDo(expr)
             is LetExpr -> emitLet(expr)
 
-            is LoopExpr -> LoopNode(expr)
-            is RecurExpr -> RecurNode(expr)
+            is LoopExpr -> emitLoop(expr)
+            is RecurExpr -> emitRecur(expr)
 
             is LocalVarExpr -> ReadLocalVarNodeGen.create(frameDescriptor.findOrAddFrameSlot(expr.localVar))
             is GlobalVarExpr -> emitGlobalVar(expr)
 
             is WithFxExpr -> emitWithFx(expr)
 
-            is CaseExpr -> CaseExprNode(expr)
+            is CaseExpr -> emitCase(expr)
         }
 
     internal fun evalValueExpr(expr: ValueExpr) =

@@ -113,11 +113,12 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     internal class EvalRootNode(lang: BridjeLanguage, val reqs: List<ParseRequest>) : RootNode(lang) {
-        private val ctxRef = lang.contextReference
+        private val ctxRef = lookupContextReference(BridjeLanguage::class.java)
 
         @TruffleBoundary
         private fun evalValueRequest(req: ParseRequest.ValueRequest): Any? {
             val ctx = ctxRef.get()
+
             val resolver = Resolver.NSResolver(ctx.env)
             val expr = ValueExprAnalyser(resolver).analyseValueExpr(req.form)
 

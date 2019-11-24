@@ -14,7 +14,7 @@ repositories {
     jcenter()
 }
 
-fun truffle(module: String) = "org.graalvm.truffle:truffle-$module:19.2.0"
+fun truffle(module: String) = "org.graalvm.truffle:truffle-$module:19.3.0"
 
 dependencies {
     antlr("org.antlr:antlr4:4.7.2")
@@ -36,8 +36,8 @@ sourceSets {
 tasks.compileKotlin {
     dependsOn(tasks.generateGrammarSource)
     java {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 }
 
@@ -64,13 +64,13 @@ tasks.register("component", type = Jar::class) {
     manifest {
         attributes(
             "Bundle-Symbolic-Name" to "brj",
-            "Bundle-RequireCapability" to """org.graalvm; filter:="(&(graalvm_version=19.2.0)(os_arch=amd64))"""",
+            "Bundle-RequireCapability" to """org.graalvm; filter:="(&(graalvm_version=19.3.0)(os_arch=amd64))"""",
             "Bundle-Name" to "Bridje",
             "Bundle-Version" to "0.0.1",
             "x-GraalVM-Polyglot-Part" to "True")
     }
 
-    into("jre/languages/") {
+    into("languages/") {
         from(tasks.jar.get().outputs)
     }
 }
