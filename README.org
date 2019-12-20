@@ -91,7 +91,7 @@ collections. They are immutable, and can be arbitrarily nested.
   #{["foo" "bar"] ["baz"]}
 #+END_SRC
 
-Bridje does have homogenous maps, but they do not have a specific syntax - they
+(TODO) Bridje does have homogenous maps, but they do not have a specific syntax - they
 are constructed from sequences of tuples.
 
 ** Records (basic keys/records implemented)
@@ -340,25 +340,6 @@ the block.
 
     (log! :Info "Hello!"))
 #+END_SRC
-
-*** 'Internal' mutable state (planned)
-#+BEGIN_QUOTE
-If a pure function mutates some local data in order to produce an immutable return value, is that ok?
-
---- https://clojure.org/reference/transients
-#+END_QUOTE
-
-While immutable code is generally 'fast enough' for most use cases, sometimes,
-in performance critical code, it's necessary to fall back to mutable data
-structures. Given that callers shouldn't be able to tell the difference between
-pure code and otherwise pure code that happens to use mutability internally for
-performance, we don't (currently) include this as part of Bridje's effect
-system - in this case, it's up to the developer to reason about their code and
-ensure it's safe.
-
-At its lowest level, the mutable primitives that Bridje exposes are mutable
-references (a =mut=, pronounced 'mute') and 'transient' collections,
-similar to Clojure.
 
 ** Java Interop (partially implemented)
 We can import functions from Java as if they are Bridje functions - we just need
