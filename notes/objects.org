@@ -388,3 +388,20 @@ open questions:
   ;; this precludes us from returning objects, but does mean that we can express things like
   ;; a function returning a data structure of the same type
 #+end_src
+
+we don't want to attach object-like functions to existing types - redefinition would mean that existing objects would not get the new behaviour.
+given that, we'll call/type 'methods' exactly like we'd call/type other polymorphic functions, so we want them to look the same too
+
+what about the 'returning something seqable' question?
+we can do this pretty much automatically, so long as there's a type signature defined?
+but this requires returning a pair, which requires returning an object
+
+#+begin_src clojure
+  (:: (. o) (.more? o) Bool)
+  (:: (. o a b) (.step o a) [b])
+  (:: (. o b) (.complete o) [b])
+
+  (:: #{(.more? o) (.step o a b) (.complete o b)}
+      (into-vec [a] o)
+      [b])
+#+end_src

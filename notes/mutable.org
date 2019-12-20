@@ -9,7 +9,130 @@ interesting to see what it does with polymorphism - does the interface have to s
   we're back to the 'borrowing or not' question.
 
 #+begin_src clojure
-  (:: (:Taker n) (Mut Int))
+  (:: (:Taker (Mut Int)))
 
-  (def (. :Taker a) (.step (:Taken n)))
+  (def (. :Taker a a) (step (:Taker *n) el)
+    (let [n (dec *n)]
+      (set! n (dec n))
+      [el]))
+#+end_src
+
+can we get users to write immutable code patterns and then compile them to something mutable under the hood?
+
+reason for mutability is closures, otherwise we can use normal control flow.
+can we also say that mutable state is restricted to function calls?
+don't think so, because case - we might want to update state once we know the constructor
+which pretty much means let's the scoping block
+
+lifetimes.
+based on local variables, not on values
+function has 3 parameters and a return value
+function call has parameters and a return value
+if the result of a function call is not used, we might expect the function not to be considered stateful
+granularity of state - we assume that a single element of a record/variant is stateful?
+do we distinguish between reads and writes? (rust would)
+do we say that stateful things have to declare that the key itself is stateful? (rust wouldn't)
+
+do we say that any record keys can be stateful at any time, or do we have to declare it stateful at the key level?
+  spec2 might suggest that 'statefulness' is the same as presence
+  i.e. when we specify a record or a variant, we can also specify whether it's mutable or not
+
+what about functions that don't expect to be passed something mutable?
+in Rust, they'd either immutably borrow it, at which point they can't store it anywhere, or they'd own it
+can we keep 'copy' semantics below the hood? as in, this function expects this value not to change
+
+can we specify that a function doesn't keep a copy of a parameter?
+
+we don't want mutability to be shared between threads, either - it it were something we could guarantee that'd be useful
+
+could we translate this kind of transience into CPS?
+i.e. we've got the 'taker', can we pass the return value and the new value of the taker into a callback function?
+that would save us allocating the object, but could also be considered immutable
+
+#+begin_src clojure
+  (:: (:Taker Int))
+
+  (:: (. o a b) (.step (& o) a) [b])
+
+  (def (. :Taker a a) (.step (& (:Taker n)) el)
+    (-> [el]
+        (setting (:Taker (dec n)))))
+
+  (def (my-fn (:Taker n))
+    (-> n
+        (setting (:Taker (dec n)))))
+
+  (def (my-fn foo)
+    (with-mut [(:Taker n) foo]
+      (-> n (setting (:Taker (dec n))))))
+
+  (def (my-fn foo)
+    (with-mut [{bar} foo]
+      ))
+
+  ;; the whole of the foo map is mutable in this case
+  ;; - and everything it's contained within,
+  ;; - and every data structure that's ever referenced it
+
+  ;; so it feels like we do need ownership (or a least borrowed ownership)
+  ;; over foo in order to mutate it.
+#+end_src
+
+this means that mutable references can't be contained within another structure without that structure itself being considered mutable
+can we share a mutable reference between two data structures? (rust would say no)
+
+can we store a snapshot of a mutable reference in a data structure?
+that would work with the idea of LVs being the mutable thing
+
+we also want most things to be able to treat objects as immutable, return them in other data structures, etc
+  rust would say that you can't return data structures in other data structures unless you own them
+  rust would also say that you can't share ownership of an object - we might, if we can /guarantee/ it to be immutable throughout
+  does that mean we can't mutate them in place
+
+let's try some examples
+
+thinking about whether we can write pure code and have it optimise to mutable code
+we could update in place if we knew that it wasn't used again afterwards
+so, when I call a function, can I tell it whether the objects I'm passing in are used again, possibly?
+
+if local variables were the mutable thing, this would essentially become pass by reference?
+we're trying to save an object allocation here, essentially - which we'd do if there were no object allocated in the first place
+
+could we rely on Graal to do the optimisation?
+theories:
+  - Graal inlines method calls if they're called enough times
+  - Graal also inlines object creation if it knows it can
+  - so if we were to return a 'pair-like' object, and then immediately destructure it, Graal would likely 'do the right thing'
+
+could we make a similar optimisation given we know more than Graal does?
+
+caller can optimise that case if it knows it (and whatever called it) isn't going to use that object again
+so we could say that passing something mutably is passing ownership
+muts can't be put into data structures; when they're passed, they're passed by reference
+if we're saying that muts can't be put into data structures, then passing any mutable reference is essentially a mutable borrow
+there's three potential mutable things here - the local var, the reference and the object
+we get the object-allocation benefit by mutating the object, strictly speaking
+
+I have put atoms in structures before, did I /need/ to?
+not to keep them around for a long time, more to pass them as named parameters
+
+ok. new idea, based on spec.
+
+#+begin_src clojure
+  ;; we don't specify anything about mutability in the declaration
+  (:: (:Taker Int))
+
+  ;; `more?` doesn't need mutable `:Taker`, so it's the same as before
+  (def (. :Taker) (more? (:Taker n))
+    (pos? n))
+
+  ;; we can only define `step` for mutable `:!Taker`
+  (def (. :!Taker a a) (step (:!Taker n) el)
+    (swap! n dec)
+    [el])
+
+  ;; when we construct it, we pass mutable `:!Taker`
+  ;; still satisfies the `into-vec` type constraints if `:!Taker` is considered a sub-type of `:Taker`
+  ;; the `:!Taker` doesn't escape, so it doesn't escape in the type system either
+  (into-vec [1 2 3] (:!Taker 2))
 #+end_src
