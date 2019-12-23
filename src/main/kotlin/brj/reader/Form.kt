@@ -40,16 +40,3 @@ internal data class QuotedSymbolForm(val sym: Symbol) : Form(sym)
 internal data class QuotedQSymbolForm(val sym: QSymbol) : Form(sym)
 internal data class SyntaxQuotedSymbolForm(val sym: Symbol) : Form(sym)
 internal data class SyntaxQuotedQSymbolForm(val sym: QSymbol) : Form(sym)
-
-fun main() {
-    data class Foo(val a: Int) {
-        var b: String? = "foo"
-    }
-
-    val foo1 = Foo(5)
-    foo1.b = "bar"
-
-    val foo2 = Foo(5)
-
-    println(foo1 == foo2)
-}
