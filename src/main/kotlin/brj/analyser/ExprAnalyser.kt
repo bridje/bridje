@@ -51,50 +51,50 @@ internal data class ExprAnalyser(val resolver: Resolver,
     }
 
     internal val defAnalyser =
-            firstSymAnalyser(DEF).then {
-                data class PolyVarPreamble(val polyTypes: List<MonoType>)
-                class Preamble(val sym: Symbol, val paramSyms: List<Symbol>? = null)
+        firstSymAnalyser(DEF).then {
+            data class PolyVarPreamble(val polyTypes: List<MonoType>)
+            class Preamble(val sym: Symbol, val paramSyms: List<Symbol>? = null)
 
-                val polyVarPreamble = it.maybe {
-                    it.nested(ListForm::forms) {
-                        it.expectSym(POLY)
-                        PolyVarPreamble(it.varargs { typeAnalyser.monoTypeAnalyser(it) })
-                    }
-                }
-
-                val preamble = it.or({
-                    it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(it) }
-                }, {
-                    it.maybe { it.nested(ListForm::forms) { it } }?.let {
-                        Preamble(it.expectSym(VAR_SYM), paramSyms = it.varargs { it.expectSym(VAR_SYM) })
-                    }
-                }) ?: TODO()
-
-                val locals = preamble.paramSyms?.map { it to LocalVar(it) }
-
-                val bodyExpr = ValueExprAnalyser(resolver, (locals ?: emptyList()).toMap()).doAnalyser(it)
-
-                val expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
-
-                if (polyVarPreamble != null) {
-                    val polyVar = resolver.resolveVar(preamble.sym) as? PolyVar ?: TODO()
-                    val polyConstraint = polyVar.polyConstraint
-                    val primaryTVs = polyConstraint.primaryTVs
-                    val secondaryTVs = polyConstraint.secondaryTVs
-
-                    val polyTypes = polyVarPreamble.polyTypes
-
-                    polyTypes.size == primaryTVs.size + secondaryTVs.size || TODO()
-
-                    // TODO type-check the expr
-                    PolyVarDefExpr(polyVar, polyTypes.take(primaryTVs.size), polyTypes.drop(primaryTVs.size), expr)
-
-                } else {
-                    val type = valueExprType(expr, resolver.resolveVar(preamble.sym)?.type?.monoType)
-
-                    DefExpr(preamble.sym, expr, type)
+            val polyVarPreamble = it.maybe {
+                it.nested(ListForm::forms) {
+                    it.expectSym(POLY)
+                    PolyVarPreamble(it.varargs { typeAnalyser.monoTypeAnalyser(it) })
                 }
             }
+
+            val preamble = it.or({
+                it.maybe { it.expectSym(VAR_SYM) }?.let { Preamble(it) }
+            }, {
+                it.maybe { it.nested(ListForm::forms) { it } }?.let {
+                    Preamble(it.expectSym(VAR_SYM), paramSyms = it.varargs { it.expectSym(VAR_SYM) })
+                }
+            }) ?: TODO()
+
+            val locals = preamble.paramSyms?.map { it to LocalVar(it) }
+
+            val bodyExpr = ValueExprAnalyser(resolver, (locals ?: emptyList()).toMap()).doAnalyser(it)
+
+            val expr = if (locals != null) FnExpr(preamble.sym, locals.map { it.second }, bodyExpr) else bodyExpr
+
+            if (polyVarPreamble != null) {
+                val polyVar = resolver.resolveVar(preamble.sym) as? PolyVar ?: TODO()
+                val polyConstraint = polyVar.polyConstraint
+                val primaryTVs = polyConstraint.primaryTVs
+                val secondaryTVs = polyConstraint.secondaryTVs
+
+                val polyTypes = polyVarPreamble.polyTypes
+
+                polyTypes.size == primaryTVs.size + secondaryTVs.size || TODO()
+
+                // TODO type-check the expr
+                PolyVarDefExpr(polyVar, polyTypes.take(primaryTVs.size), polyTypes.drop(primaryTVs.size), expr)
+
+            } else {
+                val type = valueExprType(expr, resolver.resolveVar(preamble.sym)?.type?.monoType)
+
+                DefExpr(preamble.sym, expr, type)
+            }
+        }
 
     internal val declAnalyser = firstSymAnalyser(DECL).then {
         data class PolyVarPreamble(val polyTypeVars: List<TypeVarType>)
@@ -186,9 +186,9 @@ internal data class ExprAnalyser(val resolver: Resolver,
         val preamble = it.nested(ListForm::forms) {
             val sym = it.expectSym(VAR_SYM)
             Preamble(sym,
-                    it.many { it.expectSym(VAR_SYM).takeIf { it != VARARGS } },
-                    it.maybe { it.expectSym(VAR_SYM) })
-                    .also { _ -> it.expectEnd() }
+                it.many { it.expectSym(VAR_SYM).takeIf { it != VARARGS } },
+                it.maybe { it.expectSym(VAR_SYM) })
+                .also { _ -> it.expectEnd() }
         }
 
         val locals = (preamble.fixedParamSyms + listOfNotNull(preamble.varargsSym)).map { it to LocalVar(it) }
@@ -205,24 +205,24 @@ internal data class ExprAnalyser(val resolver: Resolver,
     }
 
     internal fun analyseExpr(form: Form): DoOrExprResult =
-            ParserState(listOf(form)).or(
-                    firstSymAnalyser(DO).then { DoResult(it.forms) },
-                    defAnalyser.then(::ExprResult),
-                    declAnalyser.then(::ExprResult),
-                    defMacroAnalyser.then(::ExprResult),
+        ParserState(listOf(form)).or(
+            firstSymAnalyser(DO).then { DoResult(it.forms) },
+            defAnalyser.then(::ExprResult),
+            declAnalyser.then(::ExprResult),
+            defMacroAnalyser.then(::ExprResult),
 
-                    {
-                        val forms = it.forms
-                        if (forms.isNotEmpty()) {
-                            val macroVar = when (val firstForm = forms[0]) {
-                                is SymbolForm -> resolver.resolveVar(firstForm.sym) as? DefMacroVar
-                                is QSymbolForm -> resolver.resolveVar(firstForm.sym) as? DefMacroVar
-                                else -> null
-                            } ?: TODO()
+            {
+                val forms = it.forms
+                if (forms.isNotEmpty()) {
+                    val macroVar = when (val firstForm = forms[0]) {
+                        is SymbolForm -> resolver.resolveVar(firstForm.sym) as? DefMacroVar
+                        is QSymbolForm -> resolver.resolveVar(firstForm.sym) as? DefMacroVar
+                        else -> null
+                    } ?: TODO()
 
-                            analyseExpr(macroVar.evalMacro(forms.drop(1)))
-                        }
-                        TODO()
-                    }
-            ) ?: TODO()
+                    analyseExpr(macroVar.evalMacro(forms.drop(1)))
+                }
+                TODO()
+            }
+        ) ?: TODO()
 }

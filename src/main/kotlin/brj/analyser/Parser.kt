@@ -94,11 +94,6 @@ internal data class ParserState(var forms: List<Form>) {
         return nested(f(form), a)
     }
 
-    inline fun <reified F : Form> nested(f: (F) -> List<Form>): ParserState {
-        val form = expectForm<F>()
-        return nested(f(form)) { it }
-    }
-
     fun expectSym() = expectForm<SymbolForm>().sym
 
     fun expectSym(vararg kinds: SymbolKind): Symbol {
