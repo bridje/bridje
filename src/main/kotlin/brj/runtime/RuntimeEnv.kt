@@ -2,15 +2,16 @@
 
 package brj.runtime
 
-import brj.analyser.Resolver
-import brj.emitter.BridjeTypesGen
 import brj.emitter.BridjeFunction
-import brj.emitter.VariantObject
 import brj.reader.*
+import brj.reader.FORM
+import brj.reader.FORM_NS
+import brj.reader.Form
+import brj.reader.META_FORMS
 import brj.types.*
 import com.oracle.truffle.api.TruffleLanguage
-import java.math.BigDecimal
-import java.math.BigInteger
+import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.nodes.RootNode
 import kotlin.reflect.KClass
 
 internal abstract class GlobalVar {
@@ -23,56 +24,15 @@ internal data class DefVar(override val sym: QSymbol, override val type: Type, o
 
 internal data class EffectVar(override val sym: QSymbol, override val type: Type, var defaultImpl: BridjeFunction?, override var value: Any) : GlobalVar()
 
-internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, val formsResolver: Resolver, override val value: Any?) : GlobalVar() {
-    private fun fromVariant(obj: VariantObject): Form {
-        fun fromVariantList(arg: Any): List<Form> {
-            return (arg as List<*>).map { fromVariant(BridjeTypesGen.expectVariantObject(it)) }
-        }
-
-        val arg = obj.dynamicObject[0].let { arg -> if (truffleEnv.isHostObject(arg)) truffleEnv.asHostObject(arg) else arg }
-
-        return when (obj.variantKey.sym.base.baseStr) {
-            "BooleanForm" -> BooleanForm(arg as Boolean)
-            "StringForm" -> StringForm(arg as String)
-            "IntForm" -> IntForm(arg as Long)
-            "FloatForm" -> FloatForm(arg as Double)
-            "BigIntForm" -> BigIntForm(arg as BigInteger)
-            "BigFloatForm" -> BigFloatForm(arg as BigDecimal)
-            "ListForm" -> ListForm(fromVariantList(arg))
-            "VectorForm" -> VectorForm(fromVariantList(arg))
-            "SetForm" -> SetForm(fromVariantList(arg))
-            "RecordForm" -> RecordForm(fromVariantList(arg))
-            "SymbolForm" -> SymbolForm(arg as Symbol)
-            "QSymbolForm" -> QSymbolForm(arg as QSymbol)
-            "QuotedSymbolForm" -> QuotedSymbolForm(arg as Symbol)
-            "QuotedQSymbolForm" -> QuotedQSymbolForm(arg as QSymbol)
-            else -> TODO()
-        }
-    }
+internal data class DefMacroVar(private val truffleEnv: TruffleLanguage.Env, override val sym: QSymbol, override val type: Type, override val value: BridjeFunction) : GlobalVar() {
+    private val paramTypes = (type.monoType as FnType).paramTypes
+    private val isVarargs = paramTypes.last() is VectorType
+    private val fixedArgCount = if (isVarargs) paramTypes.size - 1 else paramTypes.size
 
     fun evalMacro(argForms: List<Form>): Form {
-        fun toVariant(form: Form): Any {
-            val arg = when (form.arg) {
-                is List<*> -> form.arg.map { toVariant(it as Form) }
-                is Form -> toVariant(form)
-                else -> form.arg
-            }
+        val args = listOf(value.lexObj) + argForms.take(fixedArgCount) + listOfNotNull(if (isVarargs) argForms.drop(fixedArgCount) else null)
 
-            return (formsResolver.resolveVar(form.qsym)!!.value as BridjeFunction).callTarget.call(null, arg)
-        }
-
-        val variantArgs = argForms.map(::toVariant)
-
-        val paramTypes = (type.monoType as FnType).paramTypes
-        val isVarargs = paramTypes.last() is VectorType
-        val fixedArgCount = if (isVarargs) paramTypes.size - 1 else paramTypes.size
-
-        val args = listOf(null) + variantArgs.take(fixedArgCount) + listOfNotNull(if (isVarargs) variantArgs.drop(fixedArgCount) else null)
-
-        return fromVariant(
-            (value as BridjeFunction).callTarget
-                .call(*(args.toTypedArray()))
-                as VariantObject)
+        return value.callTarget.call(*(args.toTypedArray())) as Form
     }
 }
 
@@ -111,7 +71,7 @@ internal data class PolyVar(val polyConstraint: PolyConstraint, val monoType: Mo
 internal data class PolyVarImpl(val polyVar: PolyVar, val primaryImplTypes: List<MonoType>, val secondaryImplTypes: List<MonoType>, val value: Any)
 
 internal sealed class TypeAlias(open val sym: QSymbol, open val typeVars: List<TypeVarType>, open val type: MonoType?)
-internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List<TypeVarType>, override var type: MonoType?) : TypeAlias(sym, typeVars, type) {
+internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List<TypeVarType> = emptyList(), override var type: MonoType?) : TypeAlias(sym, typeVars, type) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is TypeAlias) return false
@@ -138,7 +98,17 @@ internal data class NSEnv(val ns: Symbol,
     }
 }
 
-internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = emptyMap()) {
+private class FormConstructorRootNode(val construct: (Any) -> Any): RootNode(null) {
+    override fun execute(frame: VirtualFrame) = construct(frame.arguments[1])
+}
+
+private val FORMS_NSENV = NSEnv(FORM_NS,
+    typeAliases = mapOf(FORM to FORM_TYPE_ALIAS),
+    vars = META_FORMS.associate {
+        it.variantKey.sym.base to VariantKeyVar(it.variantKey, BridjeFunction(FormConstructorRootNode(it::construct)))
+    })
+
+internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = mapOf(FORMS_NSENV.ns to FORMS_NSENV)) {
     operator fun plus(newNsEnv: NSEnv) = RuntimeEnv(nses + (newNsEnv.ns to newNsEnv))
     operator fun plus(newNsEnvs: Iterable<NSEnv>) = RuntimeEnv(nses + newNsEnvs.map { it.ns to it })
 }

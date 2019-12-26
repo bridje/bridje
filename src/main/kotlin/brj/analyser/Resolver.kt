@@ -3,7 +3,7 @@ package brj.analyser
 import brj.runtime.*
 import brj.runtime.Symbol.Companion.mkSym
 
-private val CORE = mkSym("brj.core")
+internal val CORE_NS = mkSym("brj.core")
 
 internal interface Resolver {
     fun resolveVar(ident: Ident): GlobalVar?
@@ -19,7 +19,7 @@ internal interface Resolver {
 
         override fun resolveVar(ident: Ident): GlobalVar? =
             when (ident) {
-                is Symbol -> nsEnv?.vars?.get(ident) ?: referVars[ident] ?: env?.nses?.get(CORE)?.vars?.get(ident)
+                is Symbol -> nsEnv?.vars?.get(ident) ?: referVars[ident] ?: env?.nses?.get(CORE_NS)?.vars?.get(ident)
                 is QSymbol -> (resolveNS(ident.ns) ?: TODO("can't find NS")).vars[ident.base]
             }
 

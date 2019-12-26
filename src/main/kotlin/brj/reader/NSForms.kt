@@ -20,7 +20,7 @@ internal data class NSForms(val nsHeader: NSHeader, val forms: List<Form>) {
                         ?.let { url -> Source.newBuilder("brj", url).build() }
 
                 override fun loadForms(ns: Symbol): List<Form> =
-                    forms[ns] ?: FormReader.readSourceForms(sources[ns] ?: nsSource(ns) ?: TODO("ns not found"))
+                    forms[ns] ?: FormReader.readSourceForms(sources[ns] ?: nsSource(ns) ?: TODO("ns not found: '$ns'"))
             }
         }
     }
@@ -30,7 +30,7 @@ internal data class NSForms(val nsHeader: NSHeader, val forms: List<Form>) {
             val stack = mutableSetOf<Symbol>()
 
             val res = mutableListOf<NSForms>()
-            val seen = mutableSetOf<Symbol>()
+            val seen = mutableSetOf(FORM_NS)
 
             fun loadNS(ns: Symbol) {
                 if (seen.contains(ns)) return

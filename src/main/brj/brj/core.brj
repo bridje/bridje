@@ -6,11 +6,14 @@
                         (:: (countSet [a]) Int)
                         (:: (first [a]) a)
                         (:: (rest [a]) [a])
-                        (:: (str [Str]) Str))}})
+                        (:: (str [Str]) Str)
+                        (:: (concat [[a]]) [a]))}})
 
 (def empty? Core/empty)
 (def first Core/first)
 (def rest Core/rest)
+
+(def concat Core/concat)
 
 (defmacro (if-not pred then else)
   `(if ~pred ~else ~then))

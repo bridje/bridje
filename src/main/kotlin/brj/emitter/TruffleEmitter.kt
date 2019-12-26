@@ -134,17 +134,17 @@ internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) 
     }
 }
 
-internal class TruffleEmitter(private val ctx: BridjeContext, private val formsResolver: Resolver) : Emitter {
+internal class TruffleEmitter(private val ctx: BridjeContext) : Emitter {
     override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter(ctx).evalValueExpr(expr)
     override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter(ctx).emitJavaImport(javaImport)
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
-    override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
+    override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter.emitVariantKey(variantKey)
 
     override fun emitEffectFn(sym: QSymbol, defaultImpl: BridjeFunction?) =
         BridjeFunction(ctx.makeRootNode(EffectFnBodyNode(sym, defaultImpl)))
 
     override fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar =
-        DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, formsResolver, evalValueExpr(expr.expr))
+        DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, evalValueExpr(expr.expr) as BridjeFunction)
 }
 
 @TypeSystem(

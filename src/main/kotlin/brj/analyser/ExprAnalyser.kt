@@ -26,7 +26,7 @@ internal data class VarDeclExpr(val sym: Symbol, val isEffect: Boolean, val type
 internal data class TypeAliasDeclExpr(val sym: Symbol, val typeVars: List<TypeVarType>, val type: MonoType?) : Expr()
 
 internal data class DefExpr(val sym: Symbol, val expr: ValueExpr, val type: Type) : Expr()
-internal data class DefMacroExpr(val sym: Symbol, val expr: ValueExpr, val type: Type) : Expr()
+internal data class DefMacroExpr(val sym: Symbol, val expr: FnExpr, val type: Type) : Expr()
 
 internal data class PolyVarDeclExpr(val sym: Symbol, val primaryTVs: List<TypeVarType>, val secondaryTVs: List<TypeVarType>, val type: MonoType) : Expr()
 internal data class PolyVarDefExpr(val polyVar: PolyVar, val primaryPolyTypes: List<MonoType>, val secondaryPolyTypes: List<MonoType>, val expr: ValueExpr) : Expr()

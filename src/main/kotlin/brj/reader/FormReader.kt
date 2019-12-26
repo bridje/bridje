@@ -14,12 +14,12 @@ internal class FormReader(val source: Source) {
     private fun makeLoc(ctx: FormParser.FormContext) =
         source.createSection(ctx.start.line, ctx.start.charPositionInLine + 1, ctx.stop.line, ctx.stop.charPositionInLine + 1)
 
-    private val concatQSymForm = QSymbolForm(mkQSym(FORM_NS, mkSym("concat")))
+    private val concatQSymForm = QSymbolForm(mkQSym(CORE_NS, mkSym("concat")))
     private val unquoteForm = QSymbolForm(UNQUOTE)
     private val unquoteSplicingForm = QSymbolForm(UNQUOTE_SPLICING)
 
     fun quoteForm(form: Form): Form {
-        fun q(argForm: Form) = ListForm(listOf(QSymbolForm(form.qsym), argForm)).withLoc(form.loc)
+        fun q(argForm: Form) = ListForm(listOf(QSymbolForm(form.variantKey.sym), argForm)).withLoc(form.loc)
 
         return when (form) {
             is BooleanForm, is StringForm,
@@ -42,7 +42,7 @@ internal class FormReader(val source: Source) {
     fun syntaxQuoteForm(form: Form, splicing: Boolean = false): Form {
         fun firstQSym(forms: List<Form>): QSymbol? = (forms[0] as? QSymbolForm)?.sym
 
-        fun sq(argForm: Form) = ListForm(listOf(QSymbolForm(form.qsym), argForm)).withLoc(argForm.loc)
+        fun sq(argForm: Form) = ListForm(listOf(QSymbolForm(form.variantKey.sym), argForm)).withLoc(argForm.loc)
 
         fun sqSeq(forms: List<Form>): Form {
             val nestedSplicingForm = forms.any { it is ListForm && firstQSym(it.forms) == UNQUOTE_SPLICING }

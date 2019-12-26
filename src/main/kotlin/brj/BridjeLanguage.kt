@@ -40,23 +40,18 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
             override fun execute(frame: VirtualFrame) = valueNode.execute(frame)
         }
 
+    @TruffleBoundary
     internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
         Context.getCurrent().initialize("brj")
 
         synchronized(this) {
-            env = require(this, rootNses, nsFormLoader)
+            env = NSForms.loadNSes(rootNses, nsFormLoader ?: ClasspathLoader())
+                .fold(env) { env, forms ->
+                    Evaluator(TruffleEmitter(this)).evalNS(env, forms)
+                }
         }
 
         return env
-    }
-
-    companion object {
-        @TruffleBoundary
-        internal fun require(ctx: BridjeContext, rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv =
-            NSForms.loadNSes(rootNses, nsFormLoader ?: ClasspathLoader())
-                .fold(ctx.env) { env, forms ->
-                    Evaluator(TruffleEmitter(ctx, Resolver.NSResolver(env))).evalNS(env, forms)
-                }
     }
 }
 
@@ -74,7 +69,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         BridjeContext(this, truffleEnv)
 
     override fun initializeContext(ctx: BridjeContext) {
-        ctx.require(setOf(mkSym("brj.forms"), mkSym("brj.core")))
+        ctx.require(setOf(mkSym("brj.core")))
     }
 
     override fun isObjectOfLanguage(obj: Any) = obj is BridjeObject
@@ -122,6 +117,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             val resolver = Resolver.NSResolver(ctx.env)
             val expr = ValueExprAnalyser(resolver).analyseValueExpr(req.form)
 
+            @Suppress("UNUSED_VARIABLE") // for now
             val valueExprType = valueExprType(expr, null)
 
             val fnExpr = FnExpr(params = emptyList(), expr = expr, closedOverLocals = setOf(DEFAULT_EFFECT_LOCAL))

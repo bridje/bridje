@@ -45,7 +45,7 @@ internal class TruffleEmitterTest {
 
         val variantKey = VariantKey(mkQSym(":user/Foo"), emptyList(), listOf(IntType))
         val variantKey2 = VariantKey(mkQSym(":user/Foo2"), emptyList(), listOf(IntType))
-        val constructor = VariantEmitter(brjCtx).emitVariantKey(variantKey2)
+        val constructor = VariantEmitter.emitVariantKey(variantKey2)
         val localVar = LocalVar(mkSym("a"))
         val effectLocal = LocalVar(mkSym("fx"))
 
@@ -85,7 +85,7 @@ internal class TruffleEmitterTest {
     internal fun `java interop`() {
         val javaImport = JavaImport(mkQSym("Foo/plus"), Class.forName("brj.FooKt").kotlin, "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
 
-        val fn = Value.asValue(TruffleEmitter(currentBridjeContext(), Resolver.NSResolver()).emitJavaImport(javaImport))
+        val fn = Value.asValue(TruffleEmitter(currentBridjeContext()).emitJavaImport(javaImport))
 
         assertEquals(5, fn.execute(3, 2).asLong())
     }

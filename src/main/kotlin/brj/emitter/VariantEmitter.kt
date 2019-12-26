@@ -1,67 +1,22 @@
 package brj.emitter
 
-import brj.BridjeContext
+import brj.BridjeLanguage.Companion.currentBridjeContext
 import brj.Loc
 import brj.runtime.VariantKey
+import brj.runtime.VariantObject
 import brj.types.MonoType
-import com.oracle.truffle.api.CompilerDirectives
-import com.oracle.truffle.api.`object`.DynamicObject
-import com.oracle.truffle.api.`object`.Layout
-import com.oracle.truffle.api.`object`.ObjectType
-import com.oracle.truffle.api.`object`.Property
 import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.InteropLibrary
-import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.library.ExportLibrary
-import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.ExplodeLoop
-import org.graalvm.polyglot.Value
-
-@ExportLibrary(InteropLibrary::class)
-internal class VariantObject(val variantKey: VariantKey, val dynamicObject: DynamicObject) : BridjeObject {
-    private val paramCount = variantKey.paramTypes.size
-
-    @CompilerDirectives.TruffleBoundary
-    override fun toString(): String =
-        if (variantKey.paramTypes.isEmpty())
-            variantKey.sym.toString()
-        else
-            "(${variantKey.sym} ${variantKey.paramTypes
-                .mapIndexed { idx, _ ->
-                    val el = Value.asValue(dynamicObject[idx])
-                    if (el.isHostObject) el.asHostObject<Any>().toString() else el.toString()
-                }
-                .joinToString(" ")})"
-
-    @ExportMessage
-    fun hasArrayElements() = true
-
-    @ExportMessage
-    fun getArraySize() = paramCount
-
-    @ExportMessage
-    fun isArrayElementReadable(idx: Long) = idx < paramCount
-
-    @ExportMessage
-    fun readArrayElement(idx: Long) =
-        if (isArrayElementReadable(idx)) dynamicObject[idx]!!
-        else {
-            CompilerDirectives.transferToInterpreter()
-            throw IndexOutOfBoundsException()
-        }
-}
 
 internal data class ReadVariantParamNode(@Child var objNode: ValueNode, val idx: Int) : ValueNode() {
     override val loc: Loc? = null
 
-    override fun execute(frame: VirtualFrame): Any {
-        return BridjeTypesGen.expectVariantObject(objNode.execute(frame)).dynamicObject[idx]
+    override fun execute(frame: VirtualFrame): Any? {
+        return BridjeTypesGen.expectVariantObject(objNode.execute(frame)).args[idx]
     }
 }
 
-internal typealias VariantObjectFactory = (Array<Any?>) -> VariantObject
-
-internal data class VariantConstructorNode(private val variantObjectFactory: VariantObjectFactory, private val paramTypes: List<MonoType>) : ValueNode() {
+internal data class VariantConstructorNode(private val variantKey: VariantKey, private val paramTypes: List<MonoType>) : ValueNode() {
     override val loc: Loc? = null
 
     @ExplodeLoop
@@ -72,34 +27,14 @@ internal data class VariantConstructorNode(private val variantObjectFactory: Var
             params[i] = frame.arguments[i + 1]
         }
 
-        return variantObjectFactory(params)
+        return VariantObject(variantKey, params)
     }
 }
 
-internal class VariantEmitter(val ctx: BridjeContext) {
-    private val LAYOUT = Layout.createLayout()
-
-    internal data class VariantObjectType(val variantKey: VariantKey) : ObjectType()
-
-    private fun objectFactory(variantKey: VariantKey): VariantObjectFactory {
-        val allocator = LAYOUT.createAllocator()
-        var shape = LAYOUT.createShape(VariantObjectType(variantKey))
-
-        variantKey.paramTypes.forEachIndexed { idx, paramType ->
-            shape = shape.addProperty(Property.create(idx, allocator.locationForType(paramType.javaType), 0))
-        }
-
-        val factory = shape.createFactory()
-
-        return { args -> VariantObject(variantKey, factory.newInstance(*args)) }
-    }
-
-    fun emitVariantKey(variantKey: VariantKey): TruffleObject {
-        val variantObjectFactory = objectFactory(variantKey)
-        return if (variantKey.paramTypes.isNotEmpty())
-            BridjeFunction(ctx.makeRootNode(VariantConstructorNode(variantObjectFactory, variantKey.paramTypes)))
+internal object VariantEmitter {
+    fun emitVariantKey(variantKey: VariantKey) =
+        if (variantKey.paramTypes.isNotEmpty())
+            BridjeFunction(currentBridjeContext().makeRootNode(VariantConstructorNode(variantKey, variantKey.paramTypes)))
         else
-            variantObjectFactory(emptyArray())
-
-    }
+            VariantObject(variantKey, emptyArray())
 }
