@@ -11,7 +11,7 @@ fun println(str: String): String {
 internal class FxTest {
     @Test
     fun `e2e fx test`() {
-        withCtx {ctx ->
+        withCtx { ctx ->
             BridjeLanguage.require(setOf(Symbol.mkSym("brj.fx-test")))
             ctx.eval("brj", """(brj.fx-test/straight-println "Hello")""")
             ctx.eval("brj", """(brj.fx-test/intercepted "Hello")""")

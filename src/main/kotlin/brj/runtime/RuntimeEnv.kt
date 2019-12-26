@@ -4,10 +4,6 @@ package brj.runtime
 
 import brj.emitter.BridjeFunction
 import brj.reader.*
-import brj.reader.FORM
-import brj.reader.FORM_NS
-import brj.reader.Form
-import brj.reader.META_FORMS
 import brj.types.*
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -94,11 +90,12 @@ internal data class NSEnv(val ns: Symbol,
     operator fun plus(impl: PolyVarImpl): NSEnv {
         val sym = impl.polyVar.sym
         return copy(polyVarImpls = polyVarImpls +
-            (sym to (polyVarImpls[sym] ?: emptyList()).filterNot { it.primaryImplTypes == impl.primaryImplTypes } + impl))
+            (sym to (polyVarImpls[sym]
+                ?: emptyList()).filterNot { it.primaryImplTypes == impl.primaryImplTypes } + impl))
     }
 }
 
-private class FormConstructorRootNode(val construct: (Any) -> Any): RootNode(null) {
+private class FormConstructorRootNode(val construct: (Any) -> Any) : RootNode(null) {
     override fun execute(frame: VirtualFrame) = construct(frame.arguments[1])
 }
 

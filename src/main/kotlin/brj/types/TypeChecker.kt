@@ -226,7 +226,9 @@ private fun callExprTyping(expr: CallExpr, expectedType: MonoType?): Typing {
     val returnType = expectedType ?: TypeVarType()
 
     val fnExprTyping = valueExprTyping(fnExpr, FnType(argTVs, returnType))
-    val fnExprType = fnExprTyping.monoType.let { monoType -> monoType as? FnType ?: throw TypeException.ExpectedFunction(fnExpr, monoType) }
+    val fnExprType = fnExprTyping.monoType.let { monoType ->
+        monoType as? FnType ?: throw TypeException.ExpectedFunction(fnExpr, monoType)
+    }
 
     val argTypings = argExprs.zip(fnExprType.paramTypes).map { valueExprTyping(it.first, it.second) }
 

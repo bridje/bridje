@@ -338,7 +338,8 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
     }
 
     private fun syntaxQuoteAnalyser(ident: Ident): ValueExpr =
-        CallExpr(GlobalVarExpr(resolve(QSYMBOL_FORM)!!, effectLocal), listOf(QuotedQSymbolExpr((resolve(ident) ?: TODO("sym not found: $ident")).sym)), effectLocal)
+        CallExpr(GlobalVarExpr(resolve(QSYMBOL_FORM)!!, effectLocal), listOf(QuotedQSymbolExpr((resolve(ident)
+            ?: TODO("sym not found: $ident")).sym)), effectLocal)
 
     private fun exprAnalyser(it: ParserState): ValueExpr {
         val form = it.expectForm<Form>()

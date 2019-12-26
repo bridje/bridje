@@ -1,7 +1,5 @@
 package brj.runtime
 
-import brj.BridjeLanguage
-import brj.BridjeLanguage.Companion.currentBridjeContext
 import brj.emitter.BridjeObject
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -10,7 +8,7 @@ import com.oracle.truffle.api.library.ExportMessage
 import org.graalvm.polyglot.Value
 
 @ExportLibrary(InteropLibrary::class)
-internal open class VariantObject(val variantKey: VariantKey, val args: Array<Any?>): BridjeObject {
+internal open class VariantObject(val variantKey: VariantKey, val args: Array<Any?>) : BridjeObject {
 
     private val paramCount = variantKey.paramTypes.size
     @CompilerDirectives.TruffleBoundary

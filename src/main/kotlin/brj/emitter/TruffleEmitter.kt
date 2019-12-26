@@ -4,7 +4,6 @@ import brj.BridjeContext
 import brj.Emitter
 import brj.Loc
 import brj.analyser.DefMacroExpr
-import brj.analyser.Resolver
 import brj.analyser.ValueExpr
 import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
@@ -122,9 +121,9 @@ internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) 
     private val conditionProfile: ConditionProfile = ConditionProfile.createBinaryProfile()
 
     override fun execute(frame: VirtualFrame): Any {
-        val f = (frame.arguments[0] as FxMap)[sym]
+        @Suppress("UNCHECKED_CAST") val f = (frame.arguments[0] as FxMap)[sym]
 
-        return if(conditionProfile.profile(f == null)) {
+        return if (conditionProfile.profile(f == null)) {
             directCallNode!!.call(*frame.arguments)
         } else {
             f!! // we know that we only hit the else if `f!!`, but the compiler doesn't

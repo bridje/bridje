@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 internal class MacroTest {
     @Test
     fun `str varargs`() {
-        withCtx {ctx ->
+        withCtx { ctx ->
             assertEquals("Hello World", ctx.eval("brj", """(str "Hello" " " "World")""").asString())
         }
     }
