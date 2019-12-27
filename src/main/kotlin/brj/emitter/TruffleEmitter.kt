@@ -5,6 +5,8 @@ import brj.Emitter
 import brj.Loc
 import brj.analyser.DefMacroExpr
 import brj.analyser.ValueExpr
+import brj.emitter.JavaImportEmitterFactory.JavaExecuteNodeGen
+import brj.emitter.JavaImportEmitterFactory.JavaInstantiateNodeGen
 import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
 import brj.types.FnType
@@ -15,6 +17,7 @@ import com.oracle.truffle.api.frame.FrameUtil
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.library.CachedLibrary
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.ExplodeLoop
@@ -24,6 +27,7 @@ import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.profiles.ConditionProfile
 import java.math.BigDecimal
 import java.math.BigInteger
+import kotlin.reflect.KClass
 
 internal data class ReadArgNode(val idx: Int) : ValueNode() {
     override val loc: Loc? = null
@@ -82,31 +86,39 @@ internal class BridjeFunction(val rootNode: RootNode, val lexObj: Any? = null) :
 }
 
 internal class JavaImportEmitter(private val ctx: BridjeContext) {
-    internal inner class JavaExecuteNode(javaImport: JavaImport) : ValueNode() {
+
+    @NodeChild("args", type = ArrayNode::class)
+    @NodeField(name = "fn", type = Any::class)
+    internal abstract class JavaExecuteNode : ValueNode() {
         override val loc: Loc? = null
 
-        val fn = InteropLibrary.getFactory().uncached.readMember(ctx.truffleEnv.asHostSymbol(javaImport.clazz.java), javaImport.name)!!
-
-        @Child
-        var interop = InteropLibrary.getFactory().create(fn)!!
-
-        @Children
-        val argNodes = ((javaImport.type.monoType as FnType).paramTypes.indices).map { ReadArgNode(it + 1) }.toTypedArray()
-
-        @ExplodeLoop
-        override fun execute(frame: VirtualFrame): Any {
-            val params = arrayOfNulls<Any>(argNodes.size)
-
-            for (i in argNodes.indices) {
-                params[i] = argNodes[i].execute(frame)
-            }
-
-            return interop.execute(fn, *params)
-        }
+        @Specialization(guards = ["interop.isExecutable(fn)"])
+        fun doExecute(fn: Any, args: Array<*>, @CachedLibrary("fn") interop: InteropLibrary): Any = interop.execute(fn, *args)
     }
 
-    fun emitJavaImport(javaImport: JavaImport): BridjeFunction =
-        BridjeFunction(ctx.makeRootNode(JavaExecuteNode(javaImport)))
+    @NodeChild("args", type = ArrayNode::class)
+    @NodeField(name = "clazz", type = Any::class)
+    internal abstract class JavaInstantiateNode : ValueNode() {
+        override val loc: Loc? = null
+
+        @Specialization(guards = ["interop.isInstantiable(clazz)"])
+        fun doExecute(clazz: Any, args: Array<*>, @CachedLibrary("clazz") interop: InteropLibrary): Any = interop.instantiate(clazz, *args)
+    }
+
+    fun emitJavaImport(clazz: KClass<*>, name: String, paramCount: Int): BridjeFunction {
+        val argNodes = ArrayNode((0 until paramCount).map { ReadArgNode(it + 1) }.toTypedArray())
+        val clazzObj = ctx.truffleEnv.asHostSymbol(clazz.java)!!
+        val interop = InteropLibrary.getFactory().uncached!!
+
+        val node =
+            if (name == "new") JavaInstantiateNodeGen.create(argNodes, clazzObj)
+            else JavaExecuteNodeGen.create(argNodes, interop.readMember(clazzObj, name))
+
+        return BridjeFunction(ctx.makeRootNode(node))
+    }
+
+    fun emitJavaImport(javaImport: JavaImport) =
+        emitJavaImport(javaImport.clazz, javaImport.name, (javaImport.type.monoType as FnType).paramTypes.size)
 }
 
 internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode() {
