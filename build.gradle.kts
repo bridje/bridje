@@ -20,6 +20,7 @@ dependencies {
     antlr("org.antlr:antlr4:4.7.2")
 
     implementation(kotlin("stdlib"))
+    implementation(kotlin("reflect")) // Only for the instantiate hack
     implementation(truffle("api"))
 
     kapt(truffle("dsl-processor"))

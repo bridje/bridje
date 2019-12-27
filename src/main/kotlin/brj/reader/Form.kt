@@ -5,9 +5,9 @@ import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
 import brj.runtime.Symbol.Companion.mkSym
 import brj.types.*
-import org.graalvm.polyglot.Value
 import java.math.BigDecimal
 import java.math.BigInteger
+import kotlin.reflect.KClass
 
 internal val FORM_NS = mkSym("brj.forms")
 
@@ -64,32 +64,25 @@ internal class QuotedQSymbolForm(val sym: QSymbol) : Form(QUOTED_QSYMBOL_KEY, sy
 internal class SyntaxQuotedSymbolForm(val sym: Symbol) : Form(SYNTAX_QUOTED_SYMBOL_KEY, sym)
 internal class SyntaxQuotedQSymbolForm(val sym: QSymbol) : Form(SYNTAX_QUOTED_QSYMBOL_KEY, sym)
 
-internal data class MetaForm<A : Any, F : Any>(val variantKey: VariantKey, val f: (A) -> F) {
-    @Suppress("UNCHECKED_CAST")
-    fun construct(arg: Any) = f(arg as A)
-}
-
-private fun <F> wrapHostObject(f: (List<Form>) -> F): (Any) -> F {
-    return { f(Value.asValue(it).asHostObject()) }
-}
+internal data class MetaForm(val variantKey: VariantKey, val clazz: KClass<*>)
 
 internal val META_FORMS = listOf(
-    MetaForm(BOOLEAN_KEY, ::BooleanForm),
-    MetaForm(STRING_KEY, ::StringForm),
-    MetaForm(INT_KEY, ::IntForm),
-    MetaForm(BIGINT_KEY, ::BigIntForm),
-    MetaForm(FLOAT_KEY, ::FloatForm),
-    MetaForm(BIGFLOAT_KEY, ::BigFloatForm),
-    MetaForm(SYMBOL_KEY, ::SymbolForm),
-    MetaForm(QSYMBOL_KEY, ::QSymbolForm),
-    MetaForm(LIST_KEY, wrapHostObject(::ListForm)),
-    MetaForm(VECTOR_KEY, wrapHostObject(::VectorForm)),
-    MetaForm(SET_KEY, wrapHostObject(::SetForm)),
-    MetaForm(RECORD_KEY, wrapHostObject(::RecordForm)),
-    MetaForm(QUOTED_SYMBOL_KEY, ::QuotedSymbolForm),
-    MetaForm(QUOTED_QSYMBOL_KEY, ::QuotedQSymbolForm),
-    MetaForm(SYNTAX_QUOTED_SYMBOL_KEY, ::SyntaxQuotedSymbolForm),
-    MetaForm(SYNTAX_QUOTED_QSYMBOL_KEY, ::SyntaxQuotedQSymbolForm)
+    MetaForm(BOOLEAN_KEY, BooleanForm::class),
+    MetaForm(STRING_KEY, StringForm::class),
+    MetaForm(INT_KEY, IntForm::class),
+    MetaForm(BIGINT_KEY, BigIntForm::class),
+    MetaForm(FLOAT_KEY, FloatForm::class),
+    MetaForm(BIGFLOAT_KEY, BigFloatForm::class),
+    MetaForm(SYMBOL_KEY, SymbolForm::class),
+    MetaForm(QSYMBOL_KEY, QSymbolForm::class),
+    MetaForm(LIST_KEY, ListForm::class),
+    MetaForm(VECTOR_KEY, VectorForm::class),
+    MetaForm(SET_KEY, SetForm::class),
+    MetaForm(RECORD_KEY, RecordForm::class),
+    MetaForm(QUOTED_SYMBOL_KEY, QuotedSymbolForm::class),
+    MetaForm(QUOTED_QSYMBOL_KEY, QuotedQSymbolForm::class),
+    MetaForm(SYNTAX_QUOTED_SYMBOL_KEY, SyntaxQuotedSymbolForm::class),
+    MetaForm(SYNTAX_QUOTED_QSYMBOL_KEY, SyntaxQuotedQSymbolForm::class)
 ).also { metaForms ->
     FORM_TYPE_ALIAS.type = VariantType(
         metaForms.associate { it.variantKey to RowKey(emptyList()) },

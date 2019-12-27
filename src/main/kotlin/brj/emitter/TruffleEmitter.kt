@@ -7,9 +7,15 @@ import brj.analyser.DefMacroExpr
 import brj.analyser.ValueExpr
 import brj.emitter.JavaImportEmitterFactory.JavaExecuteNodeGen
 import brj.emitter.JavaImportEmitterFactory.JavaInstantiateNodeGen
+import brj.reader.FORM
+import brj.reader.FORM_NS
+import brj.reader.FORM_TYPE_ALIAS
+import brj.reader.META_FORMS
 import brj.runtime.*
 import brj.runtime.QSymbol.Companion.mkQSym
 import brj.types.FnType
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
+import com.oracle.truffle.api.CompilerDirectives.transferToInterpreter
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.dsl.*
 import com.oracle.truffle.api.frame.FrameSlot
@@ -85,6 +91,7 @@ internal class BridjeFunction(val rootNode: RootNode, val lexObj: Any? = null) :
     }
 }
 
+
 internal class JavaImportEmitter(private val ctx: BridjeContext) {
 
     @NodeChild("args", type = ArrayNode::class)
@@ -97,12 +104,26 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
     }
 
     @NodeChild("args", type = ArrayNode::class)
-    @NodeField(name = "clazz", type = Any::class)
+    @NodeFields(NodeField(name = "clazzObj", type = Any::class), NodeField(name = "clazz", type = KClass::class))
     internal abstract class JavaInstantiateNode : ValueNode() {
         override val loc: Loc? = null
 
-        @Specialization(guards = ["interop.isInstantiable(clazz)"])
-        fun doExecute(clazz: Any, args: Array<*>, @CachedLibrary("clazz") interop: InteropLibrary): Any = interop.instantiate(clazz, *args)
+        abstract fun getClazz(): KClass<*>
+        abstract fun getClazzObj(): Any
+
+        @Specialization(guards = ["!anyArgsAreBridjeObjects(args)", "interop.isInstantiable(clazzObj)"])
+        fun doExecute(args: Array<*>, @CachedLibrary("clazzObj") interop: InteropLibrary): Any = interop.instantiate(getClazzObj(), *args)
+
+        @Specialization
+        fun doExecute(args: Array<*>): Any {
+            // HACK this is for creating forms, everything else can wait until oracle/graal#2032 is fixed
+            transferToInterpreter()
+            return getClazz().constructors.find { it.parameters.size == args.size }!!.call(*args)
+        }
+
+        @Suppress("unused")
+        @TruffleBoundary
+        fun anyArgsAreBridjeObjects(args: Array<*>) = args.any { it is BridjeObject }
     }
 
     fun emitJavaImport(clazz: KClass<*>, name: String, paramCount: Int): BridjeFunction {
@@ -111,7 +132,7 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
         val interop = InteropLibrary.getFactory().uncached!!
 
         val node =
-            if (name == "new") JavaInstantiateNodeGen.create(argNodes, clazzObj)
+            if (name == "new") JavaInstantiateNodeGen.create(argNodes, clazzObj, clazz)
             else JavaExecuteNodeGen.create(argNodes, interop.readMember(clazzObj, name))
 
         return BridjeFunction(ctx.makeRootNode(node))
@@ -120,6 +141,13 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
     fun emitJavaImport(javaImport: JavaImport) =
         emitJavaImport(javaImport.clazz, javaImport.name, (javaImport.type.monoType as FnType).paramTypes.size)
 }
+
+internal fun formsNSEnv(ctx: BridjeContext) =
+    NSEnv(FORM_NS,
+        typeAliases = mapOf(FORM to FORM_TYPE_ALIAS),
+        vars = META_FORMS.associate {
+            it.variantKey.sym.base to VariantKeyVar(it.variantKey, JavaImportEmitter(ctx).emitJavaImport(it.clazz, "new", 1))
+        })
 
 internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode() {
     override val loc: Loc? = null

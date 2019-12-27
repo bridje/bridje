@@ -69,6 +69,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         BridjeContext(this, truffleEnv)
 
     override fun initializeContext(ctx: BridjeContext) {
+        ctx.env += formsNSEnv(ctx)
         ctx.require(setOf(mkSym("brj.core")))
     }
 

@@ -95,17 +95,7 @@ internal data class NSEnv(val ns: Symbol,
     }
 }
 
-private class FormConstructorRootNode(val construct: (Any) -> Any) : RootNode(null) {
-    override fun execute(frame: VirtualFrame) = construct(frame.arguments[1])
-}
-
-private val FORMS_NSENV = NSEnv(FORM_NS,
-    typeAliases = mapOf(FORM to FORM_TYPE_ALIAS),
-    vars = META_FORMS.associate {
-        it.variantKey.sym.base to VariantKeyVar(it.variantKey, BridjeFunction(FormConstructorRootNode(it::construct)))
-    })
-
-internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = mapOf(FORMS_NSENV.ns to FORMS_NSENV)) {
+internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = mapOf()) {
     operator fun plus(newNsEnv: NSEnv) = RuntimeEnv(nses + (newNsEnv.ns to newNsEnv))
     operator fun plus(newNsEnvs: Iterable<NSEnv>) = RuntimeEnv(nses + newNsEnvs.map { it.ns to it })
 }
