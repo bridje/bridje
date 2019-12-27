@@ -2,6 +2,7 @@ package brj.runtime
 
 import brj.emitter.BridjeObject
 import com.oracle.truffle.api.CompilerDirectives
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
@@ -11,7 +12,8 @@ import org.graalvm.polyglot.Value
 internal open class VariantObject(val variantKey: VariantKey, val args: Array<Any?>) : BridjeObject {
 
     private val paramCount = variantKey.paramTypes.size
-    @CompilerDirectives.TruffleBoundary
+
+    @TruffleBoundary
     override fun toString(): String =
         if (variantKey.paramTypes.isEmpty())
             variantKey.sym.toString()

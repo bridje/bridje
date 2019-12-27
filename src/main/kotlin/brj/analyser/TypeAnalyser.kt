@@ -22,10 +22,8 @@ internal class TypeAnalyser(private val resolver: Resolver,
 
     fun typeVarAnalyser(it: ParserState) = typeVarFactory.mkTypeVar(it.expectSym(VAR_SYM))
 
-    fun monoTypeAnalyser(it: ParserState): MonoType {
-        val form = it.expectForm<Form>()
-
-        return when (form) {
+    fun monoTypeAnalyser(it: ParserState): MonoType =
+        when (val form = it.expectForm<Form>()) {
             is SymbolForm -> {
                 when (form.sym) {
                     STR -> StringType
@@ -99,5 +97,4 @@ internal class TypeAnalyser(private val resolver: Resolver,
 
             else -> TODO()
         }
-    }
 }

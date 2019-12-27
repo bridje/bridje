@@ -6,8 +6,8 @@ import brj.runtime.Symbol.Companion.mkSym
 internal val CORE_NS = mkSym("brj.core")
 
 internal interface Resolver {
-    fun resolveVar(ident: Ident): GlobalVar?
-    fun resolveTypeAlias(ident: Ident): TypeAlias?
+    fun resolveVar(ident: Ident): GlobalVar? = null
+    fun resolveTypeAlias(ident: Ident): TypeAlias? = null
 
     data class NSResolver(val env: RuntimeEnv? = null,
                           val referVars: Map<Symbol, GlobalVar> = emptyMap(),
@@ -43,10 +43,9 @@ internal interface Resolver {
                             ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
                                 .typeAliases[it.value.base] ?: TODO("can't find refer ${it.value}"))
                     },
-                    aliases = nsHeader.aliases.entries.map { (aliasSym, alias) ->
+                    aliases = nsHeader.aliases.entries.associate { (aliasSym, alias) ->
                         aliasSym to (env.nses[alias.ns] ?: TODO("can't find ${alias.ns} NS"))
-
-                    }.toMap())
+                    })
         }
 
     }

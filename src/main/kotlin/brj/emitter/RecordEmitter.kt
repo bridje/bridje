@@ -3,7 +3,7 @@ package brj.emitter
 import brj.BridjeContext
 import brj.Loc
 import brj.runtime.RecordKey
-import com.oracle.truffle.api.CompilerDirectives
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.`object`.DynamicObject
 import com.oracle.truffle.api.`object`.Layout
@@ -20,7 +20,7 @@ internal class RecordObject(private val truffleEnv: TruffleLanguage.Env, val key
         keys.associate { it.sym.toString() to it.sym }
     }
 
-    @CompilerDirectives.TruffleBoundary
+    @TruffleBoundary
     override fun toString(): String = "{${keys.joinToString(", ") { key -> "${key.sym} ${dynamicObject[key.sym.toString()]}" }}}"
 
     @ExportMessage
@@ -48,22 +48,20 @@ internal data class RecordKeyReadNode(val recordKey: RecordKey) : ValueNode() {
 
 internal typealias RecordObjectFactory = (Array<Any?>) -> RecordObject
 
-internal class RecordEmitter(val ctx: BridjeContext) {
-    companion object {
-        private val LAYOUT = Layout.createLayout()!!
-    }
+private val LAYOUT = Layout.createLayout()!!
 
+internal class RecordEmitter(val ctx: BridjeContext) {
     internal data class RecordObjectType(val keys: Set<RecordKey>) : ObjectType()
 
     internal fun recordObjectFactory(keys: List<RecordKey>): RecordObjectFactory {
-        val allocator = LAYOUT.createAllocator()
-        var shape = LAYOUT.createShape(RecordObjectType(keys.toSet()))
+        val allocator = LAYOUT.createAllocator()!!
+        var shape = LAYOUT.createShape(RecordObjectType(keys.toSet()))!!
 
         keys.forEach { key ->
             shape = shape.addProperty(Property.create(key.sym.toString(), allocator.locationForType(key.type.javaType), 0))
         }
 
-        val factory = shape.createFactory()
+        val factory = shape.createFactory()!!
 
         return { vals ->
             RecordObject(ctx.truffleEnv, keys, factory.newInstance(*vals))
