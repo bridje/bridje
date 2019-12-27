@@ -92,10 +92,12 @@ internal data class NSHeader(val ns: Symbol,
                             val sym = it.expectForm<SymbolForm>().sym
                             nsHeader = when (sym) {
                                 REFERS -> {
+                                    if (nsHeader.refers.isNotEmpty()) TODO()
                                     nsHeader.copy(refers = it.nested(RecordForm::forms, ::refersAnalyser))
                                 }
 
                                 ALIASES -> {
+                                    if (nsHeader.aliases.isNotEmpty()) TODO()
                                     nsHeader.copy(aliases = it.nested(RecordForm::forms) { aliasesAnalyser(it, ns) })
                                 }
 

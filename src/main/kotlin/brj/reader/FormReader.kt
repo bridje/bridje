@@ -9,7 +9,7 @@ import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.io.Reader
 
-internal class FormReader(val source: Source) {
+internal class FormReader(private val source: Source) {
 
     private fun makeLoc(ctx: FormParser.FormContext) =
         source.createSection(ctx.start.line, ctx.start.charPositionInLine + 1, ctx.stop.line, ctx.stop.charPositionInLine + 1)
