@@ -1,0 +1,11 @@
+interop. usages:
+
+- lists/sets might behave differently, Truffle has some built in support for lists, and we might be able to use 'hasMembers' and friends for sets
+- when we call an interop method, we have to call it using interop values
+- forms might be a bit different - we're almost trying to make them behave like interop, but also like variants
+  - we might want to treat the form constructors like interop, would that help?
+  - tried to do this but got stumped because it seems like interop can't take TruffleObjects as params
+- nesting - do we want values within lists to behave as interop?
+- we don't care for other Java types - because we're only ever going to pass them back and forth to other java methods, they can stay interop (like BigDec, BigInt)
+
+everything else.
