@@ -12,7 +12,6 @@ import brj.reader.FORM_NS
 import brj.reader.FORM_TYPE_ALIAS
 import brj.reader.META_FORMS
 import brj.runtime.*
-import brj.runtime.QSymbol.Companion.mkQSym
 import brj.types.FnType
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.CompilerDirectives.transferToInterpreter
@@ -144,9 +143,9 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
 
 internal fun formsNSEnv(ctx: BridjeContext) =
     NSEnv(FORM_NS,
-        typeAliases = mapOf(FORM to FORM_TYPE_ALIAS),
+        typeAliases = mapOf(FORM.local to FORM_TYPE_ALIAS),
         vars = META_FORMS.associate {
-            it.variantKey.sym.base to VariantKeyVar(it.variantKey, JavaImportEmitter(ctx).emitJavaImport(it.clazz, "new", 1))
+            it.variantKey.sym.local to VariantKeyVar(it.variantKey, JavaImportEmitter(ctx).emitJavaImport(it.clazz, "new", 1))
         })
 
 internal class EffectFnBodyNode(val sym: QSymbol, defaultImpl: BridjeFunction?) : ValueNode() {
@@ -183,7 +182,7 @@ internal class TruffleEmitter(private val ctx: BridjeContext) : Emitter {
         BridjeFunction(ctx.makeRootNode(EffectFnBodyNode(sym, defaultImpl)))
 
     override fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar =
-        DefMacroVar(ctx.truffleEnv, mkQSym(ns, expr.sym), expr.type, evalValueExpr(expr.expr) as BridjeFunction)
+        DefMacroVar(ctx.truffleEnv, QSymbol(ns, expr.sym), expr.type, evalValueExpr(expr.expr) as BridjeFunction)
 }
 
 @TypeSystem(

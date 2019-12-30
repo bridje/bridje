@@ -2,17 +2,19 @@ package brj.reader
 
 import brj.Loc
 import brj.runtime.*
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymKind.*
+import brj.runtime.TypeAlias_
+import brj.runtime.VariantKey
+import brj.runtime.VariantObject
 import brj.types.*
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.reflect.KClass
 
-internal val FORM_NS = mkSym("brj.forms")
+internal val FORM_NS = Symbol(ID, "brj.forms")
 
-internal val UNQUOTE = mkQSym(FORM_NS, mkSym("unquote"))
-internal val UNQUOTE_SPLICING = mkQSym(FORM_NS, mkSym("unquote-splicing"))
+internal val UNQUOTE = QSymbol(FORM_NS, ID, "unquote")
+internal val UNQUOTE_SPLICING = QSymbol(FORM_NS, ID, "unquote-splicing")
 
 internal sealed class Form(variantKey: VariantKey, arg: Any) : VariantObject(variantKey, arrayOf(arg)) {
     var loc: Loc? = null
@@ -23,29 +25,29 @@ internal sealed class Form(variantKey: VariantKey, arg: Any) : VariantObject(var
     }
 }
 
-private fun formVariantKey(sym: Symbol, paramType: MonoType) = VariantKey(mkQSym(FORM_NS, sym), emptyList(), listOf(paramType))
+private fun formVariantKey(clazz: KClass<*>, paramType: MonoType) = VariantKey(QSymbol(FORM_NS, Symbol(VARIANT, clazz.simpleName!!)), emptyList(), listOf(paramType))
 
-internal val FORM = mkSym("Form")
+internal val FORM = QSymbol(FORM_NS, TYPE, "Form")
 
-internal val FORM_TYPE_ALIAS = TypeAlias_(mkQSym(FORM_NS, FORM), type = null)
+internal val FORM_TYPE_ALIAS = TypeAlias_(FORM, type = null)
 private val LIST_OF_FORMS = VectorType(TypeAliasType(FORM_TYPE_ALIAS, emptyList()))
 
-private val BOOLEAN_KEY = formVariantKey(mkSym(":BooleanForm"), BoolType)
-private val STRING_KEY = formVariantKey(mkSym(":StringForm"), StringType)
-private val INT_KEY = formVariantKey(mkSym(":IntForm"), IntType)
-private val BIGINT_KEY = formVariantKey(mkSym(":BigIntForm"), BigIntType)
-private val FLOAT_KEY = formVariantKey(mkSym(":FloatForm"), FloatType)
-private val BIGFLOAT_KEY = formVariantKey(mkSym(":BigFloatForm"), BigFloatType)
-private val SYMBOL_KEY = formVariantKey(mkSym(":SymbolForm"), SymbolType)
-private val QSYMBOL_KEY = formVariantKey(mkSym(":QSymbolForm"), QSymbolType)
-private val LIST_KEY = formVariantKey(mkSym(":ListForm"), LIST_OF_FORMS)
-private val VECTOR_KEY = formVariantKey(mkSym(":VectorForm"), LIST_OF_FORMS)
-private val SET_KEY = formVariantKey(mkSym(":SetForm"), LIST_OF_FORMS)
-private val RECORD_KEY = formVariantKey(mkSym(":RecordForm"), LIST_OF_FORMS)
-private val QUOTED_SYMBOL_KEY = formVariantKey(mkSym(":Form"), SymbolType)
-private val QUOTED_QSYMBOL_KEY = formVariantKey(mkSym(":Form"), QSymbolType)
-private val SYNTAX_QUOTED_SYMBOL_KEY = formVariantKey(mkSym(":Form"), SymbolType)
-private val SYNTAX_QUOTED_QSYMBOL_KEY = formVariantKey(mkSym(":Form"), QSymbolType)
+private val BOOLEAN_KEY = formVariantKey(BooleanForm::class, BoolType)
+private val STRING_KEY = formVariantKey(StringForm::class, StringType)
+private val INT_KEY = formVariantKey(IntForm::class, IntType)
+private val BIGINT_KEY = formVariantKey(BigIntForm::class, BigIntType)
+private val FLOAT_KEY = formVariantKey(FloatForm::class, FloatType)
+private val BIGFLOAT_KEY = formVariantKey(BigFloatForm::class, BigFloatType)
+private val SYMBOL_KEY = formVariantKey(SymbolForm::class, SymbolType)
+private val QSYMBOL_KEY = formVariantKey(QSymbolForm::class, QSymbolType)
+private val LIST_KEY = formVariantKey(ListForm::class, LIST_OF_FORMS)
+private val VECTOR_KEY = formVariantKey(VectorForm::class, LIST_OF_FORMS)
+private val SET_KEY = formVariantKey(SetForm::class, LIST_OF_FORMS)
+private val RECORD_KEY = formVariantKey(RecordForm::class, LIST_OF_FORMS)
+private val QUOTED_SYMBOL_KEY = formVariantKey(QuotedSymbolForm::class, SymbolType)
+private val QUOTED_QSYMBOL_KEY = formVariantKey(QuotedQSymbolForm::class, QSymbolType)
+private val SYNTAX_QUOTED_SYMBOL_KEY = formVariantKey(SyntaxQuotedSymbolForm::class, SymbolType)
+private val SYNTAX_QUOTED_QSYMBOL_KEY = formVariantKey(SyntaxQuotedQSymbolForm::class, QSymbolType)
 
 internal class BooleanForm(val bool: Boolean) : Form(BOOLEAN_KEY, bool)
 internal class StringForm(val string: String) : Form(STRING_KEY, string)
@@ -64,25 +66,24 @@ internal class QuotedQSymbolForm(val sym: QSymbol) : Form(QUOTED_QSYMBOL_KEY, sy
 internal class SyntaxQuotedSymbolForm(val sym: Symbol) : Form(SYNTAX_QUOTED_SYMBOL_KEY, sym)
 internal class SyntaxQuotedQSymbolForm(val sym: QSymbol) : Form(SYNTAX_QUOTED_QSYMBOL_KEY, sym)
 
-internal data class MetaForm(val variantKey: VariantKey, val clazz: KClass<*>)
+internal data class MetaForm(val clazz: KClass<*>, val paramType: MonoType) {
+    val variantKey = formVariantKey(clazz, paramType)
+}
 
 internal val META_FORMS = listOf(
-    MetaForm(BOOLEAN_KEY, BooleanForm::class),
-    MetaForm(STRING_KEY, StringForm::class),
-    MetaForm(INT_KEY, IntForm::class),
-    MetaForm(BIGINT_KEY, BigIntForm::class),
-    MetaForm(FLOAT_KEY, FloatForm::class),
-    MetaForm(BIGFLOAT_KEY, BigFloatForm::class),
-    MetaForm(SYMBOL_KEY, SymbolForm::class),
-    MetaForm(QSYMBOL_KEY, QSymbolForm::class),
-    MetaForm(LIST_KEY, ListForm::class),
-    MetaForm(VECTOR_KEY, VectorForm::class),
-    MetaForm(SET_KEY, SetForm::class),
-    MetaForm(RECORD_KEY, RecordForm::class),
-    MetaForm(QUOTED_SYMBOL_KEY, QuotedSymbolForm::class),
-    MetaForm(QUOTED_QSYMBOL_KEY, QuotedQSymbolForm::class),
-    MetaForm(SYNTAX_QUOTED_SYMBOL_KEY, SyntaxQuotedSymbolForm::class),
-    MetaForm(SYNTAX_QUOTED_QSYMBOL_KEY, SyntaxQuotedQSymbolForm::class)
+    MetaForm(BooleanForm::class, BoolType),
+    MetaForm(StringForm::class, StringType),
+    MetaForm(IntForm::class, IntType),
+    MetaForm(BigIntForm::class, BigIntType),
+    MetaForm(FloatForm::class, FloatType),
+    MetaForm(BigFloatForm::class, BigFloatType),
+    MetaForm(SymbolForm::class, SymbolType),
+    MetaForm(ListForm::class, LIST_OF_FORMS),
+    MetaForm(VectorForm::class, LIST_OF_FORMS),
+    MetaForm(SetForm::class, LIST_OF_FORMS),
+    MetaForm(RecordForm::class, LIST_OF_FORMS),
+    MetaForm(QuotedSymbolForm::class, SymbolType),
+    MetaForm(SyntaxQuotedSymbolForm::class, SymbolType)
 ).also { metaForms ->
     FORM_TYPE_ALIAS.type = VariantType(
         metaForms.associate { it.variantKey to RowKey(emptyList()) },

@@ -1,8 +1,9 @@
 package brj.analyser
 
 import brj.reader.readForms
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.QSymbol
+import brj.runtime.SymKind.*
+import brj.runtime.Symbol
 import brj.types.FnType
 import brj.types.IntType
 import brj.types.StringType
@@ -14,24 +15,24 @@ class NSHeaderTest {
 
     @Test
     internal fun testNSHeader() {
-        assertEquals(NSHeader(ns = mkSym("foo")),
+        assertEquals(NSHeader(ns = Symbol(ID, "foo")),
             parseNSHeader("(ns foo)"))
 
         assertEquals(mapOf(
-            mkSym("baz") to mkQSym("bar/baz"),
-            mkSym("Baz") to mkQSym("bar/Baz"),
-            mkSym(":baz") to mkQSym(":bar/baz"),
-            mkSym(":Baz") to mkQSym(":bar/Baz")),
+            Symbol(ID, "baz") to QSymbol(Symbol(ID, "bar"), Symbol(ID, "baz")),
+            Symbol(TYPE, "Baz") to QSymbol(Symbol(ID, "bar"), Symbol(TYPE, "Baz")),
+            Symbol(RECORD, "baz") to QSymbol(Symbol(ID, "bar"), Symbol(RECORD, "baz")),
+            Symbol(VARIANT, "Baz") to QSymbol(Symbol(ID, "bar"), Symbol(VARIANT, "Baz"))),
 
             parseNSHeader("(ns foo {:refers {bar #{:baz :Baz baz Baz}}})")!!.refers)
 
         assertEquals(mapOf(
-            mkSym("bar") to BridjeAlias(mkSym("foo.bar")),
-            mkSym("Str") to
-                JavaAlias(mkSym("foo\$Str"), String::class, mapOf(
-                    mkSym("bar") to
+            Symbol(ID, "bar") to BridjeAlias(Symbol(ID, "foo.bar")),
+            Symbol(TYPE, "Str") to
+                JavaAlias(Symbol(ID, "foo\$Str"), String::class, mapOf(
+                    Symbol(ID, "bar") to
                         JavaInteropDecl(
-                            mkSym("bar"),
+                            Symbol(ID, "bar"),
                             FnType(listOf(StringType), IntType))))),
 
             parseNSHeader("""

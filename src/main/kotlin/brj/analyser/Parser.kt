@@ -1,12 +1,13 @@
 package brj.analyser
 
 import brj.analyser.ParseError.ExpectedIdent
+import brj.analyser.ParseError.ExpectedSymbol
 import brj.reader.Form
 import brj.reader.QSymbolForm
 import brj.reader.SymbolForm
 import brj.runtime.Ident
+import brj.runtime.SymKind
 import brj.runtime.Symbol
-import brj.runtime.SymbolKind
 
 internal typealias FormsParser<R> = (ParserState) -> R
 
@@ -96,27 +97,26 @@ internal data class ParserState(var forms: List<Form>) {
 
     fun expectSym() = expectForm<SymbolForm>().sym
 
-    fun expectSym(vararg kinds: SymbolKind): Symbol {
+    fun expectSym(vararg kinds: SymKind): Symbol {
         val sym = expectSym()
-        if (!kinds.contains(sym.symbolKind)) throw ParseError.ExpectedSymbol else return sym
+        if (!kinds.contains(sym.kind)) throw ExpectedSymbol else return sym
     }
 
     fun expectSym(expectedSym: Symbol): Symbol {
         val actualSym = expectSym()
-        if (expectedSym == actualSym) return expectedSym else throw ParseError.ExpectedSymbol
+        if (expectedSym == actualSym) return expectedSym else throw ExpectedSymbol
     }
 
-    fun expectIdent(): Ident {
-        return when (val form = expectForm<Form>()) {
+    fun expectIdent(): Ident =
+        when (val form = expectForm<Form>()) {
             is SymbolForm -> form.sym
             is QSymbolForm -> form.sym
             else -> throw ExpectedIdent
         }
-    }
 
-    fun expectIdent(vararg kinds: SymbolKind): Ident {
-        val ident = expectIdent()
-        if (!kinds.contains(ident.symbolKind)) TODO() else return ident
+    fun expectIdent(vararg kinds: SymKind): Ident {
+        val sym = expectIdent()
+        if (!kinds.contains(sym.kind)) TODO() else return sym
     }
 }
 

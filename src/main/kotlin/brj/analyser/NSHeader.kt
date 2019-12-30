@@ -8,16 +8,14 @@ import brj.reader.SetForm
 import brj.reader.SymbolForm
 import brj.runtime.QSymbol
 import brj.runtime.Symbol
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.SymbolKind.TYPE_ALIAS_SYM
-import brj.runtime.SymbolKind.VAR_SYM
+import brj.runtime.SymKind.*
 import brj.types.MonoType
 import kotlin.reflect.KClass
 
-private val NS = mkSym("ns")
-private val REFERS = mkSym(":refers")
-private val ALIASES = mkSym(":aliases")
-private val JAVA = mkSym("java")
+private val NS = Symbol(ID, "ns")
+private val REFERS = Symbol(RECORD, "refers")
+private val ALIASES = Symbol(RECORD, "aliases")
+private val JAVA = Symbol(ID, "java")
 
 internal sealed class Alias {
     abstract val ns: Symbol
@@ -50,7 +48,7 @@ internal data class NSHeader(val ns: Symbol,
                 it.nested(SetForm::forms) {
                     it.varargs {
                         val sym = it.expectForm<SymbolForm>().sym
-                        sym to QSymbol.mkQSym(nsSym, sym)
+                        sym to QSymbol(nsSym, sym)
                     }
                 }
             }.flatten().toMap()
@@ -58,14 +56,14 @@ internal data class NSHeader(val ns: Symbol,
         private fun aliasesAnalyser(it: ParserState, ns: Symbol) =
             it.varargs {
                 it.or({
-                    it.maybe { it.expectSym(VAR_SYM) }?.let { sym -> sym to BridjeAlias(it.expectSym(VAR_SYM)) }
+                    it.maybe { it.expectSym(ID) }?.let { sym -> sym to BridjeAlias(it.expectSym(ID)) }
                 }, {
-                    it.maybe { it.expectSym(TYPE_ALIAS_SYM) }?.let { sym ->
+                    it.maybe { it.expectSym(TYPE) }?.let { sym ->
                         it.nested(ListForm::forms) {
                             it.expectSym(JAVA)
                             sym to JavaAlias(
-                                mkSym("$ns\$${sym}"),
-                                Class.forName(it.expectSym(VAR_SYM).baseStr).kotlin,
+                                Symbol(ID, "$ns\$${sym}"),
+                                Class.forName(it.expectSym(ID).local).kotlin,
                                 it.varargs {
                                     val expr = exprAnalyser.declAnalyser(it) as VarDeclExpr
                                     expr.sym to JavaInteropDecl(expr.sym, expr.type.monoType)
@@ -82,7 +80,7 @@ internal data class NSHeader(val ns: Symbol,
                     it
                 }
             }?.let {
-                val ns = it.expectSym(VAR_SYM)
+                val ns = it.expectSym(ID)
 
                 var nsHeader = NSHeader(ns)
 

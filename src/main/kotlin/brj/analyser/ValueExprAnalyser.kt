@@ -3,10 +3,7 @@ package brj.analyser
 import brj.Loc
 import brj.reader.*
 import brj.runtime.*
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.SymbolKind.RECORD_KEY_SYM
-import brj.runtime.SymbolKind.VAR_SYM
+import brj.runtime.SymKind.*
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -116,17 +113,17 @@ internal data class WithFxExpr(val oldFxLocal: LocalVar,
     override fun postWalk(f: (ValueExpr) -> ValueExpr) = f(copy(fx = fx.postWalk(f), bodyExpr = bodyExpr.postWalk(f)))
 }
 
-internal val IF = mkSym("if")
-internal val FN = mkSym("fn")
-internal val LET = mkSym("let")
-internal val CASE = mkSym("case")
-internal val LOOP = mkSym("loop")
-internal val RECUR = mkSym("recur")
-internal val WITH_FX = mkSym("with-fx")
+internal val IF = Symbol(ID, "if")
+internal val FN = Symbol(ID, "fn")
+internal val LET = Symbol(ID, "let")
+internal val CASE = Symbol(ID, "case")
+internal val LOOP = Symbol(ID, "loop")
+internal val RECUR = Symbol(ID, "recur")
+internal val WITH_FX = Symbol(ID, "with-fx")
 
-internal val DEFAULT_EFFECT_LOCAL = LocalVar(mkSym("_fx"))
+internal val DEFAULT_EFFECT_LOCAL = LocalVar(Symbol(ID, "_fx"))
 
-private val QSYMBOL_FORM = mkQSym(":brj.forms/QSymbolForm")
+private val QSYMBOL_FORM = QSymbol(Symbol(ID, "brj.forms"), Symbol(VARIANT, "QSymbolForm"))
 
 @Suppress("NestedLambdaShadowedImplicitParameter")
 internal data class ValueExprAnalyser(val resolver: Resolver,
@@ -157,7 +154,7 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
         var ana = this
         return LetExpr(it.nested(VectorForm::forms) { bindingState ->
             bindingState.varargs {
-                val localVar = LocalVar(it.expectSym(VAR_SYM))
+                val localVar = LocalVar(it.expectSym(ID))
                 val expr = ana.copy(loopLocals = null).exprAnalyser(it)
 
                 ana = ana.copy(locals = ana.locals.plus(localVar.sym to localVar))
@@ -232,7 +229,7 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
                     it.expectSym(DEF)
 
                     val preamble = it.nested(ListForm::forms) {
-                        Preamble(it.expectSym(VAR_SYM), it.varargs { it.expectSym(VAR_SYM) })
+                        Preamble(it.expectSym(ID), it.varargs { it.expectSym(ID) })
                     }
 
                     val effectVar = resolve(preamble.sym) as? EffectVar ?: TODO()
@@ -329,7 +326,7 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
 
         val state = ParserState(form.forms)
         state.varargs {
-            val attr = (resolve(it.expectIdent(RECORD_KEY_SYM)) as? RecordKeyVar)?.recordKey ?: TODO()
+            val attr = (resolve(it.expectIdent(RECORD)) as? RecordKeyVar)?.recordKey ?: TODO()
 
             entries += RecordEntry(attr, exprAnalyser(it))
         }

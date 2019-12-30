@@ -1,15 +1,16 @@
 package brj.analyser
 
 import brj.reader.readForms
+import brj.runtime.SymKind
+import brj.runtime.SymKind.*
 import brj.runtime.Symbol
-import brj.runtime.Symbol.Companion.mkSym
 import brj.types.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 internal class ExprAnalyserTest {
 
-    private val aSym = mkSym("a")
+    private val aSym = Symbol(ID, "a")
     private val aTypeVar = TypeVarType()
 
     private val resolver = Resolver.NSResolver()
@@ -25,7 +26,7 @@ internal class ExprAnalyserTest {
 
     @Test
     fun `analyses var declarations`() {
-        val foo = mkSym("foo")
+        val foo = Symbol(ID, "foo")
 
         assertEquals(
             VarDeclExpr(foo, false, Type(IntType)),
@@ -44,7 +45,7 @@ internal class ExprAnalyserTest {
 
     @Test
     internal fun `analyses var definitions`() {
-        val foo = mkSym("foo")
+        val foo = Symbol(ID, "foo")
 
         assertEquals(
             DefExpr(foo,
@@ -56,7 +57,7 @@ internal class ExprAnalyserTest {
 
     @Test
     fun `analyses type aliases`() {
-        val foo = mkSym("Foo")
+        val foo = Symbol(TYPE, "Foo")
         assertEquals(
             TypeAliasDeclExpr(foo, emptyList(), FnType(listOf(IntType), StringType)),
             analyseDecl("(:: Foo (Fn Int Str))"))
@@ -64,7 +65,7 @@ internal class ExprAnalyserTest {
 
     @Test
     fun `analyses key decl`() {
-        val fooKey = mkSym(":foo")
+        val fooKey = Symbol(RECORD, "foo")
         assertEquals(
             RecordKeyDeclExpr(fooKey, emptyList(), IntType),
             analyseDecl("(:: :foo Int)"))
@@ -77,7 +78,7 @@ internal class ExprAnalyserTest {
             decl)
 
 
-        val fooVariant = mkSym(":Foo")
+        val fooVariant = Symbol(VARIANT, "Foo")
 
         assertEquals(
             VariantKeyDeclExpr(fooVariant, emptyList(), emptyList()),
@@ -91,7 +92,7 @@ internal class ExprAnalyserTest {
 
     @Test
     fun `analyses polyvar`() {
-        val fooVar = mkSym("foo")
+        val fooVar = Symbol(ID, "foo")
 
         val polyDecl = analyseDecl("(:: (. a) foo a)") as PolyVarDeclExpr
 

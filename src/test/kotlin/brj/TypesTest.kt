@@ -1,12 +1,8 @@
 package brj
 
 import brj.analyser.*
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.RecordKey
-import brj.runtime.RecordKeyVar
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.VariantKey
-import brj.runtime.VariantKeyVar
+import brj.runtime.*
+import brj.runtime.SymKind.*
 import brj.types.TypeVarType
 import brj.types.valueExprType
 import org.junit.jupiter.api.Test
@@ -18,12 +14,12 @@ internal class TypesTest {
     @Test
     internal fun `test record types`() {
         val tv = TypeVarType()
-        val fooKey = RecordKey(mkQSym(":user/foo"), listOf(tv), tv)
+        val fooKey = RecordKey(QSymbol(Symbol(ID, "user"), Symbol(RECORD, "foo")), listOf(tv), tv)
 
         println(valueExprType(RecordExpr(listOf(RecordEntry(fooKey, IntExpr(5)))), null))
 
-        val localVar = LocalVar(mkSym("r"))
-        val effectLocal = LocalVar(mkSym("fx"))
+        val localVar = LocalVar(Symbol(ID, "r"))
+        val effectLocal = LocalVar(Symbol(ID, "fx"))
 
         val type = valueExprType(
             FnExpr(null, listOf(localVar),
@@ -38,8 +34,8 @@ internal class TypesTest {
     @Test
     internal fun `test variant types`() {
         val tv = TypeVarType()
-        val fooKey = VariantKey(mkQSym(":user/Foo"), listOf(tv), listOf(tv))
-        val effectLocal = LocalVar(mkSym("fx"))
+        val fooKey = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "Foo")), listOf(tv), listOf(tv))
+        val effectLocal = LocalVar(Symbol(ID, "fx"))
 
         println(valueExprType(CallExpr(GlobalVarExpr(VariantKeyVar(fooKey, dummyVar), effectLocal), listOf(IntExpr(5)), effectLocal), null))
     }
@@ -47,11 +43,11 @@ internal class TypesTest {
     @Test
     internal fun `test case expr`() {
         val tv = TypeVarType()
-        val fooKey = VariantKey(mkQSym(":user/Foo"), listOf(tv), listOf(tv))
-        val barKey = VariantKey(mkQSym(":user/Bar"), emptyList(), emptyList())
+        val fooKey = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "Foo")), listOf(tv), listOf(tv))
+        val barKey = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "Bar")), emptyList(), emptyList())
 
-        val paramVar = LocalVar(mkSym("foo"))
-        val bindingVar = LocalVar(mkSym("a"))
+        val paramVar = LocalVar(Symbol(ID, "foo"))
+        val bindingVar = LocalVar(Symbol(ID, "a"))
 
         println(valueExprType(FnExpr(null, listOf(paramVar), CaseExpr(
             LocalVarExpr(paramVar),

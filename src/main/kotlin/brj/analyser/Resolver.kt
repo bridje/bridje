@@ -1,9 +1,9 @@
 package brj.analyser
 
 import brj.runtime.*
-import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymKind.*
 
-internal val CORE_NS = mkSym("brj.core")
+internal val CORE_NS = Symbol(ID, "brj.core")
 
 internal interface Resolver {
     fun resolveVar(ident: Ident): GlobalVar? = null
@@ -20,28 +20,28 @@ internal interface Resolver {
         override fun resolveVar(ident: Ident): GlobalVar? =
             when (ident) {
                 is Symbol -> nsEnv?.vars?.get(ident) ?: referVars[ident] ?: env?.nses?.get(CORE_NS)?.vars?.get(ident)
-                is QSymbol -> (resolveNS(ident.ns) ?: TODO("can't find NS")).vars[ident.base]
+                is QSymbol -> (resolveNS(ident.ns) ?: TODO("can't find NS")).vars[ident.local]
             }
 
         override fun resolveTypeAlias(ident: Ident) =
             nsEnv?.typeAliases?.get(ident)
                 ?: when (ident) {
                     is Symbol -> nsEnv?.typeAliases?.get(ident) ?: referTypeAliases[ident]
-                    is QSymbol -> (resolveNS(ident.ns) ?: TODO("can't find NS")).typeAliases[ident.base]
+                    is QSymbol -> (resolveNS(ident.ns) ?: TODO("can't find NS")).typeAliases[ident.local]
                 }
 
         companion object {
             fun create(env: RuntimeEnv, nsHeader: NSHeader) =
                 NSResolver(env,
-                    referVars = nsHeader.refers.filterKeys { it.symbolKind != SymbolKind.TYPE_ALIAS_SYM }.entries.associate {
+                    referVars = nsHeader.refers.filterKeys { it.kind != TYPE }.entries.associate {
                         it.key to
                             ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
-                                .vars[it.value.base] ?: TODO("can't find refer ${it.value}"))
+                                .vars[it.value.local] ?: TODO("can't find refer ${it.value}"))
                     },
-                    referTypeAliases = nsHeader.refers.filterKeys { it.symbolKind == SymbolKind.TYPE_ALIAS_SYM }.entries.associate {
+                    referTypeAliases = nsHeader.refers.filterKeys { it.kind == TYPE }.entries.associate {
                         it.key to
                             ((env.nses[it.value.ns] ?: TODO("can't find ${it.value.ns} NS"))
-                                .typeAliases[it.value.base] ?: TODO("can't find refer ${it.value}"))
+                                .typeAliases[it.value.local] ?: TODO("can't find refer ${it.value}"))
                     },
                     aliases = nsHeader.aliases.entries.associate { (aliasSym, alias) ->
                         aliasSym to (env.nses[alias.ns] ?: TODO("can't find ${alias.ns} NS"))

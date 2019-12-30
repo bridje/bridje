@@ -6,12 +6,8 @@ import brj.emitter.RecordEmitter
 import brj.emitter.TruffleEmitter
 import brj.emitter.ValueExprEmitter
 import brj.emitter.VariantEmitter
-import brj.runtime.JavaImport
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.RecordKey
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.VariantKey
-import brj.runtime.VariantKeyVar
+import brj.runtime.*
+import brj.runtime.SymKind.*
 import brj.types.*
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Value
@@ -43,11 +39,11 @@ internal class TruffleEmitterTest {
     internal fun `variant introduction and elimination`() {
         val brjCtx = currentBridjeContext()
 
-        val variantKey = VariantKey(mkQSym(":user/Foo"), emptyList(), listOf(IntType))
-        val variantKey2 = VariantKey(mkQSym(":user/Foo2"), emptyList(), listOf(IntType))
+        val variantKey = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "Foo")), emptyList(), listOf(IntType))
+        val variantKey2 = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "Foo2")), emptyList(), listOf(IntType))
         val constructor = VariantEmitter.emitVariantKey(variantKey2)
-        val localVar = LocalVar(mkSym("a"))
-        val effectLocal = LocalVar(mkSym("fx"))
+        val localVar = LocalVar(Symbol(ID, "a"))
+        val effectLocal = LocalVar(Symbol(ID, "fx"))
 
         assertEquals(54L,
             ValueExprEmitter(brjCtx).evalValueExpr(
@@ -63,8 +59,8 @@ internal class TruffleEmitterTest {
     internal fun `record introduction and elimination`() {
         val brjCtx = currentBridjeContext()
 
-        val count = mkQSym(":user/count")
-        val message = mkQSym(":user/message")
+    val count = QSymbol(Symbol(ID, "user"), Symbol(RECORD, "count"))
+        val message = QSymbol(Symbol(ID, "user"), Symbol(RECORD, "message"))
 
         val countKey = RecordKey(count, emptyList(), IntType)
         val messageKey = RecordKey(message, emptyList(), StringType)
@@ -83,7 +79,7 @@ internal class TruffleEmitterTest {
 
     @Test
     internal fun `java interop`() {
-        val javaImport = JavaImport(mkQSym("Foo/plus"), Class.forName("brj.FooKt").kotlin, "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
+        val javaImport = JavaImport(QSymbol(Symbol(TYPE, "Foo"), Symbol(ID, "plus")), Class.forName("brj.FooKt").kotlin, "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
 
         val fn = Value.asValue(TruffleEmitter(currentBridjeContext()).emitJavaImport(javaImport))
 

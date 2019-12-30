@@ -2,8 +2,10 @@ package brj.reader
 
 import brj.reader.ReaderTest.FormType.BOOLEAN
 import brj.reader.ReaderTest.FormType.VECTOR
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.QSymbol
+import brj.runtime.SymKind.ID
+import brj.runtime.SymKind.VARIANT
+import brj.runtime.Symbol
 import com.oracle.truffle.api.source.Source
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -19,9 +21,9 @@ internal class ReaderTest {
         SYMBOL,
         VECTOR, LIST, SET, RECORD;
 
-        private val formNS = mkSym("brj.forms")
+        private val formNS = Symbol(ID, "brj.forms")
 
-        val qSym = QSymbolForm(mkQSym(formNS, mkSym(":${this.name.toLowerCase().capitalize()}Form")))
+        val qSym = QSymbolForm(QSymbol(formNS, Symbol(VARIANT, "${this.name.toLowerCase().capitalize()}Form")))
     }
 
     private fun collForm(formType: FormType, vararg forms: Form): Form =
@@ -35,7 +37,7 @@ internal class ReaderTest {
         assertEquals(
             listOf(collForm(VECTOR,
                 quotedForm(BOOLEAN, BooleanForm(true)),
-                quotedForm(FormType.SYMBOL, QuotedSymbolForm(mkSym("foo"))))),
+                quotedForm(FormType.SYMBOL, QuotedSymbolForm(Symbol(ID, "foo"))))),
 
             readForms("'[true foo]"))
     }

@@ -1,11 +1,8 @@
 package brj.analyser
 
 import brj.reader.readForms
-import brj.runtime.NSEnv
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.VariantKey
-import brj.runtime.VariantKeyVar
+import brj.runtime.*
+import brj.runtime.SymKind.*
 import brj.types.MonoType
 import brj.types.RowKey
 import brj.types.VariantType
@@ -13,15 +10,15 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 internal class TypeAnalyserTest {
-    private val boolKey = VariantKey(mkQSym(":user/BooleanForm"), emptyList(), emptyList())
-    private val strKey = VariantKey(mkQSym(":user/StringForm"), emptyList(), emptyList())
+    private val boolKey = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "BooleanForm")), emptyList(), emptyList())
+    private val strKey = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "StringForm")), emptyList(), emptyList())
 
     private val dummyResolver = Resolver.NSResolver(
         nsEnv = NSEnv(
-            ns = mkSym("user"),
+            ns = Symbol(ID, "user"),
             vars = mapOf(
-                boolKey.sym.base to VariantKeyVar(boolKey, 42),
-                strKey.sym.base to VariantKeyVar(strKey, 52))))
+                boolKey.sym.local to VariantKeyVar(boolKey, 42),
+                strKey.sym.local to VariantKeyVar(strKey, 52))))
 
     private fun analyseMonoType(s: String): MonoType =
         TypeAnalyser(dummyResolver).monoTypeAnalyser(ParserState(readForms(s)))
