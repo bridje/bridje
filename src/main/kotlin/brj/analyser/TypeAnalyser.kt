@@ -3,7 +3,7 @@ package brj.analyser
 import brj.reader.*
 import brj.runtime.Ident
 import brj.runtime.Symbol
-import brj.runtime.SymbolKind.*
+import brj.runtime.SymKind.*
 import brj.runtime.VariantKeyVar
 import brj.types.*
 
@@ -20,7 +20,7 @@ internal interface ITypeVarFactory {
 internal class TypeAnalyser(private val resolver: Resolver,
                             private val typeVarFactory: ITypeVarFactory = ITypeVarFactory.TypeVarFactory()) {
 
-    fun typeVarAnalyser(it: ParserState) = typeVarFactory.mkTypeVar(it.expectSym(VAR_SYM))
+    fun typeVarAnalyser(it: ParserState) = typeVarFactory.mkTypeVar(it.expectSym(ID))
 
     fun monoTypeAnalyser(it: ParserState): MonoType =
         when (val form = it.expectForm<Form>()) {
@@ -35,9 +35,9 @@ internal class TypeAnalyser(private val resolver: Resolver,
                     SYMBOL -> SymbolType
                     QSYMBOL -> QSymbolType
 
-                    else -> when (form.sym.symbolKind) {
-                        VAR_SYM -> typeVarFactory.mkTypeVar(form.sym)
-                        TYPE_ALIAS_SYM -> {
+                    else -> when (form.sym.kind) {
+                        ID -> typeVarFactory.mkTypeVar(form.sym)
+                        TYPE -> {
                             // TODO kind check
                             resolver.resolveTypeAlias(form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
                         }
@@ -47,8 +47,8 @@ internal class TypeAnalyser(private val resolver: Resolver,
             }
 
             is QSymbolForm -> {
-                when (form.sym.symbolKind) {
-                    TYPE_ALIAS_SYM -> {
+                when (form.sym.kind) {
+                    TYPE -> {
                         // TODO kind check
                         resolver.resolveTypeAlias(form.sym)?.let { TypeAliasType(it, emptyList()) } ?: TODO()
                     }
@@ -73,9 +73,9 @@ internal class TypeAnalyser(private val resolver: Resolver,
                                 data class Preamble(val variantSym: Ident, val typeParams: List<MonoType>)
 
                                 val preamble = it.or({
-                                    it.maybe { it.expectIdent(VARIANT_KEY_SYM) }?.let { Preamble(it, emptyList()) }
+                                    it.maybe { it.expectIdent(VARIANT) }?.let { Preamble(it, emptyList()) }
                                 }, {
-                                    it.maybe { it.expectForm<ListForm>() }?.let { lf -> it.nested(lf.forms) { Preamble(it.expectIdent(VARIANT_KEY_SYM), it.varargs { monoTypeAnalyser(it) }) } }
+                                    it.maybe { it.expectForm<ListForm>() }?.let { lf -> it.nested(lf.forms) { Preamble(it.expectIdent(VARIANT), it.varargs { monoTypeAnalyser(it) }) } }
                                 }) ?: TODO()
 
                                 val variantKey = (resolver.resolveVar(preamble.variantSym) as? VariantKeyVar)?.variantKey
@@ -88,7 +88,7 @@ internal class TypeAnalyser(private val resolver: Resolver,
 
                     }
                 }, {
-                    it.maybe { it.expectSym(TYPE_ALIAS_SYM) }?.let { sym ->
+                    it.maybe { it.expectSym(TYPE) }?.let { sym ->
                         // TODO kind check
                         TypeAliasType(resolver.resolveTypeAlias(sym) ?: TODO(), it.varargs(this::monoTypeAnalyser))
                     }

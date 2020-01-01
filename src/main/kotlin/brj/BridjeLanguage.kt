@@ -10,9 +10,8 @@ import brj.reader.NSForms
 import brj.reader.NSForms.Loader.Companion.ClasspathLoader
 import brj.reader.RecordForm
 import brj.runtime.RuntimeEnv
+import brj.runtime.SymKind.ID
 import brj.runtime.Symbol
-import brj.runtime.Symbol.Companion.mkSym
-import brj.runtime.SymbolKind.VAR_SYM
 import brj.types.valueExprType
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.RootCallTarget
@@ -70,7 +69,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun initializeContext(ctx: BridjeContext) {
         ctx.env += formsNSEnv(ctx)
-        ctx.require(setOf(mkSym("brj.core")))
+        ctx.require(setOf(Symbol(ID, "brj.core")))
     }
 
     override fun isObjectOfLanguage(obj: Any) = obj is BridjeObject
@@ -84,16 +83,16 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     private val requireParser: FormsParser<Set<Symbol>?> = {
         it.maybe {
-            it.nested(ListForm::forms) { it.expectSym(mkSym("require!")); it }
-        }?.let { it.varargs { it.expectSym(VAR_SYM) }.toSet() }
+            it.nested(ListForm::forms) { it.expectSym(Symbol(ID, "require!")); it }
+        }?.let { it.varargs { it.expectSym(ID) }.toSet() }
     }
 
     private val aliasParser: FormsParser<Map<Symbol, Symbol>?> = {
         it.maybe {
-            it.nested(ListForm::forms) { it.expectSym(mkSym("alias!")); it }
+            it.nested(ListForm::forms) { it.expectSym(Symbol(ID, "alias!")); it }
         }?.let {
             it.nested(RecordForm::forms) {
-                it.varargs { Pair(it.expectSym(VAR_SYM), it.expectSym(VAR_SYM)) }
+                it.varargs { Pair(it.expectSym(ID), it.expectSym(ID)) }
             }.toMap()
         }
     }

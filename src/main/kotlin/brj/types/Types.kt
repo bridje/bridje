@@ -1,22 +1,22 @@
 package brj.types
 
-import brj.runtime.QSymbol
+import brj.runtime.*
 import brj.runtime.RecordKey
-import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.SymKind.*
 import brj.runtime.TypeAlias
 import brj.runtime.VariantKey
 import brj.types.TypeException.UnificationError
 
-internal val STR = mkSym("Str")
-internal val BOOL = mkSym("Bool")
-internal val INT = mkSym("Int")
-internal val FLOAT = mkSym("Float")
-internal val BIG_INT = mkSym("BigInt")
-internal val BIG_FLOAT = mkSym("BigFloat")
-internal val SYMBOL = mkSym("Symbol")
-internal val QSYMBOL = mkSym("QSymbol")
-internal val FN_TYPE = mkSym("Fn")
-internal val VARIANT_TYPE = mkSym("+")
+internal val STR = Symbol(TYPE, "Str")
+internal val BOOL = Symbol(TYPE, "Bool")
+internal val INT = Symbol(TYPE, "Int")
+internal val FLOAT = Symbol(TYPE, "Float")
+internal val BIG_INT = Symbol(TYPE, "BigInt")
+internal val BIG_FLOAT = Symbol(TYPE, "BigFloat")
+internal val SYMBOL = Symbol(TYPE, "Symbol")
+internal val QSYMBOL = Symbol(TYPE, "QSymbol")
+internal val FN_TYPE = Symbol(TYPE, "Fn")
+internal val VARIANT_TYPE = Symbol(ID, "+")
 
 internal data class PolyConstraint(val sym: QSymbol, val primaryTVs: List<TypeVarType>, val secondaryTVs: List<TypeVarType>) {
     override fun toString() = "($sym ${(primaryTVs + secondaryTVs).joinToString(" ")})"

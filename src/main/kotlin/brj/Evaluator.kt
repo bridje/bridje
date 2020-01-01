@@ -5,7 +5,6 @@ import brj.emitter.BridjeFunction
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
-import brj.runtime.QSymbol.Companion.mkQSym
 import brj.types.Type
 
 internal interface Emitter {
@@ -19,7 +18,7 @@ internal interface Emitter {
 
 internal class Evaluator(private val emitter: Emitter) {
     private inner class NSEvaluator(val env: RuntimeEnv, val nsHeader: NSHeader) {
-        fun nsQSym(sym: Symbol) = mkQSym(nsHeader.ns, sym)
+        fun nsQSym(sym: Symbol) = QSymbol(nsHeader.ns, sym)
 
         private val resolver = Resolver.NSResolver.create(env, nsHeader)
 
@@ -65,7 +64,7 @@ internal class Evaluator(private val emitter: Emitter) {
 
                         is TypeAliasDeclExpr -> nsEnv +
                             ((nsEnv.typeAliases[expr.sym] as? TypeAlias_)?.also { it.type = expr.type }
-                                ?: TypeAlias_(mkQSym(nsEnv.ns, expr.sym), expr.typeVars, expr.type))
+                                ?: TypeAlias_(QSymbol(nsEnv.ns, expr.sym), expr.typeVars, expr.type))
 
                         is RecordKeyDeclExpr -> {
                             val recordKey = RecordKey(nsQSym(expr.sym), expr.typeVars, expr.type)
@@ -86,7 +85,7 @@ internal class Evaluator(private val emitter: Emitter) {
                 is JavaAlias -> {
                     NSEnv(alias.ns,
                         vars = alias.decls.mapValues { (_, decl) ->
-                            val javaImport = JavaImport(mkQSym(alias.ns, decl.sym), alias.clazz, decl.sym.baseStr, Type(decl.type))
+                            val javaImport = JavaImport(QSymbol(alias.ns, decl.sym), alias.clazz, decl.sym.baseStr, Type(decl.type))
                             JavaImportVar(javaImport, emitter.emitJavaImport(javaImport))
                         })
                 }

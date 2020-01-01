@@ -6,8 +6,6 @@ import brj.emitter.BridjeFunction
 import brj.reader.*
 import brj.types.*
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.nodes.RootNode
 import kotlin.reflect.KClass
 
 internal abstract class GlobalVar {
@@ -85,8 +83,8 @@ internal data class NSEnv(val ns: Symbol,
                           val vars: Map<Symbol, GlobalVar> = emptyMap(),
                           val polyVarImpls: Map<QSymbol, List<PolyVarImpl>> = emptyMap()) {
 
-    operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.base to globalVar))
-    operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.base to alias))
+    operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.local to globalVar))
+    operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.local to alias))
     operator fun plus(impl: PolyVarImpl): NSEnv {
         val sym = impl.polyVar.sym
         return copy(polyVarImpls = polyVarImpls +

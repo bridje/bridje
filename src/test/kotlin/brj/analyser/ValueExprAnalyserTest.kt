@@ -1,12 +1,8 @@
 package brj.analyser
 
 import brj.reader.readForms
-import brj.runtime.EffectVar
-import brj.runtime.NSEnv
-import brj.runtime.QSymbol.Companion.mkQSym
-import brj.runtime.RecordKey
-import brj.runtime.RecordKeyVar
-import brj.runtime.Symbol.Companion.mkSym
+import brj.runtime.*
+import brj.runtime.SymKind.*
 import brj.types.FnType
 import brj.types.IntType
 import brj.types.StringType
@@ -19,16 +15,16 @@ internal class ValueExprAnalyserTest {
 
     @Test
     fun `analyses record`() {
-        val user = mkSym("user")
-        val count = mkQSym(":user/count")
-        val message = mkQSym(":user/message")
+        val user = Symbol(ID, "user")
+        val count = QSymbol(user, Symbol(RECORD, "count"))
+        val message = QSymbol(user, Symbol(RECORD, "message"))
 
         val countKey = RecordKey(count, emptyList(), IntType)
         val messageKey = RecordKey(message, emptyList(), StringType)
 
         val nsEnv = NSEnv(user, vars = mapOf(
-            count.base to RecordKeyVar(countKey, dummyVar),
-            message.base to RecordKeyVar(messageKey, dummyVar)))
+            count.local to RecordKeyVar(countKey, dummyVar),
+            message.local to RecordKeyVar(messageKey, dummyVar)))
 
         assertEquals(
             DoExpr(emptyList(), RecordExpr(listOf(
@@ -40,12 +36,12 @@ internal class ValueExprAnalyserTest {
 
     @Test
     internal fun `analyses with-fx`() {
-        val user = mkSym("user")
-        val println = mkQSym("user/println!")
+        val user = Symbol(ID, "user")
+        val println = QSymbol(user, Symbol(ID, "println!"))
 
         val effectVar = EffectVar(println, Type(FnType(listOf(StringType), StringType)), defaultImpl = null, value = "ohno")
 
-        val nsEnv = NSEnv(user, vars = mapOf(println.base to effectVar))
+        val nsEnv = NSEnv(user, vars = mapOf(println.local to effectVar))
 
         val expr = ValueExprAnalyser(Resolver.NSResolver(nsEnv = nsEnv))
             .analyseValueExpr(readForms("""(with-fx [(def (println! s) "Hello!")] (println! "foo!"))""").first())
@@ -61,7 +57,7 @@ internal class ValueExprAnalyserTest {
             DoExpr(emptyList(), StringExpr("Hello!")),
             effect.fnExpr.expr)
 
-        val effectLocal = LocalVar(mkSym("fx"))
+        val effectLocal = LocalVar(Symbol(ID, "fx"))
 
         assertEquals(
             DoExpr(emptyList(), CallExpr(GlobalVarExpr(effectVar, effectLocal), listOf(StringExpr("foo!")), effectLocal)),
