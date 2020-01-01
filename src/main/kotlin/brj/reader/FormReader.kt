@@ -12,7 +12,7 @@ import java.io.Reader
 internal class FormReader(private val source: Source) {
 
     private fun makeLoc(ctx: FormParser.FormContext) =
-        source.createSection(ctx.start.line, ctx.start.charPositionInLine + 1, ctx.stop.line, ctx.stop.charPositionInLine + 1)
+        source.createSection(ctx.start.line, ctx.start.charPositionInLine + 1, ctx.text.length)
 
     private val concatSymForm = QSymbolForm(QSymbol(CORE_NS, Symbol(ID, "concat")))
     private val unquoteForm = QSymbolForm(UNQUOTE)
@@ -32,6 +32,7 @@ internal class FormReader(private val source: Source) {
             is RecordForm -> q(VectorForm(form.forms.map(::quoteForm)))
 
             is SymbolForm -> q(QuotedSymbolForm(form.sym))
+            is QSymbolForm -> q(QuotedQSymbolForm(form.sym))
 
             // TODO we should support QuotedSymbolForm/QuotedQSymbolForm here for nested quotes
             else -> throw UnsupportedOperationException()
@@ -77,6 +78,8 @@ internal class FormReader(private val source: Source) {
                 else -> SyntaxQuotedSymbolForm(form.sym)
             }
 
+            is QSymbolForm -> SyntaxQuotedQSymbolForm(form.sym)
+
             is SetForm -> sqSeq(form.forms)
             is VectorForm -> sqSeq(form.forms)
             is RecordForm -> sqSeq(form.forms)
@@ -91,7 +94,7 @@ internal class FormReader(private val source: Source) {
     private object SymVisitor: FormBaseVisitor<Symbol>() {
         override fun visitNsIdSym(ctx: FormParser.NsIdSymContext) = Symbol(ID, ctx.LOWER_SYM().text)
         override fun visitNsTypeSym(ctx: FormParser.NsTypeSymContext) = Symbol(TYPE, ctx.UPPER_SYM().text)
-        override fun visitIdSym(ctx: FormParser.IdSymContext) = Symbol(ID, ctx.LOWER_SYM().text)
+        override fun visitIdSym(ctx: FormParser.IdSymContext) = Symbol(ID, ctx.text)
         override fun visitTypeSym(ctx: FormParser.TypeSymContext) = Symbol(TYPE, ctx.UPPER_SYM().text)
         override fun visitRecordSym(ctx: FormParser.RecordSymContext) = Symbol(RECORD, ctx.LOWER_SYM().text)
         override fun visitVariantSym(ctx: FormParser.VariantSymContext) = Symbol(VARIANT, ctx.UPPER_SYM().text)

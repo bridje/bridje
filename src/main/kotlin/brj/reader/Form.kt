@@ -78,6 +78,7 @@ internal val META_FORMS = listOf(
     MetaForm(FloatForm::class, FloatType),
     MetaForm(BigFloatForm::class, BigFloatType),
     MetaForm(SymbolForm::class, SymbolType),
+    MetaForm(QSymbolForm::class, QSymbolType),
     MetaForm(ListForm::class, LIST_OF_FORMS),
     MetaForm(VectorForm::class, LIST_OF_FORMS),
     MetaForm(SetForm::class, LIST_OF_FORMS),

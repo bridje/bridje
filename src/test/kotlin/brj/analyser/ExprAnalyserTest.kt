@@ -38,7 +38,7 @@ internal class ExprAnalyserTest {
 
         assertEquals(
             VarDeclExpr(foo, true, Type(FnType(listOf(IntType), StringType))),
-            analyseDecl("(:: (! (foo Int)) Str)"))
+            analyseDecl("(:: (foo Int) (! Str))"))
     }
 
     private fun analyseDef(s: String) = exprAnalyser.defAnalyser(ParserState(readForms(s)))

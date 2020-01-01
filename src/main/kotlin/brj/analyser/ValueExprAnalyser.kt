@@ -136,11 +136,11 @@ internal data class ValueExprAnalyser(val resolver: Resolver,
     private fun symAnalyser(form: SymbolForm): ValueExpr =
         (locals[form.sym]?.let { LocalVarExpr(it).withLoc(form.loc) })
             ?: resolve(form.sym)?.let { GlobalVarExpr(it, effectLocal).withLoc(form.loc) }
-            ?: TODO("sym not found: ${form.sym}")
+            ?: TODO("sym not found: ${form.sym}, ${form.loc}")
 
     private fun qsymAnalyser(form: QSymbolForm): ValueExpr =
         resolve(form.sym)?.let { GlobalVarExpr(it, effectLocal).withLoc(form.loc) }
-            ?: TODO("sym not found: ${form.sym}")
+            ?: TODO("sym not found: ${form.sym}, ${form.loc}")
 
     private fun ifAnalyser(it: ParserState): ValueExpr {
         val predExpr = this.copy(loopLocals = null).exprAnalyser(it)

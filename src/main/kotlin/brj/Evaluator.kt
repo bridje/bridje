@@ -85,7 +85,7 @@ internal class Evaluator(private val emitter: Emitter) {
                 is JavaAlias -> {
                     NSEnv(alias.ns,
                         vars = alias.decls.mapValues { (_, decl) ->
-                            val javaImport = JavaImport(QSymbol(alias.ns, decl.sym), alias.clazz, decl.sym.local, Type(decl.type))
+                            val javaImport = JavaImport(QSymbol(alias.ns, decl.sym), alias.clazz, decl.sym.baseStr, Type(decl.type))
                             JavaImportVar(javaImport, emitter.emitJavaImport(javaImport))
                         })
                 }

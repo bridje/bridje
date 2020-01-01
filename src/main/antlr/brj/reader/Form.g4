@@ -46,8 +46,8 @@ form : BOOLEAN # Boolean
      | BIG_FLOAT # BigFloat
      | FLOAT # Float
 
-     | localSym # Symbol
      | nsSym '/' localSym # QSymbol
+     | localSym # Symbol
 
      | '(' (form | discardForm)* ')' # List
      | '[' (form | discardForm)* ']' # Vector

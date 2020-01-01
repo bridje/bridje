@@ -1,23 +1,25 @@
 package brj.runtime
 
-sealed class Ident {
+import brj.emitter.BridjeObject
+
+sealed class Ident : BridjeObject {
     abstract val kind: SymKind
 }
 
 enum class SymKind(internal val prefix: String) {
     ID(""), TYPE(""), RECORD(":"), VARIANT(":");
 
-    internal fun toString(local: String) = "$prefix$local"
-    internal fun toString(ns: String, local: Symbol) = "$prefix$ns/$local"
+    internal fun toString(baseStr: String) = "$prefix$baseStr"
+    internal fun toString(ns: String, baseStr: String) = "$prefix$ns/$baseStr"
 }
 
-class Symbol private constructor(override val kind: SymKind, val local: String): Ident() {
+class Symbol private constructor(override val kind: SymKind, val baseStr: String): Ident() {
     override fun equals(other: Any?) =
-        this === other || (other is Symbol && kind == other.kind && local == other.local)
+        this === other || (other is Symbol && kind == other.kind && baseStr == other.baseStr)
 
-    override fun hashCode() = 31 * kind.hashCode() + local.hashCode()
+    override fun hashCode() = 31 * kind.hashCode() + baseStr.hashCode()
 
-    override fun toString() = kind.toString(local)
+    override fun toString() = kind.toString(baseStr)
 
     companion object {
         operator fun invoke(kind: SymKind, local: String) = Symbol(kind, local.intern())
@@ -31,7 +33,7 @@ class QSymbol internal constructor(val ns: Symbol, val local: Symbol): Ident() {
 
     override val kind = local.kind
 
-    private val str = kind.toString(ns.local, local)
+    private val str = kind.toString(ns.baseStr, local.baseStr)
 
     override fun toString() = str
 

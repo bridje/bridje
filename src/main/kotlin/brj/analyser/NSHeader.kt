@@ -63,7 +63,7 @@ internal data class NSHeader(val ns: Symbol,
                             it.expectSym(JAVA)
                             sym to JavaAlias(
                                 Symbol(ID, "$ns\$${sym}"),
-                                Class.forName(it.expectSym(ID).local).kotlin,
+                                Class.forName(it.expectSym(ID).baseStr).kotlin,
                                 it.varargs {
                                     val expr = exprAnalyser.declAnalyser(it) as VarDeclExpr
                                     expr.sym to JavaInteropDecl(expr.sym, expr.type.monoType)

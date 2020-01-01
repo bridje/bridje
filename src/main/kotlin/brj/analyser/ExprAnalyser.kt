@@ -145,7 +145,7 @@ internal data class ExprAnalyser(val resolver: Resolver,
             it.expectEnd()
 
             val type = if (preamble.paramTypes != null) FnType(preamble.paramTypes, returnType) else returnType
-            val (primaryTVs, secondaryTVs) = if (preamble.sym.local.startsWith("."))
+            val (primaryTVs, secondaryTVs) = if (preamble.sym.baseStr.startsWith("."))
                 Pair(polyTypeVars.take(1), polyTypeVars.drop(1))
             else
                 Pair(polyTypeVars, emptyList())
