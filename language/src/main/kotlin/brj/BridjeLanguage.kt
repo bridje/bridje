@@ -57,7 +57,7 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
 @TruffleLanguage.Registration(
     id = "brj",
     name = "Bridje",
-    version = "0.0.1",
+    version = "0.0.0",
     defaultMimeType = "application/brj",
     characterMimeTypes = ["application/brj"],
     contextPolicy = TruffleLanguage.ContextPolicy.SHARED)

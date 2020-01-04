@@ -7,13 +7,10 @@ plugins {
     antlr
 }
 
-repositories {
-    jcenter()
-}
-
 fun truffle(module: String) = "org.graalvm.truffle:truffle-$module:19.3.0"
 
 dependencies {
+
     antlr("org.antlr:antlr4:4.7.2")
 
     implementation(kotlin("stdlib"))
