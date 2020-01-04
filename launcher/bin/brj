@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+java -jar $(dirname $0)/../languages/brj/brj-launcher.jar

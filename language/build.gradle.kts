@@ -47,10 +47,9 @@ tasks.test {
     useJUnitPlatform()
 }
 
-task<Jar>("uberjar") {
+tasks.jar {
     group = "build"
-    archiveBaseName.set("brj-uberjar")
+    archiveBaseName.set("brj-language")
 
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
 }
-

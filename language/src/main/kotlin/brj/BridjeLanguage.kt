@@ -60,7 +60,7 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
     version = "0.0.1",
     defaultMimeType = "application/brj",
     characterMimeTypes = ["application/brj"],
-    contextPolicy = TruffleLanguage.ContextPolicy.EXCLUSIVE)
+    contextPolicy = TruffleLanguage.ContextPolicy.SHARED)
 @Suppress("unused")
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 

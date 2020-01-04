@@ -2,7 +2,7 @@ plugins {
     base
 }
 
-tasks.register("component", type = Jar::class) {
+tasks.register<Jar>("component") {
     group = "build"
     description = "Build component JAR suitable for adding into GraalVM"
     archiveBaseName.set("${rootProject.name}-component")
@@ -12,11 +12,20 @@ tasks.register("component", type = Jar::class) {
             "Bundle-Symbolic-Name" to "brj",
             "Bundle-RequireCapability" to """org.graalvm; filter:="(&(graalvm_version=19.3.0)(os_arch=amd64))"""",
             "Bundle-Name" to "Bridje",
-            "Bundle-Version" to "0.0.1",
+            "Bundle-Version" to project.version,
             "x-GraalVM-Polyglot-Part" to "True")
     }
 
+    into("META-INF") {
+        from("META-INF")
+    }
+
     into("languages/brj") {
-        from(project(":language").tasks["uberjar"].outputs)
+        from(project(":language").tasks["jar"].outputs).rename("-${project.version}", "")
+        from(project(":launcher").tasks["jar"].outputs).rename("-${project.version}", "")
+
+        into ("bin") {
+            from(project(":launcher").file("bin"))
+        }
     }
 }
