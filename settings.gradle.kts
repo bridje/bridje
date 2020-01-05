@@ -1,2 +1,2 @@
 rootProject.name = "bridje"
-include("language", "launcher", "component")
+include("language", "launcher", "component", "docker")
