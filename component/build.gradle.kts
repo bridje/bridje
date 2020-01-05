@@ -2,6 +2,9 @@ plugins {
     base
 }
 
+evaluationDependsOn(":language")
+evaluationDependsOn(":launcher")
+
 tasks.register<Jar>("component") {
     group = "build"
     description = "Build component JAR suitable for adding into GraalVM"
@@ -21,8 +24,8 @@ tasks.register<Jar>("component") {
     }
 
     into("languages/brj") {
-        from(project(":language").tasks["jar"].outputs).rename("-${project.version}", "")
-        from(project(":launcher").tasks["jar"].outputs).rename("-${project.version}", "")
+        from(project(":launcher").tasks["jar"].outputs, project(":language").tasks["jar"].outputs)
+            .rename("-${project.version}", "")
 
         into ("bin") {
             from(project(":launcher").file("bin"))
