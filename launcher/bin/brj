@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
+SCRIPT_HOME="$(cd "$(dirname "$0")" && pwd -P)"
 
-java -jar $(dirname $0)/../languages/brj/brj-launcher.jar
+java -jar $SCRIPT_HOME/../languages/brj/brj-launcher.jar
