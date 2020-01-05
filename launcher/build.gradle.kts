@@ -6,11 +6,11 @@ repositories {
     jcenter()
 }
 
-fun truffle(module: String) = "org.graalvm.truffle:truffle-$module:19.3.0"
-
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation(project(":language"))
+    compileOnly(project(":language"))
+    compileOnly("org.graalvm.sdk:graal-sdk:19.3.0")
+    implementation("com.github.ajalt:clikt:2.3.0")
 
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.5.2")
@@ -20,6 +20,10 @@ tasks.compileKotlin {
     java {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
     }
 }
 
