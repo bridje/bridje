@@ -43,7 +43,9 @@ class LauncherArgs : CliktCommand(name = "brj") {
                 is EvalFile -> ctx.eval(Source.newBuilder("brj", opts.file).build())
                 is EvalString -> ctx.eval(Source.newBuilder("brj", opts.str, "").build())
                 is EvalMain -> {
-                    TODO()
+                    val main = ctx.eval("brj", "(require! ${opts.ns}) ${opts.ns}/-main")
+                    assert(main.canExecute())
+                    main.execute(args)
                 }
             }.also { println(it) }
         } finally {

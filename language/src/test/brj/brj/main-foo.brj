@@ -1,12 +1,12 @@
-(ns foo
-  {:aliases {b bar
+(ns main-foo
+  {:aliases {b main-bar
              Foo (java brj.FooKt
                        (:: (isZero Int) Bool)
                        (:: (dec Int) Int)
                        (:: (conj #{a} a) #{a})
                        (:: (plus Int Int) Int)
                        (:: (str Str Str) Str))}
-   :refers {bar #{baz}}})
+   :refers {main-bar #{baz}}})
 
 (:: :Void)
 (:: Void (+ :Void))

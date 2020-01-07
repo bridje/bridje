@@ -1,0 +1,5 @@
+package brj
+
+fun foo() {
+
+}

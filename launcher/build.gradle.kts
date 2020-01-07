@@ -8,7 +8,6 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib"))
-    compileOnly(project(":language"))
     compileOnly("org.graalvm.sdk:graal-sdk:19.3.0")
     implementation("com.github.ajalt:clikt:2.3.0")
 

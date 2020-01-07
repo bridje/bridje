@@ -1,7 +1,7 @@
 package brj
 
-import brj.runtime.SymKind
-import brj.runtime.SymKind.*
+import brj.BridjeLanguage.Companion.currentBridjeContext
+import brj.runtime.SymKind.ID
 import brj.runtime.Symbol
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -13,7 +13,7 @@ class InteropTest {
     @Test
     fun `e2e interop test`() {
         withCtx { ctx ->
-            BridjeLanguage.require(setOf(Symbol(ID, "brj.interop-test")))
+            currentBridjeContext().require(Symbol(ID, "brj.interop-test"))
             assertEquals("hello world", ctx.eval("brj", """(brj.interop-test/str-reverse "dlrow olleh")""").asString())
         }
     }

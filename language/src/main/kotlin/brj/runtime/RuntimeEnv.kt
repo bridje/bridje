@@ -3,7 +3,8 @@
 package brj.runtime
 
 import brj.emitter.BridjeFunction
-import brj.reader.*
+import brj.emitter.BridjeObject
+import brj.reader.Form
 import brj.types.*
 import com.oracle.truffle.api.TruffleLanguage
 import kotlin.reflect.KClass
@@ -81,7 +82,7 @@ internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List
 internal data class NSEnv(val ns: Symbol,
                           val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                           val vars: Map<Symbol, GlobalVar> = emptyMap(),
-                          val polyVarImpls: Map<QSymbol, List<PolyVarImpl>> = emptyMap()) {
+                          val polyVarImpls: Map<QSymbol, List<PolyVarImpl>> = emptyMap()) : BridjeObject {
 
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.local to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.local to alias))

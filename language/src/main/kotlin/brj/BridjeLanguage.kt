@@ -3,12 +3,9 @@ package brj
 import brj.analyser.*
 import brj.analyser.NSHeader.Companion.nsHeaderParser
 import brj.emitter.*
-import brj.reader.Form
+import brj.reader.*
 import brj.reader.FormReader.Companion.readSourceForms
-import brj.reader.ListForm
-import brj.reader.NSForms
-import brj.reader.NSForms.Loader.Companion.ClasspathLoader
-import brj.reader.RecordForm
+import brj.runtime.NSEnv
 import brj.runtime.RuntimeEnv
 import brj.runtime.SymKind.ID
 import brj.runtime.Symbol
@@ -21,7 +18,6 @@ import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.SourceSection
-import org.graalvm.polyglot.Context
 import java.math.BigDecimal
 import java.math.BigInteger
 
@@ -30,6 +26,8 @@ typealias Loc = SourceSection
 class BridjeContext internal constructor(internal val language: BridjeLanguage,
                                          internal val truffleEnv: TruffleLanguage.Env,
                                          internal var env: RuntimeEnv = RuntimeEnv()) {
+
+    private val formLoader = ClasspathLoader(truffleEnv)
 
     internal fun makeRootNode(node: ValueNode, frameDescriptor: FrameDescriptor = FrameDescriptor()) =
         object : RootNode(language, frameDescriptor) {
@@ -40,13 +38,13 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
         }
 
     @TruffleBoundary
-    internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
-        Context.getCurrent().initialize("brj")
+    internal fun require(ns: Symbol): RuntimeEnv {
+        val evaluator = Evaluator(TruffleEmitter(this))
 
         synchronized(this) {
-            env = NSForms.loadNSes(rootNses, nsFormLoader ?: ClasspathLoader())
+            env = nsForms(ns, formLoader)
                 .fold(env) { env, forms ->
-                    Evaluator(TruffleEmitter(this)).evalNS(env, forms)
+                    evaluator.evalNS(env, forms)
                 }
         }
 
@@ -69,22 +67,22 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun initializeContext(ctx: BridjeContext) {
         ctx.env += formsNSEnv(ctx)
-        ctx.require(setOf(Symbol(ID, "brj.core")))
+        ctx.require(Symbol(ID, "brj.core"))
     }
 
     override fun isObjectOfLanguage(obj: Any) = obj is BridjeObject
 
     internal sealed class ParseRequest {
-        data class RequireRequest(val nses: Set<Symbol>) : ParseRequest()
+        data class RequireRequest(val ns: Symbol) : ParseRequest()
         data class AliasRequest(val aliases: Map<Symbol, Symbol>) : ParseRequest()
         data class ValueRequest(val form: Form) : ParseRequest()
         data class NSRequest(val nsHeader: NSHeader, val forms: List<Form>) : ParseRequest()
     }
 
-    private val requireParser: FormsParser<Set<Symbol>?> = {
+    private val requireParser: FormsParser<Symbol?> = {
         it.maybe {
             it.nested(ListForm::forms) { it.expectSym(Symbol(ID, "require!")); it }
-        }?.let { it.varargs { it.expectSym(ID) }.toSet() }
+        }?.expectSym(ID)
     }
 
     private val aliasParser: FormsParser<Map<Symbol, Symbol>?> = {
@@ -126,11 +124,17 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             return fn.execute(emptyArray<Any>())
         }
 
-        override fun execute(frame: VirtualFrame): Any? =
+        @TruffleBoundary
+        private fun evalRequireRequest(req: ParseRequest.RequireRequest): NSEnv {
+            val ctx = ctxRef.get()
+            return ctx.require(req.ns).nses.getValue(req.ns)
+        }
+
+        override fun execute(frame: VirtualFrame) =
             reqs.fold(null as Any?) { _, req ->
                 when (req) {
                     is ParseRequest.ValueRequest -> evalValueRequest(req)
-                    is ParseRequest.RequireRequest -> TODO()
+                    is ParseRequest.RequireRequest -> evalRequireRequest(req)
                     is ParseRequest.AliasRequest -> TODO()
                     is ParseRequest.NSRequest -> TODO()
                 }
@@ -146,11 +150,6 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     companion object {
         internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)
-
-        internal fun require(rootNses: Set<Symbol>, nsFormLoader: NSForms.Loader? = null): RuntimeEnv {
-            Context.getCurrent().initialize("brj")
-            return currentBridjeContext().require(rootNses, nsFormLoader)
-        }
 
         internal fun toString(value: Any) = when (value) {
             is BigInteger -> "${value}N"
