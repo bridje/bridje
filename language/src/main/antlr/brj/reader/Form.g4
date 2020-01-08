@@ -31,13 +31,19 @@ LINE_COMMENT: ';' (.*?) ([\n\r]+ | EOF) -> skip;
 
 discardForm : '(#_' (form | discardForm)* ')';
 
+sym : (LOWER_SYM | '/' | '::' ) # IdSym
+    | UPPER_SYM # TypeSym
+    | ':' LOWER_SYM # RecordSym
+    | ':' UPPER_SYM # VariantSym;
+
 nsSym : LOWER_SYM # NsIdSym
       | UPPER_SYM # NsTypeSym;
 
-localSym : (LOWER_SYM | '/' | '::' ) # IdSym
-         | UPPER_SYM # TypeSym
-         | ':' LOWER_SYM # RecordSym
-         | ':' UPPER_SYM # VariantSym;
+qsym : nsSym '/' (LOWER_SYM | '/' | '::' ) # QIdSym
+     | nsSym '/' UPPER_SYM # QTypeSym
+     | ':' nsSym '/' LOWER_SYM # QRecordSym
+     | ':' nsSym '/' UPPER_SYM # QVariantSym;
+
 
 form : BOOLEAN # Boolean
      | STRING # String
@@ -46,8 +52,8 @@ form : BOOLEAN # Boolean
      | BIG_FLOAT # BigFloat
      | FLOAT # Float
 
-     | nsSym '/' localSym # QSymbol
-     | localSym # Symbol
+     | qsym # QSymbol
+     | sym # Symbol
 
      | '(' (form | discardForm)* ')' # List
      | '[' (form | discardForm)* ']' # Vector

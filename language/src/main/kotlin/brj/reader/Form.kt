@@ -13,8 +13,8 @@ import kotlin.reflect.KClass
 
 internal val FORM_NS = Symbol(ID, "brj.forms")
 
-internal val UNQUOTE = QSymbol(FORM_NS, ID, "unquote")
-internal val UNQUOTE_SPLICING = QSymbol(FORM_NS, ID, "unquote-splicing")
+internal val UNQUOTE = QSymbol(FORM_NS, "unquote")
+internal val UNQUOTE_SPLICING = QSymbol(FORM_NS, "unquote-splicing")
 
 internal sealed class Form(variantKey: VariantKey, arg: Any) : VariantObject(variantKey, arrayOf(arg)) {
     var loc: Loc? = null
@@ -27,7 +27,7 @@ internal sealed class Form(variantKey: VariantKey, arg: Any) : VariantObject(var
 
 private fun formVariantKey(clazz: KClass<*>, paramType: MonoType) = VariantKey(QSymbol(FORM_NS, Symbol(VARIANT, clazz.simpleName!!)), emptyList(), listOf(paramType))
 
-internal val FORM = QSymbol(FORM_NS, TYPE, "Form")
+internal val FORM = QSymbol(FORM_NS, "Form")
 
 internal val FORM_TYPE_ALIAS = TypeAlias_(FORM, type = null)
 private val LIST_OF_FORMS = VectorType(TypeAliasType(FORM_TYPE_ALIAS, emptyList()))
