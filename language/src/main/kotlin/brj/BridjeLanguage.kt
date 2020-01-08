@@ -6,22 +6,51 @@ import brj.emitter.*
 import brj.reader.*
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.runtime.NSEnv
+import brj.runtime.QSymbol
 import brj.runtime.RuntimeEnv
 import brj.runtime.SymKind.ID
 import brj.runtime.Symbol
 import brj.types.valueExprType
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.RootCallTarget
+import com.oracle.truffle.api.Scope
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.SourceSection
 import java.math.BigDecimal
 import java.math.BigInteger
 
 typealias Loc = SourceSection
+
+@ExportLibrary(InteropLibrary::class)
+private class GlobalScope(val ctx: BridjeContext): BridjeObject {
+    @ExportMessage
+    fun hasMembers() = true
+
+    @ExportMessage
+    @TruffleBoundary
+    fun getMembers(includeInternal: Boolean) = ctx.truffleEnv.asGuestValue(ctx.env.nses.values.flatMap { it.vars.values }.associateBy { it.sym.toString() })
+
+    @ExportMessage
+    @TruffleBoundary
+    fun isMemberReadable(k: String): Boolean {
+        val qsym = QSymbol(k)
+        return ctx.env.nses[qsym.ns]?.vars?.containsKey(qsym.local) ?: false
+    }
+
+    @ExportMessage
+    @TruffleBoundary
+    fun readMember(k: String) : Any? {
+        val qsym = QSymbol(k)
+        return ctx.env.nses[qsym.ns]?.vars?.get(qsym.local)?.value
+    }
+}
 
 class BridjeContext internal constructor(internal val language: BridjeLanguage,
                                          internal val truffleEnv: TruffleLanguage.Env,
@@ -143,6 +172,10 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun parse(request: ParsingRequest): RootCallTarget =
         Truffle.getRuntime().createCallTarget(EvalRootNode(this, formsParser(ParserState(readSourceForms(request.source)))))
+
+    override fun findTopScopes(ctx: BridjeContext): Iterable<Scope> {
+        return listOf(Scope.newBuilder("global", GlobalScope(ctx)).build())
+    }
 
     override fun toString(context: BridjeContext, value: Any): String {
         return toString(value)
