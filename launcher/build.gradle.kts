@@ -32,7 +32,7 @@ tasks.test {
 
 tasks.jar {
     group = "build"
-    archiveBaseName.set("brj-launcher")
+    archiveFileName.set("brj-launcher.jar")
 
     manifest {
         attributes("Main-Class" to "brj.MainKt")

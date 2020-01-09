@@ -63,7 +63,7 @@ tasks.test {
 
 tasks.jar {
     group = "build"
-    archiveBaseName.set("brj-language")
+    archiveFileName.set("brj-language.jar")
 
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
 }

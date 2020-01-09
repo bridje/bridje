@@ -8,7 +8,7 @@ evaluationDependsOn(":launcher")
 tasks.register<Jar>("component") {
     group = "build"
     description = "Build component JAR suitable for adding into GraalVM"
-    archiveBaseName.set("${rootProject.name}-component")
+    archiveFileName.set("brj-component.jar")
 
     manifest {
         attributes(
@@ -25,7 +25,6 @@ tasks.register<Jar>("component") {
 
     into("languages/brj") {
         from(project(":launcher").tasks["jar"].outputs, project(":language").tasks["jar"].outputs)
-            .rename("-${project.version}", "")
 
         into ("bin") {
             from(project(":launcher").file("bin"))
