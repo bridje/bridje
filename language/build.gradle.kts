@@ -15,10 +15,11 @@ dependencies {
 
     implementation(kotlin("stdlib"))
     implementation(kotlin("reflect")) // Only for the instantiate hack
-    implementation(truffle("api"))
+    compileOnly(truffle("api"))
 
     kapt(truffle("dsl-processor"))
 
+    testImplementation(truffle("api"))
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.5.2")
 }
@@ -44,8 +45,20 @@ tasks.compileKotlin {
     }
 }
 
+tasks.compileTestKotlin {
+    java {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
+    }
+}
+
 tasks.test {
     useJUnitPlatform()
+    jvmArgs("-Dtruffle.class.path.append=${sourceSets.main.get().runtimeClasspath.asPath}")
 }
 
 tasks.jar {
