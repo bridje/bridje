@@ -4,7 +4,7 @@ import brj.analyser.*
 import brj.analyser.NSHeader.Companion.nsHeaderParser
 import brj.emitter.*
 import brj.reader.*
-import brj.reader.FormReader.Companion.readSourceForms
+import brj.reader.FormReader.SourceFormReader.readSourceForms
 import brj.runtime.BridjeFunction
 import brj.runtime.QSymbol
 import brj.runtime.RuntimeEnv
@@ -23,11 +23,6 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.Source
-import com.oracle.truffle.api.source.SourceSection
-import java.math.BigDecimal
-import java.math.BigInteger
-
-typealias Loc = SourceSection
 
 @ExportLibrary(InteropLibrary::class)
 private class GlobalScope(val ctx: BridjeContext) : BridjeObject {

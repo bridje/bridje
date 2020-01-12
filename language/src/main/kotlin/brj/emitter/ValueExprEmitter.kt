@@ -1,9 +1,9 @@
 package brj.emitter
 
 import brj.BridjeContext
-import brj.Loc
 import brj.analyser.*
 import brj.emitter.BridjeTypesGen.*
+import brj.reader.Loc
 import brj.runtime.BridjeFunction
 import brj.runtime.GlobalVar
 import brj.runtime.QSymbol

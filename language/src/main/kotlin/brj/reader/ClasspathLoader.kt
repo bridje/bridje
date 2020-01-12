@@ -2,6 +2,7 @@ package brj.reader
 
 import brj.reader.ClasspathLoader.SourceRoot.FileSourceRoot
 import brj.reader.ClasspathLoader.SourceRoot.JarSourceRoot
+import brj.reader.FormReader.SourceFormReader.readSourceForms
 import brj.runtime.SymKind
 import brj.runtime.Symbol
 import com.oracle.truffle.api.TruffleFile
@@ -81,5 +82,5 @@ internal class ClasspathLoader(private val truffleEnv: TruffleLanguage.Env,
             ?: classpathUris.asSequence().mapNotNull { it.source(ns) }.firstOrNull()
 
     override fun loadForms(ns: Symbol): List<Form> =
-        forms[ns] ?: FormReader.readSourceForms(sources[ns] ?: nsSource(ns) ?: TODO("ns not found: '$ns'"))
+        forms[ns] ?: readSourceForms(sources[ns] ?: nsSource(ns) ?: TODO("ns not found: '$ns'"))
 }

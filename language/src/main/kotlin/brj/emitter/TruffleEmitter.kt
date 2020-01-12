@@ -2,11 +2,11 @@ package brj.emitter
 
 import brj.BridjeContext
 import brj.Emitter
-import brj.Loc
 import brj.analyser.DefMacroExpr
 import brj.analyser.ValueExpr
 import brj.emitter.JavaImportEmitterFactory.JavaExecuteNodeGen
 import brj.emitter.JavaImportEmitterFactory.JavaInstantiateNodeGen
+import brj.reader.Loc
 import brj.runtime.*
 import brj.types.FnType
 import com.oracle.truffle.api.Truffle
@@ -156,7 +156,7 @@ internal interface BridjeObject : TruffleObject
 internal abstract class ValueNode : Node() {
     open val loc: Loc? = null
 
-    override fun getSourceSection() = loc
+    override fun getSourceSection() = (loc as Loc.SourceSectionLoc).sourceSection
 
     abstract fun execute(frame: VirtualFrame): Any?
 }

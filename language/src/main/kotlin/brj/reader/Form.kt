@@ -1,6 +1,5 @@
 package brj.reader
 
-import brj.Loc
 import brj.runtime.*
 import brj.runtime.SymKind.ID
 import brj.runtime.SymKind.VARIANT
