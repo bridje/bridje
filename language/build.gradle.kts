@@ -14,7 +14,6 @@ dependencies {
     antlr("org.antlr:antlr4:4.7.2")
 
     implementation(kotlin("stdlib"))
-    implementation(kotlin("reflect")) // Only for the instantiate hack
     compileOnly(truffle("api"))
 
     kapt(truffle("dsl-processor"))
@@ -22,6 +21,7 @@ dependencies {
     testImplementation(truffle("api"))
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.5.2")
+    implementation(kotlin("reflect"))
 }
 
 sourceSets {

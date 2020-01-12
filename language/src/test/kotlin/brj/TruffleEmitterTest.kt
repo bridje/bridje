@@ -79,7 +79,7 @@ internal class TruffleEmitterTest {
 
     @Test
     internal fun `java interop`() {
-        val javaImport = JavaImport(QSymbol(Symbol(TYPE, "Foo"), Symbol(ID, "plus")), Class.forName("brj.FooKt").kotlin, "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
+        val javaImport = JavaImport(QSymbol(Symbol(TYPE, "Foo"), Symbol(ID, "plus")), Symbol("brj.FooKt"), "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
 
         val fn = Value.asValue(TruffleEmitter(currentBridjeContext()).emitJavaImport(javaImport))
 

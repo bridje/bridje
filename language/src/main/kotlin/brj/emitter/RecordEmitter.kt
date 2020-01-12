@@ -2,6 +2,7 @@ package brj.emitter
 
 import brj.BridjeContext
 import brj.Loc
+import brj.runtime.BridjeFunction
 import brj.runtime.RecordKey
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage

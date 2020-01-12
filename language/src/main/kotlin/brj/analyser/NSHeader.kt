@@ -7,10 +7,9 @@ import brj.reader.RecordForm
 import brj.reader.SetForm
 import brj.reader.SymbolForm
 import brj.runtime.QSymbol
-import brj.runtime.Symbol
 import brj.runtime.SymKind.*
+import brj.runtime.Symbol
 import brj.types.MonoType
-import kotlin.reflect.KClass
 
 private val NS = Symbol(ID, "ns")
 private val REFERS = Symbol(RECORD, "refers")
@@ -23,7 +22,7 @@ internal sealed class Alias {
 
 internal data class BridjeAlias(override val ns: Symbol) : Alias()
 internal data class JavaInteropDecl(val sym: Symbol, val type: MonoType)
-internal data class JavaAlias(override val ns: Symbol, val clazz: KClass<*>, val decls: Map<Symbol, JavaInteropDecl>) : Alias()
+internal data class JavaAlias(override val ns: Symbol, val clazz: Symbol, val decls: Map<Symbol, JavaInteropDecl>) : Alias()
 
 internal data class NSHeader(val ns: Symbol,
                              val refers: Map<Symbol, QSymbol> = emptyMap(),
@@ -63,7 +62,7 @@ internal data class NSHeader(val ns: Symbol,
                             it.expectSym(JAVA)
                             sym to JavaAlias(
                                 Symbol(ID, "$ns\$${sym}"),
-                                Class.forName(it.expectSym(ID).baseStr).kotlin,
+                                Symbol(ID, it.expectSym(ID).baseStr),
                                 it.varargs {
                                     val expr = exprAnalyser.declAnalyser(it) as VarDeclExpr
                                     expr.sym to JavaInteropDecl(expr.sym, expr.type.monoType)

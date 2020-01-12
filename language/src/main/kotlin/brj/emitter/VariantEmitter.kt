@@ -2,6 +2,7 @@ package brj.emitter
 
 import brj.BridjeLanguage.Companion.currentBridjeContext
 import brj.Loc
+import brj.runtime.BridjeFunction
 import brj.runtime.VariantKey
 import brj.runtime.VariantObject
 import brj.types.MonoType

@@ -6,6 +6,7 @@ import brj.runtime.QSymbol
 import brj.runtime.SymKind.*
 import brj.runtime.Symbol
 import com.oracle.truffle.api.source.Source
+import org.antlr.v4.runtime.CharStream
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.io.Reader
@@ -136,8 +137,8 @@ internal class FormReader(private val source: Source) {
         override fun visitUnquoteSplicing(ctx: UnquoteSplicingContext) = ListForm(listOf(unquoteSplicingForm, transformForm(ctx.form())))
     }).withLoc(makeLoc(formContext))
 
-    fun readForms(reader: Reader) =
-        FormParser(CommonTokenStream(FormLexer(CharStreams.fromReader(reader))))
+    fun readForms(charStream: CharStream) =
+        FormParser(CommonTokenStream(FormLexer(charStream)))
             .file().form()
             .toList()
             .map(::transformForm)
@@ -150,6 +151,6 @@ internal class FormReader(private val source: Source) {
             FormParser(CommonTokenStream(FormLexer(CharStreams.fromString(s)))).qsym().accept(QSymVisitor)
 
         internal fun readSourceForms(source: Source) =
-            FormReader(source).readForms(source.reader)
+            FormReader(source).readForms(CharStreams.fromReader(source.reader))
     }
 }

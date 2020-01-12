@@ -4,6 +4,7 @@ import brj.BridjeContext
 import brj.Loc
 import brj.analyser.*
 import brj.emitter.BridjeTypesGen.*
+import brj.runtime.BridjeFunction
 import brj.runtime.GlobalVar
 import brj.runtime.QSymbol
 import com.oracle.truffle.api.CompilerAsserts

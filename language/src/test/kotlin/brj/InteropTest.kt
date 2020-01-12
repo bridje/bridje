@@ -13,8 +13,7 @@ class InteropTest {
     @Test
     fun `e2e interop test`() {
         withCtx { ctx ->
-            currentBridjeContext().require(Symbol(ID, "brj.interop-test"))
-            assertEquals("hello world", ctx.eval("brj", """(brj.interop-test/str-reverse "dlrow olleh")""").asString())
+            assertEquals("hello world", ctx.eval("brj", """(require! brj.interop-test) (brj.interop-test/str-reverse "dlrow olleh")""").asString())
         }
     }
 }

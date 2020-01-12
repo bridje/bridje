@@ -2,12 +2,10 @@
 
 package brj.runtime
 
-import brj.emitter.BridjeFunction
 import brj.emitter.BridjeObject
 import brj.reader.Form
 import brj.types.*
 import com.oracle.truffle.api.TruffleLanguage
-import kotlin.reflect.KClass
 
 internal abstract class GlobalVar {
     abstract val sym: QSymbol
@@ -49,7 +47,7 @@ internal data class VariantKeyVar(val variantKey: VariantKey, override val value
     override val type: Type = VariantType.constructorType(variantKey)
 }
 
-internal data class JavaImport(val qsym: QSymbol, val clazz: KClass<*>, val name: String, val type: Type)
+internal data class JavaImport(val qsym: QSymbol, val clazz: Symbol, val name: String, val type: Type)
 
 internal class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar() {
     override val sym = javaImport.qsym

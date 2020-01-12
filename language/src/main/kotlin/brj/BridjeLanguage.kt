@@ -5,7 +5,7 @@ import brj.analyser.NSHeader.Companion.nsHeaderParser
 import brj.emitter.*
 import brj.reader.*
 import brj.reader.FormReader.Companion.readSourceForms
-import brj.runtime.NSEnv
+import brj.runtime.BridjeFunction
 import brj.runtime.QSymbol
 import brj.runtime.RuntimeEnv
 import brj.runtime.SymKind.ID
@@ -22,6 +22,7 @@ import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.RootNode
+import com.oracle.truffle.api.source.Source
 import com.oracle.truffle.api.source.SourceSection
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -29,7 +30,7 @@ import java.math.BigInteger
 typealias Loc = SourceSection
 
 @ExportLibrary(InteropLibrary::class)
-private class GlobalScope(val ctx: BridjeContext): BridjeObject {
+private class GlobalScope(val ctx: BridjeContext) : BridjeObject {
     @ExportMessage
     fun hasMembers() = true
 
@@ -46,7 +47,7 @@ private class GlobalScope(val ctx: BridjeContext): BridjeObject {
 
     @ExportMessage
     @TruffleBoundary
-    fun readMember(k: String) : Any? {
+    fun readMember(k: String): Any? {
         val qsym = QSymbol(k)
         return ctx.env.nses[qsym.ns]?.vars?.get(qsym.local)?.value
     }
@@ -130,11 +131,11 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                 { it.maybe(::nsHeaderParser)?.let { header -> ParseRequest.NSRequest(header, it.consume()) } },
                 { it.maybe(requireParser)?.let { nses -> ParseRequest.RequireRequest(nses) } },
                 { it.maybe(aliasParser)?.let { aliases -> ParseRequest.AliasRequest(aliases) } }
-            ) ?: ParseRequest.ValueRequest(it.expectForm())
+                ) ?: ParseRequest.ValueRequest(it.expectForm())
         }
     }
 
-    internal class EvalRootNode(lang: BridjeLanguage, val reqs: List<ParseRequest>) : RootNode(lang) {
+    internal class EvalRootNode(val lang: BridjeLanguage, val reqs: List<ParseRequest>) : RootNode(lang) {
         private val ctxRef = lookupContextReference(BridjeLanguage::class.java)
 
         @TruffleBoundary
@@ -154,9 +155,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         }
 
         @TruffleBoundary
-        private fun evalRequireRequest(req: ParseRequest.RequireRequest): NSEnv {
-            val ctx = ctxRef.get()
-            return ctx.require(req.ns).nses.getValue(req.ns)
+        private fun evalRequireRequest(req: ParseRequest.RequireRequest): Any {
+            ctxRef.get().require(req.ns)
+            return lang.findTopScopes(ctxRef.get())
         }
 
         override fun execute(frame: VirtualFrame) =
@@ -170,26 +171,29 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             }
     }
 
+    private val readFormsNode = object : RootNode(null) {
+        @TruffleBoundary
+        override fun execute(frame: VirtualFrame) =
+            TruffleLanguage.getCurrentContext(BridjeLanguage::class.java).truffleEnv.asGuestValue(
+                readSourceForms(Source.newBuilder("brj", frame.arguments[1] as String, "<read-forms>").build()))
+    }
+
     override fun parse(request: ParsingRequest): RootCallTarget =
-        Truffle.getRuntime().createCallTarget(EvalRootNode(this, formsParser(ParserState(readSourceForms(request.source)))))
+        Truffle.getRuntime().createCallTarget(
+            if (request.source.isInternal) {
+                when(request.source.characters) {
+                    "read-forms" -> RootNode.createConstantNode(BridjeFunction(readFormsNode))
+                    else -> TODO()
+                }
+            } else {
+                EvalRootNode(this, formsParser(ParserState(readSourceForms(request.source))))
+            })
 
     override fun findTopScopes(ctx: BridjeContext): Iterable<Scope> {
         return listOf(Scope.newBuilder("global", GlobalScope(ctx)).build())
     }
 
-    override fun toString(context: BridjeContext, value: Any): String {
-        return toString(value)
-    }
-
     companion object {
         internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)
-
-        internal fun toString(value: Any) = when (value) {
-            is BigInteger -> "${value}N"
-            is BigDecimal -> "${value}M"
-            is List<*> -> value.joinToString(prefix = "[", separator = ", ", postfix = "]")
-            is Set<*> -> value.joinToString(prefix = "#{", separator = ", ", postfix = "}")
-            else -> value.toString()
-        }
     }
 }

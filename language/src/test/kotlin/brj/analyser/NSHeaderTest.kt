@@ -29,7 +29,7 @@ class NSHeaderTest {
         assertEquals(mapOf(
             Symbol(ID, "bar") to BridjeAlias(Symbol(ID, "foo.bar")),
             Symbol(TYPE, "Str") to
-                JavaAlias(Symbol(ID, "foo\$Str"), String::class, mapOf(
+                JavaAlias(Symbol(ID, "foo\$Str"), Symbol(ID, String::class.qualifiedName!!), mapOf(
                     Symbol(ID, "bar") to
                         JavaInteropDecl(
                             Symbol(ID, "bar"),

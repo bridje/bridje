@@ -1,21 +1,21 @@
 package brj.reader
 
-import brj.reader.ReaderTest.FormType.BOOLEAN
-import brj.reader.ReaderTest.FormType.VECTOR
+import brj.reader.ReaderTest.FormType.*
 import brj.runtime.QSymbol
 import brj.runtime.SymKind.ID
 import brj.runtime.SymKind.VARIANT
 import brj.runtime.Symbol
-import com.oracle.truffle.api.source.Source
+import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.Source
+import org.graalvm.polyglot.TypeLiteral
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
-internal fun readForms(s: String): List<Form> = Source.newBuilder("bridje", s, "testSource").build().let { source ->
-    FormReader(source).readForms(source.reader)
-}
+private val readFormsSource = Source.newBuilder("brj", "read-forms", "<read-forms>").internal(true).build()
+
+internal fun readForms(s: String, ctx: Context = Context.getCurrent()): List<Form> = ctx.eval(readFormsSource).execute(s).`as`(object: TypeLiteral<List<Form>>() {})
 
 internal class ReaderTest {
-
     private enum class FormType {
         BOOLEAN,
         SYMBOL,
@@ -37,7 +37,7 @@ internal class ReaderTest {
         assertEquals(
             listOf(collForm(VECTOR,
                 quotedForm(BOOLEAN, BooleanForm(true)),
-                quotedForm(FormType.SYMBOL, QuotedSymbolForm(Symbol(ID, "foo"))))),
+                quotedForm(SYMBOL, QuotedSymbolForm(Symbol(ID, "foo"))))),
 
             readForms("'[true foo]"))
     }

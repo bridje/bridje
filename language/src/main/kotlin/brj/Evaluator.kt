@@ -1,7 +1,7 @@
 package brj
 
 import brj.analyser.*
-import brj.emitter.BridjeFunction
+import brj.runtime.BridjeFunction
 import brj.reader.Form
 import brj.reader.NSForms
 import brj.runtime.*
