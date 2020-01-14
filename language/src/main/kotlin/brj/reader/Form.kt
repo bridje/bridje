@@ -27,22 +27,81 @@ internal val FORM = QSymbol(FORM_NS, "Form")
 internal val FORM_TYPE_ALIAS = TypeAlias_(FORM, type = null)
 private val LIST_OF_FORMS = VectorType(TypeAliasType(FORM_TYPE_ALIAS, emptyList()))
 
-internal class BooleanForm(val bool: Boolean) : Form(BooleanForm::class, bool)
-internal class StringForm(val string: String) : Form(StringForm::class, string)
-internal class IntForm(val int: Long) : Form(IntForm::class, int)
-internal class BigIntForm(val bigInt: BigInteger) : Form(BigIntForm::class, bigInt)
-internal class FloatForm(val float: Double) : Form(FloatForm::class, float)
-internal class BigFloatForm(val bigFloat: BigDecimal) : Form(BigFloatForm::class, bigFloat)
-internal class SymbolForm(val sym: Symbol) : Form(SymbolForm::class, sym)
-internal class QSymbolForm(val sym: QSymbol) : Form(QSymbolForm::class, sym)
-internal class ListForm(val forms: List<Form>) : Form(ListForm::class, forms)
-internal class VectorForm(val forms: List<Form>) : Form(VectorForm::class, forms)
-internal class SetForm(val forms: List<Form>) : Form(SetForm::class, forms)
-internal class RecordForm(val forms: List<Form>) : Form(RecordForm::class, forms)
-internal class QuotedSymbolForm(val sym: Symbol) : Form(QuotedSymbolForm::class, sym)
-internal class QuotedQSymbolForm(val sym: QSymbol) : Form(QuotedQSymbolForm::class, sym)
-internal class SyntaxQuotedSymbolForm(val sym: Symbol) : Form(SyntaxQuotedSymbolForm::class, sym)
-internal class SyntaxQuotedQSymbolForm(val sym: QSymbol) : Form(SyntaxQuotedQSymbolForm::class, sym)
+internal class BooleanForm(val bool: Boolean) : Form(BooleanForm::class, bool) {
+    override fun toString() = bool.toString()
+}
+
+internal class StringForm(val string: String) : Form(StringForm::class, string) {
+    override fun toString() =
+        string.replace(Regex("""[\\"\n\t\r]""")) {
+            when (it.value.first()) {
+                '\\' -> "\\\\"
+                '\n' -> "\\\n"
+                '\t' -> "\\\t"
+                '\r' -> "\\\r"
+                '\"' -> "\\\""
+                else -> it.value
+            }
+        }
+}
+
+internal class IntForm(val int: Long) : Form(IntForm::class, int) {
+    override fun toString() = int.toString()
+}
+
+internal class BigIntForm(val bigInt: BigInteger) : Form(BigIntForm::class, bigInt) {
+    override fun toString() = "${bigInt}N"
+}
+
+internal class FloatForm(val float: Double) : Form(FloatForm::class, float) {
+    override fun toString(): String = float.toString()
+}
+
+internal class BigFloatForm(val bigFloat: BigDecimal) : Form(BigFloatForm::class, bigFloat) {
+    override fun toString(): String = "${bigFloat}M"
+}
+
+internal class SymbolForm(val sym: Symbol) : Form(SymbolForm::class, sym) {
+    override fun toString() = sym.toString()
+}
+
+internal class QSymbolForm(val sym: QSymbol) : Form(QSymbolForm::class, sym) {
+    override fun toString() = sym.toString()
+}
+
+internal class ListForm(val forms: List<Form>) : Form(ListForm::class, forms) {
+    override fun toString(): String {
+        return forms.joinToString(prefix = "(", separator = " ", postfix = ")")
+    }
+}
+
+internal class VectorForm(val forms: List<Form>) : Form(VectorForm::class, forms) {
+    override fun toString() = forms.joinToString(prefix = "[", separator = " ", postfix = "]")
+}
+
+internal class SetForm(val forms: List<Form>) : Form(SetForm::class, forms) {
+    override fun toString() = forms.joinToString(prefix = "#{", separator = " ", postfix = "}")
+}
+
+internal class RecordForm(val forms: List<Form>) : Form(RecordForm::class, forms) {
+    override fun toString() = forms.joinToString(prefix = "{", separator = " ", postfix = "}")
+}
+
+internal class QuotedSymbolForm(val sym: Symbol) : Form(QuotedSymbolForm::class, sym) {
+    override fun toString() = "'$sym"
+}
+
+internal class QuotedQSymbolForm(val sym: QSymbol) : Form(QuotedQSymbolForm::class, sym) {
+    override fun toString() = "'$sym"
+}
+
+internal class SyntaxQuotedSymbolForm(val sym: Symbol) : Form(SyntaxQuotedSymbolForm::class, sym) {
+    override fun toString() = "`$sym"
+}
+
+internal class SyntaxQuotedQSymbolForm(val sym: QSymbol) : Form(SyntaxQuotedQSymbolForm::class, sym) {
+    override fun toString() = "`$sym"
+}
 
 internal data class FormType<I>(val formClass: KClass<*>, val constructor: (I) -> Form, val paramType: MonoType) {
     val variantKey = VariantKey(QSymbol(FORM_NS, Symbol(VARIANT, formClass.simpleName!!)), emptyList(), listOf(paramType))

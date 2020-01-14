@@ -1,8 +1,8 @@
 package brj.analyser
 
-import brj.reader.readForms
 import brj.runtime.*
-import brj.runtime.SymKind.*
+import brj.runtime.SymKind.ID
+import brj.runtime.SymKind.VARIANT
 import brj.types.MonoType
 import brj.types.RowKey
 import brj.types.VariantType
@@ -21,7 +21,7 @@ internal class TypeAnalyserTest {
                 strKey.sym.local to VariantKeyVar(strKey, 52))))
 
     private fun analyseMonoType(s: String): MonoType =
-        TypeAnalyser(dummyResolver).monoTypeAnalyser(ParserState(readForms(s)))
+        TypeAnalyser(dummyResolver).monoTypeAnalyser(ParserState(TODO() /*readForms(s)*/))
 
     @Test
     internal fun `analyses variant type declaration`() {

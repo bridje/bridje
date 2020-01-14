@@ -1,7 +1,5 @@
 package brj.analyser
 
-import brj.reader.readForms
-import brj.runtime.SymKind
 import brj.runtime.SymKind.*
 import brj.runtime.Symbol
 import brj.types.*
@@ -22,7 +20,7 @@ internal class ExprAnalyserTest {
 
     private val exprAnalyser = ExprAnalyser(resolver, TypeAnalyser(resolver, tvFactory))
 
-    private fun analyseDecl(s: String) = exprAnalyser.declAnalyser(ParserState(readForms(s)))
+    private fun analyseDecl(s: String) = exprAnalyser.declAnalyser(ParserState(TODO()/*readForms(s)*/))
 
     @Test
     fun `analyses var declarations`() {
@@ -41,7 +39,7 @@ internal class ExprAnalyserTest {
             analyseDecl("(:: (foo Int) (! Str))"))
     }
 
-    private fun analyseDef(s: String) = exprAnalyser.defAnalyser(ParserState(readForms(s)))
+    private fun analyseDef(s: String) = exprAnalyser.defAnalyser(ParserState(/*readForms(s)*/ TODO()))
 
     @Test
     internal fun `analyses var definitions`() {
