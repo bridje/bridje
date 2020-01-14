@@ -1,27 +1,25 @@
-val kotlinVersion = "1.3.50"
-val graalVersion = "19.2.0"
-
 plugins {
     kotlin("jvm") version "1.3.50"
     kotlin("kapt") version "1.3.50"
     antlr
 }
 
-fun truffle(module: String) = "org.graalvm.truffle:truffle-$module:19.3.0"
-
 dependencies {
+    val graalVersion = "19.3.0"
 
     antlr("org.antlr:antlr4:4.7.2")
 
+    compileOnly("org.graalvm.sdk:graal-sdk:${graalVersion}")
+    implementation("org.graalvm.truffle:truffle-api:${graalVersion}")
     implementation(kotlin("stdlib"))
-    compileOnly(truffle("api"))
-
-    kapt(truffle("dsl-processor"))
-
-    testImplementation(truffle("api"))
-    testImplementation(kotlin("test-junit"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.5.2")
     implementation(kotlin("reflect"))
+
+    kapt("org.graalvm.truffle:truffle-dsl-processor:${graalVersion}")
+
+    testCompileOnly("org.graalvm.sdk:graal-sdk:${graalVersion}")
+    testImplementation(kotlin("test-junit"))
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
+    testRuntime("org.junit.jupiter:junit-jupiter-engine:5.5.2")
 }
 
 sourceSets {
