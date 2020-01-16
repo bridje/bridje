@@ -81,6 +81,11 @@ can we make it just an idiom? that'd make life a lot easier
 Haskell does it for pattern matching - we don't need that as such
 we need it to distinguish type-aliases (primarily) - records/variants can be done with
 
+we need users to be able to create these, relatively easily, so having multiple different constructors for them might well be a PITA
+
+modelling:
+things can be qualified - if they are, they've got an ns part (not a keyword) and a local part (possibly a keyword)
+
 #+begin_src clojure
   (:: :foo a)
   (:: (:foo a))
