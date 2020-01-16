@@ -5,18 +5,16 @@ plugins {
 }
 
 dependencies {
-    val graalVersion = "19.3.0"
+    val truffleVersion = "19.3.0"
 
     antlr("org.antlr:antlr4:4.7.2")
 
-    compileOnly("org.graalvm.sdk:graal-sdk:${graalVersion}")
-    implementation("org.graalvm.truffle:truffle-api:${graalVersion}")
+    implementation("org.graalvm.truffle:truffle-api:${truffleVersion}")
     implementation(kotlin("stdlib"))
     implementation(kotlin("reflect"))
 
-    kapt("org.graalvm.truffle:truffle-dsl-processor:${graalVersion}")
+    kapt("org.graalvm.truffle:truffle-dsl-processor:${truffleVersion}")
 
-    testCompileOnly("org.graalvm.sdk:graal-sdk:${graalVersion}")
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.5.2")
