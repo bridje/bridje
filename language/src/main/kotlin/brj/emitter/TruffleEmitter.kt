@@ -96,7 +96,7 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
             if (name == "new") JavaInstantiateNodeGen.create(argNodes, clazzObj)
             else JavaExecuteNodeGen.create(argNodes, interop.readMember(clazzObj, name))
 
-        return BridjeFunction(ctx.makeRootNode(node))
+        return BridjeFunction(ctx.language.BridjeRootNode(node))
     }
 
     fun emitJavaImport(javaImport: JavaImport) =
@@ -131,10 +131,10 @@ internal class TruffleEmitter(private val ctx: BridjeContext) : Emitter {
     override fun evalValueExpr(expr: ValueExpr) = ValueExprEmitter(ctx).evalValueExpr(expr)
     override fun emitJavaImport(javaImport: JavaImport) = JavaImportEmitter(ctx).emitJavaImport(javaImport)
     override fun emitRecordKey(recordKey: RecordKey) = RecordEmitter(ctx).emitRecordKey(recordKey)
-    override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter.emitVariantKey(variantKey)
+    override fun emitVariantKey(variantKey: VariantKey) = VariantEmitter(ctx).emitVariantKey(variantKey)
 
     override fun emitEffectFn(sym: QSymbol, defaultImpl: BridjeFunction?) =
-        BridjeFunction(ctx.makeRootNode(EffectFnBodyNode(sym, defaultImpl)))
+        BridjeFunction(ctx.language.BridjeRootNode(EffectFnBodyNode(sym, defaultImpl)))
 
     override fun emitDefMacroVar(expr: DefMacroExpr, ns: Symbol): DefMacroVar =
         DefMacroVar(ctx.truffleEnv, QSymbol(ns, expr.sym), expr.type, evalValueExpr(expr.expr) as BridjeFunction)

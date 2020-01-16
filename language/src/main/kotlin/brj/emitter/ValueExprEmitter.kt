@@ -222,7 +222,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             innerEmitter.emitValueNode(fnExpr.expr),
             fnExpr.expr.loc)
 
-        return FnNode(lexObjNode, ctx.makeRootNode(fnBodyNode, innerFrameDescriptor), fnExpr.loc)
+        return FnNode(lexObjNode, ctx.language.BridjeRootNode(fnBodyNode, innerFrameDescriptor), fnExpr.loc)
     }
 
     class GlobalVarNode(val globalVar: GlobalVar, override val loc: Loc?) : ValueNode() {
@@ -445,7 +445,7 @@ internal class ValueExprEmitter(val ctx: BridjeContext) {
             expr.loc)
     }
 
-    private fun makeRootNode(node: ValueNode): RootNode = ctx.makeRootNode(node, frameDescriptor)
+    private fun makeRootNode(node: ValueNode): RootNode = ctx.language.BridjeRootNode(node, frameDescriptor)
 
     private fun emitValueNode(expr: ValueExpr): ValueNode =
         when (expr) {

@@ -1,15 +1,14 @@
 package brj
 
-import brj.BridjeLanguage.Companion.currentBridjeContext
-import brj.runtime.SymKind.ID
-import brj.runtime.Symbol
 import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.Source
 
 fun <R> withCtx(f: (Context) -> R): R {
     val ctx = Context.newBuilder("brj").allowAllAccess(true).build()
 
     try {
         ctx.enter()
+        ctx.initialize("brj")
         return f(ctx)
     } finally {
         ctx.leave()
@@ -19,10 +18,8 @@ fun <R> withCtx(f: (Context) -> R): R {
 
 fun main() {
     withCtx { ctx ->
-        val foo = Symbol(ID, "main-foo")
-
         @Suppress("UNUSED_VARIABLE")
-        val env = currentBridjeContext().require(foo)
+        val env = ctx.eval(Source.create("brj", "(require! main-foo)"))
 
         println(ctx.eval("brj", "[1 2]"))
 

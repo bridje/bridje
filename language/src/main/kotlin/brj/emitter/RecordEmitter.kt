@@ -69,7 +69,7 @@ internal class RecordEmitter(val ctx: BridjeContext) {
         }
     }
 
-    internal fun emitRecordKey(recordKey: RecordKey) = BridjeFunction(ctx.makeRootNode(RecordKeyReadNode(recordKey)))
+    internal fun emitRecordKey(recordKey: RecordKey) = BridjeFunction(ctx.language.BridjeRootNode(RecordKeyReadNode(recordKey)))
 }
 
 
