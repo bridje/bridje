@@ -2,20 +2,22 @@ package brj.reader
 
 import brj.analyser.*
 import brj.reader.FormParser.*
-import brj.reader.FormReader.Companion.formParser
 import brj.runtime.QSymbol
 import brj.runtime.SymKind.*
 import brj.runtime.Symbol
 import com.oracle.truffle.api.source.Source
+import com.oracle.truffle.api.source.SourceSection
 import org.antlr.v4.runtime.CharStream
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import java.io.Reader
 
-internal class FormReader(private val locFactory: Loc.Factory) {
+typealias Loc = SourceSection
 
-    private fun makeLoc(ctx: FormContext) =
-        locFactory.makeLoc(ctx.start.line, ctx.start.charPositionInLine + 1, ctx.text.length)
+internal class FormReader(private val source: Source) {
+
+    private fun makeLoc(ctx: FormContext): Loc =
+        source.createSection(ctx.start.line, ctx.start.charPositionInLine + 1, ctx.text.length)
 
     private val concatSymForm = QSymbolForm(QSymbol(CORE_NS, Symbol(ID, "concat")))
     private val unquoteForm = QSymbolForm(UNQUOTE)
@@ -153,10 +155,8 @@ internal class FormReader(private val locFactory: Loc.Factory) {
 
         internal fun readQSymbol(s: String): QSymbol =
             formParser(s).qsym().accept(QSymVisitor)
-    }
 
-    object SourceFormReader {
         internal fun readSourceForms(source: Source) =
-            FormReader(Loc.Factory.SourceSectionLocFactory(source)).readForms(formParser(source.reader))
+            FormReader(source).readForms(formParser(source.reader))
     }
 }

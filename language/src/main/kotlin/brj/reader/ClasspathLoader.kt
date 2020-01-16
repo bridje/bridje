@@ -1,6 +1,6 @@
 package brj.reader
 
-import brj.reader.FormReader.SourceFormReader.readSourceForms
+import brj.reader.FormReader.Companion.readSourceForms
 import brj.runtime.Symbol
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.source.Source

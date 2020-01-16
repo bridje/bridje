@@ -1,5 +1,6 @@
 package brj.analyser
 
+import brj.reader.readForms
 import brj.runtime.*
 import brj.runtime.SymKind.ID
 import brj.runtime.SymKind.RECORD
@@ -31,7 +32,7 @@ internal class ValueExprAnalyserTest {
                 RecordEntry(countKey, IntExpr(42)),
                 RecordEntry(messageKey, StringExpr("Hello world!"))))),
 
-            ValueExprAnalyser(Resolver.NSResolver(nsEnv = nsEnv)).analyseValueExpr(TODO() /*readForms("""{:count 42, :message "Hello world!"}""").first()*/))
+            ValueExprAnalyser(Resolver.NSResolver(nsEnv = nsEnv)).analyseValueExpr(readForms("""{:count 42, :message "Hello world!"}""").first()))
     }
 
     @Test
@@ -44,7 +45,7 @@ internal class ValueExprAnalyserTest {
         val nsEnv = NSEnv(user, vars = mapOf(println.local to effectVar))
 
         val expr = ValueExprAnalyser(Resolver.NSResolver(nsEnv = nsEnv))
-            .analyseValueExpr(TODO() /*readForms("""(with-fx [(def (println! s) "Hello!")] (println! "foo!"))""").first()*/)
+            .analyseValueExpr(readForms("""(with-fx [(def (println! s) "Hello!")] (println! "foo!"))""").first())
 
         val withFxExpr = (expr as DoExpr).expr as WithFxExpr
 

@@ -1,5 +1,6 @@
 package brj.analyser
 
+import brj.reader.readForms
 import brj.runtime.QSymbol
 import brj.runtime.SymKind.*
 import brj.runtime.Symbol
@@ -10,7 +11,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class NSHeaderTest {
-    private fun parseNSHeader(s: String) = NSHeader.nsHeaderParser(ParserState(TODO() /*readForms(s)*/))
+    private fun parseNSHeader(s: String) = NSHeader.nsHeaderParser(ParserState(readForms(s)))
 
     @Test
     internal fun testNSHeader() {

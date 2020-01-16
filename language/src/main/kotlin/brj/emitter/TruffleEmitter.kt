@@ -156,7 +156,7 @@ internal interface BridjeObject : TruffleObject
 internal abstract class ValueNode : Node() {
     open val loc: Loc? = null
 
-    override fun getSourceSection() = (loc as Loc.SourceSectionLoc).sourceSection
+    override fun getSourceSection() = loc
 
     abstract fun execute(frame: VirtualFrame): Any?
 }

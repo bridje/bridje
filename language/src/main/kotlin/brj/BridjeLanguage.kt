@@ -5,7 +5,7 @@ import brj.emitter.BridjeObject
 import brj.emitter.EvalEmitter.emitEvalExprs
 import brj.emitter.ValueNode
 import brj.emitter.formsNSEnv
-import brj.reader.FormReader.SourceFormReader.readSourceForms
+import brj.reader.FormReader.Companion.readSourceForms
 import brj.runtime.GlobalScope
 import brj.runtime.SymKind.ID
 import brj.runtime.Symbol
