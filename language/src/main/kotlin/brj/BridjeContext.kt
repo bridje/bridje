@@ -11,8 +11,9 @@ import com.oracle.truffle.api.TruffleLanguage
 
 class BridjeContext internal constructor(internal val language: BridjeLanguage,
                                          internal val truffleEnv: TruffleLanguage.Env,
-                                         internal val formLoader: FormLoader = ClasspathLoader(truffleEnv),
                                          internal var env: RuntimeEnv = RuntimeEnv()) {
+
+    internal val formLoader: FormLoader = ClasspathLoader(this)
 
     @CompilerDirectives.TruffleBoundary
     internal fun require(ns: Symbol): RuntimeEnv {
