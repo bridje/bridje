@@ -2,7 +2,8 @@ package brj.analyser
 
 import brj.reader.readForms
 import brj.runtime.*
-import brj.runtime.SymKind.*
+import brj.runtime.SymKind.ID
+import brj.runtime.SymKind.VARIANT
 import brj.types.MonoType
 import brj.types.RowKey
 import brj.types.VariantType

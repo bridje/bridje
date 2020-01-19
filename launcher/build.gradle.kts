@@ -6,11 +6,10 @@ repositories {
     jcenter()
 }
 
-fun truffle(module: String) = "org.graalvm.truffle:truffle-$module:19.3.0"
-
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation(project(":language"))
+    compileOnly("org.graalvm.sdk:graal-sdk:19.3.1")
+    implementation("org.graalvm.sdk:launcher-common:19.3.1")
 
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.5.2")
@@ -21,6 +20,10 @@ tasks.compileKotlin {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11.toString()
+    }
 }
 
 tasks.test {
@@ -29,10 +32,10 @@ tasks.test {
 
 tasks.jar {
     group = "build"
-    archiveBaseName.set("brj-launcher")
+    archiveFileName.set("brj-launcher.jar")
 
     manifest {
-        attributes("Main-Class" to "brj.MainKt")
+        attributes("Main-Class" to "brj.BridjeLauncher")
     }
 
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })

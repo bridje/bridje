@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 internal class CollTest {
+
     @Test
     fun `e2e coll test`() {
         withCtx { ctx ->

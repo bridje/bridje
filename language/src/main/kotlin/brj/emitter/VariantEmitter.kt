@@ -1,7 +1,8 @@
 package brj.emitter
 
-import brj.BridjeLanguage.Companion.currentBridjeContext
-import brj.Loc
+import brj.BridjeContext
+import brj.reader.Loc
+import brj.runtime.BridjeFunction
 import brj.runtime.VariantKey
 import brj.runtime.VariantObject
 import brj.types.MonoType
@@ -31,10 +32,10 @@ internal data class VariantConstructorNode(private val variantKey: VariantKey, p
     }
 }
 
-internal object VariantEmitter {
+internal class VariantEmitter(private val ctx: BridjeContext) {
     fun emitVariantKey(variantKey: VariantKey) =
         if (variantKey.paramTypes.isNotEmpty())
-            BridjeFunction(currentBridjeContext().makeRootNode(VariantConstructorNode(variantKey, variantKey.paramTypes)))
+            BridjeFunction(ctx.language.BridjeRootNode(VariantConstructorNode(variantKey, variantKey.paramTypes)))
         else
             VariantObject(variantKey, emptyArray())
 }

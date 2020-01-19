@@ -1,7 +1,8 @@
 package brj.emitter
 
 import brj.BridjeContext
-import brj.Loc
+import brj.reader.Loc
+import brj.runtime.BridjeFunction
 import brj.runtime.RecordKey
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage
@@ -68,7 +69,7 @@ internal class RecordEmitter(val ctx: BridjeContext) {
         }
     }
 
-    internal fun emitRecordKey(recordKey: RecordKey) = BridjeFunction(ctx.makeRootNode(RecordKeyReadNode(recordKey)))
+    internal fun emitRecordKey(recordKey: RecordKey) = BridjeFunction(ctx.language.BridjeRootNode(RecordKeyReadNode(recordKey)))
 }
 
 

@@ -1,6 +1,5 @@
 package brj.analyser
 
-import brj.Loc
 import brj.reader.*
 import brj.runtime.*
 import brj.runtime.SymKind.*

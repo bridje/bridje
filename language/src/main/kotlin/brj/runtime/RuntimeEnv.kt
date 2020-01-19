@@ -2,11 +2,17 @@
 
 package brj.runtime
 
-import brj.emitter.BridjeFunction
-import brj.reader.*
+import brj.BridjeContext
+import brj.BridjeLanguage
+import brj.emitter.BridjeObject
+import brj.reader.Form
 import brj.types.*
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage
-import kotlin.reflect.KClass
+import com.oracle.truffle.api.dsl.CachedContext
+import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
 
 internal abstract class GlobalVar {
     abstract val sym: QSymbol
@@ -48,7 +54,7 @@ internal data class VariantKeyVar(val variantKey: VariantKey, override val value
     override val type: Type = VariantType.constructorType(variantKey)
 }
 
-internal data class JavaImport(val qsym: QSymbol, val clazz: KClass<*>, val name: String, val type: Type)
+internal data class JavaImport(val qsym: QSymbol, val clazz: Symbol, val name: String, val type: Type)
 
 internal class JavaImportVar(javaImport: JavaImport, override val value: Any) : GlobalVar() {
     override val sym = javaImport.qsym
@@ -78,10 +84,11 @@ internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List
     }
 }
 
+@ExportLibrary(InteropLibrary::class)
 internal data class NSEnv(val ns: Symbol,
                           val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                           val vars: Map<Symbol, GlobalVar> = emptyMap(),
-                          val polyVarImpls: Map<QSymbol, List<PolyVarImpl>> = emptyMap()) {
+                          val polyVarImpls: Map<QSymbol, List<PolyVarImpl>> = emptyMap()) : BridjeObject {
 
     operator fun plus(globalVar: GlobalVar): NSEnv = copy(vars = vars + (globalVar.sym.local to globalVar))
     operator fun plus(alias: TypeAlias) = copy(typeAliases = typeAliases + (alias.sym.local to alias))
@@ -91,9 +98,50 @@ internal data class NSEnv(val ns: Symbol,
             (sym to (polyVarImpls[sym]
                 ?: emptyList()).filterNot { it.primaryImplTypes == impl.primaryImplTypes } + impl))
     }
+
+    @ExportMessage
+    fun hasMembers() = true
+
+    @ExportMessage
+    @TruffleBoundary
+    fun getMembers(includeInternal: Boolean, @CachedContext(BridjeLanguage::class) ctx: BridjeContext): Any =
+        ctx.truffleEnv.asGuestValue(vars.keys.toList().map { it.baseStr })
+
+    @ExportMessage
+    @TruffleBoundary
+    fun isMemberReadable(k: String) = vars.containsKey(Symbol(k))
+
+    @ExportMessage
+    @TruffleBoundary
+    fun readMember(k: String) = vars[Symbol(k)]?.value
+
+    @ExportMessage
+    @TruffleBoundary
+    fun isMemberInvocable(k: String) = isMemberReadable(k) && readMember(k) is BridjeFunction
+
+    @ExportMessage
+    @TruffleBoundary
+    fun invokeMember(k: String, args: Array<Any>) = (readMember(k) as BridjeFunction).execute(args)
 }
 
-internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = mapOf()) {
+@ExportLibrary(InteropLibrary::class)
+internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = mapOf()) : BridjeObject {
     operator fun plus(newNsEnv: NSEnv) = RuntimeEnv(nses + (newNsEnv.ns to newNsEnv))
     operator fun plus(newNsEnvs: Iterable<NSEnv>) = RuntimeEnv(nses + newNsEnvs.map { it.ns to it })
+
+    @ExportMessage
+    fun hasMembers() = true
+
+    @ExportMessage
+    @TruffleBoundary
+    fun getMembers(includeInternal: Boolean, @CachedContext(BridjeLanguage::class) ctx: BridjeContext): Any =
+        ctx.truffleEnv.asGuestValue(nses.keys.toList().map { it.baseStr })
+
+    @ExportMessage
+    @TruffleBoundary
+    fun isMemberReadable(k: String) = nses.containsKey(Symbol(k))
+
+    @ExportMessage
+    @TruffleBoundary
+    fun readMember(k: String) = nses[Symbol(k)]
 }

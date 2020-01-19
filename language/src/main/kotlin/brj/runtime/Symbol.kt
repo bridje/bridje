@@ -1,6 +1,8 @@
 package brj.runtime
 
 import brj.emitter.BridjeObject
+import brj.reader.FormReader.Companion.readQSymbol
+import brj.reader.FormReader.Companion.readSymbol
 
 sealed class Ident : BridjeObject {
     abstract val kind: SymKind
@@ -22,11 +24,12 @@ class Symbol private constructor(override val kind: SymKind, val baseStr: String
     override fun toString() = kind.toString(baseStr)
 
     companion object {
-        operator fun invoke(kind: SymKind, local: String) = Symbol(kind, local.intern())
+        internal operator fun invoke(kind: SymKind, local: String) = Symbol(kind, local.intern())
+        operator fun invoke(local: String) = readSymbol(local)
     }
 }
 
-class QSymbol internal constructor(val ns: Symbol, val local: Symbol): Ident() {
+class QSymbol(val ns: Symbol, val local: Symbol): Ident() {
     init {
         assert (ns.kind.prefix.isEmpty())
     }
@@ -43,7 +46,7 @@ class QSymbol internal constructor(val ns: Symbol, val local: Symbol): Ident() {
     override fun hashCode(): Int = (kind.hashCode() * 31 + ns.hashCode()) * 31 + local.hashCode()
 
     companion object {
-        operator fun invoke(ns: Symbol, local: Symbol) = QSymbol(ns, local)
-        operator fun invoke(ns: Symbol, kind: SymKind, local: String) = QSymbol(ns, Symbol(kind, local.intern()))
+        operator fun invoke(ns: Symbol, local: String) = QSymbol(ns, Symbol(local))
+        operator fun invoke(s: String) = readQSymbol(s)
     }
 }

@@ -41,7 +41,7 @@ internal class TruffleEmitterTest {
 
         val variantKey = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "Foo")), emptyList(), listOf(IntType))
         val variantKey2 = VariantKey(QSymbol(Symbol(ID, "user"), Symbol(VARIANT, "Foo2")), emptyList(), listOf(IntType))
-        val constructor = VariantEmitter.emitVariantKey(variantKey2)
+        val constructor = VariantEmitter(brjCtx).emitVariantKey(variantKey2)
         val localVar = LocalVar(Symbol(ID, "a"))
         val effectLocal = LocalVar(Symbol(ID, "fx"))
 
@@ -59,7 +59,7 @@ internal class TruffleEmitterTest {
     internal fun `record introduction and elimination`() {
         val brjCtx = currentBridjeContext()
 
-    val count = QSymbol(Symbol(ID, "user"), Symbol(RECORD, "count"))
+        val count = QSymbol(Symbol(ID, "user"), Symbol(RECORD, "count"))
         val message = QSymbol(Symbol(ID, "user"), Symbol(RECORD, "message"))
 
         val countKey = RecordKey(count, emptyList(), IntType)
@@ -79,7 +79,7 @@ internal class TruffleEmitterTest {
 
     @Test
     internal fun `java interop`() {
-        val javaImport = JavaImport(QSymbol(Symbol(TYPE, "Foo"), Symbol(ID, "plus")), Class.forName("brj.FooKt").kotlin, "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
+        val javaImport = JavaImport(QSymbol(Symbol(TYPE, "Foo"), Symbol(ID, "plus")), Symbol("brj.FooKt"), "plus", Type(FnType(listOf(IntType, IntType), BoolType)))
 
         val fn = Value.asValue(TruffleEmitter(currentBridjeContext()).emitJavaImport(javaImport))
 
