@@ -8,30 +8,48 @@ import brj.runtime.Symbol
 import com.oracle.truffle.api.TruffleFile
 import com.oracle.truffle.api.source.Source
 import java.io.File
-import java.security.MessageDigest
+import java.util.*
 import java.util.jar.JarFile
 
 internal class ClasspathLoader(private val ctx: BridjeContext) : FormLoader {
 
     companion object {
         private sealed class ClasspathEntry {
-            data class FileClasspathEntry(val path: String) : ClasspathEntry()
-            data class JarClasspathEntry(val path: String, val cacheFileName: String) : ClasspathEntry()
+            class FileClasspathEntry(val path: String) : ClasspathEntry() {
+                fun nsFile(fileName: String, ctx: BridjeContext) =
+                    ctx.truffleEnv.getPublicTruffleFile(path).resolve(fileName).takeIf { it.isReadable }
+            }
+
+            class JarClasspathEntry(val path: String) : ClasspathEntry() {
+                private val entries by lazy { JarFile(path).entries().asSequence().map { it.name }.toSet() }
+                private val cacheFileName by lazy {
+                    val file = File(path)
+                    val hash = String.format("%02x", Arrays.hashCode(file.inputStream().readAllBytes()))
+                    "${file.name.removeSuffix(".jar")}-$hash"
+                }
+
+                fun nsFile(fileName: String, cacheDir: TruffleFile) =
+                    if (entries.contains(fileName)) {
+                        val cacheFile = cacheDir.resolve(cacheFileName).resolve(fileName)
+                        if (!cacheFile.isReadable) {
+                            JarFile(path).use { jarFile ->
+                                jarFile.getInputStream(jarFile.getJarEntry(fileName)).use { iStream ->
+                                    cacheFile.also { it.parent.createDirectories() }.newOutputStream().use { oStream ->
+                                        iStream.copyTo(oStream)
+                                    }
+                                }
+                            }
+                        }
+
+                        cacheFile.takeIf { it.isReadable }
+                    } else null
+            }
         }
 
-        private val digest = MessageDigest.getInstance("SHA-256")
-
         private val classpathEntries: List<ClasspathEntry> =
-            System.getProperty("java.class.path").split(File.pathSeparator).map { path ->
-                val match = Regex("/.+/(.+).jar").matchEntire(path)
-
-                if (match != null) {
-                    digest.reset()
-                    digest.update(File(path).inputStream().readAllBytes())
-                    val hash = digest.digest().take(4).joinToString("") { byte -> String.format("%02x", byte) }
-                    JarClasspathEntry(path, "${match.groups[1]!!.value}-$hash")
-                } else FileClasspathEntry(path)
-            }
+            System.getProperty("java.class.path")
+                .split(File.pathSeparator)
+                .map { path -> if (path.endsWith(".jar")) JarClasspathEntry(path) else FileClasspathEntry(path) }
     }
 
     private val cacheDir: TruffleFile = ctx.truffleEnv.getPublicTruffleFile(ctx.truffleEnv.config["brj.brj-stuff-path"] as? String
@@ -39,35 +57,17 @@ internal class ClasspathLoader(private val ctx: BridjeContext) : FormLoader {
         .resolve("resources")
         .also { it.createDirectories() }
 
-    private fun copyJar(jarFilePath: String) {
-        JarFile(jarFilePath).use { jarFile ->
-            jarFile.entries().asSequence().forEach { jarEntry ->
-                if (jarEntry.name.endsWith(".brj")) {
-                    jarFile.getInputStream(jarEntry).use { inStream ->
-                        cacheDir.resolve(jarEntry.name)
-                            .also { it.parent.createDirectories() }
-                            .newOutputStream().use { outStream -> inStream.transferTo(outStream) }
-                    }
-                }
-            }
-        }
-    }
-
-    private fun entryRootDir(entry: ClasspathEntry) =
-        when (entry) {
-            is FileClasspathEntry -> ctx.truffleEnv.getPublicTruffleFile(entry.path)
-            is JarClasspathEntry -> cacheDir.resolve(entry.cacheFileName).also { jarCacheDir ->
-                if (!jarCacheDir.exists()) jarCacheDir.createDirectories(); copyJar(entry.path)
-            }
-        }
-
     private fun nsSource(ns: Symbol): Source? {
         val fileName = "${ns.baseStr.replace('.', '/')}.brj"
 
         return this::class.java.getResource("/$fileName")?.let { Source.newBuilder("brj", it).build() }
             ?: classpathEntries.asSequence()
-                .map(::entryRootDir)
-                .mapNotNull { dir -> dir.resolve(fileName).takeIf(TruffleFile::isReadable) }
+                .mapNotNull { entry ->
+                    when (entry) {
+                        is FileClasspathEntry -> entry.nsFile(fileName, ctx)
+                        is JarClasspathEntry -> entry.nsFile(fileName, cacheDir)
+                    }
+                }
                 .firstOrNull()
                 ?.let { file -> Source.newBuilder("brj", file).build() }
     }
