@@ -114,6 +114,14 @@ internal data class NSEnv(val ns: Symbol,
     @ExportMessage
     @TruffleBoundary
     fun readMember(k: String) = vars[Symbol(k)]?.value
+
+    @ExportMessage
+    @TruffleBoundary
+    fun isMemberInvocable(k: String) = isMemberReadable(k) && readMember(k) is BridjeFunction
+
+    @ExportMessage
+    @TruffleBoundary
+    fun invokeMember(k: String, args: Array<Any>) = (readMember(k) as BridjeFunction).execute(args)
 }
 
 @ExportLibrary(InteropLibrary::class)

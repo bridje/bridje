@@ -4,9 +4,11 @@ import brj.emitter.TruffleEmitter
 import brj.reader.ClasspathLoader
 import brj.reader.FormLoader
 import brj.reader.nsForms
+import brj.runtime.NSEnv
 import brj.runtime.RuntimeEnv
 import brj.runtime.Symbol
 import com.oracle.truffle.api.CompilerDirectives
+import com.oracle.truffle.api.CompilerDirectives.*
 import com.oracle.truffle.api.TruffleLanguage
 
 class BridjeContext internal constructor(internal val language: BridjeLanguage,
@@ -15,8 +17,8 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
 
     internal val formLoader: FormLoader = ClasspathLoader(this)
 
-    @CompilerDirectives.TruffleBoundary
-    internal fun require(ns: Symbol): RuntimeEnv {
+    @TruffleBoundary
+    internal fun require(ns: Symbol): NSEnv {
         val evaluator = Evaluator(TruffleEmitter(this))
 
         synchronized(this) {
@@ -26,6 +28,6 @@ class BridjeContext internal constructor(internal val language: BridjeLanguage,
                 }
         }
 
-        return env
+        return env.nses.getValue(ns)
     }
 }

@@ -8,8 +8,8 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib"))
-    compileOnly("org.graalvm.sdk:graal-sdk:19.3.0")
-    implementation("com.github.ajalt:clikt:2.3.0")
+    compileOnly("org.graalvm.sdk:graal-sdk:19.3.1")
+    implementation("org.graalvm.sdk:launcher-common:19.3.1")
 
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.5.2")
@@ -35,7 +35,7 @@ tasks.jar {
     archiveFileName.set("brj-launcher.jar")
 
     manifest {
-        attributes("Main-Class" to "brj.MainKt")
+        attributes("Main-Class" to "brj.BridjeLauncher")
     }
 
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
