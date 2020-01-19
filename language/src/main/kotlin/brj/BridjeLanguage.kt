@@ -6,7 +6,6 @@ import brj.emitter.EvalEmitter.emitEvalExprs
 import brj.emitter.ValueNode
 import brj.emitter.formsNSEnv
 import brj.reader.FormReader.Companion.readSourceForms
-import brj.runtime.GlobalScope
 import brj.runtime.SymKind.ID
 import brj.runtime.Symbol
 import com.oracle.truffle.api.CallTarget
@@ -44,7 +43,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         Truffle.getRuntime().createCallTarget(BridjeRootNode(emitEvalExprs(analyseForms(readSourceForms(request.source)))))
 
     override fun findTopScopes(ctx: BridjeContext) =
-        listOf(Scope.newBuilder("global", GlobalScope(ctx)).build())
+        listOf(Scope.newBuilder("global", ctx.env).build())
 
     companion object {
         @Deprecated("only used in tests")

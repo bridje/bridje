@@ -34,7 +34,6 @@ internal abstract class EvalValueNode(private val form: Form) : ValueNode() {
 }
 
 internal abstract class EvalRequireNode(private val ns: Symbol): ValueNode() {
-    @TruffleBoundary
     @Specialization
     fun doExecute(@CachedContext(BridjeLanguage::class) ctx: BridjeContext) = ctx.require(ns)
 }

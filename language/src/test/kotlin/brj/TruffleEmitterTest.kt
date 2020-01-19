@@ -59,7 +59,7 @@ internal class TruffleEmitterTest {
     internal fun `record introduction and elimination`() {
         val brjCtx = currentBridjeContext()
 
-    val count = QSymbol(Symbol(ID, "user"), Symbol(RECORD, "count"))
+        val count = QSymbol(Symbol(ID, "user"), Symbol(RECORD, "count"))
         val message = QSymbol(Symbol(ID, "user"), Symbol(RECORD, "message"))
 
         val countKey = RecordKey(count, emptyList(), IntType)

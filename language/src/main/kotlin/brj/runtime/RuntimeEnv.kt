@@ -2,10 +2,17 @@
 
 package brj.runtime
 
+import brj.BridjeContext
+import brj.BridjeLanguage
 import brj.emitter.BridjeObject
 import brj.reader.Form
 import brj.types.*
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage
+import com.oracle.truffle.api.dsl.CachedContext
+import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
 
 internal abstract class GlobalVar {
     abstract val sym: QSymbol
@@ -77,6 +84,7 @@ internal class TypeAlias_(override val sym: QSymbol, override val typeVars: List
     }
 }
 
+@ExportLibrary(InteropLibrary::class)
 internal data class NSEnv(val ns: Symbol,
                           val typeAliases: Map<Symbol, TypeAlias> = emptyMap(),
                           val vars: Map<Symbol, GlobalVar> = emptyMap(),
@@ -90,9 +98,42 @@ internal data class NSEnv(val ns: Symbol,
             (sym to (polyVarImpls[sym]
                 ?: emptyList()).filterNot { it.primaryImplTypes == impl.primaryImplTypes } + impl))
     }
+
+    @ExportMessage
+    fun hasMembers() = true
+
+    @ExportMessage
+    @TruffleBoundary
+    fun getMembers(includeInternal: Boolean, @CachedContext(BridjeLanguage::class) ctx: BridjeContext): Any =
+        ctx.truffleEnv.asGuestValue(vars.keys.toList().map { it.baseStr })
+
+    @ExportMessage
+    @TruffleBoundary
+    fun isMemberReadable(k: String) = vars.containsKey(Symbol(k))
+
+    @ExportMessage
+    @TruffleBoundary
+    fun readMember(k: String) = vars[Symbol(k)]?.value
 }
 
-internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = mapOf()) {
+@ExportLibrary(InteropLibrary::class)
+internal class RuntimeEnv(val nses: Map<Symbol, NSEnv> = mapOf()) : BridjeObject {
     operator fun plus(newNsEnv: NSEnv) = RuntimeEnv(nses + (newNsEnv.ns to newNsEnv))
     operator fun plus(newNsEnvs: Iterable<NSEnv>) = RuntimeEnv(nses + newNsEnvs.map { it.ns to it })
+
+    @ExportMessage
+    fun hasMembers() = true
+
+    @ExportMessage
+    @TruffleBoundary
+    fun getMembers(includeInternal: Boolean, @CachedContext(BridjeLanguage::class) ctx: BridjeContext): Any =
+        ctx.truffleEnv.asGuestValue(nses.keys.toList().map { it.baseStr })
+
+    @ExportMessage
+    @TruffleBoundary
+    fun isMemberReadable(k: String) = nses.containsKey(Symbol(k))
+
+    @ExportMessage
+    @TruffleBoundary
+    fun readMember(k: String) = nses[Symbol(k)]
 }

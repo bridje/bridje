@@ -100,3 +100,4 @@ internal val FORM_TYPES = listOf(
             formTypes.values.associate { it.variantKey to RowKey(emptyList()) },
             RowTypeVar(false))
     }
+
