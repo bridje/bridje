@@ -1,5 +1,0 @@
-package brj
-
-fun foo() {
-
-}
