@@ -25,7 +25,7 @@ class BridjeLauncher : AbstractLanguageLauncher() {
     override fun printHelp(maxCategory: OptionCategory?) {
         println("Usage: brj [OPTION]... -- [ARGS]...")
         println()
-        println("Basic Options:")
+        println("Bridje Options:")
         printOption("-f, --file FILE", "File to execute.")
         printOption("-e, --eval CODE|-", "Evaluate code snippet, or '-' to read from stdin")
         printOption("-m, --main NS", "Evaluates the `main` function in the given namespace.")
@@ -40,7 +40,12 @@ class BridjeLauncher : AbstractLanguageLauncher() {
             evalScripts.forEach { script ->
                 val result = when (script) {
                     is EvalScript.EvalFile -> ctx.eval(Source.newBuilder("brj", script.file).build())
-                    is EvalScript.EvalString -> ctx.eval("brj", script.str)
+                    is EvalScript.EvalString -> {
+                        if (script.str == "-") ctx.eval(Source.newBuilder("brj", System.`in`.reader(), "<stdin>").build())
+                        else ctx.eval("brj", script.str)
+                    }
+
+
                     is EvalScript.EvalMain -> {
                         val nsEnv = ctx.eval("brj", "(require! ${script.ns})")
                         if (!nsEnv.canInvokeMember("main")) abort("Can't find 'main' function in ${script.ns}")
