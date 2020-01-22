@@ -23,7 +23,6 @@ import com.oracle.truffle.api.nodes.RootNode
     defaultMimeType = "application/brj",
     characterMimeTypes = ["application/brj"],
     contextPolicy = TruffleLanguage.ContextPolicy.SHARED)
-@Suppress("unused")
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     internal inner class BridjeRootNode(@Child var node: ValueNode, frameDescriptor: FrameDescriptor = FrameDescriptor()) : RootNode(this, frameDescriptor) {
