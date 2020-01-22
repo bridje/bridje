@@ -9,7 +9,7 @@ dependencies {
 
     antlr("org.antlr:antlr4:4.7.2")
 
-    implementation("org.graalvm.truffle:truffle-api:${truffleVersion}")
+    compile("org.graalvm.truffle:truffle-api:${truffleVersion}")
     implementation(kotlin("stdlib"))
     implementation(kotlin("reflect"))
 
