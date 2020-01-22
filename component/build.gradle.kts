@@ -13,7 +13,7 @@ tasks.register<Jar>("component") {
     manifest {
         attributes(
             "Bundle-Symbolic-Name" to "brj",
-            "Bundle-RequireCapability" to """org.graalvm; filter:="(&(graalvm_version=19.3.0)(os_arch=amd64))"""",
+            "Bundle-RequireCapability" to """org.graalvm; filter:="(&(os_arch=amd64))"""",
             "Bundle-Name" to "Bridje",
             "Bundle-Version" to project.version,
             "x-GraalVM-Polyglot-Part" to "True")
