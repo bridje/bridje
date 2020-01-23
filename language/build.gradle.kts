@@ -8,6 +8,7 @@ dependencies {
     val truffleVersion = "19.3.0"
 
     antlr("org.antlr:antlr4:4.7.2")
+    implementation("org.antlr:antlr4-runtime:4.7.2")
 
     compile("org.graalvm.truffle:truffle-api:${truffleVersion}")
     implementation(kotlin("stdlib"))
@@ -18,6 +19,12 @@ dependencies {
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:5.5.2")
+}
+
+configurations {
+    compile {
+        setExtendsFrom(extendsFrom.filterNot { it == configurations.antlr.get() })
+    }
 }
 
 sourceSets {
