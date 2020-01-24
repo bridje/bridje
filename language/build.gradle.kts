@@ -12,7 +12,6 @@ dependencies {
 
     compile("org.graalvm.truffle:truffle-api:${truffleVersion}")
     implementation(kotlin("stdlib"))
-    implementation(kotlin("reflect"))
 
     kapt("org.graalvm.truffle:truffle-dsl-processor:${truffleVersion}")
 
