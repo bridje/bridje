@@ -7,11 +7,13 @@ plugins {
 dependencies {
     val truffleVersion = "19.3.0"
 
+    implementation(kotlin("stdlib"))
+
     antlr("org.antlr:antlr4:4.7.2")
     implementation("org.antlr:antlr4-runtime:4.7.2")
 
-    compile("org.graalvm.truffle:truffle-api:${truffleVersion}")
-    implementation(kotlin("stdlib"))
+    compileOnly("org.graalvm.truffle:truffle-api:${truffleVersion}")
+    testCompileOnly("org.graalvm.truffle:truffle-api:${truffleVersion}")
 
     kapt("org.graalvm.truffle:truffle-dsl-processor:${truffleVersion}")
 
