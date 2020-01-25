@@ -4,6 +4,12 @@ plugins {
     antlr
 }
 
+configurations {
+    all {
+        exclude("org.graalvm.sdk", "graal-sdk")
+    }
+}
+
 dependencies {
     val truffleVersion = "19.3.0"
 

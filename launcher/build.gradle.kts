@@ -2,6 +2,12 @@ plugins {
     kotlin("jvm") version "1.3.61"
 }
 
+configurations {
+    all {
+        exclude("org.graalvm.sdk", "graal-sdk")
+    }
+}
+
 dependencies {
     implementation(kotlin("stdlib"))
     compileOnly("org.graalvm.sdk:graal-sdk:19.3.1")
