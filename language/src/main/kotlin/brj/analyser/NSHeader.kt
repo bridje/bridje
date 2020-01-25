@@ -57,18 +57,19 @@ internal data class NSHeader(val ns: Symbol,
                 it.or({
                     it.maybe { it.expectSym(ID) }?.let { sym -> sym to BridjeAlias(it.expectSym(ID)) }
                 }, {
-                    it.maybe { it.expectSym(TYPE) }?.let { sym ->
-                        it.nested(ListForm::forms) {
-                            it.expectSym(JAVA)
-                            sym to JavaAlias(
-                                Symbol(ID, "$ns\$${sym}"),
-                                Symbol(ID, it.expectSym(ID).baseStr),
-                                it.varargs {
-                                    val expr = exprAnalyser.declAnalyser(it) as VarDeclExpr
-                                    expr.sym to JavaInteropDecl(expr.sym, expr.type.monoType)
-                                }.toMap())
-                        }
-                    }
+                    TODO()
+//                    it.maybe { it.expectSym(TYPE) }?.let { sym ->
+//                        it.nested(ListForm::forms) {
+//                            it.expectSym(JAVA)
+//                            sym to JavaAlias(
+//                                Symbol(ID, "$ns\$${sym}"),
+//                                Symbol(ID, it.expectSym(ID).baseStr),
+//                                it.varargs {
+//                                    val expr = exprAnalyser.declAnalyser(it) as VarDeclExpr
+//                                    expr.sym to JavaInteropDecl(expr.sym, expr.type.monoType)
+//                                }.toMap())
+//                        }
+//                    }
                 }) ?: TODO()
             }.toMap()
 

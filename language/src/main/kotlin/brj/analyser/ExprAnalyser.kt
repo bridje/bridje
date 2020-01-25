@@ -115,24 +115,25 @@ internal data class ExprAnalyser(val resolver: Resolver,
             it.maybe { it.expectSym() }?.let { sym -> Preamble(sym) }
         }, {
             it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
-                it.nested(listForm.forms) {
-                    it.maybe { it.expectIdent() }?.let { sym ->
-                        when (sym) {
-                            is Symbol ->
-                                when (sym.kind) {
-                                    // (:: (foo Int) Str)
-                                    ID -> Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
-
-                                    // (:: (:Ok a) a)
-                                    // (:: (Maybe a) (+ (:Ok a) :Nil))
-                                    RECORD, VARIANT, TYPE -> Preamble(sym, typeVars = it.varargs(typeAnalyser::typeVarAnalyser))
-                                }.also { _ -> it.expectEnd() }
-                            is QSymbol -> {
-                                Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
-                            }
-                        }
-                    }
-                }
+                TODO()
+//                it.nested(listForm.forms) {
+//                    it.maybe { it.expectIdent() }?.let { sym ->
+//                        when (sym) {
+//                            is Symbol ->
+//                                when (sym.kind) {
+//                                    // (:: (foo Int) Str)
+//                                    ID -> Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
+//
+//                                    // (:: (:Ok a) a)
+//                                    // (:: (Maybe a) (+ (:Ok a) :Nil))
+//                                    RECORD, VARIANT, TYPE -> Preamble(sym, typeVars = it.varargs(typeAnalyser::typeVarAnalyser))
+//                                }.also { _ -> it.expectEnd() }
+//                            is QSymbol -> {
+//                                Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
+//                            }
+//                        }
+//                    }
+//                }
             }
         }) ?: TODO()
 

@@ -67,26 +67,27 @@ internal class TypeAnalyser(private val resolver: Resolver,
                         FnType(types.dropLast(1), types.last())
                     }
                 }, {
-                    it.maybe { it.expectSym(VARIANT_TYPE) }?.let { _ ->
-                        VariantType(
-                            possibleKeys = it.varargs {
-                                data class Preamble(val variantSym: Ident, val typeParams: List<MonoType>)
-
-                                val preamble = it.or({
-                                    it.maybe { it.expectIdent(VARIANT) }?.let { Preamble(it, emptyList()) }
-                                }, {
-                                    it.maybe { it.expectForm<ListForm>() }?.let { lf -> it.nested(lf.forms) { Preamble(it.expectIdent(VARIANT), it.varargs { monoTypeAnalyser(it) }) } }
-                                }) ?: TODO()
-
-                                val variantKey = (resolver.resolveVar(preamble.variantSym) as? VariantKeyVar)?.variantKey
-                                    ?: TODO()
-
-                                // TODO check kind
-                                variantKey to RowKey(preamble.typeParams)
-                            }.toMap(),
-                            typeVar = RowTypeVar(true))
-
-                    }
+                    TODO()
+//                    it.maybe { it.expectSym(VARIANT_TYPE) }?.let { _ ->
+//                        VariantType(
+//                            possibleKeys = it.varargs {
+//                                data class Preamble(val variantSym: Ident, val typeParams: List<MonoType>)
+//
+//                                val preamble = it.or({
+//                                    it.maybe { it.expectIdent(VARIANT) }?.let { Preamble(it, emptyList()) }
+//                                }, {
+//                                    it.maybe { it.expectForm<ListForm>() }?.let { lf -> it.nested(lf.forms) { Preamble(it.expectIdent(VARIANT), it.varargs { monoTypeAnalyser(it) }) } }
+//                                }) ?: TODO()
+//
+//                                val variantKey = (resolver.resolveVar(preamble.variantSym) as? VariantKeyVar)?.variantKey
+//                                    ?: TODO()
+//
+//                                // TODO check kind
+//                                variantKey to RowKey(preamble.typeParams)
+//                            }.toMap(),
+//                            typeVar = RowTypeVar(true))
+//
+//                    }
                 }, {
                     it.maybe { it.expectSym(TYPE) }?.let { sym ->
                         // TODO kind check
