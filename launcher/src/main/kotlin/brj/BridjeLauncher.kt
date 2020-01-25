@@ -1,5 +1,6 @@
 package brj
 
+import brj.BridjeLauncher.EvalScript.*
 import org.graalvm.launcher.AbstractLanguageLauncher
 import org.graalvm.options.OptionCategory
 import org.graalvm.polyglot.Context
@@ -39,14 +40,14 @@ class BridjeLauncher : AbstractLanguageLauncher() {
         try {
             evalScripts.forEach { script ->
                 val result = when (script) {
-                    is EvalScript.EvalFile -> ctx.eval(Source.newBuilder("brj", script.file).build())
-                    is EvalScript.EvalString -> {
+                    is EvalFile -> ctx.eval(Source.newBuilder("brj", script.file).build())
+                    is EvalString -> {
                         if (script.str == "-") ctx.eval(Source.newBuilder("brj", System.`in`.reader(), "<stdin>").build())
                         else ctx.eval("brj", script.str)
                     }
 
 
-                    is EvalScript.EvalMain -> {
+                    is EvalMain -> {
                         val nsEnv = ctx.eval("brj", "(require! ${script.ns})")
                         if (!nsEnv.canInvokeMember("main")) abort("Can't find 'main' function in ${script.ns}")
                         nsEnv.invokeMember("main", args)
@@ -74,9 +75,9 @@ class BridjeLauncher : AbstractLanguageLauncher() {
 
         loop@ while (iterator.hasNext()) {
             when (val arg = iterator.next()) {
-                "-e", "--eval" -> evalScripts += EvalScript.EvalString(nextArg("--eval"))
-                "-f", "--file" -> evalScripts += EvalScript.EvalFile(File(nextArg("--file")))
-                "-m", "--main" -> evalScripts += EvalScript.EvalMain(nextArg("--main"))
+                "-e", "--eval" -> evalScripts += EvalString(nextArg("--eval"))
+                "-f", "--file" -> evalScripts += EvalFile(File(nextArg("--file")))
+                "-m", "--main" -> evalScripts += EvalMain(nextArg("--main"))
                 "--" -> break@loop
                 else -> unknownArgs.add(arg)
             }
