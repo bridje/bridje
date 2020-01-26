@@ -88,6 +88,8 @@ internal class JavaImportEmitter(private val ctx: BridjeContext) {
     }
 
     fun emitJavaImport(clazz: Symbol, name: String, paramCount: Int): BridjeFunction {
+        if (!ctx.truffleEnv.isHostLookupAllowed) TODO("host lookup not allowed")
+
         val argNodes = ArrayNode((0 until paramCount).map { ReadArgNode(it + 1) }.toTypedArray())
         val clazzObj =
             kotlin.runCatching { Class.forName(clazz.baseStr) }.map { ctx.truffleEnv.asHostSymbol(it) }.getOrDefault(null)
