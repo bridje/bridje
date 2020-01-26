@@ -38,6 +38,10 @@ class BridjeLauncher : AbstractLanguageLauncher() {
         ctx.enter()
 
         try {
+            if (evalScripts.isEmpty()) {
+                abort("Nothing to evaluate. See `brj --help` for options.")
+            }
+
             evalScripts.forEach { script ->
                 val result = when (script) {
                     is EvalFile -> ctx.eval(Source.newBuilder("brj", script.file).build())
