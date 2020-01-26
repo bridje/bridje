@@ -9,11 +9,16 @@ import brj.runtime.RuntimeEnv
 import brj.runtime.Symbol
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.*
+import com.oracle.truffle.api.TruffleFile
 import com.oracle.truffle.api.TruffleLanguage
 
 class BridjeContext internal constructor(internal val language: BridjeLanguage,
                                          internal val truffleEnv: TruffleLanguage.Env,
                                          internal var env: RuntimeEnv = RuntimeEnv()) {
+
+    internal val brjHome: TruffleFile? =
+        (truffleEnv.config["brj.home"] as? String ?: System.getProperty("brj.home"))
+            ?.let(truffleEnv::getInternalTruffleFile)
 
     internal val formLoader: FormLoader = ClasspathLoader(this)
 

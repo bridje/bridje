@@ -64,7 +64,7 @@ class BridjeLauncher : AbstractLanguageLauncher() {
 
     override fun getLanguageId() = "brj"
 
-    override fun preprocessArguments(arguments: MutableList<String>, polyglotOptions: MutableMap<String, String>?): List<String> {
+    override fun preprocessArguments(arguments: MutableList<String>, polyglotOptions: MutableMap<String, String>): List<String> {
         val unknownArgs = mutableListOf<String>()
         val iterator = arguments.listIterator()
 
