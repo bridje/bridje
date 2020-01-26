@@ -16,6 +16,7 @@
             <option value="$PROJECT_DIR$/docker" />
             <option value="$PROJECT_DIR$/language" />
             <option value="$PROJECT_DIR$/launcher" />
+            <option value="$PROJECT_DIR$/native-image" />
           </set>
         </option>
         <option name="useQualifiedModuleNames" value="true" />

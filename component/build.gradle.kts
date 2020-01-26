@@ -4,6 +4,7 @@ plugins {
 
 evaluationDependsOn(":language")
 evaluationDependsOn(":launcher")
+evaluationDependsOn(":native-image")
 
 tasks.register<Jar>("component") {
     group = "build"
@@ -27,7 +28,7 @@ tasks.register<Jar>("component") {
         from(project(":launcher").tasks["jar"].outputs, project(":language").tasks["jar"].outputs)
 
         into ("bin") {
-            from(project(":launcher").file("bin"))
+            from(project(":native-image").tasks["nativeImage"].outputs)
         }
     }
 }

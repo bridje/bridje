@@ -3,8 +3,6 @@ plugins {
     id("com.palantir.docker") version "0.22.1"
 }
 
-evaluationDependsOn(":launcher")
-evaluationDependsOn(":language")
 evaluationDependsOn(":component")
 
 docker {
