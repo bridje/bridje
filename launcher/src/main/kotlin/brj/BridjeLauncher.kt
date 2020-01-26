@@ -83,7 +83,7 @@ class BridjeLauncher : AbstractLanguageLauncher() {
             }
         }
 
-        args = arguments.subList(iterator.nextIndex(), arguments.size)
+        args = arguments.subList(iterator.nextIndex(), arguments.size).toList()
 
         return unknownArgs
     }
