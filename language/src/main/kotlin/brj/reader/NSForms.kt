@@ -3,6 +3,7 @@ package brj.reader
 import brj.analyser.NSHeader
 import brj.analyser.NSHeader.Companion.nsHeaderParser
 import brj.analyser.ParserState
+import brj.emitter.BUILTINS_NS
 import brj.runtime.Symbol
 
 internal interface FormLoader {
@@ -16,7 +17,7 @@ internal fun nsForms(ns: Symbol, loader: FormLoader): List<NSForms> {
     val stack = mutableSetOf<Symbol>()
 
     val res = mutableListOf<NSForms>()
-    val seen = mutableSetOf(FORM_NS)
+    val seen = mutableSetOf(BUILTINS_NS, FORM_NS)
 
     fun nsForms(ns: Symbol) {
         if (seen.contains(ns)) return

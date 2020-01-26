@@ -4,6 +4,7 @@ import brj.analyser.EvalAnalyser.analyseForms
 import brj.emitter.BridjeObject
 import brj.emitter.EvalEmitter.emitEvalExprs
 import brj.emitter.ValueNode
+import brj.emitter.builtinsNSEnv
 import brj.emitter.formsNSEnv
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.runtime.SymKind.ID
@@ -33,6 +34,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun initializeContext(ctx: BridjeContext) {
         ctx.env += formsNSEnv(ctx)
+        ctx.env += builtinsNSEnv(ctx)
         ctx.require(Symbol(ID, "brj.core"))
     }
 

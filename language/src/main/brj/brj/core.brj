@@ -1,19 +1,12 @@
 (ns brj.core
   {:aliases {forms brj.forms
-             Core (java brj.runtime.CoreKt
-                        (:: (empty [a]) Bool)
-                        (:: (countVec [a]) Int)
-                        (:: (countSet [a]) Int)
-                        (:: (first [a]) a)
-                        (:: (rest [a]) [a])
-                        (:: (str [Str]) Str)
-                        (:: (concat [[a]]) [a]))}})
+             bi brj.built-ins}})
 
-(def empty? Core/empty)
-(def first Core/first)
-(def rest Core/rest)
+(def empty? bi/empty?)
+(def first bi/first)
+(def rest bi/rest)
 
-(def concat Core/concat)
+(def concat bi/concat)
 
 (defmacro (if-not pred then else)
   `(if ~pred ~else ~then))
@@ -22,23 +15,6 @@
 (:: (:Cons a) a (Seq a))
 (:: :Nil)
 (:: (Seq a) (+ (:Cons a) :Nil))
-
-(#_
- (:: (. a) (count a) Int)
-
- (def (. [a]) (count v)
-   (Core/countVec v))
-
- (def (. #{a}) (count s)
-   (Core/countSet s)))
-
-(#_
- (:: (. s) (seq (s a)) (Seq a))
-
- (def (. []) (seq v)
-   (if (empty? v)
-     :Nil
-     (:Cons (first v) (rest v)))))
 
 (#_
  (:: (-> forms/Form [forms/Form]) forms/Form)
@@ -59,4 +35,4 @@
      form)))
 
 (defmacro (str & strs)
-  `(Core/str [~@strs]))
+  `(bi/str [~@strs]))
