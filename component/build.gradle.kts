@@ -28,6 +28,11 @@ tasks.register<Jar>("component") {
         from(project(":launcher").tasks["jar"].outputs)
     }
 
+    // TODO this doesn't seem to get picked up at the moment, but it's here anyway
+    into("lib/svm/macros/brj") {
+        from(file("polyglot.config"))
+    }
+
     into("languages/brj") {
         from(project(":language").tasks["jar"].outputs)
 
