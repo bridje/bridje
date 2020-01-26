@@ -4,6 +4,7 @@ plugins {
 
 evaluationDependsOn(":language")
 evaluationDependsOn(":launcher")
+evaluationDependsOn(":native-image")
 
 tasks.register<Jar>("component") {
     group = "build"
@@ -23,11 +24,24 @@ tasks.register<Jar>("component") {
         from("META-INF")
     }
 
+    into("lib/brj") {
+        from(project(":launcher").tasks["jar"].outputs)
+    }
+
+    // TODO this doesn't seem to get picked up at the moment, but it's here anyway
+    into("lib/svm/macros/brj") {
+        from(file("polyglot.config"))
+    }
+
     into("languages/brj") {
-        from(project(":launcher").tasks["jar"].outputs, project(":language").tasks["jar"].outputs)
+        from(project(":language").tasks["jar"].outputs)
 
         into ("bin") {
-            from(project(":launcher").file("bin"))
+            from(project(":native-image").tasks["nativeImage"].outputs)
+        }
+
+        into("stdlib") {
+            from(project(":language").file("src/main/brj"))
         }
     }
 }

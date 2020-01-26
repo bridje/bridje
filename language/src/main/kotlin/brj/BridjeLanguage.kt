@@ -4,17 +4,18 @@ import brj.analyser.EvalAnalyser.analyseForms
 import brj.emitter.BridjeObject
 import brj.emitter.EvalEmitter.emitEvalExprs
 import brj.emitter.ValueNode
+import brj.emitter.builtinsNSEnv
 import brj.emitter.formsNSEnv
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.runtime.SymKind.ID
 import brj.runtime.Symbol
-import com.oracle.truffle.api.CallTarget
-import com.oracle.truffle.api.Scope
-import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.TruffleLanguage
+import com.oracle.truffle.api.*
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
+import org.graalvm.options.*
+import org.graalvm.options.OptionCategory.*
+import org.graalvm.options.OptionStability.*
 
 @TruffleLanguage.Registration(
     id = "brj",
@@ -33,6 +34,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun initializeContext(ctx: BridjeContext) {
         ctx.env += formsNSEnv(ctx)
+        ctx.env += builtinsNSEnv(ctx)
         ctx.require(Symbol(ID, "brj.core"))
     }
 
@@ -44,7 +46,19 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     override fun findTopScopes(ctx: BridjeContext) =
         listOf(Scope.newBuilder("global", ctx.env).build())
 
+    override fun getOptionDescriptors(): OptionDescriptors = BridjeLanguageOptionDescriptors()
+
     companion object {
+        @Option(name = "path", help = "Search path of directories and/or JAR files, separated by ':'",
+            category = USER, stability = STABLE)
+        @JvmField
+        val PATH = OptionKey<String>(System.getProperty("java.class.path") ?: "")
+
+        @Option(name = "stuff-dir", help = "Where Bridje can store temporary files, default ./.brj-stuff",
+            category = USER, stability = STABLE)
+        @JvmField
+        val STUFF_DIR = OptionKey<String>(".brj-stuff")
+
         @Deprecated("only used in tests")
         internal fun currentBridjeContext() = getCurrentContext(BridjeLanguage::class.java)
     }

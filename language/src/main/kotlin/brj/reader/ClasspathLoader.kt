@@ -1,76 +1,81 @@
 package brj.reader
 
 import brj.BridjeContext
-import brj.reader.ClasspathLoader.Companion.ClasspathEntry.FileClasspathEntry
-import brj.reader.ClasspathLoader.Companion.ClasspathEntry.JarClasspathEntry
+import brj.BridjeLanguage
+import brj.reader.ClasspathLoader.PathEntry.DirPathEntry
+import brj.reader.ClasspathLoader.PathEntry.JarPathEntry
 import brj.reader.FormReader.Companion.readSourceForms
 import brj.runtime.Symbol
 import com.oracle.truffle.api.TruffleFile
 import com.oracle.truffle.api.source.Source
-import java.io.File
-import java.util.*
 import java.util.jar.JarFile
 
 internal class ClasspathLoader(private val ctx: BridjeContext) : FormLoader {
+    private sealed class PathEntry {
+        protected abstract fun nsFile(fileName: String): TruffleFile?
 
-    companion object {
-        private sealed class ClasspathEntry {
-            class FileClasspathEntry(val path: String) : ClasspathEntry() {
-                fun nsFile(fileName: String, ctx: BridjeContext) =
-                    ctx.truffleEnv.getPublicTruffleFile(path).resolve(fileName).takeIf { it.isReadable }
-            }
+        fun nsFile(ns: Symbol): TruffleFile? = nsFile("${ns.baseStr.replace('.', '/')}.brj")
 
-            class JarClasspathEntry(val path: String) : ClasspathEntry() {
-                private val entries by lazy { JarFile(path).entries().asSequence().map { it.name }.toSet() }
-                private val cacheFileName by lazy {
-                    val file = File(path)
-                    val hash = String.format("%02x", Arrays.hashCode(file.inputStream().readAllBytes()))
-                    "${file.name.removeSuffix(".jar")}-$hash"
-                }
+        class JarPathEntry(val jarFile: TruffleFile, val cacheDir: TruffleFile) : PathEntry() {
+            private val entries by lazy { JarFile(jarFile.path).entries().asSequence()
+                .filter { it.name.endsWith(".brj") }
+                .associateBy { it.name } }
 
-                fun nsFile(fileName: String, cacheDir: TruffleFile) =
-                    if (entries.contains(fileName)) {
-                        val cacheFile = cacheDir.resolve(cacheFileName).resolve(fileName)
-                        if (!cacheFile.isReadable) {
-                            JarFile(path).use { jarFile ->
-                                jarFile.getInputStream(jarFile.getJarEntry(fileName)).use { iStream ->
-                                    cacheFile.also { it.parent.createDirectories() }.newOutputStream().use { oStream ->
-                                        iStream.copyTo(oStream)
-                                    }
+            override fun nsFile(fileName: String) =
+                entries[fileName]?.let { jarEntry ->
+
+                    val hash = String.format("%02x", jarEntry.crc)
+                    val cacheFile = cacheDir
+                        .resolve(jarFile.name.removeSuffix(".jar"))
+                        .resolve(jarEntry.name)
+                        .resolveSibling("${jarEntry.name.removeSuffix(".brj")}-$hash.brj")
+
+                    if (!cacheFile.isReadable) {
+                        JarFile(jarFile.path).use { jarFile ->
+                            cacheFile.parent.createDirectories()
+
+                            jarFile.getInputStream(jarEntry).use { inStream ->
+                                cacheFile.newOutputStream().use { outStream ->
+                                    inStream.copyTo(outStream)
                                 }
                             }
                         }
+                    }
 
-                        cacheFile.takeIf { it.isReadable }
-                    } else null
-            }
+                    cacheFile
+                }
         }
 
-        private val classpathEntries: List<ClasspathEntry> =
-            System.getProperty("java.class.path")
-                .split(File.pathSeparator)
-                .map { path -> if (path.endsWith(".jar")) JarClasspathEntry(path) else FileClasspathEntry(path) }
+        class DirPathEntry(val dir: TruffleFile) : PathEntry() {
+            override fun nsFile(fileName: String) =
+                dir.resolve(fileName).takeIf { it.isReadable }
+        }
     }
 
-    private val cacheDir: TruffleFile = ctx.truffleEnv.getPublicTruffleFile(ctx.truffleEnv.config["brj.brj-stuff-path"] as? String
-        ?: ".brj-stuff")
-        .resolve("resources")
-        .also { it.createDirectories() }
+    private val pathEntries: List<PathEntry>
 
-    private fun nsSource(ns: Symbol): Source? {
-        val fileName = "${ns.baseStr.replace('.', '/')}.brj"
+    init {
+        val stdlib = ctx.brjHome?.let { brjHome ->
+            DirPathEntry(
+                ctx.truffleEnv.getInternalTruffleFile("${brjHome}/stdlib")
+                    .also { assert(it.isReadable) })
+        }
 
-        return this::class.java.getResource("/$fileName")?.let { Source.newBuilder("brj", it).build() }
-            ?: classpathEntries.asSequence()
-                .mapNotNull { entry ->
-                    when (entry) {
-                        is FileClasspathEntry -> entry.nsFile(fileName, ctx)
-                        is JarClasspathEntry -> entry.nsFile(fileName, cacheDir)
-                    }
-                }
-                .firstOrNull()
-                ?.let { file -> Source.newBuilder("brj", file).build() }
+        val stuffDir = ctx.truffleEnv.getPublicTruffleFile(ctx.truffleEnv.options[BridjeLanguage.STUFF_DIR])
+
+        val cacheDir = stuffDir.resolve("jar-cache")
+
+        pathEntries = listOfNotNull(stdlib) +
+            ctx.truffleEnv.options[BridjeLanguage.PATH]
+                .split(ctx.truffleEnv.pathSeparator)
+                .map { ctx.truffleEnv.getPublicTruffleFile(it) }
+                .filter { it.isReadable }
+                .map { if (it.isRegularFile()) JarPathEntry(it, cacheDir) else DirPathEntry(it) }
     }
+
+    private fun nsSource(ns: Symbol): Source? =
+        pathEntries.asSequence().mapNotNull { it.nsFile(ns) }.firstOrNull()?.let { Source.newBuilder("brj", it).build() }
 
     override fun loadForms(ns: Symbol): List<Form> = readSourceForms(nsSource(ns) ?: TODO("ns not found: '$ns'"))
+
 }

@@ -57,8 +57,11 @@ internal data class NSHeader(val ns: Symbol,
                 it.or({
                     it.maybe { it.expectSym(ID) }?.let { sym -> sym to BridjeAlias(it.expectSym(ID)) }
                 }, {
-                    it.maybe { it.expectSym(TYPE) }?.let { sym ->
-                        it.nested(ListForm::forms) {
+                    when (val sym = it.maybe { it.expectSym(TYPE) }) {
+                        // this doesn't look like idiomatic Kotlin - you'd use '?.let' given the chance
+                        // but for reasons I can't fathom, this breaks native-image
+                        null -> null
+                        else -> it.nested(ListForm::forms) {
                             it.expectSym(JAVA)
                             sym to JavaAlias(
                                 Symbol(ID, "$ns\$${sym}"),

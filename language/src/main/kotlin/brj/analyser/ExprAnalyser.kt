@@ -3,10 +3,6 @@
 package brj.analyser
 
 import brj.reader.*
-import brj.reader.Form
-import brj.reader.ListForm
-import brj.reader.QSymbolForm
-import brj.reader.SymbolForm
 import brj.runtime.*
 import brj.runtime.SymKind.*
 import brj.types.*
@@ -114,22 +110,22 @@ internal data class ExprAnalyser(val resolver: Resolver,
             // (:: <sym> <type>)
             it.maybe { it.expectSym() }?.let { sym -> Preamble(sym) }
         }, {
-            it.maybe { it.expectForm<ListForm>() }?.let { listForm ->
-                it.nested(listForm.forms) {
-                    it.maybe { it.expectIdent() }?.let { sym ->
-                        when (sym) {
-                            is Symbol ->
-                                when (sym.kind) {
-                                    // (:: (foo Int) Str)
-                                    ID -> Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
+            when (val listForm = it.maybe { it.expectForm<ListForm>() }) {
+                null -> null
+                else -> it.nested(listForm.forms) {
+                    when (val sym = it.maybe { it.expectIdent() }) {
+                        null -> null
+                        is Symbol ->
+                            when (sym.kind) {
+                                // (:: (foo Int) Str)
+                                ID -> Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
 
-                                    // (:: (:Ok a) a)
-                                    // (:: (Maybe a) (+ (:Ok a) :Nil))
-                                    RECORD, VARIANT, TYPE -> Preamble(sym, typeVars = it.varargs(typeAnalyser::typeVarAnalyser))
-                                }.also { _ -> it.expectEnd() }
-                            is QSymbol -> {
-                                Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
-                            }
+                                // (:: (:Ok a) a)
+                                // (:: (Maybe a) (+ (:Ok a) :Nil))
+                                RECORD, VARIANT, TYPE -> Preamble(sym, typeVars = it.varargs(typeAnalyser::typeVarAnalyser))
+                            }.also { _ -> it.expectEnd() }
+                        is QSymbol -> {
+                            Preamble(sym, paramTypes = it.varargs(typeAnalyser::monoTypeAnalyser))
                         }
                     }
                 }

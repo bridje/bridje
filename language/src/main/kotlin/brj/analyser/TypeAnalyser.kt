@@ -2,8 +2,8 @@ package brj.analyser
 
 import brj.reader.*
 import brj.runtime.Ident
-import brj.runtime.Symbol
 import brj.runtime.SymKind.*
+import brj.runtime.Symbol
 import brj.runtime.VariantKeyVar
 import brj.types.*
 
@@ -64,11 +64,12 @@ internal class TypeAnalyser(private val resolver: Resolver,
                 it.or({
                     it.maybe { it.expectSym(FN_TYPE) }?.let { _ ->
                         val types = it.varargs { monoTypeAnalyser(it) }
-                        FnType(types.dropLast(1), types.last())
+                        FnType(types.dropLast(1), types.last()) as MonoType
                     }
                 }, {
-                    it.maybe { it.expectSym(VARIANT_TYPE) }?.let { _ ->
-                        VariantType(
+                    when (it.maybe { it.expectSym(VARIANT_TYPE) })  {
+                        null -> null
+                        else -> VariantType(
                             possibleKeys = it.varargs {
                                 data class Preamble(val variantSym: Ident, val typeParams: List<MonoType>)
 
@@ -85,7 +86,6 @@ internal class TypeAnalyser(private val resolver: Resolver,
                                 variantKey to RowKey(preamble.typeParams)
                             }.toMap(),
                             typeVar = RowTypeVar(true))
-
                     }
                 }, {
                     it.maybe { it.expectSym(TYPE) }?.let { sym ->
