@@ -39,5 +39,9 @@ tasks.register<Jar>("component") {
         into ("bin") {
             from(project(":native-image").tasks["nativeImage"].outputs)
         }
+
+        into("stdlib") {
+            from(project(":language").file("src/main/brj"))
+        }
     }
 }

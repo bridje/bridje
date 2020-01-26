@@ -46,21 +46,26 @@ internal class ClasspathLoader(private val ctx: BridjeContext) : FormLoader {
             }
         }
 
-        private val classpathEntries: List<ClasspathEntry> =
+        private val classpathEntries by lazy {
             System.getProperty("java.class.path")
                 .split(File.pathSeparator)
                 .map { path -> if (path.endsWith(".jar")) JarClasspathEntry(path) else FileClasspathEntry(path) }
+        }
     }
 
-    private val cacheDir: TruffleFile = ctx.truffleEnv.getPublicTruffleFile(ctx.truffleEnv.config["brj.brj-stuff-path"] as? String
-        ?: ".brj-stuff")
+    private val brjHome: String? = System.getProperty("brj.home")
+    private val stdlibDir = ctx.truffleEnv.getInternalTruffleFile(if (brjHome != null) "$brjHome/stdlib" else "src/main/brj")
+        .also { assert(it.isReadable) }
+
+    val brjStuffPath = ctx.truffleEnv.config["brj.brj-stuff-path"] as? String ?: ".brj-stuff"
+    private val cacheDir: TruffleFile = ctx.truffleEnv.getPublicTruffleFile(brjStuffPath)
         .resolve("resources")
         .also { it.createDirectories() }
 
     private fun nsSource(ns: Symbol): Source? {
         val fileName = "${ns.baseStr.replace('.', '/')}.brj"
 
-        return this::class.java.getResource("/$fileName")?.let { Source.newBuilder("brj", it).build() }
+        return stdlibDir.resolve(fileName)?.let { Source.newBuilder("brj", it).build() }
             ?: classpathEntries.asSequence()
                 .mapNotNull { entry ->
                     when (entry) {

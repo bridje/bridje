@@ -33,7 +33,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun initializeContext(ctx: BridjeContext) {
         ctx.env += formsNSEnv(ctx)
-//        ctx.require(Symbol(ID, "brj.core"))
+        ctx.require(Symbol(ID, "brj.core"))
     }
 
     override fun isObjectOfLanguage(obj: Any) = obj is BridjeObject
