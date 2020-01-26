@@ -17,6 +17,10 @@ graal {
     option("$languageJar:$launcherJar")
 
     option("--macro:truffle")
+    option("--features=org.graalvm.home.HomeFinderFeature")
+    option("-Dorg.graalvm.launcher.relative.home=languages/brj/bin/brj")
+    option("-Dorg.graalvm.launcher.classpath=lib/brj/brj-launcher.jar")
     option("--initialize-at-build-time")
+    option("--no-fallback")
     option("-H:IncludeResources='.*\\.brj'")
 }

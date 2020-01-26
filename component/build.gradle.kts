@@ -24,8 +24,12 @@ tasks.register<Jar>("component") {
         from("META-INF")
     }
 
+    into("lib/brj") {
+        from(project(":launcher").tasks["jar"].outputs)
+    }
+
     into("languages/brj") {
-        from(project(":launcher").tasks["jar"].outputs, project(":language").tasks["jar"].outputs)
+        from(project(":language").tasks["jar"].outputs)
 
         into ("bin") {
             from(project(":native-image").tasks["nativeImage"].outputs)
