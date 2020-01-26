@@ -20,7 +20,7 @@ import org.graalvm.options.OptionStability.*
 @TruffleLanguage.Registration(
     id = "brj",
     name = "Bridje",
-    version = "0.0.0",
+    version = "0.0.2",
     defaultMimeType = "application/brj",
     characterMimeTypes = ["application/brj"],
     contextPolicy = TruffleLanguage.ContextPolicy.SHARED)
