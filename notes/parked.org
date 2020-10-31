@@ -1,0 +1,20 @@
+- Java generics
+- finally? how does this work with our new shiny objects?
+- don't think '$set' is the primitive here, unless we only allow object updates within its own fns?
+- nested transients? can we give the user a lot of help?
+- Truffle parts in Java, so that we don't have to deal with Kotlin compiling to something that can't be optimised?
+- more into ANTLR?
+- what's going on with how we construct collections?
+  - looks like graal-js has its own collection objects, they're not expected to be lists
+  - maybe we could wrap Java immutable lists?
+- polyglot interop - caching
+  - Graal says we should try cache the source - but we don't have dynamic lookup in Bridje - we'd statically link any function calls at compile time
+  - unless we don't cache those? will be a PITA for calling Bridje from Java - they'll never get optimised
+  - can we add a node on top whose job is to check for invalidations?
+  - caller langs won't re-parse the source every time, that'd be crazy - so they'd have a node in hand
+- have we sorted out spec2 implications yet? i.e. how to specify nested record keys
+  - Alex's talk at Clojutre:
+    - unqualified keys given a type for a specific schema
+    - select - must match the all the specified keys
+
+- I think we /may/ be able to implement java interfaces? bottom of 'ToHostNode.java'

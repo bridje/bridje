@@ -1,0 +1,127 @@
+* Polymorphism implementation
+- Need to have a value to pass to the GlobalVarExpr when we emit it
+- Don't really want to make it a partial application (though we could)
+- GlobalVarExpr needs to have a series of pre-args, maybe?
+- implementing with dictionary passing (in the absence of other ideas), so GlobalVars need to store what order those args
+  are passed in - unless we pass an object to any var that has type constraints, same as we do with effects
+- build up that dictionary at the CallExpr emission, same as we do with effects?
+- could be fun with higher-ranked types - we're going to need to 'keep some back' so that the callee can provide
+  implementations.
+- FnExpr - need to separate out the constraints at that point - these constraints are dynamic (unlike effects that are
+  static)
+- one option is to pass the first part of a dictionary
+- partially applying these functions? would need to doubly-partially apply them in the higher-ranked case (although this would be a simple wrapper node that merged the two dictionaries)
+- this being the case, maybe we should partially apply effects too?
+  - can we make effects work as a special case of typeclasses?
+  - typeclasses with zero type params?
+  - static vs dynamic would be interesting - don't think the typeclass system would behave this way by default -
+    especially with the behaviour around function boundaries.
+  - but we could certainly partially apply those functions, set up the effect read var into a materialized frame
+  - we could certainly make any function that had either effects or type constraints be partially applied, take effects
+    first, constraints second
+  - maybe even the same dict for both?
+  - we'd want to move the wrapping definition as high as possible within the function
+
+back to the simple implementation
+- emitter needs to know, for any fn, what poly constraints they are
+- also still need to decide what form those poly constraints take
+- easy case, defn, looks at the overall type of the expression
+- anonymous polymorphic fn - counts whatever's passed to it (say)
+- so let's say each polymorphic call carries around an id of the poly call, which then gets unified, same way as params/return-type
+- sgna mean that one fnexprs aren't data classes - or perhaps they can be, if the parameter isn't required through the primary constructor
+- call expressions are also going to need information about the functions they're calling - do we need to pass poly params?
+- we can probably keep this as part of the analyser, or maybe a separate pass afterwards
+- do we need to touch the emitter at all? or can this all be done as part of the analyser?
+  - we can certainly deal with the effects system (mostly) as part of the analyser, would be surprised if we couldn't do the same with polys
+  - let's make it a separate pass, after the analyser?
+  - it's certainly going to need to be after the type-checker - that's what decides what implementations we use for each callsite
+  - let's refactor how the effects work as part of this, it'll be a similar pass
+
+things to consider:
+- when we get down to the actual effect call, we need to pass through all the effects except the current implementation, so that the handler can call through to the inner handler
+- if the effectful var's resolved outside of a callexpr, who supplies the effects?
+  - seems like it should be wherever it's resolved
+  - how do we then resolve the inner handler's effects?
+  - unless they're done within the with-fx call. that would make a lot of sense.
+    - at that point, we don't need to care about passing through the inner handlers - they'll already have them
+    - fair bit of this is passed dynamically, though
+  - optimisation: we'll want to hoist these out of the innermost loops, though, doesn't make sense to keep calling these intermediate functions
+- they're carried down as lexical scope - is there an easier way?
+
+- option A: do we 'just' pass the lexical scope down regardless, make it a proper dynamic scope?
+  - this means that closures just ignore their dynamic scope (fine)
+  - overhead to passing on every call?
+- option B: how can we efficiently write closures in Graal?
+  - will likely need to create an object,
+  - unless we can materialise the frame
+  - we'll likely need this solution when we come to polys, regardless?
+    - in this case though, we need it - we may well pass a poly to something more specific
+    - e.g. passing count to a (Fn #{Str} Int)
+- option C: hoist /all/ the effectful vars
+  - going to be way more vars that depend on effects than actual effects, though
+
+what do other langs do?
+- OO. dynamic dispatch a decent chunk of the time.
+  - let's say we were doing this with dependency injection
+  - we'd have an object per effectful fn, the dependencies would be set up ahead of time.
+    - we allow dependencies to be changed at runtime, maybe this isn't the same
+- Clojure (component systems) - define the object tree, each function only sees the top-level components it depends on
+  - dispatch is probably pretty quick after the tree's been constructed
+  - means that =with-fx= call might be pretty expensive though, although we're looking to reserve those for tests and system start
+  - quite like this one
+  - what does this mean for polys? can we work in the same way?
+    - not convinced we can, polys seem a lot more dynamic
+    - what /can/ happen?
+      - function can call polymorphic function with no idea what instance to use - delegates to caller
+      - function can call polymorphic function with an exact instance - inlined
+      - function can call function which depends on poly function - needs to specify an implementation
+    - does it always either know what implementation to pass, or get it provided?
+      - assuming it does, would it mean that we could generate the tree at the top?
+      - assuming we could, would it be beneficial to?
+      - could we cache it?
+    - think we'd want to make it a per-function, per poly thing - we're likely going to have to manipulate this a lot more often
+- Haskell - dictionary passing
+  - although Haskell already deals with closures very efficiently, it probably isn't a fair comparison
+
+so, implementation:
+- when we resolve a global var with any kind of effects, we're going to want to pull it from the effect local
+- with-fx changes pretty significantly, as does the top-level REPL call
+- what's on the effectful var? what's on the root effect var?
+  - something here needs to pass effectful vars through
+  - something here needs to
+- what does the globalvar emitter need to do?
+  - the globalvar expr probably needs to look the var up in the effectlocal and then return the value,
+- what does the top-level resolver need to do?
+- are we putting effectful vars in that map, or just effect vars?
+  - effectful vars are presumably numerous, effect vars much fewer
+  - although that does mean that we'll need to handle the cases differently
+  - we will need to pass that effect map as an argument
+- effect vars have no dependencies - it's the implementations that have dependencies
+- effectful vars do - the underlying effect vars
+- so maybe we do pass down a flat map of the effect vars, much easier to construct
+- effectful vars then pass them on
+- maybe all functions pass them on, tbh - as first argument - that way, we don't have to worry about the tree
+  - case to think about here is where we resolve the globalvar separately from the call
+  - if we pass the globalvar to another function, we're going to want to have resolved the effects already
+    - hence the tree, including all effectful vars
+- ok, so effectful var needs to put its map of effectful vars in the effect local
+  - this is assuming the var is a function
+  - if it's a value? we can ban effects from being values, say they're always (at least) 0-arg functions
+- cycles are problematic.
+- maybe the effect var can do both - a closure and the full function, depending on how many args it's passed - benefits?
+  - if we spot we're using the globalvar outside of a call, we can close over the effects already
+  - it's going to be pretty unusual that we do this, I reckon, so a little performance hit here should be fine, in return for simplicity
+  - the value of the effect var looks itself up
+
+what feels uneasy about implementing closures this way?
+- creating a node on every invocation, because it can't get optimised
+so how can we avoid creating a node, what needs to happen?
+- is it the same shape of node?
+- we probably know how many nodes need to be allocated each time, which local variables it needs to be
+- the inner function needs access to an object, is the problem - a different object every time.
+- we don't do this when we create a function, because the node's known ahead-of-time
+- it is necessarily different on each call, that's the trouble.
+- can we store the closure as prefix args on the bridjefunction object? calling convention is then to call the function with the prefix args provided?
+- the calltarget for a given node won't ever change, so that'll get sufficiently optimised
+
+doesn't look like SL has the concept of closures. fun.

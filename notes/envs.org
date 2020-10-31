@@ -1,0 +1,39 @@
+* Environments
+- we've got to respond to parse requests, essentially given a context and a source
+- source potentially has multiple forms - requires, aliases, values and namespaces
+
+previously I've wanted an 'immutable runtime environment' - why?
+- largely because of the issues within Clojure with consistency of redefined functions
+  - particularly, eval a function, eval another function that depends on
+  - more important because it's a typed language - incompatible change to the type of a fn mean re-compile
+  - other typed langs (Java, Kotlin, Haskell) are re-compile the world when a function changes
+  - difference here is that we're REPL based, so there's the expectation that we don't need a build
+  - deleting functions, too
+  - it'll help that we're compiling at the namespace level, that'll get a decent chunk
+  - GHCi is the closest they come to a REPL - let bindings in that REPL don't get updated when a dependent updates
+  - so can we make namespaces behave in the same way?
+  - or we can re-compile on-demand
+    - i.e. we leave the bulk of the system to behave in the same way
+    - values (i.e. closures) continue to behave in the same way for their lifetimes
+    - as soon as we call a function that relies on an out-of-date namespace, we re-compile
+  - let's give the user fine-grained control over contexts - we shouldn't re-use them
+
+so it's the REPL that makes this most interesting - how does that handle redefining vars?
+- usage patterns?
+- do block, redefine a load of functions, run a test case
+- arbitrarily redefine any definitions, run arbitrary definitions in that context
+- we can deal without marking namespaces unavailable if we allow the user to explicitly fork the context
+  - forking the context and then eval'ing a namespace would invalidate all the namespaces underneath it, in that context
+  - we can get back into the main context once we're done, and then re-eval everything that's changed
+  - we can potentially eval multiple namespaces in that context, if we're testing a few - again, we invalidate any namespaces underneath it
+  - re-eval'ing vars at the REPL invalidates any vars that depend on it
+  - we return the value of the last request
+- bear in mind this'll be used from other languages too
+
+looking promising. what are the primitives?
+- we can fork to a namespace, invalidates any namespaces that depend on it
+- state of a context - env, and current namespace
+- eval'ing a form within the namespace invalidates any vars within the namespace evaluated after it
+- eval'ing a namespace, interactively, replaces it
+  - REPL can potentially be given a different namespace - switch?
+- need a primitive to kill the fork and rejoin the main context, probably reloading it

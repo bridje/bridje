@@ -1,0 +1,3 @@
+[submodule "aur/bridje-bin"]
+	path = aur/bridje-bin
+	url = https://aur.archlinux.org/bridje-bin.git

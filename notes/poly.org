@@ -1,0 +1,204 @@
+still haven't got the polymorphism concepts nailed, apparently
+
+we're implementing typeclasses, at least, by dictionary passing - can we make more things appear this way?
+we'd like the abstraction of records of functions, too
+this fits in with how we'd like the 'effect system' to work, too - dependency injecting the effects
+effects are 'just' providing an implementation that the function doesn't need to know about
+we might want both static and instance methods to be passed implicitly
+polymorphic dictionaries are also passed implicitly, so it feels that there should be some unifying concept here
+
+scala implicits.
+declared as explicit (ha) params on the callee
+
+polymorphic objects
+we might want to declare an instance method
+=(.foo bar 1 2)= could just be sugar for =((:.foo bar) 1 2)=
+
+#+begin_src clojure
+  (:: (.more?) Bool)
+  ;; sugar for (:: :.more? (Fn Bool))
+  (:: (. a b) (.step a) [b])
+  (:: (. b) (.complete) [b])
+
+  (def (.more? (:Taker n))
+    (pos? n))
+
+  (def (.step (:!Taker n) el)
+    (swap! n dec)
+    [el])
+
+  (def (.more? (:Mapper f)) true)
+
+  (def (. (:Mapper a b) a b) (.step (:Mapper f) el)
+    [(f el)])
+
+  ;; these two are also sugar
+  (def foo
+    {(def (.step [el])
+       )})
+
+  (def foo
+    {:.step (fn [el]
+              )})
+
+  ;; ok, also more Haskell-y typeclasses:
+  (:: (. a) mzero a)
+  (:: (. a) (mplus2 a a) a)
+
+  (def (. [a]) mzero [])
+  (def (. [a]) mplus2 into)
+
+  (defmacro (def-foldl f f2)
+    `(defmacro (~f arg & args)
+       (if-let [(:Cons arg2 more-args) (seq args)]
+         (~f ~(f2 arg arg2) ~@more-args)
+         ~arg)))
+
+  (defmacro (def-foldr f f2)
+    `(defmacro (~f arg & args)
+       (if (seq args)
+         (~f2 arg (~f args))
+         ~arg)))
+
+  (deffoldl mplus mplus2)
+#+end_src
+
+ok, so how does this work with 'effects'?
+
+we still likely want top-level effects in the same way, but we probably also want to access objects
+why can't we keep it as-is, but have top-level effect vars possibly be objects?
+
+alright, that was easier than I was expecting.
+
+implementation
+
+typeclass implementation is reasonably well defined, we pass a map of dictionaries at the start of the function
+object parameters - we can include these in the map of dictionaries
+object returns - we can include a mutable reference in the dictionaries map which the function can fill
+
+
+can we make it just an idiom? that'd make life a lot easier
+Haskell does it for pattern matching - we don't need that as such
+we need it to distinguish type-aliases (primarily) - records/variants can be done with
+
+we need users to be able to create these, relatively easily, so having multiple different constructors for them might well be a PITA
+
+modelling:
+things can be qualified - if they are, they've got an ns part (not a keyword) and a local part (possibly a keyword)
+
+#+begin_src clojure
+  (:: :foo a)
+  (:: (:foo a))
+#+end_src
+
+we have the same problem with type-aliases and variants when it comes to type selections - polymorphism vs selection
+
+#+begin_src clojure
+  (:: :name Str)
+  (:: :age Int)
+
+  (:: (. a) Seq)
+  (:: (. a) (.seq) (Seq a))
+
+  (:: (. a) (:Cons a {(.seq a)}))
+  (:: :Nil)
+
+  (:: (. a) Seq (+ (:Cons a) :Nil))
+
+
+  (:: :user {:name :age})
+
+  (:: (foo {(:user {:name})}))
+
+  (:: [a b] (.step a) [b])
+
+  (:: (foo {(.step Int Str)}))
+
+  (:: [a] Seq (+ (:Cons a) :Nil))
+
+  (:: (:MyMap Int {:name :age}))
+  ;; is polymorphic in the content of the record, technically
+  ;; so, fully:
+  (:: [r] (:MyMap Int {:name :age, & r}))
+
+  ;; which means
+  (:: [r] :MyMap (Fn [Int {:name :age, & r}] (+ (:MyMap r))))
+
+  (def (foo bar)
+    (case bar
+      (:MyMap n r) (:baz r)))
+
+  (def (foo (:MyMap n {baz}))
+    baz)
+
+  (:: (foo (:MyMap {:baz & r})))
+
+  ;; OTOH, records
+  (:: :foo {})
+  ;; also implicitly polymorphic - can expect whatever we like under :foo
+  (:baz (:foo m))
+  ;; and then m has to be:
+  {(:foo {:baz})}
+
+  (:: [r] :foo (Fn [{(:foo {& r})}] {& r}))
+
+  ;; back to :Cons
+  (:: [a] (:Cons a (Seq a)))
+  (:: :foo (:Cons {})) ; defaulting?
+  (:: [r] :foo (:Cons {& r}))
+
+  {(:foo {:baz})} ; type
+  {:foo (:Cons {:a 5, :baz 5})} ; value
+#+end_src
+
+ok, been a while.
+how about we say these type vars are responsible for all the polymorphism underneath them?
+what'd this mean?
+
+#+begin_src clojure
+  (:: ::foo Int)
+
+  (:: [r] (::foo {::foo (& r)}) Int)
+
+  (:: ::address {::a1 ::a2 ::city ::postal-code})
+  (:: [r] ::address {::a1 ::a2 ::city ::postal-code (& r)})
+
+  (:: [r]
+      (make-order {::first-name ::last-name
+                   (::address {::phone (& r)})})
+      {(::address {::phone (& r)})})
+
+  (:: [a] (::thing (+ (::Ok a) ::Nil)))
+
+  (make-order {::first-name "James",
+               ::last-name "Henderson",
+               ::address {::a1 "A1", ::phone "04431"}
+               ::thing (::Ok (::Ok 42))})
+  ;; r :: {(::address {::phone}), (::thing (::Ok Int))}
+
+  ;; vector of records?
+
+  [{::foo 1} {::foo 2, ::bar 1}]
+  ;; :: [{::foo}]
+
+  ;; unqualified
+  (:: [a] (:foo {(:foo a)}) a)
+
+  [(make-order {::first-name "James",
+                ::last-name "Henderson",
+                ::address {::a1 "A1", ::a2 "A2" ::phone "04431"}
+                ::thing (::Ok (::Ok 42))})
+   (make-order {::first-name "James",
+                ::last-name "Henderson",
+                ::address {::a1 "A1", ::phone "04431"}
+                ::thing (::Ok (::Ok 42))})]
+  ;; :: [{(::address {::a1 ::phone})}]
+#+end_src
+
+ok, happy with a type variable being at every level, reckon I understand how that'd work (standard row types)
+how can we simplify it, practically?
+when we parse/render types, we can elide TVs that only appear once - but if you accept and return a nested structure, there's necessarily going to be loads
+(everything else seems to parse/render TVs all the way down)
+
+maybe we don't even initialise a type-var for them until we know it occurs in more than one place?
+hmm, not convinced, we'd need some way to refer to them in the mapping so that we could replace them

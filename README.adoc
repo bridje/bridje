@@ -1,0 +1,541 @@
+= Bridje
+
+Bridje is a statically typed LISP, drawing inspiration from both Clojure and Haskell.
+It currently runs on the Graal JVM, but is fundamentally a hosted language - the intention being to have it run on the JavaScript ecosystem too (eventually).
+
+Its main features will include:
+
+- Polymorphic records and variants with type-checked keys, similar to Clojure's 'spec' library
+- A monad-less 'effect system' to statically determine an expression's side causes and side effects.
+- Type-safe macros.
+
+*It is currently pre-alpha, and nowhere near finished.*
+What follows below are ideas for how I imagine the language would work!
+
+Bridje has a number of built-in forms, many similar to their Clojure counterparts.
+It also has a few additions, particularly regarding the record data structures, and its effect and typeclass systems.
+
+== Basic forms (implemented)
+
+Primitives in Bridje are mostly the same as Clojure:
+
+- Strings: `"foo"` - encased in double-quotes.
+- Bools - `true` / `false`
+- 'Int's: `4`, `9` - 64 bits.
+
+TODO:
+
+- 'Float's: `5.3`, `10.5` - IEEE double-precision.
+- 'BigInt's: `105N`, `253N` - arbitrary precision
+- 'BigFloat's: `153.25M`, `256.68M` - arbitrary precision
+
+Function application works as in any other LISP - `(foo param1 param2)`.
+Parameters are eagerly evaluated before calling the function.
+
+'If' and 'do' expressions are unsurprising.
+// In an 'if' statement, though, because Bridje is typed, the two branches must have an equivalent type.
+
+[source,clojure]
+----
+  (if (> x y)
+    x
+    y)
+----
+
+Let and loop/recur behave as in Clojure.
+Like in Clojure, 'recur' must be called from the tail position, and no tail-call optimisation is performed elsewhere.
+If no `loop` block is present, the recur point is assumed to be the containing function.
+
+[source,clojure]
+----
+  (let [x 4
+        y 5]
+    (+ x y))
+
+  (loop [x 5
+         y 0]
+    (if (pos? x)
+      (recur (dec x) (+ y x))
+      y))
+----
+
+== Naming values, defining functions (implemented)
+
+We define both values and functions using `def`.
+// We can optionally specify the type of a value/function explicitly using `::`- it's not required, but it's checked, and useful as documentation.
+
+[source,clojure]
+----
+(def x 4)
+
+;; functions have their name and parameters wrapped in parens
+
+(def (say-hi s)
+  (str "Hello, " s "!"))
+----
+
+// TODO old
+// [source,clojure]
+// ----
+//   (ns my-project.my-ns) ; more on this later
+
+//   (:: x Int)
+//   (def x 4)
+
+//   ; functions have their name and parameters wrapped in parens
+
+//   (:: (say-hi Str) Str)
+//   (def (say-hi s)
+//     (str "Hello, " s "!"))
+// ----
+
+// Values are all defined within a namespace, specified at the top of the file.
+// More on this later, including how to refer to values declared in other namespaces.
+
+== Collections (implemented)
+
+Vectors and sets in Bridje are *homogenous*, unlike Clojure's heterogeneous collections.
+They are immutable, and can be arbitrarily nested.
+
+[source,clojure]
+----
+  [1 4 3]
+  #{["foo" "bar"] ["baz"]}
+----
+
+// (TODO) Bridje does have homogenous maps, but they do not have a specific syntax - they are constructed from sequences of tuples.
+
+== Records (basic keys/records implemented)
+// In a similar manner to Clojure's 'spec', we define the type of a key, then any value of that key, throughout the program, is guaranteed to have the same type.
+
+// We define keys using `::`:
+
+// [source,clojure]
+// ----
+
+//   (:: :id Int)
+//   (:: :text Str)
+//   (:: :a-big-number BigInt)
+// ----
+
+[source,clojure]
+----
+
+  (def foo
+    {:text "Hello"
+     :a-big-number 52N})
+----
+
+// As in Clojure, we can destructure records, although the syntax is a little different.
+// In particular, in the long-hand form, the destructuring matches the structure of the record itself.
+// Here are some examples:
+
+// [source,clojure]
+// ----
+//   ;; long-hand - we bind the symbol 'the-id' to the value of ':id' in the record
+//   (let [{(:id the-id)} {:id 4}]
+//     ;; the-id = 4
+//     )
+
+//   ;; if the bound symbol matches the key, we don't have to specify it twice - the
+//   ;; symbol suffices (commas are considered whitespace):
+//   (let [{username, (:id user-id)} {:username "jarohen", :id 451}]
+//     ;; username = "jarohen"
+//     ;; user-id = 451
+//     )
+
+//   ;; we can bind the entire data structure by wrapping the symbol with `(* ...)`
+//   (let [{username (* user)} {:username "jarohen", :id 451}]
+//     ;; username = "jarohen"
+//     ;; user = {:username "jarohen", :id 451}
+//     )
+// ----
+
+Records can also be nested.
+// Drawing inspiration from hints in Rich Hickey's 'Maybe Not' talk, we do not specify ahead of time what keys a record type contains, only that it is a record.
+// When the record is used, the type system then decides which keys the user of the record requires at that particular site.
+
+// [source,clojure]
+// ----
+//   (:: :user-id Int)
+//   (:: :name Str)
+//   (:: :follower-count Int)
+
+//   ;; we specify that `:user` is a record, and give it some default keys
+//   ;; these can be overridden at each usage site.
+//   (:: :user {:user-id :name :follower-count})
+
+//   ;; the type of `say-hi` is (Fn {:name} Str)
+//   ;; - a function from a record containing a `:name` key to a string
+//   (def (say-hi user)
+//     (format "Hi, %s!" (:name user)))
+
+//   ;; we can also nest the destructuring. N.B. whereas Clojure's destructuring
+//   ;; syntax is 'inside-out', Bridje's more closely matches the structure of the
+//   ;; input data
+
+//   (let [{(:user {(:follower-count followers)})} {:user {:follower-count 4424}}]
+//     ; followers = 4424
+//     )
+
+//   (let [{(:user {follower-count})} {:user {:follower-count 4424}}]
+//     ; follower-count = 4424
+//     )
+// ----
+
+// We can define type aliases for common sets of keys:
+
+// [source,clojure]
+// ----
+//   (:: BaseUser {:user-id :name})
+
+//   (:: (say-hi BaseUser) Str)
+// ----
+
+== Variants ('union'/'sum' types) (implemented)
+
+In addition to records, with a set of keys, Bridje also allows developers to declare 'variants' - a data structure that has _one_ of a possible set of keys.
+// Variant keys are distinguished from record keys by using an initial capital letter:
+
+TODO
+
+// [source,clojure]
+// ----
+//   (:: (:Int Int))
+//   (:: (:String Str))
+//   (:: :Neither) ; variants don't *need* a value, necessarily; they can also have more than one.
+
+//   ;; we then construct instances of these variants using the key as a constructor:
+//   ;; this is of type `[(+ :Int :String :Neither)]` - a vector whose elements either have an
+//   ;; `:Int` key, a `:String` key, or the value `:Neither`
+//   (def ints-and-strings
+//     [(:Int 4) :Neither (:String "hello")])
+
+
+//   ;; we can deconstruct variants using a `case` expression (destructuring if need be).
+//   ;; in a similar vein to the `if` expression, all of the possible outputs of a
+//   ;; case expression must have the same type.
+
+//   (case (first ints-and-strings)
+//     (:Int an-int) (+ an-int 2)
+//     (:String a-string) (count a-string)
+//     :Neither 0)
+
+//   ;; again, we can define type aliases for common variants:
+//   (:: IntOrString (+ :Int :String :Neither))
+// ----
+
+// == Macros (implemented)
+
+// Bridje macros aim to operate as similar to Clojure's macros as possible - however, without a heterogeneous list type, we need another way of expressing and manipulating forms.
+
+// Instead, we use variants - a macro is then a function that accepts a number of Forms, and returns a Form.
+
+// [source,clojure]
+// ----
+//   (:: (:StringForm Str))
+//   (:: (:IntForm Int))
+//   (:: (:ListForm [Form]))
+//   (:: (:VectorForm [Form]))
+//   ;; ...
+
+//   (:: Form (+ :StringForm :IntForm :ListForm :VectorForm ...))
+
+//   (defmacro (my-first-macro form)
+//     (case form
+//       (:StringForm str) (:StringForm "sneaky!")
+//       form))
+
+//   ;; fortunately, syntax-quoting/unquoting translates into Form-generating code as
+//   ;; you'd expect, so, most of the time, Bridje macros will have similar implementations.
+
+//   (defmacro (if-not pred then else)
+//     `(if `pred
+//        `else
+//        `then))
+// ----
+
+// == Namespaces (partially implemented, reload to come)
+
+// Namespaces are collections of symbols and keys.
+// In the namespace declaration (which must be the first declaration in the file) we can specify which symbols and keys we'd like to refer to from other namespaces:
+
+// [source,clojure]
+// ----
+//   ;; my-project/users.brj
+
+//   (ns my-project.users)
+
+//   (:: :user-id Int)
+//   (:: :name Str)
+
+//   (:: BaseUser {:user-id :name})
+
+//   (def (say-hi {name})
+//     (format "Hi, %s!" name))
+
+
+//   ;; my-project/another-ns.brj
+
+//   (ns my-project.another-ns
+//     {:aliases {users my-project.users}
+//      :refers {my-project.users #{:user-id say-hi}}})
+
+//   ;; we can now refer to members of the 'users' namespace using either their
+//   ;; alias, or, for the symbols we referred, directly:
+//   (:user-id user)
+//   (say-hi {:name "James"})
+
+//   (:users/user-id user)
+//   (users/say-hi {:users/name "James"})
+
+//   (:: (save-user! users/BaseUser) Void)
+// ----
+
+// Namespaces are loaded as a whole unit - you cannot just load a single `def` in Bridje.
+// This is partly to ensure type consistency within the namespace - we don't want re-declaring a definition to invalidate the type guarantees.
+// You can, however, evaluate other forms (that don't change the contents of a namespace) individually at the REPL.
+
+== Effects (implemented)
+
+One of Bridje's main features is its effect system - a way of knowing at compile-time what side causes/side effects a function depends on.
+
+We use the example of a simple logging system, where we want to log to stdout.
+// In Bridje, we declare an effectful function by wrapping the declaration with `(! ...)`.
+We can then provide a default implementation, which may in turn call lower-level effects.
+
+TODO
+
+// [source,clojure]
+// ----
+//   (:: (print! Str) (! Void))
+//   (:: (read-line!) (! Str))
+
+//   (def (print! s)
+//     ;; interop
+//     )
+
+//   (def (read-line!)
+//     ;; interop
+//     )
+
+//   (def (println! s)
+//     (print! (str s "\n")))
+
+
+//   (:: :Debug)
+//   (:: :Info)
+//   (:: :Warn)
+//   (:: :Error)
+
+//   (:: Level (+ :Debug :Info :Warn :Error))
+
+
+//   (:: (log! Level Str) (! Void))
+
+//   (def (log! level s)
+//     (print! (format "Log [%s]: %s" (pr-str level) s)))
+
+//   (def (my-fn x y)
+//     (log! :Debug (format "Got x: %d, y: %d" x y))
+//     (+ x y))
+// ----
+
+// Effects propagate through the call stack - in this case, the `println!` function is determined to use the `print!` effect.
+// The `my-fn` function is determined to use the `log!` effect, but not `print!` (because default implementations can be overridden).
+
+// We can provide/override implementations of effects using the `with-fx` expression.
+// This defines the behaviour of the effect in the _lexical_ scope of the block.
+
+// [source,clojure]
+// ----
+//   (with-fx [(def (print! s)
+//               ...)]
+
+//     (log! :Info "Hello!"))
+// ----
+
+== Java Interop (partially implemented)
+TODO
+// We can import functions from Java as if they are Bridje functions - we just need
+// to declare their types.
+
+// [source,clojure]
+// ----
+//   (ns my-ns
+//     {:aliases {RT (java java.lang.Runtime
+//                         (:: (getRuntime) RT)
+//                         (:: (freeMemory RT) Int))}})
+
+//   ;; we can then use those functions using the `RT` alias
+//   (RT/freeMemory (RT/getRuntime))
+// ----
+
+== Polymorphism - TODO
+
+// Polymorphism appears in Bridje in two forms - polymorphic keys and polymorphic functions.
+
+// Polymorphic keys are declared by applying keys to type variables.
+// For example, the core library declares a polymorphic `:Ok` variant which can contain a value of any type:
+
+// [source,clojure]
+// ----
+//   (:: (. a) (:Ok a))
+// ----
+
+// This declaration is saying that the `:Ok` variant has a type parameter called `a`, and that its type is that same type `a` - i.e. it has no constraints.
+// We then use the `:Ok` variant as we would any other variant - introducing it using `(:Ok 42)` (which has type `(+ (:Ok Int))`) and eliminating it with `case`:
+
+// [source,clojure]
+// ----
+//   (:: (. a) :Ok a)
+
+//   (case (:Ok 42)
+//     (:Ok int) (even? int)
+//     false)
+// ----
+
+// Polymorphic functions are declared in a similar way - prefixing their names with
+// `.`. This is how to declare a polymorphic `count` function, which takes any type
+// and returns an `Int`:
+
+// [source,clojure]
+// ----
+//   (:: (. a) (count a) Int)
+// ----
+
+// We can then define how `count` behaves for specific types using that same syntax
+// in a `def` form. In this case, let's define our own list structure, and define
+// how to count it:
+
+// [source,clojure]
+// ----
+//   (:: (. a) (count a) Int)
+
+//   (:: (. a) (:Cons a (List a)))
+//   (:: :Nil)
+//   (:: (. a) List (+ (:Cons a) :Nil))
+
+//   (def (. (List a)) (count list)
+//     (case list
+//       (:Cons el rest) (+ 1 (count rest))
+//       :Nil 0))
+// ----
+
+// We can also express 'higher-kinded' functionality, like how to map a function
+// over a structure.
+
+// [source,clojure]
+// ----
+//   (:: (. f)
+//       (fmap (f a) (Fn a b))
+//       (f b))
+// ----
+
+// We can then define how to map a function over our list type:
+
+// [source,clojure]
+// ----
+//   (def (. List) (fmap list f)
+//     (case list
+//       (:Cons el rest) (:Cons (f el) (fmap rest f))
+//       :Nil :Nil))
+// ----
+
+== Error handling (initial thoughts)
+
+There are two types of error in Bridje - we make a distinction between errors that the immediate caller is expected to handle, and errors that they aren't.
+
+Errors that the caller is expected to handle can be wrapped in user-defined variant types.
+If you have a function that has a success case and a number of error cases, you can declare each case as a variant key, and then eliminate the variants with a `case` expression as you would with any other variant.
+// You can use the `:Ok` variant from the core library for the happy cases, but you'll likely want something more descriptive for your errors.
+
+// [source,clojure]
+// ----
+//   (:: :InvalidInput) ; basic variant - can contain a value to return more details about the error
+
+//   ;; returns `(+ (:Ok res-type) :InvalidInput)`
+//   (def (might-error arg ...)
+//     (if (input-valid? arg)
+//       :InvalidInput
+//       (:Ok (process-input arg))))
+
+//   ;; calling `might-error`
+//   (case (might-error my-arg)
+//     (:Ok res) ...
+//     :InvalidInput ...)
+// ----
+
+// Often, there might be many steps in a process, each of which could error in a variety of ways.
+// It'd get pretty boring to extract the `:Ok` value out each time if you're just going to pass the errors through.
+// So, on the right hand side of a `let` binding, we can wrap the expression in `try`.
+// If the expression returns an `:Ok` variant, it's unwrapped and the `let` expression continues; if not, the `let` expression returns the error.
+
+// [source,clojure]
+// ----
+//   (case (maybe-error input)
+//     (:Ok parsed-input) (case (try-something-else parsed-input)
+//                          (:Ok res) (use-result res)
+//                          (:AnotherError err) (:AnotherError err))
+
+//     (:AnError err) (:AnError err)
+
+//   ;; becomes
+
+//   (let [parsed-input (try (maybe-error input))
+//         res (try (try-something-else parsed-input))]
+//     (use-result res))
+
+//   ;; `try` is also supported within `->`:
+
+//   (-> (try (maybe-error input))
+//       (try try-something-else)
+//       use-result)
+// ----
+
+// Errors that the caller isn't expected to handle are thrown with the `throw` built-in - again, any variant is supported.
+// These errors can be handled, likely at the boundary of your system, by using `catch`:
+
+// [source,clojure]
+// ----
+//   (def (throwing config-str)
+//     (case (parse-config config-str)
+//       (:Ok config) config
+//       :InvalidConfig (throw :InvalidConfig)))
+
+//   ;; we could also use 'assume' in this case - a core function that returns the
+//   ;; contained value in `:Ok` cases, but throws otherwise:
+
+//   (def (assuming config-str)
+//     (assume (parse-config config-str)))
+
+//   ;; catching that error at the boundary
+
+//   (def (start-system ...)
+//     (case (catch (...))
+//       (:Ok system) ...
+//       e (log! :Error "The system failed to start.")))
+// ----
+
+// (n.b. not so sure about the `finally` syntax)
+
+As in other languages, we want to ensure that no matter what happens, our resources get cleaned up.
+// For this, we use `finally` - a block of code that's evaluated whether the code within succeeds or fails.
+// In Bridje, this is achieved with a standalone expression in the middle of a `let` binding:
+
+// [source,clojure]
+// ----
+//   (def (cleaning-up ...)
+//     (let [resource (open-resource! ...)
+//           (finally (close-resource! resource))
+
+//           ...]
+//       ...))
+// ----
+
+// We can be sure that the resource is closed after the `let` block finishes,
+// regardless of whether it yields a result, an error, or throws.
+
+= LICENCE
+
+Licence tbc. For now, all rights reserved. Feel free to have a browse, though.
