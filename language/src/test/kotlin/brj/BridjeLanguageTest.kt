@@ -25,7 +25,7 @@ class BridjeLanguageTest {
     }
 
     @Test
-    internal fun name() {
-        println(ctx.eval("brj", "42"))
+    internal fun run() {
+        println(ctx.eval("brj", "\"foo\""))
     }
 }

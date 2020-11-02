@@ -3,10 +3,10 @@ package brj
 import com.oracle.truffle.api.source.SourceSection
 
 sealed class Form {
-    abstract val sourceSection: SourceSection?
+    abstract val loc: SourceSection?
 }
 
-class IntForm(val int: Int, override val sourceSection: SourceSection? = null) : Form() {
+internal class IntForm(val int: Int, override val loc: SourceSection? = null) : Form() {
     override fun toString() = int.toString()
 
     override fun equals(other: Any?) = when {
@@ -18,7 +18,7 @@ class IntForm(val int: Int, override val sourceSection: SourceSection? = null) :
     override fun hashCode() = int
 }
 
-class BoolForm(val bool: Boolean, override val sourceSection: SourceSection? = null) : Form() {
+internal class BoolForm(val bool: Boolean, override val loc: SourceSection? = null) : Form() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is BoolForm -> false
@@ -30,7 +30,7 @@ class BoolForm(val bool: Boolean, override val sourceSection: SourceSection? = n
     override fun toString() = bool.toString()
 }
 
-class StringForm(val string: String, override val sourceSection: SourceSection? = null) : Form() {
+internal class StringForm(val string: String, override val loc: SourceSection? = null) : Form() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is StringForm -> false
@@ -47,7 +47,16 @@ class StringForm(val string: String, override val sourceSection: SourceSection? 
     override fun toString() = stringRep
 }
 
-class ListForm(val forms: List<Form>, override val sourceSection: SourceSection? = null) : Form() {
+internal class SymbolForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
+    override fun equals(other: Any?) =
+        this === other || (other is SymbolForm && sym == other.sym)
+
+    override fun hashCode() = sym.hashCode()
+
+    override fun toString() = sym.toString()
+}
+
+internal class ListForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is ListForm -> false
@@ -61,7 +70,7 @@ class ListForm(val forms: List<Form>, override val sourceSection: SourceSection?
     }
 }
 
-class VectorForm(val forms: List<Form>, override val sourceSection: SourceSection? = null) : Form() {
+class VectorForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is VectorForm -> false
@@ -75,7 +84,7 @@ class VectorForm(val forms: List<Form>, override val sourceSection: SourceSectio
     }
 }
 
-class SetForm(val forms: List<Form>, override val sourceSection: SourceSection? = null) : Form() {
+class SetForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is SetForm -> false
@@ -89,7 +98,7 @@ class SetForm(val forms: List<Form>, override val sourceSection: SourceSection? 
     }
 }
 
-class RecordForm(val forms: List<Form>, override val sourceSection: SourceSection? = null) : Form() {
+class RecordForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is RecordForm -> false

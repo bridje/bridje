@@ -23,9 +23,8 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
     }
 
     private fun readChar(): Char? {
-        charIndex++
-        return unreadBuffer?.let { unreadBuffer = null; it }
-            ?: rdr.read().let { if (it == -1) null else it.toChar() }
+        return unreadBuffer?.let { unreadBuffer = null; charIndex++; it }
+            ?: rdr.read().let { if (it == -1) null else { charIndex++; it.toChar() } }
     }
 
     private fun readNonBreakChar(): Char? {
@@ -131,7 +130,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
         }
     }
 
-    fun readForms(endChar: Char? = null) = sequence {
+    private fun readForms(endChar: Char? = null) = sequence {
         while (true) {
             val c = readChar() ?: if (endChar != null) TODO() else break
             when {
@@ -148,4 +147,6 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
             }
         }
     }
+
+    fun readForms() = readForms(endChar = null)
 }
