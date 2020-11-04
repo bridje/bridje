@@ -26,6 +26,7 @@ class BridjeLanguageTest {
 
     @Test
     internal fun run() {
-        println(ctx.eval("brj", "\"foo\""))
+        val value = ctx.eval("brj", "[\"foo\"]")
+        println(value)
     }
 }

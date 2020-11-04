@@ -107,11 +107,11 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
             sb.append(c)
         }
 
-        val sourceSection = source.createSection(startIndex, charIndex - startIndex)
+        val loc = source.createSection(startIndex, charIndex - startIndex)
 
         return when (sb.toString()) {
-            "true" -> BoolForm(true, sourceSection)
-            "false" -> BoolForm(false, sourceSection)
+            "true" -> BoolForm(true, loc)
+            "false" -> BoolForm(false, loc)
             else -> TODO()
         }
     }
