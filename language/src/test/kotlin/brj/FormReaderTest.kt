@@ -46,4 +46,11 @@ class FormReaderTest {
             listOf(ListForm(listOf(IntForm(12), IntForm(13)))),
             readForms("(12 ; comment \n 13)"))
     }
+
+    @Test
+    internal fun `test nested collection`() {
+        assertEquals(
+            listOf(SetForm(listOf(VectorForm(listOf(StringForm("foo")))))),
+            readForms("#{[\"foo\"]}"))
+    }
 }

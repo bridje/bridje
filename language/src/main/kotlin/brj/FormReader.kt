@@ -66,7 +66,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
     private fun readHash(): Form {
         val startIndex = charIndex
         readChar()
-        return when (readChar() ?: TODO()) {
+        return when ((readChar() ?: TODO()).also { unreadChar(it) }) {
             '{' -> readSet(startIndex)
             else -> TODO()
         }

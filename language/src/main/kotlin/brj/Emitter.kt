@@ -9,6 +9,7 @@ internal fun emitExpr(expr: ValueExpr): ExprNode {
         is BoolExpr -> BoolNode(expr.bool, expr.loc)
         is StringExpr -> StringNode(expr.string, expr.loc)
         is VectorExpr -> VectorNode(expr.exprs.map(::emitExpr).toTypedArray(), expr.loc)
+        is SetExpr -> SetNode(expr.exprs.map(::emitExpr).toTypedArray(), expr.loc)
         else -> TODO()
     }
 }

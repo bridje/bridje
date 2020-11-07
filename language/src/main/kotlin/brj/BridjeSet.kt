@@ -5,7 +5,7 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeVector(val els: Array<Any?>) : BridjeObject {
+class BridjeSet(val els: Array<Any?>): BridjeObject {
     @ExportMessage
     fun hasArrayElements() = true
 
