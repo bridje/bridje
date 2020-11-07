@@ -6,6 +6,7 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.CompilerDirectives.transferToInterpreter
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
+import com.oracle.truffle.api.dsl.TypeSystem
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.RootNode

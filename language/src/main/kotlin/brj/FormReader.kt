@@ -112,6 +112,8 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
         return when (sb.toString()) {
             "true" -> BoolForm(true, loc)
             "false" -> BoolForm(false, loc)
+            "if" -> SymbolForm(Symbol.symbol("if"), loc)
+            "do" -> SymbolForm(Symbol.symbol("do"), loc)
             else -> TODO()
         }
     }

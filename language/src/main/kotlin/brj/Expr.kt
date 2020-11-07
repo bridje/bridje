@@ -75,19 +75,8 @@ internal class StringExpr(val string: String, override val loc: SourceSection?) 
     override val typing: Typing = Typing(res = TypingNode(OUTPUT, NodeClass(STRING)))
 }
 
-private fun combineTypings(ret: TypingNode, typings: Iterable<Typing>): Typing {
+private fun combineTypings(typings: Iterable<Typing>) {
     println("combine: $typings")
-    // TODO
-    return Typing(ret)
-}
-
-private fun TypingNode.mergeOut(o2: TypingNode) {
-    flows += o2.flows
-}
-
-private fun TypingNode.mergeIn(o2: TypingNode) {
-    println("this = ${this}")
-    println("o2 = [${o2}]")
 }
 
 private fun NodeClass.unify(other: NodeClass) {
@@ -97,13 +86,11 @@ private fun NodeClass.unify(other: NodeClass) {
     other.nodes.forEach { it.nodeClass = this }
 }
 
-private fun Typing.biunify(outType: TypingNode, inType: TypingNode): Typing {
+private fun biunify(outType: TypingNode, inType: TypingNode) {
     // TODO
     println("biunify: $outType -> $inType")
 
     outType.nodeClass.unify(inType.nodeClass)
-
-    return this
 }
 
 private fun nodePair(headType: HeadType? = null): Pair<TypingNode, TypingNode> {
@@ -123,7 +110,10 @@ private fun collTyping(collType: HeadType, exprs: List<ValueExpr>): Typing {
 
     val typings = exprs.map { it.typing }
 
-    return typings.fold(combineTypings(resNode, typings)) { typing, elTyping -> typing.biunify(elTyping.res, elInput) }
+    combineTypings(typings)
+    typings.forEach { biunify(it.res, elInput) }
+
+    return Typing(resNode)
 }
 
 internal class VectorExpr(val exprs: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
@@ -134,12 +124,16 @@ internal class SetExpr(val exprs: List<ValueExpr>, override val loc: SourceSecti
     override val typing: Typing = collTyping(SET, exprs)
 }
 
-private fun doTyping(doExpr: DoExpr) =
-    combineTypings(doExpr.expr.typing.res, doExpr.exprs.map { it.typing } + doExpr.expr.typing)
+private fun doTyping(doExpr: DoExpr): Typing {
+    combineTypings(doExpr.exprs.map { it.typing } + doExpr.expr.typing)
+    return Typing(doExpr.expr.typing.res)
+}
 
 internal class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override val loc: SourceSection?) : ValueExpr() {
     override val typing = doTyping(this)
 }
+
+private val boolInput = TypingNode(INPUT, NodeClass(BOOL))
 
 private fun ifTyping(ifExpr: IfExpr): Typing {
     val (retInput, retOutput) = nodePair()
@@ -147,10 +141,11 @@ private fun ifTyping(ifExpr: IfExpr): Typing {
     val thenTyping = ifExpr.thenExpr.typing
     val elseTyping = ifExpr.elseExpr.typing
 
-    // TODO predTyping input to bool
-    return combineTypings(retOutput, setOf(predTyping, thenTyping, elseTyping))
-        .biunify(thenTyping.res, retInput)
-        .biunify(elseTyping.res, retInput)
+    combineTypings(setOf(predTyping, thenTyping, elseTyping))
+    biunify(predTyping.res, boolInput)
+    biunify(thenTyping.res, retInput)
+    biunify(elseTyping.res, retInput)
+    return Typing(retOutput)
 }
 
 internal class IfExpr(
