@@ -13,7 +13,7 @@ class BridjeLanguageTest {
     lateinit var ctx: Context
 
     @BeforeAll
-    fun setup() {
+    fun setUp() {
         ctx = Context.newBuilder().allowAllAccess(true).build()
         ctx.enter()
     }
@@ -25,7 +25,7 @@ class BridjeLanguageTest {
     }
 
     @Test
-    internal fun run() {
+    internal fun `e2e vector test`() {
         val value = ctx.eval("brj", "[\"foo\"]")
         println(value)
     }

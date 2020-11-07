@@ -1,35 +1,36 @@
 package brj
 
-private class ParseResult<R>(val forms: List<Form>, val res: R) {
-    fun <T> then(parse: FormParser.() -> T): T {
-        TODO()
-    }
+import brj.Symbol.Companion.symbol
+
+
+private fun FormParser.parseValueExpr() = analyseValueForm(expectForm())
+
+private val DO = symbol("do")
+private val IF = symbol("if")
+
+private fun FormParser.parseDo(form: Form): ValueExpr {
+    val exprs = rest(FormParser::parseValueExpr)
+    if (exprs.isEmpty()) TODO()
+    return DoExpr(exprs.dropLast(1), exprs.last(), form.loc)
 }
 
-private class FormParser(private var forms: List<Form>) {
-    fun expectForm(): Form {
-        val ret = forms.firstOrNull() ?: TODO()
-        forms = forms.drop(1)
-        return ret
-    }
-
-    fun <R> maybe(parse: FormParser.() -> R?): R? {
-        return try {
-            this.parse()
-        } catch (e: Exception) {
-            null
-        }
-    }
+private fun FormParser.parseIf(form: Form): ValueExpr {
+    val expr = IfExpr(parseValueExpr(), parseValueExpr(), parseValueExpr(), form.loc)
+    expectEnd()
+    return expr
 }
 
-private fun <R> parseForms(forms: List<Form>, parse: FormParser.() -> R): R {
-    return parse(FormParser(forms))
-}
-
-internal fun analyseValueForm(form: Form) : ValueExpr = when (form) {
+internal fun analyseValueForm(form: Form): ValueExpr = when (form) {
     is ListForm -> parseForms(form.forms) {
-        TODO()
+        or({
+            when (val sym = expectSymbol()) {
+                DO -> parseDo(form)
+                IF -> parseIf(form)
+                else -> TODO()
+            }
+        }) ?: TODO()
     }
+
     is IntForm -> IntExpr(form.int, form.loc)
     is BoolForm -> BoolExpr(form.bool, form.loc)
     is StringForm -> StringExpr(form.string, form.loc)
