@@ -2,6 +2,7 @@ package brj
 
 import com.oracle.truffle.api.source.Source
 import com.oracle.truffle.api.source.SourceSection
+import kotlin.Int
 
 class FormReader internal constructor(private val source: Source) : AutoCloseable {
     companion object {
@@ -109,12 +110,11 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
 
         val loc = source.createSection(startIndex, charIndex - startIndex)
 
-        return when (sb.toString()) {
+        return when (val str = sb.toString()) {
             "true" -> BoolForm(true, loc)
             "false" -> BoolForm(false, loc)
-            "if" -> SymbolForm(Symbol.symbol("if"), loc)
-            "do" -> SymbolForm(Symbol.symbol("do"), loc)
-            else -> TODO()
+
+            else -> SymbolForm(Symbol.symbol(str), loc)
         }
     }
 

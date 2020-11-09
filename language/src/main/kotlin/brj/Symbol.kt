@@ -5,5 +5,7 @@ internal class Symbol private constructor(val local: String) {
         private val SYMBOLS = mutableMapOf<String, Symbol>()
         internal fun symbol(local: String) = SYMBOLS.computeIfAbsent(local, ::Symbol)
     }
+
+    override fun toString() = local
 }
 

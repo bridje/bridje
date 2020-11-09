@@ -1,12 +1,15 @@
 package brj.nodes;
 
 import brj.BridjeTypesGen;
+import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.profiles.ConditionProfile;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static com.oracle.truffle.api.CompilerDirectives.shouldNotReachHere;
 
 public class IfNode extends ExprNode {
 
@@ -37,7 +40,7 @@ public class IfNode extends ExprNode {
         try {
             branch = profile.profile(BridjeTypesGen.expectBoolean(predNode.execute(frame)));
         } catch (UnexpectedResultException e) {
-            throw new IllegalStateException(e);
+            throw shouldNotReachHere(e);
         }
 
         return branch ? thenNode.execute(frame) : elseNode.execute(frame);

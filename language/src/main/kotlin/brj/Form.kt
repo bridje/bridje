@@ -1,6 +1,7 @@
 package brj
 
 import com.oracle.truffle.api.source.SourceSection
+import kotlin.Int
 
 sealed class Form {
     abstract val loc: SourceSection?

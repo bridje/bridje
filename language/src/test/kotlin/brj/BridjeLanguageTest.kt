@@ -26,7 +26,7 @@ class BridjeLanguageTest {
 
     @Test
     internal fun `e2e vector test`() {
-        val value = ctx.eval("brj", "(do 12 14)")
+        val value = ctx.eval("brj", "(let [x 4, y 10] [x y])")
         println(value)
     }
 }

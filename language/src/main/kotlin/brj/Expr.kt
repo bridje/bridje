@@ -1,11 +1,15 @@
 package brj
 
-import brj.HeadType.*
-import brj.Polarity.INPUT
-import brj.Polarity.OUTPUT
+import brj.Polarity.*
 import com.oracle.truffle.api.source.SourceSection
 
-internal enum class HeadType { INT, BOOL, STRING, VECTOR, SET }
+internal sealed class HeadType
+internal object Int : HeadType()
+internal object Bool : HeadType()
+internal object Str : HeadType()
+internal class Vec() : HeadType()
+internal class Set() : HeadType()
+
 internal enum class Polarity { INPUT, OUTPUT }
 
 internal sealed class Transition
@@ -14,25 +18,25 @@ internal object EL : Transition()
 internal class NodeClass(
     var headType: HeadType?,
     var transitions: Map<Transition, TypingNode> = emptyMap(),
-    var nodes: Set<TypingNode> = emptySet(),
+    var nodes: kotlin.collections.Set<TypingNode> = emptySet(),
 )
 
 internal class TypingNode(
     val polarity: Polarity,
     var nodeClass: NodeClass,
-    var flows: Set<TypingNode> = emptySet(),
-    var transitions: Set<Transition> = emptySet(),
+    var flows: kotlin.collections.Set<TypingNode> = emptySet(),
+    var transitions: kotlin.collections.Set<Transition> = emptySet(),
 ) {
     init {
         nodeClass.nodes += this
     }
 
     override fun toString() = when (nodeClass.headType) {
-        INT -> "Int"
-        STRING -> "Str"
-        BOOL -> "Bool"
-        VECTOR -> "[${nodeClass.transitions[EL]}]"
-        SET -> "#{${nodeClass.transitions[EL]}}"
+        Int -> "Int"
+        Str -> "Str"
+        Bool -> "Bool"
+        is Vec -> "[${nodeClass.transitions[EL]}]"
+        is Set -> "#{${nodeClass.transitions[EL]}}"
         null -> "unk" // TODO
     }
 }
@@ -46,13 +50,13 @@ internal sealed class ValueExpr {
     abstract val typing: Typing
 }
 
-internal class IntExpr(val int: Int, override val loc: SourceSection?) : ValueExpr() {
+internal class IntExpr(val int: kotlin.Int, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is IntExpr && int == other.int)
 
     override fun hashCode() = int
 
-    override val typing: Typing = Typing(res = TypingNode(OUTPUT, NodeClass(INT)))
+    override val typing: Typing = Typing(res = TypingNode(OUTPUT, NodeClass(Int)))
 }
 
 internal class BoolExpr(val bool: Boolean, override val loc: SourceSection?) : ValueExpr() {
@@ -61,7 +65,7 @@ internal class BoolExpr(val bool: Boolean, override val loc: SourceSection?) : V
 
     override fun hashCode() = bool.hashCode()
 
-    override val typing: Typing = Typing(res = TypingNode(OUTPUT, NodeClass(BOOL)))
+    override val typing: Typing = Typing(res = TypingNode(OUTPUT, NodeClass(Bool)))
 }
 
 internal class StringExpr(val string: String, override val loc: SourceSection?) : ValueExpr() {
@@ -72,7 +76,7 @@ internal class StringExpr(val string: String, override val loc: SourceSection?) 
 
     override fun toString() = "\"$string\""
 
-    override val typing: Typing = Typing(res = TypingNode(OUTPUT, NodeClass(STRING)))
+    override val typing: Typing = Typing(res = TypingNode(OUTPUT, NodeClass(Str)))
 }
 
 private fun combineTypings(typings: Iterable<Typing>) {
@@ -117,11 +121,11 @@ private fun collTyping(collType: HeadType, exprs: List<ValueExpr>): Typing {
 }
 
 internal class VectorExpr(val exprs: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
-    override val typing: Typing = collTyping(VECTOR, exprs)
+    override val typing: Typing = collTyping(Vec(), exprs)
 }
 
 internal class SetExpr(val exprs: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
-    override val typing: Typing = collTyping(SET, exprs)
+    override val typing: Typing = collTyping(Set(), exprs)
 }
 
 private fun doTyping(doExpr: DoExpr): Typing {
@@ -133,7 +137,7 @@ internal class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override 
     override val typing = doTyping(this)
 }
 
-private val boolInput = TypingNode(INPUT, NodeClass(BOOL))
+private val boolInput = TypingNode(INPUT, NodeClass(Bool))
 
 private fun ifTyping(ifExpr: IfExpr): Typing {
     val (retInput, retOutput) = nodePair()
@@ -155,4 +159,25 @@ internal class IfExpr(
     override val loc: SourceSection?,
 ) : ValueExpr() {
     override val typing = ifTyping(this)
+}
+
+internal class LetBinding(val binding: LocalVar, val expr: ValueExpr)
+
+internal class LetExpr(
+    val bindings: List<LetBinding>,
+    val expr: ValueExpr,
+    override val loc: SourceSection?
+) : ValueExpr() {
+    override val typing: Typing
+        get() = TODO("Not yet implemented")
+}
+
+internal class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection?): ValueExpr() {
+    // TODO
+    override val typing: Typing = Typing(TypingNode(OUTPUT, NodeClass(Str)))
+
+    override fun equals(other: Any?) =
+        this === other || (other is LocalVarExpr && localVar == other.localVar)
+
+    override fun hashCode() = localVar.hashCode()
 }

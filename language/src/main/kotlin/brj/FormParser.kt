@@ -1,10 +1,18 @@
 package brj
 
+import kotlin.reflect.KClass
+
 internal class FormParser(private var forms: List<Form>) {
     fun expectForm(): Form {
         val ret = forms.firstOrNull() ?: TODO()
         forms = forms.drop(1)
         return ret
+    }
+
+    fun <F: Form> expectForm(clazz: Class<F>): F {
+        val form = expectForm()
+        if (!clazz.isInstance(form)) TODO()
+        return clazz.cast(form)
     }
 
     fun <R> rest(parse: FormParser.() -> R): List<R> {
@@ -19,10 +27,9 @@ internal class FormParser(private var forms: List<Form>) {
 
     fun <R> maybe(parse: FormParser.() -> R?): R? {
         return try {
-            val outer = this
             val parser = FormParser(forms)
             parser.parse()?.let { res ->
-                outer.forms = forms
+                forms = parser.forms
                 res
             }
         } catch (e: Exception) {
