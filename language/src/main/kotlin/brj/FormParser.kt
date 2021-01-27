@@ -1,7 +1,5 @@
 package brj
 
-import kotlin.reflect.KClass
-
 internal class FormParser(private var forms: List<Form>) {
     fun expectForm(): Form {
         val ret = forms.firstOrNull() ?: TODO()

@@ -9,8 +9,7 @@ import com.oracle.truffle.api.nodes.RootNode
 internal class EvalExprsNode(
     lang: BridjeLanguage,
 
-    @field:CompilationFinal(dimensions = 1)
-    @field:Children
+    @Children
     private val nodes: Array<ExprNode>,
 ) : RootNode(lang) {
 

@@ -2,7 +2,6 @@ package brj
 
 import com.oracle.truffle.api.source.Source
 import com.oracle.truffle.api.source.SourceSection
-import kotlin.Int
 
 class FormReader internal constructor(private val source: Source) : AutoCloseable {
     companion object {

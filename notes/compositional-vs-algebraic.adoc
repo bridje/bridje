@@ -1,0 +1,50 @@
+compositional type system vs algebraic subtyping
+
+let's say we call `(foo {:a x})` with foo accepting `{:a Int}`
+typing is return value of foo with a constraint of `:a` is an `Int`
+
+`:a` itself
+typing is `{(:a a)} -> a`
+calling it -
+
+what's the difference between the two typing schemes?
+
+when we combine typing schemes, we set each of the variables to be the intersections of the types in the constituent parts
+in CTS, we add unification constraints for each of the common variables; in AS we map them to intersection types.
+we can still map them to intersection types, just that we allow fewer intersection types than AS.
+
+then for the unification - rather than saying that two variables are equal, AS says that one (positive) variable is <= a negative one
+
+we're looking to combine multiple typings - combining typings involves unifying all of the types registered against all of the local vars.
+in this case, it's intersecting all of the types.
+
+if a local variable is used in three places, one of which is the return type, do we want to specify that the return type is the intersection of all three?
+we certainly could.
+
+of the positive types, I think we only care about the return type (and everything accessible from it)?
+reason being, can we mutate the positive types?
+
+we need to keep track of where all the inputs go
+
+so let's say we have an input. we use that input at a type that requires a `[Int]`.
+
+we need an operation that's like a recursive intersection - merge, from the AS paper
+
+what does this intersection do?
+
+the composite types are fairly straightforward - check same head and delegate down to constituent parts
+primitives, likewise
+interesting one is type variables with other values.
+when do we introduce a type variable?
+is it true that the only time we introduce a type variable is when we've got a local variable?
+maybe not quite - when we have a polymorphic function, too.
+
+ok - so we have an input var - the lvars side of the typing keeps a map from all the lvars to their types
+what is a type, in this case?
+all the usuals - plus intersection/union/recursive types?
+
+when do we genuinely need a recursive type?
+
+== Making everything a record
+
+regarding constraints - are we looking to make everything a record?

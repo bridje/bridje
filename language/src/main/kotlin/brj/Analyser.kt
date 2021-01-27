@@ -60,7 +60,7 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
         is VectorForm -> VectorExpr(form.forms.map { analyseValueExpr(it) }, form.loc)
         is SetForm -> SetExpr(form.forms.map { analyseValueExpr(it) }, form.loc)
         is RecordForm -> TODO()
-        is SymbolForm -> locals.getValue(form.sym).let { LocalVarExpr(it, form.loc) }
+        is SymbolForm -> LocalVarExpr(locals.getValue(form.sym), form.loc)
     }
 
     companion object {
