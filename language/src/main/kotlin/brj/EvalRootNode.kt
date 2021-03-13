@@ -13,7 +13,7 @@ internal class EvalRootNode(
     private val forms: List<Form>,
 ) : RootNode(lang) {
 
-    private val emitter = Emitter(frameDescriptor)
+    private val emitter = Emitter(lang, frameDescriptor)
 
     @TruffleBoundary
     fun evalForms(): ExprNode =

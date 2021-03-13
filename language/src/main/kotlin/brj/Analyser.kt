@@ -36,6 +36,11 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
         return LetExpr(bindings, Analyser(analyser.locals).parseDo(formParser), loc)
     }
 
+    private fun parseFn(formParser: FormParser, loc: SourceSection?) = formParser.run {
+        val params = FormParser(expectForm(VectorForm::class.java).forms).rest { LocalVar(expectSymbol()) }
+        FnExpr(params, Analyser(params.associateBy(LocalVar::symbol)).parseDo(formParser), loc)
+    }
+
     private fun analyseValueExpr(form: Form): ValueExpr = when (form) {
         is ListForm -> parseForms(form.forms) {
             or({
@@ -44,6 +49,7 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
                         DO -> parseDo(this, form.loc)
                         IF -> parseIf(this, form.loc)
                         LET -> parseLet(this, form.loc)
+                        FN -> parseFn(this, form.loc)
                         else -> TODO()
                     }
                 }
@@ -81,6 +87,7 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
         private val DO = symbol("do")
         private val IF = symbol("if")
         private val LET = symbol("let")
+        private val FN = symbol("fn")
         private val DEF = symbol("def")
 
         internal fun analyseExpr(form: Form) = Analyser().analyseExpr(form)

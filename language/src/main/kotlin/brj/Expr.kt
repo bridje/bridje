@@ -71,9 +71,11 @@ internal class IfExpr(
 }
 
 internal class LetBinding(val binding: LocalVar, val expr: ValueExpr) {
-    override fun equals(other: Any?) =
-        this === other ||
-            (other is LetBinding && binding == other.binding && expr == other.expr)
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is LetBinding -> false
+        else -> binding == other.binding && expr == other.expr
+    }
 
     override fun hashCode() = Objects.hash(binding, expr)
 }
@@ -83,6 +85,20 @@ internal class LetExpr(
     val expr: ValueExpr,
     override val loc: SourceSection?
 ) : ValueExpr()
+
+internal class FnExpr(
+    val params: List<LocalVar>,
+    val expr: ValueExpr,
+    override val loc: SourceSection?
+) : ValueExpr() {
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is FnExpr -> false
+        else -> params == other.params && expr == other.expr
+    }
+
+    override fun hashCode() = Objects.hash(params, expr)
+}
 
 internal class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) = when {
