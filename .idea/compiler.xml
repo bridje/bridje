@@ -8,7 +8,7 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
-      <module name="bridje.language.main" options="--add-exports=org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED --add-exports=org.graalvm.truffle/com.oracle.truffle.api.dsl=ALL-UNNAMED --add-exports=org.graalvm.truffle/com.oracle.truffle.api.frame=ALL-UNNAMED --add-exports=org.graalvm.truffle/com.oracle.truffle.api.nodes=ALL-UNNAMED" />
+      <module name="bridje.language.main" options="--add-exports=org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED --add-exports=org.graalvm.truffle/com.oracle.truffle.api.dsl=ALL-UNNAMED --add-exports=org.graalvm.truffle/com.oracle.truffle.api.frame=ALL-UNNAMED --add-exports=org.graalvm.truffle/com.oracle.truffle.api.nodes=ALL-UNNAMED --add-exports org.graalvm.truffle/com.oracle.truffle.api.source=ALL-UNNAMED --add-exports org.graalvm.truffle/com.oracle.truffle.api.profiles=ALL-UNNAMED" />
     </option>
   </component>
 </project>
