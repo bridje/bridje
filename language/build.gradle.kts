@@ -47,11 +47,7 @@ tasks.compileTestKotlin {
 
 tasks.test {
     useJUnitPlatform()
-    jvmArgs(
-        "-Dtruffle.class.path.append=${sourceSets.main.get().runtimeClasspath.asPath}",
-        "--add-exports=org.graalvm.truffle/com.oracle.truffle.api.interop=ALL-UNNAMED",
-        "--add-exports=org.graalvm.truffle/com.oracle.truffle.api.source=ALL-UNNAMED",
-        "--add-exports=org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED")
+    jvmArgs("-Dtruffle.class.path.append=${sourceSets.main.get().runtimeClasspath.asPath}")
 }
 
 tasks.jar {

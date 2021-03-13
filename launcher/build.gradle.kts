@@ -3,12 +3,14 @@ plugins {
 }
 
 dependencies {
-    implementation(kotlin("stdlib"))
-    compileOnly("org.graalvm.sdk:graal-sdk:20.2.0")
-    implementation("org.graalvm.sdk:launcher-common:20.2.0")
+    module(":language")
+    implementation(kotlin("stdlib-jdk8"))
+    compileOnly("org.graalvm.sdk:graal-sdk:21.0.0.2")
+    implementation("org.graalvm.sdk:launcher-common:21.0.0.2")
 
     testImplementation(kotlin("test-junit"))
-    testImplementation("org.junit.jupiter:junit-jupiter:5.5.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.5.2")
 }
 
 tasks.compileKotlin {
