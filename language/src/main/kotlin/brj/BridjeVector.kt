@@ -1,11 +1,12 @@
 package brj
 
 import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeVector(val els: Array<Any?>) : BridjeObject {
+class BridjeVector(val els: Array<Any?>) : TruffleObject {
     @ExportMessage
     fun hasArrayElements() = true
 
