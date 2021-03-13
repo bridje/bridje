@@ -3,9 +3,11 @@ package brj
 import com.oracle.truffle.api.source.SourceSection
 import java.util.*
 
-internal sealed class ValueExpr {
+internal sealed class Expr {
     abstract val loc: SourceSection?
 }
+
+internal sealed class ValueExpr : Expr()
 
 internal class IntExpr(val int: Int, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
@@ -68,7 +70,13 @@ internal class IfExpr(
     override fun hashCode() = Objects.hash(predExpr, thenExpr, elseExpr)
 }
 
-internal class LetBinding(val binding: LocalVar, val expr: ValueExpr)
+internal class LetBinding(val binding: LocalVar, val expr: ValueExpr) {
+    override fun equals(other: Any?) =
+        this === other ||
+            (other is LetBinding && binding == other.binding && expr == other.expr)
+
+    override fun hashCode() = Objects.hash(binding, expr)
+}
 
 internal class LetExpr(
     val bindings: List<LetBinding>,
@@ -77,8 +85,21 @@ internal class LetExpr(
 ) : ValueExpr()
 
 internal class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection?) : ValueExpr() {
-    override fun equals(other: Any?) =
-        this === other || (other is LocalVarExpr && localVar == other.localVar)
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is LocalVarExpr -> false
+        else -> localVar == other.localVar
+    }
 
     override fun hashCode() = Objects.hash(localVar)
+}
+
+internal class DefExpr(val sym: Symbol, val expr: ValueExpr, override val loc: SourceSection?) : Expr() {
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is DefExpr -> false
+        else -> sym == other.sym && expr == other.expr
+    }
+
+    override fun hashCode() = Objects.hash(sym, expr)
 }

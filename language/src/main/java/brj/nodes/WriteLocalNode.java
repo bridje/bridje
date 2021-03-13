@@ -18,7 +18,6 @@ public class WriteLocalNode extends Node {
     }
 
     public void execute(@NotNull VirtualFrame frame) {
-        Object ret = expr.execute(frame);
-        frame.setObject(frameSlot, ret);
+        frame.setObject(frameSlot, expr.execute(frame));
     }
 }

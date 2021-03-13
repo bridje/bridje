@@ -1,7 +1,6 @@
 package brj
 
-import brj.Analyser.Companion
-import brj.Analyser.Companion.analyseValueExpr
+import brj.Analyser.Companion.analyseExpr
 import brj.nodes.ExprNode
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
@@ -17,13 +16,15 @@ internal class EvalRootNode(
     private val emitter = Emitter(frameDescriptor)
 
     @TruffleBoundary
-    fun evalForms(): ExprNode {
-        return emitter.emitExpr(analyseValueExpr(forms.first()))
-    }
+    fun evalForms(): ExprNode =
+        when (val expr = analyseExpr(forms.first())) {
+            is ValueExpr -> emitter.emitValueExpr(expr)
+            is DefExpr -> emitter.emitDefExpr(expr)
+        }
 
     @ExplodeLoop
     override fun execute(frame: VirtualFrame): Any {
         CompilerDirectives.transferToInterpreter()
-        return evalForms().execute(frame)
+        return insert(evalForms()).execute(frame)
     }
 }

@@ -3,10 +3,6 @@ package brj
 import brj.Symbol.Companion.symbol
 import com.oracle.truffle.api.source.SourceSection
 
-private val DO = symbol("do")
-private val IF = symbol("if")
-private val LET = symbol("let")
-
 internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = emptyMap()) {
 
     private fun FormParser.parseValueExpr() = analyseValueExpr(expectForm())
@@ -63,7 +59,30 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
         is SymbolForm -> LocalVarExpr(locals.getValue(form.sym), form.loc)
     }
 
+    private fun parseDef(formParser: FormParser, loc: SourceSection?): Expr = formParser.run {
+        DefExpr(expectSymbol(), parseValueExpr(), loc)
+            .also { expectEnd() }
+    }
+
+    fun analyseExpr(form: Form): Expr =
+        FormParser(listOf(form)).run {
+            or({
+                val listForm = expectForm(ListForm::class.java)
+                FormParser(listForm.forms).maybe {
+                    when (expectSymbol()) {
+                        DEF -> parseDef(this, listForm.loc)
+                        else -> null
+                    }
+                }
+            }, { analyseValueExpr(expectForm()) })
+        } ?: TODO()
+
     companion object {
-        internal fun analyseValueExpr(form: Form) = Analyser().analyseValueExpr(form)
+        private val DO = symbol("do")
+        private val IF = symbol("if")
+        private val LET = symbol("let")
+        private val DEF = symbol("def")
+
+        internal fun analyseExpr(form: Form) = Analyser().analyseExpr(form)
     }
 }

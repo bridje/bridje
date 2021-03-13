@@ -1,7 +1,6 @@
 package brj
 
 import com.oracle.truffle.api.source.SourceSection
-import kotlin.Int
 
 sealed class Form {
     abstract val loc: SourceSection?
@@ -49,8 +48,11 @@ internal class StringForm(val string: String, override val loc: SourceSection? =
 }
 
 internal class SymbolForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) =
-        this === other || (other is SymbolForm && sym == other.sym)
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is SymbolForm -> false
+        else -> sym == other.sym
+    }
 
     override fun hashCode() = sym.hashCode()
 

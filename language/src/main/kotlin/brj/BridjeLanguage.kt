@@ -3,6 +3,7 @@ package brj
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
+import com.oracle.truffle.api.interop.TruffleObject
 
 @TruffleLanguage.Registration(
     id = "brj",
@@ -19,4 +20,6 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         val forms = FormReader(request.source).use { it.readForms().toList() }
         return Truffle.getRuntime().createCallTarget(EvalRootNode(this, forms))
     }
+
+    override fun getScope(context: BridjeContext): TruffleObject = context.bridjeEnv
 }
