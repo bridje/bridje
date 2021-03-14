@@ -9,7 +9,7 @@ internal class FormParser(private var forms: List<Form>) {
 
     fun <F: Form> expectForm(clazz: Class<F>): F {
         val form = expectForm()
-        if (!clazz.isInstance(form)) TODO()
+        if (!clazz.isInstance(form)) throw RuntimeException("Wrong form type")
         return clazz.cast(form)
     }
 

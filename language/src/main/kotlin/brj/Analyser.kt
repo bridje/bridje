@@ -73,14 +73,18 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
     fun analyseExpr(form: Form): Expr =
         FormParser(listOf(form)).run {
             or({
-                val listForm = expectForm(ListForm::class.java)
-                FormParser(listForm.forms).maybe {
-                    when (expectSymbol()) {
-                        DEF -> parseDef(this, listForm.loc)
-                        else -> null
+                maybe {
+                    val listForm = expectForm(ListForm::class.java)
+                    FormParser(listForm.forms).maybe {
+                        when (expectSymbol()) {
+                            DEF -> parseDef(this, listForm.loc)
+                            else -> null
+                        }
                     }
                 }
-            }, { analyseValueExpr(expectForm()) })
+            }, {
+                analyseValueExpr(expectForm())
+            })
         } ?: TODO()
 
     companion object {

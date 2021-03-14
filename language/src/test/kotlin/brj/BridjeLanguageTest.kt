@@ -26,6 +26,11 @@ class BridjeLanguageTest {
     }
 
     @Test
+    internal fun `just a number`() {
+        assertEquals(10, ctx.eval("brj", "10").asInt())
+    }
+
+    @Test
     internal fun `e2e vector test`() {
         val value = ctx.eval("brj", "(let [x 4, y 10] [x y])")
         assertEquals(listOf(4, 10), value.`as`(object : TypeLiteral<List<Int>>() {}))
