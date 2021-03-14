@@ -13,7 +13,7 @@ public class FnRootNode extends RootNode {
     private final ExprNode exprNode;
 
     public FnRootNode(TruffleLanguage<?> language, FrameDescriptor frameDescriptor,
-                         FrameSlot[] frameSlots, ExprNode exprNode) {
+                      FrameSlot[] frameSlots, ExprNode exprNode) {
         super(language, frameDescriptor);
         this.frameSlots = frameSlots;
         this.exprNode = exprNode;

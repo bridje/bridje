@@ -1,7 +1,5 @@
 package brj
 
-import brj.runtime.Symbol
-
 internal sealed class MonoType
 
 internal class TypeVar : MonoType() {
@@ -118,8 +116,6 @@ internal fun valueExprTyping(expr: ValueExpr): Typing = when (expr) {
     is IntExpr -> primitiveTyping(IntType)
     is BoolExpr -> primitiveTyping(BoolType)
     is StringExpr -> primitiveTyping(StringType)
-    is VectorExpr -> collTyping(::VectorType, expr.exprs)
-    is SetExpr -> collTyping(::SetType, expr.exprs)
     is DoExpr -> doTyping(expr)
     is IfExpr -> ifTyping(expr)
     is LocalVarExpr -> localVarExprTyping(expr.localVar)

@@ -9,19 +9,22 @@ internal class Emitter(
     private val lang: BridjeLanguage,
     private val frameDescriptor: FrameDescriptor = FrameDescriptor()
 ) {
+    private fun arrayNode(exprs: List<ValueExpr>) =
+        ExecuteArrayNode(exprs.map { emitValueExpr(it) }.toTypedArray())
+
     internal fun emitValueExpr(expr: ValueExpr): ExprNode = when (expr) {
         is IntExpr -> IntNode(expr.int, expr.loc)
-        is BoolExpr -> BoolNode(expr.bool, expr.loc)
+        is BoolExpr -> BoolNodeGen.create(expr.bool, expr.loc)
         is StringExpr -> StringNode(expr.string, expr.loc)
-        is VectorExpr -> VectorNodeGen.create(ExecuteArrayNode(expr.exprs.map(::emitValueExpr).toTypedArray()), expr.loc)
-        is SetExpr -> SetNodeGen.create(ExecuteArrayNode(expr.exprs.map(::emitValueExpr).toTypedArray()), expr.loc)
+        is VectorExpr -> VectorNodeGen.create(arrayNode(expr.exprs), expr.loc)
+        is SetExpr -> SetNodeGen.create(arrayNode(expr.exprs), expr.loc)
         is IfExpr -> IfNode(
             emitValueExpr(expr.predExpr),
             emitValueExpr(expr.thenExpr),
             emitValueExpr(expr.elseExpr),
             expr.loc
         )
-        is DoExpr -> DoNode(expr.exprs.map(::emitValueExpr).toTypedArray(), emitValueExpr(expr.expr), expr.loc)
+        is DoExpr -> DoNodeGen.create(arrayNode(expr.exprs), emitValueExpr(expr.expr), expr.loc)
 
         is LetExpr -> LetNode(
             expr.bindings.map {
@@ -44,11 +47,7 @@ internal class Emitter(
             FnNode(BridjeFunction(Truffle.getRuntime().createCallTarget(fnRootNode)), expr.loc)
         }
 
-        is CallExpr -> CallNodeGen.create(
-            emitValueExpr(expr.exprs.first()),
-            ExecuteArrayNode(expr.exprs.drop(1).map(this::emitValueExpr).toTypedArray()),
-            expr.loc
-        )
+        is CallExpr -> CallNodeGen.create(emitValueExpr(expr.exprs.first()), arrayNode(expr.exprs.drop(1)), expr.loc)
 
         is LocalVarExpr -> LocalVarNode(frameDescriptor.findOrAddFrameSlot(expr.localVar), expr.loc)
         is GlobalVarExpr -> GlobalVarNode(expr.value, expr.loc)
