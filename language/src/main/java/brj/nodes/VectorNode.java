@@ -1,16 +1,13 @@
 package brj.nodes;
 
-import brj.BridjeVector;
-import com.oracle.truffle.api.source.SourceSection;
+import brj.runtime.BridjeVector;
+import com.oracle.truffle.api.dsl.Specialization;
 
-public class VectorNode extends CollNode<BridjeVector> {
-
-    public VectorNode(ExprNode[] exprs, SourceSection loc) {
-        super(exprs, loc);
-    }
+public abstract class VectorNode extends CollNode {
 
     @Override
-    BridjeVector buildColl(Object[] res) {
+    @Specialization
+    BridjeVector executeColl(Object[] res) {
         return new BridjeVector(res);
     }
 }

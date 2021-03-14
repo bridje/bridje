@@ -1,9 +1,7 @@
 package brj.runtime
 
 import brj.BridjeLanguage
-import brj.BridjeVector
-import brj.Symbol
-import brj.Symbol.Companion.symbol
+import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject

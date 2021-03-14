@@ -30,10 +30,12 @@ class BridjeLanguageTest {
         assertEquals(10, ctx.eval("brj", "10").asInt())
     }
 
+    private val listOfInt = object : TypeLiteral<List<Int>>() {}
+
     @Test
     internal fun `e2e vector test`() {
         val value = ctx.eval("brj", "(let [x 4, y 10] [x y])")
-        assertEquals(listOf(4, 10), value.`as`(object : TypeLiteral<List<Int>>() {}))
+        assertEquals(listOf(4, 10), value.`as`(listOfInt))
     }
 
     @Test
@@ -54,7 +56,14 @@ class BridjeLanguageTest {
         assertEquals(listOf(10),
             bindings.getMember("simple-vec")
                 .execute(10)
-                .`as`(object : TypeLiteral<List<Int>>() {})
+                .`as`(listOfInt)
         )
+    }
+
+    @Test
+    internal fun `call expr`() {
+        assertEquals(listOf(10, 5),
+            ctx.eval("brj", "((fn [x y] [y x]) 5 10)")
+                .`as`(listOfInt))
     }
 }

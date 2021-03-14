@@ -1,16 +1,13 @@
 package brj.nodes;
 
-import brj.BridjeSet;
-import com.oracle.truffle.api.source.SourceSection;
+import brj.runtime.BridjeSet;
+import com.oracle.truffle.api.dsl.Specialization;
 
-public class SetNode extends CollNode<BridjeSet> {
-
-    public SetNode(ExprNode[] exprs, SourceSection loc) {
-        super(exprs, loc);
-    }
+public abstract class SetNode extends CollNode {
 
     @Override
-    BridjeSet buildColl(Object[] res) {
+    @Specialization
+    BridjeSet executeColl(Object[] res) {
         return new BridjeSet(res);
     }
 }

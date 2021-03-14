@@ -1,7 +1,8 @@
 package brj
 
-import brj.Symbol.Companion.symbol
+import brj.runtime.Symbol.Companion.symbol
 import brj.runtime.BridjeEnv
+import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
 
 internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symbol, LocalVar> = emptyMap()) {
@@ -45,15 +46,15 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
     private fun analyseValueExpr(form: Form): ValueExpr = when (form) {
         is ListForm -> parseForms(form.forms) {
             or({
-                maybe { expectSymbol() }?.let { sym ->
-                    when (sym) {
-                        DO -> parseDo(this, form.loc)
-                        IF -> parseIf(this, form.loc)
-                        LET -> parseLet(this, form.loc)
-                        FN -> parseFn(this, form.loc)
-                        else -> TODO()
-                    }
+                when (expectSymbol()) {
+                    DO -> parseDo(this, form.loc)
+                    IF -> parseIf(this, form.loc)
+                    LET -> parseLet(this, form.loc)
+                    FN -> parseFn(this, form.loc)
+                    else -> null
                 }
+            }, {
+                CallExpr(rest { parseValueExpr() }, form.loc)
             }) ?: TODO()
         }
 

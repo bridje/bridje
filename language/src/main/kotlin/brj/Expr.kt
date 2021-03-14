@@ -1,5 +1,6 @@
 package brj
 
+import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
 import java.util.*
 
@@ -98,6 +99,19 @@ internal class FnExpr(
     }
 
     override fun hashCode() = Objects.hash(params, expr)
+}
+
+internal class CallExpr(
+    val exprs: List<ValueExpr>,
+    override val loc: SourceSection?
+) : ValueExpr() {
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is CallExpr -> false
+        else -> exprs == other.exprs
+    }
+
+    override fun hashCode() = Objects.hash(exprs)
 }
 
 internal class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection?) : ValueExpr() {

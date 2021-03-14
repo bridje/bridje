@@ -1,5 +1,6 @@
 package brj
 
+import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
 
 sealed class Form {

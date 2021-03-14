@@ -1,5 +1,7 @@
 package brj
 
+import brj.runtime.Symbol
+
 internal class FormParser(private var forms: List<Form>) {
     fun expectForm(): Form {
         val ret = forms.firstOrNull() ?: TODO()
@@ -50,7 +52,7 @@ internal fun <R> FormParser.or(vararg parses: FormParser.() -> R?): R? {
 
 internal fun FormParser.expectSymbol() : Symbol {
     val form = expectForm()
-    if (form !is SymbolForm) TODO()
+    if (form !is SymbolForm) throw RuntimeException("Expected symbol")
     return form.sym
 }
 

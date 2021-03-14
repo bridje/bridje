@@ -1,4 +1,4 @@
-package brj
+package brj.runtime
 
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject

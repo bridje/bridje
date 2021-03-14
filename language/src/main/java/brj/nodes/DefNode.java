@@ -2,7 +2,7 @@ package brj.nodes;
 
 import brj.BridjeContext;
 import brj.BridjeLanguage;
-import brj.Symbol;
+import brj.runtime.Symbol;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.CachedContext;
 import com.oracle.truffle.api.dsl.Specialization;
