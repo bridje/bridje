@@ -123,4 +123,5 @@ internal fun valueExprTyping(expr: ValueExpr): Typing = when (expr) {
     is LetExpr -> TODO()
     is FnExpr -> TODO()
     is LocalVarExpr -> localVarExprTyping(expr.localVar)
+    is GlobalVarExpr -> TODO()
 }

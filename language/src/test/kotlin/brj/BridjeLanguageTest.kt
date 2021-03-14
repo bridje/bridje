@@ -44,6 +44,7 @@ class BridjeLanguageTest {
         assertEquals(setOf("x", "y"), bindings.memberKeys)
         assertEquals(10, bindings.getMember("x").asInt())
         assertEquals("Hello", bindings.getMember("y").asString())
+        assertEquals(10, ctx.eval("brj", "x").asInt())
     }
 
     @Test

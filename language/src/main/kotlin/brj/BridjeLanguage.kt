@@ -18,7 +18,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun parse(request: ParsingRequest): CallTarget {
         val forms = FormReader(request.source).use { it.readForms().toList() }
-        return Truffle.getRuntime().createCallTarget(EvalRootNode(this, forms))
+        return Truffle.getRuntime().createCallTarget(EvalRootNodeGen.create(this, forms))
     }
 
     override fun getScope(context: BridjeContext): TruffleObject = context.bridjeEnv

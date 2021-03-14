@@ -35,6 +35,7 @@ internal class Emitter(private val lang: BridjeLanguage, private val frameDescri
         }
 
         is LocalVarExpr -> LocalVarNode(frameDescriptor.findOrAddFrameSlot(expr.localVar), expr.loc)
+        is GlobalVarExpr -> GlobalVarNode(expr.value, expr.loc)
     }
 
     internal fun emitDefExpr(expr: DefExpr) =

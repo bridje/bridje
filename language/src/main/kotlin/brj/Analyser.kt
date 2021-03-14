@@ -1,9 +1,10 @@
 package brj
 
 import brj.Symbol.Companion.symbol
+import brj.runtime.BridjeEnv
 import com.oracle.truffle.api.source.SourceSection
 
-internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = emptyMap()) {
+internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symbol, LocalVar> = emptyMap()) {
 
     private fun FormParser.parseValueExpr() = analyseValueExpr(expectForm())
 
@@ -28,17 +29,17 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
                 val sym = expectSymbol()
                 val localVar = LocalVar(sym)
                 val binding = LetBinding(localVar, analyser.analyseValueExpr(expectForm()))
-                analyser = Analyser(analyser.locals + (sym to localVar))
+                analyser = Analyser(env, analyser.locals + (sym to localVar))
                 binding
             }
         }
 
-        return LetExpr(bindings, Analyser(analyser.locals).parseDo(formParser), loc)
+        return LetExpr(bindings, Analyser(env, analyser.locals).parseDo(formParser), loc)
     }
 
     private fun parseFn(formParser: FormParser, loc: SourceSection?) = formParser.run {
         val params = FormParser(expectForm(VectorForm::class.java).forms).rest { LocalVar(expectSymbol()) }
-        FnExpr(params, Analyser(params.associateBy(LocalVar::symbol)).parseDo(formParser), loc)
+        FnExpr(params, Analyser(env, params.associateBy(LocalVar::symbol)).parseDo(formParser), loc)
     }
 
     private fun analyseValueExpr(form: Form): ValueExpr = when (form) {
@@ -62,7 +63,16 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
         is VectorForm -> VectorExpr(form.forms.map { analyseValueExpr(it) }, form.loc)
         is SetForm -> SetExpr(form.forms.map { analyseValueExpr(it) }, form.loc)
         is RecordForm -> TODO()
-        is SymbolForm -> LocalVarExpr(locals.getValue(form.sym), form.loc)
+        is SymbolForm -> {
+            val sym = form.sym
+            locals[sym]?.let {
+                return LocalVarExpr(it, form.loc)
+            }
+            env.globalVars[sym]?.let {
+                return GlobalVarExpr(it, form.loc)
+            }
+            TODO()
+        }
     }
 
     private fun parseDef(formParser: FormParser, loc: SourceSection?): Expr = formParser.run {
@@ -70,8 +80,8 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
             .also { expectEnd() }
     }
 
-    fun analyseExpr(form: Form): Expr =
-        FormParser(listOf(form)).run {
+    fun analyseExpr(form: Form): Expr {
+        return FormParser(listOf(form)).run {
             or({
                 maybe {
                     val listForm = expectForm(ListForm::class.java)
@@ -86,6 +96,7 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
                 analyseValueExpr(expectForm())
             })
         } ?: TODO()
+    }
 
     companion object {
         private val DO = symbol("do")
@@ -93,7 +104,5 @@ internal class Analyser private constructor(val locals: Map<Symbol, LocalVar> = 
         private val LET = symbol("let")
         private val FN = symbol("fn")
         private val DEF = symbol("def")
-
-        internal fun analyseExpr(form: Form) = Analyser().analyseExpr(form)
     }
 }

@@ -110,6 +110,16 @@ internal class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSect
     override fun hashCode() = Objects.hash(localVar)
 }
 
+internal class GlobalVarExpr(val value: Any, override val loc: SourceSection?) : ValueExpr() {
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is GlobalVarExpr -> false
+        else -> value == other.value
+    }
+
+    override fun hashCode() = Objects.hash(value)
+}
+
 internal class DefExpr(val sym: Symbol, val expr: ValueExpr, override val loc: SourceSection?) : Expr() {
     override fun equals(other: Any?) = when {
         this === other -> true
