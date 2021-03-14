@@ -19,7 +19,9 @@ class BridjeEnv : TruffleObject {
     fun hasMembers() = true
 
     @ExportMessage
-    fun getMembers(includeInternal: Boolean) = BridjeVector(globalVars.keys.map { it.local }.toList().toTypedArray())
+    @TruffleBoundary
+    fun getMembers(includeInternal: Boolean) =
+        BridjeVector(globalVars.keys.map { it.local }.toList().toTypedArray())
 
     @ExportMessage
     fun isMemberReadable(key: String) = globalVars.containsKey(symbol(key))
