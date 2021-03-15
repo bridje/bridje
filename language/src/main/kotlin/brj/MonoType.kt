@@ -1,83 +1,40 @@
 package brj
 
-internal sealed class MonoType
+import java.lang.String.format
 
-internal class TypeVar : MonoType() {
+sealed class MonoType {
+}
+
+class TypeVar(val s: String = "_") : MonoType() {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
+    override fun toString(): String {
+        return "$s#${format("%x", hashCode().toShort())}"
+    }
 }
 
-internal object IntType : MonoType()
-internal object BoolType : MonoType()
-internal object StringType : MonoType()
-internal data class VectorType(val inType: MonoType, val outType: MonoType) : MonoType()
-internal data class SetType(val inType: MonoType, val outType: MonoType) : MonoType()
-internal data class FnType(val paramNodes: List<MonoType>, val resNode: MonoType) : MonoType()
-
-internal data class Typing(val res: MonoType, val lvars: Map<LocalVar, MonoType> = emptyMap()) {
-    override fun toString() = res.toString()
+object IntType : MonoType() {
+    override fun toString() = "Int"
 }
 
-internal data class Constraint(val outType: MonoType, val inType: MonoType)
-
-private fun combineTypings(
-    res: MonoType,
-    typings: Iterable<Typing> = emptyList(),
-    constraints: Set<Constraint> = emptySet()
-): Typing {
-    println("combine: $typings")
-    typings
-        .flatMap { it.lvars.entries }
-        .groupBy({ it.key }, { it.value })
-    return Typing(res)
+object BoolType : MonoType() {
+    override fun toString() = "Bool"
 }
 
-private fun primitiveTyping(type: MonoType) = Typing(type)
-
-private fun collTyping(mkType: (MonoType) -> MonoType, exprs: List<ValueExpr>): Typing {
-    val typings = exprs.map(::valueExprTyping)
-    val elTypeVar = TypeVar()
-
-    return combineTypings(mkType(elTypeVar), typings, typings.mapTo(mutableSetOf()) { Constraint(it.res, elTypeVar) })
+object StringType : MonoType() {
+    override fun toString() = "Str"
 }
 
-private fun doTyping(doExpr: DoExpr): Typing {
-    val returnExprTyping = valueExprTyping(doExpr.expr)
-    return combineTypings(
-        returnExprTyping.res,
-        doExpr.exprs.map(::valueExprTyping) + returnExprTyping
-    )
+data class VectorType(val elType: MonoType) : MonoType() {
+    override fun toString() = "[$elType]"
 }
 
-private fun ifTyping(ifExpr: IfExpr): Typing {
-    val predTyping = valueExprTyping(ifExpr.predExpr)
-    val thenTyping = valueExprTyping(ifExpr.thenExpr)
-    val elseTyping = valueExprTyping(ifExpr.elseExpr)
-
-    val resTypeVar = TypeVar()
-
-    return combineTypings(
-        resTypeVar,
-        setOf(predTyping, thenTyping, elseTyping),
-        setOf(
-            Constraint(predTyping.res, BoolType),
-            Constraint(thenTyping.res, resTypeVar),
-            Constraint(elseTyping.res, resTypeVar)
-        )
-    )
+data class SetType(val elType: MonoType) : MonoType() {
+    override fun toString() = "#{$elType}"
 }
 
-private fun localVarExprTyping(localVar: LocalVar): Typing {
-    val typeVar = TypeVar()
-    return Typing(typeVar, mapOf(localVar to typeVar))
-}
-
-internal fun valueExprTyping(expr: ValueExpr): Typing = when (expr) {
-    is IntExpr -> primitiveTyping(IntType)
-    is BoolExpr -> primitiveTyping(BoolType)
-    is StringExpr -> primitiveTyping(StringType)
-    is DoExpr -> doTyping(expr)
-    is IfExpr -> ifTyping(expr)
-    is LocalVarExpr -> localVarExprTyping(expr.localVar)
-    else -> TODO()
+data class FnType(val paramTypes: List<MonoType>, val resType: MonoType) : MonoType() {
+    override fun toString(): String {
+        return "(Fn (${paramTypes.joinToString(" ")}) $resType)"
+    }
 }

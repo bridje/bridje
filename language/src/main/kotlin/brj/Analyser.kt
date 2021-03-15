@@ -54,7 +54,7 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
                     else -> null
                 }
             }, {
-                CallExpr(rest { parseValueExpr() }, form.loc)
+                CallExpr(parseValueExpr(), rest { parseValueExpr() }, form.loc)
             }) ?: TODO()
         }
 

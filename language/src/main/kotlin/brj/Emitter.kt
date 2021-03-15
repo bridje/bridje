@@ -51,16 +51,16 @@ internal class Emitter(
 
         is CallExpr -> CallNodeGen.create(
             lang,
-            emitValueExpr(expr.exprs.first()),
-            arrayNode(expr.exprs.drop(1)),
+            emitValueExpr(expr.fn),
+            arrayNode(expr.args),
             expr.loc
         )
 
         is LocalVarExpr -> LocalVarNodeGen.create(lang, frameDescriptor.findOrAddFrameSlot(expr.localVar), expr.loc)
-        is GlobalVarExpr -> GlobalVarNodeGen.create(lang, expr.value, expr.loc)
+        is GlobalVarExpr -> GlobalVarNodeGen.create(lang, expr.globalVar, expr.loc)
     }
 
-    internal fun emitDefExpr(expr: DefExpr) = DefNodeGen.create(lang, emitValueExpr(expr.expr), expr.sym, expr.loc)
+    internal fun emitDefExpr(expr: DefExpr) = DefNodeGen.create(lang, emitValueExpr(expr.expr), expr.sym, valueExprType(expr.expr), expr.loc)
 }
 
 

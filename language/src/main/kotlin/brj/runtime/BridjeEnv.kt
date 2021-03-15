@@ -11,7 +11,7 @@ import com.oracle.truffle.api.library.ExportMessage
 @ExportLibrary(InteropLibrary::class)
 class BridjeEnv : TruffleObject {
 
-    internal val globalVars = mutableMapOf<Symbol, Any>()
+    internal val globalVars = mutableMapOf<Symbol, GlobalVar>()
 
     @ExportMessage
     fun hasMembers() = true
@@ -25,7 +25,7 @@ class BridjeEnv : TruffleObject {
     fun isMemberReadable(key: String) = globalVars.containsKey(symbol(key))
 
     @ExportMessage
-    fun readMember(key: String) = globalVars[symbol(key)]
+    fun readMember(key: String) = globalVars[symbol(key)]!!.value
 
     @ExportMessage
     fun isScope() = true
@@ -40,7 +40,7 @@ class BridjeEnv : TruffleObject {
     fun toDisplayString(allowSideEffects: Boolean) = "BridjeEnv"
 
     @TruffleBoundary
-    fun setVar(sym: Symbol, value: Any) {
+    fun setVar(sym: Symbol, value: GlobalVar) {
         globalVars[sym] = value
     }
 }

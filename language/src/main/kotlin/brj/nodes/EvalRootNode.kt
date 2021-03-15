@@ -1,11 +1,9 @@
 package brj.nodes
 
 import brj.*
-import brj.Analyser
-import brj.DefExpr
-import brj.Emitter
-import brj.ValueExpr
 import com.oracle.truffle.api.CompilerDirectives
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
+import com.oracle.truffle.api.TruffleLogger
 import com.oracle.truffle.api.dsl.CachedContext
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -16,12 +14,19 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
 
     private val emitter = Emitter(lang, frameDescriptor)
 
-    @CompilerDirectives.TruffleBoundary
-    fun evalForms(ctx: BridjeContext): ExprNode =
-        when (val expr = Analyser(ctx.bridjeEnv).analyseExpr(forms.first())) {
-            is ValueExpr -> emitter.emitValueExpr(expr)
-            is DefExpr -> emitter.emitDefExpr(expr)
+    @TruffleBoundary
+    fun evalForms(ctx: BridjeContext): ExprNode {
+        return when (val expr = Analyser(ctx.bridjeEnv).analyseExpr(forms.first())) {
+            is ValueExpr -> {
+                TruffleLogger.getLogger("brj", "type").info("type: ${valueExprType(expr)}")
+                emitter.emitValueExpr(expr)
+            }
+            is DefExpr -> {
+                TruffleLogger.getLogger("brj", "type").info("type: ${valueExprType(expr.expr)}")
+                emitter.emitDefExpr(expr)
+            }
         }
+    }
 
     @ExplodeLoop
     @Specialization
