@@ -32,46 +32,6 @@ private fun combineTypings(
     return Typing(res)
 }
 
-/*
-is there a case, in Bridje, where we'd want a node to flow to two other nodes?
-or, in the cases where Dolan ends up with two outgoing flow edges, should we be merging the nodes?
-
-`(do (foo x) (identity x))`
-`(: (foo {:foo Int}) Int)`
-fine - because x would take on the type of foo. ah, but we'd want the return type to be whatever the type of x is
-so x has to be a subtype of whatever the foo fn expects, but would return that.
-let's assume foo takes {:foo Int}, the expected type here would be a ^ {:foo Int} -> a
-
-ok, so, unification
-
-let's say we were to do this with bounds instead.
-we'd get to a point where we'd know that the variable is a record, we then need to know what it contains
-seems like we still need polarity (roughly) because a variable can have more fields added to it, a literal record can't
-
--- more thoughts (2021-01-27)
-
-so x is an input, it's a negative type
-it's passed to something that requires a certain type
-it's then passed to something else that requires another type
-x is then the intersection of those two types. fine.
-
-we have a literal map, which is then assigned to x
-x is then passed to something which expects a key that x doesn't have (:foo)
-we're compositional, so this will arise when the binding for x meets the usage
-the usage will specify that x is required to have key :foo, the binding will specify that it doesn't have it.
-'let', then, needs to be special - it knows that its binding is a positive type
-not all positive types are restricted, though, like literal maps.
-x could just be bound to y, which might be an input to the function.
-
-constraints?
-we can say that a < {:foo Int} etc, in a -> a - this is equivalent to a & {:foo Int} -> a
-saying a -> a & {:foo Int} doesn't work under usual polarity rules, because when we then say that a & {:foo Int} < b,
-this is saying that _either_ a or {:foo Int} is < b, which is a pain.
-in practice, we now know that a has to be a record.
-do we need to introduce a 'cons' type? but this is essentially standard record polymorphism
-
-*/
-
 private fun primitiveTyping(type: MonoType) = Typing(type)
 
 private fun collTyping(mkType: (MonoType) -> MonoType, exprs: List<ValueExpr>): Typing {
