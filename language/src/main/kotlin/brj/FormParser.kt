@@ -9,7 +9,7 @@ internal class FormParser(private var forms: List<Form>) {
         return ret
     }
 
-    fun <F: Form> expectForm(clazz: Class<F>): F {
+    fun <F : Form> expectForm(clazz: Class<F>): F {
         val form = expectForm()
         if (!clazz.isInstance(form)) throw RuntimeException("Wrong form type")
         return clazz.cast(form)
@@ -18,7 +18,7 @@ internal class FormParser(private var forms: List<Form>) {
     fun <R> rest(parse: FormParser.() -> R): List<R> {
         val res = mutableListOf<R>()
 
-        while(forms.isNotEmpty()) {
+        while (forms.isNotEmpty()) {
             res.add(parse())
         }
 
@@ -50,7 +50,7 @@ internal fun <R> FormParser.or(vararg parses: FormParser.() -> R?): R? {
     return null
 }
 
-internal fun FormParser.expectSymbol() : Symbol {
+internal fun FormParser.expectSymbol(): Symbol {
     val form = expectForm()
     if (form !is SymbolForm) throw RuntimeException("Expected symbol")
     return form.sym

@@ -46,7 +46,9 @@ class BridjeLauncher : AbstractLanguageLauncher() {
                 val result = when (script) {
                     is EvalFile -> ctx.eval(Source.newBuilder("brj", script.file).build())
                     is EvalString -> {
-                        if (script.str == "-") ctx.eval(Source.newBuilder("brj", System.`in`.reader(), "<stdin>").build())
+                        if (script.str == "-") ctx.eval(
+                            Source.newBuilder("brj", System.`in`.reader(), "<stdin>").build()
+                        )
                         else ctx.eval("brj", script.str)
                     }
 
@@ -67,7 +69,10 @@ class BridjeLauncher : AbstractLanguageLauncher() {
 
     override fun getLanguageId() = "brj"
 
-    override fun preprocessArguments(arguments: MutableList<String>, polyglotOptions: MutableMap<String, String>): List<String> {
+    override fun preprocessArguments(
+        arguments: MutableList<String>,
+        polyglotOptions: MutableMap<String, String>
+    ): List<String> {
         val unknownArgs = mutableListOf<String>()
         val iterator = arguments.listIterator()
 
@@ -92,10 +97,13 @@ class BridjeLauncher : AbstractLanguageLauncher() {
     }
 
     override fun collectArguments(options: MutableSet<String>) {
-        options.addAll(setOf(
-            "-e", "--eval",
-            "-m", "--main",
-            "-f", "--file"))
+        options.addAll(
+            setOf(
+                "-e", "--eval",
+                "-m", "--main",
+                "-f", "--file"
+            )
+        )
     }
 
     companion object {

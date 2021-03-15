@@ -4,20 +4,17 @@ import brj.BridjeLanguage;
 import com.oracle.truffle.api.dsl.NodeField;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jetbrains.annotations.NotNull;
 
-@NodeField(name = "value", type = Boolean.class)
+@NodeField(name = "value", type = String.class)
 @NodeField(name = "sourceSection", type = SourceSection.class)
-public abstract class BoolNode extends ExprNode {
-    protected BoolNode(BridjeLanguage lang) {
+public abstract class StringNode extends ExprNode {
+
+    public StringNode(BridjeLanguage lang) {
         super(lang);
     }
 
-    public abstract boolean getValue();
-
-    @NotNull
     @Specialization
-    public boolean doExecute() {
-        return getValue();
+    public String doExecute(String value) {
+        return value;
     }
 }

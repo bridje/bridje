@@ -53,7 +53,8 @@ class BridjeLanguageTest {
     internal fun `basic fn expr`() {
         ctx.eval("brj", "(def simple-vec (fn [x] [x]))")
         val bindings = ctx.getBindings("brj")
-        assertEquals(listOf(10),
+        assertEquals(
+            listOf(10),
             bindings.getMember("simple-vec")
                 .execute(10)
                 .`as`(listOfInt)
@@ -62,8 +63,10 @@ class BridjeLanguageTest {
 
     @Test
     internal fun `call expr`() {
-        assertEquals(listOf(10, 5),
+        assertEquals(
+            listOf(10, 5),
             ctx.eval("brj", "((fn [x y] [y x]) 5 10)")
-                .`as`(listOfInt))
+                .`as`(listOfInt)
+        )
     }
 }

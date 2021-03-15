@@ -63,10 +63,10 @@ internal class IfExpr(
 ) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other ||
-            (other is IfExpr
-                && predExpr == other.predExpr
-                && thenExpr == other.thenExpr
-                && elseExpr == other.elseExpr)
+                (other is IfExpr
+                        && predExpr == other.predExpr
+                        && thenExpr == other.thenExpr
+                        && elseExpr == other.elseExpr)
 
     override fun hashCode() = Objects.hash(predExpr, thenExpr, elseExpr)
 }

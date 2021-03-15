@@ -4,41 +4,32 @@ import brj.BridjeContext;
 import brj.BridjeLanguage;
 import brj.runtime.Symbol;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
-import com.oracle.truffle.api.dsl.CachedContext;
-import com.oracle.truffle.api.dsl.Specialization;
+import com.oracle.truffle.api.dsl.*;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
+@NodeField(name = "sym", type = Symbol.class)
+@NodeChild(value = "expr", type = ExprNode.class)
+@NodeField(name = "sourceSection", type = SourceSection.class)
 public abstract class DefNode extends ExprNode {
-    private final Symbol sym;
-    @Child
-    private ExprNode exprNode;
-    private final SourceSection loc;
 
-    public DefNode(Symbol sym, ExprNode exprNode, SourceSection loc) {
-        this.sym = sym;
-        this.exprNode = exprNode;
-        this.loc = loc;
-    }
-
-    @Nullable
-    @Override
-    public SourceSection getLoc() {
-        return loc;
+    public DefNode(BridjeLanguage lang) {
+        super(lang);
     }
 
     @TruffleBoundary
-    private void setVar(BridjeContext ctx, Object val) {
-        ctx.getBridjeEnv$language().setVar(sym, val);
+    private void setVar(BridjeContext ctx, Symbol sym, Object val) {
+        ctx.getBridjeEnv().setVar(sym, val);
     }
 
     @NotNull
     @Specialization
-    public Object doExecute(@NotNull VirtualFrame frame,
+    public Object doExecute(VirtualFrame frame,
+                            @Cached("sym") Symbol sym,
+                            Object exprVal,
                             @CachedContext(BridjeLanguage.class) BridjeContext ctx) {
-        setVar(ctx, exprNode.execute(frame));
+        setVar(ctx, sym, exprVal);
         return sym;
     }
 }

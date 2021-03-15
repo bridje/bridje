@@ -1,23 +1,25 @@
 package brj.nodes;
 
+import brj.BridjeLanguage;
+import com.oracle.truffle.api.dsl.NodeChild;
+import com.oracle.truffle.api.dsl.NodeField;
+import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.FrameSlot;
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.nodes.ExecutableNode;
 import com.oracle.truffle.api.nodes.Node;
 import org.jetbrains.annotations.NotNull;
 
-public class WriteLocalNode extends Node {
+@NodeField(name = "frameSlot", type = FrameSlot.class)
+@NodeChild(value = "expr", type = ExprNode.class)
+public abstract class WriteLocalNode extends Node {
 
-    private final FrameSlot frameSlot;
+    public abstract FrameSlot getFrameSlot();
 
-    @Child
-    private ExprNode expr;
-
-    public WriteLocalNode(FrameSlot frameSlot, ExprNode expr) {
-        this.frameSlot = frameSlot;
-        this.expr = expr;
+    @Specialization
+    public void doExecute(@NotNull VirtualFrame frame, Object expr) {
+        frame.setObject(getFrameSlot(), expr);
     }
 
-    public void execute(@NotNull VirtualFrame frame) {
-        frame.setObject(frameSlot, expr.execute(frame));
-    }
+    public abstract void execute(VirtualFrame frame);
 }

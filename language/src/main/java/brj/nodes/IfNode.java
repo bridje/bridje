@@ -1,5 +1,6 @@
 package brj.nodes;
 
+import brj.BridjeLanguage;
 import brj.BridjeTypesGen;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
@@ -15,21 +16,22 @@ public class IfNode extends ExprNode {
     @Child
     private ExprNode predNode, thenNode, elseNode;
 
-    private final SourceSection loc;
+    private final SourceSection sourceSection;
 
     private final ConditionProfile profile = ConditionProfile.createBinaryProfile();
 
-    public IfNode(ExprNode predNode, ExprNode thenNode, ExprNode elseNode, SourceSection loc) {
+    public IfNode(BridjeLanguage lang, ExprNode predNode, ExprNode thenNode, ExprNode elseNode, SourceSection sourceSection) {
+        super(lang);
         this.predNode = predNode;
         this.thenNode = thenNode;
         this.elseNode = elseNode;
-        this.loc = loc;
+        this.sourceSection = sourceSection;
     }
 
     @Nullable
     @Override
-    public SourceSection getLoc() {
-        return loc;
+    public SourceSection getSourceSection() {
+        return sourceSection;
     }
 
     @NotNull

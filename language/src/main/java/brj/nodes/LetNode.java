@@ -1,5 +1,6 @@
 package brj.nodes;
 
+import brj.BridjeLanguage;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.source.SourceSection;
@@ -14,18 +15,19 @@ public class LetNode extends ExprNode {
     @Child
     private ExprNode expr;
 
-    private final SourceSection loc;
+    private final SourceSection sourceSection;
 
-    public LetNode(WriteLocalNode[] bindingNodes, ExprNode expr, SourceSection loc) {
+    public LetNode(BridjeLanguage lang, WriteLocalNode[] bindingNodes, ExprNode expr, SourceSection sourceSection) {
+        super(lang);
         this.bindingNodes = bindingNodes;
         this.expr = expr;
-        this.loc = loc;
+        this.sourceSection = sourceSection;
     }
 
     @Nullable
     @Override
-    public SourceSection getLoc() {
-        return loc;
+    public SourceSection getSourceSection() {
+        return sourceSection;
     }
 
     @NotNull

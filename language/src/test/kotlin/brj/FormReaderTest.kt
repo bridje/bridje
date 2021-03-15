@@ -17,14 +17,16 @@ class FormReaderTest {
     internal fun `test IntForm`() {
         assertEquals(
             listOf(IntForm(42)),
-            readForms("42"))
+            readForms("42")
+        )
     }
 
     @Test
     internal fun `test ListForm`() {
         assertEquals(
             listOf(ListForm(listOf(IntForm(42), IntForm(12)))),
-            readForms("(42 12)"))
+            readForms("(42 12)")
+        )
     }
 
     @Test
@@ -32,7 +34,8 @@ class FormReaderTest {
         fun assertYieldsString(expected: String, actual: String) {
             assertEquals(
                 listOf(StringForm(expected)),
-                readForms(actual))
+                readForms(actual)
+            )
         }
 
         assertYieldsString("foo", "\"foo\"")
@@ -44,13 +47,15 @@ class FormReaderTest {
     internal fun `test line comment`() {
         assertEquals(
             listOf(ListForm(listOf(IntForm(12), IntForm(13)))),
-            readForms("(12 ; comment \n 13)"))
+            readForms("(12 ; comment \n 13)")
+        )
     }
 
     @Test
     internal fun `test nested collection`() {
         assertEquals(
             listOf(SetForm(listOf(VectorForm(listOf(StringForm("foo")))))),
-            readForms("#{[\"foo\"]}"))
+            readForms("#{[\"foo\"]}")
+        )
     }
 }

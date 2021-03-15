@@ -1,28 +1,23 @@
 package brj.nodes;
 
-import com.oracle.truffle.api.frame.VirtualFrame;
+import brj.BridjeLanguage;
+import com.oracle.truffle.api.dsl.NodeField;
+import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-public class GlobalVarNode extends ExprNode {
-    private final Object value;
-    private final SourceSection loc;
-
-    public GlobalVarNode(Object value, SourceSection loc) {
-        this.value = value;
-        this.loc = loc;
+@NodeField(name = "value", type = Object.class)
+@NodeField(name = "sourceSection", type = SourceSection.class)
+public abstract class GlobalVarNode extends ExprNode {
+    public GlobalVarNode(BridjeLanguage lang) {
+        super(lang);
     }
 
-    @Nullable
-    @Override
-    public SourceSection getLoc() {
-        return loc;
-    }
+    public abstract Object getValue();
 
     @NotNull
-    @Override
-    public Object execute(@NotNull VirtualFrame frame) {
-        return value;
+    @Specialization
+    public Object execute() {
+        return getValue();
     }
 }

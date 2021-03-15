@@ -1,5 +1,6 @@
 package brj
 
+import brj.nodes.EvalRootNodeGen
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
@@ -11,7 +12,8 @@ import com.oracle.truffle.api.interop.TruffleObject
     version = "0.0.2",
     defaultMimeType = "application/brj",
     characterMimeTypes = ["application/brj"],
-    contextPolicy = TruffleLanguage.ContextPolicy.SHARED)
+    contextPolicy = TruffleLanguage.ContextPolicy.SHARED
+)
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun createContext(truffleEnv: Env) = BridjeContext(truffleEnv)

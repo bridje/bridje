@@ -1,8 +1,8 @@
 package brj
 
-import brj.runtime.Symbol.Companion.symbol
 import brj.runtime.BridjeEnv
 import brj.runtime.Symbol
+import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.source.SourceSection
 
 internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symbol, LocalVar> = emptyMap()) {

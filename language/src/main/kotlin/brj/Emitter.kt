@@ -10,25 +10,27 @@ internal class Emitter(
     private val frameDescriptor: FrameDescriptor = FrameDescriptor()
 ) {
     private fun arrayNode(exprs: List<ValueExpr>) =
-        ExecuteArrayNode(exprs.map { emitValueExpr(it) }.toTypedArray())
+        ExecuteArrayNode(lang, exprs.map { emitValueExpr(it) }.toTypedArray())
 
     internal fun emitValueExpr(expr: ValueExpr): ExprNode = when (expr) {
-        is IntExpr -> IntNode(expr.int, expr.loc)
-        is BoolExpr -> BoolNodeGen.create(expr.bool, expr.loc)
-        is StringExpr -> StringNode(expr.string, expr.loc)
-        is VectorExpr -> VectorNodeGen.create(arrayNode(expr.exprs), expr.loc)
-        is SetExpr -> SetNodeGen.create(arrayNode(expr.exprs), expr.loc)
+        is IntExpr -> IntNodeGen.create(lang, expr.int, expr.loc)
+        is BoolExpr -> BoolNodeGen.create(lang, expr.bool, expr.loc)
+        is StringExpr -> StringNodeGen.create(lang, expr.string, expr.loc)
+        is VectorExpr -> VectorNodeGen.create(lang, arrayNode(expr.exprs), expr.loc)
+        is SetExpr -> SetNodeGen.create(lang, arrayNode(expr.exprs), expr.loc)
         is IfExpr -> IfNode(
+            lang,
             emitValueExpr(expr.predExpr),
             emitValueExpr(expr.thenExpr),
             emitValueExpr(expr.elseExpr),
             expr.loc
         )
-        is DoExpr -> DoNodeGen.create(arrayNode(expr.exprs), emitValueExpr(expr.expr), expr.loc)
+        is DoExpr -> DoNodeGen.create(lang, arrayNode(expr.exprs), emitValueExpr(expr.expr), expr.loc)
 
         is LetExpr -> LetNode(
+            lang,
             expr.bindings.map {
-                WriteLocalNode(frameDescriptor.findOrAddFrameSlot(it.binding), emitValueExpr(it.expr))
+                WriteLocalNodeGen.create(emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.binding))
             }.toTypedArray(),
             emitValueExpr(expr.expr),
             expr.loc
@@ -44,17 +46,21 @@ internal class Emitter(
                 Emitter(lang, frameDescriptor).emitValueExpr(expr.expr)
             )
 
-            FnNode(BridjeFunction(Truffle.getRuntime().createCallTarget(fnRootNode)), expr.loc)
+            FnNodeGen.create(lang, BridjeFunction(Truffle.getRuntime().createCallTarget(fnRootNode)), expr.loc)
         }
 
-        is CallExpr -> CallNodeGen.create(emitValueExpr(expr.exprs.first()), arrayNode(expr.exprs.drop(1)), expr.loc)
+        is CallExpr -> CallNodeGen.create(
+            lang,
+            emitValueExpr(expr.exprs.first()),
+            arrayNode(expr.exprs.drop(1)),
+            expr.loc
+        )
 
-        is LocalVarExpr -> LocalVarNode(frameDescriptor.findOrAddFrameSlot(expr.localVar), expr.loc)
-        is GlobalVarExpr -> GlobalVarNode(expr.value, expr.loc)
+        is LocalVarExpr -> LocalVarNodeGen.create(lang, frameDescriptor.findOrAddFrameSlot(expr.localVar), expr.loc)
+        is GlobalVarExpr -> GlobalVarNodeGen.create(lang, expr.value, expr.loc)
     }
 
-    internal fun emitDefExpr(expr: DefExpr) =
-        DefNodeGen.create(expr.sym, emitValueExpr(expr.expr), expr.loc)
+    internal fun emitDefExpr(expr: DefExpr) = DefNodeGen.create(lang, emitValueExpr(expr.expr), expr.sym, expr.loc)
 }
 
 

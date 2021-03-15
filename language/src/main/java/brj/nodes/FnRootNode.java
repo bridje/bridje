@@ -1,5 +1,6 @@
 package brj.nodes;
 
+import brj.BridjeLanguage;
 import com.oracle.truffle.api.TruffleLanguage;
 import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.FrameSlot;
@@ -12,9 +13,9 @@ public class FnRootNode extends RootNode {
     private final FrameSlot[] frameSlots;
     private final ExprNode exprNode;
 
-    public FnRootNode(TruffleLanguage<?> language, FrameDescriptor frameDescriptor,
+    public FnRootNode(BridjeLanguage lang, FrameDescriptor frameDescriptor,
                       FrameSlot[] frameSlots, ExprNode exprNode) {
-        super(language, frameDescriptor);
+        super(lang, frameDescriptor);
         this.frameSlots = frameSlots;
         this.exprNode = exprNode;
     }

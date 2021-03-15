@@ -8,5 +8,6 @@ import com.oracle.truffle.api.dsl.TypeSystem
 @TypeSystem(
     Int::class, Boolean::class, String::class,
     BridjeSet::class, BridjeVector::class,
-    BridjeFunction::class)
+    BridjeFunction::class
+)
 abstract class BridjeTypes

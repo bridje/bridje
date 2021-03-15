@@ -1,14 +1,17 @@
 package brj.nodes;
 
+import brj.BridjeLanguage;
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.nodes.ExecutableNode;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
 import org.jetbrains.annotations.NotNull;
 
-public class ExecuteArrayNode extends ExprNode {
+public class ExecuteArrayNode extends ExecutableNode {
     @Children
     private final ExprNode[] exprNodes;
 
-    public ExecuteArrayNode(ExprNode[] exprNodes) {
+    public ExecuteArrayNode(BridjeLanguage lang, ExprNode[] exprNodes) {
+        super(lang);
         this.exprNodes = exprNodes;
     }
 
