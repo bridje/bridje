@@ -89,4 +89,11 @@ class BridjeLanguageTest {
                 .`as`(listOfInt)
         )
     }
+
+    @Test
+    fun `rebound def`() {
+        assertEquals(10, ctx.eval("brj", "(def x 10) x").asInt())
+        assertEquals(10, ctx.eval("brj", "(def y (fn [] x)) (y)").asInt())
+        assertEquals(15, ctx.eval("brj", "(def x 15) (y)").asInt())
+    }
 }

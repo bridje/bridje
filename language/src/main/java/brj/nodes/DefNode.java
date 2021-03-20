@@ -3,10 +3,13 @@ package brj.nodes;
 import brj.BridjeContext;
 import brj.BridjeLanguage;
 import brj.MonoType;
-import brj.runtime.GlobalVar;
 import brj.runtime.Symbol;
+import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
-import com.oracle.truffle.api.dsl.*;
+import com.oracle.truffle.api.dsl.CachedContext;
+import com.oracle.truffle.api.dsl.NodeChild;
+import com.oracle.truffle.api.dsl.NodeField;
+import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jetbrains.annotations.NotNull;
@@ -26,8 +29,9 @@ public abstract class DefNode extends ExprNode {
 
     @TruffleBoundary
     private Object setVar(BridjeContext ctx, Object val) {
+        CompilerAsserts.neverPartOfCompilation();
         var sym = getSym();
-        ctx.getBridjeEnv().setVar(sym, new GlobalVar(sym, getType(), val));
+        ctx.getBridjeEnv().setVar(sym, getType(), val);
         return val;
     }
 
