@@ -75,4 +75,9 @@ class BridjeLanguageTest {
                 .`as`(listOfInt)
         )
     }
+
+    @Test
+    fun `test multiple exprs`() {
+        assertEquals(10, ctx.eval("brj", "(def x 10) x").asInt())
+    }
 }
