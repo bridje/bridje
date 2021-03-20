@@ -80,4 +80,13 @@ class BridjeLanguageTest {
     fun `test multiple exprs`() {
         assertEquals(10, ctx.eval("brj", "(def x 10) x").asInt())
     }
+
+    @Test
+    fun `test higher order fn`() {
+        assertEquals(
+            listOf(3),
+            ctx.eval("brj", "((fn [f] (f 3)) (fn [x] [x]))")
+                .`as`(listOfInt)
+        )
+    }
 }

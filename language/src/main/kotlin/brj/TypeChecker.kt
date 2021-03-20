@@ -167,16 +167,18 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
 
     private fun callExprTyping(expr: CallExpr): Typing {
         val fnTyping = valueExprTyping(expr.fn)
-        val fnType = fnTyping.res as? FnType ?: TODO()
-
-        fnType.paramTypes.size == expr.args.size || TODO()
-
         val paramTypings = expr.args.map(::valueExprTyping)
+
+        val fnType = when(fnTyping.res) {
+            is FnType -> fnTyping.res
+            is TypeVar -> FnType((paramTypings.indices).map {TypeVar("p${it}")}, TypeVar("r"))
+            else -> TODO()
+        }
 
         return combineTypings(
             fnType.resType,
             paramTypings + fnTyping,
-            zipConstraints(paramTypings.map { it.res }, fnType.paramTypes)
+            zipConstraints(paramTypings.map { it.res }, fnType.paramTypes) + Constraint(fnTyping.res, fnType)
         )
     }
 
