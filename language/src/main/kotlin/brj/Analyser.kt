@@ -9,6 +9,8 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
 
     private fun FormParser.parseValueExpr() = analyseValueExpr(expectForm())
 
+    private fun FormParser.parseMonoType() = analyseMonoType(expectForm())
+
     private fun parseDo(formParser: FormParser, loc: SourceSection? = null) = formParser.run {
         val exprs = rest { analyseValueExpr(expectForm()) }
         if (exprs.isEmpty()) TODO()
@@ -66,38 +68,78 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
         is RecordForm -> TODO()
         is SymbolForm -> {
             val sym = form.sym
-            locals[sym]?.let {
-                return LocalVarExpr(it, form.loc)
-            }
-            env.globalVars[sym]?.let {
-                return GlobalVarExpr(it, form.loc)
-            }
+
+            locals[sym]?.let { return LocalVarExpr(it, form.loc) }
+            env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
             TODO()
         }
     }
 
-    private fun parseDef(formParser: FormParser, loc: SourceSection?): Expr = formParser.run {
-        DefExpr(expectSymbol(), parseValueExpr(), loc)
-            .also { expectEnd() }
+    private fun analyseMonoType(form: Form): MonoType = when (form) {
+        is IntForm, is BoolForm, is StringForm -> TODO("invalid type")
+        is RecordForm -> TODO()
+
+        is SymbolForm -> when (form.sym) {
+            symbol("Int") -> IntType
+            symbol("Str") -> StringType
+            symbol("Bool") -> BoolType
+            else -> TODO()
+        }
+
+        is ListForm -> parseForms(form.forms) {
+            when (val sym = expectSymbol()) {
+                symbol("Fn") -> {
+                    FnType(
+                        parseForms(expectForm(ListForm::class.java).forms) {
+                            rest { parseMonoType() }
+                        },
+                        parseMonoType())
+                }
+                else -> TODO()
+            }
+        }
+
+        is VectorForm -> parseForms(form.forms) {
+            val elType = parseMonoType()
+            expectEnd()
+            VectorType(elType)
+        }
+
+        is SetForm -> parseForms(form.forms) {
+            val elType = parseMonoType()
+            expectEnd()
+            SetType(elType)
+        }
     }
 
-    fun analyseExpr(form: Form): Expr {
-        return FormParser(listOf(form)).run {
-            or({
-                maybe {
-                    val listForm = expectForm(ListForm::class.java)
-                    FormParser(listForm.forms).maybe {
-                        when (expectSymbol()) {
-                            DEF -> parseDef(this, listForm.loc)
-                            else -> null
-                        }
+    private fun FormParser.parseDef(loc: SourceSection?): Expr =
+        DefExpr(expectSymbol(), parseValueExpr(), loc)
+            .also { expectEnd() }
+
+    private fun FormParser.parseDefx(loc: SourceSection?): Expr {
+        val sym = expectSymbol()
+        val type = parseMonoType()
+        expectEnd()
+
+        return DefxExpr(sym, type, loc)
+    }
+
+    fun analyseExpr(form: Form): Expr = parseForms(listOf(form)) {
+        or({
+            maybe {
+                val listForm = expectForm(ListForm::class.java)
+                FormParser(listForm.forms).maybe {
+                    when (expectSymbol()) {
+                        DEF -> parseDef(listForm.loc)
+                        DEFX -> parseDefx(listForm.loc)
+                        else -> null
                     }
                 }
-            }, {
-                analyseValueExpr(expectForm())
-            })
-        } ?: TODO()
-    }
+            }
+        }, {
+            analyseValueExpr(expectForm())
+        })
+    } ?: TODO()
 
     companion object {
         private val DO = symbol("do")
@@ -105,5 +147,6 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
         private val LET = symbol("let")
         private val FN = symbol("fn")
         private val DEF = symbol("def")
+        private val DEFX = symbol("defx")
     }
 }

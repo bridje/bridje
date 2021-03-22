@@ -27,7 +27,7 @@ class BridjeEnv : TruffleObject {
     fun isMemberReadable(key: String) = globalVars.containsKey(symbol(key))
 
     @ExportMessage
-    fun readMember(key: String) = globalVars[symbol(key)]!!.value
+    fun readMember(key: String) = globalVars[symbol(key)]!!.bridjeVar.value
 
     @ExportMessage
     fun isScope() = true
@@ -42,13 +42,25 @@ class BridjeEnv : TruffleObject {
     fun toDisplayString(@Suppress("UNUSED_PARAMETER") allowSideEffects: Boolean) = "BridjeEnv"
 
     @TruffleBoundary
-    fun setVar(sym: Symbol, type: MonoType, value: Any?) {
+    fun def(sym: Symbol, type: MonoType, value: Any) {
         CompilerAsserts.neverPartOfCompilation()
         globalVars.compute(sym) { _, globalVar ->
             if (globalVar != null) {
-                type == globalVar.type || TODO()
-                globalVar.also { it.value = value }
-            } else GlobalVar(sym, type, value)
+                if (type != globalVar.type) TODO()
+                globalVar.also { when(it) {
+                    is DefVar -> it.bridjeVar.set(value)
+                    is DefxVar -> it.defaultImpl.set(value)
+                } }
+            } else DefVar(sym, type, BridjeVar(value))
+        }
+    }
+
+    @TruffleBoundary
+    fun defx(sym: Symbol, type: MonoType) {
+        CompilerAsserts.neverPartOfCompilation()
+        globalVars.compute(sym) { _, globalVar ->
+            if (globalVar != null) TODO()
+            else DefxVar(sym, type, BridjeVar(null), BridjeVar(null))
         }
     }
 }

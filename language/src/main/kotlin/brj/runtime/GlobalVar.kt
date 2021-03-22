@@ -1,23 +1,12 @@
 package brj.runtime
 
 import brj.MonoType
-import com.oracle.truffle.api.utilities.CyclicAssumption
 import java.util.*
 
-class GlobalVar {
-    val sym: Symbol
-    val type: MonoType
-    val assumption = CyclicAssumption("GlobalVar value")
-    var value: Any? set(value) {
-        assumption.invalidate()
-        field = value
-    }
-
-    constructor(sym: Symbol, type: MonoType, value: Any?) {
-        this.sym = sym
-        this.type = type
-        this.value = value
-    }
+sealed class GlobalVar {
+    abstract val sym: Symbol
+    abstract val type: MonoType
+    abstract val bridjeVar: BridjeVar
 
     override fun equals(other: Any?) = when {
         this === other -> true
@@ -27,3 +16,7 @@ class GlobalVar {
 
     override fun hashCode() = Objects.hash(sym)
 }
+
+class DefVar(override val sym: Symbol, override val type: MonoType, override val bridjeVar: BridjeVar) : GlobalVar()
+
+class DefxVar(override val sym: Symbol, override val type: MonoType, override val bridjeVar: BridjeVar, val defaultImpl: BridjeVar) : GlobalVar()

@@ -8,7 +8,7 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeFunction(val callTarget: CallTarget) : TruffleObject {
+open class BridjeFunction(val callTarget: CallTarget) : TruffleObject {
 
     @ExportMessage
     fun hasLanguage() = true

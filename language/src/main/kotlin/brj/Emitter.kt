@@ -3,16 +3,18 @@ package brj
 import brj.nodes.*
 import brj.runtime.BridjeFunction
 import com.oracle.truffle.api.Truffle
+import com.oracle.truffle.api.TruffleLogger
 import com.oracle.truffle.api.frame.FrameDescriptor
+import com.oracle.truffle.api.nodes.DirectCallNode
 
-internal class Emitter(
+internal class ValueExprEmitter(
     private val lang: BridjeLanguage,
-    private val frameDescriptor: FrameDescriptor = FrameDescriptor()
+    private val frameDescriptor: FrameDescriptor
 ) {
     private fun arrayNode(exprs: List<ValueExpr>) =
         ExecuteArrayNode(lang, exprs.map { emitValueExpr(it) }.toTypedArray())
 
-    internal fun emitValueExpr(expr: ValueExpr): ExprNode = when (expr) {
+    fun emitValueExpr(expr: ValueExpr): ExprNode = when (expr) {
         is IntExpr -> IntNodeGen.create(lang, expr.int, expr.loc)
         is BoolExpr -> BoolNodeGen.create(lang, expr.bool, expr.loc)
         is StringExpr -> StringNodeGen.create(lang, expr.string, expr.loc)
@@ -43,7 +45,7 @@ internal class Emitter(
                 lang,
                 frameDescriptor,
                 expr.params.map(frameDescriptor::findOrAddFrameSlot).toTypedArray(),
-                Emitter(lang, frameDescriptor).emitValueExpr(expr.expr)
+                ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr)
             )
 
             FnNodeGen.create(lang, BridjeFunction(Truffle.getRuntime().createCallTarget(fnRootNode)), expr.loc)
@@ -57,10 +59,6 @@ internal class Emitter(
         )
 
         is LocalVarExpr -> LocalVarNodeGen.create(lang, frameDescriptor.findOrAddFrameSlot(expr.localVar), expr.loc)
-        is GlobalVarExpr -> GlobalVarNodeGen.create(lang, expr.globalVar, expr.loc)
+        is GlobalVarExpr -> GlobalVarNodeGen.create(lang, expr.globalVar.bridjeVar, expr.loc)
     }
-
-    internal fun emitDefExpr(expr: DefExpr) = DefNodeGen.create(lang, emitValueExpr(expr.expr), expr.sym, valueExprType(expr.expr), expr.loc)
 }
-
-

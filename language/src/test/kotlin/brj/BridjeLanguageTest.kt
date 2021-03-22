@@ -1,13 +1,16 @@
 package brj
 
 import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.TypeLiteral
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 @TestInstance(PER_CLASS)
 class BridjeLanguageTest {
@@ -95,5 +98,11 @@ class BridjeLanguageTest {
         assertEquals(10, ctx.eval("brj", "(def x 10) x").asInt())
         assertEquals(10, ctx.eval("brj", "(def y (fn [] x)) (y)").asInt())
         assertEquals(15, ctx.eval("brj", "(def x 15) (y)").asInt())
+    }
+
+    @Test
+    internal fun `test defx`() {
+        ctx.eval("brj", "(defx ->foo! Int)")
+        assertTrue(ctx.getBindings("brj").hasMember("->foo!"))
     }
 }

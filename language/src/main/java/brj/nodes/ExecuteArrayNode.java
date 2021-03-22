@@ -8,9 +8,9 @@ import org.jetbrains.annotations.NotNull;
 
 public class ExecuteArrayNode extends ExecutableNode {
     @Children
-    private final ExprNode[] exprNodes;
+    private final ExecutableNode[] exprNodes;
 
-    public ExecuteArrayNode(BridjeLanguage lang, ExprNode[] exprNodes) {
+    public ExecuteArrayNode(BridjeLanguage lang, ExecutableNode[] exprNodes) {
         super(lang);
         this.exprNodes = exprNodes;
     }
