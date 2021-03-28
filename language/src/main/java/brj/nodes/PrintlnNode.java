@@ -32,9 +32,9 @@ public abstract class PrintlnNode extends ExprNode {
     @Specialization
     public Object doExecute(VirtualFrame frame) {
         try {
-            return print(expectString(frame.getArguments()[0]));
+            return print(expectString(frame.getArguments()[1]));
         } catch (UnexpectedResultException e) {
-            throw shouldNotReachHere();
+            throw shouldNotReachHere(e);
         }
     }
 }

@@ -1,19 +1,28 @@
 package brj.nodes;
 
-import com.oracle.truffle.api.TruffleLanguage;
+import brj.AnalyserKt;
+import brj.BridjeLanguage;
 import com.oracle.truffle.api.dsl.NodeChild;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.nodes.RootNode;
 
+@NodeChild(value = "writeFxLocal", type = WriteLocalNode.class)
 @NodeChild(value = "expr", type = ExprNode.class)
 public abstract class ValueExprRootNode extends RootNode {
-    protected ValueExprRootNode(TruffleLanguage<?> language, FrameDescriptor frameDescriptor) {
+    protected ValueExprRootNode(BridjeLanguage language, FrameDescriptor frameDescriptor) {
         super(language, frameDescriptor);
     }
 
     @Specialization
-    public Object execute(Object expr) {
+    public Object execute(Object _writeFxLocal, Object expr) {
         return expr;
+    }
+
+    public static ValueExprRootNode create(BridjeLanguage lang, FrameDescriptor frameDescriptor, ExprNode exprNode) {
+        WriteLocalNode readFxMapNode = WriteLocalNodeGen.create(
+            new ReadArgNode(lang, 0),
+            frameDescriptor.findOrAddFrameSlot(AnalyserKt.getFxLocal()));
+        return ValueExprRootNodeGen.create(lang, frameDescriptor, readFxMapNode, exprNode);
     }
 }

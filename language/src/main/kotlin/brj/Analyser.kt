@@ -5,6 +5,8 @@ import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.source.SourceSection
 
+internal val fxLocal = LocalVar(symbol("_fx"))
+
 internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symbol, LocalVar> = emptyMap()) {
 
     private fun FormParser.parseValueExpr() = analyseValueExpr(expectForm())
@@ -42,13 +44,13 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
 
     private fun parseFn(formParser: FormParser, loc: SourceSection?) = formParser.run {
         val params = FormParser(expectForm(VectorForm::class.java).forms).rest { LocalVar(expectSymbol()) }
-        FnExpr(params, Analyser(env, params.associateBy(LocalVar::symbol)).parseDo(formParser), loc)
+        FnExpr(listOf(fxLocal) + params, Analyser(env, params.associateBy(LocalVar::symbol)).parseDo(formParser), loc)
     }
 
     private fun analyseValueExpr(form: Form): ValueExpr = when (form) {
         is ListForm -> parseForms(form.forms) {
             or({
-                when (expectSymbol()) {
+                when (maybe { expectSymbol() }) {
                     DO -> parseDo(this, form.loc)
                     IF -> parseIf(this, form.loc)
                     LET -> parseLet(this, form.loc)
@@ -56,7 +58,7 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
                     else -> null
                 }
             }, {
-                CallExpr(parseValueExpr(), rest { parseValueExpr() }, form.loc)
+                CallExpr(parseValueExpr(), listOf(LocalVarExpr(fxLocal, null)) + rest { parseValueExpr() }, form.loc)
             }) ?: TODO()
         }
 
@@ -93,7 +95,8 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
                         parseForms(expectForm(ListForm::class.java).forms) {
                             rest { parseMonoType() }
                         },
-                        parseMonoType())
+                        parseMonoType()
+                    )
                 }
                 else -> TODO()
             }
@@ -126,13 +129,16 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
 
     fun analyseExpr(form: Form): Expr = parseForms(listOf(form)) {
         or({
-            maybe {
-                val listForm = expectForm(ListForm::class.java)
-                FormParser(listForm.forms).maybe {
-                    when (expectSymbol()) {
-                        DEF -> parseDef(listForm.loc)
-                        DEFX -> parseDefx(listForm.loc)
-                        else -> null
+            maybe { expectForm(ListForm::class.java) }?.let { listForm ->
+                parseForms(listForm.forms) {
+                    maybe {
+                        expectSymbol().takeIf { it == DEF || it == DEFX }
+                    }?.let { sym ->
+                        when (sym) {
+                            DEF -> parseDef(listForm.loc)
+                            DEFX -> parseDefx(listForm.loc)
+                            else -> null
+                        }
                     }
                 }
             }

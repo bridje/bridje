@@ -40,15 +40,20 @@ internal class FormParser(private var forms: List<Form>) {
     fun expectEnd() {
         if (forms.isNotEmpty()) TODO()
     }
+
+    internal fun <R> or(vararg parses: FormParser.() -> R?): R? {
+        parses.forEach {
+            val parser = FormParser(forms)
+            val ret = parser.it()?.let { res ->
+                forms = parser.forms
+                res
+            }
+            if (ret != null) return ret
+        }
+        return null
+    }
 }
 
-internal fun <R> FormParser.or(vararg parses: FormParser.() -> R?): R? {
-    parses.forEach {
-        val ret = maybe(it)
-        if (ret != null) return ret
-    }
-    return null
-}
 
 internal fun FormParser.expectSymbol(): Symbol {
     val form = expectForm()

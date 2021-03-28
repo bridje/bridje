@@ -135,7 +135,7 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
         val typing = valueExprTyping(fnExpr.expr)
         return Typing(
             FnType(
-                fnExpr.params.map { typing.lvars.getOrElse(it) { TypeVar() } },
+                fnExpr.params.drop(1).map { typing.lvars.getOrElse(it) { TypeVar() } },
                 typing.res
             )
         )

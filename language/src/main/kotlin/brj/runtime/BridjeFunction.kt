@@ -23,5 +23,7 @@ open class BridjeFunction(val callTarget: CallTarget) : TruffleObject {
     fun isExecutable() = true
 
     @ExportMessage
-    fun execute(args: Array<Any>): Any = callTarget.call(*args)
+    fun execute(args: Array<Any>): Any {
+        return callTarget.call(null, *args)
+    }
 }

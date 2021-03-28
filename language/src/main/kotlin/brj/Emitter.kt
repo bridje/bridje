@@ -44,7 +44,9 @@ internal class ValueExprEmitter(
             val fnRootNode = FnRootNode(
                 lang,
                 frameDescriptor,
-                expr.params.map(frameDescriptor::findOrAddFrameSlot).toTypedArray(),
+                expr.params.mapIndexed { idx, localVar ->
+                    WriteLocalNodeGen.create(ReadArgNode(lang, idx), frameDescriptor.findOrAddFrameSlot(localVar))
+                }.toTypedArray(),
                 ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr)
             )
 

@@ -110,7 +110,10 @@ class BridjeLanguageTest {
 
     @Test
     fun `test defx`() {
-        ctx.eval("brj", "(defx ->foo! Int)")
-        assertTrue(ctx.getBindings("brj").hasMember("->foo!"))
+        ctx.eval("brj", "(defx println! (Fn (Str) Str))")
+        ctx.eval("brj", "(def println! println0)")
+        ctx.eval("brj", """(println! "hello world!")""")
+
+        assertEquals("hello world!\n", os.toString(StandardCharsets.UTF_8))
     }
 }

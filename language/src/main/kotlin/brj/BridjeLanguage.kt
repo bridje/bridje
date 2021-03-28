@@ -27,7 +27,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         bridjeEnv.def(
             sym, type, BridjeFunction(
                 Truffle.getRuntime().createCallTarget(
-                    ValueExprRootNodeGen.create(this@BridjeLanguage, FrameDescriptor(), node)
+                    ValueExprRootNode.create(this@BridjeLanguage, FrameDescriptor(), node)
                 )
             )
         )
