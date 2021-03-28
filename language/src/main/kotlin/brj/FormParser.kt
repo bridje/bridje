@@ -2,7 +2,10 @@ package brj
 
 import brj.runtime.Symbol
 
-internal class FormParser(private var forms: List<Form>) {
+internal class FormParser(forms: List<Form>) {
+    var forms = forms
+        private set
+
     fun expectForm(): Form {
         val ret = forms.firstOrNull() ?: TODO()
         forms = forms.drop(1)

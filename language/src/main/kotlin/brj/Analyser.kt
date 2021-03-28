@@ -7,6 +7,18 @@ import com.oracle.truffle.api.source.SourceSection
 
 internal val fxLocal = LocalVar(symbol("_fx"))
 
+private val DO = symbol("do")
+private val IF = symbol("if")
+private val LET = symbol("let")
+private val FN = symbol("fn")
+private val DEF = symbol("def")
+private val DEFX = symbol("defx")
+
+internal sealed class DoOrExpr
+
+internal data class TopLevelDo(val forms: List<Form>) : DoOrExpr()
+internal data class TopLevelExpr(val expr: Expr) : DoOrExpr()
+
 internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symbol, LocalVar> = emptyMap()) {
 
     private fun FormParser.parseValueExpr() = analyseValueExpr(expectForm())
@@ -127,32 +139,24 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
         return DefxExpr(sym, typing, loc)
     }
 
-    fun analyseExpr(form: Form): Expr = parseForms(listOf(form)) {
+    fun analyseExpr(form: Form): DoOrExpr = parseForms(listOf(form)) {
         or({
             maybe { expectForm(ListForm::class.java) }?.let { listForm ->
                 parseForms(listForm.forms) {
                     maybe {
-                        expectSymbol().takeIf { it == DEF || it == DEFX }
+                        expectSymbol().takeIf { it == DEF || it == DEFX || it == DO }
                     }?.let { sym ->
                         when (sym) {
-                            DEF -> parseDef(listForm.loc)
-                            DEFX -> parseDefx(listForm.loc)
+                            DO -> TopLevelDo(forms)
+                            DEF -> TopLevelExpr(parseDef(listForm.loc))
+                            DEFX -> TopLevelExpr(parseDefx(listForm.loc))
                             else -> null
                         }
                     }
                 }
             }
         }, {
-            analyseValueExpr(expectForm())
+            TopLevelExpr(analyseValueExpr(expectForm()))
         })
     } ?: TODO()
-
-    companion object {
-        private val DO = symbol("do")
-        private val IF = symbol("if")
-        private val LET = symbol("let")
-        private val FN = symbol("fn")
-        private val DEF = symbol("def")
-        private val DEFX = symbol("defx")
-    }
 }

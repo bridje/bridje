@@ -116,4 +116,9 @@ class BridjeLanguageTest {
 
         assertEquals("hello world!\n", os.toString(StandardCharsets.UTF_8))
     }
+
+    @Test
+    fun `test top-level do`() {
+        assertEquals(42, ctx.eval("brj", "(do (def x 42) x)").asInt())
+    }
 }
