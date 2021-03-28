@@ -8,8 +8,8 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import org.jetbrains.annotations.NotNull;
 
-@NodeField(name = "frameSlot", type = FrameSlot.class)
 @NodeChild(value = "expr", type = ExprNode.class)
+@NodeField(name = "frameSlot", type = FrameSlot.class)
 public abstract class WriteLocalNode extends Node {
 
     public abstract FrameSlot getFrameSlot();

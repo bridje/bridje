@@ -1,11 +1,13 @@
 package brj
 
 import brj.runtime.BridjeEnv
+import brj.runtime.DefxVar
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.source.SourceSection
 
-internal val fxLocal = LocalVar(symbol("_fx"))
+private val FX = symbol("_fx")
+internal val DEFAULT_FX_LOCAL = LocalVar(FX)
 
 private val DO = symbol("do")
 private val IF = symbol("if")
@@ -13,34 +15,34 @@ private val LET = symbol("let")
 private val FN = symbol("fn")
 private val DEF = symbol("def")
 private val DEFX = symbol("defx")
+private val WITH_FX = symbol("with-fx")
 
 internal sealed class DoOrExpr
 
 internal data class TopLevelDo(val forms: List<Form>) : DoOrExpr()
 internal data class TopLevelExpr(val expr: Expr) : DoOrExpr()
 
-internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symbol, LocalVar> = emptyMap()) {
+internal data class Analyser(private val env: BridjeEnv, private val locals: Map<Symbol, LocalVar> = emptyMap(), private val fxLocal: LocalVar = DEFAULT_FX_LOCAL) {
 
     private fun FormParser.parseValueExpr() = analyseValueExpr(expectForm())
 
     private fun FormParser.parseMonoType() = analyseMonoType(expectForm())
 
     private fun parseDo(formParser: FormParser, loc: SourceSection? = null) = formParser.run {
-        val exprs = rest { analyseValueExpr(expectForm()) }
+        val exprs = rest { parseValueExpr() }
         if (exprs.isEmpty()) TODO()
         DoExpr(exprs.dropLast(1), exprs.last(), loc)
     }
 
     private fun parseIf(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        val expr = IfExpr(parseValueExpr(), parseValueExpr(), parseValueExpr(), loc)
-        expectEnd()
-        expr
+        IfExpr(parseValueExpr(), parseValueExpr(), parseValueExpr(), loc)
+            .also { expectEnd() }
     }
 
-    private fun parseLet(formParser: FormParser, loc: SourceSection?): ValueExpr {
-        var analyser = this
+    private fun parseLet(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
+        var analyser = this@Analyser
 
-        val bindingForm = formParser.expectForm(VectorForm::class.java)
+        val bindingForm = expectForm(VectorForm::class.java)
         val bindings = parseForms(bindingForm.forms) {
             rest {
                 val sym = expectSymbol()
@@ -48,15 +50,32 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
                 val binding = LetBinding(localVar, analyser.analyseValueExpr(expectForm()))
                 analyser = Analyser(env, analyser.locals + (sym to localVar))
                 binding
-            }
+            }.also { expectEnd() }
         }
 
-        return LetExpr(bindings, Analyser(env, analyser.locals).parseDo(formParser), loc)
+        return LetExpr(bindings, Analyser(env, analyser.locals).parseDo(this), loc)
+            .also { expectEnd() }
     }
 
     private fun parseFn(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        val params = FormParser(expectForm(VectorForm::class.java).forms).rest { LocalVar(expectSymbol()) }
+        val params = parseForms(expectForm(VectorForm::class.java).forms) { rest { LocalVar(expectSymbol()) } }
         FnExpr(listOf(fxLocal) + params, Analyser(env, params.associateBy(LocalVar::symbol)).parseDo(formParser), loc)
+    }
+
+    private fun parseWithFx(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
+        val bindings = parseForms(expectForm(VectorForm::class.java).forms) {
+            rest {
+                parseForms(expectForm(ListForm::class.java).forms) {
+                    if (expectSymbol() != DEF) TODO()
+                    WithFxBinding(env.globalVars[expectSymbol()] as? DefxVar ?: TODO(), parseDo(this))
+                        .also { expectEnd() }
+                }
+            }
+        }
+
+        val newFx = LocalVar(FX)
+
+        return WithFxExpr(fxLocal, bindings, newFx, this@Analyser.copy(fxLocal = newFx).analyseValueExpr(expectForm()), loc).also { expectEnd() }
     }
 
     private fun analyseValueExpr(form: Form): ValueExpr = when (form) {
@@ -67,6 +86,7 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
                     IF -> parseIf(this, form.loc)
                     LET -> parseLet(this, form.loc)
                     FN -> parseFn(this, form.loc)
+                    WITH_FX -> parseWithFx(this, form.loc)
                     else -> null
                 }
             }, {
@@ -115,15 +135,11 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
         }
 
         is VectorForm -> parseForms(form.forms) {
-            val elType = parseMonoType()
-            expectEnd()
-            VectorType(elType)
+            VectorType(parseMonoType()).also { expectEnd() }
         }
 
         is SetForm -> parseForms(form.forms) {
-            val elType = parseMonoType()
-            expectEnd()
-            SetType(elType)
+            SetType(parseMonoType()).also { expectEnd() }
         }
     }
 
@@ -131,12 +147,10 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
         DefExpr(expectSymbol(), parseValueExpr(), loc)
             .also { expectEnd() }
 
-    private fun FormParser.parseDefx(loc: SourceSection?): Expr {
+    private fun FormParser.parseDefx(loc: SourceSection?): DefxExpr {
         val sym = expectSymbol()
-        val typing = Typing(parseMonoType(), fx = setOf(sym))
-        expectEnd()
-
-        return DefxExpr(sym, typing, loc)
+        return DefxExpr(sym, Typing(parseMonoType(), fx = setOf(sym)), loc)
+            .also { expectEnd() }
     }
 
     fun analyseExpr(form: Form): DoOrExpr = parseForms(listOf(form)) {

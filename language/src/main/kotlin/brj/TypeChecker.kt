@@ -53,7 +53,6 @@ private fun combineTypings(
     res: MonoType,
     typings: Iterable<Typing> = emptyList(),
     constraints: Iterable<Constraint> = emptySet(),
-    fx: Set<Symbol> = emptySet(),
 ): Typing {
     val constraintQueue = constraints.toMutableList()
     var mapping = emptyMap<TypeVar, MonoType>()
@@ -98,7 +97,7 @@ private fun combineTypings(
         }
     }
 
-    return Typing(res.apply(mapping), localVarTypeVars.apply(mapping), fx + typings.flatMap(Typing::fx))
+    return Typing(res.apply(mapping), localVarTypeVars.apply(mapping), typings.flatMap(Typing::fx).toSet())
 }
 
 private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) {
@@ -198,6 +197,15 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
         )
     }
 
+    private fun withFxTyping(expr: WithFxExpr): Typing {
+        val bindingTypings = expr.bindings.map { it.defxVar to valueExprTyping(it.expr) }
+        val exprTyping = valueExprTyping(expr.expr)
+        val typing = combineTypings(exprTyping.res,
+            bindingTypings.map { it.second } + exprTyping,
+            bindingTypings.map { Constraint(it.second.res, it.first.typing.res) })
+        return typing.copy(fx = typing.fx - expr.bindings.map { it.defxVar.sym })
+    }
+
     fun valueExprTyping(expr: ValueExpr): Typing = when (expr) {
         is IntExpr -> primitiveTyping(IntType)
         is BoolExpr -> primitiveTyping(BoolType)
@@ -211,6 +219,7 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
         is GlobalVarExpr -> globalVarExprTyping(expr)
         is LetExpr -> letExprTyping(expr)
         is CallExpr -> callExprTyping(expr)
+        is WithFxExpr -> withFxTyping(expr)
     }
 }
 

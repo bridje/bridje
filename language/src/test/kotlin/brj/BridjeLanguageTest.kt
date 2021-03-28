@@ -109,6 +109,20 @@ class BridjeLanguageTest {
     }
 
     @Test
+    fun `test top-level do`() {
+        assertEquals(42, ctx.eval("brj", "(do (def x 42) x)").asInt())
+    }
+
+    @Test
+    fun `test now-ms`() {
+        val beforeMs = System.currentTimeMillis()
+        val duringMs = ctx.eval("brj", "(now-ms0)").asLong()
+        val afterMs = System.currentTimeMillis()
+
+        assertTrue(duringMs in beforeMs..afterMs)
+    }
+
+    @Test
     fun `test defx`() {
         ctx.eval("brj", "(defx println! (Fn (Str) Str))")
         ctx.eval("brj", "(def println! println0)")
@@ -118,7 +132,22 @@ class BridjeLanguageTest {
     }
 
     @Test
-    fun `test top-level do`() {
-        assertEquals(42, ctx.eval("brj", "(do (def x 42) x)").asInt())
+    fun `test with-fx`() {
+        ctx.eval("brj", "(defx now-ms! (Fn () Int))")
+        ctx.eval("brj", "(def now-ms! (fn [] (now-ms0)))")
+
+        assertEquals(0, ctx.eval("brj", "(with-fx [(def now-ms! (fn [] 0))] (now-ms!))").asLong())
+
+        assertEquals(0, ctx.eval("brj", "(with-fx [(def now-ms! (fn [] 0))] (with-fx [] (now-ms!)))").asLong())
+
+        val beforeMs = System.currentTimeMillis()
+        val duringMs = ctx.eval("brj", "(with-fx [] (now-ms!))").asLong()
+        val afterMs = System.currentTimeMillis()
+
+        assertTrue(duringMs in beforeMs..afterMs)
+
+        ctx.eval("brj", "(def now-ms-caller (fn [] (now-ms!)))")
+
+        assertEquals(0, ctx.eval("brj", "(with-fx [(def now-ms! (fn [] 0))] (now-ms-caller))").asLong())
     }
 }

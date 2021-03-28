@@ -22,7 +22,7 @@ public abstract class ValueExprRootNode extends RootNode {
     public static ValueExprRootNode create(BridjeLanguage lang, FrameDescriptor frameDescriptor, ExprNode exprNode) {
         WriteLocalNode readFxMapNode = WriteLocalNodeGen.create(
             new ReadArgNode(lang, 0),
-            frameDescriptor.findOrAddFrameSlot(AnalyserKt.getFxLocal()));
+            frameDescriptor.findOrAddFrameSlot(AnalyserKt.getDEFAULT_FX_LOCAL()));
         return ValueExprRootNodeGen.create(lang, frameDescriptor, readFxMapNode, exprNode);
     }
 }

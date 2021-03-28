@@ -39,6 +39,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             Typing(FnType(listOf(StringType), StringType)),
             PrintlnNodeGen.create(this, PrintWriter(ctx.truffleEnv.out()))
         )
+
+        ctx.addBuiltIn(symbol("now-ms0"), Typing(FnType(emptyList(), IntType)), NowNode(this))
     }
 
     override fun parse(request: ParsingRequest): CallTarget {

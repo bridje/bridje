@@ -59,12 +59,6 @@ public abstract class DefxRootNode extends RootNode {
         return sym;
     }
 
-    public static class FxMap extends DynamicObject implements TruffleObject {
-        public FxMap() {
-            super(Shape.newBuilder().layout(FxMap.class).build());
-        }
-    }
-
     @NodeField(name = "sym", type = Symbol.class)
     @NodeField(name = "defaultImplVar", type = BridjeVar.class)
     public static abstract class DefxValueRootNode extends RootNode {
@@ -87,7 +81,12 @@ public abstract class DefxRootNode extends RootNode {
         public Object doExecute(VirtualFrame frame) {
             try {
                 var fxMap = expectFxMap(frame.getArguments()[0]);
-                var fnValue = dynObjs.getOrDefault(fxMap, getSym(), null);
+                Object fnValue = null;
+
+                while (fnValue == null && fxMap != null) {
+                    fnValue = dynObjs.getOrDefault(fxMap, getSym(), null);
+                    fxMap = fxMap.getParent();
+                }
 
                 if (useDefaultProfile.profile(fnValue == null)) {
                     fnValue = getDefaultImplVar().getValue();

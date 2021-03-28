@@ -1,5 +1,6 @@
 package brj
 
+import brj.runtime.DefxVar
 import brj.runtime.GlobalVar
 import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
@@ -114,6 +115,24 @@ internal class CallExpr(
     }
 
     override fun hashCode() = Objects.hash(fn, args)
+}
+
+internal data class WithFxBinding(val defxVar: DefxVar, val expr: ValueExpr)
+
+internal class WithFxExpr(
+    val oldFx: LocalVar,
+    val bindings: List<WithFxBinding>,
+    val newFx: LocalVar,
+    val expr: ValueExpr,
+    override val loc: SourceSection?
+) : ValueExpr() {
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is WithFxExpr -> false
+        else -> bindings == other.bindings && oldFx == other.oldFx && newFx == other.newFx && expr == other.expr
+    }
+
+    override fun hashCode() = Objects.hash(bindings, oldFx, newFx, expr)
 }
 
 internal class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection?) : ValueExpr() {

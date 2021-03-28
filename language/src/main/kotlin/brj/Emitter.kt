@@ -3,9 +3,7 @@ package brj
 import brj.nodes.*
 import brj.runtime.BridjeFunction
 import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.TruffleLogger
 import com.oracle.truffle.api.frame.FrameDescriptor
-import com.oracle.truffle.api.nodes.DirectCallNode
 
 internal class ValueExprEmitter(
     private val lang: BridjeLanguage,
@@ -62,5 +60,20 @@ internal class ValueExprEmitter(
 
         is LocalVarExpr -> LocalVarNodeGen.create(lang, frameDescriptor.findOrAddFrameSlot(expr.localVar), expr.loc)
         is GlobalVarExpr -> GlobalVarNodeGen.create(lang, expr.globalVar.bridjeVar, expr.loc)
+
+        is WithFxExpr -> {
+            WithFxNode(
+                lang,
+                WriteLocalNodeGen.create(
+                    WithFxNode.NewFxNode(
+                        lang,
+                        LocalVarNodeGen.create(lang, frameDescriptor.findOrAddFrameSlot(expr.oldFx), null),
+                        expr.bindings.map { WithFxNode.WithFxBindingNode(it.defxVar.sym, emitValueExpr(it.expr)) }.toTypedArray()
+                    ),
+                    frameDescriptor.findOrAddFrameSlot(expr.newFx)
+                ),
+                emitValueExpr(expr.expr)
+            )
+        }
     }
 }
