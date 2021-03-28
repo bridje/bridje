@@ -62,7 +62,7 @@ class BridjeLanguageTest {
 
     @Test
     fun `basic fn expr`() {
-        ctx.eval("brj", "(def simple-vec (fn [x] [x]))")
+        ctx.eval("brj", "(def (simple-vec x) [x])")
         val bindings = ctx.getBindings("brj")
         assertEquals(
             listOf(10),
@@ -98,7 +98,7 @@ class BridjeLanguageTest {
     @Test
     fun `rebound def`() {
         assertEquals(10, ctx.eval("brj", "(def x 10) x").asInt())
-        assertEquals(10, ctx.eval("brj", "(def y (fn [] x)) (y)").asInt())
+        assertEquals(10, ctx.eval("brj", "(def (y) x) (y)").asInt())
         assertEquals(15, ctx.eval("brj", "(def x 15) (y)").asInt())
     }
 
@@ -124,7 +124,7 @@ class BridjeLanguageTest {
 
     @Test
     fun `test defx`() {
-        ctx.eval("brj", "(defx println! (Fn (Str) Str))")
+        ctx.eval("brj", "(defx (println! Str) Str)")
         ctx.eval("brj", "(def println! println0)")
         ctx.eval("brj", """(println! "hello world!")""")
 
@@ -133,12 +133,12 @@ class BridjeLanguageTest {
 
     @Test
     fun `test with-fx`() {
-        ctx.eval("brj", "(defx now-ms! (Fn () Int))")
-        ctx.eval("brj", "(def now-ms! (fn [] (now-ms0)))")
+        ctx.eval("brj", "(defx (now-ms!) Int)")
+        ctx.eval("brj", "(def (now-ms!) (now-ms0))")
 
-        assertEquals(0, ctx.eval("brj", "(with-fx [(def now-ms! (fn [] 0))] (now-ms!))").asLong())
+        assertEquals(0, ctx.eval("brj", "(with-fx [(def (now-ms!) 0)] (now-ms!))").asLong())
 
-        assertEquals(0, ctx.eval("brj", "(with-fx [(def now-ms! (fn [] 0))] (with-fx [] (now-ms!)))").asLong())
+        assertEquals(0, ctx.eval("brj", "(with-fx [(def (now-ms!) 0)] (with-fx [] (now-ms!)))").asLong())
 
         val beforeMs = System.currentTimeMillis()
         val duringMs = ctx.eval("brj", "(with-fx [] (now-ms!))").asLong()
@@ -146,8 +146,8 @@ class BridjeLanguageTest {
 
         assertTrue(duringMs in beforeMs..afterMs)
 
-        ctx.eval("brj", "(def now-ms-caller (fn [] (now-ms!)))")
+        ctx.eval("brj", "(def (now-ms-caller) (now-ms!))")
 
-        assertEquals(0, ctx.eval("brj", "(with-fx [(def now-ms! (fn [] 0))] (now-ms-caller))").asLong())
+        assertEquals(0, ctx.eval("brj", "(with-fx [(def (now-ms!) 0)] (now-ms-caller))").asLong())
     }
 }
