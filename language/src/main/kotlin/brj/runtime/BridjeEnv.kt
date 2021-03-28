@@ -56,11 +56,11 @@ class BridjeEnv : TruffleObject {
     }
 
     @TruffleBoundary
-    fun defx(sym: Symbol, type: MonoType) {
+    fun defx(sym: Symbol, type: MonoType, value: BridjeFunction, defaultImplVar: BridjeVar) {
         CompilerAsserts.neverPartOfCompilation()
         globalVars.compute(sym) { _, globalVar ->
             if (globalVar != null) TODO()
-            else DefxVar(sym, type, BridjeVar(null), BridjeVar(null))
+            else DefxVar(sym, type, BridjeVar(value), defaultImplVar)
         }
     }
 }
