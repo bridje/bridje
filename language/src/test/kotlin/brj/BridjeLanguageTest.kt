@@ -1,7 +1,6 @@
 package brj
 
 import org.graalvm.polyglot.Context
-import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.TypeLiteral
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -9,16 +8,19 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
+import java.io.ByteArrayOutputStream
+import java.nio.charset.StandardCharsets
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
 @TestInstance(PER_CLASS)
 class BridjeLanguageTest {
+    lateinit var os: ByteArrayOutputStream
     lateinit var ctx: Context
 
     @BeforeEach
     fun setUp() {
-        ctx = Context.newBuilder().allowAllAccess(true).build()
+        os = ByteArrayOutputStream()
+        ctx = Context.newBuilder().allowAllAccess(true).out(os).build()
         ctx.enter()
     }
 
@@ -52,7 +54,7 @@ class BridjeLanguageTest {
         ctx.eval("brj", "(def x 10)")
         ctx.eval("brj", """(def y "Hello")""")
         val bindings = ctx.getBindings("brj")
-        assertEquals(setOf("x", "y"), bindings.memberKeys)
+        assertTrue(bindings.memberKeys.containsAll(setOf("x", "y")))
         assertEquals(10, bindings.getMember("x").asInt())
         assertEquals("Hello", bindings.getMember("y").asString())
         assertEquals(10, ctx.eval("brj", "x").asInt())
@@ -101,7 +103,13 @@ class BridjeLanguageTest {
     }
 
     @Test
-    internal fun `test defx`() {
+    fun `test builtin`() {
+        ctx.eval("brj", """(println0 "hello world!")""")
+        assertEquals("hello world!\n", os.toString(StandardCharsets.UTF_8))
+    }
+
+    @Test
+    fun `test defx`() {
         ctx.eval("brj", "(defx ->foo! Int)")
         assertTrue(ctx.getBindings("brj").hasMember("->foo!"))
     }
