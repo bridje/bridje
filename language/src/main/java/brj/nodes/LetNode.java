@@ -5,7 +5,6 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public class LetNode extends ExprNode {
 
@@ -24,7 +23,6 @@ public class LetNode extends ExprNode {
         this.sourceSection = sourceSection;
     }
 
-    @Nullable
     @Override
     public SourceSection getSourceSection() {
         return sourceSection;
