@@ -146,12 +146,12 @@ internal class DefExpr(val sym: Symbol, val expr: ValueExpr, override val loc: S
     override fun hashCode() = Objects.hash(sym, expr)
 }
 
-internal class DefxExpr(val sym: Symbol, val monoType: MonoType, override val loc: SourceSection?) : Expr() {
+internal class DefxExpr(val sym: Symbol, val typing: Typing, override val loc: SourceSection?) : Expr() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is DefxExpr -> false
-        else -> sym == other.sym && monoType == other.monoType
+        else -> sym == other.sym
     }
 
-    override fun hashCode() = Objects.hash(sym, monoType)
+    override fun hashCode() = Objects.hash(sym)
 }

@@ -2,8 +2,7 @@ package brj
 
 import java.lang.String.format
 
-sealed class MonoType {
-}
+sealed class MonoType
 
 class TypeVar(val s: String = "_") : MonoType() {
     override fun equals(other: Any?) = this === other

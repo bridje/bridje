@@ -23,9 +23,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun createContext(truffleEnv: Env) = BridjeContext(truffleEnv)
 
-    private fun BridjeContext.addBuiltIn(sym: Symbol, type: MonoType, node: ExprNode) {
+    private fun BridjeContext.addBuiltIn(sym: Symbol, typing: Typing, node: ExprNode) {
         bridjeEnv.def(
-            sym, type, BridjeFunction(
+            sym, typing, BridjeFunction(
                 Truffle.getRuntime().createCallTarget(
                     ValueExprRootNode.create(this@BridjeLanguage, FrameDescriptor(), node)
                 )
@@ -36,7 +36,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     override fun initializeContext(ctx: BridjeContext) {
         ctx.addBuiltIn(
             symbol("println0"),
-            FnType(listOf(StringType), StringType),
+            Typing(FnType(listOf(StringType), StringType)),
             PrintlnNodeGen.create(this, PrintWriter(ctx.truffleEnv.out()))
         )
     }

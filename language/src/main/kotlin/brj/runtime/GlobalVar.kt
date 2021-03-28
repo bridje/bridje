@@ -1,11 +1,11 @@
 package brj.runtime
 
-import brj.MonoType
+import brj.Typing
 import java.util.*
 
-sealed class GlobalVar {
+internal sealed class GlobalVar {
     abstract val sym: Symbol
-    abstract val type: MonoType
+    abstract val typing: Typing
     abstract val bridjeVar: BridjeVar
 
     override fun equals(other: Any?) = when {
@@ -17,6 +17,6 @@ sealed class GlobalVar {
     override fun hashCode() = Objects.hash(sym)
 }
 
-class DefVar(override val sym: Symbol, override val type: MonoType, override val bridjeVar: BridjeVar) : GlobalVar()
+internal class DefVar(override val sym: Symbol, override val typing: Typing, override val bridjeVar: BridjeVar) : GlobalVar()
 
-class DefxVar(override val sym: Symbol, override val type: MonoType, override val bridjeVar: BridjeVar, val defaultImpl: BridjeVar) : GlobalVar()
+internal class DefxVar(override val sym: Symbol, override val typing: Typing, override val bridjeVar: BridjeVar, val defaultImpl: BridjeVar) : GlobalVar()

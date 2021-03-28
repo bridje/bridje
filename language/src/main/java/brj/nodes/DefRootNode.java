@@ -2,7 +2,7 @@ package brj.nodes;
 
 import brj.BridjeContext;
 import brj.BridjeLanguage;
-import brj.MonoType;
+import brj.Typing;
 import brj.runtime.Symbol;
 import com.oracle.truffle.api.dsl.CachedContext;
 import com.oracle.truffle.api.dsl.NodeChild;
@@ -15,7 +15,7 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jetbrains.annotations.NotNull;
 
 @NodeField(name = "sym", type = Symbol.class)
-@NodeField(name = "type", type = MonoType.class)
+@NodeField(name = "typing", type = Typing.class)
 @NodeChild(value = "expr", type = ExprNode.class)
 @NodeField(name = "sourceSection", type = SourceSection.class)
 public abstract class DefRootNode extends RootNode {
@@ -25,14 +25,14 @@ public abstract class DefRootNode extends RootNode {
     }
 
     public abstract Symbol getSym();
-    public abstract MonoType getType();
+    public abstract Typing getTyping();
 
     @NotNull
     @Specialization
     public Object doExecute(VirtualFrame frame,
                             Object exprVal,
                             @CachedContext(BridjeLanguage.class) BridjeContext ctx) {
-        ctx.getBridjeEnv().def(getSym(), getType(), exprVal);
+        ctx.getBridjeEnv().def(getSym(), getTyping(), exprVal);
         return exprVal;
     }
 }

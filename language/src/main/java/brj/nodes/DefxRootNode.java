@@ -2,7 +2,7 @@ package brj.nodes;
 
 import brj.BridjeContext;
 import brj.BridjeLanguage;
-import brj.MonoType;
+import brj.Typing;
 import brj.runtime.BridjeFunction;
 import brj.runtime.BridjeVar;
 import brj.runtime.Symbol;
@@ -30,7 +30,7 @@ import static brj.BridjeTypesGen.expectBridjeFunction;
 import static brj.BridjeTypesGen.expectFxMap;
 
 @NodeField(name = "sym", type = Symbol.class)
-@NodeField(name = "type", type = MonoType.class)
+@NodeField(name = "typing", type = Typing.class)
 @NodeField(name = "sourceSection", type = SourceSection.class)
 public abstract class DefxRootNode extends RootNode {
 
@@ -40,7 +40,7 @@ public abstract class DefxRootNode extends RootNode {
 
     public abstract Symbol getSym();
 
-    public abstract MonoType getType();
+    public abstract Typing getTyping();
 
     @NotNull
     @Specialization
@@ -50,7 +50,7 @@ public abstract class DefxRootNode extends RootNode {
         CompilerDirectives.transferToInterpreter();
         Symbol sym = getSym();
         BridjeVar defaultImplVar = new BridjeVar(null);
-        ctx.getBridjeEnv().defx(sym, getType(),
+        ctx.getBridjeEnv().defx(sym, getTyping(),
             new BridjeFunction(
                 Truffle.getRuntime().createCallTarget(
                     DefxRootNodeGen.DefxValueRootNodeGen.create(lang, new FrameDescriptor(), sym, defaultImplVar)

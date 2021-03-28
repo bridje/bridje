@@ -121,10 +121,10 @@ internal class Analyser(private val env: BridjeEnv, private val locals: Map<Symb
 
     private fun FormParser.parseDefx(loc: SourceSection?): Expr {
         val sym = expectSymbol()
-        val type = parseMonoType()
+        val typing = Typing(parseMonoType(), fx = setOf(sym))
         expectEnd()
 
-        return DefxExpr(sym, type, loc)
+        return DefxExpr(sym, typing, loc)
     }
 
     fun analyseExpr(form: Form): Expr = parseForms(listOf(form)) {

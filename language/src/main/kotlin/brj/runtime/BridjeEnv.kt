@@ -1,7 +1,7 @@
 package brj.runtime
 
 import brj.BridjeLanguage
-import brj.MonoType
+import brj.Typing
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
@@ -42,25 +42,25 @@ class BridjeEnv : TruffleObject {
     fun toDisplayString(@Suppress("UNUSED_PARAMETER") allowSideEffects: Boolean) = "BridjeEnv"
 
     @TruffleBoundary
-    fun def(sym: Symbol, type: MonoType, value: Any) {
+    fun def(sym: Symbol, typing: Typing, value: Any) {
         CompilerAsserts.neverPartOfCompilation()
         globalVars.compute(sym) { _, globalVar ->
             if (globalVar != null) {
-                if (type != globalVar.type) TODO()
+                if (typing.res != globalVar.typing.res) TODO()
                 globalVar.also { when(it) {
                     is DefVar -> it.bridjeVar.set(value)
                     is DefxVar -> it.defaultImpl.set(value)
                 } }
-            } else DefVar(sym, type, BridjeVar(value))
+            } else DefVar(sym, typing, BridjeVar(value))
         }
     }
 
     @TruffleBoundary
-    fun defx(sym: Symbol, type: MonoType, value: BridjeFunction, defaultImplVar: BridjeVar) {
+    fun defx(sym: Symbol, typing: Typing, value: BridjeFunction, defaultImplVar: BridjeVar) {
         CompilerAsserts.neverPartOfCompilation()
         globalVars.compute(sym) { _, globalVar ->
             if (globalVar != null) TODO()
-            else DefxVar(sym, type, BridjeVar(value), defaultImplVar)
+            else DefxVar(sym, typing, BridjeVar(value), defaultImplVar)
         }
     }
 }

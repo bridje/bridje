@@ -24,7 +24,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
         for (form in forms) {
             val rootNode = when (val expr = Analyser(ctx.bridjeEnv).analyseExpr(form)) {
                 is ValueExpr -> {
-                    typeLogger.info("type: ${valueExprType(expr)}")
+                    typeLogger.info("type: ${valueExprTyping(expr)}")
 
                     val frameDescriptor = FrameDescriptor()
                     ValueExprRootNodeGen.create(
@@ -34,7 +34,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
                 }
 
                 is DefExpr -> {
-                    val valueExprType = valueExprType(expr.expr)
+                    val valueExprType = valueExprTyping(expr.expr)
                     typeLogger.info("type: $valueExprType")
 
                     val frameDescriptor = FrameDescriptor()
@@ -45,7 +45,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
                     )
                 }
 
-                is DefxExpr -> DefxRootNodeGen.create(lang, expr.sym, expr.monoType, expr.loc)
+                is DefxExpr -> DefxRootNodeGen.create(lang, expr.sym, expr.typing, expr.loc)
             }
 
             val callNode = Truffle.getRuntime().createDirectCallNode(Truffle.getRuntime().createCallTarget(rootNode))
