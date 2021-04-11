@@ -4,10 +4,10 @@ import brj.runtime.Symbol
 
 data class Typing(
     val res: MonoType,
-    val lvars: Map<LocalVar, MonoType> = emptyMap(),
+    val monoEnv: Map<LocalVar, MonoType> = emptyMap(),
     val fx: Set<Symbol> = emptySet(),
 ) {
-    override fun toString() = "(Typing $lvars, $fx => $res)"
+    override fun toString() = "(Typing $monoEnv, $fx => $res)"
 }
 
 private data class Constraint(val leftType: MonoType, val rightType: MonoType)
@@ -38,7 +38,7 @@ private fun Typing.instantiate(): Typing {
 
     return Typing(
         res.instantiate(),
-        lvars.asIterable().associate { it.key to it.value.instantiate() },
+        monoEnv.asIterable().associate { it.key to it.value.instantiate() },
         fx
     )
 }
@@ -53,16 +53,17 @@ private fun combineTypings(
     res: MonoType,
     typings: Iterable<Typing> = emptyList(),
     constraints: Iterable<Constraint> = emptySet(),
+    monoEnv: Map<LocalVar, MonoType> = emptyMap()
 ): Typing {
     val constraintQueue = constraints.toMutableList()
     var mapping = emptyMap<TypeVar, MonoType>()
 
-    val lvarEntries = typings.flatMap { it.lvars.entries }
+    val combinedMonoEnv = monoEnv.toList() + typings.flatMap { it.monoEnv.toList() }
 
-    val localVarTypeVars: Map<LocalVar, MonoType> = lvarEntries
-        .associate { it.key to TypeVar(it.key.symbol.local) }
+    val localVarTypeVars: Map<LocalVar, MonoType> = combinedMonoEnv
+        .asIterable().associate { it.first to TypeVar(it.first.symbol.local) }
 
-    constraintQueue.addAll(lvarEntries.map { Constraint(it.value, localVarTypeVars[it.key]!!) })
+    constraintQueue.addAll(combinedMonoEnv.map { Constraint(it.second, localVarTypeVars[it.first]!!) })
 
     fun unifyConstraint(c: Constraint): Mapping =
         if (c.rightType is TypeVar) {
@@ -143,12 +144,12 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
         val exprTyping = valueExprTyping(fnExpr.expr)
         val typing = combineTypings(
             FnType(
-                fnExpr.params.drop(1).map { exprTyping.lvars.getOrElse(it) { TypeVar() } },
+                fnExpr.params.drop(1).map { exprTyping.monoEnv.getOrElse(it) { TypeVar() } },
                 exprTyping.res
             ),
             listOf(exprTyping)
         )
-        return typing.copy(lvars = typing.lvars - fnExpr.params)
+        return typing.copy(monoEnv = typing.monoEnv - fnExpr.params)
     }
 
     private fun localVarExprTyping(localVar: LocalVar) =
@@ -177,7 +178,7 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
 
         val letTyping = combineTypings(exprTyping.res, bindingTypings + exprTyping)
 
-        return letTyping.copy(lvars = letTyping.lvars - expr.bindings.map { it.binding })
+        return letTyping.copy(monoEnv = letTyping.monoEnv - expr.bindings.map { it.binding })
     }
 
     private fun callExprTyping(expr: CallExpr): Typing {
@@ -203,7 +204,28 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
         val typing = combineTypings(exprTyping.res,
             bindingTypings.map { it.second } + exprTyping,
             bindingTypings.map { Constraint(it.second.res, it.first.typing.res) })
-        return typing.copy(fx = typing.fx - expr.bindings.map { it.defxVar.sym })
+        return typing.copy(fx = typing.fx - expr.bindings.map { it.defxVar.sym } + bindingTypings.flatMap { it.second.fx })
+    }
+
+    private fun loopExprTyping(expr: LoopExpr): Typing {
+        val bindingTypings = expr.bindings.map {
+            val typing = valueExprTyping(it.expr)
+            typing.copy(monoEnv = typing.monoEnv + (it.binding to typing.res))
+        }
+
+        val bodyTyping = valueExprTyping(expr.expr)
+
+        val typing = combineTypings(bodyTyping.res, bindingTypings + bodyTyping)
+        return typing.copy(monoEnv = typing.monoEnv - expr.bindings.map(Binding::binding))
+    }
+
+    private fun recurExprTyping(expr: RecurExpr): Typing {
+        val exprTypings = expr.exprs.map { it.binding to valueExprTyping(it.expr) }
+
+        return combineTypings(
+            TypeVar("_recur"),
+            exprTypings.map { it.second },
+            monoEnv = exprTypings.associate { it.first to it.second.res })
     }
 
     fun valueExprTyping(expr: ValueExpr): Typing = when (expr) {
@@ -220,6 +242,8 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
         is LetExpr -> letExprTyping(expr)
         is CallExpr -> callExprTyping(expr)
         is WithFxExpr -> withFxTyping(expr)
+        is LoopExpr -> loopExprTyping(expr)
+        is RecurExpr -> recurExprTyping(expr)
     }
 }
 

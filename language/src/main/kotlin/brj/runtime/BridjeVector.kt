@@ -24,8 +24,12 @@ class BridjeVector(val els: Array<Any?>) : TruffleObject {
         private val interopLibrary = InteropLibrary.getUncached()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     @TruffleBoundary
     fun toDisplayString(allowSideEffects: Boolean) =
         "[${els.map(interopLibrary::toDisplayString).joinToString(", ")}]"
+
+    @TruffleBoundary
+    fun conj(i: Int) = BridjeVector(els + i)
 }

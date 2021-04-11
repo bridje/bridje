@@ -150,4 +150,9 @@ class BridjeLanguageTest {
 
         assertEquals(0, ctx.eval("brj", "(with-fx [(def (now-ms!) 0)] (now-ms-caller))").asLong())
     }
+
+    @Test
+    fun `test loop-recur`() {
+        assertEquals((4 downTo 0).toList(), ctx.eval("brj", "(loop [x 5, res []] (if (zero? x) res (recur (dec x) (conjv0 res x))))").`as`(listOfInt))
+    }
 }

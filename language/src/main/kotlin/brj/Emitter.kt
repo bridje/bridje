@@ -75,5 +75,14 @@ internal class ValueExprEmitter(
                 emitValueExpr(expr.expr)
             )
         }
+
+        is LoopExpr -> LoopNode(
+            lang,
+            expr.bindings.map { WriteLocalNodeGen.create(emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.binding)) }.toTypedArray(),
+            emitValueExpr(expr.expr),
+            expr.loc
+        )
+
+        is RecurExpr -> RecurNode(lang, expr.exprs.map { WriteLocalNodeGen.create(emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.binding)) }.toTypedArray())
     }
 }

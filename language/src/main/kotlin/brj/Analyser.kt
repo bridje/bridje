@@ -16,11 +16,15 @@ private val FN = symbol("fn")
 private val DEF = symbol("def")
 private val DEFX = symbol("defx")
 private val WITH_FX = symbol("with-fx")
+private val LOOP = symbol("loop")
+private val RECUR = symbol("recur")
 
 internal sealed class DoOrExpr
 
 internal data class TopLevelDo(val forms: List<Form>) : DoOrExpr()
 internal data class TopLevelExpr(val expr: Expr) : DoOrExpr()
+
+private typealias LoopLocals = List<LocalVar>?
 
 internal data class Analyser(
     private val env: BridjeEnv,
@@ -28,43 +32,45 @@ internal data class Analyser(
     private val fxLocal: LocalVar = DEFAULT_FX_LOCAL
 ) {
 
-    private fun FormParser.parseValueExpr() = analyseValueExpr(expectForm())
-
-    private fun FormParser.parseMonoType() = analyseMonoType(expectForm())
-
-    private fun parseDo(formParser: FormParser, loc: SourceSection? = null) = formParser.run {
-        val exprs = rest { parseValueExpr() }
+    private fun parseDo(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection? = null) = formParser.run {
+        val exprs = rest { analyseValueExpr(expectForm(), if (forms.isNotEmpty()) null else loopLocals) }
         if (exprs.isEmpty()) TODO()
         DoExpr(exprs.dropLast(1), exprs.last(), loc)
     }
 
-    private fun parseIf(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        IfExpr(parseValueExpr(), parseValueExpr(), parseValueExpr(), loc)
+    private fun parseIf(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?) = formParser.run {
+        IfExpr(
+            analyseValueExpr(expectForm(), null),
+            analyseValueExpr(expectForm(), loopLocals),
+            analyseValueExpr(expectForm(), loopLocals),
+            loc
+        )
             .also { expectEnd() }
     }
 
-    private fun parseLet(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
-        var analyser = this@Analyser
+    private fun parseLet(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
+        formParser.run {
+            var analyser = this@Analyser
 
-        val bindingForm = expectForm(VectorForm::class.java)
-        val bindings = parseForms(bindingForm.forms) {
-            rest {
-                val sym = expectSymbol()
-                val localVar = LocalVar(sym)
-                val binding = LetBinding(localVar, analyser.analyseValueExpr(expectForm()))
-                analyser = Analyser(env, analyser.locals + (sym to localVar))
-                binding
-            }.also { expectEnd() }
+            val bindingForm = expectForm(VectorForm::class.java)
+            val bindings = parseForms(bindingForm.forms) {
+                rest {
+                    val sym = expectSymbol()
+                    val localVar = LocalVar(sym)
+                    val binding = Binding(localVar, analyser.analyseValueExpr(expectForm(), loopLocals))
+                    analyser = analyser.copy(locals = analyser.locals + (sym to localVar))
+                    binding
+                }.also { expectEnd() }
+            }
+
+            return LetExpr(bindings, analyser.parseDo(this, loopLocals), loc)
+                .also { expectEnd() }
         }
-
-        return LetExpr(bindings, Analyser(env, analyser.locals).parseDo(this), loc)
-            .also { expectEnd() }
-    }
 
     private fun parseFn(params: List<LocalVar>, formParser: FormParser, loc: SourceSection?) =
         FnExpr(
             listOf(fxLocal) + params,
-            Analyser(env, params.associateBy(LocalVar::symbol)).parseDo(formParser), loc
+            Analyser(env, params.associateBy(LocalVar::symbol)).parseDo(formParser, loopLocals = params), loc
         )
 
     private fun parseFn(formParser: FormParser, loc: SourceSection?) = formParser.run {
@@ -77,52 +83,86 @@ internal data class Analyser(
         )
     }
 
-    private fun parseWithFx(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
-        val bindings = parseForms(expectForm(VectorForm::class.java).forms) {
-            rest {
-                val listForm = expectForm(ListForm::class.java)
-                parseForms(listForm.forms) {
-                    val defExpr = maybe {
-                        if (expectSymbol() != DEF) TODO()
-                        parseDef(this, listForm.loc).also { expectEnd() }
-                    } ?: TODO()
-                    WithFxBinding(env.globalVars[defExpr.sym] as? DefxVar ?: TODO(), defExpr.expr)
+    private fun parseWithFx(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
+        formParser.run {
+            val bindings = parseForms(expectForm(VectorForm::class.java).forms) {
+                rest {
+                    val listForm = expectForm(ListForm::class.java)
+                    parseForms(listForm.forms) {
+                        val defExpr = maybe {
+                            if (expectSymbol() != DEF) TODO()
+                            parseDef(this, listForm.loc).also { expectEnd() }
+                        } ?: TODO()
+                        WithFxBinding(env.globalVars[defExpr.sym] as? DefxVar ?: TODO(), defExpr.expr)
+                    }
                 }
             }
+
+            val newFx = LocalVar(FX)
+
+            return WithFxExpr(
+                fxLocal,
+                bindings,
+                newFx,
+                this@Analyser.copy(fxLocal = newFx).analyseValueExpr(expectForm(), loopLocals),
+                loc
+            ).also { expectEnd() }
         }
 
-        val newFx = LocalVar(FX)
+    private fun parseLoop(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
+        formParser.run {
+            val bindings = parseForms(expectForm(VectorForm::class.java).forms) {
+                rest {
+                    Binding(
+                        LocalVar(expectSymbol()),
+                        analyseValueExpr(expectForm(), loopLocals = null)
+                    )
+                }.also { expectEnd() }
+            }
 
-        return WithFxExpr(
-            fxLocal,
-            bindings,
-            newFx,
-            this@Analyser.copy(fxLocal = newFx).analyseValueExpr(expectForm()),
-            loc
-        ).also { expectEnd() }
+            val analyser = copy(locals = locals + bindings.map { it.binding.symbol to it.binding })
+
+            LoopExpr(bindings, analyser.parseDo(this, bindings.map { it.binding }), loc)
+                .also { expectEnd() }
+        }
+
+    private fun parseRecur(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr {
+        if (loopLocals == null) TODO()
+
+        if (formParser.forms.size != loopLocals.size) TODO()
+
+        val exprs = formParser.rest { analyseValueExpr(expectForm(), loopLocals = null) }
+
+        return RecurExpr(loopLocals.zip(exprs).map { Binding(it.first, it.second) }, loc)
     }
 
-    private fun analyseValueExpr(form: Form): ValueExpr = when (form) {
+    private fun analyseValueExpr(form: Form, loopLocals: LoopLocals): ValueExpr = when (form) {
         is ListForm -> parseForms(form.forms) {
             or({
                 when (maybe { expectSymbol() }) {
-                    DO -> parseDo(this, form.loc)
-                    IF -> parseIf(this, form.loc)
-                    LET -> parseLet(this, form.loc)
+                    DO -> parseDo(this, loopLocals, form.loc)
+                    IF -> parseIf(this, loopLocals, form.loc)
+                    LET -> parseLet(this, loopLocals, form.loc)
                     FN -> parseFn(this, form.loc)
-                    WITH_FX -> parseWithFx(this, form.loc)
+                    WITH_FX -> parseWithFx(this, loopLocals, form.loc)
+                    LOOP -> parseLoop(this, loopLocals, form.loc)
+                    RECUR -> parseRecur(this, loopLocals, form.loc)
                     else -> null
                 }
             }, {
-                CallExpr(parseValueExpr(), listOf(LocalVarExpr(fxLocal, null)) + rest { parseValueExpr() }, form.loc)
+                CallExpr(
+                    analyseValueExpr(expectForm(), loopLocals),
+                    listOf(LocalVarExpr(fxLocal, null)) + rest { analyseValueExpr(expectForm(), loopLocals) },
+                    form.loc
+                )
             }) ?: TODO()
         }
 
         is IntForm -> IntExpr(form.int, form.loc)
         is BoolForm -> BoolExpr(form.bool, form.loc)
         is StringForm -> StringExpr(form.string, form.loc)
-        is VectorForm -> VectorExpr(form.forms.map { analyseValueExpr(it) }, form.loc)
-        is SetForm -> SetExpr(form.forms.map { analyseValueExpr(it) }, form.loc)
+        is VectorForm -> VectorExpr(form.forms.map { analyseValueExpr(it, loopLocals) }, form.loc)
+        is SetForm -> SetExpr(form.forms.map { analyseValueExpr(it, loopLocals) }, form.loc)
         is RecordForm -> TODO()
         is SymbolForm -> {
             val sym = form.sym
@@ -145,13 +185,13 @@ internal data class Analyser(
         }
 
         is ListForm -> parseForms(form.forms) {
-            when (val sym = expectSymbol()) {
+            when (expectSymbol()) {
                 symbol("Fn") -> {
                     FnType(
                         parseForms(expectForm(ListForm::class.java).forms) {
-                            rest { parseMonoType() }
+                            rest { analyseMonoType(expectForm()) }
                         },
-                        parseMonoType()
+                        analyseMonoType(expectForm())
                     )
                 }
                 else -> TODO()
@@ -159,11 +199,11 @@ internal data class Analyser(
         }
 
         is VectorForm -> parseForms(form.forms) {
-            VectorType(parseMonoType()).also { expectEnd() }
+            VectorType(analyseMonoType(expectForm())).also { expectEnd() }
         }
 
         is SetForm -> parseForms(form.forms) {
-            SetType(parseMonoType()).also { expectEnd() }
+            SetType(analyseMonoType(expectForm())).also { expectEnd() }
         }
     }
 
@@ -189,7 +229,7 @@ internal data class Analyser(
             if (header.paramForms != null)
                 parseFn(parseForms(header.paramForms) { rest { LocalVar(expectSymbol()) } }, this, loc)
             else
-                parseValueExpr()
+                analyseValueExpr(expectForm(), null)
 
         DefExpr(header.sym, expr, loc)
     }
@@ -198,9 +238,12 @@ internal data class Analyser(
         val header = parseDefHeader(formParser, loc) ?: TODO()
         val monoType =
             if (header.paramForms != null)
-                FnType(parseForms(header.paramForms) { rest { parseMonoType() } }, parseMonoType())
+                FnType(
+                    parseForms(header.paramForms) { rest { analyseMonoType(expectForm()) } },
+                    analyseMonoType(expectForm())
+                )
             else
-                parseMonoType() as? FnType ?: TODO()
+                analyseMonoType(expectForm()) as? FnType ?: TODO()
 
         DefxExpr(header.sym, Typing(monoType, fx = setOf(header.sym)), loc)
             .also { expectEnd() }
@@ -223,7 +266,7 @@ internal data class Analyser(
                 }
             }
         }, {
-            TopLevelExpr(analyseValueExpr(expectForm()))
+            TopLevelExpr(analyseValueExpr(expectForm(), null))
         })
     } ?: TODO()
 }
