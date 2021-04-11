@@ -1,6 +1,7 @@
-package brj.nodes;
+package brj.nodes.builtins;
 
 import brj.BridjeLanguage;
+import brj.nodes.ExprNode;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.frame.VirtualFrame;
 

@@ -1,6 +1,7 @@
 package brj
 
 import brj.nodes.*
+import brj.nodes.builtins.*
 import brj.runtime.BridjeFunction
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.symbol
@@ -40,7 +41,16 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             PrintlnNodeGen.create(this, PrintWriter(ctx.truffleEnv.out()))
         )
 
-        ctx.addBuiltIn(symbol("now-ms0"), Typing(FnType(emptyList(), IntType)), NowNode(this))
+        ctx.addBuiltIn(symbol("now-ms0"), Typing(FnType(emptyList(), IntType)),
+            NowNode(this)
+        )
+
+        ctx.addBuiltIn(symbol("zero?"), Typing(FnType(listOf(IntType), BoolType)), ZeroNode(this))
+        ctx.addBuiltIn(symbol("dec"), Typing(FnType(listOf(IntType), IntType)), DecNode(this))
+
+        TypeVar().let { tv ->
+            ctx.addBuiltIn(symbol("conjv0"), Typing(FnType(listOf(VectorType(tv), tv), VectorType(tv))), ConjNode(this))
+        }
     }
 
     override fun parse(request: ParsingRequest): CallTarget {
