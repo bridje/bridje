@@ -50,6 +50,13 @@ internal class SetExpr(val exprs: List<ValueExpr>, override val loc: SourceSecti
     override fun hashCode() = Objects.hash(exprs)
 }
 
+internal class RecordExpr(val entries: Map<Symbol, ValueExpr>, override val loc: SourceSection?): ValueExpr() {
+    override fun equals(other: Any?) =
+        this === other || (other is RecordExpr && entries == other.entries)
+
+    override fun hashCode() = Objects.hash(entries)
+}
+
 internal class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is DoExpr && exprs == other.exprs && expr == other.expr)

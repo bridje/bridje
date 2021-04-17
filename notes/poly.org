@@ -1,4 +1,4 @@
-still haven't got the polymorphism concepts nailed, apparently
+
 
 we're implementing typeclasses, at least, by dictionary passing - can we make more things appear this way?
 we'd like the abstraction of records of functions, too

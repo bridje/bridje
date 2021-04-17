@@ -51,6 +51,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         TypeVar().let { tv ->
             ctx.addBuiltIn(symbol("conjv0"), Typing(FnType(listOf(VectorType(tv), tv), VectorType(tv))), ConjNode(this))
         }
+
+        ctx.addBuiltIn(symbol("jclass"), Typing(FnType(listOf(StringType), TypeVar())), JClassNodeGen.create(this))
+        ctx.addBuiltIn(symbol("poly"), Typing(FnType(listOf(StringType), TypeVar())), PolyNodeGen.create(this))
     }
 
     override fun parse(request: ParsingRequest): CallTarget {

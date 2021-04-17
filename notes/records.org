@@ -169,3 +169,15 @@ saying a -> a & {:foo Int} doesn't work under usual polarity rules, because when
 this is saying that _either_ a or {:foo Int} is < b, which is a pain.
 in practice, we now know that a has to be a record.
 do we need to introduce a 'cons' type? but this is essentially standard record polymorphism
+
+* even more thoughts <2021-04-17 Sat>
+
+interop will be much easier if we base Bridje on Truffle's definitions - i.e. if Bridje records behaved like Truffle objects
+so what does this mean for Bridje's records/variants, and polymorphism?
+
+records map quite nicely into interop objects with members - as of 21.1 they make the distinction between hashmaps and objects
+variants can map into it too - the variant constructor becomes the metaobject, and we can restrict variants to having a single record parameter, which means that they can essentially be a sub-type of the corresponding record.
+
+open questions, then:
+- typing.
+- polymorphism

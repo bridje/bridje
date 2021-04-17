@@ -244,6 +244,7 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
         is WithFxExpr -> withFxTyping(expr)
         is LoopExpr -> loopExprTyping(expr)
         is RecurExpr -> recurExprTyping(expr)
+        else -> TODO()
     }
 }
 

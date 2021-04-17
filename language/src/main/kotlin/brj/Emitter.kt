@@ -18,6 +18,13 @@ internal class ValueExprEmitter(
         is StringExpr -> StringNodeGen.create(lang, expr.string, expr.loc)
         is VectorExpr -> VectorNodeGen.create(lang, arrayNode(expr.exprs), expr.loc)
         is SetExpr -> SetNodeGen.create(lang, arrayNode(expr.exprs), expr.loc)
+        is RecordExpr -> RecordNodeGen.create(
+            lang,
+            expr.entries
+                .map { RecordNodeGen.PutMemberNodeGen.create(it.key.toString(), emitValueExpr(it.value)) }
+                .toTypedArray(),
+            expr.loc
+        )
         is IfExpr -> IfNode(
             lang,
             emitValueExpr(expr.predExpr),
@@ -68,7 +75,8 @@ internal class ValueExprEmitter(
                     WithFxNode.NewFxNode(
                         lang,
                         LocalVarNodeGen.create(lang, frameDescriptor.findOrAddFrameSlot(expr.oldFx), null),
-                        expr.bindings.map { WithFxNode.WithFxBindingNode(it.defxVar.sym, emitValueExpr(it.expr)) }.toTypedArray()
+                        expr.bindings.map { WithFxNode.WithFxBindingNode(it.defxVar.sym, emitValueExpr(it.expr)) }
+                            .toTypedArray()
                     ),
                     frameDescriptor.findOrAddFrameSlot(expr.newFx)
                 ),
@@ -78,11 +86,24 @@ internal class ValueExprEmitter(
 
         is LoopExpr -> LoopNode(
             lang,
-            expr.bindings.map { WriteLocalNodeGen.create(emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.binding)) }.toTypedArray(),
+            expr.bindings.map {
+                WriteLocalNodeGen.create(
+                    emitValueExpr(it.expr),
+                    frameDescriptor.findOrAddFrameSlot(it.binding)
+                )
+            }.toTypedArray(),
             emitValueExpr(expr.expr),
             expr.loc
         )
 
-        is RecurExpr -> RecurNode(lang, expr.exprs.map { WriteLocalNodeGen.create(emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.binding)) }.toTypedArray())
+        is RecurExpr -> RecurNode(
+            lang,
+            expr.exprs.map {
+                WriteLocalNodeGen.create(
+                    emitValueExpr(it.expr),
+                    frameDescriptor.findOrAddFrameSlot(it.binding)
+                )
+            }.toTypedArray()
+        )
     }
 }

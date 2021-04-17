@@ -10,6 +10,7 @@ import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
+import java.time.Instant
 import kotlin.test.assertEquals
 
 @TestInstance(PER_CLASS)
@@ -154,5 +155,21 @@ class BridjeLanguageTest {
     @Test
     fun `test loop-recur`() {
         assertEquals((4 downTo 0).toList(), ctx.eval("brj", "(loop [x 5, res []] (if (zero? x) res (recur (dec x) (conjv0 res x))))").`as`(listOfInt))
+    }
+
+    @Test
+    fun `test jclass`() {
+        assertEquals(Instant.now(), ctx.eval("brj", """(jclass "java.time.Instant")""").invokeMember("now").asInstant())
+    }
+
+    @Test
+    fun `test poly`() {
+        assertEquals(0, ctx.eval("brj", """(poly "python" "import math; math")""").invokeMember("acos", 1).asInt())
+    }
+
+    @Test
+    fun `test record`() {
+        assertEquals(setOf("foo"), ctx.eval("brj", """{foo 42}""").memberKeys)
+        assertEquals(42, ctx.eval("brj", """{foo 42}""").getMember("foo").asInt())
     }
 }

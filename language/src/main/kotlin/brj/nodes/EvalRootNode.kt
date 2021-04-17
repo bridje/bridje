@@ -28,7 +28,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
                 is TopLevelDo -> EvalRootNodeGen.create(lang, doOrExpr.forms)
                 is TopLevelExpr -> when (val expr = doOrExpr.expr) {
                     is ValueExpr -> {
-                        typeLogger.info("type: ${valueExprTyping(expr)}")
+//                        typeLogger.info("type: ${valueExprTyping(expr)}")
 
                         val frameDescriptor = FrameDescriptor()
                         ValueExprRootNodeGen.create(

@@ -109,7 +109,7 @@ internal data class Analyser(
             ).also { expectEnd() }
         }
 
-    private fun parseLoop(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
+    private fun parseLoop(formParser: FormParser, loc: SourceSection?): ValueExpr =
         formParser.run {
             val bindings = parseForms(expectForm(VectorForm::class.java).forms) {
                 rest {
@@ -136,6 +136,15 @@ internal data class Analyser(
         return RecurExpr(loopLocals.zip(exprs).map { Binding(it.first, it.second) }, loc)
     }
 
+    private fun parseRecord(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
+        RecordExpr(
+            rest {
+                expectSymbol() to analyseValueExpr(expectForm(), loopLocals = null)
+            }.toMap(),
+            loc
+        ).also { expectEnd() }
+    }
+
     private fun analyseValueExpr(form: Form, loopLocals: LoopLocals): ValueExpr = when (form) {
         is ListForm -> parseForms(form.forms) {
             or({
@@ -145,7 +154,7 @@ internal data class Analyser(
                     LET -> parseLet(this, loopLocals, form.loc)
                     FN -> parseFn(this, form.loc)
                     WITH_FX -> parseWithFx(this, loopLocals, form.loc)
-                    LOOP -> parseLoop(this, loopLocals, form.loc)
+                    LOOP -> parseLoop(this, form.loc)
                     RECUR -> parseRecur(this, loopLocals, form.loc)
                     else -> null
                 }
@@ -163,13 +172,13 @@ internal data class Analyser(
         is StringForm -> StringExpr(form.string, form.loc)
         is VectorForm -> VectorExpr(form.forms.map { analyseValueExpr(it, loopLocals) }, form.loc)
         is SetForm -> SetExpr(form.forms.map { analyseValueExpr(it, loopLocals) }, form.loc)
-        is RecordForm -> TODO()
+        is RecordForm -> parseRecord(FormParser(form.forms), form.loc)
         is SymbolForm -> {
             val sym = form.sym
 
             locals[sym]?.let { return LocalVarExpr(it, form.loc) }
             env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
-            TODO()
+            TODO("can't find symbol: $sym")
         }
     }
 
@@ -209,7 +218,7 @@ internal data class Analyser(
 
     data class DefHeader(val sym: Symbol, val paramForms: List<Form>?)
 
-    private fun parseDefHeader(formParser: FormParser, loc: SourceSection?) = formParser.run {
+    private fun parseDefHeader(formParser: FormParser) = formParser.run {
         or({
             maybe { expectSymbol() }?.let { sym ->
                 DefHeader(sym, null)
@@ -224,7 +233,7 @@ internal data class Analyser(
     }
 
     private fun parseDef(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        val header = parseDefHeader(this, loc) ?: TODO()
+        val header = parseDefHeader(this) ?: TODO()
         val expr =
             if (header.paramForms != null)
                 parseFn(parseForms(header.paramForms) { rest { LocalVar(expectSymbol()) } }, this, loc)
@@ -235,7 +244,7 @@ internal data class Analyser(
     }
 
     private fun parseDefx(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        val header = parseDefHeader(formParser, loc) ?: TODO()
+        val header = parseDefHeader(formParser) ?: TODO()
         val monoType =
             if (header.paramForms != null)
                 FnType(
