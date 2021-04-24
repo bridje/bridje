@@ -2,10 +2,13 @@ package brj.runtime
 
 import brj.BridjeLanguage
 import com.oracle.truffle.api.CallTarget
+import com.oracle.truffle.api.dsl.Cached
+import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
+import com.oracle.truffle.api.nodes.DirectCallNode
 
 @ExportLibrary(InteropLibrary::class)
 open class BridjeFunction(val callTarget: CallTarget) : TruffleObject {
@@ -23,7 +26,25 @@ open class BridjeFunction(val callTarget: CallTarget) : TruffleObject {
     fun isExecutable() = true
 
     @ExportMessage
-    fun execute(args: Array<Any>): Any {
-        return callTarget.call(null, *args)
+    class Execute {
+        companion object {
+            @Specialization
+            @JvmStatic
+            fun doExecute(
+                fn: BridjeFunction,
+                args: Array<Any>,
+                @Cached("fn") cachedFn: BridjeFunction,
+                @Cached("cachedFn.getCallTarget()", allowUncached = true) callTarget: CallTarget,
+                @Cached("create(callTarget)", allowUncached = true) callNode: DirectCallNode
+            ): Any {
+                val passedArgs = arrayOfNulls<Any>(args.size + 1)
+                passedArgs[0] = FxMap(FxMap.DEFAULT_SHAPE)
+                args.indices.forEach { i ->
+                    passedArgs[i + 1] = args[i]
+                }
+                return callNode.call(*passedArgs)
+            }
+
+        }
     }
 }

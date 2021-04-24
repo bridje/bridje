@@ -104,6 +104,23 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
         return StringForm(sb.toString(), source.createSection(startIndex, charIndex - startIndex))
     }
 
+    private fun readKeyword(): Form {
+        val sb = StringBuilder()
+        val startIndex = charIndex
+
+        readChar()
+
+        while (true) {
+            val c = readNonBreakChar() ?: break
+            if (!c.isBridjeIdentifierPart()) TODO()
+            sb.append(c)
+        }
+
+        val loc = source.createSection(startIndex, charIndex - startIndex)
+
+        return KeywordForm(Symbol.symbol(sb.toString()), loc)
+    }
+
     private fun readWord(): Form {
         val sb = StringBuilder()
         val startIndex = charIndex
@@ -133,6 +150,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
             c == '{' -> readRecord()
             c == '#' -> readHash()
             c == '"' -> readString()
+            c == ':' -> readKeyword()
             c.isBridjeIdentifierStart() -> readWord()
             else -> TODO()
         }

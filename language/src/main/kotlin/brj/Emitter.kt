@@ -1,7 +1,9 @@
 package brj
 
 import brj.nodes.*
+import brj.nodes.CallNodeGen.CallArgsNodeGen
 import brj.runtime.BridjeFunction
+import brj.runtime.BridjeKey
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.frame.FrameDescriptor
 
@@ -25,6 +27,9 @@ internal class ValueExprEmitter(
                 .toTypedArray(),
             expr.loc
         )
+
+        is KeywordExpr -> KeywordNode(lang, BridjeKey(expr.sym.toString()))
+
         is IfExpr -> IfNode(
             lang,
             emitValueExpr(expr.predExpr),
@@ -49,7 +54,7 @@ internal class ValueExprEmitter(
             val fnRootNode = FnRootNode(
                 lang,
                 frameDescriptor,
-                expr.params.mapIndexed { idx, localVar ->
+                (listOf(expr.fxLocal) + expr.params).mapIndexed { idx, localVar ->
                     WriteLocalNodeGen.create(ReadArgNode(lang, idx), frameDescriptor.findOrAddFrameSlot(localVar))
                 }.toTypedArray(),
                 ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr)
@@ -61,7 +66,10 @@ internal class ValueExprEmitter(
         is CallExpr -> CallNodeGen.create(
             lang,
             emitValueExpr(expr.fn),
-            arrayNode(expr.args),
+            CallArgsNodeGen.create(
+                emitValueExpr(expr.fxExpr),
+                expr.args.map { emitValueExpr(it) }.toTypedArray()
+            ),
             expr.loc
         )
 

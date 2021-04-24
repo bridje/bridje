@@ -2,6 +2,7 @@ package brj
 
 import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
+import java.util.*
 
 sealed class Form {
     abstract val loc: SourceSection?
@@ -58,6 +59,15 @@ internal class SymbolForm(val sym: Symbol, override val loc: SourceSection? = nu
     override fun hashCode() = sym.hashCode()
 
     override fun toString() = sym.toString()
+}
+
+internal class KeywordForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
+    override fun equals(other: Any?) =
+        this === other || (other is KeywordForm && sym == other.sym)
+
+    override fun hashCode() = Objects.hash(sym)
+
+    override fun toString() = ":$sym"
 }
 
 internal class ListForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {

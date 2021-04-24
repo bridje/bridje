@@ -5,6 +5,7 @@ import brj.runtime.GlobalVar
 import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
 import java.util.*
+import javax.management.ValueExp
 
 internal sealed class Expr {
     abstract val loc: SourceSection?
@@ -55,6 +56,13 @@ internal class RecordExpr(val entries: Map<Symbol, ValueExpr>, override val loc:
         this === other || (other is RecordExpr && entries == other.entries)
 
     override fun hashCode() = Objects.hash(entries)
+}
+
+internal class KeywordExpr(val sym: Symbol, override val loc: SourceSection?): ValueExpr() {
+    override fun equals(other: Any?) =
+        this === other || (other is KeywordExpr && sym == other.sym)
+
+    override fun hashCode() = Objects.hash(sym)
 }
 
 internal class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override val loc: SourceSection?) : ValueExpr() {
@@ -132,6 +140,7 @@ internal class RecurExpr(
 }
 
 internal class FnExpr(
+    val fxLocal: LocalVar,
     val params: List<LocalVar>,
     val expr: ValueExpr,
     override val loc: SourceSection?
@@ -139,24 +148,25 @@ internal class FnExpr(
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is FnExpr -> false
-        else -> params == other.params && expr == other.expr
+        else -> params == other.params && fxLocal == other.fxLocal && expr == other.expr
     }
 
-    override fun hashCode() = Objects.hash(params, expr)
+    override fun hashCode() = Objects.hash(params, fxLocal, expr)
 }
 
 internal class CallExpr(
     val fn: ValueExpr,
+    val fxExpr: ValueExpr,
     val args: List<ValueExpr>,
     override val loc: SourceSection?
 ) : ValueExpr() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is CallExpr -> false
-        else -> fn == other.fn && args == other.args
+        else -> fn == other.fn && fxExpr == other.fxExpr && args == other.args
     }
 
-    override fun hashCode() = Objects.hash(fn, args)
+    override fun hashCode() = Objects.hash(fn, fxExpr, args)
 }
 
 internal data class WithFxBinding(val defxVar: DefxVar, val expr: ValueExpr)

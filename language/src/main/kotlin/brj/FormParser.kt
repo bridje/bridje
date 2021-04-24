@@ -64,6 +64,12 @@ internal fun FormParser.expectSymbol(): Symbol {
     return form.sym
 }
 
+internal fun FormParser.expectKeyword(): Symbol {
+    val form = expectForm()
+    if (form !is KeywordForm) throw RuntimeException("Expected keyword")
+    return form.sym
+}
+
 internal fun <R> parseForms(forms: List<Form>, parse: FormParser.() -> R): R {
     return parse(FormParser(forms))
 }

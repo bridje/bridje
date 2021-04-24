@@ -19,10 +19,10 @@ private val WITH_FX = symbol("with-fx")
 private val LOOP = symbol("loop")
 private val RECUR = symbol("recur")
 
-internal sealed class DoOrExpr
+internal sealed class TopLevelDoOrExpr
 
-internal data class TopLevelDo(val forms: List<Form>) : DoOrExpr()
-internal data class TopLevelExpr(val expr: Expr) : DoOrExpr()
+internal data class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()
+internal data class TopLevelExpr(val expr: Expr) : TopLevelDoOrExpr()
 
 private typealias LoopLocals = List<LocalVar>?
 
@@ -44,8 +44,7 @@ internal data class Analyser(
             analyseValueExpr(expectForm(), loopLocals),
             analyseValueExpr(expectForm(), loopLocals),
             loc
-        )
-            .also { expectEnd() }
+        ).also { expectEnd() }
     }
 
     private fun parseLet(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
@@ -69,7 +68,7 @@ internal data class Analyser(
 
     private fun parseFn(params: List<LocalVar>, formParser: FormParser, loc: SourceSection?) =
         FnExpr(
-            listOf(fxLocal) + params,
+            fxLocal, params,
             Analyser(env, params.associateBy(LocalVar::symbol)).parseDo(formParser, loopLocals = params), loc
         )
 
@@ -139,7 +138,7 @@ internal data class Analyser(
     private fun parseRecord(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
         RecordExpr(
             rest {
-                expectSymbol() to analyseValueExpr(expectForm(), loopLocals = null)
+                expectKeyword() to analyseValueExpr(expectForm(), loopLocals = null)
             }.toMap(),
             loc
         ).also { expectEnd() }
@@ -161,7 +160,8 @@ internal data class Analyser(
             }, {
                 CallExpr(
                     analyseValueExpr(expectForm(), loopLocals),
-                    listOf(LocalVarExpr(fxLocal, null)) + rest { analyseValueExpr(expectForm(), loopLocals) },
+                    LocalVarExpr(fxLocal, null),
+                    rest { analyseValueExpr(expectForm(), loopLocals) },
                     form.loc
                 )
             }) ?: TODO()
@@ -180,6 +180,7 @@ internal data class Analyser(
             env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
             TODO("can't find symbol: $sym")
         }
+        is KeywordForm -> KeywordExpr(form.sym, form.loc)
     }
 
     private fun analyseMonoType(form: Form): MonoType = when (form) {
@@ -214,6 +215,8 @@ internal data class Analyser(
         is SetForm -> parseForms(form.forms) {
             SetType(analyseMonoType(expectForm())).also { expectEnd() }
         }
+
+        else -> TODO()
     }
 
     data class DefHeader(val sym: Symbol, val paramForms: List<Form>?)
@@ -258,7 +261,7 @@ internal data class Analyser(
             .also { expectEnd() }
     }
 
-    fun analyseExpr(form: Form): DoOrExpr = parseForms(listOf(form)) {
+    fun analyseExpr(form: Form): TopLevelDoOrExpr = parseForms(listOf(form)) {
         or({
             maybe { expectForm(ListForm::class.java) }?.let { listForm ->
                 parseForms(listForm.forms) {
