@@ -5,16 +5,16 @@ import com.oracle.truffle.api.dsl.NodeField;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 
-@NodeField(name = "value", type = String.class)
+@NodeField(name = "value", type = Object.class)
 @NodeField(name = "sourceSection", type = SourceSection.class)
-public abstract class StringNode extends ExprNode {
+public abstract class ConstantNode extends ExprNode {
 
-    public StringNode(BridjeLanguage lang) {
+    public ConstantNode(BridjeLanguage lang) {
         super(lang);
     }
 
     @Specialization
-    public String doExecute(String value) {
+    public Object doExecute(Object value) {
         return value;
     }
 }

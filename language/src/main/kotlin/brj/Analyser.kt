@@ -4,6 +4,7 @@ import brj.runtime.BridjeEnv
 import brj.runtime.DefxVar
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.symbol
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
 
 private val FX = symbol("_fx")
@@ -13,12 +14,14 @@ private val DO = symbol("do")
 private val IF = symbol("if")
 private val LET = symbol("let")
 private val FN = symbol("fn")
-private val DEF = symbol("def")
-private val DEFX = symbol("defx")
 private val WITH_FX = symbol("with-fx")
 private val LOOP = symbol("loop")
 private val RECUR = symbol("recur")
 private val NEW = symbol("new")
+
+private val DEF = symbol("def")
+private val DEFX = symbol("defx")
+private val IMPORT = symbol("import")
 
 internal sealed class TopLevelDoOrExpr
 
@@ -145,8 +148,8 @@ internal data class Analyser(
         ).also { expectEnd() }
     }
 
-    private fun parseNew(formParser: FormParser, loc: SourceSection?) : ValueExpr = formParser.run {
-        NewExpr(analyseValueExpr(expectForm(), null), rest {analyseValueExpr(expectForm(), null)}, loc)
+    private fun parseNew(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
+        NewExpr(analyseValueExpr(expectForm(), null), rest { analyseValueExpr(expectForm(), null) }, loc)
     }
 
     private fun analyseValueExpr(form: Form, loopLocals: LoopLocals): ValueExpr = when (form) {
@@ -173,6 +176,7 @@ internal data class Analyser(
             }) ?: TODO()
         }
 
+        is NilForm -> NilExpr(form.loc)
         is IntForm -> IntExpr(form.int, form.loc)
         is BoolForm -> BoolExpr(form.bool, form.loc)
         is StringForm -> StringExpr(form.string, form.loc)
@@ -182,8 +186,19 @@ internal data class Analyser(
         is SymbolForm -> {
             val sym = form.sym
 
-            locals[sym]?.let { return LocalVarExpr(it, form.loc) }
-            env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
+            if(sym.ns == null) {
+                locals[sym]?.let { return LocalVarExpr(it, form.loc) }
+                env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
+                env.imports[sym]?.let { return TruffleObjectExpr(it, form.loc) }
+            } else {
+                env.imports[sym.ns]?.let { clazz ->
+                    if (env.interop.isMemberReadable(clazz, sym.local)) {
+                        return TruffleObjectExpr(env.interop.readMember(clazz, sym.local) as TruffleObject, form.loc)
+                    } else {
+                        TODO()
+                    }
+                }
+            }
             TODO("can't find symbol: $sym")
         }
         is KeywordForm -> KeywordExpr(form.sym, form.loc)
@@ -267,17 +282,22 @@ internal data class Analyser(
             .also { expectEnd() }
     }
 
+    private fun parseImport(formParser: FormParser, loc: SourceSection?) = formParser.run {
+        ImportExpr(rest { expectSymbol() }, loc).also { expectEnd() }
+    }
+
     fun analyseExpr(form: Form): TopLevelDoOrExpr = parseForms(listOf(form)) {
         or({
             maybe { expectForm(ListForm::class.java) }?.let { listForm ->
                 parseForms(listForm.forms) {
                     maybe {
-                        expectSymbol().takeIf { it == DEF || it == DEFX || it == DO }
+                        expectSymbol().takeIf { it == DEF || it == DEFX || it == DO || it == IMPORT }
                     }?.let { sym ->
                         when (sym) {
                             DO -> TopLevelDo(forms)
                             DEF -> TopLevelExpr(parseDef(this, listForm.loc))
                             DEFX -> TopLevelExpr(parseDefx(this, listForm.loc))
+                            IMPORT -> TopLevelExpr(parseImport(this, listForm.loc))
                             else -> null
                         }
                     }

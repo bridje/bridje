@@ -35,6 +35,11 @@ class BridjeLanguageTest {
     private fun eval(src: String) = ctx.eval("brj", src)
 
     @Test
+    fun `test nil`() {
+        assertTrue(eval("nil").isNull)
+    }
+
+    @Test
     fun `just a number`() {
         assertEquals(10, eval("10").asInt())
     }
@@ -162,7 +167,7 @@ class BridjeLanguageTest {
 
     @Test
     fun `test jclass`() {
-        assertEquals(Instant.now(), eval("""(jclass "java.time.Instant")""").invokeMember("now").asInstant())
+        assertTrue(eval("""(jclass "java.time.Instant")""").invokeMember("now").isInstant)
     }
 
     @Test
@@ -191,5 +196,12 @@ class BridjeLanguageTest {
     @Test
     fun `test pr-str`() {
         assertEquals("nil", eval("pr-str").execute(null).asString())
+    }
+
+    @Test
+    fun `test import`() {
+        assertEquals(Instant.ofEpochMilli(1000), eval("(import java.util.Date java.time.Instant) (new Date 1000)").asInstant())
+        assertEquals(Instant.EPOCH, eval("Instant/EPOCH").asInstant())
+        assertTrue(eval("(Instant/now)").isInstant)
     }
 }

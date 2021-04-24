@@ -8,6 +8,12 @@ sealed class Form {
     abstract val loc: SourceSection?
 }
 
+internal class NilForm(override val loc: SourceSection?) : Form() {
+    override fun equals(other: Any?) = other is NilForm
+    override fun hashCode() = NilForm::class.java.hashCode()
+    override fun toString() = "nil"
+}
+
 internal class IntForm(val int: Int, override val loc: SourceSection? = null) : Form() {
     override fun toString() = int.toString()
 

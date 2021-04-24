@@ -50,6 +50,8 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
                     }
 
                     is DefxExpr -> DefxRootNodeGen.create(lang, expr.sym, expr.typing, expr.loc)
+
+                    is ImportExpr -> ImportRootNodeGen.create(lang, expr.syms.toTypedArray(), expr.loc)
                 }
             }
 

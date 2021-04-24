@@ -3,6 +3,7 @@ package brj
 import brj.runtime.DefxVar
 import brj.runtime.GlobalVar
 import brj.runtime.Symbol
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
 import java.util.*
 
@@ -11,6 +12,11 @@ internal sealed class Expr {
 }
 
 internal sealed class ValueExpr : Expr()
+
+internal class NilExpr(override val loc: SourceSection?) : ValueExpr() {
+    override fun equals(other: Any?) = other is NilExpr
+    override fun hashCode() = NilExpr::class.java.hashCode()
+}
 
 internal class IntExpr(val int: Int, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
@@ -213,6 +219,16 @@ internal class GlobalVarExpr(val globalVar: GlobalVar, override val loc: SourceS
     override fun hashCode() = Objects.hash(globalVar)
 }
 
+internal class TruffleObjectExpr(val clazz: TruffleObject, override val loc: SourceSection?) : ValueExpr() {
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is TruffleObjectExpr -> false
+        else -> clazz == other.clazz
+    }
+
+    override fun hashCode() = Objects.hash(clazz)
+}
+
 internal class DefExpr(val sym: Symbol, val expr: ValueExpr, override val loc: SourceSection?) : Expr() {
     override fun equals(other: Any?) = when {
         this === other -> true
@@ -231,4 +247,14 @@ internal class DefxExpr(val sym: Symbol, val typing: Typing, override val loc: S
     }
 
     override fun hashCode() = Objects.hash(sym)
+}
+
+internal class ImportExpr(val syms: List<Symbol>, override val loc: SourceSection?) : Expr() {
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is ImportExpr -> false
+        else -> syms == other.syms
+    }
+
+    override fun hashCode() = Objects.hash(syms)
 }

@@ -1,12 +1,13 @@
 package brj
 
 import brj.runtime.Symbol
+import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.source.Source
 import com.oracle.truffle.api.source.SourceSection
 
 class FormReader internal constructor(private val source: Source) : AutoCloseable {
     companion object {
-        private const val identifierChars = "+-*%$£!<>?"
+        private const val identifierChars = "+-*%$£!<>?."
         private const val breakChars = "([{}])#@^%"
     }
 
@@ -104,40 +105,48 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
         return StringForm(sb.toString(), source.createSection(startIndex, charIndex - startIndex))
     }
 
-    private fun readKeyword(): Form {
-        val sb = StringBuilder()
+    private fun readIdent(f: (Symbol?, String, SourceSection) -> Form): Form {
+        val beforeSlash = StringBuilder()
+        val afterSlash = StringBuilder()
+
         val startIndex = charIndex
 
-        readChar()
+        var seenSlash = false
 
         while (true) {
-            val c = readNonBreakChar() ?: break
-            if (!c.isBridjeIdentifierPart()) TODO()
-            sb.append(c)
+            val c = readNonBreakChar()
+
+            when {
+                c == null -> break
+                c == '/' -> if (seenSlash) TODO() else seenSlash = true
+                !c.isBridjeIdentifierPart() -> TODO("invalid identifier part: '$c'")
+                else -> if (seenSlash) afterSlash.append(c) else beforeSlash.append(c)
+            }
         }
 
         val loc = source.createSection(startIndex, charIndex - startIndex)
 
-        return KeywordForm(Symbol.symbol(sb.toString()), loc)
+        return if (seenSlash) f(symbol(beforeSlash.toString()), afterSlash.toString(), loc)
+        else f(null, beforeSlash.toString(), loc)
     }
 
-    private fun readWord(): Form {
-        val sb = StringBuilder()
-        val startIndex = charIndex
+    private fun readSymbol() = readIdent { ns, local, loc ->
+        if (ns == null) {
+            when (local) {
+                "true" -> BoolForm(true, loc)
+                "false" -> BoolForm(false, loc)
+                "nil" -> NilForm(loc)
+                else -> SymbolForm(symbol(local), loc)
+            }
+        } else SymbolForm(symbol(ns, local), loc)
+    }
 
-        while (true) {
-            val c = readNonBreakChar() ?: break
-            if (!c.isBridjeIdentifierPart()) TODO()
-            sb.append(c)
-        }
+    private fun readKeyword(): Form {
+        readChar()
 
-        val loc = source.createSection(startIndex, charIndex - startIndex)
-
-        return when (val str = sb.toString()) {
-            "true" -> BoolForm(true, loc)
-            "false" -> BoolForm(false, loc)
-
-            else -> SymbolForm(Symbol.symbol(str), loc)
+        return readIdent { ns, local, loc ->
+            if (ns != null) TODO()
+            KeywordForm(symbol(ns, local), loc)
         }
     }
 
@@ -151,7 +160,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
             c == '#' -> readHash()
             c == '"' -> readString()
             c == ':' -> readKeyword()
-            c.isBridjeIdentifierStart() -> readWord()
+            c.isBridjeIdentifierStart() -> readSymbol()
             else -> TODO()
         }
     }

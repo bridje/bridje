@@ -4,6 +4,7 @@ import brj.nodes.*
 import brj.nodes.CallNodeGen.CallArgsNodeGen
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeKey
+import brj.runtime.Nil
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.frame.FrameDescriptor
 
@@ -15,9 +16,10 @@ internal class ValueExprEmitter(
         ExecuteArrayNode(lang, exprs.map { emitValueExpr(it) }.toTypedArray())
 
     fun emitValueExpr(expr: ValueExpr): ExprNode = when (expr) {
+        is NilExpr -> ConstantNodeGen.create(lang, Nil, expr.loc)
         is IntExpr -> IntNodeGen.create(lang, expr.int, expr.loc)
         is BoolExpr -> BoolNodeGen.create(lang, expr.bool, expr.loc)
-        is StringExpr -> StringNodeGen.create(lang, expr.string, expr.loc)
+        is StringExpr -> ConstantNodeGen.create(lang, expr.string, expr.loc)
         is VectorExpr -> VectorNodeGen.create(lang, arrayNode(expr.exprs), expr.loc)
         is SetExpr -> SetNodeGen.create(lang, arrayNode(expr.exprs), expr.loc)
         is RecordExpr -> RecordNodeGen.create(
@@ -75,6 +77,7 @@ internal class ValueExprEmitter(
 
         is LocalVarExpr -> LocalVarNodeGen.create(lang, frameDescriptor.findOrAddFrameSlot(expr.localVar), expr.loc)
         is GlobalVarExpr -> GlobalVarNodeGen.create(lang, expr.globalVar.bridjeVar, expr.loc)
+        is TruffleObjectExpr -> ConstantNodeGen.create(lang, expr.clazz, expr.loc)
 
         is WithFxExpr -> {
             WithFxNode(

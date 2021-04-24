@@ -1,19 +1,24 @@
 package brj.runtime
 
+import brj.BridjeContext
 import brj.BridjeLanguage
 import brj.Typing
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
+import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeEnv : TruffleObject {
+class BridjeEnv(private val truffleEnv: TruffleLanguage.Env) : TruffleObject {
 
     internal val globalVars = mutableMapOf<Symbol, GlobalVar>()
+    internal val imports = mutableMapOf<Symbol, TruffleObject>()
+
+    internal val interop = InteropLibrary.getUncached()
 
     @ExportMessage
     fun hasMembers() = true
@@ -62,5 +67,12 @@ class BridjeEnv : TruffleObject {
             if (globalVar != null) TODO()
             else DefxVar(sym, typing, BridjeVar(value), defaultImplVar)
         }
+    }
+
+    @TruffleBoundary
+    fun importClass(className: Symbol) {
+        val clazz = truffleEnv.lookupHostSymbol(className.local) as TruffleObject
+        val simpleClassName = symbol(interop.asString(interop.getMetaSimpleName(clazz)))
+        imports[simpleClassName] = clazz
     }
 }

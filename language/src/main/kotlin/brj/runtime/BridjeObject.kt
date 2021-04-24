@@ -9,10 +9,12 @@ import com.oracle.truffle.api.library.CachedLibrary
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
-private val SHAPE = Shape.newBuilder().layout(BridjeObject::class.java).build()
-
 @ExportLibrary(InteropLibrary::class)
 class BridjeObject : DynamicObject(SHAPE) {
+    companion object {
+        private val SHAPE = Shape.newBuilder().layout(BridjeObject::class.java).build()
+    }
+
     @ExportMessage
     fun hasMembers() = true
 

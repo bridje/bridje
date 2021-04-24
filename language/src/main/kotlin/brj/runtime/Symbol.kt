@@ -6,15 +6,16 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class Symbol private constructor(val local: String) : TruffleObject {
+class Symbol private constructor(val ns: Symbol?, val local: String) : TruffleObject {
     companion object {
-        private val SYMBOLS = mutableMapOf<String, Symbol>()
-        internal fun symbol(local: String) = SYMBOLS.computeIfAbsent(local, ::Symbol)
+        private val SYMBOLS = mutableMapOf<Pair<Symbol?, String>, Symbol>()
+        internal fun symbol(local: String) = symbol(null, local)
+        internal fun symbol(ns: Symbol?, local: String) = SYMBOLS.computeIfAbsent(Pair(ns, local)) { Symbol(ns, local) }
     }
 
     @ExportMessage
-    fun toDisplayString(allowSideEffects: Boolean) = local
+    fun toDisplayString(allowSideEffects: Boolean) = toString()
 
-    override fun toString() = local
+    override fun toString() = if (ns != null) "$ns/$local" else local
 }
 
