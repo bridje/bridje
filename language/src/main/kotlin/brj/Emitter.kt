@@ -113,5 +113,13 @@ internal class ValueExprEmitter(
                 )
             }.toTypedArray()
         )
+
+        is NewExpr -> {
+            NewNodeGen.create(lang,
+                emitValueExpr(expr.metaObj),
+                arrayNode(expr.params),
+                expr.loc
+            )
+        }
     }
 }

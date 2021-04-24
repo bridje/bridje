@@ -5,7 +5,6 @@ import brj.runtime.GlobalVar
 import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
 import java.util.*
-import javax.management.ValueExp
 
 internal sealed class Expr {
     abstract val loc: SourceSection?
@@ -167,6 +166,13 @@ internal class CallExpr(
     }
 
     override fun hashCode() = Objects.hash(fn, fxExpr, args)
+}
+
+internal class NewExpr(val metaObj: ValueExpr, val params: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
+    override fun equals(other: Any?) =
+        this === other || (other is NewExpr && metaObj == other.metaObj && params == other.params)
+
+    override fun hashCode() = Objects.hash(metaObj, params)
 }
 
 internal data class WithFxBinding(val defxVar: DefxVar, val expr: ValueExpr)

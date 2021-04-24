@@ -18,6 +18,7 @@ private val DEFX = symbol("defx")
 private val WITH_FX = symbol("with-fx")
 private val LOOP = symbol("loop")
 private val RECUR = symbol("recur")
+private val NEW = symbol("new")
 
 internal sealed class TopLevelDoOrExpr
 
@@ -144,6 +145,10 @@ internal data class Analyser(
         ).also { expectEnd() }
     }
 
+    private fun parseNew(formParser: FormParser, loc: SourceSection?) : ValueExpr = formParser.run {
+        NewExpr(analyseValueExpr(expectForm(), null), rest {analyseValueExpr(expectForm(), null)}, loc)
+    }
+
     private fun analyseValueExpr(form: Form, loopLocals: LoopLocals): ValueExpr = when (form) {
         is ListForm -> parseForms(form.forms) {
             or({
@@ -155,6 +160,7 @@ internal data class Analyser(
                     WITH_FX -> parseWithFx(this, loopLocals, form.loc)
                     LOOP -> parseLoop(this, form.loc)
                     RECUR -> parseRecur(this, loopLocals, form.loc)
+                    NEW -> parseNew(this, form.loc)
                     else -> null
                 }
             }, {

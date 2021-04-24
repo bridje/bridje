@@ -11,6 +11,7 @@ import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+import java.util.*
 import kotlin.test.assertEquals
 
 @TestInstance(PER_CLASS)
@@ -180,5 +181,10 @@ class BridjeLanguageTest {
 
         assertEquals(42, eval("""(:max (jclass "java.lang.Math"))""").execute(42, 10).asInt())
         assertEquals(42, eval("""((:max (jclass "java.lang.Math")) 42 10)""").asInt())
+    }
+
+    @Test
+    fun `test new`() {
+        assertEquals(Instant.ofEpochMilli(1000), eval("""(new (jclass "java.util.Date") 1000)""").asInstant())
     }
 }
