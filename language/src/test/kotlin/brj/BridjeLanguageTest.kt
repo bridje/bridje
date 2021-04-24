@@ -187,4 +187,9 @@ class BridjeLanguageTest {
     fun `test new`() {
         assertEquals(Instant.ofEpochMilli(1000), eval("""(new (jclass "java.util.Date") 1000)""").asInstant())
     }
+
+    @Test
+    fun `test pr-str`() {
+        assertEquals("nil", eval("pr-str").execute(null).asString())
+    }
 }

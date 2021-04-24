@@ -3,6 +3,7 @@ package brj
 import brj.nodes.*
 import brj.nodes.builtins.*
 import brj.runtime.BridjeFunction
+import brj.runtime.BridjeView
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.CallTarget
@@ -54,6 +55,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
         ctx.addBuiltIn(symbol("jclass"), Typing(FnType(listOf(StringType), TypeVar())), JClassNodeGen.create(this))
         ctx.addBuiltIn(symbol("poly"), Typing(FnType(listOf(StringType), TypeVar())), PolyNodeGen.create(this))
+        ctx.addBuiltIn(symbol("pr-str"), Typing(FnType(listOf(TypeVar()), StringType)), PrStrNodeGen.create(this))
     }
 
     override fun parse(request: ParsingRequest): CallTarget {
@@ -62,4 +64,6 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     override fun getScope(context: BridjeContext): TruffleObject = context.bridjeEnv
+
+    public override fun getLanguageView(context: BridjeContext?, value: Any) = BridjeView(value)
 }
