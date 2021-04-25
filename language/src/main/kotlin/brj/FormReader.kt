@@ -124,18 +124,24 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
             }
         }
 
+        val ns = if (seenSlash)
+            symbol(beforeSlash.toString()
+                .also { if (it.startsWith('.')) TODO() })
+        else null
+
+        val local = if (seenSlash) afterSlash.toString() else beforeSlash.toString()
         val loc = source.createSection(startIndex, charIndex - startIndex)
 
-        return if (seenSlash) f(symbol(beforeSlash.toString()), afterSlash.toString(), loc)
-        else f(null, beforeSlash.toString(), loc)
+        return f(ns, local, loc)
     }
 
     private fun readSymbol() = readIdent { ns, local, loc ->
         if (ns == null) {
-            when (local) {
-                "true" -> BoolForm(true, loc)
-                "false" -> BoolForm(false, loc)
-                "nil" -> NilForm(loc)
+            when {
+                local == "true" -> BoolForm(true, loc)
+                local == "false" -> BoolForm(false, loc)
+                local == "nil" -> NilForm(loc)
+                local.startsWith('.') -> DotSymbolForm(symbol(local.substring(1)), loc)
                 else -> SymbolForm(symbol(local), loc)
             }
         } else SymbolForm(symbol(ns, local), loc)
@@ -146,6 +152,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
 
         return readIdent { ns, local, loc ->
             if (ns != null) TODO()
+            if (local.startsWith('.')) TODO()
             KeywordForm(symbol(ns, local), loc)
         }
     }

@@ -2,6 +2,7 @@ package brj
 
 import brj.runtime.BridjeEnv
 import brj.runtime.DefxVar
+import brj.runtime.InvokeMemberObject
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.interop.TruffleObject
@@ -201,6 +202,7 @@ internal data class Analyser(
             }
             TODO("can't find symbol: $sym")
         }
+        is DotSymbolForm -> TruffleObjectExpr(InvokeMemberObject(form.sym), form.loc)
         is KeywordForm -> KeywordExpr(form.sym, form.loc)
     }
 

@@ -67,6 +67,18 @@ internal class SymbolForm(val sym: Symbol, override val loc: SourceSection? = nu
     override fun toString() = sym.toString()
 }
 
+internal class DotSymbolForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is DotSymbolForm -> false
+        else -> sym == other.sym
+    }
+
+    override fun hashCode() = sym.hashCode()
+
+    override fun toString() = if (sym.ns != null) "${sym.ns}/.${sym.local}" else ".${sym.local}"
+}
+
 internal class KeywordForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
     override fun equals(other: Any?) =
         this === other || (other is KeywordForm && sym == other.sym)

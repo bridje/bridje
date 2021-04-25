@@ -204,4 +204,10 @@ class BridjeLanguageTest {
         assertEquals(Instant.EPOCH, eval("Instant/EPOCH").asInstant())
         assertTrue(eval("(Instant/now)").isInstant)
     }
+
+    @Test
+    fun `test invoke`() {
+        eval("(import java.time.Instant java.time.Duration)")
+        assertEquals(Instant.ofEpochSecond(1), eval("(.plus Instant/EPOCH (Duration/ofSeconds 1))").asInstant())
+    }
 }
