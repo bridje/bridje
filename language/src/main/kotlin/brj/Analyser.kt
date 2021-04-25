@@ -16,6 +16,7 @@ private val WITH_FX = symbol("with-fx")
 private val LOOP = symbol("loop")
 private val RECUR = symbol("recur")
 private val NEW = symbol("new")
+private val CASE = symbol("case")
 
 private val DEF = symbol("def")
 private val DEFX = symbol("defx")
@@ -150,6 +151,43 @@ internal data class Analyser(
         NewExpr(analyseValueExpr(expectForm(), null), rest { analyseValueExpr(expectForm(), null) }, loc)
     }
 
+    private fun parseCase(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
+        formParser.run {
+            val expr = analyseValueExpr(expectForm(), null)
+
+            var nilClause: ValueExpr? = null
+            val clauses = mutableListOf<CaseClause>()
+            var default: ValueExpr? = null
+
+            if (forms.isEmpty()) TODO()
+
+            rest {
+                val form = expectForm()
+                when {
+                    forms.isEmpty() -> default = analyseValueExpr(form, loopLocals)
+                    form is NilForm -> {
+                        if (nilClause != null) TODO()
+                        nilClause = analyseValueExpr(expectForm(), loopLocals)
+                    }
+
+                    form is ListForm -> {
+                        val (keySym, binding) = parseForms(form.forms) {
+                            Pair(expectKeyword(), expectSymbol().also { if (it.ns != null) TODO() })
+                                .also { expectEnd() }
+                        }
+                        val localVar = LocalVar(binding)
+                        val analyser = copy(locals = locals + (binding to localVar))
+                        val clauseExpr = analyser.analyseValueExpr(expectForm(), loopLocals)
+                        clauses += CaseClause(BridjeKey(keySym), localVar, clauseExpr)
+                    }
+
+                    else -> TODO()
+                }
+            }
+
+            CaseExpr(expr, nilClause, clauses, default, loc)
+        }
+
     private fun resolveHostSymbol(sym: Symbol): TruffleObject? {
         if (sym.ns == null) {
             env.imports[sym]?.let { return it }
@@ -163,7 +201,6 @@ internal data class Analyser(
                     return env.interop.readMember(clazz, sym.local) as TruffleObject
                 } else TODO()
             }
-
         }
 
         return null
@@ -181,6 +218,7 @@ internal data class Analyser(
                     LOOP -> parseLoop(this, form.loc)
                     RECUR -> parseRecur(this, loopLocals, form.loc)
                     NEW -> parseNew(this, form.loc)
+                    CASE -> parseCase(this, loopLocals, form.loc)
                     else -> null
                 }
             }, {

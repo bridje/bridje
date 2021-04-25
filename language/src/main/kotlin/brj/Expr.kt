@@ -14,26 +14,26 @@ internal sealed class Expr {
 
 internal sealed class ValueExpr : Expr()
 
-internal class NilExpr(override val loc: SourceSection?) : ValueExpr() {
+internal data class NilExpr(override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) = other is NilExpr
-    override fun hashCode() = NilExpr::class.java.hashCode()
+    override fun hashCode() = javaClass.hashCode()
 }
 
-internal class IntExpr(val int: Int, override val loc: SourceSection?) : ValueExpr() {
+internal data class IntExpr(val int: Int, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is IntExpr && int == other.int)
 
     override fun hashCode() = Objects.hash(int)
 }
 
-internal class BoolExpr(val bool: Boolean, override val loc: SourceSection?) : ValueExpr() {
+internal data class BoolExpr(val bool: Boolean, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is BoolExpr && bool == other.bool)
 
     override fun hashCode() = Objects.hash(bool)
 }
 
-internal class StringExpr(val string: String, override val loc: SourceSection?) : ValueExpr() {
+internal data class StringExpr(val string: String, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is StringExpr && string == other.string)
 
@@ -42,7 +42,7 @@ internal class StringExpr(val string: String, override val loc: SourceSection?) 
     override fun toString() = "\"$string\""
 }
 
-internal class VectorExpr(val exprs: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
+internal data class VectorExpr(val exprs: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is VectorExpr && exprs == other.exprs)
 
@@ -50,35 +50,36 @@ internal class VectorExpr(val exprs: List<ValueExpr>, override val loc: SourceSe
 }
 
 
-internal class SetExpr(val exprs: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
+internal data class SetExpr(val exprs: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is SetExpr && exprs == other.exprs)
 
     override fun hashCode() = Objects.hash(exprs)
 }
 
-internal class RecordExpr(val entries: Map<Symbol, ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
+internal data class RecordExpr(val entries: Map<Symbol, ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is RecordExpr && entries == other.entries)
 
     override fun hashCode() = Objects.hash(entries)
 }
 
-internal class KeywordExpr(val key: BridjeKey, override val loc: SourceSection?) : ValueExpr() {
+internal data class KeywordExpr(val key: BridjeKey, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is KeywordExpr && key == other.key)
 
     override fun hashCode() = Objects.hash(key)
 }
 
-internal class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override val loc: SourceSection?) : ValueExpr() {
+internal data class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override val loc: SourceSection?) :
+    ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is DoExpr && exprs == other.exprs && expr == other.expr)
 
     override fun hashCode() = Objects.hash(exprs, expr)
 }
 
-internal class IfExpr(
+internal data class IfExpr(
     val predExpr: ValueExpr,
     val thenExpr: ValueExpr,
     val elseExpr: ValueExpr,
@@ -94,7 +95,7 @@ internal class IfExpr(
     override fun hashCode() = Objects.hash(predExpr, thenExpr, elseExpr)
 }
 
-internal class Binding(val binding: LocalVar, val expr: ValueExpr) {
+internal data class Binding(val binding: LocalVar, val expr: ValueExpr) {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is Binding -> false
@@ -104,7 +105,7 @@ internal class Binding(val binding: LocalVar, val expr: ValueExpr) {
     override fun hashCode() = Objects.hash(binding, expr)
 }
 
-internal class LetExpr(
+internal data class LetExpr(
     val bindings: List<Binding>,
     val expr: ValueExpr,
     override val loc: SourceSection?
@@ -118,7 +119,7 @@ internal class LetExpr(
     override fun hashCode(): Int = Objects.hash(bindings, expr)
 }
 
-internal class LoopExpr(
+internal data class LoopExpr(
     val bindings: List<Binding>,
     val expr: ValueExpr,
     override val loc: SourceSection?
@@ -132,7 +133,7 @@ internal class LoopExpr(
     override fun hashCode(): Int = Objects.hash(bindings, expr)
 }
 
-internal class RecurExpr(
+internal data class RecurExpr(
     val exprs: List<Binding>,
     override val loc: SourceSection?
 ) : ValueExpr() {
@@ -145,7 +146,7 @@ internal class RecurExpr(
     override fun hashCode() = Objects.hash(exprs)
 }
 
-internal class FnExpr(
+internal data class FnExpr(
     val fxLocal: LocalVar,
     val params: List<LocalVar>,
     val expr: ValueExpr,
@@ -160,7 +161,7 @@ internal class FnExpr(
     override fun hashCode() = Objects.hash(params, fxLocal, expr)
 }
 
-internal class CallExpr(
+internal data class CallExpr(
     val fn: ValueExpr,
     val fxExpr: ValueExpr,
     val args: List<ValueExpr>,
@@ -175,7 +176,7 @@ internal class CallExpr(
     override fun hashCode() = Objects.hash(fn, fxExpr, args)
 }
 
-internal class NewExpr(val metaObj: ValueExpr, val params: List<ValueExpr>, override val loc: SourceSection?) :
+internal data class NewExpr(val metaObj: ValueExpr, val params: List<ValueExpr>, override val loc: SourceSection?) :
     ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is NewExpr && metaObj == other.metaObj && params == other.params)
@@ -185,7 +186,7 @@ internal class NewExpr(val metaObj: ValueExpr, val params: List<ValueExpr>, over
 
 internal data class WithFxBinding(val defxVar: DefxVar, val expr: ValueExpr)
 
-internal class WithFxExpr(
+internal data class WithFxExpr(
     val oldFx: LocalVar,
     val bindings: List<WithFxBinding>,
     val newFx: LocalVar,
@@ -201,7 +202,26 @@ internal class WithFxExpr(
     override fun hashCode() = Objects.hash(bindings, oldFx, newFx, expr)
 }
 
-internal class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection?) : ValueExpr() {
+internal data class CaseClause(val key: BridjeKey, val localVar: LocalVar, val expr: ValueExpr)
+
+internal data class CaseExpr(
+    val expr: ValueExpr,
+    val nilExpr: ValueExpr?,
+    val clauses: List<CaseClause>,
+    val defaultExpr: ValueExpr?,
+    override val loc: SourceSection?
+) : ValueExpr() {
+
+    override fun equals(other: Any?) = when {
+        this === other -> true
+        other !is CaseExpr -> false
+        else -> expr == other.expr && nilExpr == other.nilExpr && clauses == other.clauses && defaultExpr == other.defaultExpr
+    }
+
+    override fun hashCode() = Objects.hash(expr, clauses, defaultExpr)
+}
+
+internal data class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is LocalVarExpr -> false
@@ -211,7 +231,7 @@ internal class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSect
     override fun hashCode() = Objects.hash(localVar)
 }
 
-internal class GlobalVarExpr(val globalVar: GlobalVar, override val loc: SourceSection?) : ValueExpr() {
+internal data class GlobalVarExpr(val globalVar: GlobalVar, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is GlobalVarExpr -> false
@@ -221,7 +241,7 @@ internal class GlobalVarExpr(val globalVar: GlobalVar, override val loc: SourceS
     override fun hashCode() = Objects.hash(globalVar)
 }
 
-internal class TruffleObjectExpr(val clazz: TruffleObject, override val loc: SourceSection?) : ValueExpr() {
+internal data class TruffleObjectExpr(val clazz: TruffleObject, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is TruffleObjectExpr -> false
@@ -231,7 +251,7 @@ internal class TruffleObjectExpr(val clazz: TruffleObject, override val loc: Sou
     override fun hashCode() = Objects.hash(clazz)
 }
 
-internal class DefExpr(val sym: Symbol, val expr: ValueExpr, override val loc: SourceSection?) : Expr() {
+internal data class DefExpr(val sym: Symbol, val expr: ValueExpr, override val loc: SourceSection?) : Expr() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is DefExpr -> false
@@ -241,7 +261,7 @@ internal class DefExpr(val sym: Symbol, val expr: ValueExpr, override val loc: S
     override fun hashCode() = Objects.hash(sym, expr)
 }
 
-internal class DefxExpr(val sym: Symbol, val typing: Typing, override val loc: SourceSection?) : Expr() {
+internal data class DefxExpr(val sym: Symbol, val typing: Typing, override val loc: SourceSection?) : Expr() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is DefxExpr -> false
@@ -251,7 +271,7 @@ internal class DefxExpr(val sym: Symbol, val typing: Typing, override val loc: S
     override fun hashCode() = Objects.hash(sym)
 }
 
-internal class ImportExpr(val syms: List<Symbol>, override val loc: SourceSection?) : Expr() {
+internal data class ImportExpr(val syms: List<Symbol>, override val loc: SourceSection?) : Expr() {
     override fun equals(other: Any?) = when {
         this === other -> true
         other !is ImportExpr -> false

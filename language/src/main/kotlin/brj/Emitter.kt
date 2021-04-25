@@ -116,6 +116,25 @@ internal class ValueExprEmitter(
             }.toTypedArray()
         )
 
+        is CaseExpr -> {
+            val nilClauseNode = expr.nilExpr?.let { CaseNode.NilClauseNode(emitValueExpr(it)) }
+
+            val clauseNodes = expr.clauses.map {
+                CaseNode.KeyClauseNode(it.key, frameDescriptor.findOrAddFrameSlot(it.localVar), emitValueExpr(it.expr))
+            }
+
+            val defaultClauseNode =
+                if (expr.defaultExpr != null) emitValueExpr(expr.defaultExpr)
+                else ConstantNodeGen.create(lang, Nil, null)
+
+            CaseNode(
+                lang, emitValueExpr(expr.expr),
+                (listOfNotNull(nilClauseNode) + clauseNodes).toTypedArray(),
+                defaultClauseNode,
+                expr.loc
+            )
+        }
+
         is NewExpr -> {
             NewNodeGen.create(
                 lang,

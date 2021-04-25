@@ -236,4 +236,11 @@ class BridjeLanguageTest {
         testFoo(eval("(:Foo. {:foo 12})"))
         testFoo(eval(":Foo.").execute(eval("{:foo 12}")))
     }
+
+    @Test
+    fun `test case`() {
+        assertEquals(42, eval("(case nil, nil 42, 12)").asInt())
+        assertEquals(12, eval("(case :foo, nil 42, 12)").asInt())
+        assertEquals(12, eval("(case (:Foo. {:foo 12}), nil 42, (:Foo e) (:foo e), 25)").asInt())
+    }
 }
