@@ -1,6 +1,6 @@
 package brj
 
-import brj.runtime.BridjeEnv
+import brj.runtime.BridjeContext
 import brj.runtime.DefxVar
 import brj.runtime.InvokeMemberObject
 import brj.runtime.Symbol
@@ -32,7 +32,7 @@ internal data class TopLevelExpr(val expr: Expr) : TopLevelDoOrExpr()
 private typealias LoopLocals = List<LocalVar>?
 
 internal data class Analyser(
-    private val env: BridjeEnv,
+    private val env: BridjeContext,
     private val locals: Map<Symbol, LocalVar> = emptyMap(),
     private val fxLocal: LocalVar = DEFAULT_FX_LOCAL
 ) {
@@ -191,15 +191,19 @@ internal data class Analyser(
                 locals[sym]?.let { return LocalVarExpr(it, form.loc) }
                 env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
                 env.imports[sym]?.let { return TruffleObjectExpr(it, form.loc) }
+
+                runCatching { env.truffleEnv.lookupHostSymbol(sym.local) }
+                    .getOrNull()
+                    ?.let { return TruffleObjectExpr(it as TruffleObject, form.loc) }
             } else {
                 env.imports[sym.ns]?.let { clazz ->
                     if (env.interop.isMemberReadable(clazz, sym.local)) {
                         return TruffleObjectExpr(env.interop.readMember(clazz, sym.local) as TruffleObject, form.loc)
-                    } else {
-                        TODO()
-                    }
+                    } else TODO()
                 }
+
             }
+
             TODO("can't find symbol: $sym")
         }
         is DotSymbolForm -> TruffleObjectExpr(InvokeMemberObject(form.sym), form.loc)

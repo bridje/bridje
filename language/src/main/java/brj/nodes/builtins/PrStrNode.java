@@ -1,8 +1,8 @@
 package brj.nodes.builtins;
 
-import brj.BridjeContext;
 import brj.BridjeLanguage;
 import brj.nodes.ExprNode;
+import brj.runtime.BridjeContext;
 import com.oracle.truffle.api.dsl.CachedContext;
 import com.oracle.truffle.api.dsl.CachedLanguage;
 import com.oracle.truffle.api.dsl.Specialization;

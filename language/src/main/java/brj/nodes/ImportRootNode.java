@@ -1,7 +1,7 @@
 package brj.nodes;
 
-import brj.BridjeContext;
 import brj.BridjeLanguage;
+import brj.runtime.BridjeContext;
 import brj.runtime.Nil;
 import brj.runtime.Symbol;
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
@@ -28,7 +28,7 @@ public abstract class ImportRootNode extends RootNode {
     @ExplodeLoop
     public Object doExecute(@CachedContext(BridjeLanguage.class) BridjeContext ctx) {
         for (Symbol className : classes) {
-            ctx.getBridjeEnv().importClass(className);
+            ctx.importClass(className);
         }
 
         return Nil.INSTANCE;

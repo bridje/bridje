@@ -1,6 +1,7 @@
 package brj.nodes
 
 import brj.*
+import brj.runtime.BridjeContext
 import brj.runtime.FxMap
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
@@ -13,7 +14,7 @@ import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.nodes.RootNode
 
 internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: List<Form>) : RootNode(lang) {
-    private val typeLogger = TruffleLogger.getLogger("brj", "type")
+//    private val typeLogger = TruffleLogger.getLogger("brj", "type")
 
     @Specialization
     @TruffleBoundary
@@ -23,10 +24,11 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
         var res: Any? = null
 
         for (form in forms) {
-            val rootNode = when (val doOrExpr = Analyser(ctx.bridjeEnv).analyseExpr(form)) {
+            val rootNode = when (val doOrExpr = Analyser(ctx).analyseExpr(form)) {
                 is TopLevelDo -> EvalRootNodeGen.create(lang, doOrExpr.forms)
                 is TopLevelExpr -> when (val expr = doOrExpr.expr) {
                     is ValueExpr -> {
+                        // TODO
 //                        typeLogger.info("type: ${valueExprTyping(expr)}")
 
                         val frameDescriptor = FrameDescriptor()
@@ -37,14 +39,15 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
                     }
 
                     is DefExpr -> {
-                        val valueExprType = valueExprTyping(expr.expr)
-                        typeLogger.info("type: $valueExprType")
+                        // TODO
+//                        val valueExprTyping = valueExprTyping(expr.expr)
+//                        typeLogger.info("type: $valueExprTyping")
 
                         val frameDescriptor = FrameDescriptor()
                         DefRootNodeGen.create(
                             lang, frameDescriptor,
                             ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr),
-                            expr.sym, valueExprType, expr.loc
+                            expr.sym, Typing(TypeVar()) /*valueExprTyping*/, expr.loc
                         )
                     }
 

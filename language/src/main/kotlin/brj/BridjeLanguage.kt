@@ -4,6 +4,7 @@ import brj.nodes.EvalRootNodeGen
 import brj.nodes.ExprNode
 import brj.nodes.ValueExprRootNode
 import brj.nodes.builtins.*
+import brj.runtime.BridjeContext
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeView
 import brj.runtime.Symbol
@@ -27,38 +28,44 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun createContext(truffleEnv: Env) = BridjeContext(truffleEnv)
 
-    private fun BridjeContext.addBuiltIn(sym: Symbol, typing: Typing, node: ExprNode) {
-        bridjeEnv.def(
+    private fun addBuiltIn(ctx: BridjeContext, sym: Symbol, typing: Typing, node: ExprNode) {
+        ctx.def(
             sym, typing, BridjeFunction(
                 Truffle.getRuntime().createCallTarget(
-                    ValueExprRootNode.create(this@BridjeLanguage, FrameDescriptor(), node)
+                    ValueExprRootNode.create(this, FrameDescriptor(), node)
                 )
             )
         )
     }
 
     override fun initializeContext(ctx: BridjeContext) {
-        ctx.addBuiltIn(
+        addBuiltIn(
+            ctx,
             symbol("println0"),
             Typing(FnType(listOf(StringType), StringType)),
             PrintlnNodeGen.create(this, PrintWriter(ctx.truffleEnv.out()))
         )
 
-        ctx.addBuiltIn(
-            symbol("now-ms0"), Typing(FnType(emptyList(), IntType)),
+        addBuiltIn(
+            ctx, symbol("now-ms0"),
+            Typing(FnType(emptyList(), IntType)),
             NowNode(this)
         )
 
-        ctx.addBuiltIn(symbol("zero?"), Typing(FnType(listOf(IntType), BoolType)), ZeroNode(this))
-        ctx.addBuiltIn(symbol("dec"), Typing(FnType(listOf(IntType), IntType)), DecNode(this))
+        addBuiltIn(ctx, symbol("zero?"), Typing(FnType(listOf(IntType), BoolType)), ZeroNode(this))
+        addBuiltIn(ctx, symbol("dec"), Typing(FnType(listOf(IntType), IntType)), DecNode(this))
 
         TypeVar().let { tv ->
-            ctx.addBuiltIn(symbol("conjv0"), Typing(FnType(listOf(VectorType(tv), tv), VectorType(tv))), ConjNode(this))
+            addBuiltIn(
+                ctx,
+                symbol("conjv0"),
+                Typing(FnType(listOf(VectorType(tv), tv), VectorType(tv))),
+                ConjNode(this)
+            )
         }
 
-        ctx.addBuiltIn(symbol("jclass"), Typing(FnType(listOf(StringType), TypeVar())), JClassNodeGen.create(this))
-        ctx.addBuiltIn(symbol("poly"), Typing(FnType(listOf(StringType), TypeVar())), PolyNodeGen.create(this))
-        ctx.addBuiltIn(symbol("pr-str"), Typing(FnType(listOf(TypeVar()), StringType)), PrStrNodeGen.create(this))
+        addBuiltIn(ctx, symbol("poly"), Typing(FnType(listOf(StringType), TypeVar())), PolyNodeGen.create(this))
+        addBuiltIn(ctx, symbol("pr-str"), Typing(FnType(listOf(TypeVar()), StringType)), PrStrNodeGen.create(this))
     }
 
     override fun parse(request: ParsingRequest): CallTarget {
@@ -66,7 +73,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         return Truffle.getRuntime().createCallTarget(EvalRootNodeGen.create(this, forms))
     }
 
-    override fun getScope(context: BridjeContext): TruffleObject = context.bridjeEnv
+    override fun getScope(ctx: BridjeContext): TruffleObject = ctx
 
     public override fun getLanguageView(context: BridjeContext?, value: Any) = BridjeView(value)
 }

@@ -1,8 +1,8 @@
 package brj.nodes;
 
-import brj.BridjeContext;
 import brj.BridjeLanguage;
 import brj.Typing;
+import brj.runtime.BridjeContext;
 import brj.runtime.Symbol;
 import com.oracle.truffle.api.dsl.CachedContext;
 import com.oracle.truffle.api.dsl.NodeChild;
@@ -33,7 +33,7 @@ public abstract class DefRootNode extends RootNode {
     public Object doExecute(VirtualFrame frame,
                             Object exprVal,
                             @CachedContext(BridjeLanguage.class) BridjeContext ctx) {
-        ctx.getBridjeEnv().def(getSym(), getTyping(), exprVal);
+        ctx.def(getSym(), getTyping(), exprVal);
         return exprVal;
     }
 }

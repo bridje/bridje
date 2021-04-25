@@ -1,8 +1,8 @@
 package brj.nodes;
 
-import brj.BridjeContext;
 import brj.BridjeLanguage;
 import brj.Typing;
+import brj.runtime.BridjeContext;
 import brj.runtime.BridjeFunction;
 import brj.runtime.BridjeVar;
 import brj.runtime.Symbol;
@@ -47,7 +47,7 @@ public abstract class DefxRootNode extends RootNode {
         CompilerDirectives.transferToInterpreter();
         Symbol sym = getSym();
         BridjeVar defaultImplVar = new BridjeVar(null);
-        ctx.getBridjeEnv().defx(sym, getTyping(),
+        ctx.defx(sym, getTyping(),
             new BridjeFunction(
                 Truffle.getRuntime().createCallTarget(
                     DefxRootNodeGen.DefxValueRootNodeGen.create(lang, new FrameDescriptor(), sym, defaultImplVar)

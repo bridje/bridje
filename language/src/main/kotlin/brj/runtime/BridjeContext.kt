@@ -10,9 +10,10 @@ import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
+import com.oracle.truffle.api.source.Source
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeEnv(private val truffleEnv: TruffleLanguage.Env) : TruffleObject {
+class BridjeContext(internal val truffleEnv: TruffleLanguage.Env) : TruffleObject {
 
     internal val globalVars = mutableMapOf<Symbol, GlobalVar>()
     internal val imports = mutableMapOf<Symbol, TruffleObject>()
@@ -50,7 +51,7 @@ class BridjeEnv(private val truffleEnv: TruffleLanguage.Env) : TruffleObject {
         CompilerAsserts.neverPartOfCompilation()
         globalVars.compute(sym) { _, globalVar ->
             if (globalVar != null) {
-                if (typing.res != globalVar.typing.res) TODO()
+//                if (typing.res != globalVar.typing.res) TODO()
                 globalVar.also {
                     when (it) {
                         is DefVar -> it.bridjeVar.set(value)
@@ -76,4 +77,8 @@ class BridjeEnv(private val truffleEnv: TruffleLanguage.Env) : TruffleObject {
         val simpleClassName = symbol(interop.asString(interop.getMetaSimpleName(clazz)))
         imports[simpleClassName] = clazz
     }
+
+    @TruffleBoundary
+    fun poly(lang: String, code: String) =
+        truffleEnv.parsePublic(Source.newBuilder(lang, code, "<brj-inline>").build()).call()
 }

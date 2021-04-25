@@ -172,11 +172,6 @@ class BridjeLanguageTest {
     }
 
     @Test
-    fun `test jclass`() {
-        assertTrue(eval("""(jclass "java.time.Instant")""").invokeMember("now").isInstant)
-    }
-
-    @Test
     fun `test poly`() {
         assertEquals(0, eval("""(poly "python" "import math; math")""").invokeMember("acos", 1).asInt())
     }
@@ -190,13 +185,13 @@ class BridjeLanguageTest {
 
         assertEquals(42, eval(":foo").execute(eval("{:foo 42}")).asInt())
 
-        assertEquals(42, eval("""(:max (jclass "java.lang.Math"))""").execute(42, 10).asInt())
-        assertEquals(42, eval("""((:max (jclass "java.lang.Math")) 42 10)""").asInt())
+        assertEquals(42, eval("""(:max java.lang.Math)""").execute(42, 10).asInt())
+        assertEquals(42, eval("""((:max java.lang.Math) 42 10)""").asInt())
     }
 
     @Test
     fun `test new`() {
-        assertEquals(Instant.ofEpochMilli(1000), eval("""(new (jclass "java.util.Date") 1000)""").asInstant())
+        assertEquals(Instant.ofEpochMilli(1000), eval("""(new java.util.Date 1000)""").asInstant())
     }
 
     @Test
