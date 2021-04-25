@@ -7,7 +7,7 @@ evaluationDependsOn(":language")
 evaluationDependsOn(":launcher")
 
 graal {
-    graalVersion("21.0.0")
+    graalVersion("21.1.0")
     mainClass("brj.BridjeLauncher")
     outputName("brj")
     javaVersion(JavaVersion.VERSION_11.toString())
