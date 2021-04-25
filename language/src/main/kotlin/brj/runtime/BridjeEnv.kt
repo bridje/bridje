@@ -1,6 +1,5 @@
 package brj.runtime
 
-import brj.BridjeContext
 import brj.BridjeLanguage
 import brj.Typing
 import brj.runtime.Symbol.Companion.symbol
@@ -52,10 +51,12 @@ class BridjeEnv(private val truffleEnv: TruffleLanguage.Env) : TruffleObject {
         globalVars.compute(sym) { _, globalVar ->
             if (globalVar != null) {
                 if (typing.res != globalVar.typing.res) TODO()
-                globalVar.also { when(it) {
-                    is DefVar -> it.bridjeVar.set(value)
-                    is DefxVar -> it.defaultImpl.set(value)
-                } }
+                globalVar.also {
+                    when (it) {
+                        is DefVar -> it.bridjeVar.set(value)
+                        is DefxVar -> it.defaultImpl.set(value)
+                    }
+                }
             } else DefVar(sym, typing, BridjeVar(value))
         }
     }

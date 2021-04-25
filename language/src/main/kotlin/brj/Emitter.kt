@@ -118,7 +118,8 @@ internal class ValueExprEmitter(
         )
 
         is NewExpr -> {
-            NewNodeGen.create(lang,
+            NewNodeGen.create(
+                lang,
                 emitValueExpr(expr.metaObj),
                 arrayNode(expr.params),
                 expr.loc

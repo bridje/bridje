@@ -21,10 +21,11 @@ class InvokeMemberObject(val sym: Symbol) : TruffleObject {
             @Specialization(guards = ["args.length == cachedArgCount"])
             @JvmStatic
             @ExplodeLoop
-            fun doExecute(imo: InvokeMemberObject,
-                          args: Array<*>,
-                          @Cached("args.length") cachedArgCount: Int,
-                          @CachedLibrary(limit = "3") interop: InteropLibrary
+            fun doExecute(
+                imo: InvokeMemberObject,
+                args: Array<*>,
+                @Cached("args.length") cachedArgCount: Int,
+                @CachedLibrary(limit = "3") interop: InteropLibrary
             ): Any? {
                 CompilerAsserts.compilationConstant<Int>(cachedArgCount)
                 CompilerAsserts.compilationConstant<String>(imo.sym.local)

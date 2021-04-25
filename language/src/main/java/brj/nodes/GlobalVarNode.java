@@ -2,7 +2,6 @@ package brj.nodes;
 
 import brj.BridjeLanguage;
 import brj.runtime.BridjeVar;
-import brj.runtime.GlobalVar;
 import com.oracle.truffle.api.dsl.Cached;
 import com.oracle.truffle.api.dsl.NodeField;
 import com.oracle.truffle.api.dsl.Specialization;

@@ -11,7 +11,6 @@ import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.time.Instant
-import java.util.*
 import kotlin.test.assertEquals
 
 @TestInstance(PER_CLASS)
@@ -162,7 +161,10 @@ class BridjeLanguageTest {
 
     @Test
     fun `test loop-recur`() {
-        assertEquals((4 downTo 0).toList(), eval("(loop [x 5, res []] (if (zero? x) res (recur (dec x) (conjv0 res x))))").`as`(listOfInt))
+        assertEquals(
+            (4 downTo 0).toList(),
+            eval("(loop [x 5, res []] (if (zero? x) res (recur (dec x) (conjv0 res x))))").`as`(listOfInt)
+        )
     }
 
     @Test
@@ -200,7 +202,10 @@ class BridjeLanguageTest {
 
     @Test
     fun `test import`() {
-        assertEquals(Instant.ofEpochMilli(1000), eval("(import java.util.Date java.time.Instant) (new Date 1000)").asInstant())
+        assertEquals(
+            Instant.ofEpochMilli(1000),
+            eval("(import java.util.Date java.time.Instant) (new Date 1000)").asInstant()
+        )
         assertEquals(Instant.EPOCH, eval("Instant/EPOCH").asInstant())
         assertTrue(eval("(Instant/now)").isInstant)
     }

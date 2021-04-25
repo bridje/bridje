@@ -187,7 +187,7 @@ internal data class Analyser(
         is SymbolForm -> {
             val sym = form.sym
 
-            if(sym.ns == null) {
+            if (sym.ns == null) {
                 locals[sym]?.let { return LocalVarExpr(it, form.loc) }
                 env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
                 env.imports[sym]?.let { return TruffleObjectExpr(it, form.loc) }

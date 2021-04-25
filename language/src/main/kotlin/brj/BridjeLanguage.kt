@@ -1,6 +1,8 @@
 package brj
 
-import brj.nodes.*
+import brj.nodes.EvalRootNodeGen
+import brj.nodes.ExprNode
+import brj.nodes.ValueExprRootNode
 import brj.nodes.builtins.*
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeView
@@ -42,7 +44,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             PrintlnNodeGen.create(this, PrintWriter(ctx.truffleEnv.out()))
         )
 
-        ctx.addBuiltIn(symbol("now-ms0"), Typing(FnType(emptyList(), IntType)),
+        ctx.addBuiltIn(
+            symbol("now-ms0"), Typing(FnType(emptyList(), IntType)),
             NowNode(this)
         )
 

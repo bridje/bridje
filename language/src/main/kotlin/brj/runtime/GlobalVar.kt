@@ -17,6 +17,12 @@ internal sealed class GlobalVar {
     override fun hashCode() = Objects.hash(sym)
 }
 
-internal class DefVar(override val sym: Symbol, override val typing: Typing, override val bridjeVar: BridjeVar) : GlobalVar()
+internal class DefVar(override val sym: Symbol, override val typing: Typing, override val bridjeVar: BridjeVar) :
+    GlobalVar()
 
-internal class DefxVar(override val sym: Symbol, override val typing: Typing, override val bridjeVar: BridjeVar, val defaultImpl: BridjeVar) : GlobalVar()
+internal class DefxVar(
+    override val sym: Symbol,
+    override val typing: Typing,
+    override val bridjeVar: BridjeVar,
+    val defaultImpl: BridjeVar
+) : GlobalVar()

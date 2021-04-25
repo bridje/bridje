@@ -25,7 +25,8 @@ public abstract class RecordNode extends ExprNode {
     public abstract static class PutMemberNode extends Node {
 
         private final String key;
-        @Child private ExprNode valueNode;
+        @Child
+        private ExprNode valueNode;
 
         public PutMemberNode(String key, ExprNode valueNode) {
             this.key = key;

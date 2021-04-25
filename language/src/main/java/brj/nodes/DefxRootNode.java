@@ -70,6 +70,7 @@ public abstract class DefxRootNode extends RootNode {
         private IndirectCallNode indirectCallNode = Truffle.getRuntime().createIndirectCallNode();
 
         protected abstract Symbol getSym();
+
         protected abstract BridjeVar getDefaultImplVar();
 
         private ConditionProfile useDefaultProfile = ConditionProfile.createBinaryProfile();

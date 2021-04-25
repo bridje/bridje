@@ -25,6 +25,7 @@ public abstract class DefRootNode extends RootNode {
     }
 
     public abstract Symbol getSym();
+
     public abstract Typing getTyping();
 
     @NotNull

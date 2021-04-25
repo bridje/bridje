@@ -5,7 +5,6 @@ import brj.BridjeTypes;
 import com.oracle.truffle.api.dsl.TypeSystemReference;
 import com.oracle.truffle.api.instrumentation.*;
 import com.oracle.truffle.api.nodes.ExecutableNode;
-import com.oracle.truffle.api.source.SourceSection;
 
 @TypeSystemReference(BridjeTypes.class)
 @GenerateWrapper

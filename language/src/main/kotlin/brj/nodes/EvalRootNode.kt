@@ -11,7 +11,6 @@ import com.oracle.truffle.api.dsl.CachedLanguage
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.nodes.RootNode
-import java.awt.Shape
 
 internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: List<Form>) : RootNode(lang) {
     private val typeLogger = TruffleLogger.getLogger("brj", "type")

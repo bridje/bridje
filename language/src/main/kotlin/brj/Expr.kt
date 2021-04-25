@@ -56,14 +56,14 @@ internal class SetExpr(val exprs: List<ValueExpr>, override val loc: SourceSecti
     override fun hashCode() = Objects.hash(exprs)
 }
 
-internal class RecordExpr(val entries: Map<Symbol, ValueExpr>, override val loc: SourceSection?): ValueExpr() {
+internal class RecordExpr(val entries: Map<Symbol, ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is RecordExpr && entries == other.entries)
 
     override fun hashCode() = Objects.hash(entries)
 }
 
-internal class KeywordExpr(val sym: Symbol, override val loc: SourceSection?): ValueExpr() {
+internal class KeywordExpr(val sym: Symbol, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is KeywordExpr && sym == other.sym)
 
@@ -174,7 +174,8 @@ internal class CallExpr(
     override fun hashCode() = Objects.hash(fn, fxExpr, args)
 }
 
-internal class NewExpr(val metaObj: ValueExpr, val params: List<ValueExpr>, override val loc: SourceSection?) : ValueExpr() {
+internal class NewExpr(val metaObj: ValueExpr, val params: List<ValueExpr>, override val loc: SourceSection?) :
+    ValueExpr() {
     override fun equals(other: Any?) =
         this === other || (other is NewExpr && metaObj == other.metaObj && params == other.params)
 
