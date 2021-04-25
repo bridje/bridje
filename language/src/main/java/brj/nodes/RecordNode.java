@@ -1,7 +1,7 @@
 package brj.nodes;
 
 import brj.BridjeLanguage;
-import brj.runtime.BridjeObject;
+import brj.runtime.BridjeRecord;
 import com.oracle.truffle.api.dsl.NodeField;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
@@ -33,10 +33,10 @@ public abstract class RecordNode extends ExprNode {
             this.valueNode = valueNode;
         }
 
-        public abstract Object executePut(VirtualFrame frame, BridjeObject obj);
+        public abstract Object executePut(VirtualFrame frame, BridjeRecord obj);
 
         @Specialization
-        public Object doPut(VirtualFrame frame, BridjeObject obj,
+        public Object doPut(VirtualFrame frame, BridjeRecord obj,
                             @CachedLibrary(limit = "3") DynamicObjectLibrary dynObj) {
             Object value = valueNode.execute(frame);
             dynObj.put(obj, key, value);
@@ -47,7 +47,7 @@ public abstract class RecordNode extends ExprNode {
     @Specialization
     @ExplodeLoop
     public Object doExecute(VirtualFrame frame) {
-        BridjeObject obj = new BridjeObject();
+        BridjeRecord obj = new BridjeRecord();
         for (PutMemberNode putMemberNode : putMemberNodes) {
             putMemberNode.executePut(frame, obj);
         }

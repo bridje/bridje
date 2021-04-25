@@ -1,15 +1,13 @@
 package brj
 
-import brj.runtime.BridjeFunction
-import brj.runtime.BridjeSet
-import brj.runtime.BridjeVector
-import brj.runtime.FxMap
+import brj.runtime.*
 import com.oracle.truffle.api.dsl.TypeSystem
 
 @TypeSystem(
     Int::class, Boolean::class, String::class,
     BridjeSet::class, BridjeVector::class,
     BridjeFunction::class,
+    BridjeRecord::class, BridjeVariant::class,
     FxMap::class
 )
 abstract class BridjeTypes

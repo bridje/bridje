@@ -23,6 +23,7 @@ public abstract class NewNode extends ExprNode {
         try {
             return interop.instantiate(metaObj, params);
         } catch (UnsupportedTypeException | ArityException | UnsupportedMessageException e) {
+            System.out.println(metaObj);
             throw new RuntimeException(e);
         }
     }

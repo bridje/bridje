@@ -30,7 +30,7 @@ internal class ValueExprEmitter(
             expr.loc
         )
 
-        is KeywordExpr -> KeywordNode(lang, BridjeKey(expr.sym.toString()))
+        is KeywordExpr -> KeywordNode(lang, BridjeKey(expr.sym))
 
         is IfExpr -> IfNode(
             lang,

@@ -219,4 +219,15 @@ class BridjeLanguageTest {
         eval("(import java.time.Instant java.time.Duration)")
         assertEquals(Instant.ofEpochSecond(1), eval("(.plus Instant/EPOCH (Duration/ofSeconds 1))").asInstant())
     }
+
+    @Test
+    fun `can instantiate keywords`() {
+        val fooKey = eval(":Foo")
+        assertTrue(fooKey.canInstantiate())
+
+        val foo = eval("(new :Foo {:foo 12})")
+        assertEquals("Foo", foo.metaObject.metaSimpleName)
+        assertEquals(12, foo.getMember("foo").asInt())
+        assertEquals("(:Foo {:foo 12})", foo.toString())
+    }
 }
