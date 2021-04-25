@@ -19,7 +19,8 @@ class BridjeVariant(val variantKey: BridjeKey, val record: BridjeRecord) : Truff
     fun getLanguage() = BridjeLanguage::class.java
 
     @ExportMessage
-    fun toDisplayString(allowSideEffects: Boolean) = "(${variantKeys.toDisplayString(variantKey)} ${records.toDisplayString(record, allowSideEffects)})"
+    fun toDisplayString(allowSideEffects: Boolean) =
+        "(${variantKeys.toDisplayString(variantKey)} ${records.toDisplayString(record, allowSideEffects)})"
 
     @ExportMessage
     fun hasMetaObject() = true

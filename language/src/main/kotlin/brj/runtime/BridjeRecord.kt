@@ -50,7 +50,7 @@ class BridjeRecord : DynamicObject(SHAPE) {
 
     @ExportMessage
     fun readMember(member: String, @CachedLibrary("this") dynObj: DynamicObjectLibrary): Any =
-        dynObj.getOrDefault(this, member, null)
+        dynObj.getOrDefault(this, member, Nil)
 
     @ExportLibrary(InteropLibrary::class)
     class Keys(val keys: Array<Any>) : TruffleObject {

@@ -6,7 +6,6 @@ import brj.runtime.FxMap
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.TruffleLogger
 import com.oracle.truffle.api.dsl.CachedContext
 import com.oracle.truffle.api.dsl.CachedLanguage
 import com.oracle.truffle.api.dsl.Specialization

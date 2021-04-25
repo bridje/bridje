@@ -60,13 +60,13 @@ internal class FormParser(forms: List<Form>) {
 
 internal fun FormParser.expectSymbol(): Symbol {
     val form = expectForm()
-    if (form !is SymbolForm) throw RuntimeException("Expected symbol")
+    if (form !is SymbolForm) throw RuntimeException("Expected symbol, got $form")
     return form.sym
 }
 
 internal fun FormParser.expectKeyword(): Symbol {
     val form = expectForm()
-    if (form !is KeywordForm) throw RuntimeException("Expected keyword")
+    if (form !is KeywordForm) throw RuntimeException("Expected keyword, got $form")
     return form.sym
 }
 

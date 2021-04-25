@@ -2,13 +2,13 @@ package brj
 
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.TypeLiteral
+import org.graalvm.polyglot.Value
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.time.Instant
-import kotlin.test.Ignore
 import kotlin.test.assertEquals
 
 @TestInstance(PER_CLASS)
@@ -191,7 +191,13 @@ class BridjeLanguageTest {
 
     @Test
     fun `test new`() {
-        assertEquals(Instant.ofEpochMilli(1000), eval("""(new java.util.Date 1000)""").asInstant())
+        val inst = Instant.ofEpochMilli(1000)
+        assertEquals(inst, eval("(new java.util.Date 1000)").asInstant())
+        assertEquals(inst, eval("(java.util.Date. 1000)").asInstant())
+        assertEquals(inst, eval("(java.util.Date. 1000)").asInstant())
+
+        eval("(import java.util.Date)")
+        assertEquals(inst, eval("""(Date. 1000)""").asInstant())
     }
 
     @Test
@@ -220,9 +226,14 @@ class BridjeLanguageTest {
         val fooKey = eval(":Foo")
         assertTrue(fooKey.canInstantiate())
 
-        val foo = eval("(new :Foo {:foo 12})")
-        assertEquals("Foo", foo.metaObject.metaSimpleName)
-        assertEquals(12, foo.getMember("foo").asInt())
-        assertEquals("(:Foo {:foo 12})", foo.toString())
+        fun testFoo(foo: Value) {
+            assertEquals("Foo", foo.metaObject.metaSimpleName)
+            assertEquals(12, foo.getMember("foo").asInt())
+            assertEquals("(:Foo {:foo 12})", foo.toString())
+        }
+
+        testFoo(eval("(new :Foo {:foo 12})"))
+        testFoo(eval("(:Foo. {:foo 12})"))
+        testFoo(eval(":Foo.").execute(eval("{:foo 12}")))
     }
 }

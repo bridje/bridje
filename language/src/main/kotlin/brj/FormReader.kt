@@ -137,23 +137,31 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
 
     private fun readSymbol() = readIdent { ns, local, loc ->
         if (ns == null) {
-            when {
-                local == "true" -> BoolForm(true, loc)
-                local == "false" -> BoolForm(false, loc)
-                local == "nil" -> NilForm(loc)
-                local.startsWith('.') -> DotSymbolForm(symbol(local.substring(1)), loc)
-                else -> SymbolForm(symbol(local), loc)
+            when (local) {
+                "true" -> return@readIdent BoolForm(true, loc)
+                "false" -> return@readIdent BoolForm(false, loc)
+                "nil" -> return@readIdent NilForm(loc)
             }
-        } else SymbolForm(symbol(ns, local), loc)
+        }
+
+        when {
+            local.startsWith('.') && local.endsWith('.') -> TODO()
+            local.startsWith('.') -> DotSymbolForm(symbol(ns, local.substring(1)), loc)
+            local.endsWith('.') -> SymbolDotForm(symbol(ns, local.substring(0, local.length - 1)), loc)
+            else -> SymbolForm(symbol(ns, local), loc)
+        }
     }
 
     private fun readKeyword(): Form {
         readChar()
 
         return readIdent { ns, local, loc ->
-            if (ns != null) TODO()
-            if (local.startsWith('.')) TODO()
-            KeywordForm(symbol(ns, local), loc)
+            when {
+                ns != null -> TODO()
+                local.startsWith('.') -> TODO()
+                local.endsWith('.') -> KeywordDotForm(symbol(ns, local.substring(0, local.length - 1)))
+                else -> KeywordForm(symbol(ns, local), loc)
+            }
         }
     }
 
@@ -183,7 +191,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
                 c == ';' -> while (true) if (readChar() == '\n') break
 
                 else -> {
-                    unreadChar(c);
+                    unreadChar(c)
                     yield(readForm())
                 }
             }

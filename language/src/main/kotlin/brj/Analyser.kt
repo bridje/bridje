@@ -1,9 +1,6 @@
 package brj
 
-import brj.runtime.BridjeContext
-import brj.runtime.DefxVar
-import brj.runtime.InvokeMemberObject
-import brj.runtime.Symbol
+import brj.runtime.*
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
@@ -153,6 +150,25 @@ internal data class Analyser(
         NewExpr(analyseValueExpr(expectForm(), null), rest { analyseValueExpr(expectForm(), null) }, loc)
     }
 
+    private fun resolveHostSymbol(sym: Symbol): TruffleObject? {
+        if (sym.ns == null) {
+            env.imports[sym]?.let { return it }
+
+            runCatching { env.truffleEnv.lookupHostSymbol(sym.local) }
+                .getOrNull()
+                ?.let { return it as TruffleObject }
+        } else {
+            env.imports[sym.ns]?.let { clazz ->
+                if (env.interop.isMemberReadable(clazz, sym.local)) {
+                    return env.interop.readMember(clazz, sym.local) as TruffleObject
+                } else TODO()
+            }
+
+        }
+
+        return null
+    }
+
     private fun analyseValueExpr(form: Form, loopLocals: LoopLocals): ValueExpr = when (form) {
         is ListForm -> parseForms(form.forms) {
             or({
@@ -184,30 +200,24 @@ internal data class Analyser(
         is VectorForm -> VectorExpr(form.forms.map { analyseValueExpr(it, loopLocals) }, form.loc)
         is SetForm -> SetExpr(form.forms.map { analyseValueExpr(it, loopLocals) }, form.loc)
         is RecordForm -> parseRecord(FormParser(form.forms), form.loc)
+
         is SymbolForm -> {
             val sym = form.sym
 
             if (sym.ns == null) {
                 locals[sym]?.let { return LocalVarExpr(it, form.loc) }
                 env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
-                env.imports[sym]?.let { return TruffleObjectExpr(it, form.loc) }
-
-                runCatching { env.truffleEnv.lookupHostSymbol(sym.local) }
-                    .getOrNull()
-                    ?.let { return TruffleObjectExpr(it as TruffleObject, form.loc) }
-            } else {
-                env.imports[sym.ns]?.let { clazz ->
-                    if (env.interop.isMemberReadable(clazz, sym.local)) {
-                        return TruffleObjectExpr(env.interop.readMember(clazz, sym.local) as TruffleObject, form.loc)
-                    } else TODO()
-                }
-
             }
+
+            resolveHostSymbol(sym)?.let { return TruffleObjectExpr(it, form.loc) }
 
             TODO("can't find symbol: $sym")
         }
-        is DotSymbolForm -> TruffleObjectExpr(InvokeMemberObject(form.sym), form.loc)
-        is KeywordForm -> KeywordExpr(form.sym, form.loc)
+
+        is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFunction(form.sym), form.loc)
+        is SymbolDotForm -> TruffleObjectExpr(InstantiateFunction(resolveHostSymbol(form.sym) ?: TODO()), form.loc)
+        is KeywordForm -> KeywordExpr(BridjeKey(form.sym), form.loc)
+        is KeywordDotForm -> TruffleObjectExpr(InstantiateFunction(BridjeKey(form.sym)), form.loc)
     }
 
     private fun analyseMonoType(form: Form): MonoType = when (form) {

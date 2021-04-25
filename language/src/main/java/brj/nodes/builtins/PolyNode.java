@@ -6,7 +6,6 @@ import brj.runtime.BridjeContext;
 import com.oracle.truffle.api.dsl.CachedContext;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.source.Source;
 
 public abstract class PolyNode extends ExprNode {
     public PolyNode(BridjeLanguage lang) {

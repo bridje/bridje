@@ -3,7 +3,6 @@ package brj
 import brj.nodes.*
 import brj.nodes.CallNodeGen.CallArgsNodeGen
 import brj.runtime.BridjeFunction
-import brj.runtime.BridjeKey
 import brj.runtime.Nil
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -30,7 +29,7 @@ internal class ValueExprEmitter(
             expr.loc
         )
 
-        is KeywordExpr -> KeywordNode(lang, BridjeKey(expr.sym))
+        is KeywordExpr -> KeywordNode(lang, expr.key)
 
         is IfExpr -> IfNode(
             lang,

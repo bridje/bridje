@@ -1,5 +1,6 @@
 package brj
 
+import brj.runtime.BridjeKey
 import brj.runtime.DefxVar
 import brj.runtime.GlobalVar
 import brj.runtime.Symbol
@@ -63,11 +64,11 @@ internal class RecordExpr(val entries: Map<Symbol, ValueExpr>, override val loc:
     override fun hashCode() = Objects.hash(entries)
 }
 
-internal class KeywordExpr(val sym: Symbol, override val loc: SourceSection?) : ValueExpr() {
+internal class KeywordExpr(val key: BridjeKey, override val loc: SourceSection?) : ValueExpr() {
     override fun equals(other: Any?) =
-        this === other || (other is KeywordExpr && sym == other.sym)
+        this === other || (other is KeywordExpr && key == other.key)
 
-    override fun hashCode() = Objects.hash(sym)
+    override fun hashCode() = Objects.hash(key)
 }
 
 internal class DoExpr(val exprs: List<ValueExpr>, val expr: ValueExpr, override val loc: SourceSection?) : ValueExpr() {
