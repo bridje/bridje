@@ -55,15 +55,6 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         addBuiltIn(ctx, symbol("zero?"), Typing(FnType(listOf(IntType), BoolType)), ZeroNode(this))
         addBuiltIn(ctx, symbol("dec"), Typing(FnType(listOf(IntType), IntType)), DecNode(this))
 
-        TypeVar().let { tv ->
-            addBuiltIn(
-                ctx,
-                symbol("conjv0"),
-                Typing(FnType(listOf(VectorType(tv), tv), VectorType(tv))),
-                ConjNode(this)
-            )
-        }
-
         addBuiltIn(ctx, symbol("poly"), Typing(FnType(listOf(StringType), TypeVar())), PolyNodeGen.create(this))
         addBuiltIn(ctx, symbol("pr-str"), Typing(FnType(listOf(TypeVar()), StringType)), PrStrNodeGen.create(this))
     }

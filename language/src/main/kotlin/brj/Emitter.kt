@@ -43,7 +43,7 @@ internal class ValueExprEmitter(
         is LetExpr -> LetNode(
             lang,
             expr.bindings.map {
-                WriteLocalNodeGen.create(emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.binding))
+                WriteLocalNodeGen.create(lang, emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.binding))
             }.toTypedArray(),
             emitValueExpr(expr.expr),
             expr.loc
@@ -56,7 +56,7 @@ internal class ValueExprEmitter(
                 lang,
                 frameDescriptor,
                 (listOf(expr.fxLocal) + expr.params).mapIndexed { idx, localVar ->
-                    WriteLocalNodeGen.create(ReadArgNode(lang, idx), frameDescriptor.findOrAddFrameSlot(localVar))
+                    WriteLocalNodeGen.create(lang, ReadArgNode(lang, idx), frameDescriptor.findOrAddFrameSlot(localVar))
                 }.toTypedArray(),
                 ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr)
             )
@@ -82,6 +82,7 @@ internal class ValueExprEmitter(
             WithFxNode(
                 lang,
                 WriteLocalNodeGen.create(
+                    lang,
                     WithFxNode.NewFxNode(
                         lang,
                         LocalVarNodeGen.create(lang, frameDescriptor.findOrAddFrameSlot(expr.oldFx), null),
@@ -98,6 +99,7 @@ internal class ValueExprEmitter(
             lang,
             expr.bindings.map {
                 WriteLocalNodeGen.create(
+                    lang,
                     emitValueExpr(it.expr),
                     frameDescriptor.findOrAddFrameSlot(it.binding)
                 )
@@ -110,6 +112,7 @@ internal class ValueExprEmitter(
             lang,
             expr.exprs.map {
                 WriteLocalNodeGen.create(
+                    lang,
                     emitValueExpr(it.expr),
                     frameDescriptor.findOrAddFrameSlot(it.binding)
                 )

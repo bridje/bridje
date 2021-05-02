@@ -38,6 +38,7 @@ public class LoopNode extends ExprNode {
 
     public static class LoopBodyNode extends Node implements RepeatingNode {
 
+        @Child
         private ExprNode exprNode;
 
         public LoopBodyNode(ExprNode exprNode) {

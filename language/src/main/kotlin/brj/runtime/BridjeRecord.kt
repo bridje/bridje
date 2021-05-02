@@ -52,18 +52,4 @@ class BridjeRecord : DynamicObject(SHAPE) {
     fun readMember(member: String, @CachedLibrary("this") dynObj: DynamicObjectLibrary): Any =
         dynObj.getOrDefault(this, member, Nil)
 
-    @ExportLibrary(InteropLibrary::class)
-    class Keys(val keys: Array<Any>) : TruffleObject {
-        @ExportMessage
-        fun hasArrayElements() = true
-
-        @ExportMessage
-        fun getArraySize() = keys.size
-
-        @ExportMessage
-        fun isArrayElementReadable(idx: Long) = idx >= 0 && idx < keys.size
-
-        @ExportMessage
-        fun readArrayElement(idx: Long) = keys[idx.toInt()]
-    }
 }

@@ -9,12 +9,13 @@ import com.oracle.truffle.api.nodes.ExecutableNode;
 @TypeSystemReference(BridjeTypes.class)
 @GenerateWrapper
 public abstract class ExprNode extends ExecutableNode implements InstrumentableNode {
-    protected ExprNode() {
-        super(null);
-    }
 
     protected ExprNode(BridjeLanguage lang) {
         super(lang);
+    }
+
+    protected ExprNode(ExprNode copy) {
+        this(copy.getLanguage(BridjeLanguage.class));
     }
 
     @Override
@@ -24,7 +25,7 @@ public abstract class ExprNode extends ExecutableNode implements InstrumentableN
 
     @Override
     public WrapperNode createWrapper(ProbeNode probe) {
-        return new ExprNodeWrapper(this, probe);
+        return new ExprNodeWrapper(this, this, probe);
     }
 
     @Override

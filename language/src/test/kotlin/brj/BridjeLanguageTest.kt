@@ -42,6 +42,7 @@ class BridjeLanguageTest {
     }
 
     private val listOfInt = object : TypeLiteral<List<Int>>() {}
+    private val setOfInt = object : TypeLiteral<Set<Int>>() {}
 
     @Test
     fun `vector test`() {
@@ -161,7 +162,7 @@ class BridjeLanguageTest {
     fun `test loop-recur`() {
         assertEquals(
             (4 downTo 0).toList(),
-            eval("(loop [x 5, res []] (if (zero? x) res (recur (dec x) (conjv0 res x))))").`as`(listOfInt)
+            eval("(loop [x 5, res []] (if (zero? x) res (recur (dec x) (.conj res x))))").`as`(listOfInt)
         )
     }
 
@@ -242,5 +243,15 @@ class BridjeLanguageTest {
         assertEquals(42, eval("(case nil, nil 42, 12)").asInt())
         assertEquals(12, eval("(case :foo, nil 42, 12)").asInt())
         assertEquals(12, eval("(case (:Foo. {:foo 12}), nil 42, (:Foo e) (:foo e), 25)").asInt())
+    }
+
+    @Test
+    fun `test conj`() {
+        assertEquals(listOf(1, 2, 3), eval("(.conj [1 2] 3)").`as`(listOfInt))
+
+        // TODO as setOfInt doesn't seem to return something that implements Set properly
+//        assertEquals(setOf(1, 2, 3), eval("(.conj #{1 2} 3)").`as`(setOfInt))
+
+        assertEquals(setOf(1, 2, 3), eval("(.conj [1 2] 3)").`as`(listOfInt).toSet())
     }
 }
