@@ -21,7 +21,7 @@ import java.io.PrintWriter
 @TruffleLanguage.Registration(
     id = "brj",
     name = "Bridje",
-    version = "0.0.2",
+    version = "0.0.3",
     defaultMimeType = "application/brj",
     characterMimeTypes = ["application/brj"],
     contextPolicy = TruffleLanguage.ContextPolicy.SHARED
