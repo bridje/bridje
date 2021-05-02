@@ -7,7 +7,7 @@ internal class FormParser(forms: List<Form>) {
         private set
 
     fun expectForm(): Form {
-        val ret = forms.firstOrNull() ?: TODO()
+        val ret = forms.firstOrNull() ?: TODO("expected form, none found")
         forms = forms.drop(1)
         return ret
     }
@@ -41,7 +41,7 @@ internal class FormParser(forms: List<Form>) {
     }
 
     fun expectEnd() {
-        if (forms.isNotEmpty()) TODO()
+        if (forms.isNotEmpty()) TODO("expected end of list, found forms, ${forms.first().loc}")
     }
 
     internal fun <R> or(vararg parses: FormParser.() -> R?): R? {

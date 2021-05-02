@@ -42,7 +42,7 @@ internal data class Analyser(
 
     private fun parseDo(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection? = null) = formParser.run {
         val exprs = rest { analyseValueExpr(expectForm(), if (forms.isNotEmpty()) null else loopLocals) }
-        if (exprs.isEmpty()) TODO()
+        if (exprs.isEmpty()) TODO("expecting at least one expression in `do`, $loc")
         DoExpr(exprs.dropLast(1), exprs.last(), loc)
     }
 
@@ -97,10 +97,13 @@ internal data class Analyser(
                     val listForm = expectForm(ListForm::class.java)
                     parseForms(listForm.forms) {
                         val defExpr = maybe {
-                            if (expectSymbol() != DEF) TODO()
+                            if (expectSymbol() != DEF) TODO("expected: `(with-fx [(def ...)] ...)`, ${listForm.loc}")
                             parseDef(this, listForm.loc).also { expectEnd() }
-                        } ?: TODO()
-                        WithFxBinding(env.globalVars[defExpr.sym] as? DefxVar ?: TODO(), defExpr.expr)
+                        } ?: TODO("failed parsing `with-fx` override, ${listForm.loc}")
+                        WithFxBinding(
+                            env.globalVars[defExpr.sym] as? DefxVar
+                                ?: TODO("unknown var ${defExpr.sym} in `with-fx`, $loc"), defExpr.expr
+                        )
                     }
                 }
             }
@@ -134,9 +137,9 @@ internal data class Analyser(
         }
 
     private fun parseRecur(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr {
-        if (loopLocals == null) TODO()
+        if (loopLocals == null) TODO("recur from non-tail position, $loc")
 
-        if (formParser.forms.size != loopLocals.size) TODO()
+        if (formParser.forms.size != loopLocals.size) TODO("mismatch in recur var count, $loc")
 
         val exprs = formParser.rest { analyseValueExpr(expectForm(), loopLocals = null) }
 
@@ -164,20 +167,22 @@ internal data class Analyser(
             val clauses = mutableListOf<CaseClause>()
             var default: ValueExpr? = null
 
-            if (forms.isEmpty()) TODO()
+            if (forms.isEmpty()) TODO("case without any forms, $loc")
 
             rest {
                 val form = expectForm()
                 when {
                     forms.isEmpty() -> default = analyseValueExpr(form, loopLocals)
                     form is NilForm -> {
-                        if (nilClause != null) TODO()
+                        if (nilClause != null) TODO("duplicate `nil` clauses in case, $loc")
                         nilClause = analyseValueExpr(expectForm(), loopLocals)
                     }
 
                     form is ListForm -> {
                         val (keySym, binding) = parseForms(form.forms) {
-                            Pair(expectKeyword(), expectSymbol().also { if (it.ns != null) TODO() })
+                            Pair(
+                                expectKeyword(),
+                                expectSymbol().also { if (it.ns != null) TODO("unexpected qualified symbol in `case` binding, ${form.loc}") })
                                 .also { expectEnd() }
                         }
                         val localVar = LocalVar(binding)
@@ -186,14 +191,14 @@ internal data class Analyser(
                         clauses += CaseClause(BridjeKey(keySym), localVar, clauseExpr)
                     }
 
-                    else -> TODO()
+                    else -> TODO("unexpected clause in `case`, ${form.loc}")
                 }
             }
 
             CaseExpr(expr, nilClause, clauses, default, loc)
         }
 
-    private fun resolveHostSymbol(sym: Symbol): TruffleObject? {
+    private fun resolveHostSymbol(sym: Symbol, loc: SourceSection?): TruffleObject? {
         if (sym.ns == null) {
             env.imports[sym]?.let { return it }
 
@@ -204,7 +209,7 @@ internal data class Analyser(
             env.imports[sym.ns]?.let { clazz ->
                 if (env.interop.isMemberReadable(clazz, sym.local)) {
                     return env.interop.readMember(clazz, sym.local) as TruffleObject
-                } else TODO()
+                } else TODO("unknown static method '$sym', $loc")
             }
         }
 
@@ -233,7 +238,7 @@ internal data class Analyser(
                     rest { analyseValueExpr(expectForm(), loopLocals) },
                     form.loc
                 )
-            }) ?: TODO()
+            }) ?: TODO("failed to parse list form, ${form.loc}")
         }
 
         is NilForm -> NilExpr(form.loc)
@@ -252,13 +257,17 @@ internal data class Analyser(
                 env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
             }
 
-            resolveHostSymbol(sym)?.let { return TruffleObjectExpr(it, form.loc) }
+            resolveHostSymbol(sym, form.loc)?.let { return TruffleObjectExpr(it, form.loc) }
 
             TODO("can't find symbol: $sym")
         }
 
         is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFn(form.sym), form.loc)
-        is SymbolDotForm -> TruffleObjectExpr(InstantiateFn(resolveHostSymbol(form.sym) ?: TODO()), form.loc)
+        is SymbolDotForm -> TruffleObjectExpr(
+            InstantiateFn(
+                resolveHostSymbol(form.sym, form.loc) ?: TODO("can't find host symbol '$form.sym', ${form.loc}")
+            ), form.loc
+        )
         is KeywordForm -> KeywordExpr(BridjeKey(form.sym), form.loc)
         is KeywordDotForm -> TruffleObjectExpr(InstantiateFn(BridjeKey(form.sym)), form.loc)
     }
@@ -316,7 +325,7 @@ internal data class Analyser(
     }
 
     private fun parseDef(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        val header = parseDefHeader(this) ?: TODO()
+        val header = parseDefHeader(this) ?: TODO("failed to parse `def`, $loc")
         val expr =
             if (header.paramForms != null)
                 parseFn(parseForms(header.paramForms) { rest { LocalVar(expectSymbol()) } }, this, loc)
@@ -327,7 +336,7 @@ internal data class Analyser(
     }
 
     private fun parseDefx(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        val header = parseDefHeader(formParser) ?: TODO()
+        val header = parseDefHeader(formParser) ?: TODO("failed to parse def header, $loc")
         val monoType =
             if (header.paramForms != null)
                 FnType(
@@ -335,7 +344,7 @@ internal data class Analyser(
                     analyseMonoType(expectForm())
                 )
             else
-                analyseMonoType(expectForm()) as? FnType ?: TODO()
+                analyseMonoType(expectForm()) as? FnType ?: TODO("failed to parse MonoType, $loc")
 
         DefxExpr(header.sym, Typing(monoType, fx = setOf(header.sym)), loc)
             .also { expectEnd() }
@@ -365,5 +374,5 @@ internal data class Analyser(
         }, {
             TopLevelExpr(analyseValueExpr(expectForm(), null))
         })
-    } ?: TODO()
+    } ?: TODO("failed to parse expression, ${form.loc}")
 }

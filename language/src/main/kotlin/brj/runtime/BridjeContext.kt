@@ -78,7 +78,7 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
         )
 
         globalVars.compute(sym) { _, globalVar ->
-            if (globalVar != null) TODO()
+            if (globalVar != null) TODO("global var already exists in `defx`, '$sym'")
             else DefxVar(sym, typing, BridjeVar(value), defaultImplVar)
         }
     }

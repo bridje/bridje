@@ -51,7 +51,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
 
         while (true) {
             val c = readNonBreakChar() ?: break
-            if (!c.isDigit()) TODO()
+            if (!c.isDigit()) TODO("non-digit in middle of number")
             sb.append(c)
         }
 
@@ -72,9 +72,9 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
     private fun readHash(): Form {
         val startIndex = charIndex
         readChar()
-        return when ((readChar() ?: TODO()).also { unreadChar(it) }) {
+        return when (val c = (readChar() ?: TODO("unexpected EOF")).also { unreadChar(it) }) {
             '{' -> readSet(startIndex)
-            else -> TODO()
+            else -> TODO("unexpected char: '$c'")
         }
     }
 
@@ -84,17 +84,17 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
         readChar()
 
         while (true) {
-            when (val c = readChar() ?: TODO()) {
+            when (val c = readChar() ?: TODO("unexpected EOF")) {
                 '"' -> break
                 '\\' -> {
                     sb.append(
-                        when (readChar() ?: TODO()) {
+                        when (readChar() ?: TODO("unexpected EOF")) {
                             'n' -> '\n'
                             't' -> '\t'
                             'r' -> '\r'
                             '"' -> '"'
                             '\\' -> '\\'
-                            else -> TODO()
+                            else -> TODO("unexpected char: '$c'")
                         }
                     )
                 }
@@ -118,7 +118,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
 
             when {
                 c == null -> break
-                c == '/' -> if (seenSlash) TODO() else seenSlash = true
+                c == '/' -> if (seenSlash) TODO("multiple slashes in ident") else seenSlash = true
                 !c.isBridjeIdentifierPart() -> TODO("invalid identifier part: '$c'")
                 else -> if (seenSlash) afterSlash.append(c) else beforeSlash.append(c)
             }
@@ -126,7 +126,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
 
         val ns = if (seenSlash)
             symbol(beforeSlash.toString()
-                .also { if (it.startsWith('.')) TODO() })
+                .also { if (it.startsWith('.')) TODO("unexpected '.' at start of symbol ns") })
         else null
 
         val local = if (seenSlash) afterSlash.toString() else beforeSlash.toString()
@@ -145,7 +145,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
         }
 
         when {
-            local.startsWith('.') && local.endsWith('.') -> TODO()
+            local.startsWith('.') && local.endsWith('.') -> TODO("symbol can't start and end with '.'")
             local.startsWith('.') -> DotSymbolForm(symbol(ns, local.substring(1)), loc)
             local.endsWith('.') -> SymbolDotForm(symbol(ns, local.substring(0, local.length - 1)), loc)
             else -> SymbolForm(symbol(ns, local), loc)
@@ -157,8 +157,8 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
 
         return readIdent { ns, local, loc ->
             when {
-                ns != null -> TODO()
-                local.startsWith('.') -> TODO()
+                ns != null -> TODO("not handling qualified keywords as yet")
+                local.startsWith('.') -> TODO("unexpected '.' at start of keyword")
                 local.endsWith('.') -> KeywordDotForm(symbol(ns, local.substring(0, local.length - 1)))
                 else -> KeywordForm(symbol(ns, local), loc)
             }
@@ -166,7 +166,7 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
     }
 
     private fun readForm(): Form {
-        val c = (readChar() ?: TODO()).also { unreadChar(it) }
+        val c = (readChar() ?: TODO("unexpected EOF")).also { unreadChar(it) }
         return when {
             c.isDigit() -> readNumber()
             c == '(' -> readList()
@@ -176,18 +176,18 @@ class FormReader internal constructor(private val source: Source) : AutoCloseabl
             c == '"' -> readString()
             c == ':' -> readKeyword()
             c.isBridjeIdentifierStart() -> readSymbol()
-            else -> TODO()
+            else -> TODO("unexpected char: '$c'")
         }
     }
 
     private fun readForms(endChar: Char? = null) = sequence {
         while (true) {
-            val c = readChar() ?: if (endChar != null) TODO() else break
+            val c = readChar() ?: if (endChar != null) TODO("unexpected EOF, expecting '$endChar'") else break
             when {
                 c.isWhitespace() || c == ',' -> continue
 
                 c == endChar -> break
-                c == ')' || c == ']' || c == '}' -> TODO()
+                c == ')' || c == ']' || c == '}' -> TODO("unexpected end delimiter, '$c'")
                 c == ';' -> while (true) if (readChar() == '\n') break
 
                 else -> {
