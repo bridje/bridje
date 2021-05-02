@@ -254,4 +254,11 @@ class BridjeLanguageTest {
 
         assertEquals(setOf(1, 2, 3), eval("(.conj [1 2] 3)").`as`(listOfInt).toSet())
     }
+
+    @Test
+    fun `test reducing iterables`() {
+        eval("""(def + (poly "js" "(x, y) => x + y"))""")
+        assertEquals(15, eval("(reduce + 0 [1 2 3 4 5])").asInt())
+        assertEquals(15, eval("(fn [coll] (reduce + 0 coll))").execute(listOf(1, 2, 3, 4, 5)).asInt())
+    }
 }

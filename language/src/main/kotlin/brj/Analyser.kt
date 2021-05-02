@@ -1,6 +1,11 @@
 package brj
 
-import brj.runtime.*
+import brj.builtins.InstantiateFunction
+import brj.builtins.InvokeMemberFunction
+import brj.runtime.BridjeContext
+import brj.runtime.BridjeKey
+import brj.runtime.DefxVar
+import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection

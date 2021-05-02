@@ -1,5 +1,6 @@
-package brj.runtime
+package brj.builtins
 
+import brj.runtime.Symbol
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.dsl.Cached
 import com.oracle.truffle.api.dsl.Specialization
@@ -12,8 +13,8 @@ import com.oracle.truffle.api.nodes.ExplodeLoop
 
 @ExportLibrary(InteropLibrary::class)
 class InvokeMemberFunction(val sym: Symbol) : TruffleObject {
-    @ExportMessage
-    fun isExecutable() = true
+    @get:ExportMessage
+    val isExecutable = true
 
     @ExportMessage
     class Execute {

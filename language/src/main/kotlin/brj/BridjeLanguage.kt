@@ -1,13 +1,18 @@
 package brj
 
+import brj.builtins.DecFunction
+import brj.builtins.NowFunction
+import brj.builtins.ReduceFunction
+import brj.builtins.ZeroFunction
 import brj.nodes.EvalRootNodeGen
 import brj.nodes.ExprNode
 import brj.nodes.ValueExprRootNode
-import brj.nodes.builtins.*
+import brj.nodes.builtins.PolyNodeGen
+import brj.nodes.builtins.PrStrNodeGen
+import brj.nodes.builtins.PrintlnNodeGen
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeView
-import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.Truffle
@@ -28,35 +33,38 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun createContext(truffleEnv: Env) = BridjeContext(truffleEnv)
 
-    private fun addBuiltIn(ctx: BridjeContext, sym: Symbol, typing: Typing, node: ExprNode) {
-        ctx.def(
-            sym, typing, BridjeFunction(
-                Truffle.getRuntime().createCallTarget(
-                    ValueExprRootNode.create(this, FrameDescriptor(), node)
-                )
-            )
+    private fun builtInFunction(node: ExprNode) = BridjeFunction(
+        Truffle.getRuntime().createCallTarget(
+            ValueExprRootNode.create(this, FrameDescriptor(), node)
         )
-    }
+    )
 
     override fun initializeContext(ctx: BridjeContext) {
-        addBuiltIn(
-            ctx,
-            symbol("println0"),
-            Typing(FnType(listOf(StringType), StringType)),
-            PrintlnNodeGen.create(this, PrintWriter(ctx.truffleEnv.out()))
+        ctx.def(
+            symbol("println0"), Typing(FnType(listOf(StringType), StringType)),
+            builtInFunction(
+                PrintlnNodeGen.create(this, PrintWriter(ctx.truffleEnv.out()))
+            )
         )
 
-        addBuiltIn(
-            ctx, symbol("now-ms0"),
-            Typing(FnType(emptyList(), IntType)),
-            NowNode(this)
+        val a = TypeVar("a")
+        val b = TypeVar("b")
+
+        ctx.def(symbol("reduce"), Typing(FnType(listOf(FnType(listOf(b, a), b), b, VectorType(a)), b)), ReduceFunction)
+
+        ctx.def(symbol("now-ms0"), Typing(FnType(emptyList(), IntType)), NowFunction)
+        ctx.def(symbol("zero?"), Typing(FnType(listOf(IntType), BoolType)), ZeroFunction)
+        ctx.def(symbol("dec"), Typing(FnType(listOf(IntType), IntType)), DecFunction)
+
+        ctx.def(
+            symbol("poly"), Typing(FnType(listOf(StringType), TypeVar())),
+            builtInFunction(PolyNodeGen.create(this))
         )
 
-        addBuiltIn(ctx, symbol("zero?"), Typing(FnType(listOf(IntType), BoolType)), ZeroNode(this))
-        addBuiltIn(ctx, symbol("dec"), Typing(FnType(listOf(IntType), IntType)), DecNode(this))
-
-        addBuiltIn(ctx, symbol("poly"), Typing(FnType(listOf(StringType), TypeVar())), PolyNodeGen.create(this))
-        addBuiltIn(ctx, symbol("pr-str"), Typing(FnType(listOf(TypeVar()), StringType)), PrStrNodeGen.create(this))
+        ctx.def(
+            symbol("pr-str"), Typing(FnType(listOf(TypeVar()), StringType)),
+            builtInFunction(PrStrNodeGen.create(this))
+        )
     }
 
     override fun parse(request: ParsingRequest): CallTarget {
