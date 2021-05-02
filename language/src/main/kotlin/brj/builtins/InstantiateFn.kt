@@ -10,7 +10,7 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.ExplodeLoop
 
 @ExportLibrary(InteropLibrary::class)
-class InstantiateFunction(val obj: TruffleObject) : TruffleObject {
+class InstantiateFn(val obj: TruffleObject) : TruffleObject {
     @get:ExportMessage
     val isExecutable = true
 
@@ -21,7 +21,7 @@ class InstantiateFunction(val obj: TruffleObject) : TruffleObject {
             @JvmStatic
             @ExplodeLoop
             fun doExecute(
-                fn: InstantiateFunction,
+                fn: InstantiateFn,
                 args: Array<*>,
                 @CachedLibrary(limit = "3") interop: InteropLibrary
             ): Any? {

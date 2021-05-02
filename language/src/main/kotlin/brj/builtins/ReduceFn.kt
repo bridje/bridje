@@ -8,7 +8,7 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.UnexpectedResultException
 
 @ExportLibrary(InteropLibrary::class)
-object ReduceFunction : TruffleObject {
+object ReduceFn : TruffleObject {
     private val interop = InteropLibrary.getUncached()
 
     @get:ExportMessage

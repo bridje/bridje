@@ -2,10 +2,13 @@ package brj.runtime
 
 import brj.BridjeLanguage
 import brj.Typing
+import brj.nodes.DefxRootNodeGen
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
+import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
+import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
@@ -13,7 +16,7 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.source.Source
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeContext(internal val truffleEnv: TruffleLanguage.Env) : TruffleObject {
+class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: TruffleLanguage.Env) : TruffleObject {
 
     internal val globalVars = mutableMapOf<Symbol, GlobalVar>()
     internal val imports = mutableMapOf<Symbol, TruffleObject>()
@@ -63,8 +66,17 @@ class BridjeContext(internal val truffleEnv: TruffleLanguage.Env) : TruffleObjec
     }
 
     @TruffleBoundary
-    fun defx(sym: Symbol, typing: Typing, value: BridjeFunction, defaultImplVar: BridjeVar) {
+    fun defx(sym: Symbol, typing: Typing) {
         CompilerAsserts.neverPartOfCompilation()
+
+        val defaultImplVar = BridjeVar(null)
+
+        val value = BridjeFunction(
+            Truffle.getRuntime().createCallTarget(
+                DefxRootNodeGen.DefxValueRootNodeGen.create(lang, FrameDescriptor(), sym, defaultImplVar)
+            )
+        )
+
         globalVars.compute(sym) { _, globalVar ->
             if (globalVar != null) TODO()
             else DefxVar(sym, typing, BridjeVar(value), defaultImplVar)

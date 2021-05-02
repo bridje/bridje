@@ -1,7 +1,7 @@
 package brj
 
-import brj.builtins.InstantiateFunction
-import brj.builtins.InvokeMemberFunction
+import brj.builtins.InstantiateFn
+import brj.builtins.InvokeMemberFn
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeKey
 import brj.runtime.DefxVar
@@ -257,10 +257,10 @@ internal data class Analyser(
             TODO("can't find symbol: $sym")
         }
 
-        is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFunction(form.sym), form.loc)
-        is SymbolDotForm -> TruffleObjectExpr(InstantiateFunction(resolveHostSymbol(form.sym) ?: TODO()), form.loc)
+        is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFn(form.sym), form.loc)
+        is SymbolDotForm -> TruffleObjectExpr(InstantiateFn(resolveHostSymbol(form.sym) ?: TODO()), form.loc)
         is KeywordForm -> KeywordExpr(BridjeKey(form.sym), form.loc)
-        is KeywordDotForm -> TruffleObjectExpr(InstantiateFunction(BridjeKey(form.sym)), form.loc)
+        is KeywordDotForm -> TruffleObjectExpr(InstantiateFn(BridjeKey(form.sym)), form.loc)
     }
 
     private fun analyseMonoType(form: Form): MonoType = when (form) {

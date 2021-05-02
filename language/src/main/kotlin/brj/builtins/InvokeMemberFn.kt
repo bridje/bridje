@@ -12,7 +12,7 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.ExplodeLoop
 
 @ExportLibrary(InteropLibrary::class)
-class InvokeMemberFunction(val sym: Symbol) : TruffleObject {
+class InvokeMemberFn(val sym: Symbol) : TruffleObject {
     @get:ExportMessage
     val isExecutable = true
 
@@ -23,7 +23,7 @@ class InvokeMemberFunction(val sym: Symbol) : TruffleObject {
             @JvmStatic
             @ExplodeLoop
             fun doExecute(
-                imo: InvokeMemberFunction,
+                imo: InvokeMemberFn,
                 args: Array<*>,
                 @Cached("args.length") cachedArgCount: Int,
                 @CachedLibrary(limit = "3") interop: InteropLibrary

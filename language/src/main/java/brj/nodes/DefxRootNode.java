@@ -3,7 +3,6 @@ package brj.nodes;
 import brj.BridjeLanguage;
 import brj.Typing;
 import brj.runtime.BridjeContext;
-import brj.runtime.BridjeFunction;
 import brj.runtime.BridjeVar;
 import brj.runtime.Symbol;
 import com.oracle.truffle.api.CompilerDirectives;
@@ -15,6 +14,7 @@ import com.oracle.truffle.api.dsl.NodeField;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.interop.InteropLibrary;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.nodes.RootNode;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
@@ -46,13 +46,7 @@ public abstract class DefxRootNode extends RootNode {
                             @CachedContext(BridjeLanguage.class) BridjeContext ctx) {
         CompilerDirectives.transferToInterpreter();
         Symbol sym = getSym();
-        BridjeVar defaultImplVar = new BridjeVar(null);
-        ctx.defx(sym, getTyping(),
-            new BridjeFunction(
-                Truffle.getRuntime().createCallTarget(
-                    DefxRootNodeGen.DefxValueRootNodeGen.create(lang, new FrameDescriptor(), sym, defaultImplVar)
-                )),
-            defaultImplVar);
+        ctx.defx(sym, getTyping());
         return sym;
     }
 
@@ -74,6 +68,8 @@ public abstract class DefxRootNode extends RootNode {
         protected abstract BridjeVar getDefaultImplVar();
 
         private ConditionProfile useDefaultProfile = ConditionProfile.createBinaryProfile();
+
+        private final InteropLibrary interop = InteropLibrary.getUncached();
 
         @Specialization
         public Object doExecute(VirtualFrame frame) {

@@ -1,9 +1,6 @@
 package brj
 
-import brj.builtins.DecFunction
-import brj.builtins.NowFunction
-import brj.builtins.ReduceFunction
-import brj.builtins.ZeroFunction
+import brj.builtins.*
 import brj.nodes.EvalRootNodeGen
 import brj.nodes.ExprNode
 import brj.nodes.ValueExprRootNode
@@ -31,7 +28,7 @@ import java.io.PrintWriter
 )
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
-    override fun createContext(truffleEnv: Env) = BridjeContext(truffleEnv)
+    override fun createContext(truffleEnv: Env) = BridjeContext(this, truffleEnv)
 
     private fun builtInFunction(node: ExprNode) = BridjeFunction(
         Truffle.getRuntime().createCallTarget(
@@ -49,12 +46,24 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
         val a = TypeVar("a")
         val b = TypeVar("b")
+        ctx.def(symbol("reduce"), Typing(FnType(listOf(FnType(listOf(b, a), b), b, VectorType(a)), b)), ReduceFn)
 
-        ctx.def(symbol("reduce"), Typing(FnType(listOf(FnType(listOf(b, a), b), b, VectorType(a)), b)), ReduceFunction)
+        ctx.def(symbol("+"), Typing(FnType(listOf(IntType, IntType), IntType)), PlusFn)
+        ctx.def(symbol("-"), Typing(FnType(listOf(IntType, IntType), IntType)), MinusFn)
+        ctx.def(symbol("*"), Typing(FnType(listOf(IntType, IntType), IntType)), MultiplyFn)
+        ctx.def(symbol("/"), Typing(FnType(listOf(IntType, IntType), IntType)), DivideFn)
 
-        ctx.def(symbol("now-ms0"), Typing(FnType(emptyList(), IntType)), NowFunction)
-        ctx.def(symbol("zero?"), Typing(FnType(listOf(IntType), BoolType)), ZeroFunction)
-        ctx.def(symbol("dec"), Typing(FnType(listOf(IntType), IntType)), DecFunction)
+        ctx.def(symbol("=="), Typing(FnType(listOf(IntType, IntType), BoolType)), EqualsFn)
+        ctx.def(symbol("<"), Typing(FnType(listOf(IntType, IntType), BoolType)), LessThanFn)
+        ctx.def(symbol("<="), Typing(FnType(listOf(IntType, IntType), BoolType)), LessThanEqualsFn)
+        ctx.def(symbol(">="), Typing(FnType(listOf(IntType, IntType), BoolType)), GreaterThanEqualsFn)
+        ctx.def(symbol(">"), Typing(FnType(listOf(IntType, IntType), BoolType)), GreaterThanFn)
+
+        ctx.def(symbol("zero?"), Typing(FnType(listOf(IntType), BoolType)), IsZeroFn)
+        ctx.def(symbol("dec"), Typing(FnType(listOf(IntType), IntType)), DecFn)
+
+        ctx.defx(symbol("now!"), Typing(TypeVar()))
+        ctx.def(symbol("now!"), Typing(TypeVar()), builtInFunction(NowNode(this)))
 
         ctx.def(
             symbol("poly"), Typing(FnType(listOf(StringType), TypeVar())),

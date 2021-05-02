@@ -123,7 +123,7 @@ class BridjeLanguageTest {
     @Test
     fun `test now-ms`() {
         val beforeMs = System.currentTimeMillis()
-        val duringMs = eval("(now-ms0)").asLong()
+        val duringMs = eval("(now!)").asInstant().toEpochMilli()
         val afterMs = System.currentTimeMillis()
 
         assertTrue(duringMs in beforeMs..afterMs)
@@ -140,22 +140,20 @@ class BridjeLanguageTest {
 
     @Test
     fun `test with-fx`() {
-        eval("(defx (now-ms!) Int)")
-        eval("(def (now-ms!) (now-ms0))")
+        eval("(import java.time.Instant)")
+        assertEquals(Instant.EPOCH, eval("(with-fx [(def (now!) Instant/EPOCH)] (now!))").asInstant())
 
-        assertEquals(0, eval("(with-fx [(def (now-ms!) 0)] (now-ms!))").asLong())
-
-        assertEquals(0, eval("(with-fx [(def (now-ms!) 0)] (with-fx [] (now-ms!)))").asLong())
+        assertEquals(Instant.EPOCH, eval("(with-fx [(def (now!) Instant/EPOCH)] (with-fx [] (now!)))").asInstant())
 
         val beforeMs = System.currentTimeMillis()
-        val duringMs = eval("(with-fx [] (now-ms!))").asLong()
+        val duringMs = eval("(with-fx [] (now!))").asInstant()
         val afterMs = System.currentTimeMillis()
 
-        assertTrue(duringMs in beforeMs..afterMs)
+        assertTrue(duringMs.toEpochMilli() in beforeMs..afterMs)
 
-        eval("(def (now-ms-caller) (now-ms!))")
+        eval("(def (now-caller) (now!))")
 
-        assertEquals(0, eval("(with-fx [(def (now-ms!) 0)] (now-ms-caller))").asLong())
+        assertEquals(0, eval("(with-fx [(def (now!) 0)] (now-caller))").asLong())
     }
 
     @Test
@@ -257,7 +255,6 @@ class BridjeLanguageTest {
 
     @Test
     fun `test reducing iterables`() {
-        eval("""(def + (poly "js" "(x, y) => x + y"))""")
         assertEquals(15, eval("(reduce + 0 [1 2 3 4 5])").asInt())
         assertEquals(15, eval("(fn [coll] (reduce + 0 coll))").execute(listOf(1, 2, 3, 4, 5)).asInt())
     }
