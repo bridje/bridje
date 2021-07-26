@@ -181,3 +181,43 @@ variants can map into it too - the variant constructor becomes the metaobject, a
 open questions, then:
 - typing.
 - polymorphism
+
+
+* back after a JUXTConf break, where we at? <2021-06-13 Sun>
+turned off the type system for JUXTConf so that I could present /something/
+
+when we're using an object, we're really only after a constraint
+when we're returning an object, we're really only after what it exports
+we're also after not constraining a type when it's returned - if someone specifies a type with /more/ keys, the typesystem should be good enough to make the return value contain those keys as well.
+
+unions - we're not after =int ⊔ string=.
+we did theorise about =cons= as a type, so that we can return types with one more key than was provided
+=cons= is quite like 'normal' record polymorphism?
+
+* back again, <2021-07-25 Sun>
+users can approximate type classes using explicit dictionary passing if required - it'd be useful to not have to worry about this and concentrate on object-based polymorphism instead.
+
+interesting - TypeScript allows discarding any extra parameters - so `(Fn Int String)` < `(Fn Int String Boolean)`
+
+recent proposals to implement algebraic effects with evidence passing - which seems, on the surface, to be quite similar to how I've implemented them thus far. accident?!
+
+what happens if we just go with row polymorphism, then?
+
+algebraic subtyping gives three occurrences of unification - 2 positives (unify with union), 2 negatives (unify with intersection) and + <= -
+we could use a similar principle but be stricter - say that unification differs depending on these three situations.
+tricky bit comes again when you have two type vars unifying - the =(if x y z)= case - at which point you can't do much else apart from pass the union up?
+
+TS does have unions, so they clearly don't think it's beyond the wit of the average TS dev to understand them.
+we need only pass them up in this actual case, and then re-evaluate them if either side is specialised in any way.
+TS doesn't deal with the =(fn [x y] (if true x y))= case - 'implicit any' error., and the =(if true 4 "foo")= types as =string | int=
+even =(fn [x] (if true 4 x))= yields =any=.
+
+why do I think unions are only for variants?
+easier to understand that way?
+even unions over maps aren't quite the same as unifying two maps - you're saying either 'it has keys a+b or a+b+c+d', which is different from 'it has a+b, maybe c, and maybe d'
+so maybe saying that only variants can enter into unions is no bad thing, albeit less general.
+we could just have unions for type vars - as soon as either type var gets unified, the other does too.
+means substitutions can also yield further substitutions, but maybe that's not so taxing.
+doesn't work in the =a, b -> a U b= case, though - once we realise =a=, =b= could still be more general, so we can't just substitute it away.
+
+we can also fail for the case where we can't tell either side of the =if=. don't know why that took so long to consider.
