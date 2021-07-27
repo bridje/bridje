@@ -221,3 +221,28 @@ means substitutions can also yield further substitutions, but maybe that's not s
 doesn't work in the =a, b -> a U b= case, though - once we realise =a=, =b= could still be more general, so we can't just substitute it away.
 
 we can also fail for the case where we can't tell either side of the =if=. don't know why that took so long to consider.
+
+when does the dual case occur - we'd presumably also need to ban an intersection?
+
+back to unify+ - this can do what we want a lot of the time.
+or we do union types just when either/both sides are type vars but, as soon as both sides get realised, we then do a normal unify.
+as the sides get unified, we then refine it further.
+
+e.g.
+
+=(if true {:age 32, :name "James"} x)= :: ={:age Int, :name Str} U {& a}=
+
+then gets used in a place expecting ={:name Str}=, unify->, =a= gets substituted with ={:name Str & b}=
+think we have to get used to the idea of applying a substitution itself yielding a substitution
+we're kind of mixing row poly and subtyping here, though - need to take the 'row poly isn't subtyping' caveat.
+
+row poly + polar types seems to make sense, though
+
+maybe we include unions and intersections only within object types?
+
+={:age Int, :name Str, & b, | a}=
+
+=(+ :Foo, & a)=
+
+but we still need to deal with the =a U b= case, which may not necessarily be records or variants
+subtyping says go with =a U b=, row poly (well, other unification) says =a=
