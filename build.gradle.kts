@@ -4,10 +4,11 @@ allprojects {
 
     repositories {
         jcenter()
+        mavenCentral()
     }
 }
 
 plugins {
-    kotlin("jvm") version "1.4.31"
-    id("com.palantir.graal") version "0.7.2"
+    kotlin("jvm") version "1.5.30"
+    id("com.palantir.graal") version "0.9.0"
 }

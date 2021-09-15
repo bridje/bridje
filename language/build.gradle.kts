@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    val truffleVersion = "21.1.0"
+    val truffleVersion = "21.2.0"
 
     implementation(kotlin("stdlib-jdk8"))
 
@@ -14,8 +14,8 @@ dependencies {
     kapt("org.graalvm.truffle:truffle-dsl-processor:${truffleVersion}")
 
     testImplementation(kotlin("test-junit"))
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.5.2")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.5.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.7.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.7.2")
 }
 
 sourceSets {
