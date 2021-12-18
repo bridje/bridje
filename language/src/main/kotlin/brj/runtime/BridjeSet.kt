@@ -40,7 +40,7 @@ class BridjeSet(val els: Array<Any>) : TruffleObject {
             fun doExecute(set: BridjeSet, member: String, args: Array<Any>): Any {
                 return when (member) {
                     "conj" -> {
-                        if (args.size != 1) throw ArityException.create(1, args.size)
+                        if (args.size != 1) throw ArityException.create(1, 1, args.size)
                         BridjeSet(set.els + args[0])
                     }
                     else -> throw UnsupportedMessageException.create()

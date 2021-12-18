@@ -40,7 +40,7 @@ class BridjeVector(val els: Array<Any>) : TruffleObject {
             fun doExecute(vec: BridjeVector, member: String, args: Array<*>): Any {
                 return when (member) {
                     "conj" -> {
-                        if (args.size != 1) throw ArityException.create(1, args.size)
+                        if (args.size != 1) throw ArityException.create(1, 1, args.size)
                         BridjeVector(vec.els + args[0] as Any)
                     }
                     else -> throw UnsupportedMessageException.create()
