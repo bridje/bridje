@@ -3,12 +3,11 @@ allprojects {
     version = "0.0.3"
 
     repositories {
-        jcenter()
         mavenCentral()
     }
 }
 
 plugins {
-    kotlin("jvm") version "1.5.30"
-    id("com.palantir.graal") version "0.9.0"
+    kotlin("jvm") version "1.6.10"
+    id("com.palantir.graal") version "0.10.0"
 }

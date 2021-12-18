@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    val truffleVersion = "21.2.0"
+    val truffleVersion = "21.3.0"
 
     implementation(kotlin("stdlib-jdk8"))
 
@@ -14,8 +14,8 @@ dependencies {
     kapt("org.graalvm.truffle:truffle-dsl-processor:${truffleVersion}")
 
     testImplementation(kotlin("test-junit"))
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.7.2")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.7.2")
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
 }
 
 sourceSets {
@@ -25,29 +25,32 @@ sourceSets {
 
 tasks.compileKotlin {
     java {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 }
 
 tasks.compileTestKotlin {
     java {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 }
 
 tasks.test {
     useJUnitPlatform()
-    jvmArgs("-Dtruffle.class.path.append=${sourceSets.main.get().runtimeClasspath.asPath}")
+    jvmArgs(
+        "-Dtruffle.class.path.append=${sourceSets.main.get().runtimeClasspath.asPath}",
+        "--add-exports", "org.graalvm.truffle/com.oracle.truffle.api.source=ALL-UNNAMED"
+    )
 }
 
 tasks.jar {

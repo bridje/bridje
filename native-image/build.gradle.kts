@@ -10,7 +10,7 @@ graal {
     graalVersion("21.2.0")
     mainClass("brj.BridjeLauncher")
     outputName("brj")
-    javaVersion(JavaVersion.VERSION_11.toString())
+    javaVersion(JavaVersion.VERSION_17.toString())
 
     val languageJar = project(":language").tasks["jar"].outputs.files.singleFile
     val launcherJar = project(":launcher").tasks["jar"].outputs.files.singleFile

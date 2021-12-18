@@ -6,6 +6,7 @@ import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.interop.ArityException
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.library.DynamicDispatchLibrary
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
@@ -31,7 +32,7 @@ class BridjeKey(val key: Symbol) : TruffleObject {
                 if (args.size == 1) {
                     interop.readMember(args[0], _this.key.toString())
                 } else {
-                    throw ArityException.create(1, args.size)
+                    throw ArityException.create(1, 1, args.size)
                 }
         }
     }
@@ -53,7 +54,7 @@ class BridjeKey(val key: Symbol) : TruffleObject {
 
     @ExportMessage
     fun instantiate(args: Array<Any>): BridjeVariant {
-        if (args.size != 1) throw ArityException.create(1, args.size)
+        if (args.size != 1) throw ArityException.create(1, 1, args.size)
         return BridjeVariant(this, expectBridjeRecord(args[0]))
     }
 
