@@ -1,12 +1,13 @@
 package brj.builtins
 
 import brj.BridjeLanguage
-import brj.runtime.BridjeContext
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.dsl.CachedContext
+import com.oracle.truffle.api.TruffleLanguage.ContextReference
 import com.oracle.truffle.api.dsl.Specialization
 import java.io.PrintWriter
+
+private val CTX_REF = ContextReference.create(BridjeLanguage::class.java)
 
 @BuiltIn("println!")
 abstract class PrintlnNode(lang: BridjeLanguage) : BuiltInFn(lang) {
@@ -21,6 +22,6 @@ abstract class PrintlnNode(lang: BridjeLanguage) : BuiltInFn(lang) {
     }
 
     @Specialization
-    fun doExecute(arg: String, @CachedContext(BridjeLanguage::class) ctx: BridjeContext) =
-        print(ctx.truffleEnv, arg)
+    fun doExecute(arg: String) =
+        print(CTX_REF[this].truffleEnv, arg)
 }

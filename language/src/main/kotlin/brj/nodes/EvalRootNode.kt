@@ -1,26 +1,30 @@
 package brj.nodes
 
 import brj.*
-import brj.runtime.BridjeContext
 import brj.runtime.FxMap
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.dsl.CachedContext
-import com.oracle.truffle.api.dsl.CachedLanguage
+import com.oracle.truffle.api.TruffleLanguage.ContextReference
+import com.oracle.truffle.api.TruffleLanguage.LanguageReference
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.nodes.RootNode
+
+private val LANG_REF = LanguageReference.create(BridjeLanguage::class.java)
+private val CTX_REF = ContextReference.create(BridjeLanguage::class.java)
 
 internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: List<Form>) : RootNode(lang) {
 //    private val typeLogger = TruffleLogger.getLogger("brj", "type")
 
     @Specialization
     @TruffleBoundary
-    fun execute(@CachedLanguage lang: BridjeLanguage, @CachedContext(BridjeLanguage::class) ctx: BridjeContext): Any? {
+    fun execute(): Any? {
         CompilerDirectives.transferToInterpreter()
 
         var res: Any? = null
+        val lang = LANG_REF[this]
+        val ctx = CTX_REF[this]
 
         for (form in forms) {
             val rootNode = when (val doOrExpr = Analyser(ctx).analyseExpr(form)) {

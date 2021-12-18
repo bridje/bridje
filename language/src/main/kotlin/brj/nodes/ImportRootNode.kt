@@ -1,17 +1,17 @@
 package brj.nodes
 
 import brj.BridjeLanguage
-import brj.runtime.BridjeContext
 import brj.runtime.Nil
 import brj.runtime.Symbol
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal
 import com.oracle.truffle.api.TruffleLanguage
-import com.oracle.truffle.api.dsl.CachedContext
-import com.oracle.truffle.api.dsl.NodeField
+import com.oracle.truffle.api.TruffleLanguage.ContextReference
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.SourceSection
+
+private val CTX_REF = ContextReference.create(BridjeLanguage::class.java)
 
 abstract class ImportRootNode(
     lang: TruffleLanguage<*>,
@@ -21,7 +21,8 @@ abstract class ImportRootNode(
 
     @Specialization
     @ExplodeLoop
-    fun doExecute(@CachedContext(BridjeLanguage::class) ctx: BridjeContext): Any {
+    fun doExecute(): Any {
+        val ctx = CTX_REF[this]
         for (className in classes) {
             ctx.importClass(className)
         }

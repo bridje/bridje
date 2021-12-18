@@ -2,11 +2,13 @@ package brj.builtins
 
 import brj.BridjeLanguage
 import brj.BridjeTypesGen.expectString
-import brj.runtime.BridjeContext
-import com.oracle.truffle.api.dsl.CachedContext
-import com.oracle.truffle.api.dsl.CachedLanguage
+import com.oracle.truffle.api.TruffleLanguage.ContextReference
+import com.oracle.truffle.api.TruffleLanguage.LanguageReference
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.interop.InteropLibrary
+
+private val LANG_REF = LanguageReference.create(BridjeLanguage::class.java)
+private val CTX_REF = ContextReference.create(BridjeLanguage::class.java)
 
 @BuiltIn("pr-str")
 abstract class PrStrNode(lang: BridjeLanguage) : BuiltInFn(lang) {
@@ -14,14 +16,10 @@ abstract class PrStrNode(lang: BridjeLanguage) : BuiltInFn(lang) {
     private var objLib = InteropLibrary.getFactory().createDispatched(3)
 
     @Specialization
-    fun doExecute(
-        obj: Any,
-        @CachedLanguage lang: BridjeLanguage,
-        @CachedContext(BridjeLanguage::class) ctx: BridjeContext
-    ): String {
+    fun doExecute(obj: Any): String {
         val objView =
             if (!objLib.hasLanguage(obj) || objLib.getLanguage(obj) != BridjeLanguage::class.java) {
-                lang.getLanguageView(ctx, obj)
+                LANG_REF.get(this).getLanguageView(CTX_REF.get(this), obj)
             } else obj
 
         return expectString(objLib.toDisplayString(objView))

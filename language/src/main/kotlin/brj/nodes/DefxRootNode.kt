@@ -3,14 +3,13 @@ package brj.nodes
 import brj.BridjeLanguage
 import brj.BridjeTypesGen
 import brj.Typing
-import brj.runtime.BridjeContext
 import brj.runtime.BridjeVar
 import brj.runtime.Symbol
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
+import com.oracle.truffle.api.TruffleLanguage.ContextReference
 import com.oracle.truffle.api.`object`.DynamicObjectLibrary
-import com.oracle.truffle.api.dsl.CachedContext
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -19,15 +18,17 @@ import com.oracle.truffle.api.nodes.UnexpectedResultException
 import com.oracle.truffle.api.profiles.ConditionProfile
 import com.oracle.truffle.api.source.SourceSection
 
+private val CTX_REF = ContextReference.create(BridjeLanguage::class.java)
+
 abstract class DefxRootNode(
     lang: BridjeLanguage, val sym: Symbol, val typing: Typing,
     private val loc: SourceSection?
 ) : RootNode(lang) {
 
     @Specialization
-    fun doExecute(@CachedContext(BridjeLanguage::class) ctx: BridjeContext): Any {
+    fun doExecute(): Any {
         CompilerDirectives.transferToInterpreter()
-        ctx.defx(sym, typing)
+        CTX_REF[this].defx(sym, typing)
         return sym
     }
 
