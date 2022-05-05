@@ -6,7 +6,6 @@ import brj.nodes.DefxRootNodeGen
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
-import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -72,9 +71,7 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
         val defaultImplVar = BridjeVar(null)
 
         val value = BridjeFunction(
-            Truffle.getRuntime().createCallTarget(
-                DefxRootNodeGen.DefxValueRootNodeGen.create(lang, FrameDescriptor(), sym, defaultImplVar)
-            )
+            DefxRootNodeGen.DefxValueRootNodeGen.create(lang, FrameDescriptor(), sym, defaultImplVar).callTarget
         )
 
         globalVars.compute(sym) { _, globalVar ->

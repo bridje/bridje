@@ -10,7 +10,6 @@ import brj.runtime.BridjeFunction
 import brj.runtime.BridjeView
 import brj.runtime.Symbol.Companion.symbol
 import com.oracle.truffle.api.CallTarget
-import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.dsl.NodeFactory
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -29,9 +28,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     override fun createContext(truffleEnv: Env) = BridjeContext(this, truffleEnv)
 
     private fun builtInFunction(node: ExprNode) = BridjeFunction(
-        Truffle.getRuntime().createCallTarget(
-            ValueExprRootNode.create(this, FrameDescriptor(), node)
-        )
+        ValueExprRootNode.create(this, FrameDescriptor(), node).callTarget
     )
 
     private fun installBuiltIns(ctx: BridjeContext) {
@@ -77,7 +74,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun parse(request: ParsingRequest): CallTarget {
         val forms = FormReader(request.source).use { it.readForms().toList() }
-        return Truffle.getRuntime().createCallTarget(EvalRootNodeGen.create(this, forms))
+        return EvalRootNodeGen.create(this, forms).callTarget
     }
 
     override fun getScope(ctx: BridjeContext): TruffleObject = ctx

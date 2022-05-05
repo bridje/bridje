@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    val truffleVersion = "21.3.0"
+    val truffleVersion = "22.1.0"
 
     implementation(kotlin("stdlib-jdk8"))
 

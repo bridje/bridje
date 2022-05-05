@@ -4,7 +4,6 @@ import brj.nodes.*
 import brj.nodes.CallNodeGen.CallArgsNodeGen
 import brj.runtime.BridjeFunction
 import brj.runtime.Nil
-import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.frame.FrameDescriptor
 
 internal class ValueExprEmitter(
@@ -61,7 +60,7 @@ internal class ValueExprEmitter(
                 ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr)
             )
 
-            ConstantNode(lang, expr.loc, BridjeFunction(Truffle.getRuntime().createCallTarget(fnRootNode)))
+            ConstantNode(lang, expr.loc, BridjeFunction(fnRootNode.callTarget))
         }
 
         is CallExpr -> CallNodeGen.create(

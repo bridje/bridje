@@ -64,7 +64,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
                 }
             }
 
-            val callNode = Truffle.getRuntime().createDirectCallNode(Truffle.getRuntime().createCallTarget(rootNode))
+            val callNode = Truffle.getRuntime().createDirectCallNode(rootNode.callTarget)
 
             res = insert(callNode).call(FxMap(FxMap.DEFAULT_SHAPE))
         }
