@@ -3,7 +3,7 @@ package brj.runtime
 import brj.BridjeLanguage
 import brj.Typing
 import brj.nodes.DefxRootNodeGen
-import brj.runtime.Symbol.Companion.symbol
+import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage
@@ -31,10 +31,10 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
         BridjeVector(globalVars.keys.map { it.local }.toList().toTypedArray())
 
     @ExportMessage
-    fun isMemberReadable(key: String) = globalVars.containsKey(symbol(key))
+    fun isMemberReadable(key: String) = globalVars.containsKey(key.sym)
 
     @ExportMessage
-    fun readMember(key: String) = globalVars[symbol(key)]!!.bridjeVar.value
+    fun readMember(key: String) = globalVars[key.sym]!!.bridjeVar.value
 
     @ExportMessage
     fun isScope() = true
@@ -83,7 +83,7 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
     @TruffleBoundary
     fun importClass(className: Symbol) {
         val clazz = truffleEnv.lookupHostSymbol(className.local) as TruffleObject
-        val simpleClassName = symbol(interop.asString(interop.getMetaSimpleName(clazz)))
+        val simpleClassName = interop.asString(interop.getMetaSimpleName(clazz)).sym
         imports[simpleClassName] = clazz
     }
 

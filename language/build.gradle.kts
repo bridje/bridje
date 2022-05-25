@@ -1,10 +1,13 @@
 plugins {
     kotlin("jvm")
     kotlin("kapt")
+    antlr
 }
 
 dependencies {
     val truffleVersion = "22.1.0"
+
+    antlr("org.antlr:antlr4:4.9.2")
 
     implementation(kotlin("stdlib-jdk8"))
 
@@ -23,7 +26,13 @@ sourceSets {
     test { resources { setSrcDirs(listOf("src/test/resources", "src/test/brj")) } }
 }
 
+tasks.generateGrammarSource {
+    arguments = arguments + listOf("-visitor", "-no-listener", "-package", "bridje.antlr")
+}
+
 tasks.compileKotlin {
+    dependsOn(tasks.generateGrammarSource)
+
     java {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -35,6 +44,8 @@ tasks.compileKotlin {
 }
 
 tasks.compileTestKotlin {
+    dependsOn(tasks.generateTestGrammarSource)
+
     java {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

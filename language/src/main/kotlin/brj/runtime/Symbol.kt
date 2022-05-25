@@ -9,8 +9,15 @@ import com.oracle.truffle.api.library.ExportMessage
 class Symbol private constructor(val ns: Symbol?, val local: String) : TruffleObject {
     companion object {
         private val SYMBOLS = mutableMapOf<Pair<Symbol?, String>, Symbol>()
-        internal fun symbol(local: String) = symbol(null, local)
-        internal fun symbol(ns: Symbol?, local: String) = SYMBOLS.computeIfAbsent(Pair(ns, local)) { Symbol(ns, local) }
+
+        private fun intern(ns: Symbol?, local: String) = SYMBOLS.computeIfAbsent(Pair(ns, local)) { Symbol(ns, local) }
+
+        internal val String.sym get() = intern(null, this)
+
+        internal val String.qsym : Symbol get() {
+            val (ns, local) = split("/")
+            return intern(ns.sym, local)
+        }
     }
 
     @ExportMessage

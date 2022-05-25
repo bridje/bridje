@@ -6,26 +6,26 @@ import brj.runtime.BridjeContext
 import brj.runtime.BridjeKey
 import brj.runtime.DefxVar
 import brj.runtime.Symbol
-import brj.runtime.Symbol.Companion.symbol
+import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
 
-private val FX = symbol("_fx")
+private val FX = "_fx".sym
 internal val DEFAULT_FX_LOCAL = LocalVar(FX)
 
-private val DO = symbol("do")
-private val IF = symbol("if")
-private val LET = symbol("let")
-private val FN = symbol("fn")
-private val WITH_FX = symbol("with-fx")
-private val LOOP = symbol("loop")
-private val RECUR = symbol("recur")
-private val NEW = symbol("new")
-private val CASE = symbol("case")
+private val DO = "do".sym
+private val IF = "if".sym
+private val LET = "let".sym
+private val FN = "fn".sym
+private val WITH_FX = "with-fx".sym
+private val LOOP = "loop".sym
+private val RECUR = "recur".sym
+private val NEW = "new".sym
+private val CASE = "case".sym
 
-private val DEF = symbol("def")
-private val DEFX = symbol("defx")
-private val IMPORT = symbol("import")
+private val DEF = "def".sym
+private val DEFX = "defx".sym
+private val IMPORT = "import".sym
 
 internal sealed class TopLevelDoOrExpr
 
@@ -277,15 +277,15 @@ internal data class Analyser(
         is RecordForm -> TODO()
 
         is SymbolForm -> when (form.sym) {
-            symbol("Int") -> IntType
-            symbol("Str") -> StringType
-            symbol("Bool") -> BoolType
+            "Int".sym -> IntType
+            "Str".sym -> StringType
+            "Bool".sym -> BoolType
             else -> TODO()
         }
 
         is ListForm -> parseForms(form.forms) {
             when (expectSymbol()) {
-                symbol("Fn") -> {
+                "Fn".sym -> {
                     FnType(
                         parseForms(expectForm(ListForm::class.java).forms) {
                             rest { analyseMonoType(expectForm()) }

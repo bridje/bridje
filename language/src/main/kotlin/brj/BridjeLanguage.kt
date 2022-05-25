@@ -8,7 +8,7 @@ import brj.nodes.ValueExprRootNode
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeView
-import brj.runtime.Symbol.Companion.symbol
+import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.dsl.NodeFactory
@@ -40,7 +40,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             val ann = factory.nodeClass.getAnnotation(BuiltIn::class.java)
             val argNodes = Array(factory.executionSignature.size) { ReadArgNode(this, it + (if (passFx) 0 else 1)) }
 
-            ctx.def(symbol(ann.name), typing, builtInFunction(factory.createNode(this, argNodes)))
+            ctx.def(ann.name.sym, typing, builtInFunction(factory.createNode(this, argNodes)))
         }
 
         installBuiltIn(ReduceFnFactory.getInstance(), passFx = true)
@@ -59,12 +59,12 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         installBuiltIn(LessThanFnFactory.getInstance())
         installBuiltIn(IsZeroFnFactory.getInstance())
 
-        ctx.defx(symbol("now!"), Typing(TypeVar()))
+        ctx.defx("now!".sym, Typing(TypeVar()))
         installBuiltIn(NowNodeFactory.getInstance())
         installBuiltIn(PolyNodeFactory.getInstance())
         installBuiltIn(PrStrNodeFactory.getInstance())
 
-        ctx.defx(symbol("println!"), Typing(TypeVar()))
+        ctx.defx("println!".sym, Typing(TypeVar()))
         installBuiltIn(PrintlnNodeFactory.getInstance())
     }
 
@@ -73,8 +73,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     override fun parse(request: ParsingRequest): CallTarget {
-        val forms = FormReader(request.source).use { it.readForms().toList() }
-        return EvalRootNodeGen.create(this, forms).callTarget
+        return EvalRootNodeGen.create(this, readForms(request.source)).callTarget
     }
 
     override fun getScope(ctx: BridjeContext): TruffleObject = ctx
