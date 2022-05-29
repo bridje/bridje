@@ -7,7 +7,7 @@ plugins {
 dependencies {
     val truffleVersion = "22.1.0"
 
-    antlr("org.antlr:antlr4:4.9.2")
+    antlr("org.antlr:antlr4:4.9.2") // also need to exclude everything apart from runtime
 
     implementation(kotlin("stdlib-jdk8"))
 
@@ -24,6 +24,12 @@ dependencies {
 sourceSets {
     main { resources { setSrcDirs(listOf("src/main/resources", "src/main/brj")) } }
     test { resources { setSrcDirs(listOf("src/test/resources", "src/test/brj")) } }
+}
+
+configurations {
+    runtimeClasspath {
+        exclude("org.antlr", "antlr4")
+    }
 }
 
 tasks.generateGrammarSource {
@@ -68,5 +74,9 @@ tasks.jar {
     group = "build"
     archiveFileName.set("brj-language.jar")
 
-    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
+        exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }

@@ -3,11 +3,11 @@ grammar Bridje;
 NIL : 'nil' ;
 BOOLEAN : 'false' | 'true' ;
 
-BIG_DECIMAL : ([0-9]+) 'M' | ([0-9]+) '.' ([0-9]+) 'M' ;
-BIG_INTEGER : ([0-9]+) 'N' ;
+BIG_DECIMAL : [0-9]+ 'M' | [0-9]+ '.' [0-9]+ 'M' ;
+BIG_INTEGER : [0-9]+ 'N' ;
 
-FLOAT : ([0-9]+) '.' ([0-9]+) ;
-INT : ([0-9]+) ;
+FLOAT : [0-9]+ '.' [0-9]+ ;
+INT : [0-9]+ ;
 
 STRING : '"' ( ~'"' | '\\' '"' )* '"' ;
 

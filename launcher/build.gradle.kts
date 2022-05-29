@@ -5,8 +5,8 @@ plugins {
 dependencies {
     module(":language")
     implementation(kotlin("stdlib-jdk8"))
-    compileOnly("org.graalvm.sdk:graal-sdk:21.3.0")
-    implementation("org.graalvm.sdk:launcher-common:21.3.0")
+    compileOnly("org.graalvm.sdk:graal-sdk:22.1.0")
+    implementation("org.graalvm.sdk:launcher-common:22.1.0")
 
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
@@ -36,5 +36,9 @@ tasks.jar {
         attributes("Main-Class" to "brj.BridjeLauncher")
     }
 
-    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
+        exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
