@@ -1,0 +1,10 @@
+= Bibliography
+
+(I started this way too late in the day, missing loads. I'll fill this in, honest.)
+
+== Expression problem
+* https://homepages.inf.ed.ac.uk/wadler/fool/program/final/10/10_Paper.pdf[Independently Extensible Solutions to the Expression Problem]
+* https://arxiv.org/pdf/0910.2654.pdf[Type-safe extensible programming] ('MLPolyR'). PhD thesis.
+  { a = e, ... = r } for 'assoc'
+  row constraints - 'r must not contain label a'
+  cases are first class values, can be merged

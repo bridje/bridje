@@ -246,3 +246,11 @@ maybe we include unions and intersections only within object types?
 
 but we still need to deal with the =a U b= case, which may not necessarily be records or variants
 subtyping says go with =a U b=, row poly (well, other unification) says =a=
+
+with unions - sometimes we do want the union rather than the optional key
+we could also say that, if a user _does_ want a union, to explicitly use a variant - otherwise, we'll use optional keys where we can
+or, otherwise we'll disallow it, and that gets us back to standard row poly.
+
+do optional keys mean we need unions, though? might be a record-specific hack if we don't
+
+can we avoid users needing to eliminate a union if we say that key types must unify, but the set of keys can be a subset? (i.e. nullifying if required)
