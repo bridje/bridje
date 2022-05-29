@@ -1,6 +1,7 @@
 package brj
 
 import brj.builtins.*
+import brj.lsp.LspRootNodeGen
 import brj.nodes.EvalRootNodeGen
 import brj.nodes.ExprNode
 import brj.nodes.ReadArgNode
@@ -72,9 +73,17 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         installBuiltIns(ctx)
     }
 
-    override fun parse(request: ParsingRequest): CallTarget {
-        return EvalRootNodeGen.create(this, readForms(request.source)).callTarget
-    }
+    override fun isThreadAccessAllowed(thread: Thread, singleThreaded: Boolean) = true
+
+    override fun parse(request: ParsingRequest): CallTarget =
+        if (request.source.isInternal) {
+            when (request.source.characters) {
+                "(start-lsp!)" -> LspRootNodeGen.create(this).callTarget
+                else -> TODO("unknown internal source")
+            }
+        } else {
+            EvalRootNodeGen.create(this, readForms(request.source)).callTarget
+        }
 
     override fun getScope(ctx: BridjeContext): TruffleObject = ctx
 

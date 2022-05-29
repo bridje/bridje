@@ -11,6 +11,8 @@ dependencies {
 
     implementation(kotlin("stdlib-jdk8"))
 
+    implementation("org.eclipse.lsp4j:org.eclipse.lsp4j:0.14.0")
+
     compileOnly("org.graalvm.truffle:truffle-api:${truffleVersion}")
     testCompileOnly("org.graalvm.truffle:truffle-api:${truffleVersion}")
 

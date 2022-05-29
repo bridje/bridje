@@ -14,6 +14,7 @@ class BridjeLauncher : AbstractLanguageLauncher() {
         data class EvalFile(val file: File) : EvalScript()
         data class EvalString(val str: String) : EvalScript()
         data class EvalMain(val ns: String) : EvalScript()
+        object StartLsp : EvalScript()
     }
 
     private val evalScripts = mutableListOf<EvalScript>()
@@ -30,6 +31,7 @@ class BridjeLauncher : AbstractLanguageLauncher() {
         printOption("-f, --file FILE", "File to execute.")
         printOption("-e, --eval CODE|-", "Evaluate code snippet, or '-' to read from stdin")
         printOption("-m, --main NS", "Evaluates the `main` function in the given namespace.")
+        printOption("--lsp", "Starts an LSP server")
     }
 
     override fun launch(contextBuilder: Context.Builder) {
@@ -38,28 +40,32 @@ class BridjeLauncher : AbstractLanguageLauncher() {
         ctx.enter()
 
         try {
+
             if (evalScripts.isEmpty()) {
                 abort("Nothing to evaluate. See `brj --help` for options.")
             }
 
             evalScripts.forEach { script ->
-                val result = when (script) {
-                    is EvalFile -> ctx.eval(Source.newBuilder("brj", script.file).build())
+                when (script) {
+                    is EvalFile -> println(ctx.eval(Source.newBuilder("brj", script.file).build()))
+
                     is EvalString -> {
-                        if (script.str == "-") ctx.eval(
+                        val result = if (script.str == "-") ctx.eval(
                             Source.newBuilder("brj", System.`in`.reader(), "<stdin>").build()
                         )
                         else ctx.eval("brj", script.str)
+
+                        println(result)
                     }
 
                     is EvalMain -> {
                         val nsEnv = ctx.eval("brj", "(require! ${script.ns})").getMember(script.ns)
                         if (!nsEnv.canInvokeMember("main")) abort("Can't find 'main' function in ${script.ns}")
-                        nsEnv.invokeMember("main", args)
+                        println(nsEnv.invokeMember("main", args))
                     }
-                }
 
-                println(result)
+                    StartLsp -> ctx.eval(Source.newBuilder("brj", "(start-lsp!)", "<lsp>").internal(true).build())
+                }
             }
         } finally {
             ctx.leave()
@@ -86,6 +92,7 @@ class BridjeLauncher : AbstractLanguageLauncher() {
                 "-e", "--eval" -> evalScripts += EvalString(nextArg("--eval"))
                 "-f", "--file" -> evalScripts += EvalFile(File(nextArg("--file")))
                 "-m", "--main" -> evalScripts += EvalMain(nextArg("--main"))
+                "--lsp" -> evalScripts += StartLsp
                 "--" -> break@loop
                 else -> unknownArgs.add(arg)
             }
@@ -101,7 +108,8 @@ class BridjeLauncher : AbstractLanguageLauncher() {
             setOf(
                 "-e", "--eval",
                 "-m", "--main",
-                "-f", "--file"
+                "-f", "--file",
+                "--lsp"
             )
         )
     }
