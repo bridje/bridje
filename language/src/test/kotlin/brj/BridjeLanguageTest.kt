@@ -164,6 +164,7 @@ class BridjeLanguageTest {
     @Test
     fun `test poly`() {
         assertEquals(0, eval("""(poly "python" "import math; math")""").invokeMember("acos", 1).asInt())
+        assertEquals(0, eval("""(.acos (poly "python" "import math; math") 1)""").asInt())
     }
 
     @Test

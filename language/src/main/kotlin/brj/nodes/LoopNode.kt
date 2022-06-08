@@ -11,7 +11,7 @@ import com.oracle.truffle.api.source.SourceSection
 
 class LoopNode(
     lang: BridjeLanguage,
-    private val loc: SourceSection?,
+    loc: SourceSection?,
     @field:Children private val writeLocalNodes: Array<WriteLocalNode>,
     exprNode: ExprNode
 ) : ExprNode(lang, loc) {

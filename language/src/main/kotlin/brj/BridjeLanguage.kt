@@ -87,5 +87,5 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun getScope(ctx: BridjeContext): TruffleObject = ctx
 
-    public override fun getLanguageView(context: BridjeContext?, value: Any) = BridjeView(value)
+    public override fun getLanguageView(context: BridjeContext, value: Any) = BridjeView(value)
 }
