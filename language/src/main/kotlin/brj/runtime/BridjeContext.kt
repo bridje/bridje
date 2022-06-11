@@ -1,11 +1,11 @@
 package brj.runtime
 
-import brj.BridjeLanguage
-import brj.Typing
-import brj.nodes.DefxRootNodeGen
+import brj.*
+import brj.nodes.*
 import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
+import com.oracle.truffle.api.TruffleContext
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -13,6 +13,15 @@ import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.source.Source
+
+internal fun <R> TruffleContext.inContext(f: TruffleContext.() -> R): R {
+    val prev = enter(null)
+    return try {
+        f()
+    } finally {
+        leave(null, prev)
+    }
+}
 
 @ExportLibrary(InteropLibrary::class)
 class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: TruffleLanguage.Env) : TruffleObject {
@@ -90,4 +99,47 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
     @TruffleBoundary
     fun poly(lang: String, code: String): Any =
         truffleEnv.parsePublic(Source.newBuilder(lang, code, "<brj-inline>").build()).call()
+
+    @TruffleBoundary
+    fun evalForm(form: Form): Any? {
+        val rootNode = when (val doOrExpr = Analyser(this).analyseExpr(form)) {
+            is TopLevelDo -> EvalRootNodeGen.create(lang, doOrExpr.forms)
+            is TopLevelExpr -> when (val expr = doOrExpr.expr) {
+                is ValueExpr -> {
+                    // TODO
+                    // typeLogger.info("type: ${valueExprTyping(expr)}")
+
+                    val frameDescriptor = FrameDescriptor()
+                    ValueExprRootNodeGen.create(
+                        lang, frameDescriptor,
+                        WriteLocalNodeGen.create(
+                            lang, ReadArgNode(lang, 0),
+                            frameDescriptor.findOrAddFrameSlot(DEFAULT_FX_LOCAL)
+                        ),
+                        ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr)
+                    )
+                }
+
+                is DefExpr -> {
+                    // TODO
+                    // val valueExprTyping = valueExprTyping(expr.expr)
+                    // typeLogger.info("type: $valueExprTyping")
+
+                    val frameDescriptor = FrameDescriptor()
+                    DefRootNodeGen.create(
+                        lang, frameDescriptor,
+                        expr.sym, Typing(TypeVar()), /*valueExprTyping*/ expr.loc,
+                        ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr),
+                    )
+                }
+
+                is DefxExpr -> DefxRootNodeGen.create(lang, expr.sym, expr.typing, expr.loc)
+
+                is ImportExpr -> ImportRootNodeGen.create(lang, expr.loc, expr.syms.toTypedArray())
+            }
+        }
+
+        val callTarget = rootNode.callTarget
+        return truffleEnv.context.inContext { callTarget.call(FxMap(FxMap.DEFAULT_SHAPE)) }
+    }
 }

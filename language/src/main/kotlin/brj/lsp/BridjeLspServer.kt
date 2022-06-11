@@ -1,8 +1,9 @@
 package brj.lsp
 
+import brj.readForms
 import brj.runtime.BridjeContext
+import brj.runtime.inContext
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
-import com.oracle.truffle.api.TruffleContext
 import com.oracle.truffle.api.source.Source
 import org.eclipse.lsp4j.*
 import org.eclipse.lsp4j.jsonrpc.messages.Either
@@ -79,27 +80,23 @@ internal class BridjeLspServer(
     data class LspEvalDefunParams(val textDocument: TextDocumentItem, val position: Position)
     data class LspEvalResult(val res: String)
 
-    private fun <R> TruffleContext.inContext(f: TruffleContext.() -> R): R {
-        val prev = enter(null)
-        return try {
-            f()
-        } finally {
-            leave(null, prev)
+    private fun TextDocumentItem.toSource(): Source {
+        val truffleEnv = ctx.truffleEnv
+
+        val uri = URI(uri)
+        val updatedSrc = currentDocState[uri]
+
+        return if (updatedSrc != null) {
+            Source.newBuilder("brj", updatedSrc, uri.path).build()
+        } else {
+            Source.newBuilder("brj", truffleEnv.getPublicTruffleFile(uri)).build()
         }
     }
 
     @JsonRequest("brj/evalBuffer", useSegment = false)
     fun evalBuffer(msg: LspEvalBufferParams): CompletableFuture<LspEvalResult> {
         val truffleEnv = ctx.truffleEnv
-
-        val uri = URI(msg.textDocument.uri)
-        val updatedSrc = currentDocState[uri]
-
-        val source = if (updatedSrc != null) {
-            Source.newBuilder("brj", updatedSrc, uri.path).build()
-        } else {
-            Source.newBuilder("brj", truffleEnv.getPublicTruffleFile(uri)).build()
-        }
+        val source = msg.textDocument.toSource()
 
         val res = truffleEnv.context.inContext { truffleEnv.parsePublic(source).call() }
 
@@ -108,8 +105,18 @@ internal class BridjeLspServer(
 
     @JsonRequest("brj/evalDefun", useSegment = false)
     internal fun evalDefun(msg: LspEvalDefunParams): CompletableFuture<LspEvalResult> {
-        System.err.println(msg)
-        return CompletableFuture.completedFuture(LspEvalResult("success!"))
+        val source = msg.textDocument.toSource()
+        val line = msg.position.line + 1
+        val ch = msg.position.character + 1
+
+        val topLevelForm = readForms(source).reversed().find {
+            val loc = it.loc!!
+            loc.startLine < line || (loc.startLine == line && loc.startColumn <= ch)
+        }
+
+        val res = ctx.evalForm(topLevelForm!!)
+
+        return CompletableFuture.completedFuture(LspEvalResult(res.toString()))
     }
 }
 
