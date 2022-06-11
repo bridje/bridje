@@ -28,7 +28,7 @@ fun readForms(source: Source): List<Form> {
 
             override fun visitBool(ctx: BoolContext) = BoolForm(ctx.text.toBoolean(), ctx.loc)
 
-            override fun visitInt(ctx: IntContext) = IntForm(ctx.text.toInt())
+            override fun visitInt(ctx: IntContext) = IntForm(ctx.text.toInt(), ctx.loc)
 
             override fun visitFloat(ctx: FloatContext) = TODO()
             override fun visitBigDecimal(ctx: BigDecimalContext) = TODO()
