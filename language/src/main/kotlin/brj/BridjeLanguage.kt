@@ -1,7 +1,7 @@
 package brj
 
 import brj.builtins.*
-import brj.lsp.LspRootNodeGen
+import brj.lsp.startLspServer
 import brj.nodes.EvalRootNodeGen
 import brj.nodes.ExprNode
 import brj.nodes.ReadArgNode
@@ -15,6 +15,9 @@ import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.dsl.NodeFactory
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.interop.TruffleObject
+import org.graalvm.options.*
+
+private val LSP_OPTION_KEY: OptionKey<Boolean> = OptionKey(false)
 
 @TruffleLanguage.Registration(
     id = "brj",
@@ -25,6 +28,17 @@ import com.oracle.truffle.api.interop.TruffleObject
     contextPolicy = TruffleLanguage.ContextPolicy.SHARED
 )
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
+
+    override fun getOptionDescriptors(): OptionDescriptors =
+        OptionDescriptors.create(
+            listOf(
+                OptionDescriptor.newBuilder(LSP_OPTION_KEY, "brj.lsp")
+                    .stability(OptionStability.STABLE)
+                    .category(OptionCategory.USER)
+                    .help("starts an LSP server, communicating on stdin/stdout")
+                    .build()
+            )
+        )
 
     override fun createContext(truffleEnv: Env) = BridjeContext(this, truffleEnv)
 
@@ -69,21 +83,25 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         installBuiltIn(PrintlnNodeFactory.getInstance())
     }
 
+    private var lspThread: Thread? = null
+
     override fun initializeContext(ctx: BridjeContext) {
         installBuiltIns(ctx)
+
+        if (ctx.truffleEnv.options[LSP_OPTION_KEY]) {
+            lspThread = ctx.truffleEnv.createThread { startLspServer(ctx) }
+                .also { t -> t.name = "brj-lsp"; t.start() }
+        }
+    }
+
+    override fun finalizeContext(context: BridjeContext) {
+        lspThread?.join()
     }
 
     override fun isThreadAccessAllowed(thread: Thread, singleThreaded: Boolean) = true
 
     override fun parse(request: ParsingRequest): CallTarget =
-        if (request.source.isInternal) {
-            when (request.source.characters) {
-                "(start-lsp!)" -> LspRootNodeGen.create(this).callTarget
-                else -> TODO("unknown internal source")
-            }
-        } else {
-            EvalRootNodeGen.create(this, readForms(request.source)).callTarget
-        }
+        EvalRootNodeGen.create(this, readForms(request.source)).callTarget
 
     override fun getScope(ctx: BridjeContext): TruffleObject = ctx
 
