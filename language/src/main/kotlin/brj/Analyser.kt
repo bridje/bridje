@@ -39,163 +39,218 @@ internal data class Analyser(
     private val locals: Map<Symbol, LocalVar> = emptyMap(),
     private val fxLocal: LocalVar = DEFAULT_FX_LOCAL
 ) {
+    private fun Zip<Form>?.analyseImplicitDo(loopLocals: LoopLocals): ValueExpr {
+        if (this == null) TODO("`do` requires at least one expr")
 
-    private fun parseDo(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection? = null) = formParser.run {
-        val exprs = rest { analyseValueExpr(expectForm(), if (forms.isNotEmpty()) null else loopLocals) }
-        if (exprs.isEmpty()) TODO("expecting at least one expression in `do`, $loc")
-        DoExpr(exprs.dropLast(1), exprs.last(), loc)
+        val zips = zrights.toList()
+
+        return DoExpr(
+            zips.dropLast(1).map { it.analyseValueExpr(null) },
+            zips.last().analyseValueExpr(loopLocals),
+            zup!!.znode.loc
+        )
     }
 
-    private fun parseIf(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?) = formParser.run {
-        IfExpr(
-            analyseValueExpr(expectForm(), null),
-            analyseValueExpr(expectForm(), loopLocals),
-            analyseValueExpr(expectForm(), loopLocals),
-            loc
-        ).also { expectEnd() }
+    private fun Zip<Form>.analyseDo(loopLocals: LoopLocals): ValueExpr = zright.analyseImplicitDo(loopLocals)
+
+    private fun Zip<Form>.analyseIf(loopLocals: LoopLocals): ValueExpr {
+        val predZip = zright ?: TODO("if missing predicate")
+        val thenZip = predZip.zright ?: TODO("if missing then")
+        val elseZip = thenZip.zright ?: TODO("if missing else")
+        return IfExpr(
+            predZip.analyseValueExpr(null),
+            thenZip.analyseValueExpr(loopLocals),
+            elseZip.analyseValueExpr(loopLocals),
+            zup!!.znode.loc
+        )
     }
 
-    private fun parseLet(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
-        formParser.run {
+    private fun Zip<Form>.analyseLet(loopLocals: LoopLocals): ValueExpr =
+        (zright ?: TODO("expected binding form")).run {
             var analyser = this@Analyser
 
-            val bindingForm = expectForm(VectorForm::class.java)
-            val bindings = parseForms(bindingForm.forms) {
-                rest {
-                    val sym = expectSymbol()
-                    val localVar = LocalVar(sym)
-                    val binding = Binding(localVar, analyser.analyseValueExpr(expectForm(), loopLocals))
+            if (znode !is VectorForm) TODO("expected vector")
+
+            val bindings = sequence {
+                var z = zdown
+                while (z != null) {
+                    val sym = ((z.znode as? SymbolForm) ?: TODO("expected symbol")).sym
+                    val localVar = sym.lv
+                    z = (z.zright ?: TODO("missing expr"))
+                    val expr = analyser.run { z!!.analyseValueExpr(null) }
+                    yield(Binding(localVar, expr))
                     analyser = analyser.copy(locals = analyser.locals + (sym to localVar))
-                    binding
-                }.also { expectEnd() }
-            }
-
-            return LetExpr(bindings, analyser.parseDo(this, loopLocals), loc)
-                .also { expectEnd() }
-        }
-
-    private fun parseFn(params: List<LocalVar>, formParser: FormParser, loc: SourceSection?) =
-        FnExpr(
-            fxLocal, params,
-            Analyser(env, params.associateBy(LocalVar::symbol)).parseDo(formParser, loopLocals = params), loc
-        )
-
-    private fun parseFn(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        parseFn(
-            parseForms(expectForm(VectorForm::class.java).forms) {
-                rest { LocalVar(expectSymbol()) }
-            },
-            this,
-            loc
-        )
-    }
-
-    private fun parseWithFx(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
-        formParser.run {
-            val bindings = parseForms(expectForm(VectorForm::class.java).forms) {
-                rest {
-                    val listForm = expectForm(ListForm::class.java)
-                    parseForms(listForm.forms) {
-                        val defExpr = maybe {
-                            if (expectSymbol() != DEF) TODO("expected: `(with-fx [(def ...)] ...)`, ${listForm.loc}")
-                            parseDef(this, listForm.loc).also { expectEnd() }
-                        } ?: TODO("failed parsing `with-fx` override, ${listForm.loc}")
-                        WithFxBinding(
-                            env.globalVars[defExpr.sym] as? DefxVar
-                                ?: TODO("unknown var ${defExpr.sym} in `with-fx`, $loc"), defExpr.expr
-                        )
-                    }
+                    z = z.zright
                 }
+            }.toList()
+
+            return analyser.run {
+                LetExpr(bindings, zright.analyseImplicitDo(loopLocals), zup!!.znode.loc)
             }
-
-            val newFx = LocalVar(FX)
-
-            return WithFxExpr(
-                fxLocal,
-                bindings,
-                newFx,
-                this@Analyser.copy(fxLocal = newFx).analyseValueExpr(expectForm(), loopLocals),
-                loc
-            ).also { expectEnd() }
         }
 
-    private fun parseLoop(formParser: FormParser, loc: SourceSection?): ValueExpr =
-        formParser.run {
-            val bindings = parseForms(expectForm(VectorForm::class.java).forms) {
-                rest {
-                    Binding(
-                        LocalVar(expectSymbol()),
-                        analyseValueExpr(expectForm(), loopLocals = null)
-                    )
-                }.also { expectEnd() }
-            }
-
-            val analyser = copy(locals = locals + bindings.map { it.binding.symbol to it.binding })
-
-            LoopExpr(bindings, analyser.parseDo(this, bindings.map { it.binding }), loc)
-                .also { expectEnd() }
-        }
-
-    private fun parseRecur(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr {
-        if (loopLocals == null) TODO("recur from non-tail position, $loc")
-
-        if (formParser.forms.size != loopLocals.size) TODO("mismatch in recur var count, $loc")
-
-        val exprs = formParser.rest { analyseValueExpr(expectForm(), loopLocals = null) }
-
-        return RecurExpr(loopLocals.zip(exprs).map { Binding(it.first, it.second) }, loc)
+    private fun Zip<Form>?.analyseFnBody(params: List<LocalVar>): FnExpr {
+        if (this == null) TODO("missing fn body")
+        return FnExpr(
+            fxLocal, params,
+            Analyser(env, params.associateBy(LocalVar::symbol)).run {
+                analyseImplicitDo(loopLocals = params)
+            },
+            zup!!.znode.loc
+        )
     }
 
-    private fun parseRecord(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
+    private fun Zip<Form>.analyseFn(): FnExpr {
+        (zright ?: TODO("expected form")).run {
+            if (znode !is VectorForm) TODO("expected vector")
+            val params = zdown.zrights.map {
+                ((it.znode as? SymbolForm) ?: TODO("expected symbol")).sym.lv
+            }.toList()
+
+            return zright.analyseFnBody(params)
+        }
+    }
+
+    private fun Zip<Form>.analyseWithFx(loopLocals: LoopLocals): ValueExpr =
+        (zright ?: TODO("expected form")).run {
+            if (znode !is VectorForm) TODO("expected vector")
+
+            val bindings = zdown.zrights.map {
+                if (it.znode !is ListForm) TODO("expected def")
+                val defExpr = it.zdown.run {
+                    if (this == null || (znode as? SymbolForm)?.sym != DEF) TODO("expected def")
+                    analyseDef()
+                }
+                WithFxBinding(
+                    (env.globalVars[defExpr.sym] as? DefxVar) ?: TODO("unknown var ${defExpr.sym}"),
+                    defExpr.expr
+                )
+            }.toList()
+
+            val newFx = FX.lv
+
+            val expr = this@Analyser.copy(fxLocal = newFx).run {
+                zright.analyseImplicitDo(loopLocals)
+            }
+
+            WithFxExpr(fxLocal, bindings, newFx, expr, zup!!.znode.loc)
+        }
+
+    private fun Zip<Form>.analyseLoop(): ValueExpr =
+        (zright ?: TODO("expected form")).run {
+            if (znode !is VectorForm) TODO("expected vector")
+            val bindings = sequence {
+                var z = zdown
+                while (z != null) {
+                    val localVar = ((z.znode as? SymbolForm) ?: TODO("expected symbol")).sym.lv
+                    z = (z.zright ?: TODO("missing expr"))
+                    val expr = z.analyseValueExpr(null)
+                    yield(Binding(localVar, expr))
+                    z = z.zright
+                }
+            }.toList()
+
+            val analyser = this@Analyser.copy(locals = locals + bindings.map { it.binding.symbol to it.binding })
+
+            return analyser.run {
+                LoopExpr(bindings, zright.analyseImplicitDo(bindings.map { it.binding }), zup!!.znode.loc)
+            }
+        }
+
+    private fun Zip<Form>.analyseRecur(loopLocals: LoopLocals): ValueExpr {
+        if (loopLocals == null) TODO("recur from non-tail position")
+
+        val rights = zright.zrights.toList()
+
+        if (rights.size != loopLocals.size) TODO("mismatch in recur var count")
+
+        val exprs = rights.map { it.analyseValueExpr(null) }
+
+        return RecurExpr(loopLocals.zip(exprs).map { Binding(it.first, it.second) }, zup!!.znode.loc)
+    }
+
+    private fun Zip<Form>.analyseRecord() =
         RecordExpr(
-            rest {
-                expectKeyword() to analyseValueExpr(expectForm(), loopLocals = null)
+            sequence {
+                var z = zdown
+                while (z != null) {
+                    val k = (((z.znode as? KeywordForm) ?: TODO("expecting keyword")).sym)
+                    z = z.zright ?: TODO("expecting value")
+                    yield(k to z.analyseValueExpr(null))
+                    z = z.zright
+                }
             }.toMap(),
-            loc
-        ).also { expectEnd() }
-    }
+            znode.loc
+        )
 
-    private fun parseNew(formParser: FormParser, loc: SourceSection?): ValueExpr = formParser.run {
-        NewExpr(analyseValueExpr(expectForm(), null), rest { analyseValueExpr(expectForm(), null) }, loc)
-    }
+    private fun Zip<Form>.analyseNew() =
+        (zright ?: TODO("expected form")).run {
+            NewExpr(
+                analyseValueExpr(null),
+                sequence {
+                    var z = zright
+                    while (z != null) {
+                        this.yield(z.analyseValueExpr(null))
+                        z = z.zright
+                    }
+                }.toList(),
+                zup!!.znode.loc
+            )
+        }
 
-    private fun parseCase(formParser: FormParser, loopLocals: LoopLocals, loc: SourceSection?): ValueExpr =
-        formParser.run {
-            val expr = analyseValueExpr(expectForm(), null)
+
+    private fun Zip<Form>.analyseCase(loopLocals: LoopLocals): ValueExpr =
+        (zright ?: TODO("expected expr in `case`")).run {
+            val expr = analyseValueExpr(null)
 
             var nilClause: ValueExpr? = null
             val clauses = mutableListOf<CaseClause>()
             var default: ValueExpr? = null
 
-            if (forms.isEmpty()) TODO("case without any forms, $loc")
+            var z: Zip<Form>? = zright ?: TODO("case without any forms")
 
-            rest {
-                val form = expectForm()
-                when {
-                    forms.isEmpty() -> default = analyseValueExpr(form, loopLocals)
-                    form is NilForm -> {
-                        if (nilClause != null) TODO("duplicate `nil` clauses in case, $loc")
-                        nilClause = analyseValueExpr(expectForm(), loopLocals)
-                    }
+            while (z != null) {
+                val zafter = z.zright
+                if (zafter == null) {
+                    default = z.analyseValueExpr(loopLocals)
+                    z = null
+                } else {
+                    z.run {
+                        znode.run {
+                            when (this) {
+                                is NilForm -> {
+                                    if (nilClause != null) TODO("duplicate `nil` clauses in case")
+                                    nilClause = zafter.analyseValueExpr(loopLocals)
+                                }
 
-                    form is ListForm -> {
-                        val (keySym, binding) = parseForms(form.forms) {
-                            Pair(
-                                expectKeyword(),
-                                expectSymbol().also { if (it.ns != null) TODO("unexpected qualified symbol in `case` binding, ${form.loc}") })
-                                .also { expectEnd() }
+                                is ListForm -> {
+                                    val metaObjectZip = zdown ?: TODO("empty list")
+                                    val bindingZip = metaObjectZip.zright ?: TODO("missing binding")
+                                    val bindingSym = (bindingZip.znode as? SymbolForm)?.sym?.takeIf { it.ns == null }
+                                        ?: TODO("expected symbol")
+                                    val localVar = bindingSym.lv
+
+                                    clauses += CaseClause(
+                                        BridjeKey(
+                                            ((metaObjectZip.znode as? KeywordForm) ?: TODO("expected keyword")).sym
+                                        ),
+                                        localVar,
+                                        this@Analyser.copy(locals = locals + (bindingSym to localVar)).run {
+                                            zafter.analyseValueExpr(loopLocals)
+                                        }
+                                    )
+                                }
+
+                                else -> TODO("unexpected pattern in `case`")
+                            }
                         }
-                        val localVar = LocalVar(binding)
-                        val analyser = copy(locals = locals + (binding to localVar))
-                        val clauseExpr = analyser.analyseValueExpr(expectForm(), loopLocals)
-                        clauses += CaseClause(BridjeKey(keySym), localVar, clauseExpr)
                     }
 
-                    else -> TODO("unexpected clause in `case`, ${form.loc}")
+                    z = zafter.zright
                 }
             }
 
-            CaseExpr(expr, nilClause, clauses, default, loc)
+            return CaseExpr(expr, nilClause, clauses, default, zup!!.znode.loc)
         }
 
     private fun resolveHostSymbol(sym: Symbol, loc: SourceSection?): TruffleObject? {
@@ -216,163 +271,197 @@ internal data class Analyser(
         return null
     }
 
-    private fun analyseValueExpr(form: Form, loopLocals: LoopLocals): ValueExpr = when (form) {
-        is ListForm -> parseForms(form.forms) {
-            or({
-                when (maybe { expectSymbol() }) {
-                    DO -> parseDo(this, loopLocals, form.loc)
-                    IF -> parseIf(this, loopLocals, form.loc)
-                    LET -> parseLet(this, loopLocals, form.loc)
-                    FN -> parseFn(this, form.loc)
-                    WITH_FX -> parseWithFx(this, loopLocals, form.loc)
-                    LOOP -> parseLoop(this, form.loc)
-                    RECUR -> parseRecur(this, loopLocals, form.loc)
-                    NEW -> parseNew(this, form.loc)
-                    CASE -> parseCase(this, loopLocals, form.loc)
-                    else -> null
+    private fun Zip<Form>.analyseValueExpr(loopLocals: LoopLocals): ValueExpr = znode.run {
+        when (this) {
+            is NilForm -> NilExpr(loc)
+            is IntForm -> IntExpr(int, loc)
+            is BoolForm -> BoolExpr(bool, loc)
+            is StringForm -> StringExpr(string, loc)
+            is VectorForm -> VectorExpr(zchildren.map { it.analyseValueExpr(null) }, loc)
+            is SetForm -> SetExpr(zchildren.map { it.analyseValueExpr(null) }, loc)
+            is RecordForm -> analyseRecord()
+
+            is SymbolForm -> {
+                if (sym.ns == null) {
+                    locals[sym]?.let { return LocalVarExpr(it, loc) }
+                    env.globalVars[sym]?.let { return GlobalVarExpr(it, loc) }
                 }
-            }, {
-                CallExpr(
-                    analyseValueExpr(expectForm(), loopLocals),
-                    LocalVarExpr(fxLocal, null),
-                    rest { analyseValueExpr(expectForm(), loopLocals) },
-                    form.loc
-                )
-            }) ?: TODO("failed to parse list form, ${form.loc}")
-        }
 
-        is NilForm -> NilExpr(form.loc)
-        is IntForm -> IntExpr(form.int, form.loc)
-        is BoolForm -> BoolExpr(form.bool, form.loc)
-        is StringForm -> StringExpr(form.string, form.loc)
-        is VectorForm -> VectorExpr(form.forms.map { analyseValueExpr(it, loopLocals) }, form.loc)
-        is SetForm -> SetExpr(form.forms.map { analyseValueExpr(it, loopLocals) }, form.loc)
-        is RecordForm -> parseRecord(FormParser(form.forms), form.loc)
+                resolveHostSymbol(sym, loc)?.let { return TruffleObjectExpr(it, loc) }
 
-        is SymbolForm -> {
-            val sym = form.sym
-
-            if (sym.ns == null) {
-                locals[sym]?.let { return LocalVarExpr(it, form.loc) }
-                env.globalVars[sym]?.let { return GlobalVarExpr(it, form.loc) }
+                TODO("can't find symbol: $sym")
             }
 
-            resolveHostSymbol(sym, form.loc)?.let { return TruffleObjectExpr(it, form.loc) }
+            is KeywordForm -> KeywordExpr(BridjeKey(sym), loc)
+            is KeywordDotForm -> TruffleObjectExpr(InstantiateFn(BridjeKey(sym)), loc)
 
-            TODO("can't find symbol: $sym")
-        }
+            is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFn(sym), loc)
+            is SymbolDotForm -> TruffleObjectExpr(
+                InstantiateFn(
+                    resolveHostSymbol(sym, loc) ?: TODO("can't find host symbol '$sym'")
+                ),
+                loc
+            )
 
-        is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFn(form.sym), form.loc)
-        is SymbolDotForm -> TruffleObjectExpr(
-            InstantiateFn(
-                resolveHostSymbol(form.sym, form.loc) ?: TODO("can't find host symbol '$form.sym', ${form.loc}")
-            ), form.loc
-        )
-        is KeywordForm -> KeywordExpr(BridjeKey(form.sym), form.loc)
-        is KeywordDotForm -> TruffleObjectExpr(InstantiateFn(BridjeKey(form.sym)), form.loc)
-    }
+            is ListForm -> {
+                zdown.run {
+                    if (this == null) TODO("empty list")
 
-    private fun analyseMonoType(form: Form): MonoType = when (form) {
-        is IntForm, is BoolForm, is StringForm -> TODO("invalid type")
-        is RecordForm -> TODO()
+                    znode.run {
+                        val specialFormExpr = when (this) {
+                            is SymbolForm -> when (sym) {
+                                DO -> analyseDo(loopLocals)
+                                IF -> analyseIf(loopLocals)
+                                LET -> analyseLet(loopLocals)
+                                FN -> analyseFn()
+                                WITH_FX -> analyseWithFx(loopLocals)
+                                LOOP -> analyseLoop()
+                                RECUR -> analyseRecur(loopLocals)
+                                NEW -> analyseNew()
+                                CASE -> analyseCase(loopLocals)
+                                else -> null
+                            }
 
-        is SymbolForm -> when (form.sym) {
-            "Int".sym -> IntType
-            "Str".sym -> StringType
-            "Bool".sym -> BoolType
-            else -> TODO()
-        }
-
-        is ListForm -> parseForms(form.forms) {
-            when (expectSymbol()) {
-                "Fn".sym -> {
-                    FnType(
-                        parseForms(expectForm(ListForm::class.java).forms) {
-                            rest { analyseMonoType(expectForm()) }
-                        },
-                        analyseMonoType(expectForm())
-                    )
-                }
-                else -> TODO()
-            }
-        }
-
-        is VectorForm -> parseForms(form.forms) {
-            VectorType(analyseMonoType(expectForm())).also { expectEnd() }
-        }
-
-        is SetForm -> parseForms(form.forms) {
-            SetType(analyseMonoType(expectForm())).also { expectEnd() }
-        }
-
-        else -> TODO()
-    }
-
-    data class DefHeader(val sym: Symbol, val paramForms: List<Form>?)
-
-    private fun parseDefHeader(formParser: FormParser) = formParser.run {
-        or({
-            maybe { expectSymbol() }?.let { sym ->
-                DefHeader(sym, null)
-            }
-        }, {
-            maybe { expectForm(ListForm::class.java) }?.let { listForm ->
-                parseForms(listForm.forms) {
-                    DefHeader(expectSymbol(), rest { expectForm() }).also { expectEnd() }
-                }
-            }
-        })
-    }
-
-    private fun parseDef(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        val header = parseDefHeader(this) ?: TODO("failed to parse `def`, $loc")
-        val expr =
-            if (header.paramForms != null)
-                parseFn(parseForms(header.paramForms) { rest { LocalVar(expectSymbol()) } }, this, loc)
-            else
-                analyseValueExpr(expectForm(), null)
-
-        DefExpr(header.sym, expr, loc)
-    }
-
-    private fun parseDefx(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        val header = parseDefHeader(formParser) ?: TODO("failed to parse def header, $loc")
-        val monoType =
-            if (header.paramForms != null)
-                FnType(
-                    parseForms(header.paramForms) { rest { analyseMonoType(expectForm()) } },
-                    analyseMonoType(expectForm())
-                )
-            else
-                analyseMonoType(expectForm()) as? FnType ?: TODO("failed to parse MonoType, $loc")
-
-        DefxExpr(header.sym, Typing(monoType, fx = setOf(header.sym)), loc)
-            .also { expectEnd() }
-    }
-
-    private fun parseImport(formParser: FormParser, loc: SourceSection?) = formParser.run {
-        ImportExpr(rest { expectSymbol() }, loc).also { expectEnd() }
-    }
-
-    fun analyseExpr(form: Form): TopLevelDoOrExpr = parseForms(listOf(form)) {
-        or({
-            maybe { expectForm(ListForm::class.java) }?.let { listForm ->
-                parseForms(listForm.forms) {
-                    maybe {
-                        expectSymbol().takeIf { it == DEF || it == DEFX || it == DO || it == IMPORT }
-                    }?.let { sym ->
-                        when (sym) {
-                            DO -> TopLevelDo(forms)
-                            DEF -> TopLevelExpr(parseDef(this, listForm.loc))
-                            DEFX -> TopLevelExpr(parseDefx(this, listForm.loc))
-                            IMPORT -> TopLevelExpr(parseImport(this, listForm.loc))
                             else -> null
+                        }
+
+                        if (specialFormExpr != null)
+                            specialFormExpr
+                        else {
+                            CallExpr(
+                                analyseValueExpr(null),
+                                LocalVarExpr(fxLocal, null),
+                                zright.zrights.map { it.analyseValueExpr(null) }.toList(),
+                                zup!!.znode.loc
+                            )
                         }
                     }
                 }
             }
-        }, {
-            TopLevelExpr(analyseValueExpr(expectForm(), null))
-        })
-    } ?: TODO("failed to parse expression, ${form.loc}")
+        }
+    }
+
+    private fun Zip<Form>.analyseMonoType(): MonoType = znode.run {
+        when (this) {
+            is IntForm, is BoolForm, is StringForm -> TODO("invalid type")
+            is RecordForm -> TODO()
+
+            is SymbolForm -> when (sym) {
+                "Int".sym -> IntType
+                "Str".sym -> StringType
+                "Bool".sym -> BoolType
+                else -> TODO()
+            }
+
+            is ListForm -> zdown.run {
+                if (this == null) TODO("expected form")
+                znode.run {
+                    when (((this as? SymbolForm) ?: TODO("expected symbol")).sym) {
+                        "Fn".sym -> {
+                            val paramsZip = zright ?: TODO("expected params")
+                            val params = paramsZip.run {
+                                if (znode !is ListForm) TODO("expected param list")
+                                zdown.zrights.map { it.analyseMonoType() }.toList()
+                            }
+                            val resultZip = (zright ?: TODO("expected result type"))
+                            val result = resultZip.analyseMonoType()
+                            if (resultZip.zright != null) TODO("extra form")
+                            FnType(params, result)
+                        }
+
+                        else -> TODO("unexpected sym")
+                    }
+                }
+            }
+
+            is VectorForm -> zdown.run {
+                if (this == null) TODO("expected form")
+                if (zright != null) TODO("too many forms")
+                VectorType(analyseMonoType())
+            }
+
+            is SetForm -> zdown.run {
+                if (this == null) TODO("expected form")
+                if (zright != null) TODO("too many forms")
+                SetType(analyseMonoType())
+            }
+
+            else -> TODO()
+        }
+    }
+
+
+    data class DefHeader(val sym: Symbol, val params: Sequence<Zip<Form>>?)
+
+    private fun Zip<Form>?.analyseDefHeader(): DefHeader {
+        if (this == null) TODO("expected sym after `def`")
+
+        return znode.run {
+            when (this) {
+                is SymbolForm -> DefHeader(sym, null)
+                is ListForm -> zdown.run {
+                    if (this == null) TODO("empty list in `def`")
+                    znode.run {
+                        val sym = ((this as? SymbolForm) ?: TODO("expected sym after `def`")).sym
+
+                        DefHeader(sym, zright.zrights)
+                    }
+                }
+
+                else -> TODO("unexpected form in `def`")
+            }
+        }
+    }
+
+    private fun Zip<Form>.analyseDef(): DefExpr {
+        val header = zright.analyseDefHeader()
+        val params =
+            header.params?.map { ((it.znode as? SymbolForm) ?: TODO("expected symbol in def")).sym.lv }?.toList()
+
+        val expr = (zright?.zright ?: TODO("expected def body")).run {
+            if (params != null) analyseFnBody(params) else analyseImplicitDo(null)
+        }
+
+        return DefExpr(header.sym, expr, zup!!.znode.loc)
+    }
+
+    private fun Zip<Form>.analyseDefx(): DefxExpr {
+        val header = analyseDefHeader()
+        val resultTypeZip = zright ?: TODO("missing result type")
+        val monoType =
+            if (header.params != null)
+                FnType(
+                    header.params.map { it.analyseMonoType() }.toList(),
+                    resultTypeZip.analyseMonoType()
+                )
+            else
+                resultTypeZip.analyseMonoType() as? FnType ?: TODO("failed to parse MonoType")
+
+        return DefxExpr(header.sym, Typing(monoType, fx = setOf(header.sym)), zup!!.znode.loc)
+    }
+
+    private fun Zip<Form>.parseImport() =
+        ImportExpr(
+            zright.zrights.map { ((it.znode as? SymbolForm) ?: TODO("non-symbol in import")).sym }.toList(),
+            zup!!.znode.loc
+        )
+
+    fun Zip<Form>.analyseExpr(): TopLevelDoOrExpr = znode.run {
+        when (this) {
+            is ListForm -> zdown?.run {
+                when ((znode as? SymbolForm)?.sym) {
+                    DO -> TopLevelDo(zright.zrights.map { it.znode }.toList())
+                    DEF -> TopLevelExpr(analyseDef())
+                    DEFX -> TopLevelExpr(analyseDefx())
+                    IMPORT -> TopLevelExpr(parseImport())
+                    else -> null
+                }
+            }
+
+            else -> null
+        } ?: TopLevelExpr(analyseValueExpr(null))
+    }
+
+    fun analyseExpr(form: Form) = form.zip.analyseExpr()
 }
+

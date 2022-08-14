@@ -4,8 +4,10 @@ import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
 import java.util.*
 
-sealed class Form {
+sealed class Form : Zippable<Form> {
     abstract val loc: SourceSection?
+
+    override val children: List<Form> = emptyList()
 }
 
 internal class NilForm(override val loc: SourceSection?) : Form() {
@@ -122,6 +124,8 @@ internal class ListForm(val forms: List<Form>, override val loc: SourceSection? 
     override fun toString(): String {
         return forms.joinToString(prefix = "(", separator = " ", postfix = ")")
     }
+
+    override val children = forms
 }
 
 class VectorForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
@@ -136,6 +140,8 @@ class VectorForm(val forms: List<Form>, override val loc: SourceSection? = null)
     override fun toString(): String {
         return forms.joinToString(prefix = "[", separator = " ", postfix = "]")
     }
+
+    override val children = forms
 }
 
 class SetForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
@@ -150,6 +156,8 @@ class SetForm(val forms: List<Form>, override val loc: SourceSection? = null) : 
     override fun toString(): String {
         return forms.joinToString(prefix = "#{", separator = " ", postfix = "}")
     }
+
+    override val children = forms
 }
 
 class RecordForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
@@ -164,4 +172,6 @@ class RecordForm(val forms: List<Form>, override val loc: SourceSection? = null)
     override fun toString(): String {
         return forms.joinToString(prefix = "{", separator = " ", postfix = "}")
     }
+
+    override val children = forms
 }
