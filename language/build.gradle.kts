@@ -7,7 +7,8 @@ plugins {
 dependencies {
     val truffleVersion = "22.1.0"
 
-    antlr("org.antlr:antlr4:4.9.2") // also need to exclude everything apart from runtime
+    antlr("org.antlr:antlr4:4.9.2")
+    implementation("org.antlr:antlr4-runtime:4.9.2")
 
     implementation(kotlin("stdlib-jdk8"))
 
