@@ -34,7 +34,7 @@ internal data class TopLevelExpr(val expr: Expr) : TopLevelDoOrExpr()
 
 private typealias LoopLocals = List<LocalVar>?
 
-internal data class Analyser(
+internal data class ExprAnalyser(
     private val env: BridjeContext,
     private val locals: Map<Symbol, LocalVar> = emptyMap(),
     private val fxLocal: LocalVar = DEFAULT_FX_LOCAL
@@ -67,7 +67,7 @@ internal data class Analyser(
 
     private fun Zip<Form>.analyseLet(loopLocals: LoopLocals): ValueExpr =
         (zright ?: TODO("expected binding form")).run {
-            var analyser = this@Analyser
+            var analyser = this@ExprAnalyser
 
             if (znode !is VectorForm) TODO("expected vector")
 
@@ -93,7 +93,7 @@ internal data class Analyser(
         if (this == null) TODO("missing fn body")
         return FnExpr(
             fxLocal, params,
-            Analyser(env, params.associateBy(LocalVar::symbol)).run {
+            ExprAnalyser(env, params.associateBy(LocalVar::symbol)).run {
                 analyseImplicitDo(loopLocals = params)
             },
             zup!!.znode.loc
@@ -129,7 +129,7 @@ internal data class Analyser(
 
             val newFx = FX.lv
 
-            val expr = this@Analyser.copy(fxLocal = newFx).run {
+            val expr = this@ExprAnalyser.copy(fxLocal = newFx).run {
                 zright.analyseImplicitDo(loopLocals)
             }
 
@@ -150,7 +150,7 @@ internal data class Analyser(
                 }
             }.toList()
 
-            val analyser = this@Analyser.copy(locals = locals + bindings.map { it.binding.symbol to it.binding })
+            val analyser = this@ExprAnalyser.copy(locals = locals + bindings.map { it.binding.symbol to it.binding })
 
             return analyser.run {
                 LoopExpr(bindings, zright.analyseImplicitDo(bindings.map { it.binding }), zup!!.znode.loc)
@@ -235,7 +235,7 @@ internal data class Analyser(
                                             ((metaObjectZip.znode as? KeywordForm) ?: TODO("expected keyword")).sym
                                         ),
                                         localVar,
-                                        this@Analyser.copy(locals = locals + (bindingSym to localVar)).run {
+                                        this@ExprAnalyser.copy(locals = locals + (bindingSym to localVar)).run {
                                             zafter.analyseValueExpr(loopLocals)
                                         }
                                     )

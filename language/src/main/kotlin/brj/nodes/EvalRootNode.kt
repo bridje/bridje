@@ -27,7 +27,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
         val ctx = CTX_REF[this]
 
         for (form in forms) {
-            val rootNode = when (val doOrExpr = Analyser(ctx).analyseExpr(form)) {
+            val rootNode = when (val doOrExpr = ExprAnalyser(ctx).analyseExpr(form)) {
                 is TopLevelDo -> EvalRootNodeGen.create(lang, doOrExpr.forms)
                 is TopLevelExpr -> when (val expr = doOrExpr.expr) {
                     is ValueExpr -> {
