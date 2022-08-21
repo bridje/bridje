@@ -4,6 +4,7 @@ import brj.BridjeLanguage
 import brj.BridjeTypesGen
 import brj.Typing
 import brj.runtime.BridjeVar
+import brj.runtime.NsContext
 import brj.runtime.Symbol
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.Truffle
@@ -20,15 +21,15 @@ import com.oracle.truffle.api.source.SourceSection
 
 private val CTX_REF = ContextReference.create(BridjeLanguage::class.java)
 
-abstract class DefxRootNode(
-    lang: BridjeLanguage, val sym: Symbol, val typing: Typing,
+internal abstract class DefxRootNode(
+    lang: BridjeLanguage, val nsCtx: NsContext, val sym: Symbol, val typing: Typing,
     private val loc: SourceSection?
 ) : RootNode(lang) {
 
     @Specialization
     fun doExecute(): Any {
         CompilerDirectives.transferToInterpreter()
-        CTX_REF[this].defx(sym, typing)
+        nsCtx.defx(sym, typing)
         return sym
     }
 

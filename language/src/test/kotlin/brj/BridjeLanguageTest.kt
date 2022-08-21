@@ -60,7 +60,7 @@ class BridjeLanguageTest {
     fun `exposes value in scope`() {
         eval("(def x 10)")
         eval("""(def y "Hello")""")
-        val bindings = ctx.getBindings("brj")
+        val bindings = ctx.getBindings("brj").getMember("user")
         assertTrue(bindings.memberKeys.containsAll(setOf("x", "y")))
         assertEquals(10, bindings.getMember("x").asInt())
         assertEquals("Hello", bindings.getMember("y").asString())
@@ -73,7 +73,7 @@ class BridjeLanguageTest {
         val bindings = ctx.getBindings("brj")
         assertEquals(
             listOf(10),
-            bindings.getMember("simple-vec")
+            bindings.getMember("user").getMember("simple-vec")
                 .execute(10)
                 .`as`(listOfInt)
         )
@@ -249,5 +249,11 @@ class BridjeLanguageTest {
     fun `test reducing iterables`() {
         assertEquals(15, eval("(reduce + 0 [1 2 3 4 5])").asInt())
         assertEquals(15, eval("(fn [coll] (reduce + 0 coll))").execute(listOf(1, 2, 3, 4, 5)).asInt())
+    }
+
+    @Test
+    internal fun `test ns`() {
+        val foo = eval("(ns foo) (def x 10)")
+        println(foo)
     }
 }

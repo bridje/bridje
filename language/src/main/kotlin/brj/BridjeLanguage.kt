@@ -41,7 +41,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             val ann = factory.nodeClass.getAnnotation(BuiltIn::class.java)
             val argNodes = Array(factory.executionSignature.size) { ReadArgNode(this, it + (if (passFx) 0 else 1)) }
 
-            ctx.def(ann.name.sym, typing, builtInFunction(factory.createNode(this, argNodes)))
+            ctx.coreNsContext.def(ann.name.sym, typing, builtInFunction(factory.createNode(this, argNodes)))
         }
 
         installBuiltIn(ReduceFnFactory.getInstance(), passFx = true)
@@ -60,12 +60,12 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         installBuiltIn(LessThanFnFactory.getInstance())
         installBuiltIn(IsZeroFnFactory.getInstance())
 
-        ctx.defx("now!".sym, Typing(TypeVar()))
+        ctx.coreNsContext.defx("now!".sym, Typing(TypeVar()))
         installBuiltIn(NowNodeFactory.getInstance())
         installBuiltIn(PolyNodeFactory.getInstance())
         installBuiltIn(PrStrNodeFactory.getInstance())
 
-        ctx.defx("println!".sym, Typing(TypeVar()))
+        ctx.coreNsContext.defx("println!".sym, Typing(TypeVar()))
         installBuiltIn(PrintlnNodeFactory.getInstance())
     }
 

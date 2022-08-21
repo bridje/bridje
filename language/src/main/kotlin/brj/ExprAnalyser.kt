@@ -2,10 +2,8 @@ package brj
 
 import brj.builtins.InstantiateFn
 import brj.builtins.InvokeMemberFn
-import brj.runtime.BridjeContext
-import brj.runtime.BridjeKey
+import brj.runtime.*
 import brj.runtime.DefxVar
-import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
@@ -36,6 +34,7 @@ private typealias LoopLocals = List<LocalVar>?
 
 internal data class ExprAnalyser(
     private val env: BridjeContext,
+    private val nsEnv: NsContext,
     private val locals: Map<Symbol, LocalVar> = emptyMap(),
     private val fxLocal: LocalVar = DEFAULT_FX_LOCAL
 ) {
@@ -93,7 +92,7 @@ internal data class ExprAnalyser(
         if (this == null) TODO("missing fn body")
         return FnExpr(
             fxLocal, params,
-            ExprAnalyser(env, params.associateBy(LocalVar::symbol)).run {
+            ExprAnalyser(env, nsEnv, params.associateBy(LocalVar::symbol)).run {
                 analyseImplicitDo(loopLocals = params)
             },
             zup!!.znode.loc
@@ -122,7 +121,7 @@ internal data class ExprAnalyser(
                     analyseDef()
                 }
                 WithFxBinding(
-                    (env.globalVars[defExpr.sym] as? DefxVar) ?: TODO("unknown var ${defExpr.sym}"),
+                    (resolveGlobalVar(defExpr.sym) as? DefxVar) ?: TODO("unknown var ${defExpr.sym}"),
                     defExpr.expr
                 )
             }.toList()
@@ -253,6 +252,9 @@ internal data class ExprAnalyser(
             return CaseExpr(expr, nilClause, clauses, default, zup!!.znode.loc)
         }
 
+    private fun resolveGlobalVar(sym: Symbol) =
+        nsEnv.globalVars[sym] ?: nsEnv.refers[sym] ?: env.coreNsContext.globalVars[sym]
+
     private fun resolveHostSymbol(sym: Symbol, loc: SourceSection?): TruffleObject? {
         if (sym.ns == null) {
             env.imports[sym]?.let { return it }
@@ -284,7 +286,7 @@ internal data class ExprAnalyser(
             is SymbolForm -> {
                 if (sym.ns == null) {
                     locals[sym]?.let { return LocalVarExpr(it, loc) }
-                    env.globalVars[sym]?.let { return GlobalVarExpr(it, loc) }
+                    resolveGlobalVar(sym)?.let { return GlobalVarExpr(it, loc) }
                 }
 
                 resolveHostSymbol(sym, loc)?.let { return TruffleObjectExpr(it, loc) }
