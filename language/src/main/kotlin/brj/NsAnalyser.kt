@@ -1,6 +1,7 @@
 package brj
 
 import brj.runtime.BridjeContext
+import brj.runtime.GlobalVar
 import brj.runtime.NsContext
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.sym
@@ -28,7 +29,9 @@ internal class NsAnalyser(private val env: BridjeContext) {
             importZ.zdown.zrights.map {
                 val sym = (it.znode as? SymbolForm)?.sym ?: TODO("expected sym")
                 val import = "$packageSym.$sym"
-                env.truffleEnv.lookupHostSymbol(import) ?: TODO("can't find import: $import")
+                val obj = (env.truffleEnv.lookupHostSymbol(import) as? TruffleObject) ?: TODO("can't find import: $import")
+
+                imports[sym] = obj
             }
 
             importZ = importZ.zright
@@ -36,16 +39,64 @@ internal class NsAnalyser(private val env: BridjeContext) {
         return imports
     }
 
-    @Suppress("NAME_SHADOWING")
-    internal fun analyseNs(z: Zip<Form>): NsContext {
-        if (z.znode !is ListForm) TODO("expected list")
-        var z = z.zdown ?: TODO("expected `ns` symbol")
-        z.znode.run { if(this !is SymbolForm || sym != NS) TODO("expected `ns` symbol") }
+    private fun Zip<Form>.analyseAliases(): Map<Symbol, Symbol> {
+        val aliases = mutableMapOf<Symbol, Symbol>()
+        val z = zright ?: TODO("expected form")
+        if (z.znode !is RecordForm) TODO("expected record")
+
+        var aliasZ = z.zdown
+
+        while (aliasZ != null) {
+            val aliasSym = (aliasZ.znode as? SymbolForm)?.sym ?: TODO("expected symbol")
+
+            aliasZ = aliasZ.zright ?: TODO("missing form")
+            val nsSym = ((aliasZ.znode as? SymbolForm) ?: TODO("expected symbol")).sym
+
+            if (env[nsSym] == null) TODO("unknown ns")
+            aliases[aliasSym] = nsSym
+
+            aliasZ = aliasZ.zright
+        }
+        return aliases
+    }
+
+    private fun Zip<Form>.analyseRefers(): Map<Symbol, GlobalVar> {
+        val refers = mutableMapOf<Symbol, GlobalVar>()
+        val z = zright ?: TODO("expected form")
+        if (z.znode !is RecordForm) TODO("expected record")
+
+        var referZ = z.zdown
+
+        while (referZ != null) {
+            val nsSym = (referZ.znode as? SymbolForm)?.sym ?: TODO("expected symbol")
+            val nsVars = (env[nsSym] ?: TODO("unknown ns")).globalVars
+
+            referZ = referZ.zright ?: TODO("missing form")
+            if (referZ.znode !is SetForm) TODO("expected set")
+
+            referZ.zdown.zrights.map {
+                val sym = (it.znode as? SymbolForm)?.sym ?: TODO("expected sym")
+                val globalVar = nsVars[sym] ?: TODO("can't find refer: $nsSym/$sym")
+
+                refers[sym] = globalVar
+            }
+
+            referZ = referZ.zright
+        }
+        return refers
+    }
+
+    internal fun Zip<Form>.analyseNs(): NsContext {
+        if (znode !is ListForm) TODO("expected list")
+        var z = zdown ?: TODO("expected `ns` symbol")
+        z.znode.run { if (this !is SymbolForm || sym != NS) TODO("expected `ns` symbol") }
 
         z = z.zright ?: TODO("expected ns symbol")
         val ns = ((z.znode as? SymbolForm) ?: TODO("expected symbol")).sym
 
         var imports: Map<Symbol, TruffleObject>? = null
+        var aliases: Map<Symbol, Symbol>? = null
+        var refers: Map<Symbol, GlobalVar>? = null
 
         z.zright?.let {
             if (it.znode !is RecordForm) TODO("expected record")
@@ -55,9 +106,20 @@ internal class NsAnalyser(private val env: BridjeContext) {
 
                 optsZ = optsZ.zright ?: TODO("missing form")
                 when (kw) {
-                    IMPORTS -> imports = optsZ.analyseImports()
-                    ALIASES -> TODO()
-                    REFERS -> TODO()
+                    IMPORTS -> {
+                        if (imports != null) TODO("duplicate imports")
+                        imports = optsZ.analyseImports()
+                    }
+
+                    ALIASES -> {
+                        if (aliases != null) TODO("duplicate aliases")
+                        aliases = optsZ.analyseAliases()
+                    }
+
+                    REFERS -> {
+                        if (refers != null) TODO("duplicate refers")
+                        refers = optsZ.analyseRefers()
+                    }
 
                     null -> TODO("expected keyword")
                     else -> TODO("unexpected keyword ${kw}")
@@ -67,12 +129,16 @@ internal class NsAnalyser(private val env: BridjeContext) {
             }
         }
 
-        return NsContext(env, ns, 
-            imports = imports ?: emptyMap())
+        return NsContext(
+            env, ns,
+            aliases = aliases ?: emptyMap(),
+            imports = imports ?: emptyMap(),
+            refers = refers ?: emptyMap()
+        )
     }
 }
 
-internal fun Zip<Form>.analyseNs(ctx: BridjeContext) = NsAnalyser(ctx).analyseNs(this)
+internal fun Zip<Form>.analyseNs(ctx: BridjeContext) = NsAnalyser(ctx).run { analyseNs() }
 
 internal fun Zip<Form>.isNsForm() =
     znode is ListForm && (zdown?.znode as? SymbolForm)?.sym == NS
