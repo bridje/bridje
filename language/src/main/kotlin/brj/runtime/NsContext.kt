@@ -15,7 +15,7 @@ import com.oracle.truffle.api.library.ExportMessage
 @ExportLibrary(InteropLibrary::class)
 internal class NsContext(
     val ctx: BridjeContext, val ns: Symbol,
-    val aliases: Map<Symbol, Symbol> = emptyMap(),
+    val aliases: Map<Symbol, NsContext> = emptyMap(),
     val refers: Map<Symbol, GlobalVar> = emptyMap(),
     val imports: Map<Symbol, TruffleObject> = emptyMap()
 ) : TruffleObject {
