@@ -4,7 +4,7 @@ import bridje.antlr.BridjeBaseVisitor
 import bridje.antlr.BridjeLexer
 import bridje.antlr.BridjeParser
 import bridje.antlr.BridjeParser.*
-import brj.runtime.Symbol.Companion.qsym
+import brj.runtime.QSymbol.Companion.qsym
 import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.source.Source
 import com.oracle.truffle.api.source.SourceSection
@@ -35,24 +35,37 @@ fun readForms(source: Source): List<Form> {
             override fun visitBigInteger(ctx: BigIntegerContext) = TODO()
 
             override fun visitString(ctx: StringContext) =
-                StringForm(ctx.text.drop(1).dropLast(1), ctx.loc)
+                StringForm(ctx.text.removeSurrounding("\""), ctx.loc)
 
             override fun visitSymbol(ctx: SymbolContext) = SymbolForm(ctx.text.sym, ctx.loc)
 
             override fun visitDotSymbol(ctx: DotSymbolContext) =
-                DotSymbolForm(ctx.text.drop(1).sym, ctx.loc)
+                DotSymbolForm(ctx.text.removePrefix(".").sym, ctx.loc)
 
             override fun visitSymbolDot(ctx: SymbolDotContext) =
-                SymbolDotForm(ctx.text.dropLast(1).sym, ctx.loc)
+                SymbolDotForm(ctx.text.removeSuffix(".").sym, ctx.loc)
 
-            override fun visitNsSymbol(ctx: NsSymbolContext) =
-                SymbolForm(ctx.text.qsym, ctx.loc)
+            override fun visitQSymbol(ctx: QSymbolContext) = QSymbolForm(ctx.text.qsym, ctx.loc)
+
+            override fun visitQSymbolDot(ctx: QSymbolDotContext) =
+                QSymbolDotForm(ctx.text.removeSuffix(".").qsym, ctx.loc)
+
+            override fun visitDotQSymbol(ctx: DotQSymbolContext): DotQSymbolForm {
+                val (nsStr, localStr) = ctx.text.split("/.")
+                return DotQSymbolForm(Pair(nsStr.sym, localStr.sym).qsym, ctx.loc)
+            }
 
             override fun visitKeyword(ctx: KeywordContext) =
-                KeywordForm(ctx.text.drop(1).sym, ctx.loc)
+                KeywordForm(ctx.text.removePrefix(":").sym, ctx.loc)
 
             override fun visitKeywordDot(ctx: KeywordDotContext) =
-                KeywordDotForm(ctx.text.drop(1).dropLast(1).sym, ctx.loc)
+                KeywordDotForm(ctx.text.removeSurrounding(":", ".").sym, ctx.loc)
+
+            override fun visitQKeyword(ctx: QKeywordContext) =
+                QKeywordForm(ctx.text.removePrefix(":").qsym, ctx.loc)
+
+            override fun visitQKeywordDot(ctx: QKeywordDotContext) =
+                QKeywordDotForm(ctx.text.removeSurrounding(":", ".").qsym, ctx.loc)
 
             private val formVisitor = this
             private fun List<FormContext>.toForms() = map { it.accept(formVisitor) }

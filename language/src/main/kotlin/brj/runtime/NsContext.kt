@@ -29,7 +29,7 @@ internal class NsContext(
     @ExportMessage
     @CompilerDirectives.TruffleBoundary
     fun getMembers(includeInternal: Boolean) =
-        BridjeVector(globalVars.keys.map { it.local }.toList().toTypedArray())
+        BridjeVector(globalVars.keys.map { it.name }.toList().toTypedArray())
 
     @ExportMessage
     fun isMemberReadable(key: String) = globalVars.containsKey(key.sym)

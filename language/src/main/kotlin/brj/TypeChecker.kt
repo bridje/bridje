@@ -61,7 +61,7 @@ private fun combineTypings(
     val combinedMonoEnv = monoEnv.toList() + typings.flatMap { it.monoEnv.toList() }
 
     val localVarTypeVars: Map<LocalVar, MonoType> = combinedMonoEnv
-        .asIterable().associate { it.first to TypeVar(it.first.symbol.local) }
+        .asIterable().associate { it.first to TypeVar(it.first.symbol.name) }
 
     constraintQueue.addAll(combinedMonoEnv.map { Constraint(it.second, localVarTypeVars[it.first]!!) })
 
@@ -155,7 +155,7 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
     private fun localVarExprTyping(localVar: LocalVar) =
         when (val typing = localPolyEnv[localVar]) {
             null -> {
-                val typeVar = TypeVar(localVar.symbol.local)
+                val typeVar = TypeVar(localVar.symbol.name)
                 Typing(typeVar, mapOf(localVar to typeVar))
             }
             else -> typing.instantiate()

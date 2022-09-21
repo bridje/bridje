@@ -3,10 +3,8 @@ package brj
 import brj.builtins.InstantiateFn
 import brj.builtins.InvokeMemberFn
 import brj.runtime.*
-import brj.runtime.DefxVar
 import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.source.SourceSection
 
 private val FX = "_fx".sym
 internal val DEFAULT_FX_LOCAL = LocalVar(FX)
@@ -225,8 +223,7 @@ internal data class ExprAnalyser(
                                 is ListForm -> {
                                     val metaObjectZip = zdown ?: TODO("empty list")
                                     val bindingZip = metaObjectZip.zright ?: TODO("missing binding")
-                                    val bindingSym = (bindingZip.znode as? SymbolForm)?.sym?.takeIf { it.ns == null }
-                                        ?: TODO("expected symbol")
+                                    val bindingSym = (bindingZip.znode as? SymbolForm)?.sym ?: TODO("expected symbol")
                                     val localVar = bindingSym.lv
 
                                     clauses += CaseClause(
@@ -255,18 +252,20 @@ internal data class ExprAnalyser(
     private fun resolveGlobalVar(sym: Symbol) =
         nsEnv.globalVars[sym] ?: nsEnv.refers[sym] ?: env.coreNsContext.globalVars[sym]
 
-    private fun resolveHostSymbol(sym: Symbol, loc: SourceSection?): TruffleObject? {
-        if (sym.ns == null) {
-            env.imports[sym]?.let { return it }
+    private fun resolveHostSymbol(sym: Symbol): TruffleObject? {
+        env.imports[sym]?.let { return it }
 
-            runCatching { env.truffleEnv.lookupHostSymbol(sym.local) }
-                .getOrNull()
-                ?.let { return it as TruffleObject }
-        } else {
-            env.imports[sym.ns]?.let { clazz ->
-                if (env.interop.isMemberReadable(clazz, sym.local)) {
-                    return env.interop.readMember(clazz, sym.local) as TruffleObject
-                } else TODO("unknown static method '$sym', $loc")
+        runCatching { env.truffleEnv.lookupHostSymbol(sym.name) }
+            .getOrNull()
+            ?.let { return it as TruffleObject }
+
+        return null
+    }
+
+    private fun resolveHostSymbol(sym: QSymbol): TruffleObject? {
+        env.imports[sym.ns]?.let { clazz ->
+            if (env.interop.isMemberReadable(clazz, sym.local.name)) {
+                return env.interop.readMember(clazz, sym.local.name) as TruffleObject
             }
         }
 
@@ -284,26 +283,33 @@ internal data class ExprAnalyser(
             is RecordForm -> analyseRecord()
 
             is SymbolForm -> {
-                if (sym.ns == null) {
-                    locals[sym]?.let { return LocalVarExpr(it, loc) }
-                    resolveGlobalVar(sym)?.let { return GlobalVarExpr(it, loc) }
-                }
-
-                resolveHostSymbol(sym, loc)?.let { return TruffleObjectExpr(it, loc) }
+                locals[sym]?.let { return LocalVarExpr(it, loc) }
+                resolveGlobalVar(sym)?.let { return GlobalVarExpr(it, loc) }
+                resolveHostSymbol(sym)?.let { return TruffleObjectExpr(it, loc) }
 
                 TODO("can't find symbol: $sym")
             }
 
+            is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFn(sym), loc)
+            is SymbolDotForm -> TruffleObjectExpr(
+                InstantiateFn(resolveHostSymbol(sym) ?: TODO("can't find host symbol '$sym'")),
+                loc
+            )
+
+            is QSymbolForm -> {
+                resolveHostSymbol(sym)?.let { return TruffleObjectExpr(it, loc) }
+
+                TODO("can't find host symbol '$sym'")
+            }
+
+            is QSymbolDotForm -> TODO()
+            is DotQSymbolForm -> TODO()
+
             is KeywordForm -> KeywordExpr(BridjeKey(sym), loc)
             is KeywordDotForm -> TruffleObjectExpr(InstantiateFn(BridjeKey(sym)), loc)
 
-            is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFn(sym), loc)
-            is SymbolDotForm -> TruffleObjectExpr(
-                InstantiateFn(
-                    resolveHostSymbol(sym, loc) ?: TODO("can't find host symbol '$sym'")
-                ),
-                loc
-            )
+            is QKeywordForm -> TODO()
+            is QKeywordDotForm -> TODO()
 
             is ListForm -> {
                 zdown.run {

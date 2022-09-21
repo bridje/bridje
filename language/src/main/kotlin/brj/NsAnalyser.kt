@@ -2,6 +2,8 @@ package brj
 
 import brj.runtime.BridjeContext
 import brj.runtime.NsContext
+import brj.runtime.QSymbol
+import brj.runtime.QSymbol.Companion.qsym
 import brj.runtime.Symbol
 import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.interop.TruffleObject
@@ -13,13 +15,13 @@ private val ALIASES = "aliases".sym
 
 internal data class ParsedNs(
     val ns: Symbol,
-    val aliases: Map<Symbol, Symbol>?,
-    val refers: Map<Symbol, Set<Symbol>>?,
-    val imports: Map<Symbol, Set<Symbol>>?
+    val aliases: Map<Symbol, Symbol>,
+    val refers: Map<Symbol, QSymbol>,
+    val imports: Map<Symbol, Symbol>
 )
 
-private fun Zip<Form>.analyseImports(): Map<Symbol, Set<Symbol>> {
-    val imports = mutableMapOf<Symbol, Set<Symbol>>()
+private fun Zip<Form>.analyseImports(): Map<Symbol, Symbol> {
+    val imports = mutableMapOf<Symbol, Symbol>()
     if (znode !is RecordForm) TODO("expected record")
 
     var importZ = zdown
@@ -29,9 +31,10 @@ private fun Zip<Form>.analyseImports(): Map<Symbol, Set<Symbol>> {
         importZ = importZ.zright ?: TODO("missing form")
         if (importZ.znode !is SetForm) TODO("expected set")
 
-        imports[packageSym] = importZ.zdown.zrights.map {
-            (it.znode as? SymbolForm)?.sym ?: TODO("expected sym")
-        }.toSet()
+        importZ.zdown.zrights.forEach {
+            val sym = (it.znode as? SymbolForm)?.sym ?: TODO("expected sym")
+            imports[sym] = "$packageSym.$sym".sym
+        }
 
         importZ = importZ.zright
     }
@@ -57,8 +60,8 @@ private fun Zip<Form>.analyseAliases(): Map<Symbol, Symbol> {
     return aliases
 }
 
-private fun Zip<Form>.analyseRefers(): Map<Symbol, Set<Symbol>> {
-    val refers = mutableMapOf<Symbol, Set<Symbol>>()
+private fun Zip<Form>.analyseRefers(): Map<Symbol, QSymbol> {
+    val refers = mutableMapOf<Symbol, QSymbol>()
     if (znode !is RecordForm) TODO("expected record")
 
     var referZ = zdown
@@ -69,9 +72,10 @@ private fun Zip<Form>.analyseRefers(): Map<Symbol, Set<Symbol>> {
         referZ = referZ.zright ?: TODO("missing form")
         if (referZ.znode !is SetForm) TODO("expected set")
 
-        refers[nsSym] = referZ.zdown.zrights.map {
-            (it.znode as? SymbolForm)?.sym ?: TODO("expected sym")
-        }.toSet()
+        referZ.zdown.zrights.forEach {
+            val sym = (it.znode as? SymbolForm)?.sym ?: TODO("expected sym")
+            refers[sym] = Pair(nsSym, sym).qsym
+        }
 
         referZ = referZ.zright
     }
@@ -87,9 +91,9 @@ internal fun Zip<Form>.analyseNs(): ParsedNs {
     z = z.zright ?: TODO("expected ns symbol")
     val ns = ((z.znode as? SymbolForm) ?: TODO("expected symbol")).sym
 
-    var imports: Map<Symbol, Set<Symbol>>? = null
+    var imports: Map<Symbol, Symbol>? = null
     var aliases: Map<Symbol, Symbol>? = null
-    var refers: Map<Symbol, Set<Symbol>>? = null
+    var refers: Map<Symbol, QSymbol>? = null
 
     z.zright?.let {
         if (it.znode !is RecordForm) TODO("expected record")
@@ -115,32 +119,27 @@ internal fun Zip<Form>.analyseNs(): ParsedNs {
                 }
 
                 null -> TODO("expected keyword")
-                else -> TODO("unexpected keyword ${kw}")
+                else -> TODO("unexpected keyword $kw")
             }
 
             optsZ = optsZ.zright
         }
     }
 
-    return ParsedNs(ns, aliases, refers, imports)
+    return ParsedNs(ns, aliases ?: emptyMap(), refers ?: emptyMap(), imports ?: emptyMap())
 }
 
 internal fun Zip<Form>.analyseNs(env: BridjeContext) = analyseNs().run {
     NsContext(
         env, ns,
-        aliases?.mapValues {env[it.key] ?: TODO("unknown ns")} ?: emptyMap(),
-        refers?.flatMap { (nsSym, localSyms) ->
-            localSyms.map { localSym ->
-                val nsContext = env[nsSym] ?: TODO("unknown ns")
-                localSym to (nsContext.globalVars[localSym] ?: TODO("unknown var"))
-            }
-        }?.toMap() ?: emptyMap(),
-        imports?.flatMap { (packageSym, classSyms) ->
-            classSyms.map { classSym ->
-                val fullName = "$packageSym.$classSym"
-                classSym to (((env.truffleEnv.lookupHostSymbol(fullName)) as? TruffleObject) ?: TODO("unknown class"))
-            }
-        }?.toMap() ?: emptyMap()
+        aliases.mapValues { env[it.value] ?: TODO("unknown ns") },
+        refers.mapValues { (_, qSym) ->
+            val nsContext = env[qSym.ns] ?: TODO("unknown ns")
+            (nsContext.globalVars[qSym.local] ?: TODO("unknown var"))
+        },
+        imports.mapValues { (_, classFullSym) ->
+            (((env.truffleEnv.lookupHostSymbol(classFullSym.name)) as? TruffleObject) ?: TODO("unknown class"))
+        }
     )
 }
 

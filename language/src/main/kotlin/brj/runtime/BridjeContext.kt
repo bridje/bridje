@@ -30,7 +30,7 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
     @ExportMessage
     @TruffleBoundary
     fun getMembers(includeInternal: Boolean) =
-        BridjeVector(nses.keys.map { it.local }.toList().toTypedArray())
+        BridjeVector(nses.keys.map { it.name }.toList().toTypedArray())
 
     @ExportMessage
     fun isMemberReadable(key: String) = nses.containsKey(key.sym)
@@ -52,7 +52,7 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
 
     @TruffleBoundary
     fun importClass(className: Symbol) {
-        val clazz = truffleEnv.lookupHostSymbol(className.local) as TruffleObject
+        val clazz = truffleEnv.lookupHostSymbol(className.name) as TruffleObject
         val simpleClassName = interop.asString(interop.getMetaSimpleName(clazz)).sym
         imports[simpleClassName] = clazz
     }
