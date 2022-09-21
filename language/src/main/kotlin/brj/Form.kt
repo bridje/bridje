@@ -1,5 +1,6 @@
 package brj
 
+import brj.runtime.QSymbol
 import brj.runtime.Symbol
 import com.oracle.truffle.api.source.SourceSection
 import java.util.*
@@ -17,36 +18,19 @@ internal class NilForm(override val loc: SourceSection?) : Form() {
 }
 
 internal class IntForm(val int: Int, override val loc: SourceSection? = null) : Form() {
-    override fun toString() = int.toString()
-
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is IntForm -> false
-        else -> int == other.int
-    }
-
+    override fun equals(other: Any?) = this === other || (other is IntForm && int == other.int)
     override fun hashCode() = int
+    override fun toString() = int.toString()
 }
 
 internal class BoolForm(val bool: Boolean, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is BoolForm -> false
-        else -> bool == other.bool
-    }
-
+    override fun equals(other: Any?) = this === other || (other is BoolForm && bool == other.bool)
     override fun hashCode() = bool.hashCode()
-
     override fun toString() = bool.toString()
 }
 
 internal class StringForm(val string: String, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is StringForm -> false
-        else -> string == other.string
-    }
-
+    override fun equals(other: Any?) = this === other || (other is StringForm && string == other.string)
     override fun hashCode() = string.hashCode()
 
     private val stringRep by lazy {
@@ -58,67 +42,73 @@ internal class StringForm(val string: String, override val loc: SourceSection? =
 }
 
 internal class SymbolForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is SymbolForm -> false
-        else -> sym == other.sym
-    }
-
+    override fun equals(other: Any?) = this === other || (other is SymbolForm && sym == other.sym)
     override fun hashCode() = sym.hashCode()
 
     override fun toString() = sym.toString()
 }
 
 internal class DotSymbolForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is DotSymbolForm -> false
-        else -> sym == other.sym
-    }
-
+    override fun equals(other: Any?) = this === other || (other is DotSymbolForm && sym == other.sym)
     override fun hashCode() = sym.hashCode()
 
-    override fun toString() = if (sym.ns != null) "${sym.ns}/.${sym.local}" else ".${sym.local}"
+    override fun toString() = ".$sym"
 }
 
-
 internal class SymbolDotForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is SymbolDotForm -> false
-        else -> sym == other.sym
-    }
-
+    override fun equals(other: Any?) = this === other || (other is SymbolDotForm && sym == other.sym)
     override fun hashCode() = sym.hashCode()
 
-    override fun toString() = if (sym.ns != null) "${sym.ns}/${sym.local}." else "${sym.local}."
+    override fun toString() = "$sym."
+}
+
+internal class QSymbolForm(val sym: QSymbol, override val loc: SourceSection? = null) : Form() {
+    override fun equals(other: Any?) = this === other || (other is QSymbolForm && sym == other.sym)
+    override fun hashCode() = sym.hashCode()
+
+    override fun toString() = sym.toString()
+}
+
+internal class DotQSymbolForm(val sym: QSymbol, override val loc: SourceSection? = null) : Form() {
+    override fun equals(other: Any?) = this === other || (other is DotQSymbolForm && sym == other.sym)
+    override fun hashCode() = sym.hashCode()
+
+    override fun toString() = "${sym.ns}/.${sym.local}"
+}
+
+internal class QSymbolDotForm(val sym: QSymbol, override val loc: SourceSection? = null) : Form() {
+    override fun equals(other: Any?) = this === other || (other is QSymbolDotForm && sym == other.sym)
+    override fun hashCode() = sym.hashCode()
+
+    override fun toString() = "$sym."
 }
 
 internal class KeywordForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) =
-        this === other || (other is KeywordForm && sym == other.sym)
-
+    override fun equals(other: Any?) = this === other || (other is KeywordForm && sym == other.sym)
     override fun hashCode() = Objects.hash(sym)
-
     override fun toString() = ":$sym"
 }
 
 internal class KeywordDotForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) =
-        this === other || (other is KeywordDotForm && sym == other.sym)
-
+    override fun equals(other: Any?) = this === other || (other is KeywordDotForm && sym == other.sym)
     override fun hashCode() = Objects.hash(sym)
+    override fun toString() = ":$sym."
+}
 
+internal class QKeywordForm(val sym: QSymbol, override val loc: SourceSection? = null) : Form() {
+    override fun equals(other: Any?) = this === other || (other is QKeywordForm && sym == other.sym)
+    override fun hashCode() = Objects.hash(sym)
+    override fun toString() = ":$sym"
+}
+
+internal class QKeywordDotForm(val sym: QSymbol, override val loc: SourceSection? = null) : Form() {
+    override fun equals(other: Any?) = this === other || (other is QKeywordDotForm && sym == other.sym)
+    override fun hashCode() = Objects.hash(sym)
     override fun toString() = ":$sym."
 }
 
 internal class ListForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is ListForm -> false
-        else -> forms == other.forms
-    }
-
+    override fun equals(other: Any?) = (this === other) || (other is ListForm && forms == other.forms)
     override fun hashCode() = forms.hashCode()
 
     override fun toString(): String {
@@ -129,12 +119,7 @@ internal class ListForm(val forms: List<Form>, override val loc: SourceSection? 
 }
 
 class VectorForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is VectorForm -> false
-        else -> forms == other.forms
-    }
-
+    override fun equals(other: Any?) = (this === other) || (other is VectorForm && forms == other.forms)
     override fun hashCode() = forms.hashCode()
 
     override fun toString(): String {
@@ -145,12 +130,7 @@ class VectorForm(val forms: List<Form>, override val loc: SourceSection? = null)
 }
 
 class SetForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is SetForm -> false
-        else -> forms == other.forms
-    }
-
+    override fun equals(other: Any?) = (this === other) || (other is SetForm && forms == other.forms)
     override fun hashCode() = forms.hashCode()
 
     override fun toString(): String {
@@ -161,12 +141,7 @@ class SetForm(val forms: List<Form>, override val loc: SourceSection? = null) : 
 }
 
 class RecordForm(val forms: List<Form>, override val loc: SourceSection? = null) : Form() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is RecordForm -> false
-        else -> forms == other.forms
-    }
-
+    override fun equals(other: Any?) = (this === other) || (other is RecordForm && forms == other.forms)
     override fun hashCode() = forms.hashCode()
 
     override fun toString(): String {

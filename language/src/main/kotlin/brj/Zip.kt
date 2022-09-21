@@ -4,7 +4,7 @@ internal interface Zippable<E : Zippable<E>> {
     val children: List<E>
 }
 
-internal val <E : Zippable<E>> E.zip get() = ZipRoot(this)
+internal val <E : Zippable<E>> E.zip get(): Zip<E> = ZipRoot(this)
 
 internal sealed interface Zip<E : Zippable<E>> {
     val znode: E

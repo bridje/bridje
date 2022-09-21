@@ -2,13 +2,9 @@ package brj
 
 import brj.builtins.InstantiateFn
 import brj.builtins.InvokeMemberFn
-import brj.runtime.BridjeContext
-import brj.runtime.BridjeKey
-import brj.runtime.DefxVar
-import brj.runtime.Symbol
+import brj.runtime.*
 import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.source.SourceSection
 
 private val FX = "_fx".sym
 internal val DEFAULT_FX_LOCAL = LocalVar(FX)
@@ -25,7 +21,6 @@ private val CASE = "case".sym
 
 private val DEF = "def".sym
 private val DEFX = "defx".sym
-private val IMPORT = "import".sym
 
 internal sealed class TopLevelDoOrExpr
 
@@ -36,6 +31,7 @@ private typealias LoopLocals = List<LocalVar>?
 
 internal data class ExprAnalyser(
     private val env: BridjeContext,
+    private val nsEnv: NsContext,
     private val locals: Map<Symbol, LocalVar> = emptyMap(),
     private val fxLocal: LocalVar = DEFAULT_FX_LOCAL
 ) {
@@ -93,7 +89,7 @@ internal data class ExprAnalyser(
         if (this == null) TODO("missing fn body")
         return FnExpr(
             fxLocal, params,
-            ExprAnalyser(env, params.associateBy(LocalVar::symbol)).run {
+            ExprAnalyser(env, nsEnv, params.associateBy(LocalVar::symbol)).run {
                 analyseImplicitDo(loopLocals = params)
             },
             zup!!.znode.loc
@@ -122,7 +118,7 @@ internal data class ExprAnalyser(
                     analyseDef()
                 }
                 WithFxBinding(
-                    (env.globalVars[defExpr.sym] as? DefxVar) ?: TODO("unknown var ${defExpr.sym}"),
+                    (resolveGlobalVar(defExpr.sym) as? DefxVar) ?: TODO("unknown var ${defExpr.sym}"),
                     defExpr.expr
                 )
             }.toList()
@@ -226,8 +222,7 @@ internal data class ExprAnalyser(
                                 is ListForm -> {
                                     val metaObjectZip = zdown ?: TODO("empty list")
                                     val bindingZip = metaObjectZip.zright ?: TODO("missing binding")
-                                    val bindingSym = (bindingZip.znode as? SymbolForm)?.sym?.takeIf { it.ns == null }
-                                        ?: TODO("expected symbol")
+                                    val bindingSym = (bindingZip.znode as? SymbolForm)?.sym ?: TODO("expected symbol")
                                     val localVar = bindingSym.lv
 
                                     clauses += CaseClause(
@@ -253,18 +248,26 @@ internal data class ExprAnalyser(
             return CaseExpr(expr, nilClause, clauses, default, zup!!.znode.loc)
         }
 
-    private fun resolveHostSymbol(sym: Symbol, loc: SourceSection?): TruffleObject? {
-        if (sym.ns == null) {
-            env.imports[sym]?.let { return it }
+    private fun resolveGlobalVar(sym: Symbol) =
+        nsEnv.globalVars[sym] ?: nsEnv.refers[sym] ?: env.coreNsContext.globalVars[sym]
 
-            runCatching { env.truffleEnv.lookupHostSymbol(sym.local) }
-                .getOrNull()
-                ?.let { return it as TruffleObject }
-        } else {
-            env.imports[sym.ns]?.let { clazz ->
-                if (env.interop.isMemberReadable(clazz, sym.local)) {
-                    return env.interop.readMember(clazz, sym.local) as TruffleObject
-                } else TODO("unknown static method '$sym', $loc")
+    private fun resolveGlobalVar(sym: QSymbol): GlobalVar? =
+        (nsEnv.aliases[sym.ns] ?: env[sym.ns])?.let { it.globalVars[sym.local] }
+
+    private fun resolveHostSymbol(sym: Symbol): TruffleObject? {
+        env.currentNsContext.imports[sym]?.let { return it }
+
+        runCatching { env.truffleEnv.lookupHostSymbol(sym.name) }
+            .getOrNull()
+            ?.let { return it as TruffleObject }
+
+        return null
+    }
+
+    private fun resolveHostSymbol(sym: QSymbol): TruffleObject? {
+        env.currentNsContext.imports[sym.ns]?.let { clazz ->
+            if (env.interop.isMemberReadable(clazz, sym.local.name)) {
+                return env.interop.readMember(clazz, sym.local.name) as TruffleObject
             }
         }
 
@@ -282,26 +285,34 @@ internal data class ExprAnalyser(
             is RecordForm -> analyseRecord()
 
             is SymbolForm -> {
-                if (sym.ns == null) {
-                    locals[sym]?.let { return LocalVarExpr(it, loc) }
-                    env.globalVars[sym]?.let { return GlobalVarExpr(it, loc) }
-                }
-
-                resolveHostSymbol(sym, loc)?.let { return TruffleObjectExpr(it, loc) }
+                locals[sym]?.let { return LocalVarExpr(it, loc) }
+                resolveGlobalVar(sym)?.let { return GlobalVarExpr(it, loc) }
+                resolveHostSymbol(sym)?.let { return TruffleObjectExpr(it, loc) }
 
                 TODO("can't find symbol: $sym")
             }
 
+            is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFn(sym), loc)
+            is SymbolDotForm -> TruffleObjectExpr(
+                InstantiateFn(resolveHostSymbol(sym) ?: TODO("can't find host symbol '$sym'")),
+                loc
+            )
+
+            is QSymbolForm -> {
+                resolveGlobalVar(sym)?.let { return GlobalVarExpr(it, loc) }
+                resolveHostSymbol(sym)?.let { return TruffleObjectExpr(it, loc) }
+
+                TODO("can't find host symbol '$sym'")
+            }
+
+            is QSymbolDotForm -> TODO()
+            is DotQSymbolForm -> TODO()
+
             is KeywordForm -> KeywordExpr(BridjeKey(sym), loc)
             is KeywordDotForm -> TruffleObjectExpr(InstantiateFn(BridjeKey(sym)), loc)
 
-            is DotSymbolForm -> TruffleObjectExpr(InvokeMemberFn(sym), loc)
-            is SymbolDotForm -> TruffleObjectExpr(
-                InstantiateFn(
-                    resolveHostSymbol(sym, loc) ?: TODO("can't find host symbol '$sym'")
-                ),
-                loc
-            )
+            is QKeywordForm -> TODO()
+            is QKeywordDotForm -> TODO()
 
             is ListForm -> {
                 zdown.run {
@@ -440,12 +451,6 @@ internal data class ExprAnalyser(
         return DefxExpr(header.sym, Typing(monoType, fx = setOf(header.sym)), zup!!.znode.loc)
     }
 
-    private fun Zip<Form>.parseImport() =
-        ImportExpr(
-            zright.zrights.map { ((it.znode as? SymbolForm) ?: TODO("non-symbol in import")).sym }.toList(),
-            zup!!.znode.loc
-        )
-
     fun Zip<Form>.analyseExpr(): TopLevelDoOrExpr = znode.run {
         when (this) {
             is ListForm -> zdown?.run {
@@ -453,7 +458,6 @@ internal data class ExprAnalyser(
                     DO -> TopLevelDo(zright.zrights.map { it.znode }.toList())
                     DEF -> TopLevelExpr(analyseDef())
                     DEFX -> TopLevelExpr(analyseDefx())
-                    IMPORT -> TopLevelExpr(parseImport())
                     else -> null
                 }
             }

@@ -16,13 +16,19 @@ WHITESPACE : [ \r\n\t,] -> skip ;
 LINE_COMMENT : ';' ~[\r\n]* -> skip ;
 
 KEYWORD_DOT : ':' NAME '.' ;
+QKEYWORD_DOT : ':' NAME '/' NAME '.';
 KEYWORD : ':' NAME;
+QKEYWORD : ':' NAME '/' NAME;
 
 SYMBOL_DOT : NAME '.' ;
 DOT_SYMBOL : '.' NAME ;
 
 SYMBOL : '/' | NAME ;
-NS_SYMBOL : NAME '/' NAME ;
+
+QSYMBOL_DOT : NAME '/' NAME '.';
+DOT_QSYMBOL : NAME '/.' NAME;
+
+QSYMBOL : NAME '/' NAME ;
 
 fragment
 NAME: SYMBOL_HEAD SYMBOL_REST* ;
@@ -53,11 +59,15 @@ form
   | BIG_DECIMAL # BigDecimal
   | BIG_INTEGER # BigInteger
   | SYMBOL # Symbol
-  | NS_SYMBOL # NsSymbol
+  | QSYMBOL # QSymbol
   | SYMBOL_DOT # SymbolDot
   | DOT_SYMBOL # DotSymbol
+  | QSYMBOL_DOT # QSymbolDot
+  | DOT_QSYMBOL # DotQSymbol
   | KEYWORD # Keyword
   | KEYWORD_DOT # KeywordDot
+  | QKEYWORD # QKeyword
+  | QKEYWORD_DOT # QKeywordDot
   | '(' (discard | form)* ')' # List
   | '[' (discard | form)* ']' # Vector
   | '{' (discard | form)* '}' # Record

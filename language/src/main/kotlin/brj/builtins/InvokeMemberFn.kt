@@ -29,7 +29,7 @@ class InvokeMemberFn(val sym: Symbol) : TruffleObject {
                 @CachedLibrary(limit = "3") interop: InteropLibrary
             ): Any? {
                 CompilerAsserts.compilationConstant<Int>(cachedArgCount)
-                CompilerAsserts.compilationConstant<String>(imo.sym.local)
+                CompilerAsserts.compilationConstant<String>(imo.sym.name)
 
                 val invokeArgs = arrayOfNulls<Any>(cachedArgCount - 1)
 
@@ -37,7 +37,7 @@ class InvokeMemberFn(val sym: Symbol) : TruffleObject {
                     invokeArgs[i - 1] = args[i]
                 }
 
-                return interop.invokeMember(args[0], imo.sym.local, *invokeArgs)
+                return interop.invokeMember(args[0], imo.sym.name, *invokeArgs)
             }
 
         }
