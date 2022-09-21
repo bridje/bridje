@@ -29,7 +29,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
             forms.firstOrNull()?.zip
                 ?.takeIf { it.isNsForm() }
                 ?.let { Triple(true, it.analyseNs(ctx), forms.drop(1)) }
-                ?: Triple(false, ctx.userNsContext, forms)
+                ?: Triple(false, ctx.currentNsContext, forms)
 
         val exprAnalyser = ExprAnalyser(ctx, nsCtx)
 

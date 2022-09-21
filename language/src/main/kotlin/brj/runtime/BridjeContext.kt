@@ -23,8 +23,6 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
     private var currentNs = USER
 
     internal val currentNsContext get() = nses[currentNs]!!
-
-    internal val userNsContext get() = nses[USER]!!
     internal val coreNsContext get() = nses[BRJ_CORE]!!
 
     internal val interop = InteropLibrary.getUncached()

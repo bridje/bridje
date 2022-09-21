@@ -255,7 +255,7 @@ internal data class ExprAnalyser(
         (nsEnv.aliases[sym.ns] ?: env[sym.ns])?.let { it.globalVars[sym.local] }
 
     private fun resolveHostSymbol(sym: Symbol): TruffleObject? {
-        env.currentNsContext.imports[sym]?.let { return it }
+        nsEnv.imports[sym]?.let { return it }
 
         runCatching { env.truffleEnv.lookupHostSymbol(sym.name) }
             .getOrNull()
@@ -265,7 +265,7 @@ internal data class ExprAnalyser(
     }
 
     private fun resolveHostSymbol(sym: QSymbol): TruffleObject? {
-        env.currentNsContext.imports[sym.ns]?.let { clazz ->
+        nsEnv.imports[sym.ns]?.let { clazz ->
             if (env.interop.isMemberReadable(clazz, sym.local.name)) {
                 return env.interop.readMember(clazz, sym.local.name) as TruffleObject
             }
