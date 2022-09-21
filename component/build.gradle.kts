@@ -4,7 +4,7 @@ plugins {
 
 evaluationDependsOn(":language")
 evaluationDependsOn(":launcher")
-evaluationDependsOn(":native-image")
+//evaluationDependsOn(":native-image")
 
 tasks.register<Jar>("component") {
     group = "build"
@@ -37,8 +37,15 @@ tasks.register<Jar>("component") {
     into("languages/brj") {
         from(project(":language").tasks["jar"].outputs)
 
+//        into("bin") {
+//            from(project(":native-image").tasks["nativeImage"].outputs)
+//        }
+
+        // HACK temporary
         into("bin") {
-            from(project(":native-image").tasks["nativeImage"].outputs)
+            from(file("META-INF/tmp-brj.sh")) {
+                rename { "brj" }
+            }
         }
 
         into("stdlib") {
