@@ -131,7 +131,8 @@ class BridjeLanguageTest {
 
     @Test
     fun `test with-fx`() {
-        eval("(import java.time.Instant)")
+        eval("(ns user {:imports {java.time #{Instant}}})")
+
         assertEquals(Instant.EPOCH, eval("(with-fx [(def (now!) Instant/EPOCH)] (now!))").asInstant())
 
         assertEquals(Instant.EPOCH, eval("(with-fx [(def (now!) Instant/EPOCH)] (with-fx [] (now!)))").asInstant())
@@ -187,7 +188,7 @@ class BridjeLanguageTest {
         assertEquals(inst, eval("(java.util.Date. 1000)").asInstant())
         assertEquals(inst, eval("(java.util.Date. 1000)").asInstant())
 
-        eval("(import java.util.Date)")
+        eval("(ns user {:imports {java.util #{Date}}})")
         assertEquals(inst, eval("""(Date. 1000)""").asInstant())
     }
 
@@ -198,17 +199,15 @@ class BridjeLanguageTest {
 
     @Test
     fun `test import`() {
-        assertEquals(
-            Instant.ofEpochMilli(1000),
-            eval("(import java.util.Date java.time.Instant) (new Date 1000)").asInstant()
-        )
+        eval("(ns user {:imports {java.util #{Date}, java.time #{Instant}}})")
+        assertEquals(Instant.ofEpochMilli(1000), eval("(new Date 1000)").asInstant())
         assertEquals(Instant.EPOCH, eval("Instant/EPOCH").asInstant())
         assertTrue(eval("(Instant/now)").isInstant)
     }
 
     @Test
     fun `test invoke`() {
-        eval("(import java.time.Instant java.time.Duration)")
+        eval("(ns user {:imports {java.time #{Instant Duration}}})")
         assertEquals(Instant.ofEpochSecond(1), eval("(.plus Instant/EPOCH (Duration/ofSeconds 1))").asInstant())
     }
 
@@ -253,7 +252,11 @@ class BridjeLanguageTest {
 
     @Test
     internal fun `test ns`() {
-        val foo = eval("(ns foo) (def x 10)")
-        println(foo)
+        eval("(ns foo) (def x 10)")
+        assertEquals(10, eval("foo/x").asInt())
+
+        eval("(ns user {:refers {foo #{x}}, :aliases {f foo}})")
+        assertEquals(10, eval("f/x").asInt())
+        assertEquals(10, eval("x").asInt())
     }
 }

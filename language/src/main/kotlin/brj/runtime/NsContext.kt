@@ -2,7 +2,7 @@ package brj.runtime
 
 import brj.BridjeLanguage
 import brj.Typing
-import brj.nodes.DefxRootNodeGen
+import brj.nodes.DefxValueRootNodeGen
 import brj.runtime.Symbol.Companion.sym
 import com.oracle.truffle.api.CompilerAsserts
 import com.oracle.truffle.api.CompilerDirectives
@@ -73,7 +73,7 @@ internal class NsContext(
         val defaultImplVar = BridjeVar(null)
 
         val value = BridjeFunction(
-            DefxRootNodeGen.DefxValueRootNodeGen.create(ctx.lang, FrameDescriptor(), sym, defaultImplVar).callTarget
+            DefxValueRootNodeGen.create(ctx.lang, FrameDescriptor(), sym, defaultImplVar).callTarget
         )
 
         globalVars.compute(sym) { _, globalVar ->

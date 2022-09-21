@@ -16,11 +16,16 @@ internal val BRJ_CORE = "brj.core".sym
 @ExportLibrary(InteropLibrary::class)
 class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: TruffleLanguage.Env) : TruffleObject {
 
-    internal val userNsContext = NsContext(this, USER)
-    internal val coreNsContext = NsContext(this, BRJ_CORE)
-    internal val nses = mutableMapOf(USER to userNsContext, BRJ_CORE to coreNsContext)
+    internal var nses = mapOf(
+        USER to NsContext(this, USER),
+        BRJ_CORE to NsContext(this, BRJ_CORE))
 
-    internal val imports = mutableMapOf<Symbol, TruffleObject>()
+    private var currentNs = USER
+
+    internal val currentNsContext get() = nses[currentNs]!!
+
+    internal val userNsContext get() = nses[USER]!!
+    internal val coreNsContext get() = nses[BRJ_CORE]!!
 
     internal val interop = InteropLibrary.getUncached()
 
@@ -51,20 +56,8 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
     fun toDisplayString(@Suppress("UNUSED_PARAMETER") allowSideEffects: Boolean) = "BridjeEnv"
 
     @TruffleBoundary
-    fun importClass(className: Symbol) {
-        val clazz = truffleEnv.lookupHostSymbol(className.name) as TruffleObject
-        val simpleClassName = interop.asString(interop.getMetaSimpleName(clazz)).sym
-        imports[simpleClassName] = clazz
-    }
-
-    @TruffleBoundary
     fun poly(lang: String, code: String): Any =
         truffleEnv.parsePublic(Source.newBuilder(lang, code, "<brj-inline>").build()).call()
 
     internal operator fun get(ns: Symbol) = nses[ns]
-
-    internal operator fun set(ns: Symbol, nsCtx: NsContext): NsContext {
-        nses[ns] = nsCtx
-        return nsCtx
-    }
 }

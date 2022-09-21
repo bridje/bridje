@@ -1,0 +1,103 @@
+= Environments
+
+we've got to respond to parse requests, essentially given a context and a source
+source potentially has multiple forms - requires, aliases, values and namespaces
+
+previously I've wanted an 'immutable runtime environment' * why?
+
+* largely because of the issues within Clojure with consistency of redefined functions
+  * particularly, eval a function, eval another function that depends on
+  * more important because it's a typed language - incompatible change to the type of a fn mean re-compile
+  * other typed langs (Java, Kotlin, Haskell) are re-compile the world when a function changes
+  * difference here is that we're REPL based, so there's the expectation that we don't need a build
+  * deleting functions, too
+  * it'll help that we're compiling at the namespace level, that'll get a decent chunk
+  * GHCi is the closest they come to a REPL - let bindings in that REPL don't get updated when a dependent updates
+  * so can we make namespaces behave in the same way?
+  * or we can re-compile on-demand
+    * i.e. we leave the bulk of the system to behave in the same way
+    * values (i.e. closures) continue to behave in the same way for their lifetimes
+    * as soon as we call a function that relies on an out-of-date namespace, we re-compile
+  * let's give the user fine-grained control over contexts - we shouldn't re-use them
+
+so it's the REPL that makes this most interesting * how does that handle redefining vars?
+
+* usage patterns?
+* do block, redefine a load of functions, run a test case
+* arbitrarily redefine any definitions, run arbitrary definitions in that context
+* we can deal without marking namespaces unavailable if we allow the user to explicitly fork the context
+  * forking the context and then eval'ing a namespace would invalidate all the namespaces underneath it, in that context
+  * we can get back into the main context once we're done, and then re-eval everything that's changed
+  * we can potentially eval multiple namespaces in that context, if we're testing a few - again, we invalidate any namespaces underneath it
+  * re-eval'ing vars at the REPL invalidates any vars that depend on it
+  * we return the value of the last request
+* bear in mind this'll be used from other languages too
+
+looking promising. what are the primitives?
+
+* we can fork to a namespace, invalidates any namespaces that depend on it
+* state of a context - env, and current namespace
+* eval'ing a form within the namespace invalidates any vars within the namespace evaluated after it
+* eval'ing a namespace, interactively, replaces it
+  * REPL can potentially be given a different namespace - switch?
+* need a primitive to kill the fork and rejoin the main context, probably reloading it
+
+== GHCi deferred:
+
+GHCi seems to be able to run in a 'deferred' mode, which allows execution to continue in spite of a type/scope error
+it sets the GlobalVars to a generic type, and throws a runtime error if they're accessed
+they have different ways to call each * `:r!` vs `:r`.
+
+when a module changes, GHCi goes ahead and re-evaluates dependent modules.
+if a later module then errors, it then removes it from the environment
+
+what does 'deferred' look like for Bridje?
+does this mean we can continue to use the function as the unit of compilation?
+
+guess the question then becomes - are we more or less permissive by default?
+i.e. do we want an error to stop compilation by default?
+if we're going for LISPiness, then probably not - sounds like something the user could opt in to.
+it'll still _report_ errors, just that it won't halt for them.
+so Clojure halts for missing var errors - just not for type errors (obv)
+
+it seems like missing imports is a harder error, even in deferred mode
+although moving files underneath it throws a linker error rather than anything more specific - weird.
+
+I'd like compiling a namespace to include removing vars that no longer exist, that's one of my bigger annoyances with Clojure
+errors related to this would then propagate according to whether we're in strict or lax mode
+does this include _namespaces_ that no longer exist? possibly, yes, when they're reloaded.
+
+open questions:
+* what about the unit of compilation, then?
+* what about longer-running processes/threads? i.e. ctn reload.
+  * ns hooks?
+  * we really want var-hooks, if the var is the unit of compilation...
+
+units of compilation.
+making it the namespace kinda makes sense - can create a namespace dependency graph and then reload as necessary
+
+making it the function:
+
+cases:
+
+* strict mode:
+  * fails: nothing changes
+  * succeeds:
+    well, if it were a namespace it would then reload all of its dependents, and fail when the first one fails.
+    does it then descope everything it depends on?
+* lax mode:
+  * succeeds: same as strict-mode succeeds - except replaces dependents that fail with stubs
+  * fails: replaces binding with a stub
+
+this doesn't really mean 'immutable runtime envs', though, I don't think.
+* atomic updates, sure - so if you're running in strict mode you won't then get runtime errors - and it prevents a certain class of inconsistencies
+* not first-class, though? ... although is that really particularly useful?
+
+what about the `user` namespace? is it any different now?
+
+what about clearing namespaces?
+we can't tell the difference between an ns on its own and an empty ns?
+unless we get the client to submit something different? but suspect that's a bit of a hack.
+we could get the client to send an explicit clear
+going back, why do we need to clear a namespace?
+we want it to be atomic, whatever the operation is - we don't want to clear the ns if it turns out the replaced ns is dodgy

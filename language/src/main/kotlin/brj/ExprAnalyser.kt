@@ -21,7 +21,6 @@ private val CASE = "case".sym
 
 private val DEF = "def".sym
 private val DEFX = "defx".sym
-private val IMPORT = "import".sym
 
 internal sealed class TopLevelDoOrExpr
 
@@ -252,8 +251,11 @@ internal data class ExprAnalyser(
     private fun resolveGlobalVar(sym: Symbol) =
         nsEnv.globalVars[sym] ?: nsEnv.refers[sym] ?: env.coreNsContext.globalVars[sym]
 
+    private fun resolveGlobalVar(sym: QSymbol): GlobalVar? =
+        (nsEnv.aliases[sym.ns] ?: env[sym.ns])?.let { it.globalVars[sym.local] }
+
     private fun resolveHostSymbol(sym: Symbol): TruffleObject? {
-        env.imports[sym]?.let { return it }
+        env.currentNsContext.imports[sym]?.let { return it }
 
         runCatching { env.truffleEnv.lookupHostSymbol(sym.name) }
             .getOrNull()
@@ -263,7 +265,7 @@ internal data class ExprAnalyser(
     }
 
     private fun resolveHostSymbol(sym: QSymbol): TruffleObject? {
-        env.imports[sym.ns]?.let { clazz ->
+        env.currentNsContext.imports[sym.ns]?.let { clazz ->
             if (env.interop.isMemberReadable(clazz, sym.local.name)) {
                 return env.interop.readMember(clazz, sym.local.name) as TruffleObject
             }
@@ -297,6 +299,7 @@ internal data class ExprAnalyser(
             )
 
             is QSymbolForm -> {
+                resolveGlobalVar(sym)?.let { return GlobalVarExpr(it, loc) }
                 resolveHostSymbol(sym)?.let { return TruffleObjectExpr(it, loc) }
 
                 TODO("can't find host symbol '$sym'")
@@ -448,12 +451,6 @@ internal data class ExprAnalyser(
         return DefxExpr(header.sym, Typing(monoType, fx = setOf(header.sym)), zup!!.znode.loc)
     }
 
-    private fun Zip<Form>.parseImport() =
-        ImportExpr(
-            zright.zrights.map { ((it.znode as? SymbolForm) ?: TODO("non-symbol in import")).sym }.toList(),
-            zup!!.znode.loc
-        )
-
     fun Zip<Form>.analyseExpr(): TopLevelDoOrExpr = znode.run {
         when (this) {
             is ListForm -> zdown?.run {
@@ -461,7 +458,6 @@ internal data class ExprAnalyser(
                     DO -> TopLevelDo(zright.zrights.map { it.znode }.toList())
                     DEF -> TopLevelExpr(analyseDef())
                     DEFX -> TopLevelExpr(analyseDefx())
-                    IMPORT -> TopLevelExpr(parseImport())
                     else -> null
                 }
             }

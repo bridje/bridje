@@ -4,11 +4,11 @@ import brj.*
 import brj.runtime.FxMap
 import com.oracle.truffle.api.CompilerDirectives
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
-import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.TruffleLanguage.ContextReference
 import com.oracle.truffle.api.TruffleLanguage.LanguageReference
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.FrameDescriptor
+import com.oracle.truffle.api.nodes.DirectCallNode
 import com.oracle.truffle.api.nodes.RootNode
 
 private val LANG_REF = LanguageReference.create(BridjeLanguage::class.java)
@@ -33,54 +33,52 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
 
         val exprAnalyser = ExprAnalyser(ctx, nsCtx)
 
+        val nses = ctx.nses.toMutableMap()
+
+        nses[nsCtx.ns] = nsCtx
+
+        fun ValueExpr.eval(): Any {
+            // TODO
+            // typeLogger.info("type: ${valueExprTyping(expr)}")
+
+            val frameDescriptor = FrameDescriptor()
+
+            val rootNode = ValueExprRootNodeGen.create(
+                lang, frameDescriptor,
+                WriteLocalNodeGen.create(
+                    lang, ReadArgNode(lang, 0),
+                    frameDescriptor.findOrAddFrameSlot(DEFAULT_FX_LOCAL)
+                ),
+                ValueExprEmitter(lang, frameDescriptor).emitValueExpr(this)
+            )
+
+            val callNode = DirectCallNode.create(rootNode.callTarget)
+
+            return insert(callNode).call(FxMap(FxMap.DEFAULT_SHAPE))
+        }
+
         fun Form.evalForm(): Any? =
             when (val doOrExpr = exprAnalyser.analyseExpr(this)) {
                 is TopLevelDo -> doOrExpr.forms.fold(null) { _: Any?, form -> form.evalForm() }
 
                 is TopLevelExpr -> {
-                    val rootNode = when (val expr = doOrExpr.expr) {
-                        is ValueExpr -> {
-                            // TODO
-                            // typeLogger.info("type: ${valueExprTyping(expr)}")
-
-                            val frameDescriptor = FrameDescriptor()
-                            ValueExprRootNodeGen.create(
-                                lang, frameDescriptor,
-                                WriteLocalNodeGen.create(
-                                    lang, ReadArgNode(lang, 0),
-                                    frameDescriptor.findOrAddFrameSlot(DEFAULT_FX_LOCAL)
-                                ),
-                                ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr)
-                            )
-                        }
+                    when (val expr = doOrExpr.expr) {
+                        is ValueExpr -> expr.eval()
 
                         is DefExpr -> {
-                            // TODO
-                            // val valueExprTyping = valueExprTyping(expr.expr)
-                            // typeLogger.info("type: $valueExprTyping")
-
-                            val frameDescriptor = FrameDescriptor()
-                            DefRootNodeGen.create(
-                                lang, frameDescriptor, nsCtx,
-                                expr.sym, Typing(TypeVar()), /*valueExprTyping*/ expr.loc,
-                                ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr),
-                            )
+                            val exprVal = expr.expr.eval()
+                            nsCtx.def(expr.sym, Typing(TypeVar()), exprVal)
+                            exprVal
                         }
 
-                        is DefxExpr -> DefxRootNodeGen.create(lang, nsCtx, expr.sym, expr.typing, expr.loc)
-
-                        is ImportExpr -> ImportRootNodeGen.create(lang, expr.loc, expr.syms.toTypedArray())
+                        is DefxExpr -> nsCtx.defx(expr.sym, expr.typing)
                     }
-
-                    val callNode = Truffle.getRuntime().createDirectCallNode(rootNode.callTarget)
-
-                    insert(callNode).call(FxMap(FxMap.DEFAULT_SHAPE))
                 }
             }
 
         val res = otherForms.fold(null) { _: Any?, form -> form.evalForm() }
 
-        ctx[nsCtx.ns] = nsCtx
+        ctx.nses = nses
 
         return if (hasNsForm) nsCtx else res
     }

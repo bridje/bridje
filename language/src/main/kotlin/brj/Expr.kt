@@ -270,13 +270,3 @@ internal data class DefxExpr(val sym: Symbol, val typing: Typing, override val l
 
     override fun hashCode() = Objects.hash(sym)
 }
-
-internal data class ImportExpr(val syms: List<Symbol>, override val loc: SourceSection?) : Expr() {
-    override fun equals(other: Any?) = when {
-        this === other -> true
-        other !is ImportExpr -> false
-        else -> syms == other.syms
-    }
-
-    override fun hashCode() = Objects.hash(syms)
-}
