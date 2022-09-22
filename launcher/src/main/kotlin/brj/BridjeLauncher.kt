@@ -14,10 +14,10 @@ class BridjeLauncher : AbstractLanguageLauncher() {
         data class EvalFile(val file: File) : EvalScript()
         data class EvalString(val str: String) : EvalScript()
         data class EvalMain(val ns: String) : EvalScript()
-        object StartLsp : EvalScript()
     }
 
     private val evalScripts = mutableListOf<EvalScript>()
+    private var lsp: Boolean = false
     private lateinit var args: List<String>
 
     private fun printOption(opt: String, description: String) {
@@ -36,12 +36,14 @@ class BridjeLauncher : AbstractLanguageLauncher() {
 
     override fun launch(contextBuilder: Context.Builder) {
         contextBuilder.arguments("brj", args.toTypedArray())
+        if (lsp) contextBuilder.option("brj.lsp", "true")
         val ctx = contextBuilder.build()
+
+        ctx.initialize("brj")
         ctx.enter()
 
         try {
-
-            if (evalScripts.isEmpty()) {
+            if (!lsp && evalScripts.isEmpty()) {
                 abort("Nothing to evaluate. See `brj --help` for options.")
             }
 
@@ -63,13 +65,11 @@ class BridjeLauncher : AbstractLanguageLauncher() {
                         if (!nsEnv.canInvokeMember("main")) abort("Can't find 'main' function in ${script.ns}")
                         println(nsEnv.invokeMember("main", args))
                     }
-
-                    StartLsp -> ctx.eval(Source.newBuilder("brj", "(start-lsp!)", "<lsp>").internal(true).build())
                 }
             }
         } finally {
             ctx.leave()
-            ctx.close(true)
+            ctx.close(false)
         }
     }
 
@@ -92,7 +92,7 @@ class BridjeLauncher : AbstractLanguageLauncher() {
                 "-e", "--eval" -> evalScripts += EvalString(nextArg("--eval"))
                 "-f", "--file" -> evalScripts += EvalFile(File(nextArg("--file")))
                 "-m", "--main" -> evalScripts += EvalMain(nextArg("--main"))
-                "--lsp" -> evalScripts += StartLsp
+                "--lsp" -> lsp = true
                 "--" -> break@loop
                 else -> unknownArgs.add(arg)
             }
