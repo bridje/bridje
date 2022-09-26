@@ -1,12 +1,13 @@
 package brj
 
 import brj.runtime.Symbol
+import com.oracle.truffle.api.interop.TruffleObject
 
 data class Typing(
     val res: MonoType,
     val monoEnv: Map<LocalVar, MonoType> = emptyMap(),
     val fx: Set<Symbol> = emptySet(),
-) {
+) : TruffleObject {
     override fun toString() = "(Typing $monoEnv, $fx => $res)"
 }
 
@@ -17,23 +18,14 @@ private fun zipConstraints(lefts: List<MonoType>, rights: List<MonoType>): Set<C
 
 private typealias Mapping = Map<TypeVar, MonoType>
 
-private fun MonoType.apply(mapping: Mapping): MonoType = when (this) {
-    BoolType, IntType, StringType -> this
-    is TypeVar -> mapping.getOrDefault(this, this)
-    is FnType -> FnType(paramTypes.map { it.apply(mapping) }, resType.apply(mapping))
-    is SetType -> SetType(elType.apply(mapping))
-    is VectorType -> VectorType(elType.apply(mapping))
-}
+private fun MonoType.apply(mapping: Mapping) =
+    postWalk { if (this is TypeVar) mapping.getOrDefault(this, this) else this }
 
 private fun Typing.instantiate(): Typing {
     val tvMapping: MutableMap<TypeVar, TypeVar> = mutableMapOf()
 
-    fun MonoType.instantiate(): MonoType = when (this) {
-        BoolType, IntType, StringType -> this
-        is FnType -> FnType(paramTypes.map(MonoType::instantiate), resType.instantiate())
-        is SetType -> SetType(elType.instantiate())
-        is VectorType -> VectorType(elType.instantiate())
-        is TypeVar -> tvMapping.getOrElse(this) { TypeVar(s) }
+    fun MonoType.instantiate(): MonoType = postWalk {
+        if (this is TypeVar) tvMapping.getOrElse(this) { TypeVar(s) } else this
     }
 
     return Typing(
@@ -85,6 +77,16 @@ private fun combineTypings(
                     constraintQueue.add(Constraint(c.leftType.elType, c.rightType.elType))
                     emptyMap()
                 } else null
+                is RecordType -> if (c.rightType is RecordType) {
+                    // TODO this assumes leftType <= rightType,
+                    // but the rest of the codebase doesn't yet respect this consistently
+                    c.leftType.entryTypes.forEach { (k, tLeft) ->
+                        val tRight = c.rightType[k] ?: TODO("missing key: $k")
+                        constraintQueue.add(Constraint(tLeft, tRight))
+                    }
+
+                    emptyMap()
+                } else null
             } ?: TODO("failed to unify ${c.leftType} + ${c.rightType}")
         }
 
@@ -112,6 +114,16 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
             mkType(elTypeVar),
             typings,
             typings.mapTo(mutableSetOf()) { Constraint(it.res, elTypeVar) })
+    }
+
+    private fun recordTyping(expr: RecordExpr): Typing {
+        val typings = expr.entries.mapValues { valueExprTyping(it.value) }
+        return combineTypings(RecordType(typings.mapValues { it.value.res }), typings.values)
+    }
+
+    private fun keywordTyping(expr: KeywordExpr): Typing {
+        val res = TypeVar("res")
+        return Typing(FnType(listOf(RecordType(mapOf(expr.key.key to res))), res))
     }
 
     private fun doTyping(doExpr: DoExpr): Typing {
@@ -183,7 +195,7 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
 
     private fun callExprTyping(expr: CallExpr): Typing {
         val fnTyping = valueExprTyping(expr.fn)
-        val paramTypings = expr.args.drop(1).map(::valueExprTyping)
+        val paramTypings = expr.args.map(::valueExprTyping)
 
         val fnType = when (fnTyping.res) {
             is FnType -> fnTyping.res
@@ -191,10 +203,12 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
             else -> TODO()
         }
 
+        if (paramTypings.size != fnType.paramTypes.size) TODO("arity mismatch: ${paramTypings.size} vs ${fnType.paramTypes.size}")
+
         return combineTypings(
             fnType.resType,
             paramTypings + fnTyping,
-            zipConstraints(paramTypings.map { it.res }, fnType.paramTypes) + Constraint(fnTyping.res, fnType)
+            zipConstraints(fnType.paramTypes, paramTypings.map { it.res }) + Constraint(fnTyping.res, fnType)
         )
     }
 
@@ -229,6 +243,7 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
     }
 
     fun valueExprTyping(expr: ValueExpr): Typing = when (expr) {
+        is NilExpr -> TODO("nil typing")
         is IntExpr -> primitiveTyping(IntType)
         is BoolExpr -> primitiveTyping(BoolType)
         is StringExpr -> primitiveTyping(StringType)
@@ -236,6 +251,8 @@ private class TypeChecker(val localPolyEnv: Map<LocalVar, Typing> = emptyMap()) 
         is IfExpr -> ifTyping(expr)
         is VectorExpr -> collTyping(::VectorType, expr.exprs)
         is SetExpr -> collTyping(::SetType, expr.exprs)
+        is RecordExpr -> recordTyping(expr)
+        is KeywordExpr -> keywordTyping(expr)
         is FnExpr -> fnExprTyping(expr)
         is LocalVarExpr -> localVarExprTyping(expr.localVar)
         is GlobalVarExpr -> globalVarExprTyping(expr)

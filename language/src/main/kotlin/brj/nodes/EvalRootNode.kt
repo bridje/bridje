@@ -39,7 +39,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
 
         fun ValueExpr.eval(): Any {
             // TODO
-            // typeLogger.info("type: ${valueExprTyping(expr)}")
+            // typeLogger.info("type: ${valueExprTyping(this)}")
 
             val frameDescriptor = FrameDescriptor()
 

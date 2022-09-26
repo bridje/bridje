@@ -18,6 +18,7 @@ private val LOOP = "loop".sym
 private val RECUR = "recur".sym
 private val NEW = "new".sym
 private val CASE = "case".sym
+private val TYPE = "type".sym
 
 private val DEF = "def".sym
 private val DEFX = "defx".sym
@@ -248,6 +249,11 @@ internal data class ExprAnalyser(
             return CaseExpr(expr, nilClause, clauses, default, zup!!.znode.loc)
         }
 
+    private fun Zip<Form>.analyseType(): ValueExpr =
+        (zright ?: TODO("expected expr in `type`")).run {
+            TruffleObjectExpr(valueExprTyping(analyseValueExpr(null)), zup!!.znode.loc)
+        }
+
     private fun resolveGlobalVar(sym: Symbol) =
         nsEnv.globalVars[sym] ?: nsEnv.refers[sym] ?: env.coreNsContext.globalVars[sym]
 
@@ -319,7 +325,7 @@ internal data class ExprAnalyser(
                     if (this == null) TODO("empty list")
 
                     znode.run {
-                        val specialFormExpr = when (this) {
+                        when (this) {
                             is SymbolForm -> when (sym) {
                                 DO -> analyseDo(loopLocals)
                                 IF -> analyseIf(loopLocals)
@@ -330,22 +336,18 @@ internal data class ExprAnalyser(
                                 RECUR -> analyseRecur(loopLocals)
                                 NEW -> analyseNew()
                                 CASE -> analyseCase(loopLocals)
+                                TYPE -> analyseType()
                                 else -> null
                             }
 
                             else -> null
-                        }
+                        } ?: CallExpr(
+                            analyseValueExpr(null),
+                            LocalVarExpr(fxLocal, null),
 
-                        if (specialFormExpr != null)
-                            specialFormExpr
-                        else {
-                            CallExpr(
-                                analyseValueExpr(null),
-                                LocalVarExpr(fxLocal, null),
-                                zright.zrights.map { it.analyseValueExpr(null) }.toList(),
-                                zup!!.znode.loc
-                            )
-                        }
+                            zright.zrights.map { it.analyseValueExpr(null) }.toList(),
+                            zup!!.znode.loc
+                        )
                     }
                 }
             }
