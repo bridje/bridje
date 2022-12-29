@@ -41,6 +41,61 @@ private fun Constraint.apply(mapping: Mapping) =
 private fun <K> Map<K, MonoType>.apply(mapping: Mapping) =
     this.asIterable().associate { it.key to it.value.apply(mapping) }
 
+/*
+previously we returned the monoenv from this one - that's why it's a work queue rather than just side-effecting
+well, that and trying not to blow the stack, but maybe that isn't an issue here.
+
+1. do we need the monoenv? can we still preserve the compositional nature of the type-system without it?
+2. if we do, can we still create it?
+
+think the monoenv becomes a record of the bounds imposed by each sub-expr, which we could potentially then combine.
+ */
+
+/*
+ok, so, doing it immutably, what's it look like?
+
+let's say we keep Typing roughly the same: a return type, and a set of LocalVar assumptions
+
+how do we combine them?
+
+in the Erdi composition paper, they assign a new type variable to each LV, then apply the resultant mapping to both the
+return type and the mono-env.
+does this make sense when you're subtyping?
+you have to pick a constraint order - which one?
+given it's a local var, which is negative, we have to say that each of the resultant types are the lower bound of the new type var
+i.e. the new type var can be passed as each of the composed types.
+we don't want all the same union behaviour as these papers - we don't want Int | String, for example.
+that kind of implies keeping the type vars with the types themselves - i.e. within the record type.
+how about (fn [x] (if (:named? x) (:foo x) x))?
+  (:foo x) is typed x:m->a where m = {:foo a & r1}, x is typed x:b->b,
+  let's say the user then wrapped it up:
+    (if p (:Foo. (:foo x)) (:X. x)) :: {x {:foo a & r1}} => (+ (:Foo a) (:X {:foo a & r1}))
+    then wrap it in a case:
+
+  fails an occurs check?
+how about (fn [p x y] (if p x y))? - Bool -> a -> a -> a
+
+it's only record/variant types that have bounds -
+or maybe number types, if we want to allow widening
+or maybe types from other languages.
+so we should probably support arbitrary subtyping?
+
+we keep the bounds separately til later because it could be that the type is used in different places,
+only _some_ of which are then weakened - we want to keep the strong variants as late as possible.
+
+ we have different hierarchies of types - records, variants, java classes, 'objects'
+
+ {(def (.foo a b)
+    ...)
+  (def .bar 42)}
+
+ generally values can't pass between hierarchies, but maybe java classes and objects are the exception to the rule?
+ maybe (and I'm sure I've heard this before somewhere) 'everything is objects' - at least, they are at the Graal/Truffle level
+ so this is a language that's designed just to reflect Truffle interop?
+ maybe not such a stupid idea...
+
+ */
+
 private fun combineTypings(
     res: MonoType,
     typings: Iterable<Typing> = emptyList(),
