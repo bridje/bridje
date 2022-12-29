@@ -8,6 +8,5 @@ allprojects {
 }
 
 plugins {
-    kotlin("jvm") version "1.6.20"
-    id("com.palantir.graal") version "0.10.0"
+    kotlin("jvm") version "1.8.0"
 }
