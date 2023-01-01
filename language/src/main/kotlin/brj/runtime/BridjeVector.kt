@@ -26,6 +26,7 @@ class BridjeVector(val els: Array<Any>) : TruffleObject {
     @ExportMessage
     fun hasMembers() = true
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun getMembers(includeInternal: Boolean) = Keys(arrayOf("conj"))
 

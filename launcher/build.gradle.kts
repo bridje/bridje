@@ -5,8 +5,8 @@ plugins {
 dependencies {
     module(":language")
     implementation(kotlin("stdlib-jdk8"))
-    compileOnly("org.graalvm.sdk:graal-sdk:22.1.0")
-    implementation("org.graalvm.sdk:launcher-common:22.1.0")
+    compileOnly("org.graalvm.sdk:graal-sdk:22.3.0")
+    implementation("org.graalvm.sdk:launcher-common:22.3.0")
 
     testImplementation(kotlin("test-junit"))
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.0")

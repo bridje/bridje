@@ -39,6 +39,7 @@ class BridjeInstant(private val instant: Instant) : TruffleObject {
     @ExportMessage
     fun asInstant() = instant
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun toDisplayString(allowSideEffects: Boolean) = """(#inst "$instant")"""
 }

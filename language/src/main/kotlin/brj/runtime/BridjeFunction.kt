@@ -19,6 +19,7 @@ open class BridjeFunction(val callTarget: CallTarget) : TruffleObject {
     @ExportMessage
     fun getLanguage() = BridjeLanguage::class.java
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun toDisplayString(allowSideEffects: Boolean) = "<BridjeFunction>"
 
@@ -28,6 +29,7 @@ open class BridjeFunction(val callTarget: CallTarget) : TruffleObject {
     @ExportMessage
     class Execute {
         companion object {
+            @Suppress("UNUSED_PARAMETER")
             @Specialization
             @JvmStatic
             fun doExecute(

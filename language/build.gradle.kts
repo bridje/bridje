@@ -5,10 +5,10 @@ plugins {
 }
 
 dependencies {
-    val truffleVersion = "22.1.0"
+    val truffleVersion = "22.3.0"
 
-    antlr("org.antlr:antlr4:4.11.1")
-    implementation("org.antlr:antlr4-runtime:4.11.1")
+    antlr("org.antlr:antlr4:4.9.2")
+    implementation("org.antlr:antlr4-runtime:4.9.2")
 
     implementation(kotlin("stdlib-jdk8"))
 

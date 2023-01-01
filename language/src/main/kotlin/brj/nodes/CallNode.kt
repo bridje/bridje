@@ -28,6 +28,7 @@ abstract class CallNode(lang: BridjeLanguage, loc: SourceSection?) : ExprNode(la
         NodeChild(value = "args", type = ExecuteArrayNode::class)
     )
     abstract class CallArgsNode : Node() {
+        @Suppress("UNUSED_PARAMETER")
         @Specialization
         @ExplodeLoop
         fun doExecute(fn: BridjeFunction, fxLocal: Any, args: Array<*>): Array<Any?> {
@@ -39,17 +40,19 @@ abstract class CallNode(lang: BridjeLanguage, loc: SourceSection?) : ExprNode(la
             return passedArgs
         }
 
+        @Suppress("UNUSED_PARAMETER")
         @Specialization
         fun doExecute(fn: TruffleObject, fxLocal: Any, args: Array<Any?>) = args
 
         abstract fun execute(frame: VirtualFrame, fn: TruffleObject): Array<Any?>
     }
 
+    @Suppress("UNUSED_PARAMETER")
     @Specialization(guards = ["fn == cachedFn"])
     fun doExecute(
         fn: BridjeFunction?,
         args: Array<Any?>,
-        @Cached("fn") cachedFn: BridjeFunction?,
+        @Suppress("UNUSED_PARAMETER") @Cached("fn") cachedFn: BridjeFunction?,
         @Cached("create(cachedFn.getCallTarget())") callNode: DirectCallNode
     ): Any {
         return callNode.call(*args)

@@ -21,6 +21,7 @@ abstract class ReduceFn(lang: BridjeLanguage) : BuiltInFn(lang) {
     private var iteratorLib = InteropLibrary.getFactory().createDispatched(3)
 
     @Specialization
+    @Suppress("UNUSED_PARAMETER")
     fun doReduce(
         fx: FxMap, fn: BridjeFunction, init: Any, coll: Any,
         @Cached("create(fn.getCallTarget())") callNode: DirectCallNode
@@ -38,6 +39,7 @@ abstract class ReduceFn(lang: BridjeLanguage) : BuiltInFn(lang) {
     }
 
     @Specialization
+    @Suppress("UNUSED_PARAMETER")
     fun doReduce(fx: FxMap, f: Any, init: Any, coll: Any): Any {
         if (!fLib.isExecutable(f)) throw UnexpectedResultException(f)
         if (!collLib.hasIterator(coll)) throw UnexpectedResultException(coll)

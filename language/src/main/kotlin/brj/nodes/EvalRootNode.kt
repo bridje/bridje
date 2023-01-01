@@ -47,7 +47,7 @@ internal abstract class EvalRootNode(lang: BridjeLanguage, private val forms: Li
                 lang, frameDescriptor,
                 WriteLocalNodeGen.create(
                     lang, ReadArgNode(lang, 0),
-                    frameDescriptor.findOrAddFrameSlot(DEFAULT_FX_LOCAL)
+                    frameDescriptor.findOrAddAuxiliarySlot(DEFAULT_FX_LOCAL)
                 ),
                 ValueExprEmitter(lang, frameDescriptor).emitValueExpr(this)
             )

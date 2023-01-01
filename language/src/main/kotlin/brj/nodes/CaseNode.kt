@@ -1,10 +1,8 @@
 package brj.nodes
 
 import brj.BridjeLanguage
-import kotlin.Throws
 import brj.runtime.BridjeKey
 import com.oracle.truffle.api.CompilerDirectives
-import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.UnsupportedMessageException
@@ -40,7 +38,7 @@ class CaseNode(
 
     class KeyClauseNode(
         private val key: BridjeKey,
-        private val frameSlot: FrameSlot,
+        private val frameSlotIdx: Int,
         @field:Child private var exprNode: ExprNode
     ) : CaseClauseNode() {
         private val interop = InteropLibrary.getUncached()
@@ -49,7 +47,7 @@ class CaseNode(
         override fun execute(frame: VirtualFrame, obj: Any) {
             try {
                 if (profile.profile(interop.isMetaInstance(key, obj))) {
-                    frame.setObject(frameSlot, obj)
+                    frame.setAuxiliarySlot(frameSlotIdx, obj)
                     throw CaseMatched(exprNode.execute(frame))
                 }
             } catch (e: UnsupportedMessageException) {

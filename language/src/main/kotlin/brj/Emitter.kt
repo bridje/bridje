@@ -43,7 +43,7 @@ internal class ValueExprEmitter(
             lang,
             expr.loc,
             expr.bindings.map {
-                WriteLocalNodeGen.create(lang, emitValueExpr(it.expr), frameDescriptor.findOrAddFrameSlot(it.binding))
+                WriteLocalNodeGen.create(lang, emitValueExpr(it.expr), frameDescriptor.findOrAddAuxiliarySlot(it.binding))
             }.toTypedArray(),
             emitValueExpr(expr.expr)
         )
@@ -55,7 +55,7 @@ internal class ValueExprEmitter(
                 lang,
                 frameDescriptor,
                 (listOf(expr.fxLocal) + expr.params).mapIndexed { idx, localVar ->
-                    WriteLocalNodeGen.create(lang, ReadArgNode(lang, idx), frameDescriptor.findOrAddFrameSlot(localVar))
+                    WriteLocalNodeGen.create(lang, ReadArgNode(lang, idx), frameDescriptor.findOrAddAuxiliarySlot(localVar))
                 }.toTypedArray(),
                 ValueExprEmitter(lang, frameDescriptor).emitValueExpr(expr.expr)
             )
@@ -74,7 +74,7 @@ internal class ValueExprEmitter(
             )
         )
 
-        is LocalVarExpr -> LocalVarNodeGen.create(lang, expr.loc, frameDescriptor.findOrAddFrameSlot(expr.localVar))
+        is LocalVarExpr -> LocalVarNodeGen.create(lang, expr.loc, frameDescriptor.findOrAddAuxiliarySlot(expr.localVar))
         is GlobalVarExpr -> GlobalVarNodeGen.create(lang, expr.loc, expr.globalVar.bridjeVar)
         is TruffleObjectExpr -> ConstantNode(lang, expr.loc, expr.clazz)
 
@@ -86,11 +86,11 @@ internal class ValueExprEmitter(
                     lang,
                     WithFxNode.NewFxNode(
                         lang, null,
-                        LocalVarNodeGen.create(lang, null, frameDescriptor.findOrAddFrameSlot(expr.oldFx)),
+                        LocalVarNodeGen.create(lang, null, frameDescriptor.findOrAddAuxiliarySlot(expr.oldFx)),
                         expr.bindings.map { WithFxNode.WithFxBindingNode(it.defxVar.sym, emitValueExpr(it.expr)) }
                             .toTypedArray()
                     ),
-                    frameDescriptor.findOrAddFrameSlot(expr.newFx)
+                    frameDescriptor.findOrAddAuxiliarySlot(expr.newFx)
                 ),
                 emitValueExpr(expr.expr)
             )
@@ -103,7 +103,7 @@ internal class ValueExprEmitter(
                 WriteLocalNodeGen.create(
                     lang,
                     emitValueExpr(it.expr),
-                    frameDescriptor.findOrAddFrameSlot(it.binding)
+                    frameDescriptor.findOrAddAuxiliarySlot(it.binding)
                 )
             }.toTypedArray(),
             emitValueExpr(expr.expr)
@@ -116,7 +116,7 @@ internal class ValueExprEmitter(
                 WriteLocalNodeGen.create(
                     lang,
                     emitValueExpr(it.expr),
-                    frameDescriptor.findOrAddFrameSlot(it.binding)
+                    frameDescriptor.findOrAddAuxiliarySlot(it.binding)
                 )
             }.toTypedArray()
         )
@@ -125,7 +125,7 @@ internal class ValueExprEmitter(
             val nilClauseNode = expr.nilExpr?.let { CaseNode.NilClauseNode(emitValueExpr(it)) }
 
             val clauseNodes = expr.clauses.map {
-                CaseNode.KeyClauseNode(it.key, frameDescriptor.findOrAddFrameSlot(it.localVar), emitValueExpr(it.expr))
+                CaseNode.KeyClauseNode(it.key, frameDescriptor.findOrAddAuxiliarySlot(it.localVar), emitValueExpr(it.expr))
             }
 
             val defaultClauseNode =

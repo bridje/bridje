@@ -12,5 +12,5 @@ import com.oracle.truffle.api.source.SourceSection
 )
 abstract class DoNode protected constructor(lang: BridjeLanguage, loc: SourceSection?) : ExprNode(lang, loc) {
     @Specialization
-    fun execute(doExprs: Array<Any>, doExpr: Any) = doExpr
+    fun execute(@Suppress("UNUSED_PARAMETER") doExprs: Array<Any>, doExpr: Any) = doExpr
 }

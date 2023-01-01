@@ -17,6 +17,7 @@ object Nil : TruffleObject {
     @ExportMessage
     fun getLanguage() = BridjeLanguage::class.java
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun toDisplayString(_allowSideEffects: Boolean) = "nil"
 }

@@ -26,6 +26,7 @@ class BridjeSet(val els: Array<Any>) : TruffleObject {
     @ExportMessage
     fun hasMembers() = true
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun getMembers(includeInternal: Boolean) = Keys(arrayOf("conj"))
 
@@ -54,6 +55,7 @@ class BridjeSet(val els: Array<Any>) : TruffleObject {
         private val interopLibrary = InteropLibrary.getUncached()
     }
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     @TruffleBoundary
     fun toDisplayString(allowSideEffects: Boolean) =

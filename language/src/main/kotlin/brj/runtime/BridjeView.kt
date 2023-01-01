@@ -75,6 +75,7 @@ class BridjeView(@JvmField val obj: Any) : TruffleObject {
     @ExportMessage.Ignore
     private fun toDisplayString(obj: Any) = toDisplayString(interop, obj)
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun toDisplayString(
         _allowSideEffects: Boolean,

@@ -16,6 +16,7 @@ class Symbol private constructor(val name: String) : TruffleObject {
         internal val String.sym get() = intern(this)
     }
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun toDisplayString(allowSideEffects: Boolean) = toString()
 
@@ -37,6 +38,7 @@ class QSymbol private constructor(val ns: Symbol, val local: Symbol): TruffleObj
         internal val Pair<Symbol, Symbol>.qsym get() = intern(first, second)
     }
 
+    @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     fun toDisplayString(allowSideEffects: Boolean) = toString()
 

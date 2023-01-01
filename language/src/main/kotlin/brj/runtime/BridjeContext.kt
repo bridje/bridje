@@ -45,7 +45,7 @@ class BridjeContext(internal val lang: BridjeLanguage, internal val truffleEnv: 
 
     @ExportMessage
     @TruffleBoundary
-    fun getMembers(includeInternal: Boolean) =
+    fun getMembers(@Suppress("UNUSED_PARAMETER") includeInternal: Boolean) =
         BridjeVector(nses.keys.map { it.name }.toList().toTypedArray())
 
     @ExportMessage

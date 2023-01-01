@@ -4,18 +4,17 @@ import brj.BridjeLanguage
 import com.oracle.truffle.api.dsl.NodeChild
 import com.oracle.truffle.api.dsl.NodeField
 import com.oracle.truffle.api.dsl.Specialization
-import com.oracle.truffle.api.frame.FrameSlot
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.instrumentation.StandardTags
 import com.oracle.truffle.api.instrumentation.Tag
 
 @NodeChild(value = "expr", type = ExprNode::class)
-@NodeField(name = "frameSlot", type = FrameSlot::class)
+@NodeField(name = "frameSlotIdx", type = Int::class)
 abstract class WriteLocalNode(lang: BridjeLanguage) : ExprNode(lang, null) {
-    abstract val frameSlot: FrameSlot?
+    abstract val frameSlotIdx: Int
     @Specialization
     fun doExecute(frame: VirtualFrame, expr: Any): Any {
-        frame.setObject(frameSlot, expr)
+        frame.setAuxiliarySlot(frameSlotIdx, expr)
         return expr
     }
 
