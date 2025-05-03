@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ANTLRGenerationPreferences">
+    <option name="perGrammarGenerationSettings">
+      <list>
+        <PerGrammarGenerationSettings>
+          <option name="fileName" value="$PROJECT_DIR$/language/src/main/antlr/bridje/antlr/Bridje.g4" />
+          <option name="autoGen" value="true" />
+          <option name="outputDir" value="$PROJECT_DIR$/language/build/generated-src/antlr/main" />
+          <option name="libDir" value="" />
+          <option name="encoding" value="" />
+          <option name="pkg" value="" />
+          <option name="language" value="" />
+          <option name="generateListener" value="false" />
+          <option name="generateVisitor" value="true" />
+        </PerGrammarGenerationSettings>
+        <PerGrammarGenerationSettings>
+          <option name="fileName" value="$PROJECT_DIR$/language/src/main/antlr/bridje/antlr/BridjeLexer.g4" />
+          <option name="autoGen" value="true" />
+          <option name="outputDir" value="$PROJECT_DIR$/language/build/generated" />
+          <option name="libDir" value="" />
+          <option name="encoding" value="" />
+          <option name="pkg" value="bridje.antlr" />
+          <option name="language" value="Java" />
+          <option name="generateListener" value="false" />
+          <option name="generateVisitor" value="true" />
+        </PerGrammarGenerationSettings>
+        <PerGrammarGenerationSettings>
+          <option name="fileName" value="$PROJECT_DIR$/language/src/main/antlr/bridje/antlr/BridjeParser.g4" />
+          <option name="autoGen" value="true" />
+          <option name="outputDir" value="$PROJECT_DIR$/language/build/generated" />
+          <option name="libDir" value="$PROJECT_DIR$/language/build/generated" />
+          <option name="encoding" value="" />
+          <option name="pkg" value="bridje.antlr" />
+          <option name="language" value="Java" />
+          <option name="generateVisitor" value="true" />
+        </PerGrammarGenerationSettings>
+      </list>
+    </option>
+  </component>
+  <component name="EntryPointsManager">
+    <list size="3">
+      <item index="0" class="java.lang.String" itemvalue="com.oracle.truffle.api.dsl.Specialization" />
+      <item index="1" class="java.lang.String" itemvalue="com.oracle.truffle.api.library.ExportMessage" />
+      <item index="2" class="java.lang.String" itemvalue="org.eclipse.lsp4j.jsonrpc.services.JsonRequest" />
+    </list>
+  </component>
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_21" default="true" project-jdk-name="java-21-openjdk" project-jdk-type="JavaSDK" />
+</project>
