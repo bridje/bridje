@@ -1,7 +1,8 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget.*
+
 plugins {
     kotlin("jvm")
     kotlin("kapt")
-    id("com.google.devtools.ksp") version "2.0.20-1.0.24"
 }
 
 dependencies {
@@ -14,7 +15,6 @@ dependencies {
     implementation("org.graalvm.sdk:graal-sdk:${truffleVersion}")
 
     testImplementation(kotlin("test-junit"))
-    testImplementation(project(":language"))
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.0")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.0")
@@ -27,10 +27,11 @@ sourceSets {
 
 java {
     modularity.inferModulePath = true
-}
 
-kotlin {
-    jvmToolchain(24)
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(24))
+        vendor.set(JvmVendorSpec.GRAAL_VM)
+    }
 }
 
 tasks.compileJava {
@@ -45,6 +46,18 @@ tasks.compileJava {
 
 tasks.compileTestJava {
     options.release.set(22)
+}
+
+tasks.compileKotlin {
+    compilerOptions {
+        jvmTarget.set(JVM_22)
+    }
+}
+
+tasks.compileTestKotlin {
+    compilerOptions {
+        jvmTarget.set(JVM_22)
+    }
 }
 
 tasks.test {
