@@ -1,0 +1,31 @@
+{
+  "name": "bridje-vscode",
+  "displayName": "Bridje Language Support",
+  "description": "VSCode extension for the Bridje programming language (brj). Provides LSP client integration.",
+  "version": "0.0.1",
+  "publisher": "James Henderson",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.0.0",
+    "vscode-languageserver-protocol": "^3.21.0"
+  },
+  "type": "module",
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:bridje"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "bridje",
+        "aliases": ["Bridje", "bridje"],
+        "extensions": [".brj"]
+      }
+    ]
+  },
+  "main": "./extension.js"
+}

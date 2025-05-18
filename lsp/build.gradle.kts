@@ -3,26 +3,24 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget.*
 plugins {
     kotlin("jvm")
     kotlin("kapt")
+    application
+    id("com.gradleup.shadow") version "8.3.6"
+}
+
+repositories {
+    gradlePluginPortal()
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation(libs.kotlin.coroutines.core)
-
-    kapt(libs.truffle.dsl.processor)
-    implementation(libs.graal.sdk)
-    implementation(libs.truffle.api)
+    implementation(libs.kotlin.coroutines.jdk8)
 
     implementation(libs.lsp4j)
 
     testImplementation(kotlin("test-junit"))
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
-}
-
-sourceSets {
-    main { resources { setSrcDirs(listOf("src/main/resources", "src/main/brj")) } }
-    test { resources { setSrcDirs(listOf("src/test/resources", "src/test/brj")) } }
 }
 
 java {
@@ -34,14 +32,12 @@ java {
     }
 }
 
+application {
+    mainClass.set("brj.lsp.LspServer")
+}
+
 tasks.compileJava {
     options.release.set(22)
-
-    options.compilerArgs.add("--module-path")
-    options.compilerArgs.add(classpath.asPath)
-
-    options.compilerArgs.add("--patch-module")
-    options.compilerArgs.add("bridje.language=${sourceSets["main"].output.asPath}")
 }
 
 tasks.compileTestJava {
@@ -64,13 +60,24 @@ tasks.test {
     useJUnitPlatform()
 }
 
-tasks.jar {
-    group = "build"
-    archiveFileName.set("brj-language.jar")
+tasks.register<JavaExec>("lsp") {
+    group = "application"
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass.set("brj.lsp.LspServer")
 
-    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) }) {
-        exclude("META-INF/*.RSA", "META-INF/*.SF", "META-INF/*.DSA")
-    }
+    standardInput = System.`in`
+    standardOutput = System.out
+    errorOutput = System.err
 
-    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    javaLauncher.set(
+        javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(24))
+        }
+    )
+}
+
+tasks.shadowJar {
+    archiveBaseName.set("bridje")
+    archiveVersion.set("")
+    archiveClassifier.set("lsp")
 }

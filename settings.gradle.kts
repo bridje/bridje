@@ -1,2 +1,2 @@
 rootProject.name = "bridje"
-include("language")
+include("language", "lsp")
