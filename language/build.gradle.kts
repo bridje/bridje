@@ -12,8 +12,9 @@ dependencies {
     kapt(libs.truffle.dsl.processor)
     implementation(libs.graal.sdk)
     implementation(libs.truffle.api)
+    implementation(libs.truffle.runtime)
 
-    implementation(libs.lsp4j)
+    implementation(libs.jtreesitter)
 
     testImplementation(kotlin("test-junit"))
     testImplementation(libs.junit.jupiter.api)
@@ -21,7 +22,14 @@ dependencies {
 }
 
 sourceSets {
-    main { resources { setSrcDirs(listOf("src/main/resources", "src/main/brj")) } }
+    main {
+        resources {
+            srcDir("src/main/resources")
+            srcDir("src/main/brj")
+            srcDir(project(":tree-sitter").layout.buildDirectory.dir("lib"))
+        }
+    }
+
     test { resources { setSrcDirs(listOf("src/test/resources", "src/test/brj")) } }
 }
 
@@ -32,6 +40,10 @@ java {
         languageVersion.set(JavaLanguageVersion.of(24))
         vendor.set(JvmVendorSpec.GRAAL_VM)
     }
+}
+
+tasks.named("processResources") {
+    dependsOn(":tree-sitter:buildTreeSitter")
 }
 
 tasks.compileJava {

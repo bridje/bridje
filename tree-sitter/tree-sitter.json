@@ -1,0 +1,34 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "grammars": [
+    {
+      "name": "bridje",
+      "camelcase": "Bridje",
+      "title": "Bridje",
+      "scope": "source.bridje",
+      "file-types": [
+        "brj"
+      ],
+      "injection-regex": "^bridje$",
+      "class-name": "TreeSitterBridje"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MPL",
+    "description": "Bridje grammar for tree-sitter",
+    "authors": [
+      {
+        "name": "James Henderson",
+        "email": "james@bridje.dev",
+        "url": "https://bridje.dev/"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/bridje/bridje.git"
+    }
+  },
+  "bindings": {
+    "c": true
+  }
+}

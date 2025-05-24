@@ -2,15 +2,25 @@
 graalvm = "24.2.1"
 kotlinx-coroutines = "1.10.2"
 
+jtreesitter = "0.25.1"
+
 junit = "5.9.0"
+
+[plugins]
+
+shadow = { id = "com.gradleup.shadow", version = "8.3.6" }
 
 [libraries]
 graal-sdk = { module = "org.graalvm.sdk:graal-sdk", version.ref = "graalvm" }
+truffle-runtime = { module = "org.graalvm.truffle:truffle-runtime", version.ref = "graalvm" }
+truffle-api = { module = "org.graalvm.truffle:truffle-api", version.ref = "graalvm" }
+truffle-dsl-processor = { module = "org.graalvm.truffle:truffle-dsl-processor", version.ref = "graalvm" }
+
 kotlin-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlin-coroutines-jdk8 = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8", version.ref = "kotlinx-coroutines" }
 
-truffle-api = { module = "org.graalvm.truffle:truffle-api", version.ref = "graalvm" }
-truffle-dsl-processor = { module = "org.graalvm.truffle:truffle-dsl-processor", version.ref = "graalvm" }
+jtreesitter = { group = "io.github.tree-sitter", name = "jtreesitter", version.ref = "jtreesitter" }
+
 lsp4j = { module = "org.eclipse.lsp4j:org.eclipse.lsp4j", version = "0.21.1" }
 
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
