@@ -1,120 +1,81 @@
 package brj
 
 import com.oracle.truffle.api.source.Source
-import com.oracle.truffle.api.source.SourceSection
+import io.github.treesitter.jtreesitter.Language
+import io.github.treesitter.jtreesitter.Node
+import io.github.treesitter.jtreesitter.Parser
+import java.io.File.createTempFile
+import java.lang.foreign.Arena
+import java.lang.foreign.SymbolLookup
 
 class Reader private constructor(private val src: Source) {
-    private val chars = src.characters
-    private val eof = chars.length
-
-    private var pos = 0
-
-    private fun loc(startPos: Int) = src.createSection(startPos, pos - startPos)
-
-    private fun skipComment() {
-        while (pos < eof) {
-            when (chars[pos++]) {
-                '\r' -> {
-                    if (chars[pos] == '\n') pos++
-                    break
-                }
-
-                '\n' -> break
-            }
-        }
-    }
-
-    private fun readNumberForm(): Form {
-        val startPos = pos
-        var seenDot = false
-
-        val v = buildString {
-            while (pos < eof) {
-                val char = chars[pos]
-                when (char) {
-                    in '0'..'9' -> append(char)
-                    '.' -> {
-                        append(char)
-                        if (seenDot) break
-                        seenDot = true
-                    }
-
-                    else -> break
-                }
-                pos++
-            }
-        }
-
-        return if (seenDot) DoubleForm(v.toDouble(), loc(startPos)) else IntForm(v.toLong(), loc(startPos))
-    }
-
-    private fun readStringForm(): Form {
-        val startPos = pos++
-
-        val s = buildString {
-            while (true) {
-                if (pos == eof) error("eof in string")
-                when (val char = chars[pos++]) {
-                    '"' -> break
-                    '\\' -> {
-                        if (pos == eof) break
-                        when (val escapeChar = chars[pos++]) {
-                            'n' -> append('\n')
-                            'r' -> append('\r')
-                            't' -> append('\t')
-                            else -> error("unknown escape sequence: \\$escapeChar")
-                        }
-                    }
-
-                    else -> append(char)
-                }
-            }
-        }
-
-        return StringForm(s, loc(startPos))
-    }
-
-    private fun readCollForm(startPos: Int, endChar: Char, f: (List<Form>, SourceSection) -> Form): Form =
-        f(readForms(endChar).toList(), loc(startPos))
-
-    private fun readForms(until: Char? = null) = sequence<Form> {
-        while (pos < eof) {
-            when (val ch = chars[pos]) {
-                ' ', ',', '\n', '\r', '\t' -> pos++
-
-                ';' -> skipComment()
-
-                in '1'..'9' -> yield(readNumberForm())
-                '"' -> yield(readStringForm())
-
-                until -> {
-                    pos++; return@sequence
-                }
-
-                '(' -> yield(readCollForm(pos++, ')', ::ListForm))
-                '[' -> yield(readCollForm(pos++, ']', ::VectorForm))
-                '{' -> yield(readCollForm(pos++, '}', ::MapForm))
-
-                '#' -> {
-                    val startPos = pos++
-                    when (val ch2 = chars[pos++]) {
-                        '{' -> yield(readCollForm(startPos, '}', ::SetForm))
-                        else -> error("unexpected character after #: $ch2")
-                    }
-                }
-
-                ')' -> error("unexpected )")
-                '}' -> error("unexpected }")
-                ']' -> error("unexpected ]")
-
-                else -> error("unexpected character: $ch")
-            }
-        }
-
-        if (until != null) error("unexpected EOF, expected $until")
-    }
-
     companion object {
-        fun Source.readForms() = Reader(this).readForms()
+        private const val LIB_NAME = "tree_sitter_bridje"
+
+        private fun libPath(): String? {
+            val osName = System.getProperty("os.name")!!.lowercase()
+            val archName = System.getProperty("os.arch")!!.lowercase()
+            val ext: String
+            val os: String
+            val prefix: String
+            when {
+                "windows" in osName -> {
+                    ext = "dll"
+                    os = "windows"
+                    prefix = ""
+                }
+
+                "linux" in osName -> {
+                    ext = "so"
+                    os = "linux"
+                    prefix = "lib"
+                }
+
+                "mac" in osName -> {
+                    ext = "dylib"
+                    os = "macos"
+                    prefix = "lib"
+                }
+
+                else -> {
+                    throw UnsupportedOperationException("Unsupported operating system: $osName")
+                }
+            }
+            val arch = when {
+                "amd64" in archName || "x86_64" in archName -> "x64"
+                "aarch64" in archName || "arm64" in archName -> "aarch64"
+                else -> throw UnsupportedOperationException("Unsupported architecture: $archName")
+            }
+            val libPath = "/native/$os/$arch/$prefix$LIB_NAME.$ext"
+            val libUrl = javaClass.getResource(libPath) ?: return null
+            return createTempFile(prefix + LIB_NAME, ".$ext").apply {
+                writeBytes(libUrl.openStream().use { it.readAllBytes() })
+                deleteOnExit()
+            }.path
+        }
+
+        private val lang: Language =
+            SymbolLookup.libraryLookup(libPath(), Arena.global())
+                .let { Language.load(it, LIB_NAME) }
+
+        fun Source.readForms(): Sequence<Form> {
+            val tree = Parser(lang).parse(characters.toString()).orElseThrow()
+
+            return Reader(this).run {
+                tree.rootNode.children.asSequence().map { it.readForm() }
+            }
+        }
+    }
+
+
+    fun Node.readForm(): Form {
+        if (isError) throw RuntimeException("Error reading form: $text")
+        val loc = src.createSection(range.startByte, range.endByte - range.startByte)
+
+        return when (type) {
+            "float" -> DoubleForm(text!!.toDouble(), loc)
+
+            else -> error("Unknown form type: $type")
+        }
     }
 }

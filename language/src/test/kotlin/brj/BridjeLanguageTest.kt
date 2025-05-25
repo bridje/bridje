@@ -13,7 +13,10 @@ class BridjeLanguageTest {
             .use { ctx ->
                 try {
                     ctx.enter()
-                    assertEquals("bell", ctx.eval("brj", "42.4").asDouble())
+                    assertEquals(
+                        42.4,
+                        ctx.eval("brj", "42.4").asDouble()
+                    )
                 } finally {
                     ctx.leave()
                 }
