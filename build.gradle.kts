@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "2.0.20"
+    kotlin("jvm") version "2.0.20" apply false
 }
 
 allprojects {
@@ -8,11 +8,5 @@ allprojects {
     repositories {
         mavenCentral()
     }
-}
 
-kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(24))
-        vendor.set(JvmVendorSpec.GRAAL_VM)
-    }
 }

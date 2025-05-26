@@ -4,7 +4,13 @@ plugins {
     kotlin("jvm")
     kotlin("kapt")
     application
+
     id("com.gradleup.shadow") version "8.3.6"
+}
+
+java.toolchain {
+    languageVersion.set(JavaLanguageVersion.of(22))
+    vendor.set(JvmVendorSpec.GRAAL_VM)
 }
 
 repositories {
@@ -25,35 +31,10 @@ dependencies {
 
 java {
     modularity.inferModulePath = true
-
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(24))
-        vendor.set(JvmVendorSpec.GRAAL_VM)
-    }
 }
 
 application {
     mainClass.set("brj.lsp.LspServer")
-}
-
-tasks.compileJava {
-    options.release.set(22)
-}
-
-tasks.compileTestJava {
-    options.release.set(22)
-}
-
-tasks.compileKotlin {
-    compilerOptions {
-        jvmTarget.set(JVM_22)
-    }
-}
-
-tasks.compileTestKotlin {
-    compilerOptions {
-        jvmTarget.set(JVM_22)
-    }
 }
 
 tasks.test {
@@ -68,12 +49,6 @@ tasks.register<JavaExec>("lsp") {
     standardInput = System.`in`
     standardOutput = System.out
     errorOutput = System.err
-
-    javaLauncher.set(
-        javaToolchains.launcherFor {
-            languageVersion.set(JavaLanguageVersion.of(24))
-        }
-    )
 }
 
 tasks.shadowJar {

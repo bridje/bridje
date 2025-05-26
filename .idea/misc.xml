@@ -46,5 +46,5 @@
     </list>
   </component>
   <component name="ExternalStorageConfigurationManager" enabled="true" />
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_24" default="true" project-jdk-name="java-24-graalvm" project-jdk-type="JavaSDK" />
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_22" default="true" project-jdk-name="graalvm-ce-22" project-jdk-type="JavaSDK" />
 </project>
