@@ -1,0 +1,15 @@
+(nil) @sexp
+(boolean) @sexp
+(int) @sexp
+(float) @sexp
+(bigint) @sexp
+(bigdec) @sexp
+(string) @sexp
+(keyword) @sexp
+(symbol) @sexp
+(symbol_dot) @sexp
+(dot_symbol) @sexp
+(list) @sexp
+(vector) @sexp
+(map) @sexp
+(set) @sexp

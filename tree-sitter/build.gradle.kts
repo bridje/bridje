@@ -18,7 +18,7 @@ tasks.register<Exec>("buildTreeSitter") {
     group = "build"
     dependsOn("generateGrammar")
 
-    val output = file("${layout.buildDirectory.get()}/lib/native/linux/x64/libtree_sitter_bridje.so")
+    val output = file("${layout.buildDirectory.get()}/lib/native/linux/x64/libtree-sitter-bridje.so")
 
     inputs.files(fileTree("src") {
         include("*.c")
@@ -35,10 +35,17 @@ tasks.register<Exec>("buildTreeSitter") {
     )
 }
 
+tasks.register<Copy>("copyQueries") {
+    group = "build"
+    description = "Copy Tree-sitter queries to the build directory"
+    from("queries")
+    into("${layout.buildDirectory.get()}/lib/native/linux/x64/queries/bridje")
+    include("*.scm")
+}
 
 tasks.named("assemble") {
     group = "build"
-    dependsOn("buildTreeSitter")
+    dependsOn("buildTreeSitter", "copyQueries")
 }
 
 tasks.named<Delete>("clean") {
