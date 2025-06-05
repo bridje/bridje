@@ -19,6 +19,7 @@
 ;;; Code:
 
 (require 'treesit)
+(require 'lsp)
 
 (defvar bridje-mode--grammar-name 'bridje)
 
@@ -62,6 +63,20 @@
                    ((parent-is "set") parent 1))))
 
     (treesit-major-mode-setup)))
+
+(add-to-list 'lsp-language-id-configuration '(bridje-ts-mode . "bridje-ts"))
+
+(lsp-register-client
+ (make-lsp-client
+  :new-connection (lsp-stdio-connection
+                   (lambda ()
+                     (let ((root (lsp-workspace-root)))
+                       (list (expand-file-name "gradlew" root) ":bridje:lsp:lsp"))))
+  :activation-fn (lsp-activate-on "bridje-ts")
+  :server-id 'bridje-lsp
+  :major-modes '(bridje-ts-mode)))
+
+(add-hook 'bridje-ts-mode-hook #'lsp)
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.brj\\'" . bridje-ts-mode))
