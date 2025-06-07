@@ -82,6 +82,18 @@
 
 (add-to-list 'auto-mode-alist '("\\.brj\\'" . bridje-ts-mode))
 
+(defun bridje-eval-defun ()
+  "Eval the top-level Bridje form at point via the LSP server."
+  (interactive)
+  (let ((form-text (thing-at-point 'defun t)))
+    (let ((result
+           (lsp-request
+            "workspace/executeCommand"
+            `(:command "bridje/eval-defun"
+              :arguments (:uri ,(lsp--buffer-uri)
+                          :code ,form-text)))))
+      (message "=> %s" result))))
+
 (provide 'bridje-mode)
 
 ;;; bridje-mode.el ends here
