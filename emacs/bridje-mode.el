@@ -25,6 +25,7 @@
 
 (setq treesit-extra-load-path '("~/src/james/bridje/tree-sitter/build/lib/native/linux/x64"))
 
+;;;###autoload
 (define-derived-mode bridje-ts-mode prog-mode "Bridje[TS]"
   "Bridje mode (Tree-sitter powered)."
   :group 'bridje
@@ -51,6 +52,7 @@
                    (keyword) @font-lock-constant-face
                    ((symbol) @font-lock-keyword-face (:equal @font-lock-keyword-face "def"))
                    ((symbol) @font-lock-keyword-face (:equal @font-lock-keyword-face "let"))
+                   ((symbol) @font-lock-keyword-face (:equal @font-lock-keyword-face "ns"))
                    (symbol_dot) @font-lock-variable-name-face
                    (dot_symbol) @font-lock-variable-name-face
                    (comment) @font-lock-comment-face)))
@@ -70,15 +72,14 @@
  (make-lsp-client
   :new-connection (lsp-stdio-connection
                    (lambda ()
-                     (let ((root (lsp-workspace-root)))
-                       (list (expand-file-name "gradlew" root) ":bridje:lsp:lsp"))))
+                     (let ((root (lsp--suggest-project-root)))
+                       (list (expand-file-name "gradlew" root) ":bridjeLsp"))))
   :activation-fn (lsp-activate-on "bridje-ts")
   :server-id 'bridje-lsp
   :major-modes '(bridje-ts-mode)))
 
 (add-hook 'bridje-ts-mode-hook #'lsp)
 
-;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.brj\\'" . bridje-ts-mode))
 
 (provide 'bridje-mode)

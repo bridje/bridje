@@ -14,6 +14,7 @@ java.toolchain {
 }
 
 repositories {
+    mavenCentral()
     gradlePluginPortal()
 }
 
