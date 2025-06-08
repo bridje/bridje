@@ -10,7 +10,7 @@ import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
 
 @Registration(
-    id = "brj",
+    id = "bridje",
     name = "bridje",
     defaultMimeType = "text/brj",
     characterMimeTypes = ["text/brj"],

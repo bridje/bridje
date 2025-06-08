@@ -25,6 +25,10 @@ class StringForm(val value: String, override val loc: SourceSection) : Form {
     override fun toString(): String = "\"${value.reescape()}\""
 }
 
+class SymbolForm(val name: String, override val loc: SourceSection) : Form {
+    override fun toString(): String = name
+}
+
 class ListForm(val els: List<Form>, override val loc: SourceSection) : Form {
     override fun toString(): String = els.joinToString(prefix = "(", separator = " ", postfix = ")")
 }

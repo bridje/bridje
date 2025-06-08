@@ -10,7 +10,7 @@ import java.lang.foreign.SymbolLookup
 
 class Reader private constructor(private val src: Source) {
     companion object {
-        private const val LIB_NAME = "tree_sitter_bridje"
+        private const val LIB_NAME = "tree-sitter-bridje"
 
         private fun libPath(): String? {
             val osName = System.getProperty("os.name")!!.lowercase()
@@ -56,7 +56,7 @@ class Reader private constructor(private val src: Source) {
 
         private val lang: Language =
             SymbolLookup.libraryLookup(libPath(), Arena.global())
-                .let { Language.load(it, LIB_NAME) }
+                .let { Language.load(it, "tree_sitter_bridje") }
 
         fun Source.readForms(): Sequence<Form> {
             val tree = Parser(lang).parse(characters.toString()).orElseThrow()
@@ -74,6 +74,8 @@ class Reader private constructor(private val src: Source) {
 
         return when (type) {
             "float" -> DoubleForm(text!!.toDouble(), loc)
+            "list" -> ListForm(namedChildren.map { it.readForm() }, loc)
+            "symbol" -> SymbolForm(text!!, loc)
 
             else -> error("Unknown form type: $type")
         }

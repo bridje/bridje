@@ -66,7 +66,7 @@
 
     (treesit-major-mode-setup)))
 
-(add-to-list 'lsp-language-id-configuration '(bridje-ts-mode . "bridje-ts"))
+(add-to-list 'lsp-language-id-configuration '(bridje-ts-mode . "bridje"))
 
 (lsp-register-client
  (make-lsp-client
@@ -74,7 +74,7 @@
                    (lambda ()
                      (let ((root (lsp--suggest-project-root)))
                        (list (expand-file-name "gradlew" root) ":bridjeLsp"))))
-  :activation-fn (lsp-activate-on "bridje-ts")
+  :activation-fn (lsp-activate-on "bridje")
   :server-id 'bridje-lsp
   :major-modes '(bridje-ts-mode)))
 
@@ -82,17 +82,22 @@
 
 (add-to-list 'auto-mode-alist '("\\.brj\\'" . bridje-ts-mode))
 
-(defun bridje-eval-defun ()
-  "Eval the top-level Bridje form at point via the LSP server."
+(defun bridje-eval-buffer ()
+  "Eval the Bridje buffer via the LSP server."
   (interactive)
-  (let ((form-text (thing-at-point 'defun t)))
+  (let ((form-text (buffer-substring-no-properties (point-min) (point-max))))
     (let ((result
            (lsp-request
             "workspace/executeCommand"
-            `(:command "bridje/eval-defun"
+            `(:command "bridje/eval-to-point"
               :arguments (:uri ,(lsp--buffer-uri)
                           :code ,form-text)))))
       (message "=> %s" result))))
+
+(map!
+ :localleader
+ :map bridje-ts-mode-map
+ "e b" #'bridje-eval-buffer)
 
 (provide 'bridje-mode)
 

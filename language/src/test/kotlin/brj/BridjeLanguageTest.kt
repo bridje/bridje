@@ -15,7 +15,7 @@ class BridjeLanguageTest {
                     ctx.enter()
                     assertEquals(
                         42.4,
-                        ctx.eval("brj", "42.4").asDouble()
+                        ctx.eval("bridje", "42.4").asDouble()
                     )
                 } finally {
                     ctx.leave()

@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget.*
-
 plugins {
     kotlin("jvm")
     kotlin("kapt")
@@ -24,6 +22,9 @@ dependencies {
     implementation(libs.kotlin.coroutines.jdk8)
 
     implementation(libs.lsp4j)
+
+    implementation(libs.graal.sdk)
+    implementation(project(":language"))
 
     testImplementation(kotlin("test-junit"))
     testImplementation(libs.junit.jupiter.api)
