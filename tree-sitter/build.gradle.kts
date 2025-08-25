@@ -50,7 +50,7 @@ tasks.named("assemble") {
 
 tasks.named<Delete>("clean") {
     delete(fileTree("src") {
-        include("parser.c", "node-types.json", "scanner.c", "grammar.json")
+        include("parser.c", "node-types.json", "grammar.json")
     })
 }
 
