@@ -44,9 +44,28 @@ tasks.register<Copy>("copyQueries") {
     include("*.scm")
 }
 
+tasks.register<Exec>("testTreeSitter") {
+    group = "verification"
+    description = "Run Tree-sitter grammar tests"
+    dependsOn("generateGrammar")
+
+    inputs.files(fileTree("test/corpus") {
+        include("*.txt")
+    })
+    inputs.file("grammar.js")
+    inputs.file("src/scanner.c")
+
+    workingDir = file(".")
+    commandLine("tree-sitter", "test")
+}
+
 tasks.named("assemble") {
     group = "build"
     dependsOn("buildTreeSitter", "copyQueries")
+}
+
+tasks.named("check") {
+    dependsOn("testTreeSitter")
 }
 
 tasks.named<Delete>("clean") {
