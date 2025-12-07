@@ -1,0 +1,126 @@
+==================
+Simple symbol
+==================
+
+foo
+
+---
+
+(source_file
+  (symbol))
+
+==================
+Simple integer
+==================
+
+42
+
+---
+
+(source_file
+  (int))
+
+==================
+Simple float
+==================
+
+3.14
+
+---
+
+(source_file
+  (float))
+
+==================
+Simple string
+==================
+
+"hello"
+
+---
+
+(source_file
+  (string))
+
+==================
+Simple list
+==================
+
+(foo bar)
+
+---
+
+(source_file
+  (list
+    (symbol)
+    (symbol)))
+
+==================
+Simple vector
+==================
+
+[1 2 3]
+
+---
+
+(source_file
+  (vector
+    (int)
+    (int)
+    (int)))
+
+==================
+Simple map
+==================
+
+{a 1}
+
+---
+
+(source_file
+  (map
+    (symbol)
+    (int)))
+
+==================
+Simple set
+==================
+
+#{1 2}
+
+---
+
+(source_file
+  (set
+    (int)
+    (int)))
+
+==================
+Nested list
+==================
+
+(foo (bar baz))
+
+---
+
+(source_file
+  (list
+    (symbol)
+    (list
+      (symbol)
+      (symbol))))
+
+==================
+Simple call
+==================
+
+foo(a, b)
+
+---
+
+(source_file
+  (call
+    (symbol_paren)
+    (symbol)
+    (symbol)))
+
