@@ -42,7 +42,7 @@ java {
 }
 
 tasks.named("processResources") {
-    dependsOn(":tree-sitter:buildTreeSitter")
+    dependsOn(":tree-sitter:buildTreeSitter", ":tree-sitter:copyQueries")
 }
 
 tasks.compileJava {

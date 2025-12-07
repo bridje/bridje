@@ -27,6 +27,7 @@ gradlePlugin {
 
 tasks.register("generateVersionFile") {
     val outputDir = layout.buildDirectory.dir("generated/bridje")
+    val projectVersion = version.toString()
     outputs.dir(outputDir)
     doLast {
         val file = outputDir.get().file("brj/gradle/BridjeVersion.kt").asFile
@@ -36,7 +37,7 @@ tasks.register("generateVersionFile") {
             package brj.gradle
 
             internal object BridjeVersion {
-                const val VERSION = "$version"
+                const val VERSION = "$projectVersion"
             }
             """.trimIndent()
         )
