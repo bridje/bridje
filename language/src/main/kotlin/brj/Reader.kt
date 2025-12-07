@@ -73,9 +73,34 @@ class Reader private constructor(private val src: Source) {
         val loc = src.createSection(range.startByte, range.endByte - range.startByte)
 
         return when (type) {
+            "int" -> IntForm(text!!.toLong(), loc)
             "float" -> DoubleForm(text!!.toDouble(), loc)
-            "list" -> ListForm(namedChildren.map { it.readForm() }, loc)
+            "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
             "symbol" -> SymbolForm(text!!, loc)
+
+            "list" -> ListForm(namedChildren.map { it.readForm() }, loc)
+            "vector" -> VectorForm(namedChildren.map { it.readForm() }, loc)
+            "set" -> SetForm(namedChildren.map { it.readForm() }, loc)
+            "map" -> MapForm(namedChildren.map { it.readForm() }, loc)
+
+            "call" -> {
+                val fnName = namedChildren[0].text!!.dropLast(1)
+                val args = namedChildren.drop(1).map { it.readForm() }
+                ListForm(listOf(SymbolForm(fnName, loc)) + args, loc)
+            }
+
+            "method_call" -> {
+                val receiver = namedChildren[0].readForm()
+                val methodName = namedChildren[1].text!!.drop(1).dropLast(1)
+                val args = namedChildren.drop(2).map { it.readForm() }
+                ListForm(listOf(SymbolForm(methodName, loc), receiver) + args, loc)
+            }
+
+            "field_access" -> {
+                val receiver = namedChildren[0].readForm()
+                val fieldName = namedChildren[1].text!!.drop(1)
+                ListForm(listOf(KeywordForm(fieldName, loc), receiver), loc)
+            }
 
             else -> error("Unknown form type: $type")
         }

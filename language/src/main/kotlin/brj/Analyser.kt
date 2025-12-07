@@ -22,6 +22,7 @@ internal fun analyseForm(form: Form): Expr {
         is DoubleForm -> DoubleExpr(form.value, form.loc)
         is StringForm -> StringExpr(form.value, form.loc)
         is SymbolForm -> TODO("symbol form")
+        is KeywordForm -> TODO("keyword form")
 
         is ListForm -> analyseListForm(form)
         is VectorForm -> VectorExpr(form.els.map { analyseForm(it) }, form.loc)
