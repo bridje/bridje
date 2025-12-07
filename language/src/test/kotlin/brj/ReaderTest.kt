@@ -62,4 +62,11 @@ class ReaderTest {
 
     @Test
     fun `reads field access`() = assertReads(list(kw("foo"), sym("x")), "x.foo".readSingle())
+
+    @Test
+    fun `reads anon fn`() = assertReads(list(sym("fn"), vec(sym("it")), sym("foo")), "#foo".readSingle())
+
+    @Test
+    fun `reads anon fn with field access`() =
+        assertReads(list(sym("fn"), vec(sym("it")), list(kw("bar"), sym("foo"))), "#foo.bar".readSingle())
 }
