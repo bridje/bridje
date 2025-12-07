@@ -29,9 +29,10 @@ tasks.register<Exec>("buildTreeSitter") {
     commandLine = listOf(
         "clang",
         "-fPIC", "-shared",
-        "-I", "src/tree_sitter",
+        "-I", "src",
         "-o", output.absolutePath,
-        "src/parser.c"
+        "src/parser.c",
+        "src/scanner.c"
     )
 }
 

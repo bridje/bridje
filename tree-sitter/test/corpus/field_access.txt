@@ -1,0 +1,129 @@
+==================
+Field access on symbol
+==================
+
+foo.bar
+
+---
+
+(source_file
+  (field_access
+    (symbol)
+    (dot_symbol)))
+
+==================
+Field access on int
+==================
+
+42.class
+
+---
+
+(source_file
+  (field_access
+    (int)
+    (dot_symbol)))
+
+==================
+Field access on string
+==================
+
+"hello".length
+
+---
+
+(source_file
+  (field_access
+    (string)
+    (dot_symbol)))
+
+==================
+Field access on list
+==================
+
+(foo bar).first
+
+---
+
+(source_file
+  (field_access
+    (list
+      (symbol)
+      (symbol))
+    (dot_symbol)))
+
+==================
+Field access on vector
+==================
+
+[1 2 3].size
+
+---
+
+(source_file
+  (field_access
+    (vector
+      (int)
+      (int)
+      (int))
+    (dot_symbol)))
+
+==================
+Field access on call
+==================
+
+foo(a).result
+
+---
+
+(source_file
+  (field_access
+    (call
+      (symbol_paren)
+      (symbol))
+    (dot_symbol)))
+
+==================
+Chained field access
+==================
+
+foo.bar.baz
+
+---
+
+(source_file
+  (field_access
+    (field_access
+      (symbol)
+      (dot_symbol))
+    (dot_symbol)))
+
+==================
+Field access then method call
+==================
+
+foo.bar.baz()
+
+---
+
+(source_file
+  (method_call
+    (field_access
+      (symbol)
+      (dot_symbol))
+    (dot_symbol_paren)))
+
+==================
+Method call then field access
+==================
+
+foo.bar().baz
+
+---
+
+(source_file
+  (field_access
+    (method_call
+      (symbol)
+      (dot_symbol_paren))
+    (dot_symbol)))

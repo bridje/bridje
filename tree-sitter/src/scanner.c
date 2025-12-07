@@ -4,6 +4,9 @@
 
 enum TokenType {
     SYMBOL,
+    SYMBOL_PAREN,
+    DOT_SYMBOL,
+    DOT_SYMBOL_PAREN,
     KEYWORD,
     INT,
     FLOAT,
@@ -29,20 +32,19 @@ static bool is_symbol_head_char(int32_t ch) {
     if (isalpha(ch)) return true;
 
     switch(ch) {
-    case '%':
-    case '*':
-    case '-':
-    case '_':
-    case '+':
-    case '=':
-    case '?':
-    case '!':
-    case '<':
-    case '>':
-    case '|':
-        return true;
-    default:
-        return false;
+        case '*':
+        case '-':
+        case '_':
+        case '+':
+        case '=':
+        case '?':
+        case '!':
+        case '<':
+        case '>':
+        case '&':
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -58,20 +60,45 @@ static bool is_closing_bracket(int32_t ch) {
     return (ch == ']' || ch == ')' || ch == '}');
 }
 
-static bool read_symbol(TSLexer *lexer, const bool *valid_symbols) {
-    int32_t ch;
+static bool read_symbol_core(TSLexer *lexer) {
+    // Assumes first char already validated, advances past it
     lexer->advance(lexer, false);
 
     while (true) {
-        ch = lexer->lookahead;
-        if (!is_symbol_char(ch)) {
-            if (lexer->eof || is_whitespace(ch)) break;
-            return false;
-        }
+        int32_t ch = lexer->lookahead;
+        if (!is_symbol_char(ch)) break;
         lexer->advance(lexer, false);
     }
+    return true;
+}
 
-    lexer->result_symbol = SYMBOL;
+static bool read_symbol(TSLexer *lexer, const bool *valid_symbols) {
+    read_symbol_core(lexer);
+
+    if (lexer->lookahead == '(') {
+        lexer->advance(lexer, false);
+        lexer->result_symbol = SYMBOL_PAREN;
+    } else {
+        lexer->result_symbol = SYMBOL;
+    }
+    return true;
+}
+
+static bool read_dot_symbol(TSLexer *lexer, const bool *valid_symbols) {
+    // Skip the '.'
+    lexer->advance(lexer, false);
+
+    int32_t ch = lexer->lookahead;
+    if (!is_symbol_head_char(ch)) return false;
+
+    read_symbol_core(lexer);
+
+    if (lexer->lookahead == '(') {
+        lexer->advance(lexer, false);
+        lexer->result_symbol = DOT_SYMBOL_PAREN;
+    } else {
+        lexer->result_symbol = DOT_SYMBOL;
+    }
     return true;
 }
 
@@ -84,6 +111,7 @@ static bool read_number(TSLexer *lexer, const bool *valid_symbols) {
     lexer->advance(lexer, false);
 
     bool is_float = false;
+    bool needs_mark = false;
 
     while (true) {
         ch = lexer->lookahead;
@@ -95,9 +123,19 @@ static bool read_number(TSLexer *lexer, const bool *valid_symbols) {
         if (ch == '.' && is_float) return false;
 
         if (ch == '.' && !is_float) {
-            is_float = true;
+            // Peek ahead to see if this is a float or int.method
+            lexer->mark_end(lexer);  // Mark before the dot
             lexer->advance(lexer, false);
-            continue;
+            if (isdigit(lexer->lookahead)) {
+                // It's a float - continue parsing, but need to re-mark at end
+                is_float = true;
+                needs_mark = true;
+                lexer->advance(lexer, false);
+                continue;
+            }
+            // It's an int followed by .symbol - return int (mark_end already set)
+            lexer->result_symbol = INT;
+            return true;
         }
 
         if (ch == 'n' || ch == 'N') {
@@ -121,6 +159,9 @@ static bool read_number(TSLexer *lexer, const bool *valid_symbols) {
         break;
     }
 
+    if (needs_mark) {
+        lexer->mark_end(lexer);
+    }
     lexer->result_symbol = is_float ? FLOAT : INT;
     return true;
 
@@ -135,6 +176,7 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     }
 
     if (is_symbol_head_char(ch)) return read_symbol(lexer, valid_symbols);
+    if (ch == '.') return read_dot_symbol(lexer, valid_symbols);
     if (isdigit(ch)) return read_number(lexer, valid_symbols);
 
     return false;

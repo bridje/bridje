@@ -1,0 +1,102 @@
+==================
+Method call on symbol
+==================
+
+foo.bar(a)
+
+---
+
+(source_file
+  (method_call
+    (symbol)
+    (dot_symbol_paren)
+    (symbol)))
+
+==================
+Method call on int
+==================
+
+42.toString()
+
+---
+
+(source_file
+  (method_call
+    (int)
+    (dot_symbol_paren)))
+
+==================
+Method call on string
+==================
+
+"hello".length()
+
+---
+
+(source_file
+  (method_call
+    (string)
+    (dot_symbol_paren)))
+
+==================
+Method call on list
+==================
+
+(foo bar).first()
+
+---
+
+(source_file
+  (method_call
+    (list
+      (symbol)
+      (symbol))
+    (dot_symbol_paren)))
+
+==================
+Method call on vector
+==================
+
+[1 2 3].map(f)
+
+---
+
+(source_file
+  (method_call
+    (vector
+      (int)
+      (int)
+      (int))
+    (dot_symbol_paren)
+    (symbol)))
+
+==================
+Method call on call
+==================
+
+foo(a).bar(b)
+
+---
+
+(source_file
+  (method_call
+    (call
+      (symbol_paren)
+      (symbol))
+    (dot_symbol_paren)
+    (symbol)))
+
+==================
+Chained method calls
+==================
+
+foo.bar().baz()
+
+---
+
+(source_file
+  (method_call
+    (method_call
+      (symbol)
+      (dot_symbol_paren))
+    (dot_symbol_paren)))
