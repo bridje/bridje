@@ -10,12 +10,19 @@
 module.exports = grammar({
   name: "bridje",
 
+  conflicts: $ => [
+    [$.block_call, $.field_access],
+    [$.block_call, $.method_call],
+  ],
+
   externals: $ => [
     $.symbol, $.symbol_paren,
     $.dot_symbol, $.dot_symbol_paren,
     $.keyword,
     $.int, $.float,
-    $.bigint, $.bigdec
+    $.bigint, $.bigdec,
+    $.symbol_colon,
+    $._indent, $._dedent
   ],
 
   rules: {
@@ -26,6 +33,7 @@ module.exports = grammar({
       $.string, $.keyword, $.symbol,
       $.list, $.vector, $.map, $.set,
       $.call,
+      $.block_call,
       $.method_call,
       $.field_access,
       $.anon_fn
@@ -35,6 +43,20 @@ module.exports = grammar({
 
     // foo(a, b)
     call: $ => seq($.symbol_paren, repeat($._form), ')'),
+
+    // foo: args
+    //   body
+    block_call: $ => prec.right(seq(
+      $.symbol_colon,
+      repeat($._form),
+      optional($.block_body)
+    )),
+
+    block_body: $ => seq(
+      $._indent,
+      repeat1($._form),
+      $._dedent
+    ),
 
     // expr.bar(a, b)
     method_call: $ => seq($._form, $.dot_symbol_paren, repeat($._form), ')'),
