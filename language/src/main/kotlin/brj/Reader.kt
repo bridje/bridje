@@ -107,6 +107,15 @@ class Reader private constructor(private val src: Source) {
                 ListForm(listOf(SymbolForm("fn"), VectorForm(listOf(SymbolForm("it"))), body), loc)
             }
 
+            "block_call" -> {
+                val blockName = namedChildren[0].text!!.dropLast(1) // remove trailing ':'
+                val args = namedChildren.drop(1).flatMap { child ->
+                    if (child.type == "block_body") child.namedChildren.map { it.readForm() }
+                    else listOf(child.readForm())
+                }
+                ListForm(listOf(SymbolForm(blockName, loc)) + args, loc)
+            }
+
             else -> error("Unknown form type: $type")
         }
     }

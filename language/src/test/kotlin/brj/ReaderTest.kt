@@ -69,4 +69,54 @@ class ReaderTest {
     @Test
     fun `reads anon fn with field access`() =
         assertReads(list(sym("fn"), vec(sym("it")), list(kw("bar"), sym("foo"))), "#foo.bar".readSingle())
+
+    @Test
+    fun `reads simple block`() =
+        assertReads(
+            list(sym("def"), list(sym("foo")), list(sym("bar"))),
+            """
+            def: foo()
+              bar()
+            """.trimIndent().readSingle()
+        )
+
+    @Test
+    fun `reads block with multiple body forms`() =
+        assertReads(
+            list(sym("def"), list(sym("foo")), list(sym("bar")), list(sym("baz"))),
+            """
+            def: foo()
+              bar()
+              baz()
+            """.trimIndent().readSingle()
+        )
+
+    @Test
+    fun `reads nested blocks`() =
+        assertReads(
+            list(sym("def"), list(sym("foo")), list(sym("let"), vec(sym("x"), int(1)), list(sym("bar"), sym("x")))),
+            """
+            def: foo()
+              let: [x 1]
+                bar(x)
+            """.trimIndent().readSingle()
+        )
+
+    @Test
+    fun `reads inline block (no body)`() =
+        assertReads(
+            list(sym("if"), sym("pred"), sym("then"), sym("else")),
+            "if: pred then else".readSingle()
+        )
+
+    @Test
+    fun `reads do block`() =
+        assertReads(
+            list(sym("do"), list(sym("foo")), list(sym("bar"))),
+            """
+            do:
+              foo()
+              bar()
+            """.trimIndent().readSingle()
+        )
 }

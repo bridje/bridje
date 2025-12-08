@@ -1,0 +1,368 @@
+==================
+Simple block
+==================
+
+def: foo()
+  bar()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (call
+        (symbol_paren)))))
+
+==================
+Block with multiple body forms
+==================
+
+def: foo()
+  bar()
+  baz()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (call
+        (symbol_paren))
+      (call
+        (symbol_paren)))))
+
+==================
+Nested blocks
+==================
+
+def: foo()
+  let: [x 1]
+    bar(x)
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (block_call
+        (symbol_colon)
+        (vector
+          (symbol)
+          (int))
+        (block_body
+          (call
+            (symbol_paren)
+            (symbol)))))))
+
+==================
+Block inline (no body)
+==================
+
+if: pred then else
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (symbol)
+    (symbol)
+    (symbol)))
+
+==================
+Nested block returns to outer
+==================
+
+def: foo()
+  when: pred
+    side-effect()
+  result()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (block_call
+        (symbol_colon)
+        (symbol)
+        (block_body
+          (call
+            (symbol_paren))))
+      (call
+        (symbol_paren)))))
+
+==================
+do block
+==================
+
+do:
+  foo()
+  bar()
+  baz()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (block_body
+      (call
+        (symbol_paren))
+      (call
+        (symbol_paren))
+      (call
+        (symbol_paren)))))
+
+==================
+Method chain across lines
+==================
+
+def: foo()
+  bar()
+    .baz()
+    .qux()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (method_call
+        (method_call
+          (call
+            (symbol_paren))
+          (dot_symbol_paren))
+        (dot_symbol_paren)))))
+
+==================
+Block inside vector
+==================
+
+let: [a if: pred
+          then
+          else]
+  let-body
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (vector
+      (symbol)
+      (block_call
+        (symbol_colon)
+        (symbol)
+        (block_body
+          (symbol)
+          (symbol))))
+    (block_body
+      (symbol))))
+
+==================
+Block inside parens
+==================
+
+(def: foo()
+  bar())
+
+---
+
+(source_file
+  (list
+    (block_call
+      (symbol_colon)
+      (call
+        (symbol_paren))
+      (block_body
+        (call
+          (symbol_paren))))))
+
+==================
+Deeply nested then rapid dedent
+==================
+
+def: foo()
+  if: a
+    if: b
+      if: c
+        deep()
+  result()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (block_call
+        (symbol_colon)
+        (symbol)
+        (block_body
+          (block_call
+            (symbol_colon)
+            (symbol)
+            (block_body
+              (block_call
+                (symbol_colon)
+                (symbol)
+                (block_body
+                  (call
+                    (symbol_paren))))))))
+      (call
+        (symbol_paren)))))
+
+==================
+Blank line in block body
+==================
+
+def: foo()
+  bar()
+
+  baz()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (call
+        (symbol_paren))
+      (call
+        (symbol_paren)))))
+
+==================
+Blank line before dedent
+==================
+
+def: foo()
+  bar()
+
+baz()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (call
+        (symbol_paren))))
+  (call
+    (symbol_paren)))
+
+==================
+Blank line then return to outer block
+==================
+
+def: foo()
+  if: a
+    deep()
+
+  back()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (block_call
+        (symbol_colon)
+        (symbol)
+        (block_body
+          (call
+            (symbol_paren))))
+      (call
+        (symbol_paren)))))
+
+==================
+Whitespace-only line in block body
+==================
+
+def: foo()
+  bar()
+
+  baz()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (call
+        (symbol_paren))
+      (call
+        (symbol_paren)))))
+
+==================
+Whitespace-only line with less indent than block
+==================
+
+def: foo()
+  bar()
+ 
+  baz()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (call
+        (symbol_paren))
+      (call
+        (symbol_paren)))))
+
+==================
+Whitespace-only line with more indent than block
+==================
+
+def: foo()
+  bar()
+     
+  baz()
+
+---
+
+(source_file
+  (block_call
+    (symbol_colon)
+    (call
+      (symbol_paren))
+    (block_body
+      (call
+        (symbol_paren))
+      (call
+        (symbol_paren)))))
