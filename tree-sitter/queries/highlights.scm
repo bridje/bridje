@@ -4,8 +4,14 @@
 (bigdec) @number
 (string) @string
 
+((symbol) @keyword
+  (#any-of? @keyword "def" "let" "fn" "if" "ns"))
+
 (symbol) @variable
-(keyword) @keyword
+(keyword) @constant
+(dot_symbol) @property
+
+(comment) @comment
 
 "(" @punctuation.bracket
 ")" @punctuation.bracket
@@ -14,4 +20,4 @@
 "{" @punctuation.bracket
 "}" @punctuation.bracket
 "#{" @punctuation.bracket
-
+"#" @punctuation.special
