@@ -20,6 +20,8 @@ internal fun analyseForm(form: Form): Expr {
     return when (form) {
         is IntForm -> IntExpr(form.value, form.loc)
         is DoubleForm -> DoubleExpr(form.value, form.loc)
+        is BigIntForm -> BigIntExpr(form.value, form.loc)
+        is BigDecForm -> BigDecExpr(form.value, form.loc)
         is StringForm -> StringExpr(form.value, form.loc)
         is SymbolForm -> TODO("symbol form")
         is KeywordForm -> TODO("keyword form")

@@ -193,14 +193,17 @@ static bool read_number(TSLexer *lexer, const bool *valid_symbols) {
             lexer->advance(lexer, false);
             if (is_float) return false;
             ch = lexer->lookahead;
+            if (!is_end_of_number(lexer, ch)) return false;
+            lexer->mark_end(lexer);
             lexer->result_symbol = BIGINT;
-            return is_end_of_number(lexer, ch);
+            return true;
         }
 
         if (ch == 'm'|| ch == 'M') {
             lexer->advance(lexer, false);
             ch = lexer->lookahead;
             if (!is_end_of_number(lexer, ch)) return false;
+            lexer->mark_end(lexer);
             lexer->result_symbol = BIGDEC;
             return true;
         }
