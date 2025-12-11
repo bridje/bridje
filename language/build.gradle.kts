@@ -37,20 +37,8 @@ sourceSets {
     test { resources.srcDir("src/test/brj") }
 }
 
-java {
-    modularity.inferModulePath = true
-}
-
 tasks.named("processResources") {
     dependsOn(":tree-sitter:buildTreeSitter", ":tree-sitter:copyQueries")
-}
-
-tasks.compileJava {
-    options.compilerArgs.add("--module-path")
-    options.compilerArgs.add(classpath.asPath)
-
-    options.compilerArgs.add("--patch-module")
-    options.compilerArgs.add("bridje.language=${sourceSets["main"].output.asPath}")
 }
 
 tasks.test {
