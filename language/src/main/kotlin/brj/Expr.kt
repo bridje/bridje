@@ -1,6 +1,8 @@
 package brj
 
 import com.oracle.truffle.api.source.SourceSection
+import java.math.BigDecimal
+import java.math.BigInteger
 
 sealed interface Expr {
     val loc: SourceSection?
@@ -13,6 +15,14 @@ class IntExpr(val value: Long, override val loc: SourceSection? = null) : Expr {
 
 class DoubleExpr(val value: Double, override val loc: SourceSection? = null) : Expr {
     override fun toString(): String = value.toString()
+}
+
+class BigIntExpr(val value: BigInteger, override val loc: SourceSection? = null) : Expr {
+    override fun toString(): String = "${value}N"
+}
+
+class BigDecExpr(val value: BigDecimal, override val loc: SourceSection? = null) : Expr {
+    override fun toString(): String = "${value}M"
 }
 
 class StringExpr(val value: String, override val loc: SourceSection? = null) : Expr {

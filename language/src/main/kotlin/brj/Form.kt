@@ -1,6 +1,8 @@
 package brj
 
 import com.oracle.truffle.api.source.SourceSection
+import java.math.BigDecimal
+import java.math.BigInteger
 
 sealed interface Form {
     val loc: SourceSection?
@@ -19,6 +21,14 @@ class IntForm(val value: Long, override val loc: SourceSection? = null) : Form {
 
 class DoubleForm(val value: Double, override val loc: SourceSection? = null) : Form {
     override fun toString(): String = value.toString()
+}
+
+class BigIntForm(val value: BigInteger, override val loc: SourceSection? = null) : Form {
+    override fun toString(): String = "${value}N"
+}
+
+class BigDecForm(val value: BigDecimal, override val loc: SourceSection? = null) : Form {
+    override fun toString(): String = "${value}M"
 }
 
 class StringForm(val value: String, override val loc: SourceSection? = null) : Form {

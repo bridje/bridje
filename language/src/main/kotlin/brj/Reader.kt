@@ -7,6 +7,8 @@ import io.github.treesitter.jtreesitter.Parser
 import java.io.File.createTempFile
 import java.lang.foreign.Arena
 import java.lang.foreign.SymbolLookup
+import java.math.BigDecimal
+import java.math.BigInteger
 
 class Reader private constructor(private val src: Source) {
     companion object {
@@ -75,6 +77,8 @@ class Reader private constructor(private val src: Source) {
         return when (type) {
             "int" -> IntForm(text!!.toLong(), loc)
             "float" -> DoubleForm(text!!.toDouble(), loc)
+            "bigint" -> BigIntForm(BigInteger(text!!.dropLast(1)), loc)
+            "bigdec" -> BigDecForm(BigDecimal(text!!.dropLast(1)), loc)
             "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
             "symbol" -> SymbolForm(text!!, loc)
 

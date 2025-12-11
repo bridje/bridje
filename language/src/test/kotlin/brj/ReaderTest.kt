@@ -4,10 +4,14 @@ import brj.Reader.Companion.readForms
 import com.oracle.truffle.api.source.Source
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.math.BigDecimal
+import java.math.BigInteger
 
 private fun Form.contentEquals(other: Form): Boolean = when {
     this is IntForm && other is IntForm -> value == other.value
     this is DoubleForm && other is DoubleForm -> value == other.value
+    this is BigIntForm && other is BigIntForm -> value == other.value
+    this is BigDecForm && other is BigDecForm -> value == other.value
     this is StringForm && other is StringForm -> value == other.value
     this is SymbolForm && other is SymbolForm -> name == other.name
     this is KeywordForm && other is KeywordForm -> name == other.name
@@ -44,6 +48,12 @@ class ReaderTest {
 
     @Test
     fun `reads float`() = assertReads(DoubleForm(3.14), "3.14".readSingle())
+
+    @Test
+    fun `reads bigint`() = assertReads(BigIntForm(BigInteger("12345678901234567890")), "12345678901234567890N".readSingle())
+
+    @Test
+    fun `reads bigdec`() = assertReads(BigDecForm(BigDecimal("3.14159265358979323846")), "3.14159265358979323846M".readSingle())
 
     @Test
     fun `reads string`() = assertReads(StringForm("hello"), "\"hello\"".readSingle())
