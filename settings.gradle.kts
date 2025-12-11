@@ -3,4 +3,4 @@ plugins {
 }
 
 rootProject.name = "bridje"
-include("language", "lsp", "tree-sitter", "gradle-plugin", "intellij")
+include("language", "lsp", "repl", "tree-sitter", "gradle-plugin", "intellij")
