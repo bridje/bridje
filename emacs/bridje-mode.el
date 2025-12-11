@@ -89,7 +89,7 @@
     (let ((result
            (lsp-request
             "workspace/executeCommand"
-            `(:command "bridje/eval-to-point"
+            `(:command "bridje/eval"
               :arguments (:uri ,(lsp--buffer-uri)
                           :code ,form-text)))))
       (message "=> %s" result))))

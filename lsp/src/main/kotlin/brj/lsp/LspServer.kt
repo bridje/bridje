@@ -44,7 +44,7 @@ class LspServer : LanguageServer, LanguageClientAware {
 
             InitializeResult(ServerCapabilities().also {
                 it.textDocumentSync = Either.forLeft(TextDocumentSyncKind.Full)
-                it.executeCommandProvider = ExecuteCommandOptions(listOf("bridje/eval-to-point"))
+                it.executeCommandProvider = ExecuteCommandOptions(listOf("bridje/eval"))
             })
         }
 
@@ -88,9 +88,8 @@ class LspServer : LanguageServer, LanguageClientAware {
             // TODO("Not yet implemented")
         }
 
-        private fun evalToPoint(args: List<Any>): String {
-            println(args[0].javaClass)
-            val argsMap = args[0] as? JsonObject ?: error("Invalid arguments for eval-to-point command: ${args[0].javaClass}")
+        private fun eval(args: List<Any>): String {
+            val argsMap = args[0] as? JsonObject ?: error("Invalid arguments for eval command: ${args[0].javaClass}")
             val uri = argsMap["uri"].asString ?: error("Invalid URI")
             val code = argsMap["code"].asString ?: error("Invalid code")
 
@@ -101,7 +100,7 @@ class LspServer : LanguageServer, LanguageClientAware {
             val args = params.arguments
 
             when (params.command) {
-                "bridje/eval-to-point" -> evalToPoint(args)
+                "bridje/eval" -> eval(args)
 
                 else -> {
                     LOGGER.log(Level.WARNING, "Unknown command: ${params.command}")
