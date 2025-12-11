@@ -82,22 +82,7 @@
 
 (add-to-list 'auto-mode-alist '("\\.brj\\'" . bridje-ts-mode))
 
-(defun bridje-eval-buffer ()
-  "Eval the Bridje buffer via the LSP server."
-  (interactive)
-  (let ((form-text (buffer-substring-no-properties (point-min) (point-max))))
-    (let ((result
-           (lsp-request
-            "workspace/executeCommand"
-            `(:command "bridje/eval"
-              :arguments (:uri ,(lsp--buffer-uri)
-                          :code ,form-text)))))
-      (message "=> %s" result))))
-
-(map!
- :localleader
- :map bridje-ts-mode-map
- "e b" #'bridje-eval-buffer)
+;; TODO: Add REPL integration (inf-bridje or similar)
 
 (provide 'bridje-mode)
 
