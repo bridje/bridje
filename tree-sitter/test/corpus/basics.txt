@@ -111,6 +111,32 @@ Nested list
       (symbol))))
 
 ==================
+Simple keyword
+==================
+
+:foo
+
+---
+
+(source_file
+  (keyword))
+
+==================
+Keyword in map
+==================
+
+{:foo 1 :bar 2}
+
+---
+
+(source_file
+  (map
+    (keyword)
+    (int)
+    (keyword)
+    (int)))
+
+==================
 Simple call
 ==================
 
