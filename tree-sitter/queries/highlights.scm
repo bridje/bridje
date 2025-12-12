@@ -12,7 +12,7 @@
 
 ; symbols - general fallback
 (symbol) @variable
-(keyword) @constant
+(keyword) @string.special.symbol
 (dot_symbol) @property
 
 ; call: highlight the symbol as function
