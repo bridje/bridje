@@ -21,11 +21,30 @@ class Analyser(
             is SymbolForm -> when (first.name) {
                 "let" -> analyseLet(form)
                 "fn" -> analyseFn(form)
+                "do" -> analyseDo(form)
                 "def" -> TODO("def")
                 "if" -> TODO("if")
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
+        }
+    }
+
+    private fun analyseDo(form: ListForm): Expr {
+        val bodyForms = form.els.drop(1)
+        if (bodyForms.isEmpty()) error("do requires at least one expression")
+        return analyseBody(bodyForms, form.loc)
+    }
+
+    internal fun analyseBody(forms: List<Form>, loc: com.oracle.truffle.api.source.SourceSection?): Expr {
+        return when {
+            forms.isEmpty() -> error("body requires at least one expression")
+            forms.size == 1 -> analyseForm(forms[0])
+            else -> {
+                val sideEffects = forms.dropLast(1).map { analyseForm(it) }
+                val result = analyseForm(forms.last())
+                DoExpr(sideEffects, result, loc)
+            }
         }
     }
 
@@ -48,21 +67,17 @@ class Analyser(
             error("let requires a body")
         }
 
-        // For now, we'll just use the last body form as the result
-        // (implicit do would wrap multiple forms, but we'll simplify for now)
-        val bodyForm = if (bodyForms.size == 1) bodyForms[0] else TODO("implicit do not yet supported")
-
         // Process bindings, building nested LetExprs
-        return analyseBindings(bindingEls, bodyForm, form.loc)
+        return analyseBindings(bindingEls, bodyForms, form.loc)
     }
 
     private fun analyseBindings(
         bindingEls: List<Form>,
-        bodyForm: Form,
+        bodyForms: List<Form>,
         loc: com.oracle.truffle.api.source.SourceSection?
     ): Expr {
         if (bindingEls.isEmpty()) {
-            return analyseForm(bodyForm)
+            return analyseBody(bodyForms, loc)
         }
 
         val nameForm = bindingEls[0] as? SymbolForm
@@ -72,7 +87,7 @@ class Analyser(
         val bindingExpr = analyseForm(valueForm)
         val (newAnalyser, localVar) = withLocal(nameForm.name)
 
-        val bodyExpr = newAnalyser.analyseBindings(bindingEls.drop(2), bodyForm, loc)
+        val bodyExpr = newAnalyser.analyseBindings(bindingEls.drop(2), bodyForms, loc)
 
         return LetExpr(localVar, bindingExpr, bodyExpr, loc)
     }
@@ -95,9 +110,6 @@ class Analyser(
         val bodyForms = els.drop(2)
         if (bodyForms.isEmpty()) error("fn requires a body")
 
-        // For now, just use single body form (implicit do will come later)
-        val bodyForm = if (bodyForms.size == 1) bodyForms[0] else TODO("implicit do not yet supported")
-
         // Create new analyser with fresh slot counter for fn body
         var fnAnalyser = Analyser()
         for (param in params) {
@@ -105,7 +117,7 @@ class Analyser(
             fnAnalyser = newAnalyser
         }
 
-        val bodyExpr = fnAnalyser.analyseForm(bodyForm)
+        val bodyExpr = fnAnalyser.analyseBody(bodyForms, form.loc)
 
         return FnExpr(fnName, params, bodyExpr, form.loc)
     }
