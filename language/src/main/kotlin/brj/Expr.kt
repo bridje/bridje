@@ -81,3 +81,16 @@ class DoExpr(
         return "(do ${all.joinToString(" ")})"
     }
 }
+
+class BoolExpr(val value: Boolean, override val loc: SourceSection? = null) : Expr {
+    override fun toString(): String = value.toString()
+}
+
+class IfExpr(
+    val predExpr: Expr,
+    val thenExpr: Expr,
+    val elseExpr: Expr,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "(if $predExpr $thenExpr $elseExpr)"
+}

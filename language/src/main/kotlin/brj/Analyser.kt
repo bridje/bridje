@@ -22,8 +22,8 @@ class Analyser(
                 "let" -> analyseLet(form)
                 "fn" -> analyseFn(form)
                 "do" -> analyseDo(form)
+                "if" -> analyseIf(form)
                 "def" -> TODO("def")
-                "if" -> TODO("if")
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
@@ -34,6 +34,16 @@ class Analyser(
         val bodyForms = form.els.drop(1)
         if (bodyForms.isEmpty()) error("do requires at least one expression")
         return analyseBody(bodyForms, form.loc)
+    }
+
+    private fun analyseIf(form: ListForm): IfExpr {
+        val els = form.els
+        // (if pred then else)
+        if (els.size != 4) error("if requires exactly 3 arguments: predicate, then, else")
+        val predExpr = analyseForm(els[1])
+        val thenExpr = analyseForm(els[2])
+        val elseExpr = analyseForm(els[3])
+        return IfExpr(predExpr, thenExpr, elseExpr, form.loc)
     }
 
     internal fun analyseBody(forms: List<Form>, loc: com.oracle.truffle.api.source.SourceSection?): Expr {
@@ -136,8 +146,12 @@ class Analyser(
             is BigIntForm -> BigIntExpr(form.value, form.loc)
             is BigDecForm -> BigDecExpr(form.value, form.loc)
             is StringForm -> StringExpr(form.value, form.loc)
-            is SymbolForm -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
-                ?: error("Unknown local: ${form.name}")
+            is SymbolForm -> when (form.name) {
+                "true" -> BoolExpr(true, form.loc)
+                "false" -> BoolExpr(false, form.loc)
+                else -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
+                    ?: error("Unknown local: ${form.name}")
+            }
             is KeywordForm -> TODO("keyword form")
 
             is ListForm -> analyseListForm(form)

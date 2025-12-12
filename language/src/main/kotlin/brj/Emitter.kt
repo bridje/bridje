@@ -2,16 +2,24 @@ package brj
 
 import brj.nodes.*
 import brj.runtime.BridjeFunction
+import com.oracle.truffle.api.dsl.TypeSystemReference
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
+import com.oracle.truffle.api.nodes.UnexpectedResultException
 import com.oracle.truffle.api.strings.TruffleString
 import java.math.BigDecimal
 import java.math.BigInteger
 
+@TypeSystemReference(BridjeTypes::class)
 abstract class BridjeNode : Node() {
     abstract fun execute(frame: VirtualFrame): Any?
+
+    @Throws(UnexpectedResultException::class)
+    open fun executeBoolean(frame: VirtualFrame): Boolean {
+        return BridjeTypesGen.expectBoolean(execute(frame))
+    }
 }
 
 class IntNode(private val value: Long) : BridjeNode() {
@@ -36,8 +44,13 @@ class StringNode(value: String) : BridjeNode() {
     override fun execute(frame: VirtualFrame) = string
 }
 
+class BoolNode(private val value: Boolean) : BridjeNode() {
+    override fun execute(frame: VirtualFrame) = value
+}
+
 class Emitter(private val language: BridjeLanguage) {
     fun emitExpr(expr: Expr): BridjeNode = when (expr) {
+        is BoolExpr -> BoolNode(expr.value)
         is IntExpr -> IntNode(expr.value)
         is DoubleExpr -> DoubleNode(expr.value)
         is BigIntExpr -> BigIntNode(expr.value)
@@ -51,6 +64,7 @@ class Emitter(private val language: BridjeLanguage) {
         is FnExpr -> emitFn(expr)
         is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray())
         is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result))
+        is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr))
     }
 
     private fun emitFn(expr: FnExpr): FnNode {
