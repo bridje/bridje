@@ -3,6 +3,7 @@ package brj
 import java.util.concurrent.atomic.AtomicInteger
 
 class Analyser(
+    private val globalEnv: GlobalEnv = GlobalEnv(),
     private val locals: Map<String, LocalVar> = emptyMap(),
     private val nextSlot: AtomicInteger = AtomicInteger(0)
 ) {
@@ -10,7 +11,7 @@ class Analyser(
 
     internal fun withLocal(name: String): Pair<Analyser, LocalVar> {
         val lv = LocalVar(name, nextSlot.getAndIncrement())
-        return Analyser(locals + (name to lv), nextSlot) to lv
+        return Analyser(globalEnv, locals + (name to lv), nextSlot) to lv
     }
 
     private fun analyseListForm(form: ListForm): Expr {
@@ -23,7 +24,7 @@ class Analyser(
                 "fn" -> analyseFn(form)
                 "do" -> analyseDo(form)
                 "if" -> analyseIf(form)
-                "def" -> TODO("def")
+                "def" -> analyseDef(form)
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
@@ -44,6 +45,30 @@ class Analyser(
         val thenExpr = analyseForm(els[2])
         val elseExpr = analyseForm(els[3])
         return IfExpr(predExpr, thenExpr, elseExpr, form.loc)
+    }
+
+    private fun analyseDef(form: ListForm): DefExpr {
+        val els = form.els
+        val sigForm = els.getOrNull(1) ?: error("def requires a name")
+
+        return when (sigForm) {
+            is ListForm -> {
+                // def: foo(a, b) body -> define a function
+                val name = (sigForm.els.firstOrNull() as? SymbolForm)?.name
+                    ?: error("def signature must start with a name")
+                // Reuse analyseFn by constructing: (fn (name params...) body...)
+                val fnForm = ListForm(listOf(SymbolForm("fn")) + els.drop(1), form.loc)
+                val fnExpr = analyseFn(fnForm)
+                DefExpr(name, fnExpr, form.loc)
+            }
+            is SymbolForm -> {
+                // def: foo value -> define a value
+                val name = sigForm.name
+                val valueExpr = analyseForm(els.getOrNull(2) ?: error("def requires a value"))
+                DefExpr(name, valueExpr, form.loc)
+            }
+            else -> error("def requires a name or signature")
+        }
     }
 
     internal fun analyseBody(forms: List<Form>, loc: com.oracle.truffle.api.source.SourceSection?): Expr {
@@ -120,8 +145,8 @@ class Analyser(
         val bodyForms = els.drop(2)
         if (bodyForms.isEmpty()) error("fn requires a body")
 
-        // Create new analyser with fresh slot counter for fn body
-        var fnAnalyser = Analyser()
+        // Create new analyser with fresh slot counter for fn body, preserving globalEnv
+        var fnAnalyser = Analyser(globalEnv = globalEnv)
         for (param in params) {
             val (newAnalyser, _) = fnAnalyser.withLocal(param)
             fnAnalyser = newAnalyser
@@ -142,8 +167,11 @@ class Analyser(
     fun analyseTopLevel(form: Form): TopLevelDoOrExpr {
         if (form is ListForm) {
             val first = form.els.firstOrNull()
-            if (first is SymbolForm && first.name == "do") {
-                return TopLevelDo(form.els.drop(1))
+            if (first is SymbolForm) {
+                when (first.name) {
+                    "do" -> return TopLevelDo(form.els.drop(1))
+                    "def" -> return TopLevelExpr(analyseDef(form))
+                }
             }
         }
         return TopLevelExpr(analyseForm(form))
@@ -160,7 +188,8 @@ class Analyser(
                 "true" -> BoolExpr(true, form.loc)
                 "false" -> BoolExpr(false, form.loc)
                 else -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
-                    ?: error("Unknown local: ${form.name}")
+                    ?: globalEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
+                    ?: error("Unknown symbol: ${form.name}")
             }
             is KeywordForm -> TODO("keyword form")
 

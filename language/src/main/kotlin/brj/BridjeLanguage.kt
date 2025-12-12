@@ -47,6 +47,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         val forms = request.source.readForms()
 
         return object : RootNode(this) {
+            // Mutable reference to immutable GlobalEnv - updated on each def
+            private var globalEnv = GlobalEnv()
 
             @TruffleBoundary
             private fun evalExpr(expr: Expr, slotCount: Int): Any? {
@@ -58,10 +60,17 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
             @TruffleBoundary
             private fun evalForm(form: Form): Any? {
-                val analyser = Analyser()
+                val analyser = Analyser(globalEnv = globalEnv)
                 return when (val result = analyser.analyseTopLevel(form)) {
                     is TopLevelDo -> result.forms.fold(null as Any?) { _, f -> evalForm(f) }
-                    is TopLevelExpr -> evalExpr(result.expr, analyser.slotCount)
+                    is TopLevelExpr -> when (val expr = result.expr) {
+                        is DefExpr -> {
+                            val value = evalExpr(expr.expr, analyser.slotCount)
+                            globalEnv = globalEnv.def(expr.name, value)
+                            value
+                        }
+                        else -> evalExpr(expr, analyser.slotCount)
+                    }
                 }
             }
 

@@ -66,11 +66,13 @@ class Emitter(private val language: BridjeLanguage) {
         is SetExpr -> TODO()
         is MapExpr -> TODO()
         is LocalVarExpr -> ReadLocalNode(expr.localVar.slot, expr.loc)
+        is GlobalVarExpr -> GlobalVarNode(expr.globalVar, expr.loc)
         is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr), expr.loc)
         is FnExpr -> emitFn(expr)
         is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray(), expr.loc)
         is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result), expr.loc)
         is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr), expr.loc)
+        is DefExpr -> error("DefExpr should be handled in eval loop, not emitted")
     }
 
     private fun emitFn(expr: FnExpr): FnNode {
