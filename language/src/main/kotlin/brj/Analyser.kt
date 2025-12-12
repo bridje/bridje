@@ -8,7 +8,7 @@ class Analyser(
 ) {
     val slotCount: Int get() = nextSlot.get()
 
-    private fun withLocal(name: String): Pair<Analyser, LocalVar> {
+    internal fun withLocal(name: String): Pair<Analyser, LocalVar> {
         val lv = LocalVar(name, nextSlot.getAndIncrement())
         return Analyser(locals + (name to lv), nextSlot) to lv
     }
@@ -20,11 +20,12 @@ class Analyser(
         return when (first) {
             is SymbolForm -> when (first.name) {
                 "let" -> analyseLet(form)
-                "def" -> StringExpr("def expr", form.loc)
-                "if" -> StringExpr("if expr", form.loc)
-                else -> StringExpr("call expr", form.loc)
+                "fn" -> analyseFn(form)
+                "def" -> TODO("def")
+                "if" -> TODO("if")
+                else -> analyseCall(form)
             }
-            else -> error("can't eval anything else")
+            else -> analyseCall(form)
         }
     }
 
@@ -74,6 +75,46 @@ class Analyser(
         val bodyExpr = newAnalyser.analyseBindings(bindingEls.drop(2), bodyForm, loc)
 
         return LetExpr(localVar, bindingExpr, bodyExpr, loc)
+    }
+
+    private fun analyseFn(form: ListForm): FnExpr {
+        val els = form.els
+        // (fn (fn-name & params) & body)
+
+        val sigForm = els.getOrNull(1) as? ListForm
+            ?: error("fn requires a signature list (fn-name & params)")
+
+        val sigEls = sigForm.els
+        val fnName = (sigEls.firstOrNull() as? SymbolForm)?.name
+            ?: error("fn signature must start with a name")
+
+        val params = sigEls.drop(1).map {
+            (it as? SymbolForm)?.name ?: error("fn parameter must be a symbol")
+        }
+
+        val bodyForms = els.drop(2)
+        if (bodyForms.isEmpty()) error("fn requires a body")
+
+        // For now, just use single body form (implicit do will come later)
+        val bodyForm = if (bodyForms.size == 1) bodyForms[0] else TODO("implicit do not yet supported")
+
+        // Create new analyser with fresh slot counter for fn body
+        var fnAnalyser = Analyser()
+        for (param in params) {
+            val (newAnalyser, _) = fnAnalyser.withLocal(param)
+            fnAnalyser = newAnalyser
+        }
+
+        val bodyExpr = fnAnalyser.analyseForm(bodyForm)
+
+        return FnExpr(fnName, params, bodyExpr, form.loc)
+    }
+
+    private fun analyseCall(form: ListForm): CallExpr {
+        val els = form.els
+        val fnExpr = analyseForm(els[0])
+        val argExprs = els.drop(1).map { analyseForm(it) }
+        return CallExpr(fnExpr, argExprs, form.loc)
     }
 
     fun analyseForm(form: Form): Expr {
