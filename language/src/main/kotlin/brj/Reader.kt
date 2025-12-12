@@ -108,7 +108,7 @@ class Reader private constructor(private val src: Source) {
 
             "anon_fn" -> {
                 val body = namedChildren[0].readForm()
-                ListForm(listOf(SymbolForm("fn"), VectorForm(listOf(SymbolForm("it"))), body), loc)
+                ListForm(listOf(SymbolForm("fn"), ListForm(listOf(SymbolForm("_"), SymbolForm("it"))), body), loc)
             }
 
             "block_call" -> {

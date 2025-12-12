@@ -53,7 +53,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                 val analyser = Analyser()
                 val expr = analyser.analyseForm(form)
                 val frameDescriptor = buildFrameDescriptor(analyser.slotCount)
-                val node = emitExpr(expr)
+                val emitter = Emitter(this@BridjeLanguage)
+                val node = emitter.emitExpr(expr)
 
                 return EvalNode(this@BridjeLanguage, frameDescriptor, node).callTarget.call()
             }

@@ -53,3 +53,20 @@ class LetExpr(
 ) : Expr {
     override fun toString(): String = "(let [${localVar.name} $bindingExpr] $bodyExpr)"
 }
+
+class FnExpr(
+    val fnName: String,
+    val params: List<String>,
+    val bodyExpr: Expr,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "(fn ($fnName ${params.joinToString(" ")}) $bodyExpr)"
+}
+
+class CallExpr(
+    val fnExpr: Expr,
+    val argExprs: List<Expr>,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "($fnExpr ${argExprs.joinToString(" ")})"
+}
