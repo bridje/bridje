@@ -139,6 +139,16 @@ class Analyser(
         return CallExpr(fnExpr, argExprs, form.loc)
     }
 
+    fun analyseTopLevel(form: Form): TopLevelDoOrExpr {
+        if (form is ListForm) {
+            val first = form.els.firstOrNull()
+            if (first is SymbolForm && first.name == "do") {
+                return TopLevelDo(form.els.drop(1))
+            }
+        }
+        return TopLevelExpr(analyseForm(form))
+    }
+
     fun analyseForm(form: Form): Expr {
         return when (form) {
             is IntForm -> IntExpr(form.value, form.loc)

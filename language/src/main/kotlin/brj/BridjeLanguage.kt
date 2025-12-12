@@ -49,27 +49,23 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         return object : RootNode(this) {
 
             @TruffleBoundary
-            private fun eval(form: Form): Any? {
-                val analyser = Analyser()
-                val expr = analyser.analyseForm(form)
-                val frameDescriptor = buildFrameDescriptor(analyser.slotCount)
+            private fun evalExpr(expr: Expr, slotCount: Int): Any? {
+                val frameDescriptor = buildFrameDescriptor(slotCount)
                 val emitter = Emitter(this@BridjeLanguage)
                 val node = emitter.emitExpr(expr)
-
                 return EvalNode(this@BridjeLanguage, frameDescriptor, node).callTarget.call()
             }
 
-            private fun eval(forms: Sequence<Form>): Any? {
-                var res: Any? = null // TODO Bridje nil
-
-                for (form in forms) {
-                    res = eval(form)
+            @TruffleBoundary
+            private fun evalForm(form: Form): Any? {
+                val analyser = Analyser()
+                return when (val result = analyser.analyseTopLevel(form)) {
+                    is TopLevelDo -> result.forms.fold(null as Any?) { _, f -> evalForm(f) }
+                    is TopLevelExpr -> evalExpr(result.expr, analyser.slotCount)
                 }
-
-                return res
             }
 
-            override fun execute(frame: VirtualFrame) = eval(forms)
+            override fun execute(frame: VirtualFrame) = forms.fold(null as Any?) { _, form -> evalForm(form) }
 
         }.callTarget
     }
