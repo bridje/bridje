@@ -106,11 +106,6 @@ class Reader private constructor(private val src: Source) {
                 ListForm(listOf(KeywordForm(fieldName, loc), receiver), loc)
             }
 
-            "anon_fn" -> {
-                val body = namedChildren[0].readForm()
-                ListForm(listOf(SymbolForm("fn"), ListForm(listOf(SymbolForm("_"), SymbolForm("it"))), body), loc)
-            }
-
             "block_call" -> {
                 val blockName = namedChildren[0].text!!
                 val args = namedChildren.drop(1).flatMap { child ->
