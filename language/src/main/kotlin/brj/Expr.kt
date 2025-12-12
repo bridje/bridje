@@ -70,3 +70,14 @@ class CallExpr(
 ) : Expr {
     override fun toString(): String = "($fnExpr ${argExprs.joinToString(" ")})"
 }
+
+class DoExpr(
+    val sideEffects: List<Expr>,
+    val result: Expr,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String {
+        val all = sideEffects + result
+        return "(do ${all.joinToString(" ")})"
+    }
+}

@@ -50,6 +50,7 @@ class Emitter(private val language: BridjeLanguage) {
         is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr))
         is FnExpr -> emitFn(expr)
         is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray())
+        is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result))
     }
 
     private fun emitFn(expr: FnExpr): FnNode {
