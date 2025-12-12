@@ -34,7 +34,6 @@ module.exports = grammar({
       $.block_call,
       $.method_call,
       $.field_access,
-      $.anon_fn
     ),
 
     string: _ => token(/"([^"]|\\")*"/),
@@ -61,9 +60,6 @@ module.exports = grammar({
 
     // expr.field
     field_access: $ => seq($._form, $.dot_symbol),
-
-    // #expr -> (fn [it] expr)
-    anon_fn: $ => seq('#', prec(-1, $._form)),
 
     list: $ => seq('(', repeat($._form), ')'),
     vector: $ => seq('[', repeat($._form), ']'),
