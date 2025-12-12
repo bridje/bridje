@@ -9,11 +9,13 @@ import com.oracle.truffle.api.interop.UnsupportedTypeException
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node.Child
 import com.oracle.truffle.api.nodes.Node.Children
+import com.oracle.truffle.api.source.SourceSection
 
 class InvokeNode(
     @field:Child private var fnNode: BridjeNode,
-    @field:Children private val argNodes: Array<BridjeNode>
-) : BridjeNode() {
+    @field:Children private val argNodes: Array<BridjeNode>,
+    loc: SourceSection? = null
+) : BridjeNode(loc) {
 
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)

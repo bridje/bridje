@@ -8,12 +8,18 @@ import com.oracle.truffle.api.frame.FrameSlotKind
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.UnexpectedResultException
+import com.oracle.truffle.api.source.SourceSection
 import com.oracle.truffle.api.strings.TruffleString
 import java.math.BigDecimal
 import java.math.BigInteger
 
 @TypeSystemReference(BridjeTypes::class)
-abstract class BridjeNode : Node() {
+abstract class BridjeNode(
+    private val loc: SourceSection? = null
+) : Node() {
+
+    override fun getSourceSection() = loc
+
     abstract fun execute(frame: VirtualFrame): Any?
 
     @Throws(UnexpectedResultException::class)
@@ -22,49 +28,49 @@ abstract class BridjeNode : Node() {
     }
 }
 
-class IntNode(private val value: Long) : BridjeNode() {
+class IntNode(private val value: Long, loc: SourceSection? = null) : BridjeNode(loc) {
     override fun execute(frame: VirtualFrame) = value
 }
 
-class DoubleNode(private val value: Double) : BridjeNode() {
+class DoubleNode(private val value: Double, loc: SourceSection? = null) : BridjeNode(loc) {
     override fun execute(frame: VirtualFrame) = value
 }
 
-class BigIntNode(private val value: BigInteger) : BridjeNode() {
+class BigIntNode(private val value: BigInteger, loc: SourceSection? = null) : BridjeNode(loc) {
     override fun execute(frame: VirtualFrame) = TODO("BigInt interop")
 }
 
-class BigDecNode(private val value: BigDecimal) : BridjeNode() {
+class BigDecNode(private val value: BigDecimal, loc: SourceSection? = null) : BridjeNode(loc) {
     override fun execute(frame: VirtualFrame) = TODO("BigDec interop")
 }
 
-class StringNode(value: String) : BridjeNode() {
+class StringNode(value: String, loc: SourceSection? = null) : BridjeNode(loc) {
     private val string: TruffleString = TruffleString.fromConstant(value, TruffleString.Encoding.UTF_8)
 
     override fun execute(frame: VirtualFrame) = string
 }
 
-class BoolNode(private val value: Boolean) : BridjeNode() {
+class BoolNode(private val value: Boolean, loc: SourceSection? = null) : BridjeNode(loc) {
     override fun execute(frame: VirtualFrame) = value
 }
 
 class Emitter(private val language: BridjeLanguage) {
     fun emitExpr(expr: Expr): BridjeNode = when (expr) {
-        is BoolExpr -> BoolNode(expr.value)
-        is IntExpr -> IntNode(expr.value)
-        is DoubleExpr -> DoubleNode(expr.value)
-        is BigIntExpr -> BigIntNode(expr.value)
-        is BigDecExpr -> BigDecNode(expr.value)
-        is StringExpr -> StringNode(expr.value)
-        is VectorExpr -> VectorNodeGen.create(ExecuteArrayNode(expr.els.map { emitExpr(it) }.toTypedArray()))
+        is BoolExpr -> BoolNode(expr.value, expr.loc)
+        is IntExpr -> IntNode(expr.value, expr.loc)
+        is DoubleExpr -> DoubleNode(expr.value, expr.loc)
+        is BigIntExpr -> BigIntNode(expr.value, expr.loc)
+        is BigDecExpr -> BigDecNode(expr.value, expr.loc)
+        is StringExpr -> StringNode(expr.value, expr.loc)
+        is VectorExpr -> VectorNodeGen.create(expr.loc, ExecuteArrayNode(expr.els.map { emitExpr(it) }.toTypedArray(), expr.loc))
         is SetExpr -> TODO()
         is MapExpr -> TODO()
-        is LocalVarExpr -> ReadLocalNode(expr.localVar.slot)
-        is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr))
+        is LocalVarExpr -> ReadLocalNode(expr.localVar.slot, expr.loc)
+        is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr), expr.loc)
         is FnExpr -> emitFn(expr)
-        is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray())
-        is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result))
-        is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr))
+        is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray(), expr.loc)
+        is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result), expr.loc)
+        is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr), expr.loc)
     }
 
     private fun emitFn(expr: FnExpr): FnNode {
@@ -74,6 +80,6 @@ class Emitter(private val language: BridjeLanguage) {
             fdBuilder.addSlot(FrameSlotKind.Illegal, null, null)
         }
         val rootNode = FnRootNode(language, fdBuilder.build(), expr.params.size, bodyNode)
-        return FnNode(BridjeFunction(rootNode.callTarget))
+        return FnNode(BridjeFunction(rootNode.callTarget), expr.loc)
     }
 }
