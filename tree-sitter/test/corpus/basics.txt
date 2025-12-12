@@ -168,7 +168,7 @@ foo(a, b)
 
 (source_file
   (call
-    (symbol_paren)
+    (symbol)
     (symbol)
     (symbol)))
 

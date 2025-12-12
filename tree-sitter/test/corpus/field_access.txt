@@ -79,7 +79,7 @@ foo(a).result
 (source_file
   (field_access
     (call
-      (symbol_paren)
+      (symbol)
       (symbol))
     (dot_symbol)))
 
@@ -111,7 +111,7 @@ foo.bar.baz()
     (field_access
       (symbol)
       (dot_symbol))
-    (dot_symbol_paren)))
+    (dot_symbol)))
 
 ==================
 Method call then field access
@@ -125,5 +125,5 @@ foo.bar().baz
   (field_access
     (method_call
       (symbol)
-      (dot_symbol_paren))
+      (dot_symbol))
     (dot_symbol)))
