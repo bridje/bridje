@@ -94,3 +94,9 @@ class IfExpr(
 ) : Expr {
     override fun toString(): String = "(if $predExpr $thenExpr $elseExpr)"
 }
+
+sealed class TopLevelDoOrExpr
+
+class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()
+
+class TopLevelExpr(val expr: Expr) : TopLevelDoOrExpr()
