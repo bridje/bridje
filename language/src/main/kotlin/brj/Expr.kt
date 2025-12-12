@@ -95,6 +95,21 @@ class IfExpr(
     override fun toString(): String = "(if $predExpr $thenExpr $elseExpr)"
 }
 
+class DefExpr(
+    val name: String,
+    val expr: Expr,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "(def $name $expr)"
+}
+
+class GlobalVarExpr(
+    val globalVar: GlobalVar,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = globalVar.name
+}
+
 sealed class TopLevelDoOrExpr
 
 class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()

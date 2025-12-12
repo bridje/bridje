@@ -75,19 +75,19 @@ class LetTest {
     }
 
     @Test
-    fun `unknown local throws error`() {
+    fun `unknown symbol throws error`() {
         val ex = assertThrows(PolyglotException::class.java) {
             eval("(let [x 1] y)")
         }
-        assertTrue(ex.message?.contains("Unknown local: y") == true, "Expected error about unknown local, got: ${ex.message}")
+        assertTrue(ex.message?.contains("Unknown symbol: y") == true, "Expected error about unknown symbol, got: ${ex.message}")
     }
 
     @Test
-    fun `unknown local at top level`() {
+    fun `unknown symbol at top level`() {
         val ex = assertThrows(PolyglotException::class.java) {
             eval("x")
         }
-        assertTrue(ex.message?.contains("Unknown local: x") == true, "Expected error about unknown local, got: ${ex.message}")
+        assertTrue(ex.message?.contains("Unknown symbol: x") == true, "Expected error about unknown symbol, got: ${ex.message}")
     }
 
     @Test
