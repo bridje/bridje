@@ -88,14 +88,14 @@ class Reader private constructor(private val src: Source) {
             "map" -> MapForm(namedChildren.map { it.readForm() }, loc)
 
             "call" -> {
-                val fnName = namedChildren[0].text!!.dropLast(1)
+                val fnName = namedChildren[0].text!!
                 val args = namedChildren.drop(1).map { it.readForm() }
                 ListForm(listOf(SymbolForm(fnName, loc)) + args, loc)
             }
 
             "method_call" -> {
                 val receiver = namedChildren[0].readForm()
-                val methodName = namedChildren[1].text!!.drop(1).dropLast(1)
+                val methodName = namedChildren[1].text!!.drop(1)
                 val args = namedChildren.drop(2).map { it.readForm() }
                 ListForm(listOf(SymbolForm(methodName, loc), receiver) + args, loc)
             }
@@ -112,7 +112,7 @@ class Reader private constructor(private val src: Source) {
             }
 
             "block_call" -> {
-                val blockName = namedChildren[0].text!!.dropLast(1) // remove trailing ':'
+                val blockName = namedChildren[0].text!!
                 val args = namedChildren.drop(1).flatMap { child ->
                     if (child.type == "block_body") child.namedChildren.map { it.readForm() }
                     else listOf(child.readForm())

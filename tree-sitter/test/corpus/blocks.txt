@@ -9,12 +9,12 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 Block with multiple body forms
@@ -28,14 +28,14 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (call
-        (symbol_paren))
+        (symbol))
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 Nested blocks
@@ -49,18 +49,18 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (block_call
-        (symbol_colon)
+        (symbol)
         (vector
           (symbol)
           (int))
         (block_body
           (call
-            (symbol_paren)
+            (symbol)
             (symbol)))))))
 
 ==================
@@ -73,7 +73,7 @@ if: pred then else
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (symbol)
     (symbol)
     (symbol)))
@@ -91,18 +91,18 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (block_call
-        (symbol_colon)
+        (symbol)
         (symbol)
         (block_body
           (call
-            (symbol_paren))))
+            (symbol))))
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 do block
@@ -117,14 +117,14 @@ do:
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (block_body
       (call
-        (symbol_paren))
+        (symbol))
       (call
-        (symbol_paren))
+        (symbol))
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 Method chain across lines
@@ -139,16 +139,16 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (method_call
         (method_call
           (call
-            (symbol_paren))
-          (dot_symbol_paren))
-        (dot_symbol_paren)))))
+            (symbol))
+          (dot_symbol))
+        (dot_symbol)))))
 
 ==================
 Block inside vector
@@ -163,11 +163,11 @@ let: [a if: pred
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (vector
       (symbol)
       (block_call
-        (symbol_colon)
+        (symbol)
         (symbol)
         (block_body
           (symbol)
@@ -187,12 +187,12 @@ Block inside parens
 (source_file
   (list
     (block_call
-      (symbol_colon)
+      (symbol)
       (call
-        (symbol_paren))
+        (symbol))
       (block_body
         (call
-          (symbol_paren))))))
+          (symbol))))))
 
 ==================
 Deeply nested then rapid dedent
@@ -209,26 +209,26 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (block_call
-        (symbol_colon)
+        (symbol)
         (symbol)
         (block_body
           (block_call
-            (symbol_colon)
+            (symbol)
             (symbol)
             (block_body
               (block_call
-                (symbol_colon)
+                (symbol)
                 (symbol)
                 (block_body
                   (call
-                    (symbol_paren))))))))
+                    (symbol))))))))
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 Blank line in block body
@@ -243,14 +243,14 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (call
-        (symbol_paren))
+        (symbol))
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 Blank line before dedent
@@ -265,14 +265,14 @@ baz()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (call
-        (symbol_paren))))
+        (symbol))))
   (call
-    (symbol_paren)))
+    (symbol)))
 
 ==================
 Blank line then return to outer block
@@ -288,18 +288,18 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (block_call
-        (symbol_colon)
+        (symbol)
         (symbol)
         (block_body
           (call
-            (symbol_paren))))
+            (symbol))))
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 Whitespace-only line in block body
@@ -314,14 +314,14 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (call
-        (symbol_paren))
+        (symbol))
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 Whitespace-only line with less indent than block
@@ -336,14 +336,14 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (call
-        (symbol_paren))
+        (symbol))
       (call
-        (symbol_paren)))))
+        (symbol)))))
 
 ==================
 Whitespace-only line with more indent than block
@@ -358,11 +358,11 @@ def: foo()
 
 (source_file
   (block_call
-    (symbol_colon)
+    (symbol)
     (call
-      (symbol_paren))
+      (symbol))
     (block_body
       (call
-        (symbol_paren))
+        (symbol))
       (call
-        (symbol_paren)))))
+        (symbol)))))

@@ -6,15 +6,12 @@
 
 enum TokenType {
     SYMBOL,
-    SYMBOL_PAREN,
     DOT_SYMBOL,
-    DOT_SYMBOL_PAREN,
     KEYWORD,
     INT,
     FLOAT,
     BIGINT,
     BIGDEC,
-    SYMBOL_COLON,
     INDENT,
     DEDENT
 };
@@ -120,22 +117,13 @@ static bool read_symbol_core(TSLexer *lexer) {
     return true;
 }
 
-static bool read_symbol(TSLexer *lexer, const bool *valid_symbols) {
+static bool read_symbol(TSLexer *lexer) {
     read_symbol_core(lexer);
-
-    if (lexer->lookahead == '(') {
-        lexer->advance(lexer, false);
-        lexer->result_symbol = SYMBOL_PAREN;
-    } else if (lexer->lookahead == ':' && valid_symbols[SYMBOL_COLON]) {
-        lexer->advance(lexer, false);
-        lexer->result_symbol = SYMBOL_COLON;
-    } else {
-        lexer->result_symbol = SYMBOL;
-    }
+    lexer->result_symbol = SYMBOL;
     return true;
 }
 
-static bool read_dot_symbol(TSLexer *lexer, const bool *valid_symbols) {
+static bool read_dot_symbol(TSLexer *lexer) {
     // Skip the '.'
     lexer->advance(lexer, false);
 
@@ -143,13 +131,7 @@ static bool read_dot_symbol(TSLexer *lexer, const bool *valid_symbols) {
     if (!is_symbol_head_char(ch)) return false;
 
     read_symbol_core(lexer);
-
-    if (lexer->lookahead == '(') {
-        lexer->advance(lexer, false);
-        lexer->result_symbol = DOT_SYMBOL_PAREN;
-    } else {
-        lexer->result_symbol = DOT_SYMBOL;
-    }
+    lexer->result_symbol = DOT_SYMBOL;
     return true;
 }
 
@@ -309,8 +291,8 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     }
 
     // Now scan actual tokens
-    if (is_symbol_head_char(ch)) return read_symbol(lexer, valid_symbols);
-    if (ch == '.') return read_dot_symbol(lexer, valid_symbols);
+    if (is_symbol_head_char(ch)) return read_symbol(lexer);
+    if (ch == '.') return read_dot_symbol(lexer);
     if (isdigit(ch)) return read_number(lexer, valid_symbols);
 
     // Keywords: :foo

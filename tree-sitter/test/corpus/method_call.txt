@@ -9,7 +9,7 @@ foo.bar(a)
 (source_file
   (method_call
     (symbol)
-    (dot_symbol_paren)
+    (dot_symbol)
     (symbol)))
 
 ==================
@@ -23,7 +23,7 @@ Method call on int
 (source_file
   (method_call
     (int)
-    (dot_symbol_paren)))
+    (dot_symbol)))
 
 ==================
 Method call on string
@@ -36,7 +36,7 @@ Method call on string
 (source_file
   (method_call
     (string)
-    (dot_symbol_paren)))
+    (dot_symbol)))
 
 ==================
 Method call on list
@@ -51,7 +51,7 @@ Method call on list
     (list
       (symbol)
       (symbol))
-    (dot_symbol_paren)))
+    (dot_symbol)))
 
 ==================
 Method call on vector
@@ -67,7 +67,7 @@ Method call on vector
       (int)
       (int)
       (int))
-    (dot_symbol_paren)
+    (dot_symbol)
     (symbol)))
 
 ==================
@@ -81,9 +81,9 @@ foo(a).bar(b)
 (source_file
   (method_call
     (call
-      (symbol_paren)
+      (symbol)
       (symbol))
-    (dot_symbol_paren)
+    (dot_symbol)
     (symbol)))
 
 ==================
@@ -98,5 +98,5 @@ foo.bar().baz()
   (method_call
     (method_call
       (symbol)
-      (dot_symbol_paren))
-    (dot_symbol_paren)))
+      (dot_symbol))
+    (dot_symbol)))
