@@ -1,6 +1,8 @@
 package brj
 
 import brj.nodes.ExecuteArrayNode
+import brj.nodes.LetNode
+import brj.nodes.ReadLocalNode
 import brj.nodes.VectorNodeGen
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
@@ -43,4 +45,6 @@ fun emitExpr(expr: Expr): BridjeNode = when (expr) {
     is VectorExpr -> VectorNodeGen.create(ExecuteArrayNode(expr.els.map { emitExpr(it) }.toTypedArray()))
     is SetExpr -> TODO()
     is MapExpr -> TODO()
+    is LocalVarExpr -> ReadLocalNode(expr.localVar.slot)
+    is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr))
 }

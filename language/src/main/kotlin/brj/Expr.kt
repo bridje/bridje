@@ -40,3 +40,16 @@ class SetExpr(val els: List<Expr>, override val loc: SourceSection? = null) : Ex
 class MapExpr(val els: List<Expr>, override val loc: SourceSection? = null) : Expr {
     override fun toString(): String = els.joinToString(prefix = "{", separator = " ", postfix = "}")
 }
+
+class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection? = null) : Expr {
+    override fun toString(): String = localVar.name
+}
+
+class LetExpr(
+    val localVar: LocalVar,
+    val bindingExpr: Expr,
+    val bodyExpr: Expr,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "(let [${localVar.name} $bindingExpr] $bodyExpr)"
+}
