@@ -120,6 +120,22 @@ static bool read_symbol_core(TSLexer *lexer) {
 
 static bool read_symbol(TSLexer *lexer) {
     read_symbol_core(lexer);
+
+    // Check for colon - could be qualified symbol (foo:bar) or block call (foo:)
+    while (lexer->lookahead == ':') {
+        lexer->mark_end(lexer);  // Mark before colon in case it's a block call
+        lexer->advance(lexer, false);
+        if (is_symbol_head_char(lexer->lookahead)) {
+            // Qualified symbol - continue reading
+            read_symbol_core(lexer);
+        } else {
+            // Block call - return symbol without the colon (mark_end already set)
+            lexer->result_symbol = SYMBOL;
+            return true;
+        }
+    }
+
+    lexer->mark_end(lexer);  // Mark final position
     lexer->result_symbol = SYMBOL;
     return true;
 }
