@@ -172,3 +172,41 @@ foo(a, b)
     (symbol)
     (symbol)))
 
+==================
+Qualified symbol
+==================
+
+java:time:Instant
+
+---
+
+(source_file
+  (symbol))
+
+==================
+Qualified symbol with field access
+==================
+
+java:time:Instant.now
+
+---
+
+(source_file
+  (field_access
+    (symbol)
+    (dot_symbol)))
+
+==================
+Qualified symbol with method call
+==================
+
+java:time:Instant.parse("2024-01-01")
+
+---
+
+(source_file
+  (method_call
+    (symbol)
+    (dot_symbol)
+    (string)))
+
