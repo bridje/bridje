@@ -81,6 +81,10 @@ class Reader private constructor(private val src: Source) {
             "bigdec" -> BigDecForm(BigDecimal(text!!.dropLast(1)), loc)
             "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
             "symbol" -> SymbolForm(text!!, loc)
+            "qualified_symbol" -> {
+                val parts = text!!.split('/')
+                QualifiedSymbolForm(parts[0], parts[1], loc)
+            }
 
             "list" -> ListForm(namedChildren.map { it.readForm() }, loc)
             "vector" -> VectorForm(namedChildren.map { it.readForm() }, loc)
@@ -88,9 +92,9 @@ class Reader private constructor(private val src: Source) {
             "map" -> MapForm(namedChildren.map { it.readForm() }, loc)
 
             "call" -> {
-                val fnName = namedChildren[0].text!!
+                val fn = namedChildren[0].readForm()
                 val args = namedChildren.drop(1).map { it.readForm() }
-                ListForm(listOf(SymbolForm(fnName, loc)) + args, loc)
+                ListForm(listOf(fn) + args, loc)
             }
 
             "method_call" -> {

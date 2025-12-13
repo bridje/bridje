@@ -16,6 +16,7 @@ module.exports = grammar({
 
   externals: $ => [
     $.symbol,
+    $.qualified_symbol,
     $.dot_symbol,
     $.keyword,
     $.int, $.float,
@@ -28,7 +29,7 @@ module.exports = grammar({
 
     _form: $ => choice(
       $.int, $.float, $.bigint, $.bigdec,
-      $.string, $.keyword, $.symbol,
+      $.string, $.keyword, $.symbol, $.qualified_symbol,
       $.list, $.vector, $.map, $.set,
       $.call,
       $.block_call,
@@ -38,8 +39,8 @@ module.exports = grammar({
 
     string: _ => token(/"([^"]|\\")*"/),
 
-    // foo(a, b)
-    call: $ => seq($.symbol, token.immediate('('), repeat($._form), ')'),
+    // foo(a, b) or ns/foo(a, b)
+    call: $ => seq(choice($.symbol, $.qualified_symbol), token.immediate('('), repeat($._form), ')'),
 
     // foo: args
     //   body
