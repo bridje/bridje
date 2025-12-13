@@ -366,3 +366,31 @@ def: foo()
         (symbol))
       (call
         (symbol)))))
+
+==================
+Multiple sibling def statements
+==================
+
+do:
+  def: foo(x) x
+  def: bar(y) y
+
+---
+
+(source_file
+  (block_call
+    (symbol)
+    (block_body
+      (block_call
+        (symbol)
+        (call
+          (symbol)
+          (symbol))
+        (symbol))
+      (block_call
+        (symbol)
+        (call
+          (symbol)
+          (symbol))
+        (symbol)))))
+

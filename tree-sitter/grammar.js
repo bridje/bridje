@@ -20,7 +20,7 @@ module.exports = grammar({
     $.keyword,
     $.int, $.float,
     $.bigint, $.bigdec,
-    $._indent, $._dedent
+    $._indent, $._dedent, $._newline
   ],
 
   rules: {
@@ -46,6 +46,7 @@ module.exports = grammar({
     block_call: $ => prec.right(seq(
       $.symbol, token.immediate(':'),
       repeat($._form),
+      optional($._newline),
       optional($.block_body)
     )),
 
