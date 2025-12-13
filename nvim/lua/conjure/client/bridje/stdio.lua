@@ -121,7 +121,7 @@ end
 M["eval-str"] = function(opts)
   with_repl_or_warn(function(repl)
     repl.send(
-      opts.code .. "\n",
+      opts.code .. "\n\x00\n",
       function(msgs)
         local results = unbatch(msgs)
         for _, result in ipairs(results) do
