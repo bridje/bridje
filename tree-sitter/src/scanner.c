@@ -13,7 +13,8 @@ enum TokenType {
     BIGINT,
     BIGDEC,
     INDENT,
-    DEDENT
+    DEDENT,
+    NEWLINE
 };
 
 #define MAX_INDENT_DEPTH 100
@@ -269,6 +270,12 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
             scanner->queued_dedent_target = indent;
             pop_indent(scanner);
             lexer->result_symbol = DEDENT;
+            return true;
+        }
+
+        // Check for NEWLINE at same or lesser indentation
+        if (valid_symbols[NEWLINE] && indent <= current_indent) {
+            lexer->result_symbol = NEWLINE;
             return true;
         }
     }
