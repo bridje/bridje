@@ -273,8 +273,8 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
             return true;
         }
 
-        // Check for NEWLINE at same or lesser indentation
-        if (valid_symbols[NEWLINE] && indent <= current_indent) {
+        // Check for NEWLINE at same indentation
+        if (valid_symbols[NEWLINE] && indent == current_indent) {
             lexer->result_symbol = NEWLINE;
             return true;
         }
