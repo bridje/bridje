@@ -1,5 +1,6 @@
 package brj
 
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -108,6 +109,21 @@ class GlobalVarExpr(
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String = globalVar.name
+}
+
+class TruffleObjectExpr(
+    val value: TruffleObject,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = value.toString()
+}
+
+class HostStaticMethodExpr(
+    val hostClass: TruffleObject,
+    val methodName: String,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "$hostClass/$methodName"
 }
 
 sealed class TopLevelDoOrExpr

@@ -1,8 +1,12 @@
 package brj
 
+import com.oracle.truffle.api.TruffleLanguage
+import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.source.SourceSection
 import java.util.concurrent.atomic.AtomicInteger
 
 class Analyser(
+    private val truffleEnv: TruffleLanguage.Env,
     private val globalEnv: GlobalEnv = GlobalEnv(),
     private val locals: Map<String, LocalVar> = emptyMap(),
     private val nextSlot: AtomicInteger = AtomicInteger(0)
@@ -11,7 +15,7 @@ class Analyser(
 
     internal fun withLocal(name: String): Pair<Analyser, LocalVar> {
         val lv = LocalVar(name, nextSlot.getAndIncrement())
-        return Analyser(globalEnv, locals + (name to lv), nextSlot) to lv
+        return Analyser(truffleEnv, globalEnv, locals + (name to lv), nextSlot) to lv
     }
 
     private fun analyseListForm(form: ListForm): Expr {
@@ -146,7 +150,7 @@ class Analyser(
         if (bodyForms.isEmpty()) error("fn requires a body")
 
         // Create new analyser with fresh slot counter for fn body, preserving globalEnv
-        var fnAnalyser = Analyser(globalEnv = globalEnv)
+        var fnAnalyser = Analyser(truffleEnv, globalEnv = globalEnv)
         for (param in params) {
             val (newAnalyser, _) = fnAnalyser.withLocal(param)
             fnAnalyser = newAnalyser
@@ -177,6 +181,16 @@ class Analyser(
         return TopLevelExpr(analyseForm(form))
     }
 
+    private fun tryHostLookup(name: String, loc: SourceSection?): TruffleObjectExpr? {
+        val className = name.replace(':', '.')
+        return try {
+            val hostClass = truffleEnv.lookupHostSymbol(className) as TruffleObject
+            TruffleObjectExpr(hostClass, loc)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun analyseForm(form: Form): Expr {
         return when (form) {
             is IntForm -> IntExpr(form.value, form.loc)
@@ -189,9 +203,20 @@ class Analyser(
                 "false" -> BoolExpr(false, form.loc)
                 else -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
                     ?: globalEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
+                    ?: tryHostLookup(form.name, form.loc)
                     ?: error("Unknown symbol: ${form.name}")
             }
             is KeywordForm -> TODO("keyword form")
+
+            is QualifiedSymbolForm -> {
+                val className = form.namespace.replace(':', '.')
+                val hostClass = try {
+                    truffleEnv.lookupHostSymbol(className) as TruffleObject
+                } catch (_: Exception) {
+                    error("Unknown namespace: ${form.namespace}")
+                }
+                HostStaticMethodExpr(hostClass, form.member, form.loc)
+            }
 
             is ListForm -> analyseListForm(form)
             is VectorForm -> VectorExpr(form.els.map { analyseForm(it) }, form.loc)

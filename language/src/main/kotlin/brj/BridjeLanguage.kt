@@ -20,9 +20,13 @@ import com.oracle.truffle.api.nodes.RootNode
 )
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
-    class BridjeContext
+    companion object {
+        private val CONTEXT_REF: ContextReference<BridjeContext> = ContextReference.create(BridjeLanguage::class.java)
+    }
 
-    override fun createContext(env: Env) = BridjeContext()
+    class BridjeContext(val env: Env)
+
+    override fun createContext(env: Env) = BridjeContext(env)
 
     class EvalNode(
         lang: BridjeLanguage,
@@ -59,10 +63,10 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             }
 
             @TruffleBoundary
-            private fun evalForm(form: Form): Any? {
-                val analyser = Analyser(globalEnv = globalEnv)
+            private fun evalForm(form: Form, truffleEnv: Env): Any? {
+                val analyser = Analyser(truffleEnv, globalEnv = globalEnv)
                 return when (val result = analyser.analyseTopLevel(form)) {
-                    is TopLevelDo -> result.forms.fold(null as Any?) { _, f -> evalForm(f) }
+                    is TopLevelDo -> result.forms.fold(null as Any?) { _, f -> evalForm(f, truffleEnv) }
                     is TopLevelExpr -> when (val expr = result.expr) {
                         is DefExpr -> {
                             val value = evalExpr(expr.expr, analyser.slotCount)
@@ -74,7 +78,10 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                 }
             }
 
-            override fun execute(frame: VirtualFrame) = forms.fold(null as Any?) { _, form -> evalForm(form) }
+            override fun execute(frame: VirtualFrame): Any? {
+                val ctx = CONTEXT_REF.get(this)
+                return forms.fold(null as Any?) { _, form -> evalForm(form, ctx.env) }
+            }
 
         }.callTarget
     }

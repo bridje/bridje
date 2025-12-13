@@ -173,7 +173,7 @@ foo(a, b)
     (symbol)))
 
 ==================
-Qualified symbol
+Namespaced symbol
 ==================
 
 java:time:Instant
@@ -184,7 +184,7 @@ java:time:Instant
   (symbol))
 
 ==================
-Qualified symbol with field access
+Namespaced symbol with field access
 ==================
 
 java:time:Instant.now
@@ -197,7 +197,7 @@ java:time:Instant.now
     (dot_symbol)))
 
 ==================
-Qualified symbol with method call
+Namespaced symbol with method call
 ==================
 
 java:time:Instant.parse("2024-01-01")
@@ -209,4 +209,52 @@ java:time:Instant.parse("2024-01-01")
     (symbol)
     (dot_symbol)
     (string)))
+
+==================
+Qualified symbol (ns/member)
+==================
+
+java:time:Instant/now
+
+---
+
+(source_file
+  (qualified_symbol))
+
+==================
+Qualified symbol call
+==================
+
+java:time:Instant/now()
+
+---
+
+(source_file
+  (call
+    (qualified_symbol)))
+
+==================
+Simple qualified symbol
+==================
+
+foo/bar
+
+---
+
+(source_file
+  (qualified_symbol))
+
+==================
+Qualified symbol with args
+==================
+
+math/add(1, 2)
+
+---
+
+(source_file
+  (call
+    (qualified_symbol)
+    (int)
+    (int)))
 

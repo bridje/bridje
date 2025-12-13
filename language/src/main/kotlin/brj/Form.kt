@@ -39,6 +39,10 @@ class SymbolForm(val name: String, override val loc: SourceSection? = null) : Fo
     override fun toString(): String = name
 }
 
+class QualifiedSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form {
+    override fun toString(): String = "$namespace/$member"
+}
+
 class KeywordForm(val name: String, override val loc: SourceSection? = null) : Form {
     override fun toString(): String = ":$name"
 }
