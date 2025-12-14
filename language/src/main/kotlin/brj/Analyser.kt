@@ -31,6 +31,7 @@ class Analyser(
                 "def" -> analyseDef(form)
                 else -> analyseCall(form)
             }
+
             else -> analyseCall(form)
         }
     }

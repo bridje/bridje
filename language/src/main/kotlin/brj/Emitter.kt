@@ -26,9 +26,7 @@ abstract class BridjeNode(
     abstract fun execute(frame: VirtualFrame): Any?
 
     @Throws(UnexpectedResultException::class)
-    open fun executeBoolean(frame: VirtualFrame): Boolean {
-        return BridjeTypesGen.expectBoolean(execute(frame))
-    }
+    open fun executeBoolean(frame: VirtualFrame): Boolean = BridjeTypesGen.expectBoolean(execute(frame))
 }
 
 class IntNode(private val value: Long, loc: SourceSection? = null) : BridjeNode(loc) {
@@ -69,18 +67,14 @@ class HostStaticMethodNode(
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
 
-    override fun execute(frame: VirtualFrame): Any? {
-        return interop.readMember(hostClass, methodName)
-    }
+    override fun execute(frame: VirtualFrame): Any? = interop.readMember(hostClass, methodName)
 }
 
 class HostConstructorNode(
     private val hostClass: TruffleObject,
     loc: SourceSection? = null
 ) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame): Any {
-        return BridjeConstructor(hostClass)
-    }
+    override fun execute(frame: VirtualFrame): Any = BridjeConstructor(hostClass)
 }
 
 class Emitter(private val language: BridjeLanguage) {

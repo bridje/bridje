@@ -15,7 +15,5 @@ class BridjeFunction(
     fun isExecutable() = true
 
     @ExportMessage
-    fun execute(arguments: Array<Any?>): Any? {
-        return callTarget.call(*arguments)
-    }
+    fun execute(arguments: Array<Any?>): Any? = callTarget.call(*arguments)
 }
