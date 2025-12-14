@@ -7,6 +7,7 @@ import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.UnexpectedResultException
 import com.oracle.truffle.api.source.SourceSection
@@ -73,7 +74,7 @@ class HostStaticMethodNode(
 }
 
 class HostConstructorNode(
-    private val hostClass: Any,
+    private val hostClass: TruffleObject,
     loc: SourceSection? = null
 ) : BridjeNode(loc) {
     override fun execute(frame: VirtualFrame): Any? {
