@@ -119,6 +119,8 @@ class Reader private constructor(private val src: Source) {
                 ListForm(listOf(SymbolForm(blockName, loc)) + args, loc)
             }
 
+            "quote" -> ListForm(listOf(SymbolForm("quote", loc), namedChildren[0].readForm()), loc)
+
             else -> error("Unknown form type: $type")
         }
     }

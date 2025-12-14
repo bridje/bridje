@@ -133,6 +133,13 @@ class HostConstructorExpr(
     override fun toString(): String = "$hostClass/new"
 }
 
+class QuoteExpr(
+    val form: Form,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "'$form"
+}
+
 class DefTagExpr(
     val name: String,
     val fieldNames: List<String>,

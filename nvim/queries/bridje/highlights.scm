@@ -45,6 +45,9 @@
 ((symbol) @keyword
   (#any-of? @keyword "def" "deftag" "let" "fn" "if" "case" "ns" "do" "loop" "recur" "try" "catch" "finally" "throw" "quote" "var" "import" "require"))
 
+; quote
+(quote "'" @keyword)
+
 ; punctuation
 ":" @punctuation.delimiter
 "(" @punctuation.bracket

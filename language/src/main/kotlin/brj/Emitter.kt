@@ -93,6 +93,7 @@ class Emitter(private val language: BridjeLanguage) {
         is TruffleObjectExpr -> TruffleObjectNode(expr.value, expr.loc)
         is HostStaticMethodExpr -> HostStaticMethodNode(expr.hostClass, expr.methodName, expr.loc)
         is HostConstructorExpr -> HostConstructorNode(expr.hostClass, expr.loc)
+        is QuoteExpr -> TruffleObjectNode(expr.form, expr.loc)
         is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr), expr.loc)
         is FnExpr -> emitFn(expr)
         is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray(), expr.loc)
