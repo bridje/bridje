@@ -1,6 +1,7 @@
 package brj
 
 import brj.runtime.BridjeVector
+import com.oracle.truffle.api.interop.ArityException
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.InvalidArrayIndexException
 import com.oracle.truffle.api.interop.TruffleObject
@@ -16,156 +17,465 @@ import java.math.BigInteger
 object SymbolMeta : TruffleObject {
     private val name = TruffleString.fromConstant("Symbol", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is SymbolForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is SymbolForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val str = arguments[0] as TruffleString
+        return SymbolForm(str.toJavaStringUncached())
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "Symbol"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "Symbol"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object QualifiedSymbolMeta : TruffleObject {
     private val name = TruffleString.fromConstant("QualifiedSymbol", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is QualifiedSymbolForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is QualifiedSymbolForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 2) throw ArityException.create(2, 2, arguments.size)
+        val ns = (arguments[0] as TruffleString).toJavaStringUncached()
+        val member = (arguments[1] as TruffleString).toJavaStringUncached()
+        return QualifiedSymbolForm(ns, member)
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "QualifiedSymbol"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "QualifiedSymbol"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object ListMeta : TruffleObject {
     private val name = TruffleString.fromConstant("List", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is ListForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is ListForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val vec = arguments[0] as BridjeVector
+        return ListForm(vec.toFormList())
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "List"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "List"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object VectorMeta : TruffleObject {
     private val name = TruffleString.fromConstant("Vector", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is VectorForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is VectorForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val vec = arguments[0] as BridjeVector
+        return VectorForm(vec.toFormList())
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "Vector"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "Vector"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object MapMeta : TruffleObject {
     private val name = TruffleString.fromConstant("Map", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is MapForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is MapForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val vec = arguments[0] as BridjeVector
+        return MapForm(vec.toFormList())
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "Map"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "Map"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object SetMeta : TruffleObject {
     private val name = TruffleString.fromConstant("Set", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is SetForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is SetForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val vec = arguments[0] as BridjeVector
+        return SetForm(vec.toFormList())
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "Set"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "Set"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object IntMeta : TruffleObject {
     private val name = TruffleString.fromConstant("Int", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is IntForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is IntForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        return IntForm(arguments[0] as Long)
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "Int"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "Int"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object DoubleMeta : TruffleObject {
     private val name = TruffleString.fromConstant("Double", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is DoubleForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is DoubleForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        return DoubleForm(arguments[0] as Double)
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "Double"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "Double"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object StringMeta : TruffleObject {
     private val name = TruffleString.fromConstant("String", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is StringForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is StringForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val str = arguments[0] as TruffleString
+        return StringForm(str.toJavaStringUncached())
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "String"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "String"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object KeywordMeta : TruffleObject {
     private val name = TruffleString.fromConstant("Keyword", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is KeywordForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is KeywordForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val str = arguments[0] as TruffleString
+        return KeywordForm(str.toJavaStringUncached())
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "Keyword"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "Keyword"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object BigIntMeta : TruffleObject {
     private val name = TruffleString.fromConstant("BigInt", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is BigIntForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is BigIntForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        return BigIntForm(arguments[0] as BigInteger)
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "BigInt"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "BigInt"
 }
 
 @ExportLibrary(InteropLibrary::class)
 object BigDecMeta : TruffleObject {
     private val name = TruffleString.fromConstant("BigDec", TruffleString.Encoding.UTF_8)
 
-    @ExportMessage fun isMetaObject() = true
-    @ExportMessage fun getMetaSimpleName(): Any = name
-    @ExportMessage fun getMetaQualifiedName(): Any = name
-    @ExportMessage fun isMetaInstance(instance: Any?) = instance is BigDecForm
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is BigDecForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        return BigDecForm(arguments[0] as BigDecimal)
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
 
     @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = "BigDec"
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "BigDec"
 }
 
 sealed interface Form : TruffleObject {

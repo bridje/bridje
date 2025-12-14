@@ -1,5 +1,6 @@
 package brj.runtime
 
+import brj.Form
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.InvalidArrayIndexException
@@ -9,6 +10,8 @@ import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
 class BridjeVector(val els: Array<Any>) : TruffleObject {
+
+    fun toFormList(): List<Form> = els.map { it as Form }
 
     @ExportMessage
     fun hasArrayElements() = true
