@@ -1,6 +1,8 @@
 package brj
 
+import brj.runtime.BridjeMacro
 import com.oracle.truffle.api.TruffleLanguage
+import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
 import java.util.concurrent.atomic.AtomicInteger
@@ -9,13 +11,18 @@ class Analyser(
     private val truffleEnv: TruffleLanguage.Env,
     private val globalEnv: GlobalEnv = GlobalEnv(),
     private val locals: Map<String, LocalVar> = emptyMap(),
-    private val nextSlot: AtomicInteger = AtomicInteger(0)
+    private val nextSlot: AtomicInteger = AtomicInteger(0),
+    private val expansionDepth: Int = 0
 ) {
     val slotCount: Int get() = nextSlot.get()
 
+    companion object {
+        private const val MAX_EXPANSION_DEPTH = 100
+    }
+
     internal fun withLocal(name: String): Pair<Analyser, LocalVar> {
         val lv = LocalVar(name, nextSlot.getAndIncrement())
-        return Analyser(truffleEnv, globalEnv, locals + (name to lv), nextSlot) to lv
+        return Analyser(truffleEnv, globalEnv, locals + (name to lv), nextSlot, expansionDepth) to lv
     }
 
     fun analyseExpr(form: Form): Expr {
@@ -25,6 +32,7 @@ class Analyser(
                 when (first.name) {
                     "def" -> return analyseDef(form)
                     "deftag" -> return analyseDefTag(form)
+                    "defmacro" -> return analyseDefMacro(form)
                 }
             }
         }
@@ -88,6 +96,7 @@ class Analyser(
                 "quote" -> analyseQuote(form)
                 "def" -> error("def not allowed in value position")
                 "deftag" -> error("deftag not allowed in value position")
+                "defmacro" -> error("defmacro not allowed in value position")
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
@@ -161,6 +170,33 @@ class Analyser(
             }
             else -> error("deftag requires a tag name or signature")
         }
+    }
+
+    private fun analyseDefMacro(form: ListForm): DefMacroExpr {
+        val els = form.els
+        val sigForm = els.getOrNull(1) as? ListForm
+            ?: error("defmacro requires a signature: defmacro: name(params)")
+
+        val sigEls = sigForm.els
+        val name = (sigEls.firstOrNull() as? SymbolForm)?.name
+            ?: error("defmacro signature must start with a name")
+
+        val params = sigEls.drop(1).map {
+            (it as? SymbolForm)?.name ?: error("defmacro parameter must be a symbol")
+        }
+
+        val bodyForms = els.drop(2)
+        if (bodyForms.isEmpty()) error("defmacro requires a body")
+
+        var macroAnalyser = Analyser(truffleEnv, globalEnv = globalEnv)
+        for (param in params) {
+            val (newAnalyser, _) = macroAnalyser.withLocal(param)
+            macroAnalyser = newAnalyser
+        }
+
+        val bodyExpr = macroAnalyser.analyseBody(bodyForms, form.loc)
+
+        return DefMacroExpr(name, FnExpr(name, params, bodyExpr, form.loc), form.loc)
     }
 
     private fun analyseCase(form: ListForm): CaseExpr {
@@ -334,9 +370,25 @@ class Analyser(
         return FnExpr(fnName, params, bodyExpr, form.loc)
     }
 
-    private fun analyseCall(form: ListForm): CallExpr {
+    private fun analyseCall(form: ListForm): ValueExpr {
         val els = form.els
         val fnExpr = analyseValueExpr(els[0])
+
+        // Check for macro expansion
+        if (fnExpr is GlobalVarExpr) {
+            val value = fnExpr.globalVar.value
+            if (value is BridjeMacro) {
+                if (expansionDepth >= MAX_EXPANSION_DEPTH) {
+                    error("Maximum macro expansion depth ($MAX_EXPANSION_DEPTH) exceeded")
+                }
+                val interop = InteropLibrary.getUncached()
+                val args = els.drop(1).toTypedArray<Any>()
+                val expanded = interop.execute(value.fn, *args) as Form
+                return Analyser(truffleEnv, globalEnv, locals, nextSlot, expansionDepth + 1)
+                    .analyseValueExpr(expanded)
+            }
+        }
+
         val argExprs = els.drop(1).map { analyseValueExpr(it) }
         return CallExpr(fnExpr, argExprs, form.loc)
     }
