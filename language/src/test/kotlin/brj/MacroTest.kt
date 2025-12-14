@@ -77,4 +77,79 @@ class MacroTest {
         // The macro returns the form 'x, which then evaluates to 10
         assertEquals(10L, result.asLong())
     }
+
+    @Test
+    fun `macro with unquote`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: unless(cond, body)
+                '(if ~cond nil ~body)
+              unless: false
+                42
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `macro with unquote - when macro`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: when(cond, body)
+                '(if ~cond ~body nil)
+              when: true
+                1
+        """)
+        assertEquals(1L, result.asLong())
+    }
+
+    @Test
+    fun `macro with unquote returns nil for false condition`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: when(cond, body)
+                '(if ~cond ~body nil)
+              when: false
+                1
+        """)
+        assertTrue(result.isNull)
+    }
+
+    @Test
+    fun `macro with multiple unquotes`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: if-not(cond, then, else)
+                '(if ~cond ~else ~then)
+              if-not: false
+                1
+                2
+        """)
+        assertEquals(1L, result.asLong())
+    }
+
+    @Test
+    fun `unquote-splicing in macro`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: let-one(binding, body)
+                '(let [~@binding] ~body)
+              let-one: [x 10]
+                x
+        """)
+        assertEquals(10L, result.asLong())
+    }
+
+    @Test
+    fun `error on unquote outside quote`() = withContext { ctx ->
+        assertThrows(RuntimeException::class.java) {
+            ctx.evalBridje("~42")
+        }
+    }
+
+    @Test
+    fun `error on unquote-splicing outside quote`() = withContext { ctx ->
+        assertThrows(RuntimeException::class.java) {
+            ctx.evalBridje("~@[1 2 3]")
+        }
+    }
 }

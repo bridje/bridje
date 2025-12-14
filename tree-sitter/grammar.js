@@ -13,6 +13,8 @@ module.exports = grammar({
   conflicts: $ => [
     [$.block_call, $.method_call, $.field_access],
     [$.quote, $.method_call, $.field_access],
+    [$.unquote, $.method_call, $.field_access],
+    [$.unquote_splicing, $.method_call, $.field_access],
   ],
 
   externals: $ => [
@@ -37,6 +39,8 @@ module.exports = grammar({
       $.method_call,
       $.field_access,
       $.quote,
+      $.unquote,
+      $.unquote_splicing,
     ),
 
     string: _ => token(/"([^"]|\\")*"/),
@@ -73,6 +77,8 @@ module.exports = grammar({
     comment: _ => token(/\/\/[^\n]*/),
     discard: $ => seq('#_', $._form),
     quote: $ => seq("'", $._form),
+    unquote: $ => seq("~", $._form),
+    unquote_splicing: $ => seq("~@", $._form),
   },
 
   extras: $ => [

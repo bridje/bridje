@@ -53,6 +53,8 @@ class Analyser(
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is SetForm -> SetExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is MapForm -> MapExpr(form.els.map { analyseValueExpr(it) }, form.loc)
+            is UnquoteForm -> error("unquote (~) can only be used inside a quote")
+            is UnquoteSplicingForm -> error("unquote-splicing (~@) can only be used inside a quote")
         }
     }
 
@@ -109,9 +111,189 @@ class Analyser(
         return analyseBody(bodyForms, form.loc)
     }
 
-    private fun analyseQuote(form: ListForm): QuoteExpr {
+    private fun analyseQuote(form: ListForm): ValueExpr {
         if (form.els.size != 2) error("quote requires exactly one argument")
-        return QuoteExpr(form.els[1], form.loc)
+        return analyseQuotedForm(form.els[1])
+    }
+
+    private fun analyseQuotedForm(form: Form): ValueExpr {
+        return when (form) {
+            is UnquoteForm -> {
+                // Unquote: evaluate the inner form to get a Form at runtime
+                analyseValueExpr(form.form)
+            }
+            is UnquoteSplicingForm -> {
+                error("unquote-splicing (~@) can only be used inside a list within a quote")
+            }
+            is IntForm -> {
+                // Generate: Int(42)
+                callFormConstructor("Int", listOf(IntExpr(form.value, form.loc)), form.loc)
+            }
+            is DoubleForm -> {
+                callFormConstructor("Double", listOf(DoubleExpr(form.value, form.loc)), form.loc)
+            }
+            is BigIntForm -> {
+                callFormConstructor("BigInt", listOf(BigIntExpr(form.value, form.loc)), form.loc)
+            }
+            is BigDecForm -> {
+                callFormConstructor("BigDec", listOf(BigDecExpr(form.value, form.loc)), form.loc)
+            }
+            is StringForm -> {
+                callFormConstructor("String", listOf(StringExpr(form.value, form.loc)), form.loc)
+            }
+            is SymbolForm -> {
+                // Generate: Symbol("name")
+                callFormConstructor("Symbol", listOf(StringExpr(form.name, form.loc)), form.loc)
+            }
+            is QualifiedSymbolForm -> {
+                // Generate: QualifiedSymbol("ns", "member")
+                callFormConstructor(
+                    "QualifiedSymbol",
+                    listOf(
+                        StringExpr(form.namespace, form.loc),
+                        StringExpr(form.member, form.loc)
+                    ),
+                    form.loc
+                )
+            }
+            is KeywordForm -> {
+                callFormConstructor("Keyword", listOf(StringExpr(form.name, form.loc)), form.loc)
+            }
+            is ListForm -> {
+                analyseQuotedList(form)
+            }
+            is VectorForm -> {
+                // Check if there's any unquote-splicing
+                val hasSplicing = form.els.any { it is UnquoteSplicingForm }
+                
+                if (!hasSplicing) {
+                    // Simple case: no splicing
+                    val elements = form.els.map { analyseQuotedForm(it) }
+                    val vectorExpr = VectorExpr(elements, form.loc)
+                    return callFormConstructor("Vector", listOf(vectorExpr), form.loc)
+                }
+                
+                // Has splicing - need to handle it
+                // Similar to list splicing but for vectors
+                analyseQuotedVector(form)
+            }
+            is SetForm -> {
+                val elements = form.els.map { analyseQuotedForm(it) }
+                val vectorExpr = VectorExpr(elements, form.loc)
+                callFormConstructor("Set", listOf(vectorExpr), form.loc)
+            }
+            is MapForm -> {
+                val elements = form.els.map { analyseQuotedForm(it) }
+                val vectorExpr = VectorExpr(elements, form.loc)
+                callFormConstructor("Map", listOf(vectorExpr), form.loc)
+            }
+        }
+    }
+
+    private fun analyseQuotedList(form: ListForm): ValueExpr {
+        // Check if there's any unquote-splicing
+        val hasSplicing = form.els.any { it is UnquoteSplicingForm }
+        
+        if (!hasSplicing) {
+            // Simple case: no splicing, just build List([el1, el2, ...])
+            val elements = form.els.map { analyseQuotedForm(it) }
+            val vectorExpr = VectorExpr(elements, form.loc)
+            return callFormConstructor("List", listOf(vectorExpr), form.loc)
+        }
+        
+        // Complex case: has splicing, need to concatenate
+        // Build segments and concatenate them
+        val segments = mutableListOf<ValueExpr>()
+        val currentSegment = mutableListOf<Form>()
+        
+        for (el in form.els) {
+            when (el) {
+                is UnquoteSplicingForm -> {
+                    // Flush current segment if not empty
+                    if (currentSegment.isNotEmpty()) {
+                        val segmentElements = currentSegment.map { analyseQuotedForm(it) }
+                        segments.add(VectorExpr(segmentElements, form.loc))
+                        currentSegment.clear()
+                    }
+                    // Add the spliced vector
+                    // The spliced expression should evaluate to a vector or list
+                    // We need to convert it to a vector if it's a list
+                    segments.add(analyseValueExpr(el.form))
+                }
+                else -> {
+                    currentSegment.add(el)
+                }
+            }
+        }
+        
+        // Flush remaining segment
+        if (currentSegment.isNotEmpty()) {
+            val segmentElements = currentSegment.map { analyseQuotedForm(it) }
+            segments.add(VectorExpr(segmentElements, form.loc))
+        }
+        
+        // Concatenate all segments into a single vector
+        // For now, use a simple concat call (assuming concat exists or we build manually)
+        // Actually, we need to handle this differently. Let's use a runtime helper.
+        // For the first version, let's just error if splicing is used in a complex way
+        if (segments.size == 1 && form.els.any { it is UnquoteSplicingForm }) {
+            // Only one splice, use it directly
+            return callFormConstructor("List", listOf(segments[0]), form.loc)
+        } else if (segments.size > 1) {
+            // Multiple segments - need concat
+            // For now, we'll implement a simpler version
+            // TODO: Implement proper vector concatenation
+            error("Complex unquote-splicing with multiple segments not yet supported")
+        } else {
+            // Should not reach here
+            error("Internal error in analyseQuotedList")
+        }
+    }
+
+    private fun analyseQuotedVector(form: VectorForm): ValueExpr {
+        // Similar to analyseQuotedList but for vectors
+        val segments = mutableListOf<ValueExpr>()
+        val currentSegment = mutableListOf<Form>()
+        
+        for (el in form.els) {
+            when (el) {
+                is UnquoteSplicingForm -> {
+                    // Flush current segment if not empty
+                    if (currentSegment.isNotEmpty()) {
+                        val segmentElements = currentSegment.map { analyseQuotedForm(it) }
+                        segments.add(VectorExpr(segmentElements, form.loc))
+                        currentSegment.clear()
+                    }
+                    // Add the spliced vector
+                    segments.add(analyseValueExpr(el.form))
+                }
+                else -> {
+                    currentSegment.add(el)
+                }
+            }
+        }
+        
+        // Flush remaining segment
+        if (currentSegment.isNotEmpty()) {
+            val segmentElements = currentSegment.map { analyseQuotedForm(it) }
+            segments.add(VectorExpr(segmentElements, form.loc))
+        }
+        
+        // Concatenate all segments
+        if (segments.size == 1 && form.els.any { it is UnquoteSplicingForm }) {
+            // Only one splice, use it directly
+            return callFormConstructor("Vector", listOf(segments[0]), form.loc)
+        } else if (segments.size > 1) {
+            // Multiple segments - need concat
+            error("Complex unquote-splicing with multiple segments not yet supported")
+        } else {
+            error("Internal error in analyseQuotedVector")
+        }
+    }
+
+    private fun callFormConstructor(name: String, args: List<ValueExpr>, loc: SourceSection?): ValueExpr {
+        val constructor = globalEnv[name] ?: error("$name constructor not found")
+        return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
     }
 
     private fun analyseIf(form: ListForm): IfExpr {
