@@ -2,6 +2,7 @@ package brj
 
 import brj.BridjeLanguage.BridjeContext
 import brj.Reader.Companion.readForms
+import brj.runtime.BridjeMacro
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
 import com.oracle.truffle.api.CallTarget
@@ -76,7 +77,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                         }
 
                         is DefTagExpr -> {
-                            val value: Any = 
+                            val value: Any =
                                 if (expr.fieldNames.isEmpty()) {
                                     BridjeTaggedSingleton(expr.name)
                                 } else {
@@ -86,6 +87,13 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                             globalEnv = globalEnv.def(expr.name, value)
 
                             value
+                        }
+
+                        is DefMacroExpr -> {
+                            val fn = evalExpr(expr.fn, analyser.slotCount)
+                            val macro = BridjeMacro(fn!!)
+                            globalEnv = globalEnv.def(expr.name, macro)
+                            macro
                         }
 
                         is ValueExpr -> evalExpr(expr, analyser.slotCount)

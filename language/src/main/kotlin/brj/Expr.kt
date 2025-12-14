@@ -28,6 +28,14 @@ class DefTagExpr(
         else "(deftag ($name ${fieldNames.joinToString(" ")}))"
 }
 
+class DefMacroExpr(
+    val name: String,
+    val fn: FnExpr,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "(defmacro $name ${fn.params.joinToString(" ")} ${fn.bodyExpr})"
+}
+
 sealed interface ValueExpr : Expr
 
 class IntExpr(val value: Long, override val loc: SourceSection? = null) : ValueExpr {
