@@ -2,6 +2,8 @@ package brj
 
 import brj.BridjeLanguage.BridjeContext
 import brj.Reader.Companion.readForms
+import brj.runtime.BridjeTagConstructor
+import brj.runtime.BridjeTaggedSingleton
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage
@@ -70,6 +72,15 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                     is TopLevelExpr -> when (val expr = result.expr) {
                         is DefExpr -> {
                             val value = evalExpr(expr.expr, analyser.slotCount)
+                            globalEnv = globalEnv.def(expr.name, value)
+                            value
+                        }
+                        is DefTagExpr -> {
+                            val value: Any = if (expr.fieldNames.isEmpty()) {
+                                BridjeTaggedSingleton(expr.name)
+                            } else {
+                                BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
+                            }
                             globalEnv = globalEnv.def(expr.name, value)
                             value
                         }
