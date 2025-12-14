@@ -201,8 +201,7 @@ class Analyser(
             return callFormConstructor("List", listOf(vectorExpr), form.loc)
         }
         
-        // Complex case: has splicing, need to concatenate
-        // Build segments and concatenate them
+        // Complex case: has splicing, need to handle it
         val segments = mutableListOf<ValueExpr>()
         val currentSegment = mutableListOf<Form>()
         
@@ -216,8 +215,8 @@ class Analyser(
                         currentSegment.clear()
                     }
                     // Add the spliced vector
-                    // The spliced expression should evaluate to a vector or list
-                    // We need to convert it to a vector if it's a list
+                    // The spliced expression should evaluate to a Form (VectorForm or ListForm)
+                    // We need to convert it to a List if it's not already
                     segments.add(analyseValueExpr(el.form))
                 }
                 else -> {
@@ -232,21 +231,30 @@ class Analyser(
             segments.add(VectorExpr(segmentElements, form.loc))
         }
         
-        // Concatenate all segments into a single vector
-        // For now, use a simple concat call (assuming concat exists or we build manually)
-        // Actually, we need to handle this differently. Let's use a runtime helper.
-        // For the first version, let's just error if splicing is used in a complex way
-        if (segments.size == 1 && form.els.any { it is UnquoteSplicingForm }) {
-            // Only one splice, use it directly
-            return callFormConstructor("List", listOf(segments[0]), form.loc)
-        } else if (segments.size > 1) {
-            // Multiple segments - need concat
-            // For now, we'll implement a simpler version
-            // TODO: Implement proper vector concatenation
-            error("Complex unquote-splicing with multiple segments not yet supported")
-        } else {
-            // Should not reach here
-            error("Internal error in analyseQuotedList")
+        // Handle different cases
+        when {
+            segments.size == 1 && form.els.size == 1 && form.els[0] is UnquoteSplicingForm -> {
+                // Special case: (~@x) where x is the only element
+                // Convert to a List if needed
+                val splicedExpr = segments[0]
+                // Assume the spliced expression is a VectorForm or ListForm
+                // We need to convert to ListForm
+                // For now, if it's already a ListForm, use it; if it's VectorForm, convert it
+                // But we can't tell at compile time, so we'll just wrap it
+                return callFormConstructor("List", listOf(splicedExpr), form.loc)
+            }
+            segments.size == 1 && currentSegment.isEmpty() -> {
+                // Only one splice, wrap in List constructor
+                // The splice might be in the middle, so we can't just return it
+                return callFormConstructor("List", listOf(segments[0]), form.loc)
+            }
+            segments.size > 1 -> {
+                // Multiple segments - need concat
+                error("Complex unquote-splicing with multiple segments not yet supported")
+            }
+            else -> {
+                error("Internal error in analyseQuotedList")
+            }
         }
     }
 
@@ -264,7 +272,7 @@ class Analyser(
                         segments.add(VectorExpr(segmentElements, form.loc))
                         currentSegment.clear()
                     }
-                    // Add the spliced vector
+                    // Add the spliced vector expression
                     segments.add(analyseValueExpr(el.form))
                 }
                 else -> {
@@ -279,15 +287,26 @@ class Analyser(
             segments.add(VectorExpr(segmentElements, form.loc))
         }
         
-        // Concatenate all segments
-        if (segments.size == 1 && form.els.any { it is UnquoteSplicingForm }) {
-            // Only one splice, use it directly
-            return callFormConstructor("Vector", listOf(segments[0]), form.loc)
-        } else if (segments.size > 1) {
-            // Multiple segments - need concat
-            error("Complex unquote-splicing with multiple segments not yet supported")
-        } else {
-            error("Internal error in analyseQuotedVector")
+        // Handle different cases
+        when {
+            segments.size == 1 && form.els.size == 1 && form.els[0] is UnquoteSplicingForm -> {
+                // Special case: [~@x] where x is the only element
+                // Just return x directly (it should be a VectorForm at runtime)
+                return segments[0]
+            }
+            segments.size == 1 && currentSegment.isEmpty() -> {
+                // Only one splice, use it directly
+                // This assumes the spliced expression evaluates to a VectorForm
+                // and we want to use it as-is
+                return segments[0]
+            }
+            segments.size > 1 -> {
+                // Multiple segments - need concat
+                error("Complex unquote-splicing with multiple segments not yet supported")
+            }
+            else -> {
+                error("Internal error in analyseQuotedVector")
+            }
         }
     }
 
