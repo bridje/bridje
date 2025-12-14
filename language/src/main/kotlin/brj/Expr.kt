@@ -126,6 +126,13 @@ class HostStaticMethodExpr(
     override fun toString(): String = "$hostClass/$methodName"
 }
 
+class HostConstructorExpr(
+    val hostClass: TruffleObject,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "$hostClass/new"
+}
+
 sealed class TopLevelDoOrExpr
 
 class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()

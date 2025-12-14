@@ -72,6 +72,15 @@ class HostStaticMethodNode(
     }
 }
 
+class HostConstructorNode(
+    private val hostClass: Any,
+    loc: SourceSection? = null
+) : BridjeNode(loc) {
+    override fun execute(frame: VirtualFrame): Any? {
+        return hostClass
+    }
+}
+
 class Emitter(private val language: BridjeLanguage) {
     fun emitExpr(expr: Expr): BridjeNode = when (expr) {
         is BoolExpr -> BoolNode(expr.value, expr.loc)
@@ -87,6 +96,7 @@ class Emitter(private val language: BridjeLanguage) {
         is GlobalVarExpr -> GlobalVarNode(expr.globalVar, expr.loc)
         is TruffleObjectExpr -> TruffleObjectNode(expr.value, expr.loc)
         is HostStaticMethodExpr -> HostStaticMethodNode(expr.hostClass, expr.methodName, expr.loc)
+        is HostConstructorExpr -> HostConstructorNode(expr.hostClass, expr.loc)
         is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr), expr.loc)
         is FnExpr -> emitFn(expr)
         is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray(), expr.loc)

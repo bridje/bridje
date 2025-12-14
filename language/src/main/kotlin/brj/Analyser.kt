@@ -215,7 +215,11 @@ class Analyser(
                 } catch (_: Exception) {
                     error("Unknown namespace: ${form.namespace}")
                 }
-                HostStaticMethodExpr(hostClass, form.member, form.loc)
+                if (form.member == "new") {
+                    HostConstructorExpr(hostClass, form.loc)
+                } else {
+                    HostStaticMethodExpr(hostClass, form.member, form.loc)
+                }
             }
 
             is ListForm -> analyseListForm(form)
