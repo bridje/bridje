@@ -50,6 +50,7 @@ class Analyser(
 
     private fun analyseSymbol(form: SymbolForm): ValueExpr {
         return when (form.name) {
+            "nil" -> NilExpr(form.loc)
             "true" -> BoolExpr(true, form.loc)
             "false" -> BoolExpr(false, form.loc)
             else -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
