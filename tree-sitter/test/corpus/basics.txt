@@ -258,3 +258,87 @@ math/add(1, 2)
     (int)
     (int)))
 
+==================
+Simple quote
+==================
+
+'foo
+
+---
+
+(source_file
+  (quote
+    (symbol)))
+
+==================
+Quote list
+==================
+
+'(1 2 3)
+
+---
+
+(source_file
+  (quote
+    (list
+      (int)
+      (int)
+      (int))))
+
+==================
+Simple unquote
+==================
+
+~foo
+
+---
+
+(source_file
+  (unquote
+    (symbol)))
+
+==================
+Unquote in quote
+==================
+
+'(1 ~x 3)
+
+---
+
+(source_file
+  (quote
+    (list
+      (int)
+      (unquote
+        (symbol))
+      (int))))
+
+==================
+Simple unquote-splicing
+==================
+
+~@foo
+
+---
+
+(source_file
+  (unquote_splicing
+    (symbol)))
+
+==================
+Unquote-splicing in quote
+==================
+
+'(1 ~@xs 3)
+
+---
+
+(source_file
+  (quote
+    (list
+      (int)
+      (unquote_splicing
+        (symbol))
+      (int))))
+
+
