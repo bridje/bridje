@@ -107,6 +107,10 @@ class BoolExpr(val value: Boolean, override val loc: SourceSection? = null) : Va
     override fun toString(): String = value.toString()
 }
 
+class NilExpr(override val loc: SourceSection? = null) : ValueExpr {
+    override fun toString(): String = "nil"
+}
+
 class IfExpr(
     val predExpr: ValueExpr,
     val thenExpr: ValueExpr,

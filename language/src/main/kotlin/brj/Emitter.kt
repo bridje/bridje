@@ -3,6 +3,7 @@ package brj
 import brj.nodes.*
 import brj.runtime.BridjeConstructor
 import brj.runtime.BridjeFunction
+import brj.runtime.BridjeNull
 import com.oracle.truffle.api.dsl.TypeSystemReference
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
@@ -51,6 +52,10 @@ class StringNode(value: String, loc: SourceSection? = null) : BridjeNode(loc) {
     override fun execute(frame: VirtualFrame) = string
 }
 
+class NilNode(loc: SourceSection? = null) : BridjeNode(loc) {
+    override fun execute(frame: VirtualFrame): Any = BridjeNull
+}
+
 class BoolNode(private val value: Boolean, loc: SourceSection? = null) : BridjeNode(loc) {
     override fun execute(frame: VirtualFrame) = value
 }
@@ -79,6 +84,7 @@ class HostConstructorNode(
 
 class Emitter(private val language: BridjeLanguage) {
     fun emitExpr(expr: ValueExpr): BridjeNode = when (expr) {
+        is NilExpr -> NilNode(expr.loc)
         is BoolExpr -> BoolNode(expr.value, expr.loc)
         is IntExpr -> IntNode(expr.value, expr.loc)
         is DoubleExpr -> DoubleNode(expr.value, expr.loc)
