@@ -14,15 +14,11 @@ class BridjeConstructor(
     fun isExecutable() = true
 
     @ExportMessage
-    fun execute(arguments: Array<Any?>): Any? {
-        return InteropLibrary.getUncached().instantiate(hostClass, *arguments)
-    }
+    fun execute(arguments: Array<Any?>): Any? = InteropLibrary.getUncached().instantiate(hostClass, *arguments)
 
     @ExportMessage
     fun isInstantiable() = true
 
     @ExportMessage
-    fun instantiate(arguments: Array<Any?>): Any? {
-        return InteropLibrary.getUncached().instantiate(hostClass, *arguments)
-    }
+    fun instantiate(arguments: Array<Any?>): Any? = InteropLibrary.getUncached().instantiate(hostClass, *arguments)
 }
