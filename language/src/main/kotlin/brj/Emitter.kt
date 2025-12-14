@@ -78,7 +78,7 @@ class HostConstructorNode(
 }
 
 class Emitter(private val language: BridjeLanguage) {
-    fun emitExpr(expr: Expr): BridjeNode = when (expr) {
+    fun emitExpr(expr: ValueExpr): BridjeNode = when (expr) {
         is BoolExpr -> BoolNode(expr.value, expr.loc)
         is IntExpr -> IntNode(expr.value, expr.loc)
         is DoubleExpr -> DoubleNode(expr.value, expr.loc)
@@ -100,8 +100,6 @@ class Emitter(private val language: BridjeLanguage) {
         is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result), expr.loc)
         is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr), expr.loc)
         is CaseExpr -> emitCase(expr)
-        is DefExpr -> error("DefExpr should be handled in eval loop, not emitted")
-        is DefTagExpr -> error("DefTagExpr should be handled in eval loop, not emitted")
     }
 
     private fun emitCase(expr: CaseExpr): CaseNode {
