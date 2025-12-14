@@ -53,11 +53,10 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         val forms = request.source.readForms()
 
         return object : RootNode(this) {
-            // Mutable reference to immutable GlobalEnv - updated on each def
             private var globalEnv = GlobalEnv()
 
             @TruffleBoundary
-            private fun evalExpr(expr: Expr, slotCount: Int): Any? {
+            private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
                 val frameDescriptor = buildFrameDescriptor(slotCount)
                 val emitter = Emitter(this@BridjeLanguage)
                 val node = emitter.emitExpr(expr)
@@ -71,20 +70,25 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                     is TopLevelDo -> result.forms.fold(null as Any?) { _, f -> evalForm(f, truffleEnv) }
                     is TopLevelExpr -> when (val expr = result.expr) {
                         is DefExpr -> {
-                            val value = evalExpr(expr.expr, analyser.slotCount)
+                            val value = evalExpr(expr.valueExpr, analyser.slotCount)
                             globalEnv = globalEnv.def(expr.name, value)
                             value
                         }
+
                         is DefTagExpr -> {
-                            val value: Any = if (expr.fieldNames.isEmpty()) {
-                                BridjeTaggedSingleton(expr.name)
-                            } else {
-                                BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
-                            }
+                            val value: Any = 
+                                if (expr.fieldNames.isEmpty()) {
+                                    BridjeTaggedSingleton(expr.name)
+                                } else {
+                                    BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
+                                }
+
                             globalEnv = globalEnv.def(expr.name, value)
+
                             value
                         }
-                        else -> evalExpr(expr, analyser.slotCount)
+
+                        is ValueExpr -> evalExpr(expr, analyser.slotCount)
                     }
                 }
             }
@@ -93,7 +97,6 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                 val ctx = CONTEXT_REF.get(this)
                 return forms.fold(null as Any?) { _, form -> evalForm(form, ctx.env) }
             }
-
         }.callTarget
     }
 }
