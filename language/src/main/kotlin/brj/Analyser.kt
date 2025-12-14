@@ -31,6 +31,7 @@ class Analyser(
                 "def" -> analyseDef(form)
                 "deftag" -> analyseDefTag(form)
                 "case" -> analyseCase(form)
+                "quote" -> analyseQuote(form)
                 else -> analyseCall(form)
             }
 
@@ -42,6 +43,11 @@ class Analyser(
         val bodyForms = form.els.drop(1)
         if (bodyForms.isEmpty()) error("do requires at least one expression")
         return analyseBody(bodyForms, form.loc)
+    }
+
+    private fun analyseQuote(form: ListForm): QuoteExpr {
+        if (form.els.size != 2) error("quote requires exactly one argument")
+        return QuoteExpr(form.els[1], form.loc)
     }
 
     private fun analyseIf(form: ListForm): IfExpr {
