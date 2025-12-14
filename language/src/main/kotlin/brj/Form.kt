@@ -672,11 +672,3 @@ class UnquoteForm(val form: Form, override val loc: SourceSection? = null) : For
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
 }
-
-@ExportLibrary(InteropLibrary::class)
-class UnquoteSplicingForm(val form: Form, override val loc: SourceSection? = null) : Form {
-    override fun toString(): String = "~@$form"
-
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
-}

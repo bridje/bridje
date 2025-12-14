@@ -128,28 +128,9 @@ class MacroTest {
     }
 
     @Test
-    fun `unquote-splicing in macro`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
-            do:
-              defmacro: let-one(binding, body)
-                '(let [~@binding] ~body)
-              let-one: [x 10]
-                x
-        """)
-        assertEquals(10L, result.asLong())
-    }
-
-    @Test
     fun `error on unquote outside quote`() = withContext { ctx ->
         assertThrows(RuntimeException::class.java) {
             ctx.evalBridje("~42")
-        }
-    }
-
-    @Test
-    fun `error on unquote-splicing outside quote`() = withContext { ctx ->
-        assertThrows(RuntimeException::class.java) {
-            ctx.evalBridje("~@[1 2 3]")
         }
     }
 }

@@ -121,7 +121,6 @@ class Reader private constructor(private val src: Source) {
 
             "quote" -> ListForm(listOf(SymbolForm("quote", loc), namedChildren[0].readForm()), loc)
             "unquote" -> UnquoteForm(namedChildren[0].readForm(), loc)
-            "unquote_splicing" -> UnquoteSplicingForm(namedChildren[0].readForm(), loc)
 
             else -> error("Unknown form type: $type")
         }

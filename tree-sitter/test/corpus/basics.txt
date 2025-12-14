@@ -313,32 +313,3 @@ Unquote in quote
         (symbol))
       (int))))
 
-==================
-Simple unquote-splicing
-==================
-
-~@foo
-
----
-
-(source_file
-  (unquote_splicing
-    (symbol)))
-
-==================
-Unquote-splicing in quote
-==================
-
-'(1 ~@xs 3)
-
----
-
-(source_file
-  (quote
-    (list
-      (int)
-      (unquote_splicing
-        (symbol))
-      (int))))
-
-
