@@ -143,6 +143,41 @@ class DefTagExpr(
         else "(deftag ($name ${fieldNames.joinToString(" ")}))"
 }
 
+sealed class CasePattern {
+    abstract val loc: SourceSection?
+}
+
+class TagPattern(
+    val tagValue: Any,
+    val bindings: List<LocalVar>,
+    override val loc: SourceSection? = null
+) : CasePattern() {
+    override fun toString(): String =
+        if (bindings.isEmpty()) "$tagValue"
+        else "$tagValue(${bindings.joinToString(", ") { it.name }})"
+}
+
+class DefaultPattern(override val loc: SourceSection? = null) : CasePattern() {
+    override fun toString(): String = "_"
+}
+
+class CaseBranch(
+    val pattern: CasePattern,
+    val bodyExpr: Expr,
+    val loc: SourceSection? = null
+) {
+    override fun toString(): String = "$pattern $bodyExpr"
+}
+
+class CaseExpr(
+    val scrutinee: Expr,
+    val branches: List<CaseBranch>,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String =
+        "(case $scrutinee ${branches.joinToString(" ")})"
+}
+
 sealed class TopLevelDoOrExpr
 
 class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()

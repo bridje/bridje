@@ -30,6 +30,7 @@ class Analyser(
                 "if" -> analyseIf(form)
                 "def" -> analyseDef(form)
                 "deftag" -> analyseDefTag(form)
+                "case" -> analyseCase(form)
                 else -> analyseCall(form)
             }
 
@@ -99,6 +100,99 @@ class Analyser(
                 DefTagExpr(name, fieldNames, form.loc)
             }
             else -> error("deftag requires a tag name or signature")
+        }
+    }
+
+    private fun analyseCase(form: ListForm): CaseExpr {
+        val els = form.els
+        if (els.size < 3) error("case requires a scrutinee and at least one branch")
+
+        val scrutinee = analyseForm(els[1])
+        val branchForms = els.drop(2)
+
+        val branches = mutableListOf<CaseBranch>()
+        var i = 0
+        while (i < branchForms.size) {
+            val patternForm = branchForms[i]
+
+            // Check if this looks like a pattern (capitalized symbol or call with capitalized symbol)
+            val isPattern = when (patternForm) {
+                is SymbolForm -> patternForm.name[0].isUpperCase()
+                is ListForm -> {
+                    val first = patternForm.els.firstOrNull()
+                    first is SymbolForm && first.name[0].isUpperCase()
+                }
+                else -> false
+            }
+
+            if (isPattern) {
+                val bodyForm = branchForms.getOrNull(i + 1)
+                    ?: error("case branch missing body expression")
+                val branch = analyseCaseBranch(patternForm, bodyForm)
+                branches.add(branch)
+                i += 2
+            } else {
+                // Last form is not a pattern - treat as default
+                if (i != branchForms.size - 1) {
+                    error("default expression must be last in case")
+                }
+                val bodyExpr = analyseForm(patternForm)
+                branches.add(CaseBranch(DefaultPattern(patternForm.loc), bodyExpr, patternForm.loc))
+                i += 1
+            }
+        }
+
+        if (branches.isEmpty()) error("case requires at least one branch")
+
+        return CaseExpr(scrutinee, branches, form.loc)
+    }
+
+    private fun resolveTag(name: String, loc: SourceSection?): Any {
+        val globalVar = globalEnv[name] ?: error("Unknown tag: $name")
+        return globalVar.value ?: error("Tag $name has no value")
+    }
+
+    private fun analyseCaseBranch(patternForm: Form, bodyForm: Form): CaseBranch {
+        return when (patternForm) {
+            is SymbolForm -> {
+                val name = patternForm.name
+                if (name[0].isUpperCase()) {
+                    // Nullary tag pattern like Nothing
+                    val tagValue = resolveTag(name, patternForm.loc)
+                    val bodyExpr = analyseForm(bodyForm)
+                    CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
+                } else {
+                    error("case pattern must be a tag (capitalized): $name")
+                }
+            }
+            is ListForm -> {
+                // Tag pattern with bindings like Just(x) or Pair(a, b)
+                val tagForm = patternForm.els.firstOrNull() as? SymbolForm
+                    ?: error("case pattern must start with a tag name")
+                val tagName = tagForm.name
+                if (!tagName[0].isUpperCase()) {
+                    error("case pattern tag must be capitalized: $tagName")
+                }
+                val tagValue = resolveTag(tagName, tagForm.loc)
+
+                val bindingNames = patternForm.els.drop(1).map {
+                    (it as? SymbolForm)?.name
+                        ?: error("case pattern bindings must be symbols")
+                }
+
+                // Create analyser with bindings in scope for body
+                var branchAnalyser = this
+                val bindings = mutableListOf<LocalVar>()
+                for (bindingName in bindingNames) {
+                    val (newAnalyser, localVar) = branchAnalyser.withLocal(bindingName)
+                    branchAnalyser = newAnalyser
+                    bindings.add(localVar)
+                }
+
+                val bodyExpr = branchAnalyser.analyseForm(bodyForm)
+                CaseBranch(TagPattern(tagValue, bindings, patternForm.loc), bodyExpr, patternForm.loc)
+            }
+            else -> error("case pattern must be a tag")
         }
     }
 

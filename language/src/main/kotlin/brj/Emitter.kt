@@ -98,8 +98,28 @@ class Emitter(private val language: BridjeLanguage) {
         is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray(), expr.loc)
         is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result), expr.loc)
         is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr), expr.loc)
+        is CaseExpr -> emitCase(expr)
         is DefExpr -> error("DefExpr should be handled in eval loop, not emitted")
         is DefTagExpr -> error("DefTagExpr should be handled in eval loop, not emitted")
+    }
+
+    private fun emitCase(expr: CaseExpr): CaseNode {
+        val scrutineeNode = emitExpr(expr.scrutinee)
+        val branchNodes = expr.branches.map { branch ->
+            when (val pattern = branch.pattern) {
+                is TagPattern -> TagBranchNode(
+                    pattern.tagValue,
+                    pattern.bindings.map { it.slot }.toIntArray(),
+                    emitExpr(branch.bodyExpr),
+                    branch.loc
+                )
+                is DefaultPattern -> DefaultBranchNode(
+                    emitExpr(branch.bodyExpr),
+                    branch.loc
+                )
+            }
+        }.toTypedArray()
+        return CaseNode(scrutineeNode, branchNodes, expr.loc)
     }
 
     private fun emitFn(expr: FnExpr): FnNode {
