@@ -54,7 +54,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         val forms = request.source.readForms()
 
         return object : RootNode(this) {
-            private var globalEnv = GlobalEnv()
+            private var globalEnv = GlobalEnv.withBuiltins(this@BridjeLanguage)
 
             @TruffleBoundary
             private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
