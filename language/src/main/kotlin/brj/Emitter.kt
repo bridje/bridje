@@ -61,7 +61,7 @@ class TruffleObjectNode(private val value: Any, loc: SourceSection? = null) : Br
 }
 
 class HostStaticMethodNode(
-    private val hostClass: Any,
+    private val hostClass: TruffleObject,
     private val methodName: String,
     loc: SourceSection? = null
 ) : BridjeNode(loc) {
