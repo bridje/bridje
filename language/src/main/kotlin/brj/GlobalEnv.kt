@@ -1,5 +1,7 @@
 package brj
 
+import brj.builtins.Builtins
+
 class GlobalEnv(private val vars: Map<String, GlobalVar> = emptyMap()) {
     companion object {
         private val builtinFormMetas = mapOf(
@@ -16,9 +18,14 @@ class GlobalEnv(private val vars: Map<String, GlobalVar> = emptyMap()) {
             "BigInt" to GlobalVar("BigInt", BigIntMeta),
             "BigDec" to GlobalVar("BigDec", BigDecMeta),
         )
+
+        fun withBuiltins(language: BridjeLanguage): GlobalEnv {
+            val builtinFunctions = Builtins.createBuiltinFunctions(language)
+            return GlobalEnv(builtinFormMetas + builtinFunctions)
+        }
     }
 
-    operator fun get(name: String): GlobalVar? = vars[name] ?: builtinFormMetas[name]
+    operator fun get(name: String): GlobalVar? = vars[name]
 
     fun def(name: String, value: Any?): GlobalEnv =
         GlobalEnv(vars + (name to GlobalVar(name, value)))

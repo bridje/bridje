@@ -179,16 +179,6 @@ class Analyser(
             }
         }
     }
-                val vectorExpr = VectorExpr(elements, form.loc)
-                callFormConstructor("Set", listOf(vectorExpr), form.loc)
-            }
-            is MapForm -> {
-                val elements = form.els.map { analyseQuotedForm(it) }
-                val vectorExpr = VectorExpr(elements, form.loc)
-                callFormConstructor("Map", listOf(vectorExpr), form.loc)
-            }
-        }
-    }
 
     private fun callFormConstructor(name: String, args: List<ValueExpr>, loc: SourceSection?): ValueExpr {
         val constructor = globalEnv[name] ?: error("$name constructor not found")
