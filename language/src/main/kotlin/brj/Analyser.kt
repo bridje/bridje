@@ -53,6 +53,7 @@ class Analyser(
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is SetForm -> SetExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is MapForm -> MapExpr(form.els.map { analyseValueExpr(it) }, form.loc)
+            is UnquoteForm -> error("unquote (~) can only be used inside a quote")
         }
     }
 
@@ -109,9 +110,89 @@ class Analyser(
         return analyseBody(bodyForms, form.loc)
     }
 
-    private fun analyseQuote(form: ListForm): QuoteExpr {
+    private fun analyseQuote(form: ListForm): ValueExpr {
         if (form.els.size != 2) error("quote requires exactly one argument")
-        return QuoteExpr(form.els[1], form.loc)
+        return analyseQuotedForm(form.els[1])
+    }
+
+    private fun analyseQuotedForm(form: Form): ValueExpr {
+        return when (form) {
+            is UnquoteForm -> {
+                // Unquote: evaluate the inner form to get a Form at runtime
+                analyseValueExpr(form.form)
+            }
+            is IntForm -> {
+                // Generate: Int(42)
+                callFormConstructor("Int", listOf(IntExpr(form.value, form.loc)), form.loc)
+            }
+            is DoubleForm -> {
+                callFormConstructor("Double", listOf(DoubleExpr(form.value, form.loc)), form.loc)
+            }
+            is BigIntForm -> {
+                callFormConstructor("BigInt", listOf(BigIntExpr(form.value, form.loc)), form.loc)
+            }
+            is BigDecForm -> {
+                callFormConstructor("BigDec", listOf(BigDecExpr(form.value, form.loc)), form.loc)
+            }
+            is StringForm -> {
+                callFormConstructor("String", listOf(StringExpr(form.value, form.loc)), form.loc)
+            }
+            is SymbolForm -> {
+                // Generate: Symbol("name")
+                callFormConstructor("Symbol", listOf(StringExpr(form.name, form.loc)), form.loc)
+            }
+            is QualifiedSymbolForm -> {
+                // Generate: QualifiedSymbol("ns", "member")
+                callFormConstructor(
+                    "QualifiedSymbol",
+                    listOf(
+                        StringExpr(form.namespace, form.loc),
+                        StringExpr(form.member, form.loc)
+                    ),
+                    form.loc
+                )
+            }
+            is KeywordForm -> {
+                callFormConstructor("Keyword", listOf(StringExpr(form.name, form.loc)), form.loc)
+            }
+            is ListForm -> {
+                // Generate: List([el1, el2, ...])
+                val elements = form.els.map { analyseQuotedForm(it) }
+                val vectorExpr = VectorExpr(elements, form.loc)
+                callFormConstructor("List", listOf(vectorExpr), form.loc)
+            }
+            is VectorForm -> {
+                // Generate: Vector([el1, el2, ...])
+                val elements = form.els.map { analyseQuotedForm(it) }
+                val vectorExpr = VectorExpr(elements, form.loc)
+                callFormConstructor("Vector", listOf(vectorExpr), form.loc)
+            }
+            is SetForm -> {
+                val elements = form.els.map { analyseQuotedForm(it) }
+                val vectorExpr = VectorExpr(elements, form.loc)
+                callFormConstructor("Set", listOf(vectorExpr), form.loc)
+            }
+            is MapForm -> {
+                val elements = form.els.map { analyseQuotedForm(it) }
+                val vectorExpr = VectorExpr(elements, form.loc)
+                callFormConstructor("Map", listOf(vectorExpr), form.loc)
+            }
+        }
+    }
+                val vectorExpr = VectorExpr(elements, form.loc)
+                callFormConstructor("Set", listOf(vectorExpr), form.loc)
+            }
+            is MapForm -> {
+                val elements = form.els.map { analyseQuotedForm(it) }
+                val vectorExpr = VectorExpr(elements, form.loc)
+                callFormConstructor("Map", listOf(vectorExpr), form.loc)
+            }
+        }
+    }
+
+    private fun callFormConstructor(name: String, args: List<ValueExpr>, loc: SourceSection?): ValueExpr {
+        val constructor = globalEnv[name] ?: error("$name constructor not found")
+        return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
     }
 
     private fun analyseIf(form: ListForm): IfExpr {
