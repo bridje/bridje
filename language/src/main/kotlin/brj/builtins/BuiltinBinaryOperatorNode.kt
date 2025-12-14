@@ -1,143 +1,195 @@
 package brj.builtins
 
 import brj.BridjeLanguage
-import com.oracle.truffle.api.RootCallTarget
+import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
 
-enum class BinaryOperator {
-    ADD, SUB, MUL, DIV,
-    EQ, NEQ, LT, GT, LTE, GTE
-}
-
-class BuiltinBinaryOperatorNode(
-    language: BridjeLanguage,
-    private val operator: BinaryOperator
-) : RootNode(language) {
+/**
+ * Abstract base class for binary operator builtin functions.
+ * Each operator is implemented as a separate subclass using Truffle DSL specializations.
+ */
+abstract class BuiltinBinaryOperatorNode(language: BridjeLanguage) : RootNode(language) {
 
     override fun execute(frame: VirtualFrame): Any? {
         val args = frame.arguments
         if (args.size != 2) {
-            throw IllegalArgumentException("Binary operator ${operator.name.lowercase()} requires exactly 2 arguments, got ${args.size}")
+            throw IllegalArgumentException("Binary operator requires exactly 2 arguments, got ${args.size}")
         }
 
         val left = args[0]
         val right = args[1]
 
-        return when (operator) {
-            BinaryOperator.ADD -> performAdd(left, right)
-            BinaryOperator.SUB -> performSub(left, right)
-            BinaryOperator.MUL -> performMul(left, right)
-            BinaryOperator.DIV -> performDiv(left, right)
-            BinaryOperator.EQ -> performEq(left, right)
-            BinaryOperator.NEQ -> !performEq(left, right)
-            BinaryOperator.LT -> performLt(left, right)
-            BinaryOperator.GT -> performGt(left, right)
-            BinaryOperator.LTE -> performLte(left, right)
-            BinaryOperator.GTE -> performGte(left, right)
-        }
+        return executeOp(left, right)
     }
 
-    private fun performAdd(left: Any?, right: Any?): Any {
-        return when {
-            left is Long && right is Long -> left + right
-            left is Long && right is Double -> left + right
-            left is Double && right is Long -> left + right
-            left is Double && right is Double -> left + right
-            else -> throw UnsupportedOperationException("Cannot add $left and $right")
-        }
+    protected abstract fun executeOp(left: Any?, right: Any?): Any?
+}
+
+// Arithmetic operators
+
+abstract class AddNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun add(left: Long, right: Long): Long = left + right
+
+    @Specialization
+    protected fun add(left: Long, right: Double): Double = left + right
+
+    @Specialization
+    protected fun add(left: Double, right: Long): Double = left + right
+
+    @Specialization
+    protected fun add(left: Double, right: Double): Double = left + right
+}
+
+abstract class SubNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun sub(left: Long, right: Long): Long = left - right
+
+    @Specialization
+    protected fun sub(left: Long, right: Double): Double = left - right
+
+    @Specialization
+    protected fun sub(left: Double, right: Long): Double = left - right
+
+    @Specialization
+    protected fun sub(left: Double, right: Double): Double = left - right
+}
+
+abstract class MulNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun mul(left: Long, right: Long): Long = left * right
+
+    @Specialization
+    protected fun mul(left: Long, right: Double): Double = left * right
+
+    @Specialization
+    protected fun mul(left: Double, right: Long): Double = left * right
+
+    @Specialization
+    protected fun mul(left: Double, right: Double): Double = left * right
+}
+
+abstract class DivNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization(rewriteOn = [ArithmeticException::class])
+    protected fun divLong(left: Long, right: Long): Long {
+        if (right == 0L) throw ArithmeticException("Division by zero")
+        return left / right
     }
 
-    private fun performSub(left: Any?, right: Any?): Any {
-        return when {
-            left is Long && right is Long -> left - right
-            left is Long && right is Double -> left - right
-            left is Double && right is Long -> left - right
-            left is Double && right is Double -> left - right
-            else -> throw UnsupportedOperationException("Cannot subtract $left and $right")
-        }
+    @Specialization(rewriteOn = [ArithmeticException::class])
+    protected fun divLongDouble(left: Long, right: Double): Double {
+        if (right == 0.0) throw ArithmeticException("Division by zero")
+        return left / right
     }
 
-    private fun performMul(left: Any?, right: Any?): Any {
-        return when {
-            left is Long && right is Long -> left * right
-            left is Long && right is Double -> left * right
-            left is Double && right is Long -> left * right
-            left is Double && right is Double -> left * right
-            else -> throw UnsupportedOperationException("Cannot multiply $left and $right")
-        }
+    @Specialization(rewriteOn = [ArithmeticException::class])
+    protected fun divDoubleLong(left: Double, right: Long): Double {
+        if (right == 0L) throw ArithmeticException("Division by zero")
+        return left / right
     }
 
-    private fun performDiv(left: Any?, right: Any?): Any {
-        return when {
-            left is Long && right is Long -> {
-                if (right == 0L) throw ArithmeticException("Division by zero")
-                left / right
-            }
-            left is Long && right is Double -> {
-                if (right == 0.0) throw ArithmeticException("Division by zero")
-                left / right
-            }
-            left is Double && right is Long -> {
-                if (right == 0L) throw ArithmeticException("Division by zero")
-                left / right
-            }
-            left is Double && right is Double -> {
-                if (right == 0.0) throw ArithmeticException("Division by zero")
-                left / right
-            }
-            else -> throw UnsupportedOperationException("Cannot divide $left and $right")
-        }
+    @Specialization(rewriteOn = [ArithmeticException::class])
+    protected fun divDouble(left: Double, right: Double): Double {
+        if (right == 0.0) throw ArithmeticException("Division by zero")
+        return left / right
     }
+}
 
-    private fun performEq(left: Any?, right: Any?): Boolean {
-        return when {
-            left is Long && right is Long -> left == right
-            left is Long && right is Double -> left.toDouble() == right
-            left is Double && right is Long -> left == right.toDouble()
-            left is Double && right is Double -> left == right
-            left is Boolean && right is Boolean -> left == right
-            else -> left == right
-        }
-    }
+// Comparison operators
 
-    private fun performLt(left: Any?, right: Any?): Boolean {
-        return when {
-            left is Long && right is Long -> left < right
-            left is Long && right is Double -> left < right
-            left is Double && right is Long -> left < right
-            left is Double && right is Double -> left < right
-            else -> throw UnsupportedOperationException("Cannot compare $left and $right")
-        }
-    }
+abstract class EqNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun eq(left: Long, right: Long): Boolean = left == right
 
-    private fun performGt(left: Any?, right: Any?): Boolean {
-        return when {
-            left is Long && right is Long -> left > right
-            left is Long && right is Double -> left > right
-            left is Double && right is Long -> left > right
-            left is Double && right is Double -> left > right
-            else -> throw UnsupportedOperationException("Cannot compare $left and $right")
-        }
-    }
+    @Specialization
+    protected fun eq(left: Long, right: Double): Boolean = left.toDouble() == right
 
-    private fun performLte(left: Any?, right: Any?): Boolean {
-        return when {
-            left is Long && right is Long -> left <= right
-            left is Long && right is Double -> left <= right
-            left is Double && right is Long -> left <= right
-            left is Double && right is Double -> left <= right
-            else -> throw UnsupportedOperationException("Cannot compare $left and $right")
-        }
-    }
+    @Specialization
+    protected fun eq(left: Double, right: Long): Boolean = left == right.toDouble()
 
-    private fun performGte(left: Any?, right: Any?): Boolean {
-        return when {
-            left is Long && right is Long -> left >= right
-            left is Long && right is Double -> left >= right
-            left is Double && right is Long -> left >= right
-            left is Double && right is Double -> left >= right
-            else -> throw UnsupportedOperationException("Cannot compare $left and $right")
-        }
-    }
+    @Specialization
+    protected fun eq(left: Double, right: Double): Boolean = left == right
+
+    @Specialization
+    protected fun eq(left: Boolean, right: Boolean): Boolean = left == right
+
+    @Specialization
+    protected fun eqGeneric(left: Any?, right: Any?): Boolean = left == right
+}
+
+abstract class NeqNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun neq(left: Long, right: Long): Boolean = left != right
+
+    @Specialization
+    protected fun neq(left: Long, right: Double): Boolean = left.toDouble() != right
+
+    @Specialization
+    protected fun neq(left: Double, right: Long): Boolean = left != right.toDouble()
+
+    @Specialization
+    protected fun neq(left: Double, right: Double): Boolean = left != right
+
+    @Specialization
+    protected fun neq(left: Boolean, right: Boolean): Boolean = left != right
+
+    @Specialization
+    protected fun neqGeneric(left: Any?, right: Any?): Boolean = left != right
+}
+
+abstract class LtNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun lt(left: Long, right: Long): Boolean = left < right
+
+    @Specialization
+    protected fun lt(left: Long, right: Double): Boolean = left < right
+
+    @Specialization
+    protected fun lt(left: Double, right: Long): Boolean = left < right
+
+    @Specialization
+    protected fun lt(left: Double, right: Double): Boolean = left < right
+}
+
+abstract class GtNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun gt(left: Long, right: Long): Boolean = left > right
+
+    @Specialization
+    protected fun gt(left: Long, right: Double): Boolean = left > right
+
+    @Specialization
+    protected fun gt(left: Double, right: Long): Boolean = left > right
+
+    @Specialization
+    protected fun gt(left: Double, right: Double): Boolean = left > right
+}
+
+abstract class LteNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun lte(left: Long, right: Long): Boolean = left <= right
+
+    @Specialization
+    protected fun lte(left: Long, right: Double): Boolean = left <= right
+
+    @Specialization
+    protected fun lte(left: Double, right: Long): Boolean = left <= right
+
+    @Specialization
+    protected fun lte(left: Double, right: Double): Boolean = left <= right
+}
+
+abstract class GteNode(language: BridjeLanguage) : BuiltinBinaryOperatorNode(language) {
+    @Specialization
+    protected fun gte(left: Long, right: Long): Boolean = left >= right
+
+    @Specialization
+    protected fun gte(left: Long, right: Double): Boolean = left >= right
+
+    @Specialization
+    protected fun gte(left: Double, right: Long): Boolean = left >= right
+
+    @Specialization
+    protected fun gte(left: Double, right: Double): Boolean = left >= right
 }

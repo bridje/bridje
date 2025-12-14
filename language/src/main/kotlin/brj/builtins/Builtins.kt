@@ -7,25 +7,23 @@ import brj.runtime.BridjeFunction
 object Builtins {
     fun createBuiltinFunctions(language: BridjeLanguage): Map<String, GlobalVar> {
         return mapOf(
-            "add" to createBinaryOperator(language, "add", BinaryOperator.ADD),
-            "sub" to createBinaryOperator(language, "sub", BinaryOperator.SUB),
-            "mul" to createBinaryOperator(language, "mul", BinaryOperator.MUL),
-            "div" to createBinaryOperator(language, "div", BinaryOperator.DIV),
-            "eq" to createBinaryOperator(language, "eq", BinaryOperator.EQ),
-            "neq" to createBinaryOperator(language, "neq", BinaryOperator.NEQ),
-            "lt" to createBinaryOperator(language, "lt", BinaryOperator.LT),
-            "gt" to createBinaryOperator(language, "gt", BinaryOperator.GT),
-            "lte" to createBinaryOperator(language, "lte", BinaryOperator.LTE),
-            "gte" to createBinaryOperator(language, "gte", BinaryOperator.GTE)
+            "add" to createBuiltinFunction("add", AddNodeGen.create(language)),
+            "sub" to createBuiltinFunction("sub", SubNodeGen.create(language)),
+            "mul" to createBuiltinFunction("mul", MulNodeGen.create(language)),
+            "div" to createBuiltinFunction("div", DivNodeGen.create(language)),
+            "eq" to createBuiltinFunction("eq", EqNodeGen.create(language)),
+            "neq" to createBuiltinFunction("neq", NeqNodeGen.create(language)),
+            "lt" to createBuiltinFunction("lt", LtNodeGen.create(language)),
+            "gt" to createBuiltinFunction("gt", GtNodeGen.create(language)),
+            "lte" to createBuiltinFunction("lte", LteNodeGen.create(language)),
+            "gte" to createBuiltinFunction("gte", GteNodeGen.create(language))
         )
     }
 
-    private fun createBinaryOperator(
-        language: BridjeLanguage,
+    private fun createBuiltinFunction(
         name: String,
-        operator: BinaryOperator
+        node: BuiltinBinaryOperatorNode
     ): GlobalVar {
-        val node = BuiltinBinaryOperatorNode(language, operator)
         val function = BridjeFunction(node.callTarget)
         return GlobalVar(name, function)
     }
