@@ -1,34 +1,12 @@
 package brj
 
-import org.graalvm.polyglot.Context
-import org.graalvm.polyglot.Value
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class DefTest {
-    private lateinit var ctx: Context
-
-    @BeforeEach
-    fun setUp() {
-        ctx = Context.newBuilder()
-            .logHandler(System.err)
-            .build()
-        ctx.enter()
-    }
-
-    @AfterEach
-    fun tearDown() {
-        ctx.leave()
-        ctx.close()
-    }
-
-    private fun eval(code: String): Value = ctx.eval("bridje", code)
-
     @Test
-    fun `def value`() {
-        val result = eval("""
+    fun `def value`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
             do:
               def: x 42
               x
@@ -37,8 +15,8 @@ class DefTest {
     }
 
     @Test
-    fun `def function`() {
-        val result = eval("""
+    fun `def function`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
             do:
               def: id(x) x
               id(42)
@@ -47,8 +25,8 @@ class DefTest {
     }
 
     @Test
-    fun `multiple defs`() {
-        val result = eval("""
+    fun `multiple defs`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
             do:
               def: a 10
               def: b 20
@@ -58,8 +36,8 @@ class DefTest {
     }
 
     @Test
-    fun `def then use`() {
-        val result = eval("""
+    fun `def then use`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
             do:
               def: a 10
               a
@@ -68,8 +46,8 @@ class DefTest {
     }
 
     @Test
-    fun `def fn calling another def`() {
-        val result = eval("""
+    fun `def fn calling another def`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
             do:
               def: id(x) x
               def: wrap(x) id(x)

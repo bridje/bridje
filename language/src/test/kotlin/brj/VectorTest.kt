@@ -1,41 +1,19 @@
 package brj
 
-import org.graalvm.polyglot.Context
-import org.graalvm.polyglot.Value
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class VectorTest {
-    private lateinit var ctx: Context
-
-    @BeforeEach
-    fun setUp() {
-        ctx = Context.newBuilder()
-            .logHandler(System.err)
-            .build()
-        ctx.enter()
-    }
-
-    @AfterEach
-    fun tearDown() {
-        ctx.leave()
-        ctx.close()
-    }
-
-    private fun eval(code: String): Value = ctx.eval("bridje", code)
-
     @Test
-    fun `empty vector`() {
-        val result = eval("[]")
+    fun `empty vector`() = withContext { ctx ->
+        val result = ctx.evalBridje("[]")
         assertTrue(result.hasArrayElements())
         assertEquals(0, result.arraySize)
     }
 
     @Test
-    fun `vector of integers`() {
-        val result = eval("[1 2 3]")
+    fun `vector of integers`() = withContext { ctx ->
+        val result = ctx.evalBridje("[1 2 3]")
         assertTrue(result.hasArrayElements())
         assertEquals(3, result.arraySize)
         assertEquals(1L, result.getArrayElement(0).asLong())
@@ -44,8 +22,8 @@ class VectorTest {
     }
 
     @Test
-    fun `nested vectors`() {
-        val result = eval("[[1 2] [3 4]]")
+    fun `nested vectors`() = withContext { ctx ->
+        val result = ctx.evalBridje("[[1 2] [3 4]]")
         assertTrue(result.hasArrayElements())
         assertEquals(2, result.arraySize)
 
@@ -62,8 +40,8 @@ class VectorTest {
     }
 
     @Test
-    fun `mixed type vector`() {
-        val result = eval("[1 \"hello\" 3.14]")
+    fun `mixed type vector`() = withContext { ctx ->
+        val result = ctx.evalBridje("[1 \"hello\" 3.14]")
         assertTrue(result.hasArrayElements())
         assertEquals(3, result.arraySize)
         assertEquals(1L, result.getArrayElement(0).asLong())
@@ -72,16 +50,16 @@ class VectorTest {
     }
 
     @Test
-    fun `vector display string`() {
-        val result = eval("[1 2 3]")
+    fun `vector display string`() = withContext { ctx ->
+        val result = ctx.evalBridje("[1 2 3]")
         assertEquals("[1 2 3]", result.toString())
     }
 
     // Interop tests - accessing BridjeVector through Graal polyglot API
 
     @Test
-    fun `interop - convert to Java List`() {
-        val result = eval("[1 2 3]")
+    fun `interop - convert to Java List`() = withContext { ctx ->
+        val result = ctx.evalBridje("[1 2 3]")
         val list = result.`as`(List::class.java)
         assertEquals(3, list.size)
         assertEquals(1L, list[0])
@@ -90,8 +68,8 @@ class VectorTest {
     }
 
     @Test
-    fun `interop - iterate with iterator`() {
-        val result = eval("[10 20 30]")
+    fun `interop - iterate with iterator`() = withContext { ctx ->
+        val result = ctx.evalBridje("[10 20 30]")
         assertTrue(result.hasIterator())
 
         val values = mutableListOf<Long>()
@@ -103,8 +81,8 @@ class VectorTest {
     }
 
     @Test
-    fun `interop - out of bounds throws`() {
-        val result = eval("[1 2]")
+    fun `interop - out of bounds throws`() = withContext { ctx ->
+        val result = ctx.evalBridje("[1 2]")
         assertThrows(ArrayIndexOutOfBoundsException::class.java) {
             result.getArrayElement(5)
         }
@@ -114,9 +92,8 @@ class VectorTest {
     }
 
     @Test
-    fun `interop - array size check`() {
-        val result = eval("[1 2 3]")
+    fun `interop - array size check`() = withContext { ctx ->
+        val result = ctx.evalBridje("[1 2 3]")
         assertEquals(3L, result.arraySize)
-        // valid indices are 0, 1, 2 - accessing 3 or -1 throws (tested in out of bounds test)
     }
 }
