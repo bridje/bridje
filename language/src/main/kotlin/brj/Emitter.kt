@@ -99,6 +99,7 @@ class Emitter(private val language: BridjeLanguage) {
         is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result), expr.loc)
         is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr), expr.loc)
         is DefExpr -> error("DefExpr should be handled in eval loop, not emitted")
+        is DefTagExpr -> error("DefTagExpr should be handled in eval loop, not emitted")
     }
 
     private fun emitFn(expr: FnExpr): FnNode {

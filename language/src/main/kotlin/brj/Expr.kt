@@ -133,6 +133,16 @@ class HostConstructorExpr(
     override fun toString(): String = "$hostClass/new"
 }
 
+class DefTagExpr(
+    val name: String,
+    val fieldNames: List<String>,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String =
+        if (fieldNames.isEmpty()) "(deftag $name)"
+        else "(deftag ($name ${fieldNames.joinToString(" ")}))"
+}
+
 sealed class TopLevelDoOrExpr
 
 class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()

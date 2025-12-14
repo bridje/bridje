@@ -29,6 +29,7 @@ class Analyser(
                 "do" -> analyseDo(form)
                 "if" -> analyseIf(form)
                 "def" -> analyseDef(form)
+                "deftag" -> analyseDefTag(form)
                 else -> analyseCall(form)
             }
 
@@ -73,6 +74,31 @@ class Analyser(
                 DefExpr(name, valueExpr, form.loc)
             }
             else -> error("def requires a name or signature")
+        }
+    }
+
+    private fun analyseDefTag(form: ListForm): DefTagExpr {
+        val sigForm = form.els.getOrNull(1) ?: error("deftag requires a tag signature")
+
+        return when (sigForm) {
+            is SymbolForm -> {
+                // deftag: Nothing (nullary)
+                val name = sigForm.name
+                if (!name[0].isUpperCase()) error("tag names must be capitalized: $name")
+                DefTagExpr(name, emptyList(), form.loc)
+            }
+            is ListForm -> {
+                // deftag: Just(value)
+                val nameForm = sigForm.els.firstOrNull() as? SymbolForm
+                    ?: error("deftag signature must start with a name")
+                val name = nameForm.name
+                if (!name[0].isUpperCase()) error("tag names must be capitalized: $name")
+                val fieldNames = sigForm.els.drop(1).map {
+                    (it as? SymbolForm)?.name ?: error("field names must be symbols")
+                }
+                DefTagExpr(name, fieldNames, form.loc)
+            }
+            else -> error("deftag requires a tag name or signature")
         }
     }
 
@@ -176,6 +202,7 @@ class Analyser(
                 when (first.name) {
                     "do" -> return TopLevelDo(form.els.drop(1))
                     "def" -> return TopLevelExpr(analyseDef(form))
+                    "deftag" -> return TopLevelExpr(analyseDefTag(form))
                 }
             }
         }
