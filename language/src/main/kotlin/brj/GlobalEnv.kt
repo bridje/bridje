@@ -21,11 +21,11 @@ class GlobalEnv(private val vars: Map<String, GlobalVar> = emptyMap()) {
 
         fun withBuiltins(language: BridjeLanguage): GlobalEnv {
             val builtinFunctions = Builtins.createBuiltinFunctions(language)
-            return GlobalEnv(builtinFunctions)
+            return GlobalEnv(builtinFormMetas + builtinFunctions)
         }
     }
 
-    operator fun get(name: String): GlobalVar? = vars[name] ?: builtinFormMetas[name]
+    operator fun get(name: String): GlobalVar? = vars[name]
 
     fun def(name: String, value: Any?): GlobalEnv =
         GlobalEnv(vars + (name to GlobalVar(name, value)))

@@ -135,4 +135,12 @@ class BuiltinsTest {
         val result = ctx.evalBridje("(div 10.0 2.0)")
         assertEquals(5.0, result.asDouble())
     }
+
+    @Test
+    fun `division by zero throws error`() = withContext { ctx ->
+        val ex = assertThrows(org.graalvm.polyglot.PolyglotException::class.java) {
+            ctx.evalBridje("(div 10 0)")
+        }
+        assertTrue(ex.message?.contains("Division by zero") == true)
+    }
 }

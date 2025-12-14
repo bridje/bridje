@@ -70,10 +70,22 @@ class BuiltinBinaryOperatorNode(
 
     private fun performDiv(left: Any?, right: Any?): Any {
         return when {
-            left is Long && right is Long -> left / right
-            left is Long && right is Double -> left / right
-            left is Double && right is Long -> left / right
-            left is Double && right is Double -> left / right
+            left is Long && right is Long -> {
+                if (right == 0L) throw ArithmeticException("Division by zero")
+                left / right
+            }
+            left is Long && right is Double -> {
+                if (right == 0.0) throw ArithmeticException("Division by zero")
+                left / right
+            }
+            left is Double && right is Long -> {
+                if (right == 0L) throw ArithmeticException("Division by zero")
+                left / right
+            }
+            left is Double && right is Double -> {
+                if (right == 0.0) throw ArithmeticException("Division by zero")
+                left / right
+            }
             else -> throw UnsupportedOperationException("Cannot divide $left and $right")
         }
     }
