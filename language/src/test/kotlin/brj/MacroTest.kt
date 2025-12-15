@@ -133,4 +133,44 @@ class MacroTest {
             ctx.evalBridje("~42")
         }
     }
+
+    @Test
+    fun `anonymous function macro simple`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: increment #: add(it, 1)
+              increment(5)
+        """)
+        assertEquals(6L, result.asLong())
+    }
+
+    @Test
+    fun `anonymous function macro with multiplication`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: double #: mul(it, 2)
+              double(7)
+        """)
+        assertEquals(14L, result.asLong())
+    }
+
+    @Test
+    fun `anonymous function macro in call`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: apply(f, x) f(x)
+              apply(#: add(it, 10), 5)
+        """)
+        assertEquals(15L, result.asLong())
+    }
+
+    @Test
+    fun `anonymous function macro with comparison`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: isPositive #: gt(it, 0)
+              isPositive(5)
+        """)
+        assertEquals(true, result.asBoolean())
+    }
 }

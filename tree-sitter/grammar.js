@@ -14,6 +14,7 @@ module.exports = grammar({
     [$.block_call, $.method_call, $.field_access],
     [$.quote, $.method_call, $.field_access],
     [$.unquote, $.method_call, $.field_access],
+    [$.anon_fn, $.method_call, $.field_access],
   ],
 
   externals: $ => [
@@ -39,6 +40,7 @@ module.exports = grammar({
       $.field_access,
       $.quote,
       $.unquote,
+      $.anon_fn,
     ),
 
     string: _ => token(/"([^"]|\\")*"/),
@@ -76,6 +78,7 @@ module.exports = grammar({
     discard: $ => seq('#_', $._form),
     quote: $ => seq("'", $._form),
     unquote: $ => seq("~", $._form),
+    anon_fn: $ => seq("#:", $._form),
   },
 
   extras: $ => [

@@ -121,6 +121,12 @@ class Reader private constructor(private val src: Source) {
 
             "quote" -> ListForm(listOf(SymbolForm("quote", loc), namedChildren[0].readForm()), loc)
             "unquote" -> UnquoteForm(namedChildren[0].readForm(), loc)
+            "anon_fn" -> {
+                // #: body expands to fn: _(it) body
+                val body = namedChildren[0].readForm()
+                val fnSig = ListForm(listOf(SymbolForm("_", loc), SymbolForm("it", loc)), loc)
+                ListForm(listOf(SymbolForm("fn", loc), fnSig, body), loc)
+            }
 
             else -> error("Unknown form type: $type")
         }

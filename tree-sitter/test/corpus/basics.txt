@@ -313,3 +313,33 @@ Unquote in quote
         (symbol))
       (int))))
 
+
+==================
+Anonymous function
+==================
+
+#: add(it, 1)
+
+---
+
+(source_file
+  (anon_fn
+    (call
+      (symbol)
+      (symbol)
+      (int))))
+
+==================
+Anonymous function with method call
+==================
+
+#: (it.toString())
+
+---
+
+(source_file
+  (anon_fn
+    (list
+      (method_call
+        (symbol)
+        (dot_symbol)))))
