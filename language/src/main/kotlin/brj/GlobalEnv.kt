@@ -1,15 +1,19 @@
 package brj
 
 import brj.builtins.Builtins
+import brj.runtime.BridjeKey
 
-class GlobalEnv(private val vars: Map<String, GlobalVar> = emptyMap()) {
+class GlobalEnv(
+    private val vars: Map<String, GlobalVar> = emptyMap(),
+    private val keys: Map<String, BridjeKey> = emptyMap(),
+) {
     companion object {
         private val builtinFormMetas = mapOf(
             "Symbol" to GlobalVar("Symbol", SymbolMeta),
             "QualifiedSymbol" to GlobalVar("QualifiedSymbol", QualifiedSymbolMeta),
             "List" to GlobalVar("List", ListMeta),
             "Vector" to GlobalVar("Vector", VectorMeta),
-            "Map" to GlobalVar("Map", MapMeta),
+            "Record" to GlobalVar("Record", RecordMeta),
             "Set" to GlobalVar("Set", SetMeta),
             "Int" to GlobalVar("Int", IntMeta),
             "Double" to GlobalVar("Double", DoubleMeta),
@@ -28,7 +32,12 @@ class GlobalEnv(private val vars: Map<String, GlobalVar> = emptyMap()) {
     operator fun get(name: String): GlobalVar? = vars[name]
 
     fun def(name: String, value: Any?): GlobalEnv =
-        GlobalEnv(vars + (name to GlobalVar(name, value)))
+        GlobalEnv(vars + (name to GlobalVar(name, value)), keys)
+
+    fun defKey(name: String, key: BridjeKey): GlobalEnv =
+        GlobalEnv(vars, keys + (name to key))
+
+    fun getKey(name: String): BridjeKey? = keys[name]
 
     override fun toString(): String = "GlobalEnv(${vars.keys})"
 }

@@ -2,17 +2,23 @@ package brj
 
 import brj.BridjeLanguage.BridjeContext
 import brj.Reader.Companion.readForms
+import brj.runtime.BridjeKey
 import brj.runtime.BridjeMacro
+import brj.runtime.BridjeRecord
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.TruffleLanguage.*
+import com.oracle.truffle.api.dsl.Bind
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RootNode
+import com.oracle.truffle.api.`object`.Shape
+import java.lang.invoke.MethodHandles
 
 @Registration(
     id = "bridje",
@@ -21,11 +27,20 @@ import com.oracle.truffle.api.nodes.RootNode
     characterMimeTypes = ["text/brj"],
     contextPolicy = ContextPolicy.EXCLUSIVE
 )
+@Bind.DefaultExpression("get(\$node)")
 class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     companion object {
         private val CONTEXT_REF: ContextReference<BridjeContext> = ContextReference.create(BridjeLanguage::class.java)
+        private val LANGUAGE_REF: LanguageReference<BridjeLanguage> = LanguageReference.create(BridjeLanguage::class.java)
+
+        @JvmStatic
+        fun get(node: Node): BridjeLanguage = LANGUAGE_REF.get(node)
     }
+
+    val recordShape: Shape = Shape.newBuilder()
+        .layout(BridjeRecord::class.java, MethodHandles.lookup())
+        .build()
 
     class BridjeContext(val env: Env)
 
@@ -94,6 +109,12 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                             val macro = BridjeMacro(fn!!)
                             globalEnv = globalEnv.def(expr.name, macro)
                             macro
+                        }
+
+                        is DefKeyExpr -> {
+                            val key = BridjeKey(expr.name)
+                            globalEnv = globalEnv.defKey(expr.name, key)
+                            key
                         }
 
                         is ValueExpr -> evalExpr(expr, analyser.slotCount)

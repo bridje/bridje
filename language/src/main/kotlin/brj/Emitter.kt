@@ -93,7 +93,11 @@ class Emitter(private val language: BridjeLanguage) {
         is StringExpr -> StringNode(expr.value, expr.loc)
         is VectorExpr -> VectorNodeGen.create(expr.loc, ExecuteArrayNode(expr.els.map { emitExpr(it) }.toTypedArray(), expr.loc))
         is SetExpr -> TODO()
-        is MapExpr -> TODO()
+        is RecordExpr -> RecordNodeGen.create(
+            expr.fields.map { it.first }.toTypedArray(),
+            expr.loc,
+            ExecuteArrayNode(expr.fields.map { emitExpr(it.second) }.toTypedArray(), expr.loc)
+        )
         is LocalVarExpr -> ReadLocalNode(expr.localVar.slot, expr.loc)
         is GlobalVarExpr -> GlobalVarNode(expr.globalVar, expr.loc)
         is TruffleObjectExpr -> TruffleObjectNode(expr.value, expr.loc)

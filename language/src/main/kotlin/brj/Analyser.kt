@@ -33,6 +33,7 @@ class Analyser(
                     "def" -> return analyseDef(form)
                     "deftag" -> return analyseDefTag(form)
                     "defmacro" -> return analyseDefMacro(form)
+                    "defkey" -> return analyseDefKey(form)
                 }
             }
         }
@@ -47,12 +48,12 @@ class Analyser(
             is BigDecForm -> BigDecExpr(form.value, form.loc)
             is StringForm -> StringExpr(form.value, form.loc)
             is SymbolForm -> analyseSymbol(form)
-            is KeywordForm -> TODO("keyword form")
+            is KeywordForm -> analyseKeyword(form)
             is QualifiedSymbolForm -> analyseQualifiedSymbol(form)
             is ListForm -> analyseListValueExpr(form)
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is SetForm -> SetExpr(form.els.map { analyseValueExpr(it) }, form.loc)
-            is MapForm -> MapExpr(form.els.map { analyseValueExpr(it) }, form.loc)
+            is RecordForm -> analyseRecord(form)
             is UnquoteForm -> error("unquote (~) can only be used inside a quote")
         }
     }
@@ -69,13 +70,35 @@ class Analyser(
         }
     }
 
+    private fun analyseKeyword(form: KeywordForm): ValueExpr {
+        val key = globalEnv.getKey(form.name)
+            ?: error("Unknown key: :${form.name}")
+        return TruffleObjectExpr(key, form.loc)
+    }
+
+    private fun analyseRecord(form: RecordForm): ValueExpr {
+        val els = form.els
+        if (els.size % 2 != 0) {
+            error("record literal must have even number of forms")
+        }
+        val fields = mutableListOf<Pair<String, ValueExpr>>()
+        for (i in els.indices step 2) {
+            val keyForm = els[i] as? KeywordForm
+                ?: error("record keys must be keywords")
+            val valueExpr = analyseValueExpr(els[i + 1])
+            fields.add(keyForm.name to valueExpr)
+        }
+        return RecordExpr(fields, form.loc)
+    }
+
     private fun analyseQualifiedSymbol(form: QualifiedSymbolForm): ValueExpr {
         val className = form.namespace.replace(':', '.')
-        val hostClass = try {
-            truffleEnv.lookupHostSymbol(className) as TruffleObject
-        } catch (_: Exception) {
-            error("Unknown namespace: ${form.namespace}")
-        }
+        val hostClass = 
+            try {
+                truffleEnv.lookupHostSymbol(className) as TruffleObject
+            } catch (_: Exception) {
+                error("Unknown namespace: ${form.namespace}")
+            }
         return if (form.member == "new") {
             HostConstructorExpr(hostClass, form.loc)
         } else {
@@ -98,6 +121,7 @@ class Analyser(
                 "def" -> error("def not allowed in value position")
                 "deftag" -> error("deftag not allowed in value position")
                 "defmacro" -> error("defmacro not allowed in value position")
+                "defkey" -> error("defkey not allowed in value position")
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
@@ -172,10 +196,10 @@ class Analyser(
                 val vectorExpr = VectorExpr(elements, form.loc)
                 callFormConstructor("Set", listOf(vectorExpr), form.loc)
             }
-            is MapForm -> {
+            is RecordForm -> {
                 val elements = form.els.map { analyseQuotedForm(it) }
                 val vectorExpr = VectorExpr(elements, form.loc)
-                callFormConstructor("Map", listOf(vectorExpr), form.loc)
+                callFormConstructor("Record", listOf(vectorExpr), form.loc)
             }
         }
     }
@@ -241,6 +265,14 @@ class Analyser(
             }
             else -> error("deftag requires a tag name or signature")
         }
+    }
+
+    private fun analyseDefKey(form: ListForm): DefKeyExpr {
+        val els = form.els
+        val keywordForm = els.getOrNull(1) as? KeywordForm
+            ?: error("defkey requires a keyword: defkey: :name")
+        // Third element (type) is ignored for now
+        return DefKeyExpr(keywordForm.name, form.loc)
     }
 
     private fun analyseDefMacro(form: ListForm): DefMacroExpr {
