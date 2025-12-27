@@ -171,8 +171,8 @@ object VectorMeta : TruffleObject {
 }
 
 @ExportLibrary(InteropLibrary::class)
-object MapMeta : TruffleObject {
-    private val name = TruffleString.fromConstant("Map", TruffleString.Encoding.UTF_8)
+object RecordMeta : TruffleObject {
+    private val name = TruffleString.fromConstant("Record", TruffleString.Encoding.UTF_8)
 
     @ExportMessage
     fun isMetaObject() = true
@@ -184,7 +184,7 @@ object MapMeta : TruffleObject {
     fun getMetaQualifiedName(): Any = name
 
     @ExportMessage
-    fun isMetaInstance(instance: Any?) = instance is MapForm
+    fun isMetaInstance(instance: Any?) = instance is RecordForm
 
     @ExportMessage
     fun isExecutable() = true
@@ -197,7 +197,7 @@ object MapMeta : TruffleObject {
     fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
         val vec = arguments[0] as BridjeVector
-        return MapForm(vec.toFormList())
+        return RecordForm(vec.toFormList())
     }
 
     @Throws(ArityException::class)
@@ -206,7 +206,7 @@ object MapMeta : TruffleObject {
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage
-    fun toDisplayString(allowSideEffects: Boolean) = "Map"
+    fun toDisplayString(allowSideEffects: Boolean) = "Record"
 }
 
 @ExportLibrary(InteropLibrary::class)
@@ -644,11 +644,11 @@ class SetForm(val els: List<Form>, override val loc: SourceSection? = null) : Fo
 }
 
 @ExportLibrary(InteropLibrary::class)
-class MapForm(val els: List<Form>, override val loc: SourceSection? = null) : Form {
+class RecordForm(val els: List<Form>, override val loc: SourceSection? = null) : Form {
     override fun toString(): String = els.joinToString(prefix = "{", separator = " ", postfix = "}")
 
     @ExportMessage fun hasMetaObject() = true
-    @ExportMessage fun getMetaObject(): Any = MapMeta
+    @ExportMessage fun getMetaObject(): Any = RecordMeta
 
     @ExportMessage fun hasArrayElements() = true
     @ExportMessage fun getArraySize() = 1L

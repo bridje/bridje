@@ -54,10 +54,10 @@ class FormConstructorTest {
     }
 
     @Test
-    fun `Map creates MapForm`() = withContext { ctx ->
-        val result = ctx.evalBridje("Map([Symbol(\"a\") Int(1)])")
-        assertEquals("Map", result.metaObject.metaSimpleName)
-        assertEquals("{a 1}", result.toString())
+    fun `Record creates RecordForm`() = withContext { ctx ->
+        val result = ctx.evalBridje("Record([Keyword(\"a\") Int(1)])")
+        assertEquals("Record", result.metaObject.metaSimpleName)
+        assertEquals("{:a 1}", result.toString())
     }
 
     @Test

@@ -35,8 +35,12 @@ class SetExpr(val els: List<ValueExpr>, override val loc: SourceSection? = null)
     override fun toString(): String = els.joinToString(prefix = "#{", separator = " ", postfix = "}")
 }
 
-class MapExpr(val els: List<ValueExpr>, override val loc: SourceSection? = null) : ValueExpr {
-    override fun toString(): String = els.joinToString(prefix = "{", separator = " ", postfix = "}")
+class RecordExpr(
+    val fields: List<Pair<String, ValueExpr>>,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String =
+        fields.joinToString(prefix = "{", separator = ", ", postfix = "}") { (k, v) -> ":$k $v" }
 }
 
 class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection? = null) : ValueExpr {

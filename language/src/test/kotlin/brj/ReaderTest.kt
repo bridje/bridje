@@ -22,7 +22,7 @@ private fun Form.contentEquals(other: Form): Boolean = when {
         els.size == other.els.size && els.zip(other.els).all { (a, b) -> a.contentEquals(b) }
     this is SetForm && other is SetForm ->
         els.size == other.els.size && els.zip(other.els).all { (a, b) -> a.contentEquals(b) }
-    this is MapForm && other is MapForm ->
+    this is RecordForm && other is RecordForm ->
         els.size == other.els.size && els.zip(other.els).all { (a, b) -> a.contentEquals(b) }
     else -> false
 }

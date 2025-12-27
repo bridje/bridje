@@ -33,6 +33,13 @@ class DefMacroExpr(
     override fun toString(): String = "(defmacro $name ${fn.params.joinToString(" ")} ${fn.bodyExpr})"
 }
 
+class DefKeyExpr(
+    val name: String,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "(defkey :$name)"
+}
+
 sealed class TopLevelDoOrExpr
 
 class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()
