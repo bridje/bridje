@@ -6,7 +6,7 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeConstructor(
+class HostClass(
     private val hostClass: TruffleObject
 ) : TruffleObject {
 

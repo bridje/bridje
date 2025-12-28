@@ -1,8 +1,8 @@
 package brj
 
 import brj.nodes.*
-import brj.runtime.BridjeConstructor
 import brj.runtime.BridjeFunction
+import brj.runtime.HostClass
 import brj.runtime.BridjeNull
 import com.oracle.truffle.api.dsl.TypeSystemReference
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -75,13 +75,6 @@ class HostStaticMethodNode(
     override fun execute(frame: VirtualFrame): Any? = interop.readMember(hostClass, methodName)
 }
 
-class HostConstructorNode(
-    private val hostClass: TruffleObject,
-    loc: SourceSection? = null
-) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame): Any = BridjeConstructor(hostClass)
-}
-
 class Emitter(private val language: BridjeLanguage) {
     fun emitExpr(expr: ValueExpr): BridjeNode = when (expr) {
         is NilExpr -> NilNode(expr.loc)
@@ -102,7 +95,7 @@ class Emitter(private val language: BridjeLanguage) {
         is GlobalVarExpr -> GlobalVarNode(expr.globalVar, expr.loc)
         is TruffleObjectExpr -> TruffleObjectNode(expr.value, expr.loc)
         is HostStaticMethodExpr -> HostStaticMethodNode(expr.hostClass, expr.methodName, expr.loc)
-        is HostConstructorExpr -> HostConstructorNode(expr.hostClass, expr.loc)
+        is HostConstructorExpr -> TruffleObjectNode(HostClass(expr.hostClass), expr.loc)
         is QuoteExpr -> TruffleObjectNode(expr.form, expr.loc)
         is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr), expr.loc)
         is FnExpr -> emitFn(expr)
