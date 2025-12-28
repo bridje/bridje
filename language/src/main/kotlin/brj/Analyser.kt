@@ -1,5 +1,6 @@
 package brj
 
+import brj.runtime.HostClass
 import brj.runtime.BridjeMacro
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -65,7 +66,7 @@ class Analyser(
             "false" -> BoolExpr(false, form.loc)
             else -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
                 ?: globalEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
-                ?: tryHostLookup(form.name, form.loc)
+                ?: tryHostLookup(form.name, form.loc)?.let { HostConstructorExpr(it, form.loc) }
                 ?: error("Unknown symbol: ${form.name}")
         }
     }
@@ -99,11 +100,7 @@ class Analyser(
             } catch (_: Exception) {
                 error("Unknown namespace: ${form.namespace}")
             }
-        return if (form.member == "new") {
-            HostConstructorExpr(hostClass, form.loc)
-        } else {
-            HostStaticMethodExpr(hostClass, form.member, form.loc)
-        }
+        return HostStaticMethodExpr(hostClass, form.member, form.loc)
     }
 
     private fun analyseListValueExpr(form: ListForm): ValueExpr {
@@ -506,11 +503,10 @@ class Analyser(
         return TopLevelExpr(analyseExpr(form))
     }
 
-    private fun tryHostLookup(name: String, loc: SourceSection?): TruffleObjectExpr? {
+    private fun tryHostLookup(name: String, loc: SourceSection?): TruffleObject? {
         val className = name.replace(':', '.')
         return try {
-            val hostClass = truffleEnv.lookupHostSymbol(className) as TruffleObject
-            TruffleObjectExpr(hostClass, loc)
+            truffleEnv.lookupHostSymbol(className) as TruffleObject
         } catch (_: Exception) {
             null
         }
