@@ -25,3 +25,4 @@ lsp4j = { module = "org.eclipse.lsp4j:org.eclipse.lsp4j", version = "0.21.1" }
 
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version = "1.9.0" }

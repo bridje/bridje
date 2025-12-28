@@ -49,7 +49,7 @@ class Reader private constructor(private val src: Source) {
                 else -> throw UnsupportedOperationException("Unsupported architecture: $archName")
             }
             val libPath = "/native/$os/$arch/$prefix$LIB_NAME.$ext"
-            val libUrl = javaClass.getResource(libPath) ?: return null
+            val libUrl = Reader::class.java.getResource(libPath) ?: return null
             return createTempFile(prefix + LIB_NAME, ".$ext").apply {
                 writeBytes(libUrl.openStream().use { it.readAllBytes() })
                 deleteOnExit()
