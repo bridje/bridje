@@ -37,8 +37,8 @@ function M.setup_lsp()
 end
 
 function M.setup_conjure()
-  -- Map bridje filetype to our client (must be set before Conjure loads)
-  vim.g["conjure#filetype#bridje"] = "conjure.client.bridje.stdio"
+  -- Map bridje filetype to our nREPL client
+  vim.g["conjure#filetype#bridje"] = "conjure.client.bridje.nrepl"
 
   -- Append bridje to Conjure's filetypes and re-init mappings
   local cfg = require("conjure.config")
