@@ -16,6 +16,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
+    implementation(libs.kotlin.coroutines.core)
 
     implementation(libs.graal.sdk)
     implementation(project(":language"))
@@ -33,4 +34,12 @@ tasks.shadowJar {
     archiveBaseName.set("bridje")
     archiveVersion.set("")
     archiveClassifier.set("repl")
+}
+
+tasks.register<JavaExec>("nrepl") {
+    group = "application"
+    description = "Runs the Bridje nREPL server"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("brj.repl.nrepl.NReplServerKt")
+    standardInput = System.`in`
 }

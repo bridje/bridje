@@ -5,3 +5,6 @@
 build
 /.kotlin/
 kls_database.db
+
+# nREPL port file
+.nrepl-port
