@@ -26,7 +26,7 @@ class GradlePlugin : Plugin<Project> {
         project.dependencies.add(lspConfig.name, "dev.bridje:lsp:${BridjeVersion.VERSION}")
 
         project.tasks.register("bridjeLsp", JavaExec::class.java) {
-            group = "application"
+            group = "bridje"
             description = "Runs the Bridje LSP server"
 
             classpath += project.configurations.getByName("bridjeLsp")
@@ -37,6 +37,26 @@ class GradlePlugin : Plugin<Project> {
             standardInput = System.`in`
             standardOutput = System.out
             errorOutput = System.err
+        }
+
+        val replConfig = project.configurations.create("bridjeRepl") {
+            isVisible = false
+            isCanBeConsumed = false
+            isCanBeResolved = true
+        }
+
+        project.dependencies.add(replConfig.name, "dev.bridje:repl:${BridjeVersion.VERSION}")
+
+        project.tasks.register("bridjeRepl", JavaExec::class.java) {
+            group = "bridje"
+            description = "Start Bridje nREPL server"
+
+            classpath += replConfig
+            classpath += mainSourceSet.runtimeClasspath
+
+            mainClass.set("brj.repl.nrepl.NReplServerKt")
+
+            standardInput = System.`in`
         }
     }
 }
