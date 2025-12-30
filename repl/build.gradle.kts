@@ -27,19 +27,11 @@ java {
 }
 
 application {
-    mainClass.set("brj.repl.ReplKt")
+    mainClass.set("brj.repl.nrepl.NReplServerKt")
 }
 
 tasks.shadowJar {
     archiveBaseName.set("bridje")
     archiveVersion.set("")
     archiveClassifier.set("repl")
-}
-
-tasks.register<JavaExec>("nrepl") {
-    group = "application"
-    description = "Runs the Bridje nREPL server"
-    classpath = sourceSets.main.get().runtimeClasspath
-    mainClass.set("brj.repl.nrepl.NReplServerKt")
-    standardInput = System.`in`
 }

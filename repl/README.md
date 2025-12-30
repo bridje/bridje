@@ -7,13 +7,13 @@ This directory contains an nREPL-compatible server implementation for Bridje.
 ### Using Gradle
 
 ```bash
-./gradlew :repl:nrepl
+./gradlew :repl:run
 ```
 
 Or with a specific port:
 
 ```bash
-./gradlew :repl:nrepl --args="7888"
+./gradlew :repl:run --args="7888"
 ```
 
 ### Using the Compiled JAR
