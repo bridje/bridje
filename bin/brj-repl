@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -e
+
+BRIDJE_ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+
+(cd "$BRIDJE_ROOT" && ./gradlew :repl:shadowJar --quiet)
+exec java -jar "$BRIDJE_ROOT/repl/build/libs/bridje-repl.jar" "$@"
