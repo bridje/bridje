@@ -1,16 +1,14 @@
 package brj
 
-import brj.runtime.HostClass
 import brj.runtime.BridjeMacro
-import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
 import java.util.concurrent.atomic.AtomicInteger
 
 class Analyser(
-    private val truffleEnv: TruffleLanguage.Env,
-    private val globalEnv: GlobalEnv = GlobalEnv(),
+    private val ctx: BridjeLanguage.BridjeContext,
+    private val nsEnv: NsEnv = NsEnv(),
     private val locals: Map<String, LocalVar> = emptyMap(),
     private val nextSlot: AtomicInteger = AtomicInteger(0),
     private val expansionDepth: Int = 0
@@ -23,7 +21,7 @@ class Analyser(
 
     internal fun withLocal(name: String): Pair<Analyser, LocalVar> {
         val lv = LocalVar(name, nextSlot.getAndIncrement())
-        return Analyser(truffleEnv, globalEnv, locals + (name to lv), nextSlot, expansionDepth) to lv
+        return Analyser(ctx, nsEnv, locals + (name to lv), nextSlot, expansionDepth) to lv
     }
 
     fun analyseExpr(form: Form): Expr {
@@ -65,14 +63,16 @@ class Analyser(
             "true" -> BoolExpr(true, form.loc)
             "false" -> BoolExpr(false, form.loc)
             else -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
-                ?: globalEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
+                ?: nsEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
+                ?: ctx.brjCore[form.name]?.let { GlobalVarExpr(it, form.loc) }
                 ?: tryHostLookup(form.name, form.loc)?.let { HostConstructorExpr(it, form.loc) }
                 ?: error("Unknown symbol: ${form.name}")
         }
     }
 
     private fun analyseKeyword(form: KeywordForm): ValueExpr {
-        val key = globalEnv.getKey(form.name)
+        val key = nsEnv.getKey(form.name)
+            ?: ctx.brjCore.getKey(form.name)
             ?: error("Unknown key: :${form.name}")
         return TruffleObjectExpr(key, form.loc)
     }
@@ -96,7 +96,7 @@ class Analyser(
         val className = form.namespace.replace(':', '.')
         val hostClass = 
             try {
-                truffleEnv.lookupHostSymbol(className) as TruffleObject
+                ctx.truffleEnv.lookupHostSymbol(className) as TruffleObject
             } catch (_: Exception) {
                 error("Unknown namespace: ${form.namespace}")
             }
@@ -202,7 +202,7 @@ class Analyser(
     }
 
     private fun callFormConstructor(name: String, args: List<ValueExpr>, loc: SourceSection?): ValueExpr {
-        val constructor = globalEnv[name] ?: error("$name constructor not found")
+        val constructor = nsEnv[name] ?: ctx.brjCore[name] ?: error("$name constructor not found")
         return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
     }
 
@@ -288,7 +288,7 @@ class Analyser(
         val bodyForms = els.drop(2)
         if (bodyForms.isEmpty()) error("defmacro requires a body")
 
-        var macroAnalyser = Analyser(truffleEnv, globalEnv = globalEnv)
+        var macroAnalyser = Analyser(ctx, nsEnv = nsEnv)
         for (param in params) {
             val (newAnalyser, _) = macroAnalyser.withLocal(param)
             macroAnalyser = newAnalyser
@@ -344,7 +344,7 @@ class Analyser(
     }
 
     private fun resolveTag(name: String, loc: SourceSection?): Any {
-        val globalVar = globalEnv[name] ?: error("Unknown tag: $name")
+        val globalVar = nsEnv[name] ?: ctx.brjCore[name] ?: error("Unknown tag: $name")
         return globalVar.value ?: error("Tag $name has no value")
     }
 
@@ -459,7 +459,7 @@ class Analyser(
         val bodyForms = els.drop(2)
         if (bodyForms.isEmpty()) error("fn requires a body")
 
-        var fnAnalyser = Analyser(truffleEnv, globalEnv = globalEnv)
+        var fnAnalyser = Analyser(ctx, nsEnv = nsEnv)
         for (param in params) {
             val (newAnalyser, _) = fnAnalyser.withLocal(param)
             fnAnalyser = newAnalyser
@@ -484,7 +484,7 @@ class Analyser(
                 val interop = InteropLibrary.getUncached()
                 val args = els.drop(1).toTypedArray<Any>()
                 val expanded = interop.execute(value.fn, *args) as Form
-                return Analyser(truffleEnv, globalEnv, locals, nextSlot, expansionDepth + 1)
+                return Analyser(ctx, nsEnv, locals, nextSlot, expansionDepth + 1)
                     .analyseValueExpr(expanded)
             }
         }
@@ -506,7 +506,7 @@ class Analyser(
     private fun tryHostLookup(name: String, loc: SourceSection?): TruffleObject? {
         val className = name.replace(':', '.')
         return try {
-            truffleEnv.lookupHostSymbol(className) as TruffleObject
+            ctx.truffleEnv.lookupHostSymbol(className) as TruffleObject
         } catch (_: Exception) {
             null
         }
