@@ -2,11 +2,18 @@ package brj.gradle
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
 
+interface BridjeExtension {
+    val version: Property<String>
+}
+
 class GradlePlugin : Plugin<Project> {
     override fun apply(project: Project) {
+        val extension = project.extensions.create("bridje", BridjeExtension::class.java)
+
         project.plugins.apply("java")
 
         val sourcesSets = project.extensions.getByName("sourceSets") as SourceSetContainer
@@ -18,18 +25,23 @@ class GradlePlugin : Plugin<Project> {
         testSourceSet.java.srcDir("src/test/bridje")
 
         val lspConfig = project.configurations.create("bridjeLsp") {
-            isVisible = false
             isCanBeConsumed = false
             isCanBeResolved = true
         }
 
-        project.dependencies.add(lspConfig.name, "dev.bridje:lsp:${BridjeVersion.VERSION}")
+        val replConfig = project.configurations.create("bridjeRepl") {
+            isCanBeConsumed = false
+            isCanBeResolved = true
+        }
+
+        project.dependencies.addProvider(lspConfig.name, extension.version.map { "dev.bridje:lsp:$it" })
+        project.dependencies.addProvider(replConfig.name, extension.version.map { "dev.bridje:repl:$it" })
 
         project.tasks.register("bridjeLsp", JavaExec::class.java) {
             group = "bridje"
             description = "Runs the Bridje LSP server"
 
-            classpath += project.configurations.getByName("bridjeLsp")
+            classpath += lspConfig
             classpath += mainSourceSet.runtimeClasspath
 
             mainClass.set("brj.lsp.LspServer")
@@ -38,14 +50,6 @@ class GradlePlugin : Plugin<Project> {
             standardOutput = System.out
             errorOutput = System.err
         }
-
-        val replConfig = project.configurations.create("bridjeRepl") {
-            isVisible = false
-            isCanBeConsumed = false
-            isCanBeResolved = true
-        }
-
-        project.dependencies.add(replConfig.name, "dev.bridje:repl:${BridjeVersion.VERSION}")
 
         project.tasks.register("bridjeRepl", JavaExec::class.java) {
             group = "bridje"

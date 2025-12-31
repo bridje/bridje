@@ -24,28 +24,3 @@ gradlePlugin {
         }
     }
 }
-
-tasks.register("generateVersionFile") {
-    val outputDir = layout.buildDirectory.dir("generated/bridje")
-    val projectVersion = version.toString()
-    outputs.dir(outputDir)
-    doLast {
-        val file = outputDir.get().file("brj/gradle/BridjeVersion.kt").asFile
-        file.parentFile.mkdirs()
-        file.writeText(
-            """
-            package brj.gradle
-
-            internal object BridjeVersion {
-                const val VERSION = "$projectVersion"
-            }
-            """.trimIndent()
-        )
-    }
-}
-
-sourceSets["main"].java.srcDir(layout.buildDirectory.dir("generated/bridje"))
-
-tasks.named("compileKotlin").configure {
-    dependsOn("generateVersionFile")
-}
