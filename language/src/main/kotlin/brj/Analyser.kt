@@ -93,8 +93,16 @@ class Analyser(
     }
 
     private fun analyseQualifiedSymbol(form: QualifiedSymbolForm): ValueExpr {
+        // Try Bridje namespace first
+        ctx.namespaces[form.namespace]?.let { nsEnv ->
+            val globalVar = nsEnv[form.member]
+                ?: error("Unknown symbol: ${form.member} in namespace ${form.namespace}")
+            return GlobalVarExpr(globalVar, form.loc)
+        }
+
+        // Fall back to Java interop
         val className = form.namespace.replace(':', '.')
-        val hostClass = 
+        val hostClass =
             try {
                 ctx.truffleEnv.lookupHostSymbol(className) as TruffleObject
             } catch (_: Exception) {
