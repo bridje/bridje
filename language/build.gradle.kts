@@ -1,6 +1,14 @@
 plugins {
     kotlin("jvm")
     kotlin("kapt")
+    id("com.vanniktech.maven.publish")
+}
+
+mavenPublishing {
+    pom {
+        name.set("Bridje Language")
+        description.set("Bridje programming language runtime")
+    }
 }
 
 java.toolchain {
@@ -39,6 +47,10 @@ sourceSets {
 }
 
 tasks.named("processResources") {
+    dependsOn(":tree-sitter:buildTreeSitter", ":tree-sitter:copyQueries")
+}
+
+tasks.matching { it.name == "sourcesJar" }.configureEach {
     dependsOn(":tree-sitter:buildTreeSitter", ":tree-sitter:copyQueries")
 }
 
