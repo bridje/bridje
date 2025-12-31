@@ -3,7 +3,7 @@ package brj
 import brj.builtins.Builtins
 import brj.runtime.BridjeKey
 
-class GlobalEnv(
+class NsEnv(
     private val vars: Map<String, GlobalVar> = emptyMap(),
     private val keys: Map<String, BridjeKey> = emptyMap(),
 ) {
@@ -23,21 +23,21 @@ class GlobalEnv(
             "BigDec" to GlobalVar("BigDec", BigDecMeta),
         )
 
-        fun withBuiltins(language: BridjeLanguage): GlobalEnv {
+        fun withBuiltins(language: BridjeLanguage): NsEnv {
             val builtinFunctions = Builtins.createBuiltinFunctions(language)
-            return GlobalEnv(builtinFormMetas + builtinFunctions)
+            return NsEnv(builtinFormMetas + builtinFunctions)
         }
     }
 
     operator fun get(name: String): GlobalVar? = vars[name]
 
-    fun def(name: String, value: Any?): GlobalEnv =
-        GlobalEnv(vars + (name to GlobalVar(name, value)), keys)
+    fun def(name: String, value: Any?): NsEnv =
+        NsEnv(vars + (name to GlobalVar(name, value)), keys)
 
-    fun defKey(name: String, key: BridjeKey): GlobalEnv =
-        GlobalEnv(vars, keys + (name to key))
+    fun defKey(name: String, key: BridjeKey): NsEnv =
+        NsEnv(vars, keys + (name to key))
 
     fun getKey(name: String): BridjeKey? = keys[name]
 
-    override fun toString(): String = "GlobalEnv(${vars.keys})"
+    override fun toString(): String = "NsEnv(${vars.keys})"
 }

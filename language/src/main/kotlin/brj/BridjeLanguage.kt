@@ -42,9 +42,12 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         .layout(BridjeRecord::class.java, MethodHandles.lookup())
         .build()
 
-    class BridjeContext(val env: Env)
+    class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
+        val brjCore: NsEnv = NsEnv.withBuiltins(lang)
+        var namespaces: Map<String, NsEnv> = mapOf("brj:core" to brjCore)
+    }
 
-    override fun createContext(env: Env) = BridjeContext(env)
+    override fun createContext(env: Env) = BridjeContext(env, this)
 
     class EvalNode(
         lang: BridjeLanguage,
@@ -69,7 +72,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         val forms = request.source.readForms()
 
         return object : RootNode(this) {
-            private var globalEnv = GlobalEnv.withBuiltins(this@BridjeLanguage)
+            private var nsEnv = NsEnv()
 
             @TruffleBoundary
             private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
@@ -80,14 +83,14 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             }
 
             @TruffleBoundary
-            private fun evalForm(form: Form, truffleEnv: Env): Any? {
-                val analyser = Analyser(truffleEnv, globalEnv = globalEnv)
+            private fun evalForm(form: Form, ctx: BridjeContext): Any? {
+                val analyser = Analyser(ctx, nsEnv = nsEnv)
                 return when (val result = analyser.analyseTopLevel(form)) {
-                    is TopLevelDo -> result.forms.fold(null as Any?) { _, f -> evalForm(f, truffleEnv) }
+                    is TopLevelDo -> result.forms.fold(null as Any?) { _, f -> evalForm(f, ctx) }
                     is TopLevelExpr -> when (val expr = result.expr) {
                         is DefExpr -> {
                             val value = evalExpr(expr.valueExpr, analyser.slotCount)
-                            globalEnv = globalEnv.def(expr.name, value)
+                            nsEnv = nsEnv.def(expr.name, value)
                             value
                         }
 
@@ -99,7 +102,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                                     BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
                                 }
 
-                            globalEnv = globalEnv.def(expr.name, value)
+                            nsEnv = nsEnv.def(expr.name, value)
 
                             value
                         }
@@ -107,13 +110,13 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                         is DefMacroExpr -> {
                             val fn = evalExpr(expr.fn, analyser.slotCount)
                             val macro = BridjeMacro(fn!!)
-                            globalEnv = globalEnv.def(expr.name, macro)
+                            nsEnv = nsEnv.def(expr.name, macro)
                             macro
                         }
 
                         is DefKeyExpr -> {
                             val key = BridjeKey(expr.name)
-                            globalEnv = globalEnv.defKey(expr.name, key)
+                            nsEnv = nsEnv.defKey(expr.name, key)
                             key
                         }
 
@@ -124,7 +127,13 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
             override fun execute(frame: VirtualFrame): Any? {
                 val ctx = CONTEXT_REF.get(this)
-                return forms.fold(null as Any?) { _, form -> evalForm(form, ctx.env) }
+
+                val firstForm = forms.firstOrNull()
+                if (firstForm is ListForm && (firstForm.els.firstOrNull() as? SymbolForm)?.name == "ns") {
+                    TODO("ns declaration")
+                }
+
+                return forms.fold(null as Any?) { _, form -> evalForm(form, ctx) }
             }
         }.callTarget
     }
