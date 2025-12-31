@@ -68,8 +68,21 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         return builder.build()
     }
 
+    class NsForm(val name: String)
+
+    private fun Sequence<Form>.analyseNs(): Pair<NsForm?, List<Form>> {
+        val forms = toList()
+        val first = forms.firstOrNull()
+        if (first is ListForm && (first.els.firstOrNull() as? SymbolForm)?.name == "ns") {
+            val nsName = (first.els.getOrNull(1) as? SymbolForm)?.name
+                ?: error("ns requires a name")
+            return Pair(NsForm(nsName), forms.drop(1))
+        }
+        return Pair(null, forms)
+    }
+
     override fun parse(request: ParsingRequest): CallTarget {
-        val forms = request.source.readForms()
+        val (nsForm, forms) = request.source.readForms().analyseNs()
 
         return object : RootNode(this) {
             private var nsEnv = NsEnv()
@@ -125,15 +138,17 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                 }
             }
 
+            @TruffleBoundary
             override fun execute(frame: VirtualFrame): Any? {
                 val ctx = CONTEXT_REF.get(this)
 
-                val firstForm = forms.firstOrNull()
-                if (firstForm is ListForm && (firstForm.els.firstOrNull() as? SymbolForm)?.name == "ns") {
-                    TODO("ns declaration")
+                val result = forms.fold(null as Any?) { _, form -> evalForm(form, ctx) }
+
+                if (nsForm != null) {
+                    ctx.namespaces = ctx.namespaces + (nsForm.name to nsEnv)
                 }
 
-                return forms.fold(null as Any?) { _, form -> evalForm(form, ctx) }
+                return result
             }
         }.callTarget
     }
