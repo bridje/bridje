@@ -1,8 +1,15 @@
 plugins {
     kotlin("jvm")
     application
-
     id("com.gradleup.shadow") version "8.3.6"
+    id("com.vanniktech.maven.publish")
+}
+
+mavenPublishing {
+    pom {
+        name.set("Bridje REPL")
+        description.set("nREPL server for Bridje")
+    }
 }
 
 java.toolchain {

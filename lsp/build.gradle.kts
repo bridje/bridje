@@ -2,8 +2,15 @@ plugins {
     kotlin("jvm")
     kotlin("kapt")
     application
-
     id("com.gradleup.shadow") version "8.3.6"
+    id("com.vanniktech.maven.publish")
+}
+
+mavenPublishing {
+    pom {
+        name.set("Bridje LSP")
+        description.set("Language Server Protocol implementation for Bridje")
+    }
 }
 
 java.toolchain {
