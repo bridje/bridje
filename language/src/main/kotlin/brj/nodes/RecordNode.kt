@@ -1,9 +1,7 @@
 package brj.nodes
 
-import brj.BridjeLanguage
 import brj.BridjeNode
 import brj.runtime.BridjeRecord
-import com.oracle.truffle.api.dsl.Bind
 import com.oracle.truffle.api.dsl.NodeChild
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -17,9 +15,8 @@ abstract class RecordNode(
 ) : BridjeNode(loc) {
 
     @Specialization
-    fun createRecord(values: Array<Any>,
-                     @Bind language: BridjeLanguage): BridjeRecord {
-        val record = BridjeRecord(language.recordShape)
+    fun createRecord(values: Array<Any>): BridjeRecord {
+        val record = BridjeRecord(BridjeRecord.shape)
         val objectLibrary = DynamicObjectLibrary.getUncached()
         for (i in fieldNames.indices) {
             objectLibrary.put(record, fieldNames[i], values[i])

@@ -10,6 +10,7 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.`object`.DynamicObject
 import com.oracle.truffle.api.`object`.DynamicObjectLibrary
 import com.oracle.truffle.api.`object`.Shape
+import java.lang.invoke.MethodHandles
 
 @ExportLibrary(InteropLibrary::class)
 class BridjeRecord(shape: Shape) : DynamicObject(shape) {
@@ -17,6 +18,10 @@ class BridjeRecord(shape: Shape) : DynamicObject(shape) {
     companion object {
         private val INTEROP = InteropLibrary.getUncached()
         private val OBJECT_LIBRARY = DynamicObjectLibrary.getUncached()
+
+        val shape: Shape = Shape.newBuilder()
+            .layout(BridjeRecord::class.java, MethodHandles.lookup())
+            .build()
     }
 
     @ExportMessage
