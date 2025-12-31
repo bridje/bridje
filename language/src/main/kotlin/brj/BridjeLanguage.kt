@@ -4,6 +4,7 @@ import brj.BridjeLanguage.BridjeContext
 import brj.Reader.Companion.readForms
 import brj.runtime.BridjeKey
 import brj.runtime.BridjeMacro
+import brj.runtime.BridjeRecord
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
 import com.oracle.truffle.api.CallTarget
@@ -14,6 +15,11 @@ import com.oracle.truffle.api.dsl.Bind
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.interop.UnknownIdentifierException
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RootNode
 
@@ -41,6 +47,42 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     override fun createContext(env: Env) = BridjeContext(env, this)
+
+    override fun getScope(context: BridjeContext): Any = BridjeScope(context.namespaces)
+
+    @ExportLibrary(InteropLibrary::class)
+    class BridjeScope(private val namespaces: Map<String, NsEnv>) : TruffleObject {
+        @ExportMessage
+        fun hasLanguage() = true
+
+        @ExportMessage
+        fun getLanguage(): Class<BridjeLanguage> = BridjeLanguage::class.java
+
+        @ExportMessage
+        fun isScope() = true
+
+        @ExportMessage
+        fun hasMembers() = true
+
+        @ExportMessage
+        @TruffleBoundary
+        fun getMembers(includeInternal: Boolean) = 
+            BridjeRecord.Keys(namespaces.keys.toTypedArray())
+
+        @ExportMessage
+        @TruffleBoundary
+        fun isMemberReadable(member: String) = member in namespaces
+
+        @ExportMessage
+        @TruffleBoundary
+        @Throws(UnknownIdentifierException::class)
+        fun readMember(member: String) = 
+            namespaces[member] ?: throw UnknownIdentifierException.create(member)
+
+        @ExportMessage
+        @TruffleBoundary
+        fun toDisplayString(allowSideEffects: Boolean) = "bridje"
+    }
 
     class EvalNode(
         lang: BridjeLanguage,

@@ -50,4 +50,35 @@ class NsTest {
         val result = ctx.evalBridje("my:lib/val")
         assertEquals(99L, result.asLong())
     }
+
+    @Test
+    fun `scope exposes namespaces`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test:ns
+            def: x 42
+        """.trimIndent())
+        val bindings = ctx.getBindings("bridje")
+        assertTrue(bindings.hasMember("brj:core"))
+        assertTrue(bindings.hasMember("test:ns"))
+    }
+
+    @Test
+    fun `scope exposes namespace members`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test:ns
+            def: x 42
+        """.trimIndent())
+        val bindings = ctx.getBindings("bridje")
+        val ns = bindings.getMember("test:ns")
+        assertTrue(ns.hasMember("x"))
+        assertEquals(42L, ns.getMember("x").asLong())
+    }
+
+    @Test
+    fun `scope exposes core functions`() = withContext { ctx ->
+        val bindings = ctx.getBindings("bridje")
+        val core = bindings.getMember("brj:core")
+        assertTrue(core.hasMember("add"))
+        assertTrue(core.getMember("add").canExecute())
+    }
 }
