@@ -1,16 +1,6 @@
 local M = {}
 
-local bridje_root = vim.fn.expand("~/src/james/bridje")
-local parser_path = bridje_root .. "/tree-sitter/build/lib/native/linux/x64/libtree-sitter-bridje.so"
-local nvim_plugin_path = bridje_root .. "/nvim"
-
 function M.setup()
-  -- Ensure plugin is in runtimepath for queries
-  if not vim.o.runtimepath:find(nvim_plugin_path, 1, true) then
-    vim.opt.runtimepath:append(nvim_plugin_path)
-  end
-
-  vim.treesitter.language.add("bridje", { path = parser_path })
   M.setup_lsp()
   M.setup_conjure()
 end
@@ -22,11 +12,7 @@ function M.setup_lsp()
   if not configs.bridje then
     configs.bridje = {
       default_config = {
-        cmd = {
-          "java",
-          "-Dpolyglot.engine.WarnInterpreterOnly=false",
-          "-jar", bridje_root .. "/lsp/build/libs/bridje-lsp.jar",
-        },
+        cmd = { "./gradlew", "--quiet", "--console=plain", ":bridjeLsp" },
         filetypes = { "bridje" },
         root_dir = lspconfig.util.root_pattern("build.gradle.kts", "settings.gradle.kts", ".git"),
       },
