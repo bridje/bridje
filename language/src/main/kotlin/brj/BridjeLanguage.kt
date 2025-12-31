@@ -4,7 +4,6 @@ import brj.BridjeLanguage.BridjeContext
 import brj.Reader.Companion.readForms
 import brj.runtime.BridjeKey
 import brj.runtime.BridjeMacro
-import brj.runtime.BridjeRecord
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
 import com.oracle.truffle.api.CallTarget
@@ -17,8 +16,6 @@ import com.oracle.truffle.api.frame.FrameSlotKind
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RootNode
-import com.oracle.truffle.api.`object`.Shape
-import java.lang.invoke.MethodHandles
 
 @Registration(
     id = "bridje",
@@ -37,10 +34,6 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         @JvmStatic
         fun get(node: Node): BridjeLanguage = LANGUAGE_REF.get(node)
     }
-
-    val recordShape: Shape = Shape.newBuilder()
-        .layout(BridjeRecord::class.java, MethodHandles.lookup())
-        .build()
 
     class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
         val brjCore: NsEnv = NsEnv.withBuiltins(lang)
