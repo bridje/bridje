@@ -97,4 +97,4 @@ do:
 
 Bridje is licensed under the Mozilla Public License, version 2 or (at your option) any later version.
 
-Copyright © 2025 James Henderson.
+Copyright © 2026 James Henderson.
