@@ -38,11 +38,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     class EvalNode(
         lang: BridjeLanguage,
         frameDescriptor: FrameDescriptor,
-        node: BridjeNode
+        @field:Child private var node: BridjeNode
     ) : RootNode(lang, frameDescriptor) {
-        @Child
-        private var node = insert(node)
-
         override fun execute(frame: VirtualFrame) = node.execute(frame)
     }
 
