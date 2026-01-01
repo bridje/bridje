@@ -10,10 +10,12 @@ import com.oracle.truffle.api.interop.UnknownIdentifierException
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
+typealias Requires = Map<String, NsEnv>
 typealias Imports = Map<String, String>
 
 @ExportLibrary(InteropLibrary::class)
 data class NsEnv(
+    val requires: Requires = emptyMap(),
     val imports: Imports = emptyMap(),
     val vars: Map<String, GlobalVar> = emptyMap(),
     val keys: Map<String, BridjeKey> = emptyMap(),

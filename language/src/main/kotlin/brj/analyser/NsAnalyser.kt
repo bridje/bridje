@@ -4,44 +4,45 @@ import brj.*
 
 data class NsDecl(
     val name: String,
+    val requires: Map<String, String> = emptyMap(),
     val imports: Imports = emptyMap()
 )
 
-private fun analyseClassSpec(packagePrefix: String, spec: Form): Pair<String, String> = 
+private fun analyseSpec(prefix: String, spec: Form): Pair<String, String> =
     when (spec) {
         is SymbolForm -> {
-            val className = spec.name
-            className to "$packagePrefix:$className"
+            val name = spec.name
+            name to "$prefix:$name"
         }
         is ListForm -> {
             if ((spec.els.firstOrNull() as? SymbolForm)?.name != "as") {
-                error("class spec list must be an 'as' form: $spec")
+                error("spec list must be an 'as' form: $spec")
             }
-            val className = (spec.els.getOrNull(1) as? SymbolForm)?.name
-                ?: error("as requires class name: $spec")
+            val name = (spec.els.getOrNull(1) as? SymbolForm)?.name
+                ?: error("as requires name: $spec")
             val alias = (spec.els.getOrNull(2) as? SymbolForm)?.name
                 ?: error("as requires alias: $spec")
-            alias to "$packagePrefix:$className"
+            alias to "$prefix:$name"
         }
-        else -> error("invalid class spec: $spec")
+        else -> error("invalid spec: $spec")
     }
 
-private fun analyseImport(importForm: ListForm): Map<String, String> {
-    val imports = mutableMapOf<String, String>()
+private fun analysePackagedClause(clauseForm: ListForm): Map<String, String> {
+    val result = mutableMapOf<String, String>()
 
-    for (packageForm in importForm.els.drop(1)) {
-        if (packageForm !is ListForm) error("import package must be a list: $packageForm")
+    for (packageForm in clauseForm.els.drop(1)) {
+        if (packageForm !is ListForm) error("package group must be a list: $packageForm")
 
-        val packagePrefix = (packageForm.els.firstOrNull() as? SymbolForm)?.name
-            ?: error("import package must start with package name: $packageForm")
+        val prefix = (packageForm.els.firstOrNull() as? SymbolForm)?.name
+            ?: error("package group must start with package name: $packageForm")
 
-        for (classSpec in packageForm.els.drop(1)) {
-            val (alias, fqClass) = analyseClassSpec(packagePrefix, classSpec)
-            imports[alias] = fqClass
+        for (spec in packageForm.els.drop(1)) {
+            val (alias, fqName) = analyseSpec(prefix, spec)
+            result[alias] = fqName
         }
     }
 
-    return imports
+    return result
 }
 
 fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
@@ -54,6 +55,7 @@ fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
     val nsName = (els.getOrNull(1) as? SymbolForm)?.name
         ?: error("ns requires a name")
 
+    var requires = emptyMap<String, String>()
     var imports = emptyMap<String, String>()
 
     for (clause in els.drop(2)) {
@@ -62,10 +64,11 @@ fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
             ?: error("ns clause must start with a symbol: $clause")
 
         when (clauseName) {
-            "import" -> imports = analyseImport(clause)
+            "require" -> requires = analysePackagedClause(clause)
+            "import" -> imports = analysePackagedClause(clause)
             else -> error("Unknown ns clause: $clauseName")
         }
     }
 
-    return Pair(NsDecl(nsName, imports), drop(1))
+    return Pair(NsDecl(nsName, requires, imports), drop(1))
 }

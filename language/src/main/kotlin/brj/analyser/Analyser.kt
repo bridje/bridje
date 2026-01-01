@@ -99,10 +99,17 @@ class Analyser(
     }
 
     private fun analyseQualifiedSymbol(form: QualifiedSymbolForm): ValueExpr {
-        // Try Bridje namespace first
+        // Try Bridje namespace first (fully qualified)
         ctx.namespaces[form.namespace]?.let { ns ->
             val globalVar = ns[form.member]
                 ?: error("Unknown symbol: ${form.member} in namespace ${form.namespace}")
+            return GlobalVarExpr(globalVar, form.loc)
+        }
+
+        // Check if namespace is a require alias
+        nsEnv.requires[form.namespace]?.let { ns ->
+            val globalVar = ns[form.member]
+                ?: error("Unknown symbol: ${form.member} in required namespace ${form.namespace}")
             return GlobalVarExpr(globalVar, form.loc)
         }
 
