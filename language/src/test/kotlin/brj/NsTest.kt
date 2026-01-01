@@ -81,4 +81,28 @@ class NsTest {
         assertTrue(core.hasMember("add"))
         assertTrue(core.getMember("add").canExecute())
     }
+
+    @Test
+    fun `import allows using alias`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ns: foo
+              import:
+                java:time:
+                  Instant
+            Instant/now()
+        """.trimIndent())
+        assertTrue(result.isInstant)
+    }
+
+    @Test
+    fun `import with explicit alias`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ns: foo
+              import:
+                java:util:
+                  ArrayList.as(AL)
+            AL()
+        """.trimIndent())
+        assertTrue(result.hasArrayElements())
+    }
 }

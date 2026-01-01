@@ -10,10 +10,13 @@ import com.oracle.truffle.api.interop.UnknownIdentifierException
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
+typealias Imports = Map<String, String>
+
 @ExportLibrary(InteropLibrary::class)
-class NsEnv(
-    private val vars: Map<String, GlobalVar> = emptyMap(),
-    private val keys: Map<String, BridjeKey> = emptyMap(),
+data class NsEnv(
+    val imports: Imports = emptyMap(),
+    val vars: Map<String, GlobalVar> = emptyMap(),
+    val keys: Map<String, BridjeKey> = emptyMap(),
 ) : TruffleObject {
     companion object {
         private val builtinFormMetas = mapOf(
@@ -33,17 +36,17 @@ class NsEnv(
 
         fun withBuiltins(language: BridjeLanguage): NsEnv {
             val builtinFunctions = Builtins.createBuiltinFunctions(language)
-            return NsEnv(builtinFormMetas + builtinFunctions)
+            return NsEnv(vars = builtinFormMetas + builtinFunctions)
         }
     }
 
     operator fun get(name: String): GlobalVar? = vars[name]
 
     fun def(name: String, value: Any?): NsEnv =
-        NsEnv(vars + (name to GlobalVar(name, value)), keys)
+        copy(vars = vars + (name to GlobalVar(name, value)))
 
     fun defKey(name: String, key: BridjeKey): NsEnv =
-        NsEnv(vars, keys + (name to key))
+        copy(keys = keys + (name to key))
 
     fun getKey(name: String): BridjeKey? = keys[name]
 

@@ -1,4 +1,6 @@
-package brj
+package brj.analyser
+
+import brj.Form
 
 import com.oracle.truffle.api.source.SourceSection
 

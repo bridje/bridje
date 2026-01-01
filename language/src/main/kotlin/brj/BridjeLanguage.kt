@@ -2,6 +2,7 @@ package brj
 
 import brj.BridjeLanguage.BridjeContext
 import brj.Reader.Companion.readForms
+import brj.analyser.*
 import brj.runtime.BridjeKey
 import brj.runtime.BridjeMacro
 import brj.runtime.BridjeRecord
@@ -103,24 +104,12 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         return builder.build()
     }
 
-    class NsForm(val name: String)
-
-    private fun Sequence<Form>.analyseNs(): Pair<NsForm?, List<Form>> {
-        val forms = toList()
-        val first = forms.firstOrNull()
-        if (first is ListForm && (first.els.firstOrNull() as? SymbolForm)?.name == "ns") {
-            val nsName = (first.els.getOrNull(1) as? SymbolForm)?.name
-                ?: error("ns requires a name")
-            return Pair(NsForm(nsName), forms.drop(1))
-        }
-        return Pair(null, forms)
-    }
 
     override fun parse(request: ParsingRequest): CallTarget {
-        val (nsForm, forms) = request.source.readForms().analyseNs()
+        val (nsDecl, forms) = request.source.readForms().toList().analyseNs()
 
         return object : RootNode(this) {
-            private var nsEnv = NsEnv()
+            private var nsEnv = NsEnv(imports = nsDecl?.imports ?: emptyMap())
 
             @TruffleBoundary
             private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
@@ -179,8 +168,8 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
                 val result = forms.fold(null as Any?) { _, form -> evalForm(form, ctx) }
 
-                if (nsForm != null) {
-                    ctx.namespaces = ctx.namespaces + (nsForm.name to nsEnv)
+                if (nsDecl != null) {
+                    ctx.namespaces = ctx.namespaces + (nsDecl.name to nsEnv)
                 }
 
                 return result
