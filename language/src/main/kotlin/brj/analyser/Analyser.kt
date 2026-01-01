@@ -1,7 +1,7 @@
 package brj.analyser
 
 import brj.*
-
+import brj.runtime.BridjeContext
 import brj.runtime.BridjeMacro
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
@@ -9,7 +9,7 @@ import com.oracle.truffle.api.source.SourceSection
 import java.util.concurrent.atomic.AtomicInteger
 
 class Analyser(
-    private val ctx: BridjeLanguage.BridjeContext,
+    private val ctx: BridjeContext,
     private val nsEnv: NsEnv = NsEnv(),
     private val locals: Map<String, LocalVar> = emptyMap(),
     private val nextSlot: AtomicInteger = AtomicInteger(0),
