@@ -1,4 +1,6 @@
-package brj
+package brj.analyser
+
+import brj.*
 
 import brj.runtime.BridjeMacro
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -65,6 +67,10 @@ class Analyser(
             else -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
                 ?: nsEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
                 ?: ctx.brjCore[form.name]?.let { GlobalVarExpr(it, form.loc) }
+                ?: nsEnv.imports[form.name]?.let { fqClass ->
+                    tryHostLookup(fqClass, form.loc)?.let { HostConstructorExpr(it, form.loc) }
+                        ?: error("Imported class not found: $fqClass")
+                }
                 ?: tryHostLookup(form.name, form.loc)?.let { HostConstructorExpr(it, form.loc) }
                 ?: error("Unknown symbol: ${form.name}")
         }
@@ -94,17 +100,19 @@ class Analyser(
 
     private fun analyseQualifiedSymbol(form: QualifiedSymbolForm): ValueExpr {
         // Try Bridje namespace first
-        ctx.namespaces[form.namespace]?.let { nsEnv ->
-            val globalVar = nsEnv[form.member]
+        ctx.namespaces[form.namespace]?.let { ns ->
+            val globalVar = ns[form.member]
                 ?: error("Unknown symbol: ${form.member} in namespace ${form.namespace}")
             return GlobalVarExpr(globalVar, form.loc)
         }
 
-        // Fall back to Java interop
-        val className = form.namespace.replace(':', '.')
+        // Check if namespace is an import alias
+        val fqClass = nsEnv.imports[form.namespace]
+            ?: form.namespace.replace(':', '.')
+
         val hostClass =
             try {
-                ctx.truffleEnv.lookupHostSymbol(className) as TruffleObject
+                ctx.truffleEnv.lookupHostSymbol(fqClass.replace(':', '.')) as TruffleObject
             } catch (_: Exception) {
                 error("Unknown namespace: ${form.namespace}")
             }

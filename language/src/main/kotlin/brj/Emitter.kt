@@ -1,5 +1,6 @@
 package brj
 
+import brj.analyser.*
 import brj.nodes.*
 import brj.runtime.BridjeFunction
 import brj.runtime.HostClass
