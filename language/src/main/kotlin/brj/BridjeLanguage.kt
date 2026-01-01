@@ -109,7 +109,18 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         val (nsDecl, forms) = request.source.readForms().toList().analyseNs()
 
         return object : RootNode(this) {
-            private var nsEnv = NsEnv(imports = nsDecl?.imports ?: emptyMap())
+            private fun resolveRequires(ctx: BridjeContext): Requires =
+                nsDecl
+                    ?.requires.orEmpty()
+                    .mapValues { (alias, fqNs) ->
+                        ctx.namespaces[fqNs] ?: error("Required namespace not found: $fqNs (as $alias)")
+                    }
+
+            private fun NsDecl.resolve(ctx: BridjeContext): NsEnv =
+                NsEnv(
+                    requires = resolveRequires(ctx),
+                    imports = this.imports
+                )
 
             @TruffleBoundary
             private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
@@ -120,53 +131,65 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             }
 
             @TruffleBoundary
-            private fun evalForm(form: Form, ctx: BridjeContext): Any? {
-                val analyser = Analyser(ctx, nsEnv = nsEnv)
-                return when (val result = analyser.analyseTopLevel(form)) {
-                    is TopLevelDo -> result.forms.fold(null as Any?) { _, f -> evalForm(f, ctx) }
-                    is TopLevelExpr -> when (val expr = result.expr) {
-                        is DefExpr -> {
-                            val value = evalExpr(expr.valueExpr, analyser.slotCount)
-                            nsEnv = nsEnv.def(expr.name, value)
-                            value
-                        }
+            private fun List<Form>.evalForms(ctx: BridjeContext, nsEnv: NsEnv): Pair<NsEnv, Any?> {
+                var nsEnv = nsEnv
 
-                        is DefTagExpr -> {
-                            val value: Any =
+                val res = fold(null as Any?) { _, form ->
+
+                    val analyser = Analyser(ctx, nsEnv)
+
+                    when (val result = analyser.analyseTopLevel(form)) {
+                        is TopLevelDo -> {
+                            val (newNsEnv, res) = result.forms.evalForms(ctx, nsEnv)
+                            nsEnv = newNsEnv
+                            res
+                        }
+                        is TopLevelExpr -> when (val expr = result.expr) {
+                            is DefExpr -> {
+                                val value = evalExpr(expr.valueExpr, analyser.slotCount)
+                                nsEnv = nsEnv.def(expr.name, value)
+                                value
+                            }
+
+                            is DefTagExpr -> {
+                                val value: Any =
                                 if (expr.fieldNames.isEmpty()) {
                                     BridjeTaggedSingleton(expr.name)
                                 } else {
                                     BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
                                 }
 
-                            nsEnv = nsEnv.def(expr.name, value)
+                                nsEnv = nsEnv.def(expr.name, value)
 
-                            value
+                                value
+                            }
+
+                            is DefMacroExpr -> {
+                                val fn = evalExpr(expr.fn, analyser.slotCount)
+                                val macro = BridjeMacro(fn!!)
+                                nsEnv = nsEnv.def(expr.name, macro)
+                                macro
+                            }
+
+                            is DefKeyExpr -> {
+                                val key = BridjeKey(expr.name)
+                                nsEnv = nsEnv.defKey(expr.name, key)
+                                key
+                            }
+
+                            is ValueExpr -> evalExpr(expr, analyser.slotCount)
                         }
-
-                        is DefMacroExpr -> {
-                            val fn = evalExpr(expr.fn, analyser.slotCount)
-                            val macro = BridjeMacro(fn!!)
-                            nsEnv = nsEnv.def(expr.name, macro)
-                            macro
-                        }
-
-                        is DefKeyExpr -> {
-                            val key = BridjeKey(expr.name)
-                            nsEnv = nsEnv.defKey(expr.name, key)
-                            key
-                        }
-
-                        is ValueExpr -> evalExpr(expr, analyser.slotCount)
                     }
                 }
+
+                return Pair(nsEnv, res)
             }
 
             @TruffleBoundary
             override fun execute(frame: VirtualFrame): Any? {
                 val ctx = CONTEXT_REF.get(this)
 
-                val result = forms.fold(null as Any?) { _, form -> evalForm(form, ctx) }
+                val (nsEnv, result) = forms.evalForms(ctx, nsDecl?.resolve(ctx) ?: NsEnv())
 
                 if (nsDecl != null) {
                     ctx.namespaces = ctx.namespaces + (nsDecl.name to nsEnv)

@@ -35,4 +35,24 @@ class NsAnalyserTest {
             nsDecl?.imports
         )
     }
+
+    @Test
+    fun `parses requires`() {
+        val (nsDecl, _) = """
+            ns: foo:bar
+              require:
+                other:
+                  lib.as(lib)
+                  util
+        """.trimIndent().parseNs()
+
+        assertEquals("foo:bar", nsDecl?.name)
+        assertEquals(
+            mapOf(
+                "lib" to "other:lib",
+                "util" to "other:util"
+            ),
+            nsDecl?.requires
+        )
+    }
 }

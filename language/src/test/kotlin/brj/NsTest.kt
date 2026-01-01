@@ -105,4 +105,38 @@ class NsTest {
         """.trimIndent())
         assertTrue(result.hasArrayElements())
     }
+
+    @Test
+    fun `require allows using alias`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: my:lib
+            def: answer 42
+        """.trimIndent())
+
+        val result = ctx.evalBridje("""
+            ns: consumer
+              require:
+                my:
+                  lib
+            lib/answer
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `require with explicit alias`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: my:utils
+            def: double(x) add(x, x)
+        """.trimIndent())
+
+        val result = ctx.evalBridje("""
+            ns: consumer
+              require:
+                my:
+                  utils.as(u)
+            u/double(21)
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
 }
