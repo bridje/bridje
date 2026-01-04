@@ -1,10 +1,15 @@
 package brj.analyser
 
 import brj.*
+import brj.Result
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeMacro
+import com.oracle.truffle.api.exception.AbstractTruffleException
+import com.oracle.truffle.api.interop.ExceptionType
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.source.SourceSection
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -15,9 +20,87 @@ data class Analyser(
     private val nsEnv: NsEnv = NsEnv(),
     private val locals: Map<String, LocalVar> = emptyMap(),
     private val nextSlot: AtomicInteger = AtomicInteger(0),
-    private val expansionDepth: Int = 0
+    private val expansionDepth: Int = 0,
+    private val errors: MutableList<Error> = mutableListOf(),
 ) {
     val slotCount: Int get() = nextSlot.get()
+
+    @ExportLibrary(InteropLibrary::class)
+    class ErrorArray(private val errors: List<Error>) : TruffleObject {
+        @ExportMessage
+        fun hasArrayElements(): Boolean = true
+
+        @ExportMessage
+        fun getArraySize(): Long = errors.size.toLong()
+
+        @ExportMessage
+        fun isArrayElementReadable(index: Long): Boolean = index >= 0 && index < errors.size
+
+        @ExportMessage
+        fun readArrayElement(index: Long): Any = errors[index.toInt()]
+    }
+
+    @ExportLibrary(InteropLibrary::class)
+    class Errors(errors: Collection<Error>) : AbstractTruffleException(
+        errors.joinToString(prefix = "Errors:\n", separator = "\n") { error ->
+            val locStr = error.loc?.let { "(${it.startLine}:${it.startColumn}): " } ?: ""
+            " - $locStr${error.message}"
+        }
+    ) {
+        private val errorArray = ErrorArray(errors.toList())
+
+        @ExportMessage
+        fun getExceptionType(): ExceptionType = ExceptionType.PARSE_ERROR
+
+        @ExportMessage
+        fun hasSourceLocation(): Boolean = errorArray.getArraySize() > 0
+
+        @ExportMessage
+        fun getSourceLocation(): SourceSection =
+            (errorArray.readArrayElement(0) as Error).loc!!
+
+        @ExportMessage
+        fun hasMembers(): Boolean = true
+
+        @ExportMessage
+        fun getMembers(includeInternal: Boolean): Any = arrayOf("errors")
+
+        @ExportMessage
+        fun isMemberReadable(member: String): Boolean = member == "errors"
+
+        @ExportMessage
+        fun readMember(member: String): Any = when (member) {
+            "errors" -> errorArray
+            else -> throw UnsupportedOperationException("Unknown member: $member")
+        }
+    }
+
+    @ExportLibrary(InteropLibrary::class)
+    data class Error(val message: String, val loc: SourceSection?) : TruffleObject {
+        @ExportMessage
+        fun hasMembers(): Boolean = true
+
+        @ExportMessage
+        fun getMembers(includeInternal: Boolean): Any = arrayOf("message", "loc")
+
+        @ExportMessage
+        fun isMemberReadable(member: String): Boolean = member in listOf("message", "loc")
+
+        @ExportMessage
+        fun readMember(member: String): Any? = when (member) {
+            "message" -> message
+            "loc" -> loc
+            else -> null
+        }
+    }
+
+    fun errorExpr(
+        message: String,
+        loc: SourceSection? = null,
+    ): ValueExpr {
+        errors.add(Error(message, loc))
+        return ErrorValueExpr(message, loc = loc)
+    }
 
     private fun tryHostLookup(name: String, loc: SourceSection?): TruffleObject? =
         try {
@@ -37,16 +120,16 @@ data class Analyser(
                 ?: ctx.brjCore[form.name]?.let { GlobalVarExpr(it, form.loc) }
                 ?: nsEnv.imports[form.name]?.let { fqClass ->
                     tryHostLookup(fqClass, form.loc)?.let { HostConstructorExpr(it, form.loc) }
-                        ?: error("Imported class not found: $fqClass")
+                        ?: errorExpr("Imported class not found: $fqClass", form.loc)
                 }
                 ?: tryHostLookup(form.name, form.loc)?.let { HostConstructorExpr(it, form.loc) }
-                ?: error("Unknown symbol: ${form.name}")
+                ?: errorExpr("Unknown symbol: ${form.name}", form.loc)
         }
 
     private fun analyseKeyword(form: KeywordForm): ValueExpr {
         val key = nsEnv.getKey(form.name)
             ?: ctx.brjCore.getKey(form.name)
-            ?: error("Unknown key: :${form.name}")
+            ?: return errorExpr("Unknown key: :${form.name}", form.loc)
 
         return TruffleObjectExpr(key, form.loc)
     }
@@ -54,13 +137,16 @@ data class Analyser(
     private fun analyseRecord(form: RecordForm): ValueExpr {
         val els = form.els
 
-        if (els.size % 2 != 0) error("record literal must have even number of forms")
+        if (els.size % 2 != 0) return errorExpr("record literal must have even number of forms", form.loc)
 
         val fields = mutableListOf<Pair<String, ValueExpr>>()
 
         for (i in els.indices step 2) {
             val keyForm = els[i] as? KeywordForm
-                ?: error("record keys must be keywords")
+            if (keyForm == null) {
+                errorExpr("record keys must be keywords", els[i].loc)
+                continue
+            }
             val valueExpr = analyseValueExpr(els[i + 1])
             fields.add(keyForm.name to valueExpr)
         }
@@ -72,14 +158,14 @@ data class Analyser(
         // Try Bridje namespace first (fully qualified)
         ctx.namespaces[form.namespace]?.let { ns ->
             val globalVar = ns[form.member]
-                ?: error("Unknown symbol: ${form.member} in namespace ${form.namespace}")
+                ?: return errorExpr("Unknown symbol: ${form.member} in namespace ${form.namespace}", form.loc)
             return GlobalVarExpr(globalVar, form.loc)
         }
 
         // Check if namespace is a require alias
         nsEnv.requires[form.namespace]?.let { ns ->
             val globalVar = ns[form.member]
-                ?: error("Unknown symbol: ${form.member} in required namespace ${form.namespace}")
+                ?: return errorExpr("Unknown symbol: ${form.member} in required namespace ${form.namespace}", form.loc)
             return GlobalVarExpr(globalVar, form.loc)
         }
 
@@ -89,7 +175,7 @@ data class Analyser(
             try {
                 ctx.truffleEnv.lookupHostSymbol(fqClass.replace(':', '.')) as TruffleObject
             } catch (_: Exception) {
-                error("Unknown namespace: ${form.namespace}")
+                return errorExpr("Unknown namespace: ${form.namespace}", form.loc)
             }
 
         return HostStaticMethodExpr(hostClass, form.member, form.loc)
@@ -107,10 +193,10 @@ data class Analyser(
                 "if" -> analyseIf(form)
                 "case" -> analyseCase(form)
                 "quote" -> analyseQuote(form)
-                "def" -> error("def not allowed in value position")
-                "deftag" -> error("deftag not allowed in value position")
-                "defmacro" -> error("defmacro not allowed in value position")
-                "defkey" -> error("defkey not allowed in value position")
+                "def" -> errorExpr("def not allowed in value position", form.loc)
+                "deftag" -> errorExpr("deftag not allowed in value position", form.loc)
+                "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
+                "defkey" -> errorExpr("defkey not allowed in value position", form.loc)
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
@@ -119,12 +205,13 @@ data class Analyser(
 
     private fun analyseDo(form: ListForm): ValueExpr {
         val bodyForms = form.els.drop(1)
-        if (bodyForms.isEmpty()) error("do requires at least one expression")
+        if (bodyForms.isEmpty()) return errorExpr("do requires at least one expression", form.loc)
         return analyseBody(bodyForms, form.loc)
     }
 
     private fun callFormConstructor(name: String, args: List<ValueExpr>, loc: SourceSection?): ValueExpr {
-        val constructor = nsEnv[name] ?: ctx.brjCore[name] ?: error("$name constructor not found")
+        val constructor = nsEnv[name] ?: ctx.brjCore[name]
+            ?: return errorExpr("$name constructor not found", loc)
         return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
     }
 
@@ -175,13 +262,13 @@ data class Analyser(
         }
 
     private fun analyseQuote(form: ListForm): ValueExpr {
-        if (form.els.size != 2) error("quote requires exactly one argument")
+        if (form.els.size != 2) return errorExpr("quote requires exactly one argument", form.loc)
         return analyseQuotedForm(form.els[1])
     }
 
-    private fun analyseIf(form: ListForm): IfExpr {
+    private fun analyseIf(form: ListForm): ValueExpr {
         val els = form.els
-        if (els.size != 4) error("if requires exactly 3 arguments: predicate, then, else")
+        if (els.size != 4) return errorExpr("if requires exactly 3 arguments: predicate, then, else", form.loc)
 
         return IfExpr(
             analyseValueExpr(els[1]),
@@ -196,9 +283,9 @@ data class Analyser(
         return Pair(copy(locals = locals + (name to lv)), lv)
     }
 
-    private fun analyseCase(form: ListForm): CaseExpr {
+    private fun analyseCase(form: ListForm): ValueExpr {
         val els = form.els
-        if (els.size < 3) error("case requires a scrutinee and at least one branch")
+        if (els.size < 3) return errorExpr("case requires a scrutinee and at least one branch", form.loc)
 
         val scrutinee = analyseValueExpr(els[1])
         val branchForms = els.drop(2)
@@ -220,14 +307,20 @@ data class Analyser(
 
             if (isPattern) {
                 val bodyForm = branchForms.getOrNull(i + 1)
-                    ?: error("case branch missing body expression")
-                val branch = analyseCaseBranch(patternForm, bodyForm)
-                branches.add(branch)
+                if (bodyForm == null) {
+                    errorExpr("case branch missing body expression", patternForm.loc)
+                    i += 1
+                    continue
+                }
+                when (val branchResult = analyseCaseBranch(patternForm, bodyForm)) {
+                    is Result.Ok -> branches.add(branchResult.value)
+                    is Result.Err -> errors.add(branchResult.error)
+                }
                 i += 2
             } else {
                 // Last form is not a pattern - treat as default
                 if (i != branchForms.size - 1) {
-                    error("default expression must be last in case")
+                    errorExpr("default expression must be last in case", patternForm.loc)
                 }
                 val bodyExpr = analyseValueExpr(patternForm)
                 branches.add(CaseBranch(DefaultPattern(patternForm.loc), bodyExpr, patternForm.loc))
@@ -235,62 +328,76 @@ data class Analyser(
             }
         }
 
-        if (branches.isEmpty()) error("case requires at least one branch")
+        if (branches.isEmpty()) return errorExpr("case requires at least one branch", form.loc)
 
         return CaseExpr(scrutinee, branches, form.loc)
     }
 
-    private fun resolveTag(name: String, loc: SourceSection?): Any {
-        val globalVar = nsEnv[name] ?: ctx.brjCore[name] ?: error("Unknown tag: $name")
-        return globalVar.value ?: error("Tag $name has no value")
+    private fun resolveTag(name: String, loc: SourceSection?): Result<Error, Any> {
+        val globalVar = nsEnv[name] ?: ctx.brjCore[name]
+            ?: return Result.Err(Error("Unknown tag: $name", loc))
+        val value = globalVar.value
+            ?: return Result.Err(Error("Tag $name has no value", loc))
+        return Result.Ok(value)
     }
 
-    private fun analyseCaseBranch(patternForm: Form, bodyForm: Form): CaseBranch = 
+    private fun analyseBindingNames(els: List<Form>): Result<Error, List<String>> {
+        val names = mutableListOf<String>()
+        for (el in els) {
+            val sym = el as? SymbolForm
+                ?: return Result.Err(Error("case pattern bindings must be symbols", el.loc))
+            names.add(sym.name)
+        }
+        return Result.Ok(names)
+    }
+
+    private fun analyseCaseBranch(patternForm: Form, bodyForm: Form): Result<Error, CaseBranch> =
         when (patternForm) {
             is SymbolForm -> {
                 val name = patternForm.name
-                if (name[0].isUpperCase()) {
-                    val tagValue = resolveTag(name, patternForm.loc)
-                    val bodyExpr = analyseValueExpr(bodyForm)
-                    CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
+                if (!name[0].isUpperCase()) {
+                    Result.Err(Error("case pattern must be a tag (capitalized): $name", patternForm.loc))
                 } else {
-                    error("case pattern must be a tag (capitalized): $name")
+                    resolveTag(name, patternForm.loc).map { tagValue ->
+                        val bodyExpr = analyseValueExpr(bodyForm)
+                        CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
+                    }
                 }
             }
 
             is ListForm -> {
-                // Tag pattern with bindings like Just(x) or Pair(a, b)
                 val tagForm = patternForm.els.firstOrNull() as? SymbolForm
-                    ?: error("case pattern must start with a tag name")
-                val tagName = tagForm.name
-                if (!tagName[0].isUpperCase()) {
-                    error("case pattern tag must be capitalized: $tagName")
+                if (tagForm == null) {
+                    Result.Err(Error("case pattern must start with a tag name", patternForm.loc))
+                } else {
+                    val tagName = tagForm.name
+                    if (!tagName[0].isUpperCase()) {
+                        Result.Err(Error("case pattern tag must be capitalized: $tagName", tagForm.loc))
+                    } else {
+                        resolveTag(tagName, tagForm.loc).flatMap { tagValue ->
+                            analyseBindingNames(patternForm.els.drop(1)).map { bindingNames ->
+                                var branchAnalyser = this
+                                val bindings = mutableListOf<LocalVar>()
+
+                                for (bindingName in bindingNames) {
+                                    val (newAnalyser, localVar) = branchAnalyser.withLocal(bindingName)
+                                    branchAnalyser = newAnalyser
+                                    bindings.add(localVar)
+                                }
+
+                                val bodyExpr = branchAnalyser.analyseValueExpr(bodyForm)
+                                CaseBranch(TagPattern(tagValue, bindings, patternForm.loc), bodyExpr, patternForm.loc)
+                            }
+                        }
+                    }
                 }
-                val tagValue = resolveTag(tagName, tagForm.loc)
-
-                val bindingNames = patternForm.els.drop(1).map {
-                    (it as? SymbolForm)?.name
-                        ?: error("case pattern bindings must be symbols")
-                }
-
-                var branchAnalyser = this
-                val bindings = mutableListOf<LocalVar>()
-
-                for (bindingName in bindingNames) {
-                    val (newAnalyser, localVar) = branchAnalyser.withLocal(bindingName)
-                    branchAnalyser = newAnalyser
-                    bindings.add(localVar)
-                }
-
-                val bodyExpr = branchAnalyser.analyseValueExpr(bodyForm)
-                CaseBranch(TagPattern(tagValue, bindings, patternForm.loc), bodyExpr, patternForm.loc)
             }
-            else -> error("case pattern must be a tag")
+            else -> Result.Err(Error("case pattern must be a tag", patternForm.loc))
         }
 
-    private fun analyseBody(forms: List<Form>, loc: SourceSection?): ValueExpr = 
+    private fun analyseBody(forms: List<Form>, loc: SourceSection?): ValueExpr =
         when {
-            forms.isEmpty() -> error("body requires at least one expression")
+            forms.isEmpty() -> errorExpr("body requires at least one expression", loc)
             forms.size == 1 -> analyseValueExpr(forms[0])
             else -> {
                 val sideEffects = forms.dropLast(1).map { analyseValueExpr(it) }
@@ -307,7 +414,7 @@ data class Analyser(
         if (bindingEls.isEmpty()) return analyseBody(bodyForms, loc)
 
         val nameForm = bindingEls[0] as? SymbolForm
-            ?: error("binding name must be a symbol")
+            ?: return errorExpr("binding name must be a symbol", bindingEls[0].loc)
 
         val valueForm = bindingEls[1]
 
@@ -322,38 +429,41 @@ data class Analyser(
     private fun analyseLet(form: ListForm): ValueExpr {
         val els = form.els
         val bindingsForm = els.getOrNull(1) as? VectorForm
-            ?: error("let requires a vector of bindings")
+            ?: return errorExpr("let requires a vector of bindings", form.loc)
 
         val bindingEls = bindingsForm.els
         if (bindingEls.size % 2 != 0) {
-            error("let bindings must have even number of forms")
+            return errorExpr("let bindings must have even number of forms", form.loc)
         }
 
         val bodyForms = els.drop(2)
         if (bodyForms.isEmpty()) {
-            error("let requires a body")
+            return errorExpr("let requires a body", form.loc)
         }
 
         return analyseBindings(bindingEls, bodyForms, form.loc)
     }
 
-    private fun analyseFn(form: ListForm): FnExpr {
+    private fun analyseFn(form: ListForm): ValueExpr {
         val els = form.els
         val sigForm = els.getOrNull(1) as? ListForm
-            ?: error("fn requires a signature list (fn-name & params)")
+            ?: return errorExpr("fn requires a signature list (fn-name & params)", form.loc)
 
         val sigEls = sigForm.els
         val fnName = (sigEls.firstOrNull() as? SymbolForm)?.name
-            ?: error("fn signature must start with a name")
+            ?: return errorExpr("fn signature must start with a name", sigForm.loc)
 
-        val params = sigEls.drop(1).map {
-            (it as? SymbolForm)?.name ?: error("fn parameter must be a symbol")
+        val params = mutableListOf<String>()
+        for (el in sigEls.drop(1)) {
+            val sym = el as? SymbolForm
+                ?: return errorExpr("fn parameter must be a symbol", el.loc)
+            params.add(sym.name)
         }
 
         val bodyForms = els.drop(2)
-        if (bodyForms.isEmpty()) error("fn requires a body")
+        if (bodyForms.isEmpty()) return errorExpr("fn requires a body", form.loc)
 
-        var fnAnalyser = Analyser(ctx, nsEnv)
+        var fnAnalyser = Analyser(ctx, nsEnv, errors = errors)
         for (param in params) {
             val (newAnalyser, _) = fnAnalyser.withLocal(param)
             fnAnalyser = newAnalyser
@@ -373,7 +483,7 @@ data class Analyser(
             val value = fnExpr.globalVar.value
             if (value is BridjeMacro) {
                 if (expansionDepth >= MAX_EXPANSION_DEPTH) {
-                    error("Maximum macro expansion depth ($MAX_EXPANSION_DEPTH) exceeded")
+                    return errorExpr("Maximum macro expansion depth ($MAX_EXPANSION_DEPTH) exceeded", form.loc)
                 }
                 val interop = InteropLibrary.getUncached()
                 val args = els.drop(1).toTypedArray<Any>()
@@ -401,19 +511,20 @@ data class Analyser(
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is SetForm -> SetExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is RecordForm -> analyseRecord(form)
-            is UnquoteForm -> error("unquote (~) can only be used inside a quote")
+            is UnquoteForm -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
         }
     }
 
-    private fun analyseDef(form: ListForm): DefExpr {
+    private fun analyseDef(form: ListForm): Expr {
         val els = form.els
-        val sigForm = els.getOrNull(1) ?: error("def requires a name")
+        val sigForm = els.getOrNull(1)
+            ?: return errorExpr("def requires a name", form.loc)
 
         return when (sigForm) {
             is ListForm -> {
                 // def: foo(a, b) body -> define a function
                 val name = (sigForm.els.firstOrNull() as? SymbolForm)?.name
-                    ?: error("def signature must start with a name")
+                    ?: return errorExpr("def signature must start with a name", sigForm.loc)
                 // Reuse analyseFn by constructing: (fn (name params...) body...)
                 val fnForm = ListForm(listOf(SymbolForm("fn")) + els.drop(1), form.loc)
                 val fnExpr = analyseFn(fnForm)
@@ -422,63 +533,72 @@ data class Analyser(
             is SymbolForm -> {
                 // def: foo value -> define a value
                 val name = sigForm.name
-                val valueExpr = analyseValueExpr(els.getOrNull(2) ?: error("def requires a value"))
+                val valueForm = els.getOrNull(2)
+                    ?: return errorExpr("def requires a value", form.loc)
+                val valueExpr = analyseValueExpr(valueForm)
                 DefExpr(name, valueExpr, form.loc)
             }
-            else -> error("def requires a name or signature")
+            else -> errorExpr("def requires a name or signature", form.loc)
         }
     }
 
-    private fun analyseDefTag(form: ListForm): DefTagExpr {
-        val sigForm = form.els.getOrNull(1) ?: error("deftag requires a tag signature")
+    private fun analyseDefTag(form: ListForm): Expr {
+        val sigForm = form.els.getOrNull(1)
+            ?: return errorExpr("deftag requires a tag signature", form.loc)
 
         return when (sigForm) {
             is SymbolForm -> {
                 // deftag: Nothing (nullary)
                 val name = sigForm.name
-                if (!name[0].isUpperCase()) error("tag names must be capitalized: $name")
+                if (!name[0].isUpperCase()) return errorExpr("tag names must be capitalized: $name", sigForm.loc)
                 DefTagExpr(name, emptyList(), form.loc)
             }
             is ListForm -> {
                 // deftag: Just(value)
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
-                    ?: error("deftag signature must start with a name")
+                    ?: return errorExpr("deftag signature must start with a name", sigForm.loc)
                 val name = nameForm.name
-                if (!name[0].isUpperCase()) error("tag names must be capitalized: $name")
-                val fieldNames = sigForm.els.drop(1).map {
-                    (it as? SymbolForm)?.name ?: error("field names must be symbols")
+                if (!name[0].isUpperCase()) return errorExpr("tag names must be capitalized: $name", nameForm.loc)
+                val fieldNames = mutableListOf<String>()
+                for (el in sigForm.els.drop(1)) {
+                    val sym = el as? SymbolForm
+                        ?: return errorExpr("field names must be symbols", el.loc)
+                    fieldNames.add(sym.name)
                 }
                 DefTagExpr(name, fieldNames, form.loc)
             }
-            else -> error("deftag requires a tag name or signature")
+            else -> errorExpr("deftag requires a tag name or signature", form.loc)
         }
     }
 
-    private fun analyseDefKey(form: ListForm): DefKeyExpr {
+    private fun analyseDefKey(form: ListForm): Expr {
         val els = form.els
         val keywordForm = els.getOrNull(1) as? KeywordForm
-            ?: error("defkey requires a keyword: defkey: :name")
+            ?: return errorExpr("defkey requires a keyword: defkey: :name", form.loc)
         // Third element (type) is ignored for now
         return DefKeyExpr(keywordForm.name, form.loc)
     }
 
-    private fun analyseDefMacro(form: ListForm): DefMacroExpr {
+    private fun analyseDefMacro(form: ListForm): Expr {
         val els = form.els
         val sigForm = els.getOrNull(1) as? ListForm
-            ?: error("defmacro requires a signature: defmacro: name(params)")
+            ?: return errorExpr("defmacro requires a signature: defmacro: name(params)", form.loc)
 
         val sigEls = sigForm.els
         val name = (sigEls.firstOrNull() as? SymbolForm)?.name
-            ?: error("defmacro signature must start with a name")
+            ?: return errorExpr("defmacro signature must start with a name", sigForm.loc)
 
-        val params = sigEls.drop(1).map {
-            (it as? SymbolForm)?.name ?: error("defmacro parameter must be a symbol")
+        val params = mutableListOf<String>()
+        for (el in sigEls.drop(1)) {
+            val sym = el as? SymbolForm
+                ?: return errorExpr("defmacro parameter must be a symbol", el.loc)
+            params.add(sym.name)
         }
 
         val bodyForms = els.drop(2)
-        if (bodyForms.isEmpty()) error("defmacro requires a body")
+        if (bodyForms.isEmpty()) return errorExpr("defmacro requires a body", form.loc)
 
-        var macroAnalyser = Analyser(ctx, nsEnv)
+        var macroAnalyser = Analyser(ctx, nsEnv, errors = errors)
         for (param in params) {
             val (newAnalyser, _) = macroAnalyser.withLocal(param)
             macroAnalyser = newAnalyser
@@ -489,7 +609,7 @@ data class Analyser(
         return DefMacroExpr(name, FnExpr(name, params, bodyExpr, form.loc), form.loc)
     }
 
-    fun analyseExpr(form: Form): Expr {
+    private fun analyseExpr(form: Form): Expr {
         if (form is ListForm) {
             val first = form.els.firstOrNull()
             if (first is SymbolForm) {
@@ -504,13 +624,19 @@ data class Analyser(
         return analyseValueExpr(form)
     }
 
-    fun analyseTopLevel(form: Form): TopLevelDoOrExpr {
+    fun analyse(form: Form): TopLevelDoOrExpr {
         if (form is ListForm) {
             val first = form.els.firstOrNull()
             if (first is SymbolForm && first.name == "do") {
                 return TopLevelDo(form.els.drop(1))
             }
         }
-        return TopLevelExpr(analyseExpr(form))
+
+        val expr = analyseExpr(form)
+        return if (errors.isEmpty()) {
+            TopLevelExpr(expr)
+        } else {
+            AnalyserErrors(expr, errors.toList())
+        }
     }
 }

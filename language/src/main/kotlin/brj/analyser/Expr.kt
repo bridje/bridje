@@ -47,3 +47,5 @@ sealed class TopLevelDoOrExpr
 class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()
 
 class TopLevelExpr(val expr: Expr) : TopLevelDoOrExpr()
+
+class AnalyserErrors(val expr: Expr, val errors: List<Analyser.Error>): TopLevelDoOrExpr()
