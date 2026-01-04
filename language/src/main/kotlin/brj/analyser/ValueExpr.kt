@@ -173,3 +173,10 @@ class CaseExpr(
     override fun toString(): String =
         "(case $scrutinee ${branches.joinToString(" ")})"
 }
+
+class ErrorValueExpr(
+    val message: String,
+    override val loc: SourceSection? = null,
+) : ValueExpr {
+    override fun toString(): String = "<error: $message>"
+}
