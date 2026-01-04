@@ -42,10 +42,14 @@ class DefKeyExpr(
     override fun toString(): String = "(defkey :$name)"
 }
 
-sealed class TopLevelDoOrExpr
+class TopLevelDo(val forms: List<Form>, override val loc: SourceSection?) : Expr {
+    override fun toString(): String = 
+        forms.joinToString(prefix = "(do ", separator = " ", postfix = ")")
+}
 
-class TopLevelDo(val forms: List<Form>) : TopLevelDoOrExpr()
-
-class TopLevelExpr(val expr: Expr) : TopLevelDoOrExpr()
-
-class AnalyserErrors(val expr: Expr, val errors: List<Analyser.Error>): TopLevelDoOrExpr()
+class AnalyserErrors(
+    override val loc: SourceSection?, 
+    val errors: List<Analyser.Error>,
+): Expr {
+    override fun toString() = "ERRORS"
+}

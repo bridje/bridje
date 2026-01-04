@@ -83,56 +83,51 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                 val errors = mutableListOf<Analyser.Error>()
 
                 val res = fold(null as Any?) { _, form ->
-
                     val analyser = Analyser(ctx, nsEnv)
 
-                    when (val result = analyser.analyse(form)) {
+                    when (val expr = analyser.analyse(form)) {
                         is TopLevelDo -> {
-                            val (newNsEnv, res) = result.forms.evalForms(ctx, nsEnv)
+                            val (newNsEnv, res) = expr.forms.evalForms(ctx, nsEnv)
                             nsEnv = newNsEnv
                             res
                         }
 
-                        is TopLevelExpr -> {
-                            when (val expr = result.expr) {
-                                is DefExpr -> {
-                                    val value = evalExpr(expr.valueExpr, analyser.slotCount)
-                                    nsEnv = nsEnv.def(expr.name, value)
-                                    value
-                                }
-
-                                is DefTagExpr -> {
-                                    val value: Any =
-                                    if (expr.fieldNames.isEmpty()) {
-                                        BridjeTaggedSingleton(expr.name)
-                                    } else {
-                                        BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
-                                    }
-
-                                    nsEnv = nsEnv.def(expr.name, value)
-
-                                    value
-                                }
-
-                                is DefMacroExpr -> {
-                                    val fn = evalExpr(expr.fn, analyser.slotCount)
-                                    val macro = BridjeMacro(fn!!)
-                                    nsEnv = nsEnv.def(expr.name, macro)
-                                    macro
-                                }
-
-                                is DefKeyExpr -> {
-                                    val key = BridjeKey(expr.name)
-                                    nsEnv = nsEnv.defKey(expr.name, key)
-                                    key
-                                }
-
-                                is ValueExpr -> evalExpr(expr, analyser.slotCount)
-                            }
+                        is DefExpr -> {
+                            val value = evalExpr(expr.valueExpr, analyser.slotCount)
+                            nsEnv = nsEnv.def(expr.name, value)
+                            value
                         }
 
+                        is DefTagExpr -> {
+                            val value: Any =
+                            if (expr.fieldNames.isEmpty()) {
+                                BridjeTaggedSingleton(expr.name)
+                            } else {
+                                BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
+                            }
+
+                            nsEnv = nsEnv.def(expr.name, value)
+
+                            value
+                        }
+
+                        is DefMacroExpr -> {
+                            val fn = evalExpr(expr.fn, analyser.slotCount)
+                            val macro = BridjeMacro(fn!!)
+                            nsEnv = nsEnv.def(expr.name, macro)
+                            macro
+                        }
+
+                        is DefKeyExpr -> {
+                            val key = BridjeKey(expr.name)
+                            nsEnv = nsEnv.defKey(expr.name, key)
+                            key
+                        }
+
+                        is ValueExpr -> evalExpr(expr, analyser.slotCount)
+
                         is AnalyserErrors -> {
-                            errors.addAll(result.errors)
+                            errors.addAll(expr.errors)
                             null
                         }
                     }

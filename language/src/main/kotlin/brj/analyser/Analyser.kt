@@ -609,11 +609,12 @@ data class Analyser(
         return DefMacroExpr(name, FnExpr(name, params, bodyExpr, form.loc), form.loc)
     }
 
-    private fun analyseExpr(form: Form): Expr {
+    fun analyseExpr(form: Form): Expr {
         if (form is ListForm) {
             val first = form.els.firstOrNull()
             if (first is SymbolForm) {
                 when (first.name) {
+                    "do" -> return TopLevelDo(form.els.drop(1), form.loc)
                     "def" -> return analyseDef(form)
                     "deftag" -> return analyseDefTag(form)
                     "defmacro" -> return analyseDefMacro(form)
@@ -621,22 +622,12 @@ data class Analyser(
                 }
             }
         }
+
         return analyseValueExpr(form)
     }
 
-    fun analyse(form: Form): TopLevelDoOrExpr {
-        if (form is ListForm) {
-            val first = form.els.firstOrNull()
-            if (first is SymbolForm && first.name == "do") {
-                return TopLevelDo(form.els.drop(1))
-            }
-        }
-
-        val expr = analyseExpr(form)
-        return if (errors.isEmpty()) {
-            TopLevelExpr(expr)
-        } else {
-            AnalyserErrors(expr, errors.toList())
-        }
-    }
+    fun analyse(form: Form): Expr = 
+        analyseExpr(form)
+            .takeIf { errors.isEmpty() }
+            ?: AnalyserErrors(form.loc, errors.toList())
 }
