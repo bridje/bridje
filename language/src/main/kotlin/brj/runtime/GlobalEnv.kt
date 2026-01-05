@@ -20,6 +20,32 @@ data class GlobalEnv(
     )
 
     /**
+     * Get quarantined dependencies needed by the given namespace declaration in dependency order.
+     * Returns a list of (name, QuarantinedNs) pairs in the order they should be evaluated.
+     */
+    fun getQuarantinedDependencies(nsDecl: NsDecl): List<Pair<String, QuarantinedNs>> {
+        val required = nsDecl.requires.values.toSet()
+        val result = mutableListOf<Pair<String, QuarantinedNs>>()
+        val visited = mutableSetOf<String>()
+        
+        fun visit(name: String) {
+            if (name in visited || name !in quarantined) return
+            visited.add(name)
+            
+            val quarantinedNs = quarantined[name]!!
+            // First visit its dependencies
+            quarantinedNs.nsDecl.requires.values.forEach { depName ->
+                visit(depName)
+            }
+            // Then add this namespace
+            result.add(name to quarantinedNs)
+        }
+        
+        required.forEach { visit(it) }
+        return result
+    }
+
+    /**
      * Register a namespace and update reverse dependencies.
      */
     fun withNamespace(name: String, nsEnv: NsEnv): GlobalEnv {
