@@ -148,7 +148,12 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                 val (nsEnv, result) = forms.evalForms(ctx, nsDecl?.resolve(ctx) ?: NsEnv())
 
                 if (nsDecl != null) {
-                    ctx.namespaces = ctx.namespaces + (nsDecl.name to nsEnv.copy(nsDecl = nsDecl, forms = forms))
+                    ctx.updateGlobalEnv { globalEnv ->
+                        // Invalidate this namespace and all its dependents before re-registering
+                        val invalidated = globalEnv.invalidateNamespace(nsDecl.name)
+                        // Register the new version
+                        invalidated.withNamespace(nsDecl.name, nsEnv.copy(nsDecl = nsDecl, forms = forms))
+                    }
                 }
 
                 return result
