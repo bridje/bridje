@@ -66,7 +66,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             private fun NsDecl.resolve(ctx: BridjeContext): NsEnv =
                 NsEnv(
                     requires = resolveRequires(ctx),
-                    imports = this.imports
+                    imports = this.imports,
+                    nsDecl = this,
+                    forms = forms
                 )
 
             @TruffleBoundary
@@ -146,7 +148,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                 val (nsEnv, result) = forms.evalForms(ctx, nsDecl?.resolve(ctx) ?: NsEnv())
 
                 if (nsDecl != null) {
-                    ctx.namespaces = ctx.namespaces + (nsDecl.name to nsEnv)
+                    ctx.namespaces = ctx.namespaces + (nsDecl.name to nsEnv.copy(nsDecl = nsDecl, forms = forms))
                 }
 
                 return result

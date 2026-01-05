@@ -1,5 +1,6 @@
 package brj
 
+import brj.analyser.NsDecl
 import brj.builtins.Builtins
 import brj.runtime.BridjeKey
 import brj.runtime.BridjeRecord
@@ -19,6 +20,8 @@ data class NsEnv(
     val imports: Imports = emptyMap(),
     val vars: Map<String, GlobalVar> = emptyMap(),
     val keys: Map<String, BridjeKey> = emptyMap(),
+    val nsDecl: NsDecl? = null,
+    val forms: List<Form> = emptyList(),
 ) : TruffleObject {
     companion object {
         private val builtinFormMetas = mapOf(
