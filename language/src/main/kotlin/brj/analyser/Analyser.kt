@@ -9,6 +9,7 @@ import com.oracle.truffle.api.interop.ExceptionType
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.interop.UnsupportedMessageException
 import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.source.SourceSection
 import java.util.concurrent.atomic.AtomicInteger
@@ -26,7 +27,51 @@ data class Analyser(
     val slotCount: Int get() = nextSlot.get()
 
     @ExportLibrary(InteropLibrary::class)
-    class ErrorArray(private val errors: List<Error>) : TruffleObject {
+    data class Error(override val message: String, val loc: SourceSection?) : AbstractTruffleException() {
+        @ExportMessage
+        fun isException(): Boolean = true
+
+        @ExportMessage
+        fun throwException(): RuntimeException = throw this
+
+        @ExportMessage
+        fun getExceptionType(): ExceptionType = ExceptionType.PARSE_ERROR
+
+        @ExportMessage
+        fun hasExceptionMessage(): Boolean = true
+
+        @ExportMessage
+        fun getExceptionMessage(): String = message
+
+        @ExportMessage
+        fun hasSourceLocation() = loc != null
+
+        @ExportMessage
+        fun getSourceLocation(): SourceSection = loc ?: throw UnsupportedMessageException.create()
+    }
+
+    @ExportLibrary(InteropLibrary::class)
+    data class Errors(val errors: List<Error>) : AbstractTruffleException() {
+
+        @ExportMessage
+        fun isException(): Boolean = true
+
+        @ExportMessage
+        fun throwException(): RuntimeException = throw this
+
+        @ExportMessage
+        fun getExceptionType(): ExceptionType = ExceptionType.PARSE_ERROR
+
+        @ExportMessage
+        fun hasExceptionMessage(): Boolean = true
+
+        @ExportMessage
+        fun getExceptionMessage(): String =
+            errors.joinToString(prefix = "Errors:\n", separator = "\n") { error ->
+                val locStr = error.loc?.let { "(${it.startLine}:${it.startColumn}): " } ?: ""
+                " - $locStr${error.message}"
+            }
+
         @ExportMessage
         fun hasArrayElements(): Boolean = true
 
@@ -37,61 +82,7 @@ data class Analyser(
         fun isArrayElementReadable(index: Long): Boolean = index >= 0 && index < errors.size
 
         @ExportMessage
-        fun readArrayElement(index: Long): Any = errors[index.toInt()]
-    }
-
-    @ExportLibrary(InteropLibrary::class)
-    class Errors(errors: Collection<Error>) : AbstractTruffleException(
-        errors.joinToString(prefix = "Errors:\n", separator = "\n") { error ->
-            val locStr = error.loc?.let { "(${it.startLine}:${it.startColumn}): " } ?: ""
-            " - $locStr${error.message}"
-        }
-    ) {
-        private val errorArray = ErrorArray(errors.toList())
-
-        @ExportMessage
-        fun getExceptionType(): ExceptionType = ExceptionType.PARSE_ERROR
-
-        @ExportMessage
-        fun hasSourceLocation(): Boolean = errorArray.getArraySize() > 0
-
-        @ExportMessage
-        fun getSourceLocation(): SourceSection =
-            (errorArray.readArrayElement(0) as Error).loc!!
-
-        @ExportMessage
-        fun hasMembers(): Boolean = true
-
-        @ExportMessage
-        fun getMembers(includeInternal: Boolean): Any = arrayOf("errors")
-
-        @ExportMessage
-        fun isMemberReadable(member: String): Boolean = member == "errors"
-
-        @ExportMessage
-        fun readMember(member: String): Any = when (member) {
-            "errors" -> errorArray
-            else -> throw UnsupportedOperationException("Unknown member: $member")
-        }
-    }
-
-    @ExportLibrary(InteropLibrary::class)
-    data class Error(val message: String, val loc: SourceSection?) : TruffleObject {
-        @ExportMessage
-        fun hasMembers(): Boolean = true
-
-        @ExportMessage
-        fun getMembers(includeInternal: Boolean): Any = arrayOf("message", "loc")
-
-        @ExportMessage
-        fun isMemberReadable(member: String): Boolean = member in listOf("message", "loc")
-
-        @ExportMessage
-        fun readMember(member: String): Any? = when (member) {
-            "message" -> message
-            "loc" -> loc
-            else -> null
-        }
+        fun readArrayElement(index: Long): Error = errors[index.toInt()]
     }
 
     fun errorExpr(

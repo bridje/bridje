@@ -1,23 +1,21 @@
 package brj
 
 import org.graalvm.polyglot.PolyglotException
+import org.graalvm.polyglot.Value
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class AnalyserErrorsTest {
-    private fun PolyglotException.errorCount(): Int {
+    private fun PolyglotException.errors(): Value {
         assertTrue(isGuestException, "Expected guest exception")
         val guest = guestObject!!
-        val errors = guest.getMember("errors")
-        return errors.arraySize.toInt()
+        assertTrue(guest.hasArrayElements(), "Expected errors to be an array")
+        return guest
     }
 
-    private fun PolyglotException.errorMessages(): List<String> {
-        val guest = guestObject!!
-        val errors = guest.getMember("errors")
-        return (0 until errors.arraySize).map { i ->
-            errors.getArrayElement(i).getMember("message").asString()
-        }
+    private fun Value.toAnalyserError(): Pair<String, Int> {
+        val ex = assertThrows(PolyglotException::class.java) { throwException() }
+        return Pair(ex.message!!, ex.sourceLocation.startLine)
     }
 
     @Test
@@ -31,8 +29,20 @@ class AnalyserErrorsTest {
             """.trimIndent())
         }
 
-        assertEquals(3, ex.errorCount())
-        assertTrue(ex.errorMessages().all { it.contains("Unknown symbol") })
+        val errors = ex.errors()
+        assertEquals(3, errors.arraySize)
+
+        val (msg0, line0) = errors.getArrayElement(0).toAnalyserError()
+        assertTrue(msg0.contains("unknownSymbol1"))
+        assertEquals(2, line0)
+
+        val (msg1, line1) = errors.getArrayElement(1).toAnalyserError()
+        assertTrue(msg1.contains("unknownSymbol2"))
+        assertEquals(3, line1)
+
+        val (msg2, line2) = errors.getArrayElement(2).toAnalyserError()
+        assertTrue(msg2.contains("unknownSymbol3"))
+        assertEquals(4, line2)
     }
 
     @Test
@@ -46,10 +56,16 @@ class AnalyserErrorsTest {
             """.trimIndent())
         }
 
-        assertEquals(2, ex.errorCount())
-        val messages = ex.errorMessages()
-        assertTrue(messages.any { it.contains("badSymbol") })
-        assertTrue(messages.any { it.contains("anotherBadSymbol") })
+        val errors = ex.errors()
+        assertEquals(2, errors.arraySize)
+
+        val (msg0, line0) = errors.getArrayElement(0).toAnalyserError()
+        assertTrue(msg0.contains("badSymbol"))
+        assertEquals(3, line0)
+
+        val (msg1, line1) = errors.getArrayElement(1).toAnalyserError()
+        assertTrue(msg1.contains("anotherBadSymbol"))
+        assertEquals(4, line1)
     }
 
     @Test
@@ -58,8 +74,11 @@ class AnalyserErrorsTest {
             ctx.evalBridje("unknownSymbol")
         }
 
-        assertEquals(1, ex.errorCount())
-        // Location is in the exception's source location
-        assertTrue(ex.sourceLocation != null)
+        val errors = ex.errors()
+        assertEquals(1, errors.arraySize)
+
+        val (msg, line) = errors.getArrayElement(0).toAnalyserError()
+        assertTrue(msg.contains("unknownSymbol"))
+        assertEquals(1, line)
     }
 }
