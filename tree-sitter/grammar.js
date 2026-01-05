@@ -52,12 +52,13 @@ module.exports = grammar({
       $.symbol, token.immediate(':'),
       repeat($._form),
       optional($._newline),
-      optional(seq($.block_body, $._dedent))
+      optional($.block_body)
     )),
 
     block_body: $ => seq(
       $._indent,
-      repeat1($._form)
+      repeat1($._form),
+      $._dedent
     ),
 
     // expr.bar(a, b)

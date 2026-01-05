@@ -251,10 +251,11 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     Scanner *scanner = (Scanner *)payload;
     int32_t ch = lexer->lookahead;
 
-    // If we're in the middle of emitting dedents, continue until done
+    // If we're in the middle of emitting dedents, emit zero-width
     if (scanner->queued_dedent_target >= 0) {
         uint16_t current_indent = get_current_indent(scanner);
         if (valid_symbols[DEDENT] && scanner->queued_dedent_target < current_indent) {
+            lexer->mark_end(lexer);  // Zero-width subsequent dedents
             pop_indent(scanner);
             lexer->result_symbol = DEDENT;
             return true;
@@ -271,6 +272,12 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
 
     // Handle newline - this is where indentation logic happens
     if (ch == '\n') {
+        // Only mark for zero-width if DEDENT is valid and INDENT is not
+        // This heuristic helps us mark before consuming only for actual dedents
+        if (valid_symbols[DEDENT] && !valid_symbols[INDENT]) {
+            lexer->mark_end(lexer);
+        }
+        
         // Skip the newline and any following blank lines
         while (ch == '\n') {
             lexer->advance(lexer, true);
@@ -292,7 +299,7 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
             return true;
         }
 
-        // Check for DEDENT - start dedenting
+        // Check for DEDENT
         if (valid_symbols[DEDENT] && indent < current_indent) {
             scanner->queued_dedent_target = indent;
             pop_indent(scanner);
@@ -310,6 +317,7 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     // Handle EOF - if grammar expects DEDENT, emit it
     if (lexer->eof(lexer)) {
         if (valid_symbols[DEDENT]) {
+            lexer->mark_end(lexer);  // Zero-width at EOF
             pop_indent(scanner);
             lexer->result_symbol = DEDENT;
             return true;
@@ -319,6 +327,7 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
 
     // Handle closing brackets - if grammar expects DEDENT, emit it
     if (is_closing_bracket(ch) && valid_symbols[DEDENT]) {
+        lexer->mark_end(lexer);  // Zero-width before bracket
         pop_indent(scanner);
         lexer->result_symbol = DEDENT;
         return true;
