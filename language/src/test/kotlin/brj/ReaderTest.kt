@@ -140,6 +140,10 @@ class ReaderTest {
             "java:time:Instant/now()".readSingle()
         )
 
+    // Helper function for location tests
+    private fun String.readWithLocation(): Form =
+        Source.newBuilder("bridje", this, "test.brj").build().readForms().first()
+
     // Location tests for blocks - verifying extents don't include trailing whitespace
     @Test
     fun `simple block location excludes trailing whitespace`() {
@@ -148,15 +152,14 @@ class ReaderTest {
               bar()
             baz()
         """.trimIndent()
-        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        val form = source.readWithLocation()
         
         // The block_call should end at bar()'s closing paren, not include newline after
-        // Source is "def: foo()\n  bar()\nbaz()"
-        // Expected: starts at 0, ends at position after bar() closing paren
         val loc = form.loc!!
+        val expected = "def: foo()\n  bar()"
         assertTrue(loc.charIndex == 0, "Block should start at position 0, got ${loc.charIndex}")
-        assertTrue(loc.charLength == 17, "Block should end at bar()'s closing paren (length 17), got ${loc.charLength}")
-        assertTrue(loc.characters.toString() == "def: foo()\n  bar()", "Block extent should be 'def: foo()\\n  bar()', got '${loc.characters}'")
+        assertTrue(loc.charLength == expected.length, "Block should end at bar()'s closing paren (length ${expected.length}), got ${loc.charLength}")
+        assertTrue(loc.characters.toString() == expected, "Block extent should be '$expected', got '${loc.characters}'")
     }
 
     @Test
@@ -168,7 +171,7 @@ class ReaderTest {
               after()
             next()
         """.trimIndent()
-        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        val form = source.readWithLocation()
         
         // The outer block_call should end at after()'s closing paren
         val loc = form.loc!!
@@ -187,7 +190,7 @@ class ReaderTest {
               baz()
             qux()
         """.trimIndent()
-        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        val form = source.readWithLocation()
         
         // The block should include the blank line but not trailing whitespace after baz()
         val loc = form.loc!!
@@ -204,7 +207,7 @@ class ReaderTest {
 
             baz()
         """.trimIndent()
-        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        val form = source.readWithLocation()
         
         // The block should include blank line but not the trailing newline after it
         val loc = form.loc!!
@@ -220,7 +223,7 @@ class ReaderTest {
               foo()
               bar()
         """.trimIndent()
-        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        val form = source.readWithLocation()
         
         // The block at EOF should end at bar()'s closing paren
         val loc = form.loc!!
