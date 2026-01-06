@@ -139,4 +139,93 @@ class ReaderTest {
             list(qsym("java:time:Instant", "now")),
             "java:time:Instant/now()".readSingle()
         )
+
+    // Location tests for blocks - verifying extents don't include trailing whitespace
+    @Test
+    fun `simple block location excludes trailing whitespace`() {
+        val source = """
+            def: foo()
+              bar()
+            baz()
+        """.trimIndent()
+        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        
+        // The block_call should end at bar()'s closing paren, not include newline after
+        // Source is "def: foo()\n  bar()\nbaz()"
+        // Expected: starts at 0, ends at position after bar() closing paren
+        val loc = form.loc!!
+        assertTrue(loc.charIndex == 0, "Block should start at position 0, got ${loc.charIndex}")
+        assertTrue(loc.charLength == 17, "Block should end at bar()'s closing paren (length 17), got ${loc.charLength}")
+        assertTrue(loc.characters.toString() == "def: foo()\n  bar()", "Block extent should be 'def: foo()\\n  bar()', got '${loc.characters}'")
+    }
+
+    @Test
+    fun `nested block locations exclude trailing whitespace`() {
+        val source = """
+            def: outer()
+              if: condition
+                inner()
+              after()
+            next()
+        """.trimIndent()
+        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        
+        // The outer block_call should end at after()'s closing paren
+        val loc = form.loc!!
+        val expected = "def: outer()\n  if: condition\n    inner()\n  after()"
+        assertTrue(loc.charIndex == 0, "Outer block should start at position 0, got ${loc.charIndex}")
+        assertTrue(loc.characters.toString() == expected, 
+            "Outer block extent should not include trailing newline.\nExpected: '$expected'\nGot: '${loc.characters}'")
+    }
+
+    @Test
+    fun `block with blank line in body location`() {
+        val source = """
+            def: foo()
+              bar()
+
+              baz()
+            qux()
+        """.trimIndent()
+        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        
+        // The block should include the blank line but not trailing whitespace after baz()
+        val loc = form.loc!!
+        val expected = "def: foo()\n  bar()\n\n  baz()"
+        assertTrue(loc.characters.toString() == expected,
+            "Block with blank line should not include trailing whitespace.\nExpected: '$expected'\nGot: '${loc.characters}'")
+    }
+
+    @Test
+    fun `block with blank line before dedent location`() {
+        val source = """
+            def: foo()
+              bar()
+
+            baz()
+        """.trimIndent()
+        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        
+        // The block should include blank line but not the trailing newline after it
+        val loc = form.loc!!
+        val expected = "def: foo()\n  bar()\n"
+        assertTrue(loc.characters.toString() == expected,
+            "Block with blank line before dedent.\nExpected: '$expected'\nGot: '${loc.characters}'")
+    }
+
+    @Test
+    fun `do block at EOF location`() {
+        val source = """
+            do:
+              foo()
+              bar()
+        """.trimIndent()
+        val form = Source.newBuilder("bridje", source, "test.brj").build().readForms().first()
+        
+        // The block at EOF should end at bar()'s closing paren
+        val loc = form.loc!!
+        val expected = "do:\n  foo()\n  bar()"
+        assertTrue(loc.characters.toString() == expected,
+            "Block at EOF should end at last content.\nExpected: '$expected'\nGot: '${loc.characters}'")
+    }
 }
