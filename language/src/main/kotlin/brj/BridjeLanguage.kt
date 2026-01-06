@@ -66,7 +66,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             private fun NsDecl.resolve(ctx: BridjeContext): NsEnv =
                 NsEnv(
                     requires = resolveRequires(ctx),
-                    imports = this.imports
+                    imports = this.imports,
+                    nsDecl = this,
+                    forms = forms
                 )
 
             @TruffleBoundary
@@ -143,10 +145,51 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             override fun execute(frame: VirtualFrame): Any? {
                 val ctx = BridjeContext.get(this)
 
+                // Before evaluating this namespace, re-evaluate any quarantined dependencies
+                if (nsDecl != null) {
+                    val quarantinedDeps = ctx.globalEnv.getQuarantinedDependencies(nsDecl)
+                    
+                    for ((depName, quarantinedNs) in quarantinedDeps) {
+                        try {
+                            // Re-evaluate the quarantined dependency
+                            val depNsDecl = quarantinedNs.nsDecl
+                            val depForms = quarantinedNs.forms
+                            
+                            // Resolve dependencies for this quarantined namespace
+                            fun resolveQuarantinedRequires(): Requires =
+                                depNsDecl.requires.mapValues { (alias, fqNs) ->
+                                    ctx.namespaces[fqNs] ?: error("Required namespace not found: $fqNs (as $alias)")
+                                }
+                            
+                            val depInitialEnv = NsEnv(
+                                requires = resolveQuarantinedRequires(),
+                                imports = depNsDecl.imports,
+                                nsDecl = depNsDecl,
+                                forms = depForms
+                            )
+                            
+                            val (depNsEnv, _) = depForms.evalForms(ctx, depInitialEnv)
+                            
+                            // Register the re-evaluated namespace
+                            ctx.updateGlobalEnv { globalEnv ->
+                                globalEnv.withNamespace(depName, depNsEnv.copy(nsDecl = depNsDecl, forms = depForms))
+                            }
+                        } catch (e: Exception) {
+                            // Halt at first failure
+                            throw RuntimeException("Failed to re-evaluate quarantined dependency $depName: ${e.message}", e)
+                        }
+                    }
+                }
+
                 val (nsEnv, result) = forms.evalForms(ctx, nsDecl?.resolve(ctx) ?: NsEnv())
 
                 if (nsDecl != null) {
-                    ctx.namespaces = ctx.namespaces + (nsDecl.name to nsEnv)
+                    ctx.updateGlobalEnv { globalEnv ->
+                        // Invalidate this namespace and all its dependents before re-registering
+                        val invalidated = globalEnv.invalidateNamespace(nsDecl.name)
+                        // Register the new version
+                        invalidated.withNamespace(nsDecl.name, nsEnv.copy(nsDecl = nsDecl, forms = forms))
+                    }
                 }
 
                 return result

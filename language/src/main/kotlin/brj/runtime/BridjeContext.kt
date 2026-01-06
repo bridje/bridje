@@ -8,7 +8,17 @@ import com.oracle.truffle.api.nodes.Node
 
 class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
     val brjCore: NsEnv = NsEnv.withBuiltins(lang)
-    var namespaces: Map<String, NsEnv> = mapOf("brj:core" to brjCore)
+    
+    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj:core" to brjCore))
+        private set
+
+    // Convenience accessor for backwards compatibility
+    val namespaces: Map<String, NsEnv>
+        get() = globalEnv.namespaces
+
+    fun updateGlobalEnv(update: (GlobalEnv) -> GlobalEnv) {
+        globalEnv = update(globalEnv)
+    }
 
     companion object {
         private val CONTEXT_REF: ContextReference<BridjeContext> =
