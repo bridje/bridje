@@ -33,7 +33,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun createContext(env: Env) = BridjeContext(env, this)
 
-    override fun getScope(context: BridjeContext): Any = BridjeScope(context.namespaces)
+    override fun getScope(context: BridjeContext): Any = BridjeScope(context)
 
     class EvalNode(
         lang: BridjeLanguage,

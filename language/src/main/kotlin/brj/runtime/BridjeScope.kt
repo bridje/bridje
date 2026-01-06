@@ -10,7 +10,10 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeScope(private val namespaces: Map<String, NsEnv>) : TruffleObject {
+class BridjeScope(private val context: BridjeContext) : TruffleObject {
+    private val namespaces: Map<String, NsEnv>
+        get() = context.namespaces
+
     @ExportMessage
     fun hasLanguage() = true
 
