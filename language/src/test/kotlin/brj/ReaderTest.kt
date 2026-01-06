@@ -2,6 +2,7 @@ package brj
 
 import brj.Reader.Companion.readForms
 import com.oracle.truffle.api.source.Source
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
@@ -155,12 +156,10 @@ class ReaderTest {
         """.trimIndent()
         val form = source.readWithLocation()
         
-        // The block_call should end at bar()'s closing paren, not include newline after
         val loc = requireNotNull(form.loc) { "Form should have location information" }
-        val expected = "def: foo()\n  bar()"
-        assertTrue(loc.charIndex == 0, "Block should start at position 0, got ${loc.charIndex}")
-        assertTrue(loc.charLength == expected.length, "Block should end at bar()'s closing paren (length ${expected.length}), got ${loc.charLength}")
-        assertTrue(loc.characters.toString() == expected, "Block extent should be '$expected', got '${loc.characters}'")
+        assertEquals(0, loc.charIndex, "Block should start at position 0")
+        assertEquals(17, loc.charLength, "Block should end at bar()'s closing paren")
+        assertEquals("def: foo()\n  bar()", loc.characters.toString())
     }
 
     @Test
@@ -174,13 +173,10 @@ class ReaderTest {
         """.trimIndent()
         val form = source.readWithLocation()
         
-        // The outer block_call should end at after()'s closing paren
         val loc = requireNotNull(form.loc) { "Form should have location information" }
-        val expected = "def: outer()\n  if: condition\n    inner()\n  after()"
-        assertTrue(loc.charIndex == 0, "Outer block should start at position 0, got ${loc.charIndex}")
-        assertTrue(loc.charLength == expected.length, "Block length should be ${expected.length}, got ${loc.charLength}")
-        assertTrue(loc.characters.toString() == expected, 
-            "Outer block extent should not include trailing newline.\nExpected: '$expected'\nGot: '${loc.characters}'")
+        assertEquals(0, loc.charIndex, "Outer block should start at position 0")
+        assertEquals(52, loc.charLength, "Outer block should end at after()'s closing paren")
+        assertEquals("def: outer()\n  if: condition\n    inner()\n  after()", loc.characters.toString())
     }
 
     @Test
@@ -194,13 +190,10 @@ class ReaderTest {
         """.trimIndent()
         val form = source.readWithLocation()
         
-        // The block should include the blank line but not trailing whitespace after baz()
         val loc = requireNotNull(form.loc) { "Form should have location information" }
-        val expected = "def: foo()\n  bar()\n\n  baz()"
-        assertTrue(loc.charIndex == 0, "Block should start at position 0, got ${loc.charIndex}")
-        assertTrue(loc.charLength == expected.length, "Block length should be ${expected.length}, got ${loc.charLength}")
-        assertTrue(loc.characters.toString() == expected,
-            "Block with blank line should not include trailing whitespace.\nExpected: '$expected'\nGot: '${loc.characters}'")
+        assertEquals(0, loc.charIndex, "Block should start at position 0")
+        assertEquals(29, loc.charLength, "Block should include blank line but not trailing whitespace")
+        assertEquals("def: foo()\n  bar()\n\n  baz()", loc.characters.toString())
     }
 
     @Test
@@ -213,13 +206,10 @@ class ReaderTest {
         """.trimIndent()
         val form = source.readWithLocation()
         
-        // The block should include blank line but not the trailing newline after it
         val loc = requireNotNull(form.loc) { "Form should have location information" }
-        val expected = "def: foo()\n  bar()\n"
-        assertTrue(loc.charIndex == 0, "Block should start at position 0, got ${loc.charIndex}")
-        assertTrue(loc.charLength == expected.length, "Block length should be ${expected.length}, got ${loc.charLength}")
-        assertTrue(loc.characters.toString() == expected,
-            "Block with blank line before dedent.\nExpected: '$expected'\nGot: '${loc.characters}'")
+        assertEquals(0, loc.charIndex, "Block should start at position 0")
+        assertEquals(18, loc.charLength, "Block should include blank line but not trailing newline after it")
+        assertEquals("def: foo()\n  bar()\n", loc.characters.toString())
     }
 
     @Test
@@ -231,12 +221,9 @@ class ReaderTest {
         """.trimIndent()
         val form = source.readWithLocation()
         
-        // The block at EOF should end at bar()'s closing paren
         val loc = requireNotNull(form.loc) { "Form should have location information" }
-        val expected = "do:\n  foo()\n  bar()"
-        assertTrue(loc.charIndex == 0, "Block should start at position 0, got ${loc.charIndex}")
-        assertTrue(loc.charLength == expected.length, "Block length should be ${expected.length}, got ${loc.charLength}")
-        assertTrue(loc.characters.toString() == expected,
-            "Block at EOF should end at last content.\nExpected: '$expected'\nGot: '${loc.characters}'")
+        assertEquals(0, loc.charIndex, "Block should start at position 0")
+        assertEquals(20, loc.charLength, "Block at EOF should end at last content")
+        assertEquals("do:\n  foo()\n  bar()", loc.characters.toString())
     }
 }
