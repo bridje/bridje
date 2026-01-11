@@ -1,0 +1,6 @@
+ns: require_test:dependent
+  require:
+    require_test:
+      base
+
+def: doubled add(require_test:base/value, require_test:base/value)

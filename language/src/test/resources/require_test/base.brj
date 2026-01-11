@@ -1,0 +1,3 @@
+ns: require_test:base
+
+def: value 42

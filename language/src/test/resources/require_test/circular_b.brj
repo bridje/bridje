@@ -1,0 +1,6 @@
+ns: require_test:circular_b
+  require:
+    require_test:
+      circular_a
+
+def: value 2
