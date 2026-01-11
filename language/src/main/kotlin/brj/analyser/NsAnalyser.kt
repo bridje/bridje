@@ -2,12 +2,6 @@ package brj.analyser
 
 import brj.*
 
-data class NsDecl(
-    val name: String,
-    val requires: Map<String, String> = emptyMap(),
-    val imports: Imports = emptyMap()
-)
-
 private fun analyseSpec(prefix: String, spec: Form): Pair<String, String> =
     when (spec) {
         is SymbolForm -> {

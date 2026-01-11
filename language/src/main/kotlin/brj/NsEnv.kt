@@ -10,6 +10,7 @@ import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.interop.UnknownIdentifierException
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
+import com.oracle.truffle.api.source.Source
 
 typealias Requires = Map<String, NsEnv>
 typealias Imports = Map<String, String>
@@ -21,7 +22,7 @@ data class NsEnv(
     val vars: Map<String, GlobalVar> = emptyMap(),
     val keys: Map<String, BridjeKey> = emptyMap(),
     val nsDecl: NsDecl? = null,
-    val forms: List<Form> = emptyList(),
+    val source: Source? = null,
 ) : TruffleObject {
     companion object {
         private val builtinFormMetas = mapOf(

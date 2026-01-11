@@ -1,49 +1,16 @@
 package brj.runtime
 
 import brj.NsEnv
-import brj.analyser.NsDecl
+import com.oracle.truffle.api.source.Source
 
 /**
  * Immutable global environment containing all namespaces and dependency tracking.
  */
 data class GlobalEnv(
     val namespaces: Map<String, NsEnv> = emptyMap(),
-    val quarantined: Map<String, QuarantinedNs> = emptyMap(),
+    val quarantined: Map<String, Source> = emptyMap(),
     val reverseDependencies: Map<String, Set<String>> = emptyMap()
 ) {
-    /**
-     * Information about a quarantined namespace that can be re-evaluated.
-     */
-    data class QuarantinedNs(
-        val nsDecl: NsDecl,
-        val forms: List<brj.Form>
-    )
-
-    /**
-     * Get quarantined dependencies needed by the given namespace declaration in dependency order.
-     * Returns a list of (name, QuarantinedNs) pairs in the order they should be evaluated.
-     */
-    fun getQuarantinedDependencies(nsDecl: NsDecl): List<Pair<String, QuarantinedNs>> {
-        val required = nsDecl.requires.values.toSet()
-        val result = mutableListOf<Pair<String, QuarantinedNs>>()
-        val visited = mutableSetOf<String>()
-        
-        fun visit(name: String) {
-            if (name in visited || name !in quarantined) return
-            visited.add(name)
-            
-            val quarantinedNs = quarantined[name]!!
-            // First visit its dependencies
-            quarantinedNs.nsDecl.requires.values.forEach { depName ->
-                visit(depName)
-            }
-            // Then add this namespace
-            result.add(name to quarantinedNs)
-        }
-        
-        required.forEach { visit(it) }
-        return result
-    }
 
     /**
      * Register a namespace and update reverse dependencies.
@@ -89,11 +56,11 @@ data class GlobalEnv(
         val nsEnv = namespaces[name]!!
         val dependents = reverseDependencies[name].orEmpty()
 
-        // Quarantine this namespace if it has nsDecl and forms
-        var newEnv = if (nsEnv.nsDecl != null && nsEnv.forms.isNotEmpty()) {
+        // Quarantine this namespace if it has a source
+        var newEnv = if (nsEnv.source != null) {
             copy(
                 namespaces = namespaces - name,
-                quarantined = quarantined + (name to QuarantinedNs(nsEnv.nsDecl, nsEnv.forms))
+                quarantined = quarantined + (name to nsEnv.source)
             )
         } else {
             copy(namespaces = namespaces - name)
