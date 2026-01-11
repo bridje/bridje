@@ -13,6 +13,7 @@ import com.oracle.truffle.api.frame.FrameSlotKind
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.nodes.RootNode
+import com.oracle.truffle.api.source.Source
 
 @Registration(
     id = "bridje",
@@ -29,6 +30,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
         @JvmStatic
         fun get(node: Node): BridjeLanguage = LANGUAGE_REF.get(node)
+
+        private fun nsNameToResourcePath(nsName: String): String =
+            nsName.replace(':', '/') + ".brj"
     }
 
     override fun createContext(env: Env) = BridjeContext(env, this)
@@ -56,11 +60,37 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         val (nsDecl, forms) = request.source.readForms().toList().analyseNs()
 
         return object : RootNode(this) {
+            @TruffleBoundary
+            private fun loadNamespaceFromClasspath(ctx: BridjeContext, fqNs: String): NsEnv {
+                if (fqNs in ctx.loadingInProgress) {
+                    error("Circular dependency detected: $fqNs")
+                }
+
+                ctx.loadingInProgress.add(fqNs)
+
+                try {
+                    val resourcePath = nsNameToResourcePath(fqNs)
+                    val resourceUrl = BridjeLanguage::class.java.classLoader.getResource(resourcePath)
+                        ?: error("Namespace not found on classpath: $fqNs (looked for $resourcePath)")
+
+                    val source = Source.newBuilder("bridje", resourceUrl).build()
+
+                    val callTarget = ctx.truffleEnv.parsePublic(source)
+                    callTarget.call()
+
+                    return ctx.namespaces[fqNs]
+                        ?: error("Namespace $fqNs not registered after loading from $resourcePath")
+                } finally {
+                    ctx.loadingInProgress.remove(fqNs)
+                }
+            }
+
             private fun resolveRequires(ctx: BridjeContext): Requires =
                 nsDecl
                     ?.requires.orEmpty()
-                    .mapValues { (alias, fqNs) ->
-                        ctx.namespaces[fqNs] ?: error("Required namespace not found: $fqNs (as $alias)")
+                    .mapValues { (_, fqNs) ->
+                        ctx.namespaces[fqNs]
+                            ?: loadNamespaceFromClasspath(ctx, fqNs)
                     }
 
             private fun NsDecl.resolve(ctx: BridjeContext): NsEnv =
@@ -157,8 +187,9 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
                             
                             // Resolve dependencies for this quarantined namespace
                             fun resolveQuarantinedRequires(): Requires =
-                                depNsDecl.requires.mapValues { (alias, fqNs) ->
-                                    ctx.namespaces[fqNs] ?: error("Required namespace not found: $fqNs (as $alias)")
+                                depNsDecl.requires.mapValues { (_, fqNs) ->
+                                    ctx.namespaces[fqNs]
+                                        ?: loadNamespaceFromClasspath(ctx, fqNs)
                                 }
                             
                             val depInitialEnv = NsEnv(

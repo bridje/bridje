@@ -1,0 +1,3 @@
+ns: testlib:base
+def: value 42
+def: greeting "hello"

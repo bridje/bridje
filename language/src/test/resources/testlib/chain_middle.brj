@@ -1,0 +1,5 @@
+ns: testlib:chain_middle
+  require:
+    testlib:
+      base
+def: doubled add(testlib:base/value, testlib:base/value)

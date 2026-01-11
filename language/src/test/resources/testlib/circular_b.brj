@@ -1,0 +1,5 @@
+ns: testlib:circular_b
+  require:
+    testlib:
+      circular_a
+def: val_b 2

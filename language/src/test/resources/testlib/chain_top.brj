@@ -1,0 +1,6 @@
+ns: testlib:chain_top
+  require:
+    testlib:
+      chain_middle
+      base
+def: total add(testlib:chain_middle/doubled, testlib:base/value)
