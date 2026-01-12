@@ -5,12 +5,13 @@
 ## Usage
 
 ```bash
-java -cp <classpath> brj.main -m <namespace> [args...]
+java -cp <classpath> brj.main run <namespace> [args...]
 ```
 
 ### Arguments
 
-- `-m <namespace>` - Required. Specifies the namespace containing the main function (e.g., `my:app`)
+- `run` - Subcommand to execute a namespace's main function
+- `<namespace>` - Required. Namespace containing the main function (e.g., `my:app`)
 - `[args...]` - Optional. Command-line arguments passed to the main function as a vector
 
 ## Requirements
@@ -39,7 +40,7 @@ def: main(args)
 ./gradlew shadowJar
 
 # Run the application
-java -jar myapp.jar -m my:app arg1 arg2
+java -jar myapp.jar run my:app arg1 arg2
 ```
 
 ## Integration
@@ -60,22 +61,41 @@ shadowJar {
 }
 ```
 
+Then run with: `java -jar myapp.jar run my:app`
+
 ### Gradle Application Plugin
 
 ```kotlin
 application {
     mainClass.set("brj.main")
-    applicationDefaultJvmArgs = listOf("-m", "my:app")
+    applicationDefaultJvmArgs = listOf("run", "my:app")
 }
 ```
+
+Then run with: `./gradlew run --args="run my:app arg1 arg2"`
+
+## Command Structure
+
+The runner uses [Clikt](https://ajalt.github.io/clikt/) for command-line parsing:
+
+- **Main command**: `brj.main` - Shows help if no subcommand provided
+- **Subcommand**: `run <namespace> [args...]` - Executes namespace main function
 
 ## Error Handling
 
 `brj.main` will exit with status code 1 if:
-- No arguments are provided
-- The `-m` flag is missing or incorrect
+- No subcommand is provided
+- The namespace argument is missing
 - The specified namespace is not found on the classpath
 - The namespace does not define a `main` function
 - An error occurs during execution
 
 Exit codes from the application itself are preserved and propagated.
+
+## Implementation Details
+
+- Uses `Source.newBuilder()` with `getResource()` to load namespace files from classpath
+- Arguments are converted to GraalVM Values and passed to the main function as a Bridje vector
+- Proper context lifecycle management with try-with-resources
+- Error messages written to stderr
+

@@ -3,24 +3,25 @@
 package brj
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
+import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.multiple
-import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.PolyglotException
 import org.graalvm.polyglot.Source
 import org.graalvm.polyglot.Value
+import org.graalvm.polyglot.Context as GraalContext
 
 /**
  * Main entry point for Bridje applications.
  * 
  * Usage: java -cp ... brj.MainKt run my:namespace args...
  */
-class BridjeMain : CliktCommand(
-    name = "brj.main",
-    help = "Run Bridje applications"
-) {
+class BridjeMain : CliktCommand(name = "brj.main") {
+    override fun help(context: Context) = "Run Bridje applications"
+    
     override fun run() {
         // No-op - just shows help if no subcommand is provided
     }
@@ -29,23 +30,15 @@ class BridjeMain : CliktCommand(
 /**
  * Run subcommand - executes a Bridje namespace's main function.
  */
-class RunCommand : CliktCommand(
-    name = "run",
-    help = "Run a Bridje namespace's main function"
-) {
-    private val namespace by argument(
-        name = "namespace",
-        help = "Namespace containing main function (e.g., my:app)"
-    )
+class RunCommand : CliktCommand(name = "run") {
+    override fun help(context: Context) = "Run a Bridje namespace's main function"
     
-    private val args by argument(
-        name = "args",
-        help = "Arguments to pass to the main function"
-    ).multiple()
+    private val namespace by argument()
+    private val args by argument().multiple()
     
     override fun run() {
         try {
-            Context.newBuilder()
+            GraalContext.newBuilder()
                 .allowAllAccess(true)
                 .logHandler(System.err)
                 .build()
@@ -114,7 +107,7 @@ class RunCommand : CliktCommand(
     private fun nsNameToResourcePath(nsName: String): String =
         nsName.replace(':', '/') + ".brj"
     
-    private fun createVector(context: Context, args: Array<Value>): Value {
+    private fun createVector(context: GraalContext, args: Array<Value>): Value {
         // Build a vector literal and evaluate it
         val vectorCode = buildString {
             append("[")
@@ -139,7 +132,6 @@ class RunCommand : CliktCommand(
 }
 
 fun main(args: Array<String>) {
-    BridjeMain()
-        .subcommands(RunCommand())
-        .main(args)
+    val cmd = BridjeMain().subcommands(RunCommand())
+    cmd.main(args)
 }
