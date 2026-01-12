@@ -2,6 +2,6 @@ ns: main_test:simple
 
 def: main(args)
   do:
-    println("Hello from main!")
-    println(str("Args: ", args))
+    java:lang:System/out.println("Hello from main!")
+    java:lang:System/out.println(java:lang:String/format("Args: %s", args))
     args

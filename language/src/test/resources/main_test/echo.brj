@@ -1,0 +1,4 @@
+ns: main_test:echo
+
+def: main(args)
+  java:lang:System/out.println("Echo application")
