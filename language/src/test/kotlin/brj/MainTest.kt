@@ -64,6 +64,15 @@ class MainTest {
         assertEquals(1, exitCode)
     }
     
+    @Test
+    fun `runs nested namespace main function`() {
+        val output = captureOutput {
+            main.main(arrayOf("-m", "main_test:nested:app"))
+        }
+        
+        assertTrue(output.contains("Nested namespace app"))
+    }
+    
     private fun captureOutput(block: () -> Unit): String {
         val outStream = ByteArrayOutputStream()
         val errStream = ByteArrayOutputStream()
@@ -83,7 +92,6 @@ class MainTest {
     
     private fun captureExit(block: () -> Unit): Int {
         val originalSecurityManager = System.getSecurityManager()
-        val exitException = ExitException(-1)
         
         System.setSecurityManager(object : SecurityManager() {
             override fun checkExit(status: Int) {

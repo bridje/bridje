@@ -84,10 +84,11 @@ public class main {
         } catch (PolyglotException e) {
             if (e.isExit()) {
                 System.exit(e.getExitStatus());
+            } else {
+                System.err.println("Error executing main function:");
+                e.printStackTrace(System.err);
+                System.exit(1);
             }
-            System.err.println("Error executing main function:");
-            e.printStackTrace(System.err);
-            System.exit(1);
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace(System.err);
@@ -98,9 +99,10 @@ public class main {
     /**
      * Format namespace for require block.
      * Converts "foo:bar" to "foo:\n      bar"
+     * For nested namespaces like "foo:bar:baz", converts to "foo:bar:\n      baz"
      */
     private static String formatNamespaceForRequire(String namespace) {
-        int colonIndex = namespace.indexOf(':');
+        int colonIndex = namespace.lastIndexOf(':');
         if (colonIndex == -1) {
             throw new IllegalArgumentException("Invalid namespace format: " + namespace);
         }

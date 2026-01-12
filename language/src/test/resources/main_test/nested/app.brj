@@ -1,0 +1,4 @@
+ns: main_test:nested:app
+
+def: main(args)
+  java:lang:System/out.println("Nested namespace app")
