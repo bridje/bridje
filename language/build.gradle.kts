@@ -13,7 +13,6 @@ mavenPublishing {
 
 java.toolchain {
     languageVersion.set(JavaLanguageVersion.of(22))
-    vendor.set(JvmVendorSpec.GRAAL_VM)
 }
 
 dependencies {
@@ -22,12 +21,15 @@ dependencies {
 
     kapt(libs.truffle.dsl.processor)
     implementation(libs.truffle.api)
+    implementation(libs.graal.sdk)
+
+    implementation(libs.clikt)
 
     implementation(libs.jtreesitter)
 
-    testCompileOnly(libs.graal.sdk)
     testImplementation(libs.truffle.runtime)
 
+    testImplementation(libs.clikt.testing)
 
     testImplementation(kotlin("test-junit"))
     testImplementation(libs.junit.jupiter.api)

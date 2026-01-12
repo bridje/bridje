@@ -84,26 +84,26 @@ class NsTest {
 
     @Test
     fun `import allows using alias`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
+        val ns = ctx.evalBridje("""
             ns: foo
               import:
                 java:time:
                   Instant
-            Instant/now()
+            def: result Instant/now()
         """.trimIndent())
-        assertTrue(result.isInstant)
+        assertTrue(ns.getMember("result").isInstant)
     }
 
     @Test
     fun `import with explicit alias`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
+        val ns = ctx.evalBridje("""
             ns: foo
               import:
                 java:util:
                   ArrayList.as(AL)
-            AL()
+            def: result AL()
         """.trimIndent())
-        assertTrue(result.hasArrayElements())
+        assertTrue(ns.getMember("result").hasArrayElements())
     }
 
     @Test
@@ -113,14 +113,15 @@ class NsTest {
             def: answer 42
         """.trimIndent())
 
-        val result = ctx.evalBridje("""
+        val ns = ctx.evalBridje("""
             ns: consumer
               require:
                 my:
                   lib
-            lib/answer
+            def: result lib/answer
         """.trimIndent())
-        assertEquals(42L, result.asLong())
+
+        assertEquals(42L, ns.getMember("result").asLong())
     }
 
     @Test
@@ -130,13 +131,14 @@ class NsTest {
             def: double(x) add(x, x)
         """.trimIndent())
 
-        val result = ctx.evalBridje("""
+        val ns = ctx.evalBridje("""
             ns: consumer
               require:
                 my:
                   utils.as(u)
-            u/double(21)
+            def: result u/double(21)
         """.trimIndent())
-        assertEquals(42L, result.asLong())
+
+        assertEquals(42L, ns.getMember("result").asLong())
     }
 }
