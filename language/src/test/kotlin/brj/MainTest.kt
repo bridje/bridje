@@ -1,117 +1,72 @@
 package brj
 
+import com.github.ajalt.clikt.testing.test
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import java.io.ByteArrayOutputStream
-import java.io.PrintStream
 
 class MainTest {
     
     @Test
     fun `runs namespace main function with no args`() {
-        val output = captureOutput {
-            main.main(arrayOf("-m", "main_test:simple"))
-        }
+        val command = BridjeMain().subcommands(RunCommand())
+        val result = command.test("run main_test:simple")
         
-        assertTrue(output.contains("Hello from main!"))
-        assertTrue(output.contains("Args: []"))
+        assertEquals(0, result.statusCode)
+        assertTrue(result.output.contains("Hello from main!"))
+        assertTrue(result.output.contains("Args: []"))
     }
     
     @Test
     fun `runs namespace main function with args`() {
-        val output = captureOutput {
-            main.main(arrayOf("-m", "main_test:simple", "arg1", "arg2"))
-        }
+        val command = BridjeMain().subcommands(RunCommand())
+        val result = command.test("run main_test:simple arg1 arg2")
         
-        assertTrue(output.contains("Hello from main!"))
-        assertTrue(output.contains("Args: [\"arg1\", \"arg2\"]") || 
-                   output.contains("Args: [arg1, arg2]"))
+        assertEquals(0, result.statusCode)
+        assertTrue(result.output.contains("Hello from main!"))
+        assertTrue(result.output.contains("Args: [\"arg1\", \"arg2\"]") || 
+                   result.output.contains("Args: [arg1, arg2]"))
     }
     
     @Test
-    fun `fails when no arguments provided`() {
-        val exitCode = captureExit {
-            main.main(arrayOf())
-        }
+    fun `shows help when no subcommand provided`() {
+        val command = BridjeMain().subcommands(RunCommand())
+        val result = command.test("")
         
-        assertEquals(1, exitCode)
+        assertTrue(result.output.contains("Usage:") || result.output.contains("brj.main"))
     }
     
     @Test
-    fun `fails when -m flag is missing`() {
-        val exitCode = captureExit {
-            main.main(arrayOf("main_test:simple"))
-        }
+    fun `shows run help when run called without namespace`() {
+        val command = BridjeMain().subcommands(RunCommand())
+        val result = command.test("run")
         
-        assertEquals(1, exitCode)
+        assertNotEquals(0, result.statusCode)
     }
     
     @Test
     fun `fails when namespace not found`() {
-        val exitCode = captureExit {
-            main.main(arrayOf("-m", "nonexistent:namespace"))
-        }
+        val command = BridjeMain().subcommands(RunCommand())
+        val result = command.test("run nonexistent:namespace")
         
-        assertEquals(1, exitCode)
+        assertNotEquals(0, result.statusCode)
+        assertTrue(result.output.contains("not found") || result.output.contains("Error"))
     }
     
     @Test
     fun `fails when main function not defined`() {
-        val exitCode = captureExit {
-            main.main(arrayOf("-m", "require_test:base"))
-        }
+        val command = BridjeMain().subcommands(RunCommand())
+        val result = command.test("run require_test:base")
         
-        assertEquals(1, exitCode)
+        assertNotEquals(0, result.statusCode)
+        assertTrue(result.output.contains("main") || result.output.contains("Error"))
     }
     
     @Test
     fun `runs nested namespace main function`() {
-        val output = captureOutput {
-            main.main(arrayOf("-m", "main_test:nested:app"))
-        }
+        val command = BridjeMain().subcommands(RunCommand())
+        val result = command.test("run main_test:nested:app")
         
-        assertTrue(output.contains("Nested namespace app"))
+        assertEquals(0, result.statusCode)
+        assertTrue(result.output.contains("Nested namespace app"))
     }
-    
-    private fun captureOutput(block: () -> Unit): String {
-        val outStream = ByteArrayOutputStream()
-        val errStream = ByteArrayOutputStream()
-        val originalOut = System.out
-        val originalErr = System.err
-        
-        try {
-            System.setOut(PrintStream(outStream))
-            System.setErr(PrintStream(errStream))
-            block()
-            return outStream.toString() + errStream.toString()
-        } finally {
-            System.setOut(originalOut)
-            System.setErr(originalErr)
-        }
-    }
-    
-    private fun captureExit(block: () -> Unit): Int {
-        val originalSecurityManager = System.getSecurityManager()
-        
-        System.setSecurityManager(object : SecurityManager() {
-            override fun checkExit(status: Int) {
-                throw ExitException(status)
-            }
-            
-            override fun checkPermission(perm: java.security.Permission) {
-                // Allow all other permissions
-            }
-        })
-        
-        try {
-            block()
-            return 0
-        } catch (e: ExitException) {
-            return e.status
-        } finally {
-            System.setSecurityManager(originalSecurityManager)
-        }
-    }
-    
-    private class ExitException(val status: Int) : SecurityException()
 }

@@ -24,10 +24,13 @@ dependencies {
     implementation(libs.truffle.api)
     implementation(libs.graal.sdk)
 
+    implementation(libs.clikt)
+
     implementation(libs.jtreesitter)
 
     testImplementation(libs.truffle.runtime)
 
+    testImplementation(libs.clikt.testing)
 
     testImplementation(kotlin("test-junit"))
     testImplementation(libs.junit.jupiter.api)
