@@ -22,10 +22,10 @@ dependencies {
 
     kapt(libs.truffle.dsl.processor)
     implementation(libs.truffle.api)
+    implementation(libs.graal.sdk)
 
     implementation(libs.jtreesitter)
 
-    testCompileOnly(libs.graal.sdk)
     testImplementation(libs.truffle.runtime)
 
 

@@ -1,0 +1,7 @@
+ns: main_test:simple
+
+def: main(args)
+  do:
+    println("Hello from main!")
+    println(str("Args: ", args))
+    args
