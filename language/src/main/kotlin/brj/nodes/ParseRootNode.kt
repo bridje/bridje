@@ -130,14 +130,14 @@ class ParseRootNode(
 
         val (nsEnv, result) = forms.evalForms(ctx, initialNsEnv)
 
-        if (nsDecl != null) {
-            ctx.updateGlobalEnv { globalEnv ->
-                val invalidated = globalEnv.invalidateNamespace(nsDecl.name)
-                invalidated.withNamespace(nsDecl.name, nsEnv)
-            }
+        if (nsDecl == null) return result
+
+        ctx.updateGlobalEnv { globalEnv ->
+            val invalidated = globalEnv.invalidateNamespace(nsDecl.name)
+            invalidated.withNamespace(nsDecl.name, nsEnv)
         }
 
-        return result
+        return nsEnv
     }
 
     override fun execute(frame: VirtualFrame): Any? {
