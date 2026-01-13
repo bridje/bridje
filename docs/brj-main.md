@@ -43,6 +43,30 @@ java -jar myapp.jar run my:app arg1 arg2
 
 ## Integration
 
+### BridjeExec Gradle Task (Development)
+
+For development workflows, the Bridje Gradle plugin provides a `BridjeExec` task type that automatically configures the classpath and arguments:
+
+```kotlin
+tasks.register<BridjeExec>("runApp") {
+    mainNamespace.set("my:app")
+    args("--port", "8080", "--debug")
+}
+```
+
+Then run with:
+
+```bash
+./gradlew runApp
+```
+
+The `BridjeExec` task:
+- Extends `JavaExec` with bridje-specific configuration
+- Automatically includes the runtime classpath
+- Sets `brj.main` as the main class
+- Prepends `-m <namespace>` to any provided arguments
+- Belongs to the "bridje" task group
+
 ### Shadow Jar
 
 In your `build.gradle.kts`:
