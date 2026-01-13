@@ -1,5 +1,5 @@
 [versions]
-graalvm = "24.2.1"
+graalvm = "25.0.1"
 kotlinx-coroutines = "1.10.2"
 
 jtreesitter = "0.25.1"

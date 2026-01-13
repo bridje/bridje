@@ -16,6 +16,15 @@ java.toolchain {
     vendor.set(JvmVendorSpec.GRAAL_VM)
 }
 
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.antlr" && requested.name == "antlr4-runtime") {
+            useVersion("4.13.2")
+            because("Truffle DSL processor requires ANTLR 4.13.2")
+        }
+    }
+}
+
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation(libs.kotlin.coroutines.core)
