@@ -9,7 +9,7 @@ clikt = "5.0.3"
 
 [plugins]
 
-shadow = { id = "com.gradleup.shadow", version = "8.3.6" }
+shadow = { id = "com.gradleup.shadow", version = "9.3.1" }
 
 [libraries]
 graal-sdk = { module = "org.graalvm.sdk:graal-sdk", version.ref = "graalvm" }

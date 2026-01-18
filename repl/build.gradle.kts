@@ -1,7 +1,7 @@
 plugins {
     kotlin("jvm")
     application
-    id("com.gradleup.shadow") version "8.3.6"
+    alias(libs.plugins.shadow)
     id("com.vanniktech.maven.publish")
 }
 
