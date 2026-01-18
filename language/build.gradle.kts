@@ -13,6 +13,7 @@ mavenPublishing {
 
 java.toolchain {
     languageVersion.set(JavaLanguageVersion.of(22))
+    vendor.set(JvmVendorSpec.GRAAL_VM)
 }
 
 dependencies {
