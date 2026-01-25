@@ -28,7 +28,7 @@ dependencies {
 
     implementation(libs.jtreesitter)
 
-    testImplementation(libs.truffle.runtime)
+    implementation(libs.truffle.runtime)
 
     testImplementation(libs.clikt.testing)
 
