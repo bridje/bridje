@@ -1,0 +1,3 @@
+[submodule "gradle-template"]
+	path = gradle-template
+	url = git@github.com:bridje/gradle-template.git
