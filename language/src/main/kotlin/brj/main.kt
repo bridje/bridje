@@ -87,8 +87,15 @@ class RunCommand : CliktCommand(name = "run") {
         nsName.replace(':', '/') + ".brj"
 }
 
+private val logger = System.getLogger("brj.main")
+
 fun main(args: Array<String>) {
-    BridjeMain()
-        .subcommands(RunCommand())
-        .main(args)
+    try {
+        BridjeMain()
+            .subcommands(RunCommand())
+            .main(args)
+    } catch (e: Throwable) {
+        logger.log(System.Logger.Level.ERROR, "Fatal error", e)
+        System.exit(1)
+    }
 }

@@ -12,6 +12,7 @@ import java.math.BigInteger
 
 class Reader private constructor(private val src: Source) {
     companion object {
+        private val logger = System.getLogger("brj.Reader")
         private const val LIB_NAME = "tree-sitter-bridje"
 
         private fun libPath(): String? {
@@ -56,9 +57,13 @@ class Reader private constructor(private val src: Source) {
             }.path
         }
 
-        private val lang: Language =
+        private val lang: Language = try {
             SymbolLookup.libraryLookup(libPath(), Arena.global())
                 .let { Language.load(it, "tree_sitter_bridje") }
+        } catch (e: Throwable) {
+            logger.log(System.Logger.Level.ERROR, "Failed to load native library", e)
+            throw e
+        }
 
         fun Source.readForms(): Sequence<Form> {
             val tree = Parser(lang).parse(characters.toString()).orElseThrow()
