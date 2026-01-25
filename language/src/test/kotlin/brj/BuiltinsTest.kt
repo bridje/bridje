@@ -1,7 +1,9 @@
 package brj
 
+import org.graalvm.polyglot.Context
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.ByteArrayOutputStream
 
 class BuiltinsTest {
     @Test
@@ -142,5 +144,24 @@ class BuiltinsTest {
             ctx.evalBridje("(div 10 0)")
         }
         assertTrue(ex.message?.contains("Division by zero") == true)
+    }
+
+    @Test
+    fun `println prints value and returns it`() {
+        val output = ByteArrayOutputStream()
+        Context.newBuilder()
+            .allowAllAccess(true)
+            .out(output)
+            .build()
+            .use { ctx ->
+                ctx.enter()
+                try {
+                    val result = ctx.eval("bridje", "(println 42)")
+                    assertEquals(42L, result.asLong())
+                    assertEquals("42\n", output.toString())
+                } finally {
+                    ctx.leave()
+                }
+            }
     }
 }

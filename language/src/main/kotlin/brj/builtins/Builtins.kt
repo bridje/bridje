@@ -3,6 +3,7 @@ package brj.builtins
 import brj.BridjeLanguage
 import brj.GlobalVar
 import brj.runtime.BridjeFunction
+import com.oracle.truffle.api.nodes.RootNode
 
 object Builtins {
     fun createBuiltinFunctions(language: BridjeLanguage): Map<String, GlobalVar> =
@@ -17,8 +18,9 @@ object Builtins {
             createBuiltinFunction("gt", GtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             createBuiltinFunction("lte", LteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             createBuiltinFunction("gte", GteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            createBuiltinFunction("println", PrintlnNode(language)),
         ).associateBy { it.name }
 
-    private fun createBuiltinFunction(name: String, opNode: BinaryOpNode) =
-        GlobalVar(name, BridjeFunction(opNode.callTarget))
+    private fun createBuiltinFunction(name: String, node: RootNode) =
+        GlobalVar(name, BridjeFunction(node.callTarget))
 }
