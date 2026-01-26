@@ -157,6 +157,17 @@ class DefaultPattern(override val loc: SourceSection? = null) : CasePattern() {
     override fun toString(): String = "_"
 }
 
+class NilPattern(override val loc: SourceSection? = null) : CasePattern() {
+    override fun toString(): String = "nil"
+}
+
+class CatchAllBindingPattern(
+    val binding: LocalVar,
+    override val loc: SourceSection? = null
+) : CasePattern() {
+    override fun toString(): String = binding.name
+}
+
 class CaseBranch(
     val pattern: CasePattern,
     val bodyExpr: ValueExpr,

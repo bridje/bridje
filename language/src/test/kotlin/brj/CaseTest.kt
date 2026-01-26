@@ -131,4 +131,33 @@ class CaseTest {
         }
         assertTrue(ex.message?.contains("No matching") == true)
     }
+
+    @Test
+    fun `case matches nil pattern`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            case: nil
+              nil 42
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `case catchall binding pattern matches non-nil`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            case: 10
+              nil 0
+              x x
+        """.trimIndent())
+        assertEquals(10L, result.asLong())
+    }
+
+    @Test
+    fun `case nil vs catchall binding pattern`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            case: nil
+              nil "was nil"
+              x "was not nil"
+        """.trimIndent())
+        assertEquals("was nil", result.asString())
+    }
 }

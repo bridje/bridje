@@ -297,9 +297,10 @@ data class Analyser(
         while (i < branchForms.size) {
             val patternForm = branchForms[i]
 
-            // Check if this looks like a pattern (capitalized symbol or call with capitalized symbol)
+            // Check if this looks like a pattern (capitalized symbol, nil, lowercase symbol followed by body, or call with capitalized symbol)
             val isPattern = when (patternForm) {
-                is SymbolForm -> patternForm.name[0].isUpperCase()
+                is SymbolForm -> patternForm.name[0].isUpperCase() || patternForm.name == "nil" ||
+                    (patternForm.name[0].isLowerCase() && i + 1 < branchForms.size)
                 is ListForm -> {
                     val first = patternForm.els.firstOrNull()
                     first is SymbolForm && first.name[0].isUpperCase()
@@ -357,12 +358,22 @@ data class Analyser(
         when (patternForm) {
             is SymbolForm -> {
                 val name = patternForm.name
-                if (!name[0].isUpperCase()) {
-                    Result.Err(Error("case pattern must be a tag (capitalized): $name", patternForm.loc))
-                } else {
-                    resolveTag(name, patternForm.loc).map { tagValue ->
+                when {
+                    name == "nil" -> {
                         val bodyExpr = analyseValueExpr(bodyForm)
-                        CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
+                        Result.Ok(CaseBranch(NilPattern(patternForm.loc), bodyExpr, patternForm.loc))
+                    }
+                    name[0].isUpperCase() -> {
+                        resolveTag(name, patternForm.loc).map { tagValue ->
+                            val bodyExpr = analyseValueExpr(bodyForm)
+                            CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
+                        }
+                    }
+                    else -> {
+                        // catchall binding pattern: lowercase symbol binds scrutinee
+                        val (newAnalyser, localVar) = withLocal(name)
+                        val bodyExpr = newAnalyser.analyseValueExpr(bodyForm)
+                        Result.Ok(CaseBranch(CatchAllBindingPattern(localVar, patternForm.loc), bodyExpr, patternForm.loc))
                     }
                 }
             }

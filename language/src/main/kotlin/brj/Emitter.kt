@@ -122,6 +122,15 @@ class Emitter(private val language: BridjeLanguage) {
                     emitExpr(branch.bodyExpr),
                     branch.loc
                 )
+                is NilPattern -> NilBranchNode(
+                    emitExpr(branch.bodyExpr),
+                    branch.loc
+                )
+                is CatchAllBindingPattern -> CatchAllBindingBranchNode(
+                    pattern.binding.slot,
+                    emitExpr(branch.bodyExpr),
+                    branch.loc
+                )
             }
         }.toTypedArray()
         return CaseNode(scrutineeNode, branchNodes, expr.loc)
