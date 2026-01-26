@@ -484,7 +484,7 @@ data class Analyser(
 
         val bodyExpr = fnAnalyser.analyseBody(bodyForms, form.loc)
 
-        return FnExpr(fnName, params, bodyExpr, form.loc)
+        return FnExpr(fnName, params, bodyExpr, fnAnalyser.slotCount, form.loc)
     }
 
     private fun analyseCall(form: ListForm): ValueExpr {
@@ -618,7 +618,7 @@ data class Analyser(
 
         val bodyExpr = macroAnalyser.analyseBody(bodyForms, form.loc)
 
-        return DefMacroExpr(name, FnExpr(name, params, bodyExpr, form.loc), form.loc)
+        return DefMacroExpr(name, FnExpr(name, params, bodyExpr, macroAnalyser.slotCount, form.loc), form.loc)
     }
 
     fun analyseExpr(form: Form): Expr {

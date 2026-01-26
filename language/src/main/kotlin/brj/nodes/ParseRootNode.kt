@@ -137,11 +137,21 @@ class ParseRootNode(
             invalidated.withNamespace(nsDecl.name, nsEnv)
         }
 
+        // Update brjCore if this is brj:core namespace
+        if (nsDecl.name == "brj:core") {
+            ctx.brjCore = nsEnv
+        }
+
         return nsEnv
     }
 
     override fun execute(frame: VirtualFrame): Any? {
-        val initialNsEnv = nsDecl?.resolve(frame) ?: NsEnv()
+        val initialNsEnv = when {
+            // brj:core starts with Kotlin builtins
+            nsDecl?.name == "brj:core" -> NsEnv.withBuiltins(lang)
+            nsDecl != null -> nsDecl.resolve(frame)
+            else -> NsEnv()
+        }
         return doExecute(initialNsEnv)
     }
 }

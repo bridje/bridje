@@ -1,0 +1,19 @@
+ns: brj:core
+
+defmacro: ifLet(bindings, then, else)
+  let: [bvec bindings.nth(0)
+        bname bvec.nth(0)
+        bexpr bvec.nth(1)]
+    '(let [v# ~bexpr]
+       (case v#
+         nil ~else
+         ~bname ~then))
+
+defmacro: unlessLet(bindings, else, then)
+  let: [bvec bindings.nth(0)
+        bname bvec.nth(0)
+        bexpr bvec.nth(1)]
+    '(let [v# ~bexpr]
+       (case v#
+         nil ~else
+         ~bname ~then))

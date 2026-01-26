@@ -189,4 +189,54 @@ class MacroTest {
         """)
         assertEquals(42L, result.asLong())
     }
+
+    @Test
+    fun `ifLet with non-nil value`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ifLet: [x 42]
+              x
+              0
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `ifLet with nil value`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ifLet: [x nil]
+              x
+              99
+        """.trimIndent())
+        assertEquals(99L, result.asLong())
+    }
+
+    @Test
+    fun `unlessLet with nil value`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            unlessLet: [x nil]
+              99
+              x
+        """.trimIndent())
+        assertEquals(99L, result.asLong())
+    }
+
+    @Test
+    fun `unlessLet with non-nil value`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            unlessLet: [x 42]
+              0
+              x
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `ifLet binds value in then branch`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ifLet: [x 21]
+              add(x, x)
+              0
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
 }

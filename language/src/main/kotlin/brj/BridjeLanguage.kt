@@ -11,6 +11,7 @@ import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.TruffleLanguage.*
 import com.oracle.truffle.api.dsl.Bind
 import com.oracle.truffle.api.nodes.Node
+import com.oracle.truffle.api.source.Source
 
 @Registration(
     id = "bridje",
@@ -30,6 +31,13 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     override fun createContext(env: Env) = BridjeContext(env, this)
+
+    override fun initializeContext(context: BridjeContext) {
+        val coreUrl = BridjeLanguage::class.java.classLoader.getResource("brj/core.brj")
+            ?: error("brj/core.brj not found on classpath")
+        val source = Source.newBuilder("bridje", coreUrl).build()
+        context.truffleEnv.parsePublic(source).call()
+    }
 
     override fun getScope(context: BridjeContext): Any = BridjeScope(context)
 

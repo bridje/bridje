@@ -8,7 +8,8 @@ import com.oracle.truffle.api.nodes.Node
 import java.util.concurrent.atomic.AtomicLong
 
 class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
-    val brjCore: NsEnv = NsEnv.withBuiltins(lang)
+    var brjCore: NsEnv = NsEnv.withBuiltins(lang)
+        internal set
 
     var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj:core" to brjCore))
         private set

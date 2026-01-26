@@ -139,7 +139,7 @@ class Emitter(private val language: BridjeLanguage) {
     private fun emitFn(expr: FnExpr): FnNode {
         val bodyNode = emitExpr(expr.bodyExpr)
         val fdBuilder = FrameDescriptor.newBuilder()
-        repeat(expr.params.size) {
+        repeat(expr.slotCount) {
             fdBuilder.addSlot(FrameSlotKind.Illegal, null, null)
         }
         val rootNode = FnRootNode(language, fdBuilder.build(), expr.params.size, bodyNode)
