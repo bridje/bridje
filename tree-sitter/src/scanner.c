@@ -8,7 +8,6 @@ enum TokenType {
     SYMBOL,
     QUALIFIED_SYMBOL,
     DOT_SYMBOL,
-    KEYWORD,
     INT,
     FLOAT,
     BIGINT,
@@ -328,16 +327,6 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     if (is_symbol_head_char(ch)) return read_symbol(lexer);
     if (ch == '.') return read_dot_symbol(lexer);
     if (isdigit(ch)) return read_number(lexer, valid_symbols);
-
-    // Keywords: :foo
-    if (ch == ':' && valid_symbols[KEYWORD]) {
-        lexer->advance(lexer, false);
-        ch = lexer->lookahead;
-        if (!is_symbol_head_char(ch)) return false;
-        read_symbol_core(lexer);
-        lexer->result_symbol = KEYWORD;
-        return true;
-    }
 
     return false;
 }

@@ -30,5 +30,5 @@ class BridjeKey(val name: String) : TruffleObject {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     @TruffleBoundary
-    fun toDisplayString(allowSideEffects: Boolean): String = ":$name"
+    fun toDisplayString(allowSideEffects: Boolean): String = name
 }

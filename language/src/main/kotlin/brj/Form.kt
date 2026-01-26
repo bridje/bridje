@@ -364,45 +364,6 @@ object StringMeta : TruffleObject {
 }
 
 @ExportLibrary(InteropLibrary::class)
-object KeywordMeta : TruffleObject {
-    private val name = TruffleString.fromConstant("Keyword", TruffleString.Encoding.UTF_8)
-
-    @ExportMessage
-    fun isMetaObject() = true
-
-    @ExportMessage
-    fun getMetaSimpleName(): Any = name
-
-    @ExportMessage
-    fun getMetaQualifiedName(): Any = name
-
-    @ExportMessage
-    fun isMetaInstance(instance: Any?) = instance is KeywordForm
-
-    @ExportMessage
-    fun isExecutable() = true
-
-    @ExportMessage
-    fun isInstantiable() = true
-
-    @Throws(ArityException::class)
-    @ExportMessage
-    fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val str = arguments[0] as TruffleString
-        return KeywordForm(str.toJavaStringUncached())
-    }
-
-    @Throws(ArityException::class)
-    @ExportMessage
-    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
-
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage
-    fun toDisplayString(allowSideEffects: Boolean) = "Keyword"
-}
-
-@ExportLibrary(InteropLibrary::class)
 object BigIntMeta : TruffleObject {
     private val name = TruffleString.fromConstant("BigInt", TruffleString.Encoding.UTF_8)
 
@@ -561,17 +522,6 @@ class QualifiedSymbolForm(val namespace: String, val member: String, override va
 
     @ExportMessage fun hasMetaObject() = true
     @ExportMessage fun getMetaObject(): Any = QualifiedSymbolMeta
-
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
-}
-
-@ExportLibrary(InteropLibrary::class)
-class KeywordForm(val name: String, override val loc: SourceSection? = null) : Form {
-    override fun toString(): String = ":$name"
-
-    @ExportMessage fun hasMetaObject() = true
-    @ExportMessage fun getMetaObject(): Any = KeywordMeta
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()

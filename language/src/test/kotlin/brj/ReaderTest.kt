@@ -15,7 +15,6 @@ private fun Form.contentEquals(other: Form): Boolean = when {
     this is StringForm && other is StringForm -> value == other.value
     this is SymbolForm && other is SymbolForm -> name == other.name
     this is QualifiedSymbolForm && other is QualifiedSymbolForm -> namespace == other.namespace && member == other.member
-    this is KeywordForm && other is KeywordForm -> name == other.name
     this is ListForm && other is ListForm ->
         els.size == other.els.size && els.zip(other.els).all { (a, b) -> a.contentEquals(b) }
     this is VectorForm && other is VectorForm ->
@@ -29,7 +28,6 @@ private fun Form.contentEquals(other: Form): Boolean = when {
 
 private fun sym(name: String) = SymbolForm(name)
 private fun qsym(ns: String, member: String) = QualifiedSymbolForm(ns, member)
-private fun kw(name: String) = KeywordForm(name)
 private fun int(value: Long) = IntForm(value)
 private fun list(vararg els: Form) = ListForm(els.toList())
 private fun vec(vararg els: Form) = VectorForm(els.toList())
@@ -73,7 +71,7 @@ class ReaderTest {
     fun `reads method call`() = assertReads(list(sym("foo"), sym("x"), sym("a")), "x.foo(a)".readSingle())
 
     @Test
-    fun `reads field access`() = assertReads(list(kw("foo"), sym("x")), "x.foo".readSingle())
+    fun `reads field access`() = assertReads(list(sym("foo"), sym("x")), "x.foo".readSingle())
 
     @Test
     fun `reads simple block`() =

@@ -39,7 +39,7 @@ class DefKeyExpr(
     val name: String,
     override val loc: SourceSection? = null
 ) : Expr {
-    override fun toString(): String = "(defkey :$name)"
+    override fun toString(): String = "(defkey $name)"
 }
 
 class TopLevelDo(val forms: List<Form>, override val loc: SourceSection?) : Expr {

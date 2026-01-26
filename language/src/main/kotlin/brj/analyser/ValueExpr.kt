@@ -42,7 +42,7 @@ class RecordExpr(
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String =
-        fields.joinToString(prefix = "{", separator = ", ", postfix = "}") { (k, v) -> ":$k $v" }
+        fields.joinToString(prefix = "{", separator = ", ", postfix = "}") { (k, v) -> "$k $v" }
 }
 
 class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection? = null) : ValueExpr {

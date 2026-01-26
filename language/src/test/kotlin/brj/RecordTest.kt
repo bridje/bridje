@@ -8,17 +8,17 @@ class RecordTest {
 
     @Test
     fun `defkey creates a key`() = withContext { ctx ->
-        val key = ctx.evalBridje("defkey: :foo Str")
+        val key = ctx.evalBridje("defkey: foo Str")
         assertTrue(key.canExecute())
-        assertEquals(":foo", key.toString())
+        assertEquals("foo", key.toString())
     }
 
     @Test
     fun `key is callable as getter`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :foo Str
-              (:foo {:foo 42})
+              defkey: foo Str
+              foo({foo 42})
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -27,8 +27,8 @@ class RecordTest {
     fun `record literal creates record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :foo Str
-              {:foo 42}
+              defkey: foo Str
+              {foo 42}
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals(42L, result.getMember("foo").asLong())
@@ -38,9 +38,9 @@ class RecordTest {
     fun `record with multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :foo Str
-              defkey: :bar Int
-              {:foo "hello", :bar 42}
+              defkey: foo Str
+              defkey: bar Int
+              {foo "hello", bar 42}
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals("hello", result.getMember("foo").asString())
@@ -51,10 +51,10 @@ class RecordTest {
     fun `key getter extracts field from record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :name Str
-              defkey: :age Int
-              let: [person {:name "Alice", :age 30}]
-                (:name person)
+              defkey: name Str
+              defkey: age Int
+              let: [person {name "Alice", age 30}]
+                person.name
         """.trimIndent())
         assertEquals("Alice", result.asString())
     }
@@ -63,43 +63,25 @@ class RecordTest {
     fun `record display string`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :foo Str
-              {:foo 42}
+              defkey: foo Str
+              {foo 42}
         """.trimIndent())
-        assertEquals("{:foo 42}", result.toString())
+        assertEquals("{foo 42}", result.toString())
     }
 
     @Test
     fun `record display string with multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :a Str
-              defkey: :b Str
-              {:a 1, :b 2}
+              defkey: a Str
+              defkey: b Str
+              {a 1, b 2}
         """.trimIndent())
         // Order might vary, just check it has the right format
         val str = result.toString()
         assertTrue(str.startsWith("{") && str.endsWith("}"))
-        assertTrue(str.contains(":a 1"))
-        assertTrue(str.contains(":b 2"))
-    }
-
-    @Test
-    fun `unknown key errors`() = withContext { ctx ->
-        val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje(":unknown")
-        }
-        assertTrue(ex.message?.contains("Unknown key") == true,
-            "Expected unknown key error, got: ${ex.message}")
-    }
-
-    @Test
-    fun `defkey requires keyword`() = withContext { ctx ->
-        val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("defkey: foo Str")
-        }
-        assertTrue(ex.message?.contains("keyword") == true,
-            "Expected keyword error, got: ${ex.message}")
+        assertTrue(str.contains("a 1"))
+        assertTrue(str.contains("b 2"))
     }
 
     @Test
@@ -107,8 +89,8 @@ class RecordTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  defkey: :foo Str
-                  (:foo)
+                  defkey: foo Str
+                  foo()
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("Arity") == true || ex.message?.contains("arity") == true,
@@ -120,8 +102,8 @@ class RecordTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  defkey: :foo Str
-                  (:foo {:foo 1} {:foo 2})
+                  defkey: foo Str
+                  foo({foo 1}, {foo 2})
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("Arity") == true || ex.message?.contains("arity") == true,
@@ -132,9 +114,9 @@ class RecordTest {
     fun `nested records`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :inner Str
-              defkey: :outer Str
-              {:outer {:inner 42}}
+              defkey: inner Str
+              defkey: outer Str
+              {outer {inner 42}}
         """.trimIndent())
         assertTrue(result.hasMembers())
         val inner = result.getMember("outer")
@@ -146,9 +128,9 @@ class RecordTest {
     fun `key on nested record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :inner Str
-              defkey: :outer Str
-              (:inner (:outer {:outer {:inner 42}}))
+              defkey: inner Str
+              defkey: outer Str
+              {outer {inner 42}}.outer.inner
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -157,8 +139,8 @@ class RecordTest {
     fun `record in vector`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :x Int
-              [{:x 1}, {:x 2}, {:x 3}]
+              defkey: x Int
+              [{x 1}, {x 2}, {x 3}]
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(3, result.arraySize)
@@ -171,8 +153,8 @@ class RecordTest {
     fun `record field can be function result`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkey: :sum Int
-              {:sum add(1 2)}
+              defkey: sum Int
+              {sum add(1 2)}
         """.trimIndent())
         assertEquals(3L, result.getMember("sum").asLong())
     }

@@ -55,7 +55,7 @@ class BridjeRecord(shape: Shape) : DynamicObject(shape) {
         val keys = OBJECT_LIBRARY.getKeyArray(this)
         return keys.joinToString(prefix = "{", separator = ", ", postfix = "}") { key ->
             val value = OBJECT_LIBRARY.getOrDefault(this, key, null)
-            ":$key ${INTEROP.toDisplayString(value)}"
+            "$key ${INTEROP.toDisplayString(value)}"
         }
     }
 

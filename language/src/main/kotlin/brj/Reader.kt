@@ -43,7 +43,6 @@ class Reader private constructor(private val src: Source) {
             "bigdec" -> BigDecForm(BigDecimal(text!!.dropLast(1)), loc)
             "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
             "symbol" -> SymbolForm(text!!, loc)
-            "keyword" -> KeywordForm(text!!.drop(1), loc)
             "qualified_symbol" -> {
                 val parts = text!!.split('/')
                 QualifiedSymbolForm(parts[0], parts[1], loc)
@@ -70,7 +69,7 @@ class Reader private constructor(private val src: Source) {
             "field_access" -> {
                 val receiver = namedChildren[0].readForm()
                 val fieldName = namedChildren[1].text!!.drop(1)
-                ListForm(listOf(KeywordForm(fieldName, loc), receiver), loc)
+                ListForm(listOf(SymbolForm(fieldName, loc), receiver), loc)
             }
 
             "block_call" -> {

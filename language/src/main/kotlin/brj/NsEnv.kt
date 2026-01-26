@@ -2,7 +2,6 @@ package brj
 
 import brj.analyser.NsDecl
 import brj.builtins.Builtins
-import brj.runtime.BridjeKey
 import brj.runtime.BridjeRecord
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -20,7 +19,6 @@ data class NsEnv(
     val requires: Requires = emptyMap(),
     val imports: Imports = emptyMap(),
     val vars: Map<String, GlobalVar> = emptyMap(),
-    val keys: Map<String, BridjeKey> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
 ) : TruffleObject {
@@ -35,7 +33,6 @@ data class NsEnv(
             "Int" to GlobalVar("Int", IntMeta),
             "Double" to GlobalVar("Double", DoubleMeta),
             "String" to GlobalVar("String", StringMeta),
-            "Keyword" to GlobalVar("Keyword", KeywordMeta),
             "BigInt" to GlobalVar("BigInt", BigIntMeta),
             "BigDec" to GlobalVar("BigDec", BigDecMeta),
         )
@@ -50,11 +47,6 @@ data class NsEnv(
 
     fun def(name: String, value: Any?): NsEnv =
         copy(vars = vars + (name to GlobalVar(name, value)))
-
-    fun defKey(name: String, key: BridjeKey): NsEnv =
-        copy(keys = keys + (name to key))
-
-    fun getKey(name: String): BridjeKey? = keys[name]
 
     @ExportMessage
     fun hasLanguage() = true

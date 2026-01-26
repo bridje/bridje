@@ -55,9 +55,9 @@ class FormConstructorTest {
 
     @Test
     fun `Record creates RecordForm`() = withContext { ctx ->
-        val result = ctx.evalBridje("Record([Keyword(\"a\") Int(1)])")
+        val result = ctx.evalBridje("Record([Symbol(\"a\") Int(1)])")
         assertEquals("Record", result.metaObject.metaSimpleName)
-        assertEquals("{:a 1}", result.toString())
+        assertEquals("{a 1}", result.toString())
     }
 
     @Test
@@ -65,12 +65,5 @@ class FormConstructorTest {
         val result = ctx.evalBridje("Double(3.14)")
         assertEquals("Double", result.metaObject.metaSimpleName)
         assertEquals("3.14", result.toString())
-    }
-
-    @Test
-    fun `Keyword creates KeywordForm`() = withContext { ctx ->
-        val result = ctx.evalBridje("Keyword(\"foo\")")
-        assertEquals("Keyword", result.metaObject.metaSimpleName)
-        assertEquals(":foo", result.toString())
     }
 }

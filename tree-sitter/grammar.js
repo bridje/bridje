@@ -20,7 +20,6 @@ module.exports = grammar({
     $.symbol,
     $.qualified_symbol,
     $.dot_symbol,
-    $.keyword,
     $.int, $.float,
     $.bigint, $.bigdec,
     $._indent, $._dedent, $._newline
@@ -31,7 +30,7 @@ module.exports = grammar({
 
     _form: $ => choice(
       $.int, $.float, $.bigint, $.bigdec,
-      $.string, $.keyword, $.symbol, $.qualified_symbol,
+      $.string, $.symbol, $.qualified_symbol,
       $.list, $.vector, $.map, $.set,
       $.call,
       $.block_call,
