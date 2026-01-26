@@ -18,7 +18,7 @@ class NsReEvaluationTest {
               require:
                 lib:
                   base
-            def: doubled add(lib:base/value, lib:base/value)
+            def: doubled add(lib:base:value, lib:base:value)
         """.trimIndent())
         
         val bindings = ctx.getBindings("bridje")
@@ -44,7 +44,7 @@ class NsReEvaluationTest {
               require:
                 lib:
                   base
-            def: doubled add(lib:base/value, lib:base/value)
+            def: doubled add(lib:base:value, lib:base:value)
         """.trimIndent())
         
         // Dependent should be available again with updated value
@@ -65,7 +65,7 @@ class NsReEvaluationTest {
               require:
                 lib:
                   base
-            def: doubled add(lib:base/value, lib:base/value)
+            def: doubled add(lib:base:value, lib:base:value)
         """.trimIndent())
         
         ctx.evalBridje("""
@@ -74,7 +74,7 @@ class NsReEvaluationTest {
                 lib:
                   middle
                   base
-            def: sum add(lib:middle/doubled, lib:base/value)
+            def: sum add(lib:middle:doubled, lib:base:value)
         """.trimIndent())
         
         val bindings = ctx.getBindings("bridje")
@@ -101,7 +101,7 @@ class NsReEvaluationTest {
                 lib:
                   middle
                   base
-            def: sum add(lib:middle/doubled, lib:base/value)
+            def: sum add(lib:middle:doubled, lib:base:value)
         """.trimIndent())
         
         // All should be available again with correct values
@@ -129,7 +129,7 @@ class NsReEvaluationTest {
               require:
                 lib:
                   base
-            def: result lib:base/value
+            def: result lib:base:value
         """.trimIndent())
         
         val bindings = ctx.getBindings("bridje")
@@ -152,11 +152,11 @@ class NsReEvaluationTest {
                   require:
                     lib:
                       base
-                def: result lib:base/value
+                def: result lib:base:value
             """.trimIndent())
             fail("Expected evaluation to fail")
         } catch (e: Exception) {
-            // Expected - lib:base/value doesn't exist in the new version
+            // Expected - lib:base:value doesn't exist in the new version
             assertTrue((e.message?.contains("value") ?: false) || 
                       (e.message?.contains("not found") ?: false))
         }

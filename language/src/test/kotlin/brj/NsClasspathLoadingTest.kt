@@ -12,7 +12,7 @@ class NsClasspathLoadingTest {
                 require_test:
                   base
 
-            def: result require_test:base/value
+            def: result require_test:base:value
         """.trimIndent())
 
         val bindings = ctx.getBindings("bridje")
@@ -28,7 +28,7 @@ class NsClasspathLoadingTest {
                 require_test:
                   dependent.as(dep)
 
-            def: result dep/doubled
+            def: result dep:doubled
         """.trimIndent())
 
         val bindings = ctx.getBindings("bridje")
@@ -87,7 +87,7 @@ class NsClasspathLoadingTest {
                 require_test:
                   base
 
-            def: sum add(inmemory:base/value, require_test:base/value)
+            def: sum add(inmemory:base:value, require_test:base:value)
         """.trimIndent())
 
         val bindings = ctx.getBindings("bridje")

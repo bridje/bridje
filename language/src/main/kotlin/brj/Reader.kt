@@ -44,8 +44,9 @@ class Reader private constructor(private val src: Source) {
             "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
             "symbol" -> SymbolForm(text!!, loc)
             "qualified_symbol" -> {
-                val parts = text!!.split('/')
-                QualifiedSymbolForm(parts[0], parts[1], loc)
+                val t = text!!
+                val idx = t.lastIndexOf(':')
+                QualifiedSymbolForm(t.substring(0, idx), t.substring(idx + 1), loc)
             }
 
             "list" -> ListForm(namedChildren.map { it.readForm() }, loc)

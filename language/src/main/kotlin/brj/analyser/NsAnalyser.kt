@@ -46,8 +46,11 @@ fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
     val els = first.els
     if ((els.firstOrNull() as? SymbolForm)?.name != "ns") return Pair(null, this)
 
-    val nsName = (els.getOrNull(1) as? SymbolForm)?.name
-        ?: error("ns requires a name")
+    val nsName = when (val nameForm = els.getOrNull(1)) {
+        is SymbolForm -> nameForm.name
+        is QualifiedSymbolForm -> "${nameForm.namespace}:${nameForm.member}"
+        else -> error("ns requires a name")
+    }
 
     var requires = emptyMap<String, String>()
     var imports = emptyMap<String, String>()

@@ -133,32 +133,6 @@ Nested list
       (symbol))))
 
 ==================
-Simple keyword
-==================
-
-:foo
-
----
-
-(source_file
-  (keyword))
-
-==================
-Keyword in map
-==================
-
-{:foo 1 :bar 2}
-
----
-
-(source_file
-  (map
-    (keyword)
-    (int)
-    (keyword)
-    (int)))
-
-==================
 Simple call
 ==================
 
@@ -173,7 +147,7 @@ foo(a, b)
     (symbol)))
 
 ==================
-Namespaced symbol
+Java class reference (parses as qualified symbol)
 ==================
 
 java:time:Instant
@@ -181,10 +155,10 @@ java:time:Instant
 ---
 
 (source_file
-  (symbol))
+  (qualified_symbol))
 
 ==================
-Namespaced symbol with field access
+Java class with field access
 ==================
 
 java:time:Instant.now
@@ -193,11 +167,11 @@ java:time:Instant.now
 
 (source_file
   (field_access
-    (symbol)
+    (qualified_symbol)
     (dot_symbol)))
 
 ==================
-Namespaced symbol with method call
+Java class with method call
 ==================
 
 java:time:Instant.parse("2024-01-01")
@@ -206,15 +180,15 @@ java:time:Instant.parse("2024-01-01")
 
 (source_file
   (method_call
-    (symbol)
+    (qualified_symbol)
     (dot_symbol)
     (string)))
 
 ==================
-Qualified symbol (ns/member)
+Qualified symbol (ns:member)
 ==================
 
-java:time:Instant/now
+java:time:Instant:now
 
 ---
 
@@ -225,7 +199,7 @@ java:time:Instant/now
 Qualified symbol call
 ==================
 
-java:time:Instant/now()
+java:time:Instant:now()
 
 ---
 
@@ -237,7 +211,7 @@ java:time:Instant/now()
 Simple qualified symbol
 ==================
 
-foo/bar
+foo:bar
 
 ---
 
@@ -248,7 +222,7 @@ foo/bar
 Qualified symbol with args
 ==================
 
-math/add(1, 2)
+math:add(1, 2)
 
 ---
 

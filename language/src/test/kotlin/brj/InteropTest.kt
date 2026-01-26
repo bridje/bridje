@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 class InteropTest {
     @Test
     fun `calls java static method via qualified symbol`() = withContext { ctx ->
-        val result = ctx.evalBridje("java:time:Instant/now()")
+        val result = ctx.evalBridje("java:time:Instant:now()")
         assertTrue(result.isInstant, "Result should be an Instant")
     }
 

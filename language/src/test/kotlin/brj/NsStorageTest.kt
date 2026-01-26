@@ -37,7 +37,7 @@ class NsStorageTest {
               require:
                 lib:
                   base
-            def: doubled lib:base/value
+            def: doubled lib:base:value
         """.trimIndent())
         
         val bindings = ctx.getBindings("bridje")

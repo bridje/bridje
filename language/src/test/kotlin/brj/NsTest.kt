@@ -10,7 +10,7 @@ class NsTest {
             ns: foo
             def: x 42
         """.trimIndent())
-        val result = ctx.evalBridje("foo/x")
+        val result = ctx.evalBridje("foo:x")
         assertEquals(42L, result.asLong())
     }
 
@@ -21,8 +21,8 @@ class NsTest {
             def: a 1
             def: b 2
         """.trimIndent())
-        assertEquals(1L, ctx.evalBridje("foo/a").asLong())
-        assertEquals(2L, ctx.evalBridje("foo/b").asLong())
+        assertEquals(1L, ctx.evalBridje("foo:a").asLong())
+        assertEquals(2L, ctx.evalBridje("foo:b").asLong())
     }
 
     @Test
@@ -31,13 +31,13 @@ class NsTest {
             ns: math
             def: double(x) add(x, x)
         """.trimIndent())
-        val result = ctx.evalBridje("math/double(21)")
+        val result = ctx.evalBridje("math:double(21)")
         assertEquals(42L, result.asLong())
     }
 
     @Test
     fun `qualified reference to core`() = withContext { ctx ->
-        val result = ctx.evalBridje("brj:core/add(1, 2)")
+        val result = ctx.evalBridje("brj:core:add(1, 2)")
         assertEquals(3L, result.asLong())
     }
 
@@ -47,7 +47,7 @@ class NsTest {
             ns: my:lib
             def: val 99
         """.trimIndent())
-        val result = ctx.evalBridje("my:lib/val")
+        val result = ctx.evalBridje("my:lib:val")
         assertEquals(99L, result.asLong())
     }
 
@@ -89,7 +89,7 @@ class NsTest {
               import:
                 java:time:
                   Instant
-            def: result Instant/now()
+            def: result Instant:now()
         """.trimIndent())
         assertTrue(ns.getMember("result").isInstant)
     }
@@ -118,7 +118,7 @@ class NsTest {
               require:
                 my:
                   lib
-            def: result lib/answer
+            def: result lib:answer
         """.trimIndent())
 
         assertEquals(42L, ns.getMember("result").asLong())
@@ -136,7 +136,7 @@ class NsTest {
               require:
                 my:
                   utils.as(u)
-            def: result u/double(21)
+            def: result u:double(21)
         """.trimIndent())
 
         assertEquals(42L, ns.getMember("result").asLong())

@@ -120,14 +120,15 @@ static bool read_symbol_core(TSLexer *lexer) {
 
 static bool read_symbol(TSLexer *lexer) {
     read_symbol_core(lexer);
-    bool has_slash = false;
+    bool has_colon = false;
 
-    // Check for colon - could be qualified symbol (foo:bar) or block call (foo:)
+    // Check for colon - namespace separator (ns:member) or block call (foo:)
     while (lexer->lookahead == ':') {
         lexer->mark_end(lexer);  // Mark before colon in case it's a block call
         lexer->advance(lexer, false);
         if (is_symbol_head_char(lexer->lookahead)) {
             // Qualified symbol - continue reading
+            has_colon = true;
             read_symbol_core(lexer);
         } else {
             // Block call - return symbol without the colon (mark_end already set)
@@ -136,17 +137,8 @@ static bool read_symbol(TSLexer *lexer) {
         }
     }
 
-    // Check for slash - member access (ns/member)
-    if (lexer->lookahead == '/') {
-        lexer->advance(lexer, false);
-        if (is_symbol_head_char(lexer->lookahead)) {
-            has_slash = true;
-            read_symbol_core(lexer);
-        }
-    }
-
     lexer->mark_end(lexer);  // Mark final position
-    lexer->result_symbol = has_slash ? QUALIFIED_SYMBOL : SYMBOL;
+    lexer->result_symbol = has_colon ? QUALIFIED_SYMBOL : SYMBOL;
     return true;
 }
 

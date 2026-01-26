@@ -161,6 +161,10 @@ data class Analyser(
             try {
                 ctx.truffleEnv.lookupHostSymbol(fqClass.replace(':', '.')) as TruffleObject
             } catch (_: Exception) {
+                // Namespace lookup failed - try the full qualified name as a Java class
+                // (e.g., java:lang:String where namespace=java:lang, member=String)
+                val fullName = "${form.namespace}:${form.member}"
+                tryHostLookup(fullName, form.loc)?.let { return HostConstructorExpr(it, form.loc) }
                 return errorExpr("Unknown namespace: ${form.namespace}", form.loc)
             }
 

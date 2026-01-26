@@ -18,7 +18,7 @@ class NsInvalidationTest {
               require:
                 lib:
                   base
-            def: doubled add(lib:base/value, lib:base/value)
+            def: doubled add(lib:base:value, lib:base:value)
         """.trimIndent())
         
         val bindings = ctx.getBindings("bridje")
@@ -58,7 +58,7 @@ class NsInvalidationTest {
               require:
                 lib:
                   base
-            def: doubled add(lib:base/value, lib:base/value)
+            def: doubled add(lib:base:value, lib:base:value)
         """.trimIndent())
         
         ctx.evalBridje("""
@@ -66,7 +66,7 @@ class NsInvalidationTest {
               require:
                 lib:
                   middle
-            def: tripled add(lib:middle/doubled, lib:base/value)
+            def: tripled add(lib:middle:doubled, lib:base:value)
         """.trimIndent())
         
         val bindings = ctx.getBindings("bridje")
