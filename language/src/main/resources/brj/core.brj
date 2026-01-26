@@ -17,3 +17,8 @@ defmacro: unlessLet(bindings, else, then)
        (case v#
          nil ~else
          ~bname ~then))
+
+defmacro: orElse(value, default)
+  '(case ~value
+     nil ~default
+     x# x#)
