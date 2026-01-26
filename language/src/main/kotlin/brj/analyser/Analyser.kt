@@ -24,6 +24,7 @@ data class Analyser(
     private val nextSlot: AtomicInteger = AtomicInteger(0),
     private val expansionDepth: Int = 0,
     private val errors: MutableList<Error> = mutableListOf(),
+    private val gensymScope: MutableMap<String, String> = mutableMapOf(),
 ) {
     val slotCount: Int get() = nextSlot.get()
 
@@ -229,15 +230,28 @@ data class Analyser(
             is StringForm -> 
                 callFormConstructor("String", listOf(StringExpr(form.value, form.loc)), form.loc)
 
-            is SymbolForm -> 
-                callFormConstructor("Symbol", listOf(StringExpr(form.name, form.loc)), form.loc)
+            is SymbolForm -> {
+                val name = if (form.name.endsWith("#")) {
+                    val baseName = form.name.dropLast(1)
+                    gensymScope.getOrPut(baseName) { "${baseName}__${ctx.nextGensymId()}" }
+                } else {
+                    form.name
+                }
+                callFormConstructor("Symbol", listOf(StringExpr(name, form.loc)), form.loc)
+            }
 
             is QualifiedSymbolForm -> {
+                val member = if (form.member.endsWith("#")) {
+                    val baseName = form.member.dropLast(1)
+                    gensymScope.getOrPut(baseName) { "${baseName}__${ctx.nextGensymId()}" }
+                } else {
+                    form.member
+                }
                 callFormConstructor(
                     "QualifiedSymbol",
                     listOf(
                         StringExpr(form.namespace, form.loc),
-                        StringExpr(form.member, form.loc)
+                        StringExpr(member, form.loc)
                     ),
                     form.loc
                 )
@@ -451,7 +465,7 @@ data class Analyser(
         val bodyForms = els.drop(2)
         if (bodyForms.isEmpty()) return errorExpr("fn requires a body", form.loc)
 
-        var fnAnalyser = Analyser(ctx, nsEnv, errors = errors)
+        var fnAnalyser = Analyser(ctx, nsEnv, errors = errors, gensymScope = gensymScope)
         for (param in params) {
             val (newAnalyser, _) = fnAnalyser.withLocal(param)
             fnAnalyser = newAnalyser
@@ -585,7 +599,7 @@ data class Analyser(
         val bodyForms = els.drop(2)
         if (bodyForms.isEmpty()) return errorExpr("defmacro requires a body", form.loc)
 
-        var macroAnalyser = Analyser(ctx, nsEnv, errors = errors)
+        var macroAnalyser = Analyser(ctx, nsEnv, errors = errors, gensymScope = gensymScope)
         for (param in params) {
             val (newAnalyser, _) = macroAnalyser.withLocal(param)
             macroAnalyser = newAnalyser

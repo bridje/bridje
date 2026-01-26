@@ -5,6 +5,7 @@ import brj.NsEnv
 import com.oracle.truffle.api.TruffleLanguage.ContextReference
 import com.oracle.truffle.api.TruffleLanguage.Env
 import com.oracle.truffle.api.nodes.Node
+import java.util.concurrent.atomic.AtomicLong
 
 class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
     val brjCore: NsEnv = NsEnv.withBuiltins(lang)
@@ -13,6 +14,10 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
         private set
 
     val loadingInProgress: MutableSet<String> = mutableSetOf()
+
+    private val gensymCounter = AtomicLong(0)
+
+    fun nextGensymId(): Long = gensymCounter.incrementAndGet()
 
     // Convenience accessor for backwards compatibility
     val namespaces: Map<String, NsEnv>

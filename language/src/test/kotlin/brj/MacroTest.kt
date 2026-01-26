@@ -133,4 +133,60 @@ class MacroTest {
             ctx.evalBridje("~42")
         }
     }
+
+    @Test
+    fun `gensym returns unique symbols`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: a gensym()
+              def: b gensym()
+              eq(a, b)
+        """)
+        assertFalse(result.asBoolean(), "gensym should return unique symbols")
+    }
+
+    @Test
+    fun `gensym with prefix`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            gensym("foo")
+        """)
+        val str = result.toString()
+        assertTrue(str.startsWith("foo__"), "gensym with prefix should start with 'foo__', got: $str")
+    }
+
+    @Test
+    fun `foo# in syntax-quote resolves to same gensym within form`() = withContext { ctx ->
+        // The macro uses tmp# twice - both should resolve to the same gensym
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: dup(x)
+                '(let [tmp# ~x] (add tmp# tmp#))
+              dup(21)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `foo# avoids variable capture`() = withContext { ctx ->
+        // Without gensym, this would have a variable capture bug
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: dup(x)
+                '(let [tmp# ~x] (add tmp# tmp#))
+              let: [tmp 100]
+                dup(21)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `different foo# names get different gensyms`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: swap-add(x, y)
+                '(let [a# ~x b# ~y] (add b# a#))
+              swap-add(10, 32)
+        """)
+        assertEquals(42L, result.asLong())
+    }
 }

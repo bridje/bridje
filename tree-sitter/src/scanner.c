@@ -137,6 +137,11 @@ static bool read_symbol(TSLexer *lexer) {
         }
     }
 
+    // Check for trailing # (gensym syntax)
+    if (lexer->lookahead == '#') {
+        lexer->advance(lexer, false);
+    }
+
     lexer->mark_end(lexer);  // Mark final position
     lexer->result_symbol = has_colon ? QUALIFIED_SYMBOL : SYMBOL;
     return true;

@@ -233,6 +233,45 @@ math:add(1, 2)
     (int)))
 
 ==================
+Symbol with gensym suffix
+==================
+
+foo#
+
+---
+
+(source_file
+  (symbol))
+
+==================
+Gensym in quoted list
+==================
+
+'(let [tmp# x] tmp#)
+
+---
+
+(source_file
+  (quote
+    (list
+      (symbol)
+      (vector
+        (symbol)
+        (symbol))
+      (symbol))))
+
+==================
+Qualified symbol with gensym suffix
+==================
+
+ns:foo#
+
+---
+
+(source_file
+  (qualified_symbol))
+
+==================
 Simple quote
 ==================
 

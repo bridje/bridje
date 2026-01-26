@@ -19,6 +19,7 @@ object Builtins {
             createBuiltinFunction("lte", LteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             createBuiltinFunction("gte", GteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             createBuiltinFunction("println", PrintlnNode(language)),
+            createBuiltinFunction("gensym", GensymNode(language)),
         ).associateBy { it.name }
 
     private fun createBuiltinFunction(name: String, node: RootNode) =
