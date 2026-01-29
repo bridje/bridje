@@ -45,6 +45,8 @@ bridje/
 ./gradlew :language:test --tests "brj.DefTest.def value"    # Single test method
 ./gradlew :language:test --tests "brj.DefTest.*def*fn*"     # Wildcard for backtick names
 ./gradlew :tree-sitter:testTreeSitter                       # Tree-sitter grammar tests
+./gradlew :tree-sitter:generateGrammar                      # Regenerate parser from grammar.js
+./gradlew :tree-sitter:buildTreeSitter                      # Build native .so library
 ```
 
 ## Code Style Guidelines
