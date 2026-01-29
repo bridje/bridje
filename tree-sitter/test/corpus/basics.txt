@@ -326,3 +326,62 @@ Unquote in quote
         (symbol))
       (int))))
 
+==================
+Metadata with symbol
+==================
+
+^test? foo
+
+---
+
+(source_file
+  (metadata
+    (symbol)
+    (symbol)))
+
+==================
+Metadata with map
+==================
+
+^{a 1} foo
+
+---
+
+(source_file
+  (metadata
+    (map
+      (symbol)
+      (int))
+    (symbol)))
+
+==================
+Stacked metadata
+==================
+
+^a ^b foo
+
+---
+
+(source_file
+  (metadata
+    (symbol)
+    (metadata
+      (symbol)
+      (symbol))))
+
+==================
+Metadata on vector
+==================
+
+^test? [1 2 3]
+
+---
+
+(source_file
+  (metadata
+    (symbol)
+    (vector
+      (int)
+      (int)
+      (int))))
+

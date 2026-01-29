@@ -3,7 +3,6 @@
 (bigint) @sexp
 (bigdec) @sexp
 (string) @sexp
-(keyword) @sexp
 (symbol) @sexp
 (list) @sexp
 (vector) @sexp
@@ -13,3 +12,4 @@
 (block_call) @sexp
 (method_call) @sexp
 (field_access) @sexp
+(metadata) @sexp

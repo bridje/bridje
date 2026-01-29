@@ -12,7 +12,6 @@
 
 ; symbols - general fallback
 (symbol) @variable
-(keyword) @string.special.symbol
 (dot_symbol) @property
 
 ; call: highlight the symbol as function
@@ -47,6 +46,9 @@
 
 ; quote
 (quote "'" @keyword)
+
+; metadata
+(metadata (symbol) @attribute)
 
 ; punctuation
 ":" @punctuation.delimiter

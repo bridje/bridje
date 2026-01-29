@@ -14,6 +14,7 @@ module.exports = grammar({
     [$.block_call, $.method_call, $.field_access],
     [$.quote, $.method_call, $.field_access],
     [$.unquote, $.method_call, $.field_access],
+    [$.metadata, $.method_call, $.field_access],
   ],
 
   externals: $ => [
@@ -22,6 +23,7 @@ module.exports = grammar({
     $.dot_symbol,
     $.int, $.float,
     $.bigint, $.bigdec,
+    $._caret,
     $._indent, $._dedent, $._newline
   ],
 
@@ -38,7 +40,11 @@ module.exports = grammar({
       $.field_access,
       $.quote,
       $.unquote,
+      $.metadata,
     ),
+
+    // ^symbol or ^{map} attached to following form
+    metadata: $ => seq($._caret, choice($.symbol, $.map), $._form),
 
     string: _ => token(/"([^"]|\\")*"/),
 
