@@ -1,5 +1,8 @@
 ns: brj:core
 
+def: withMeta(obj, meta)
+  obj
+
 defmacro: ifLet(bindings, then, else)
   let: [bvec bindings.nth(0)
         bname bvec.nth(0)

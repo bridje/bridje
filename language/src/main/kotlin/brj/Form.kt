@@ -439,9 +439,21 @@ object BigDecMeta : TruffleObject {
     fun toDisplayString(allowSideEffects: Boolean) = "BigDec"
 }
 
-sealed interface Form : TruffleObject {
-    val loc: SourceSection?
-    override fun toString(): String
+sealed class Form : TruffleObject {
+    abstract val loc: SourceSection?
+    var meta: RecordForm? = null
+        protected set
+
+    abstract fun copy(): Form
+
+    fun withMeta(symbol: SymbolForm): Form =
+        withMeta(RecordForm(listOf(symbol, SymbolForm("true")), symbol.loc))
+
+    fun withMeta(record: RecordForm): Form = copy().also {
+        it.meta = if (meta == null) record else RecordForm(meta!!.els + record.els, record.loc)
+    }
+
+    abstract override fun toString(): String
 }
 
 internal fun String.reescape() = this
@@ -451,7 +463,8 @@ internal fun String.reescape() = this
     .replace("\"", "\\\"")
 
 @ExportLibrary(InteropLibrary::class)
-class IntForm(val value: Long, override val loc: SourceSection? = null) : Form {
+class IntForm(val value: Long, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = IntForm(value, loc)
     override fun toString(): String = value.toString()
 
     @ExportMessage fun hasMetaObject() = true
@@ -462,7 +475,8 @@ class IntForm(val value: Long, override val loc: SourceSection? = null) : Form {
 }
 
 @ExportLibrary(InteropLibrary::class)
-class DoubleForm(val value: Double, override val loc: SourceSection? = null) : Form {
+class DoubleForm(val value: Double, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = DoubleForm(value, loc)
     override fun toString(): String = value.toString()
 
     @ExportMessage fun hasMetaObject() = true
@@ -473,7 +487,8 @@ class DoubleForm(val value: Double, override val loc: SourceSection? = null) : F
 }
 
 @ExportLibrary(InteropLibrary::class)
-class BigIntForm(val value: BigInteger, override val loc: SourceSection? = null) : Form {
+class BigIntForm(val value: BigInteger, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = BigIntForm(value, loc)
     override fun toString(): String = "${value}N"
 
     @ExportMessage fun hasMetaObject() = true
@@ -484,7 +499,8 @@ class BigIntForm(val value: BigInteger, override val loc: SourceSection? = null)
 }
 
 @ExportLibrary(InteropLibrary::class)
-class BigDecForm(val value: BigDecimal, override val loc: SourceSection? = null) : Form {
+class BigDecForm(val value: BigDecimal, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = BigDecForm(value, loc)
     override fun toString(): String = "${value}M"
 
     @ExportMessage fun hasMetaObject() = true
@@ -495,7 +511,8 @@ class BigDecForm(val value: BigDecimal, override val loc: SourceSection? = null)
 }
 
 @ExportLibrary(InteropLibrary::class)
-class StringForm(val value: String, override val loc: SourceSection? = null) : Form {
+class StringForm(val value: String, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = StringForm(value, loc)
     override fun toString(): String = "\"${value.reescape()}\""
 
     @ExportMessage fun hasMetaObject() = true
@@ -506,7 +523,8 @@ class StringForm(val value: String, override val loc: SourceSection? = null) : F
 }
 
 @ExportLibrary(InteropLibrary::class)
-class SymbolForm(val name: String, override val loc: SourceSection? = null) : Form {
+class SymbolForm(val name: String, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = SymbolForm(name, loc)
     override fun toString(): String = name
 
     @ExportMessage fun hasMetaObject() = true
@@ -517,7 +535,8 @@ class SymbolForm(val name: String, override val loc: SourceSection? = null) : Fo
 }
 
 @ExportLibrary(InteropLibrary::class)
-class QualifiedSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form {
+class QualifiedSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = QualifiedSymbolForm(namespace, member, loc)
     override fun toString(): String = "$namespace:$member"
 
     @ExportMessage fun hasMetaObject() = true
@@ -528,7 +547,8 @@ class QualifiedSymbolForm(val namespace: String, val member: String, override va
 }
 
 @ExportLibrary(InteropLibrary::class)
-class ListForm(val els: List<Form>, override val loc: SourceSection? = null) : Form {
+class ListForm(val els: List<Form>, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = ListForm(els, loc)
     override fun toString(): String = els.joinToString(prefix = "(", separator = " ", postfix = ")")
 
     @ExportMessage fun hasMetaObject() = true
@@ -550,7 +570,8 @@ class ListForm(val els: List<Form>, override val loc: SourceSection? = null) : F
 }
 
 @ExportLibrary(InteropLibrary::class)
-class VectorForm(val els: List<Form>, override val loc: SourceSection? = null) : Form {
+class VectorForm(val els: List<Form>, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = VectorForm(els, loc)
     override fun toString(): String = els.joinToString(prefix = "[", separator = " ", postfix = "]")
 
     @ExportMessage fun hasMetaObject() = true
@@ -572,7 +593,8 @@ class VectorForm(val els: List<Form>, override val loc: SourceSection? = null) :
 }
 
 @ExportLibrary(InteropLibrary::class)
-class SetForm(val els: List<Form>, override val loc: SourceSection? = null) : Form {
+class SetForm(val els: List<Form>, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = SetForm(els, loc)
     override fun toString(): String = els.joinToString(prefix = "#{", separator = " ", postfix = "}")
 
     @ExportMessage fun hasMetaObject() = true
@@ -594,7 +616,8 @@ class SetForm(val els: List<Form>, override val loc: SourceSection? = null) : Fo
 }
 
 @ExportLibrary(InteropLibrary::class)
-class RecordForm(val els: List<Form>, override val loc: SourceSection? = null) : Form {
+class RecordForm(val els: List<Form>, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = RecordForm(els, loc)
     override fun toString(): String = els.joinToString(prefix = "{", separator = " ", postfix = "}")
 
     @ExportMessage fun hasMetaObject() = true
@@ -616,7 +639,8 @@ class RecordForm(val els: List<Form>, override val loc: SourceSection? = null) :
 }
 
 @ExportLibrary(InteropLibrary::class)
-class UnquoteForm(val form: Form, override val loc: SourceSection? = null) : Form {
+class UnquoteForm(val form: Form, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = UnquoteForm(form, loc)
     override fun toString(): String = "~$form"
 
     @Suppress("UNUSED_PARAMETER")
