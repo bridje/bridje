@@ -5,7 +5,6 @@ import brj.runtime.BridjeRecord
 import com.oracle.truffle.api.dsl.NodeChild
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.`object`.DynamicObjectLibrary
 import com.oracle.truffle.api.source.SourceSection
 
 @NodeChild(value = "values", type = ExecuteArrayNode::class)
@@ -15,14 +14,7 @@ abstract class RecordNode(
 ) : BridjeNode(loc) {
 
     @Specialization
-    fun createRecord(values: Array<Any>): BridjeRecord {
-        val record = BridjeRecord(BridjeRecord.shape)
-        val objectLibrary = DynamicObjectLibrary.getUncached()
-        for (i in fieldNames.indices) {
-            objectLibrary.put(record, fieldNames[i], values[i])
-        }
-        return record
-    }
+    fun createRecord(values: Array<Any>): BridjeRecord = BridjeRecord(fieldNames, values)
 
     abstract override fun execute(frame: VirtualFrame): Any?
 }

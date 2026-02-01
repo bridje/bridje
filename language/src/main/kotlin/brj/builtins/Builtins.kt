@@ -21,6 +21,8 @@ object Builtins {
             createBuiltinFunction("println", PrintlnNode(language)),
             createBuiltinFunction("gensym", GensymNode(language)),
             createBuiltinFunction("nth", NthNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            createBuiltinFunction("meta", MetaNode(language)),
+            createBuiltinFunction("withMeta", WithMetaNode(language)),
         ).associateBy { it.name }
 
     private fun createBuiltinFunction(name: String, node: RootNode) =

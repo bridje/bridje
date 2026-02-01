@@ -85,6 +85,16 @@ class Reader private constructor(private val src: Source) {
             "quote" -> ListForm(listOf(SymbolForm("quote", loc), namedChildren[0].readForm()), loc)
             "unquote" -> UnquoteForm(namedChildren[0].readForm(), loc)
 
+            "metadata" -> {
+                val metaValue = namedChildren[0].readForm()
+                val innerForm = namedChildren[1].readForm()
+                when (metaValue) {
+                    is SymbolForm -> innerForm.withMeta(metaValue)
+                    is RecordForm -> innerForm.withMeta(metaValue)
+                    else -> error("metadata must be symbol or map")
+                }
+            }
+
             else -> error("Unknown form type: $type")
         }
     }

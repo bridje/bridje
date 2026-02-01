@@ -9,7 +9,9 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeVector(val els: Array<Any>) : TruffleObject {
+class BridjeVector(val els: Array<Any>, override val meta: BridjeRecord = BridjeRecord.EMPTY) : TruffleObject, Meta<BridjeVector> {
+
+    override fun withMeta(newMeta: BridjeRecord?): BridjeVector = BridjeVector(els, newMeta ?: BridjeRecord.EMPTY)
 
     fun toFormList(): List<Form> = els.map { it as Form }
 

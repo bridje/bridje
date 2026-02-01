@@ -10,18 +10,44 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.`object`.DynamicObject
 import com.oracle.truffle.api.`object`.DynamicObjectLibrary
 import com.oracle.truffle.api.`object`.Shape
-import java.lang.invoke.MethodHandles
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeRecord(shape: Shape) : DynamicObject(shape) {
+class BridjeRecord internal constructor(
+    @JvmField internal val storage: DynamicObject = Storage(SHAPE),
+    private val _meta: BridjeRecord? = null // nullable to avoid circular initialization with EMPTY
+) : TruffleObject, Meta<BridjeRecord> {
+
+    override val meta: BridjeRecord get() = _meta ?: EMPTY
+
+    internal constructor(keys: Array<String>, values: Array<Any>) : this(
+        Storage(SHAPE).also { storage ->
+            for (i in keys.indices) {
+                OBJECT_LIBRARY.put(storage, keys[i], values[i])
+            }
+        }
+    )
+
+    override fun withMeta(newMeta: BridjeRecord?): BridjeRecord =
+        BridjeRecord(storage, newMeta)
+
+    internal fun put(key: Any, value: Any?): BridjeRecord {
+        val newStorage = Storage(SHAPE)
+        for (k in OBJECT_LIBRARY.getKeyArray(storage)) {
+            OBJECT_LIBRARY.put(newStorage, k, OBJECT_LIBRARY.getOrDefault(storage, k, null))
+        }
+        OBJECT_LIBRARY.put(newStorage, key, value)
+        return BridjeRecord(newStorage, meta)
+    }
+
+    private class Storage(shape: Shape) : DynamicObject(shape)
 
     companion object {
         private val INTEROP = InteropLibrary.getUncached()
         private val OBJECT_LIBRARY = DynamicObjectLibrary.getUncached()
 
-        val shape: Shape = Shape.newBuilder()
-            .layout(BridjeRecord::class.java, MethodHandles.lookup())
-            .build()
+        private val SHAPE: Shape = Shape.newBuilder().build()
+
+        val EMPTY: BridjeRecord = BridjeRecord()
     }
 
     @ExportMessage
@@ -29,21 +55,21 @@ class BridjeRecord(shape: Shape) : DynamicObject(shape) {
 
     @ExportMessage
     fun getMembers(includeInternal: Boolean,
-                   @CachedLibrary("this") objectLibrary: DynamicObjectLibrary): Any {
-        return Keys(objectLibrary.getKeyArray(this))
+                   @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Any {
+        return Keys(objectLibrary.getKeyArray(storage))
     }
 
     @ExportMessage
     fun isMemberReadable(name: String,
-                         @CachedLibrary("this") objectLibrary: DynamicObjectLibrary): Boolean {
-        return objectLibrary.containsKey(this, name)
+                         @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Boolean {
+        return objectLibrary.containsKey(storage, name)
     }
 
     @ExportMessage
     @Throws(UnknownIdentifierException::class)
     fun readMember(name: String,
-                   @CachedLibrary("this") objectLibrary: DynamicObjectLibrary): Any? {
-        val value = objectLibrary.getOrDefault(this, name, null)
+                   @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Any? {
+        val value = objectLibrary.getOrDefault(storage, name, null)
             ?: throw UnknownIdentifierException.create(name)
         return value
     }
@@ -52,9 +78,9 @@ class BridjeRecord(shape: Shape) : DynamicObject(shape) {
     @ExportMessage
     @TruffleBoundary
     fun toDisplayString(allowSideEffects: Boolean): String {
-        val keys = OBJECT_LIBRARY.getKeyArray(this)
+        val keys = OBJECT_LIBRARY.getKeyArray(storage)
         return keys.joinToString(prefix = "{", separator = ", ", postfix = "}") { key ->
-            val value = OBJECT_LIBRARY.getOrDefault(this, key, null)
+            val value = OBJECT_LIBRARY.getOrDefault(storage, key, null)
             "$key ${INTEROP.toDisplayString(value)}"
         }
     }

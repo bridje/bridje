@@ -510,7 +510,7 @@ data class Analyser(
         return CallExpr(fnExpr, argExprs, form.loc)
     }
 
-    fun analyseValueExpr(form: Form): ValueExpr {
+    private fun analyseValueExprInner(form: Form): ValueExpr {
         return when (form) {
             is IntForm -> IntExpr(form.value, form.loc)
             is DoubleForm -> DoubleExpr(form.value, form.loc)
@@ -525,6 +525,20 @@ data class Analyser(
             is RecordForm -> analyseRecord(form)
             is UnquoteForm -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
         }
+    }
+
+    fun analyseValueExpr(form: Form): ValueExpr {
+        val inner = analyseValueExprInner(form)
+        val meta = form.meta ?: return inner
+
+        val withMetaVar = ctx.brjCore["withMeta"]
+            ?: return errorExpr("withMeta not found in brj.core", form.loc)
+
+        return CallExpr(
+            GlobalVarExpr(withMetaVar, form.loc),
+            listOf(inner, analyseValueExpr(meta)),
+            form.loc
+        )
     }
 
     private fun analyseDef(form: ListForm): Expr {
