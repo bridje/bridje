@@ -148,7 +148,11 @@ class ParseRootNode(
     override fun execute(frame: VirtualFrame): Any? {
         val initialNsEnv = when {
             // brj:core starts with Kotlin builtins
-            nsDecl?.name == "brj:core" -> NsEnv.withBuiltins(lang)
+            nsDecl?.name == "brj:core" -> NsEnv.withBuiltins(lang).copy(
+                imports = nsDecl.imports,
+                nsDecl = nsDecl,
+                source = source
+            )
             nsDecl != null -> nsDecl.resolve(frame)
             else -> NsEnv()
         }
