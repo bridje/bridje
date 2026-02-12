@@ -1,0 +1,349 @@
+ns: raft:server
+
+//// Types
+
+defkey: from ServerId
+defkey: to ServerId
+
+defkey: term Int
+defkey: index Int
+defkey: command Str
+type: LogEntry {term, index, command}
+
+defkey: lastLogIndex Int
+defkey: lastLogTerm Int
+defkey: granted Bool
+type: VoteRequest {from, to, term, lastLogIndex, lastLogTerm}
+type: VoteResponse {from, to, term, granted}
+
+defkey: prevLogIndex Int
+defkey: prevLogTerm Int
+defkey: entries Vec
+defkey: leaderCommit Int
+type: AppendRequest {from, to, term, prevLogIndex, prevLogTerm, entries, leaderCommit}
+
+defkey: success Bool
+defkey: matchIndex Int
+type: AppendResponse {from, to, term, success, matchIndex}
+
+defkey: cluster Set
+defkey: currentTerm Int
+defkey: votedFor ServerId
+defkey: log Vec
+defkey: commitIndex Int
+defkey: lastApplied Int
+defkey: role ServerRole
+defkey: id ServerId
+type: ServerState {id, cluster, currentTerm, votedFor, log, commitIndex, lastApplied, role}
+
+//// Server Role
+
+defkey: knownLeader ServerId
+defkey: votesReceived Set
+defkey: nextIndex Map
+defkey: matchIdx Map
+
+type: ServerRole
+  Sum:
+    Follower(knownLeader)
+    Candidate(votesReceived)
+    Leader(nextIndex, matchIdx)
+
+//// Derived
+
+// ServerState -> Int
+def: majority(ServerState({cluster}))
+  cluster.count.div(2).inc()
+
+// ServerState -> Int
+def: lastLogIndex(ServerState({log}))
+  log.count
+
+// ServerState -> Int
+def: lastLogTerm(ServerState({log}))
+  if: log.count.gt(0)
+    log.last.term
+    0
+
+//// Effect Interfaces
+
+definterface: RaftNetwork
+  decl: sendVoteRequest(to, req)
+  decl: sendVoteResponse(to, resp)
+  decl: sendAppendRequest(to, req)
+  decl: sendAppendResponse(to, resp)
+
+definterface: Persistence
+  decl: persist(state)
+
+definterface: Clock
+  decl: now()
+  decl: electionTimeout()
+
+definterface: StateMachine
+  decl: apply(command)
+
+defx: net RaftNetwork
+defx: persist Persistence
+defx: clock Clock
+defx: sm StateMachine
+
+//// Constants
+
+def: heartbeatInterval
+  PT0.05S
+
+//// Pure Helpers
+
+// ref ServerState, Int -> ()
+def: stepUpTerm(state, newTerm)
+  when: newTerm.gt(state.currentTerm)
+    state.setCurrentTerm(newTerm)
+    state.setVotedFor(nil)
+    state.setRole(Follower({knownLeader nil}))
+
+// ServerState, VoteRequest -> Bool
+def: candidateLogUpToDate(state, req)
+  or:
+    req.lastLogTerm.gt(lastLogTerm(state))
+    and:
+      req.lastLogTerm.eq(lastLogTerm(state))
+      req.lastLogIndex.gte(lastLogIndex(state))
+
+// ServerState, VoteRequest -> Bool
+def: canGrantVote(state, req)
+  and:
+    req.term.gte(state.currentTerm)
+    or:
+      state.votedFor.eq(nil)
+      state.votedFor.eq(req.from)
+    candidateLogUpToDate(state, req)
+
+// ServerState, AppendRequest -> Bool
+def: logConsistent(state, AppendRequest({prevLogIndex, prevLogTerm}))
+  or:
+    prevLogIndex.eq(0)
+    and:
+      state.log.count.gte(prevLogIndex)
+      state.log.at(prevLogIndex).term.eq(prevLogTerm)
+
+//// Leader Election
+
+// ref ServerState, tag Agent -> () ! net, clock
+def: startElection(state, server)
+  state.setCurrentTerm(state.currentTerm.inc())
+  state.setRole(Candidate({votesReceived #{state.id}}))
+  state.setVotedFor(state.id)
+
+  doseq: [peer state.cluster]
+    when: peer.neq(state.id)
+      net.sendVoteRequest(peer,
+        VoteRequest:
+          {from state.id,
+           to peer,
+           term state.currentTerm,
+           lastLogIndex lastLogIndex(state),
+           lastLogTerm lastLogTerm(state)})
+
+  server.onTimeout(clock.electionTimeout(), startElection, server)
+
+// ref ServerState, VoteRequest, tag Agent -> () ! net, clock
+def: handleVoteRequest(state, req, server)
+  stepUpTerm(state, req.term)
+
+  if: canGrantVote(state, req)
+    do:
+      state.setVotedFor(req.from)
+      server.onTimeout(clock.electionTimeout(), startElection, server)
+
+      net.sendVoteResponse(
+        req.from,
+        VoteResponse:
+          {from state.id,
+           to req.from,
+           term state.currentTerm,
+           granted true})
+
+    net.sendVoteResponse(
+      req.from,
+      VoteResponse:
+        {from state.id,
+         to req.from,
+         term state.currentTerm,
+         granted false})
+
+// ref ServerState, VoteResponse, tag Agent -> () ! net, clock
+def: handleVoteResponse(state, resp, server)
+  if: resp.term.gt(state.currentTerm)
+    do:
+      stepUpTerm(state, resp.term)
+      server.onTimeout(clock.electionTimeout(), startElection, server)
+    case: state.role
+      Candidate(c):
+        if: and: resp.granted
+                 resp.term.eq(state.currentTerm)
+          let: [votes c.votesReceived.add(resp.from)]
+            state.setRole(Candidate({votesReceived votes}))
+            when: votes.count.gte(majority(state))
+              winElection(state, server)
+
+// ref ServerState, tag Agent -> () ! net
+def: winElection(state, server)
+  let: [peers state.cluster.remove(state.id)]
+    state.setRole(
+      Leader:
+        {nextIndex peers.associate(# [it, lastLogIndex(state).inc()])
+         matchIdx peers.associate(# [it, 0])})
+
+    doseq: [peer peers]
+      sendAppendEntries(state, peer)
+
+    server.onTimeout(heartbeatInterval, sendHeartbeats, server)
+
+//// Log Replication
+
+// ref ServerState, ServerId -> () ! net
+def: sendAppendEntries(state, peer)
+  case: state.role
+    Leader(l):
+      let: [next l.nextIndex.get(peer)
+            prevIdx next.dec()
+            prevTm if: prevIdx.gt(0)
+                     state.log.at(prevIdx).term
+                     0
+            ents state.log.from(next)]
+        net.sendAppendRequest(peer,
+          AppendRequest:
+            {from state.id,
+             to peer,
+             term state.currentTerm,
+             prevLogIndex prevIdx,
+             prevLogTerm prevTm,
+             entries ents,
+             leaderCommit state.commitIndex})
+
+// ref ServerState, tag Agent -> () ! net
+def: sendHeartbeats(state, server)
+  case: state.role
+    Leader(l):
+      doseq: [peer state.cluster]
+        when: peer.neq(state.id)
+          sendAppendEntries(state, peer)
+
+      server.onTimeout(heartbeatInterval, sendHeartbeats, server)
+
+// ref ServerState, AppendRequest, tag Agent -> () ! net, clock
+def: handleAppendRequest(state, req, server)
+  let: [reject (fn: []
+                  net.sendAppendResponse(req.from,
+                    AppendResponse:
+                      {from state.id,
+                       to req.from,
+                       term state.currentTerm,
+                       success false,
+                       matchIndex 0}))]
+    cond:
+      req.term.lt(state.currentTerm) reject()
+
+      not(logConsistent(state, req))
+        do:
+          stepUpTerm(state, req.term)
+          state.setRole(Follower({knownLeader req.from}))
+          server.onTimeout(clock.electionTimeout(), startElection, server)
+          reject()
+
+      do:
+        stepUpTerm(state, req.term)
+        state.setRole(Follower({knownLeader req.from}))
+        server.onTimeout(clock.electionTimeout(), startElection, server)
+        state.setLog(state.log.take(req.prevLogIndex).append(req.entries))
+
+        when: req.leaderCommit.gt(state.commitIndex)
+          state.setCommitIndex(min(req.leaderCommit, state.log.count))
+
+        net.sendAppendResponse(req.from,
+          AppendResponse:
+            {from state.id,
+             to req.from,
+             term state.currentTerm,
+             success true,
+             matchIndex req.prevLogIndex.add(req.entries.count)})
+
+// ref ServerState, AppendResponse, tag Agent -> () ! net, clock
+def: handleAppendResponse(state, resp, server)
+  if: resp.term.gt(state.currentTerm)
+    do:
+      stepUpTerm(state, resp.term)
+      server.onTimeout(clock.electionTimeout(), startElection, server)
+    case: state.role
+      Leader(l):
+        if: resp.term.eq(state.currentTerm)
+          if: resp.success
+            do:
+              l.setNextIndex(l.nextIndex.set(resp.from, resp.matchIndex.inc()))
+              l.setMatchIdx(l.matchIdx.set(resp.from, resp.matchIndex))
+              advanceCommitIndex(state)
+            do:
+              l.setNextIndex(l.nextIndex.set(resp.from, max(1, l.nextIndex.get(resp.from).dec())))
+              sendAppendEntries(state, resp.from)
+
+//// Commitment
+
+// ref ServerState -> ()
+def: advanceCommitIndex(state)
+  case: state.role
+    Leader(l):
+      let: [newCommit highest(fn: [n]
+                                and:
+                                  n.gt(state.commitIndex)
+                                  state.log.at(n).term.eq(state.currentTerm)
+                                  l.matchIdx.values
+                                    .count(fn: [v]
+                                            v.gte(n)).inc().gte(majority(state)))]
+        whenNotNil: newCommit
+          state.setCommitIndex(newCommit)
+
+// ref ServerState -> () ! sm
+def: applyCommittedEntries(state)
+  doseq: [idx range(state.lastApplied.inc(), state.commitIndex.inc())]
+    sm.apply(state.log.at(idx).command)
+  state.setLastApplied(state.commitIndex)
+
+//// Client Interface
+
+// ref ServerState, Str -> () ! net
+def: handleClientCommand(state, cmd)
+  case: state.role
+    Leader(l):
+      let: [entry
+            LogEntry:
+              {term state.currentTerm,
+               index lastLogIndex(state).inc(),
+               command cmd}]
+        state.setLog(state.log.append(entry))
+        doseq: [peer state.cluster]
+          when: peer.neq(state.id)
+            sendAppendEntries(state, peer)
+
+    Follower(f):
+      ifLet: [leader f.knownLeader]
+        ClientRedirected(leader)
+        ClientRetryLater()
+
+//// Server Lifecycle
+
+// ServerId, Set -> tag Agent ! clock
+def: createServer(serverId, cluster)
+  let: [state
+        ServerState:
+          {id serverId,
+           cluster cluster,
+           currentTerm 0,
+           votedFor nil,
+           log [],
+           commitIndex 0,
+           lastApplied 0,
+           role Follower({knownLeader nil})}
+        server agent(state)]
+    server.onTimeout(clock.electionTimeout(), startElection, server)
+    server

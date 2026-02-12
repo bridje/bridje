@@ -1,0 +1,642 @@
+-- raft.allium
+--
+-- The Raft consensus algorithm.
+-- Based on "In Search of an Understandable Consensus Algorithm"
+-- (Ongaro & Ousterhout, 2014).
+--
+-- Scope: core protocol — leader election, log replication, safety.
+-- Out of scope: membership changes (§6), log compaction (§7).
+--
+-- The fundamental guarantee:
+--   If any server has applied a log entry at a given index to its state machine,
+--   no other server will ever apply a different log entry for that index.
+--
+-- Design constraints:
+--
+--   Strong leader: log entries only flow from leader to followers.
+--   A leader never overwrites or deletes entries in its own log.
+--
+--   Randomised timeouts: election timeouts are randomised to reduce split votes.
+--   This is the only source of non-determinism in the protocol.
+--
+--   At most one leader per term.
+--   Terms act as a logical clock; stale leaders and candidates discover
+--   they've been superseded when they see a higher term in any RPC.
+--
+-- Persistence:
+--   current_term, voted_for, and log survive crashes.
+--   All other state is volatile and reconstructed on recovery.
+
+------------------------------------------------------------
+-- Value Types
+------------------------------------------------------------
+
+value LogEntry {
+    term: Integer
+    index: Integer
+    command: String     -- opaque to consensus; interpreted by the state machine
+}
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+external entity StateMachine {
+    -- Application-specific.
+    -- Raft guarantees all servers apply the same commands in the same order.
+}
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity Cluster {
+    servers: Set<Server>
+
+    -- Derived
+    majority: servers.count / 2 + 1
+}
+
+entity Server {
+    cluster: Cluster
+
+    -- Persistent state (survives crashes; see ServerRecovers).
+    current_term: Integer
+    voted_for: Server?
+    log: List<LogEntry>
+
+    -- Volatile state (reset on crash recovery).
+    commit_index: Integer
+    last_applied: Integer
+
+    role: Leader | Follower | Candidate
+
+    -- Derived
+    last_log_index: log.count
+    last_log_term: if log.count > 0: log.last.term else: 0
+    has_unapplied: commit_index > last_applied
+}
+
+variant Leader : Server {
+    -- Reinitialised after each election (see WinElection).
+    next_index: Map<Server, Integer>
+    match_index: Map<Server, Integer>
+    last_append_at: Timestamp
+}
+
+variant Follower : Server {
+    known_leader: Server?
+    election_deadline: Timestamp
+}
+
+variant Candidate : Server {
+    votes_received: Set<Server>
+    election_deadline: Timestamp
+}
+
+-- RPC messages.
+
+entity VoteRequest {
+    from: Server
+    to: Server
+    term: Integer
+    last_log_index: Integer
+    last_log_term: Integer
+}
+
+entity VoteResponse {
+    from: Server
+    to: Server
+    term: Integer
+    granted: Boolean
+}
+
+entity AppendRequest {
+    from: Server
+    to: Server
+    term: Integer
+    prev_log_index: Integer
+    prev_log_term: Integer
+    entries: List<LogEntry>
+    leader_commit: Integer
+}
+
+entity AppendResponse {
+    from: Server
+    to: Server
+    term: Integer
+    success: Boolean
+    match_index: Integer
+}
+
+------------------------------------------------------------
+-- Defaults
+------------------------------------------------------------
+
+default election_timeout_min = 150.milliseconds
+default election_timeout_max = 300.milliseconds
+default heartbeat_interval = 50.milliseconds
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- ==========================================================
+-- Server Lifecycle
+-- ==========================================================
+
+-- A server recovering from a crash retains only its persistent state.
+-- Volatile state is reinitialised; the server always restarts as a follower.
+-- (Figure 2: volatile state is reset on restart.)
+
+rule ServerRecovers {
+    when: ServerCrashRecovery(server)
+
+    ensures:
+        server.role = Follower
+        server.commit_index = 0
+        server.last_applied = 0
+        server.known_leader = null
+        server.election_deadline = now + random(election_timeout_min, election_timeout_max)
+}
+
+-- ==========================================================
+-- Leader Election
+-- ==========================================================
+
+-- A follower that hears nothing within its election timeout
+-- concludes the leader has failed and starts an election.
+-- (§5.2)
+
+rule FollowerStartsElection {
+    when: follower: Follower.election_deadline <= now
+
+    requires: follower.role = Follower
+
+    ensures:
+        follower.current_term = follower.current_term + 1
+        follower.role = Candidate
+        follower.voted_for = follower
+        follower.votes_received = { follower }
+
+        for each peer in follower.cluster.servers:
+            if peer != follower:
+                VoteRequest.created(
+                    from: follower,
+                    to: peer,
+                    term: follower.current_term,
+                    last_log_index: follower.last_log_index,
+                    last_log_term: follower.last_log_term
+                )
+
+        follower.election_deadline = now + random(election_timeout_min, election_timeout_max)
+}
+
+-- A candidate whose election times out without winning or losing
+-- starts a new election.  Randomised timeouts make this rare.
+
+rule CandidateRestartsElection {
+    when: candidate: Candidate.election_deadline <= now
+
+    requires: candidate.role = Candidate
+
+    ensures:
+        candidate.current_term = candidate.current_term + 1
+        candidate.voted_for = candidate
+        candidate.votes_received = { candidate }
+
+        for each peer in candidate.cluster.servers:
+            if peer != candidate:
+                VoteRequest.created(
+                    from: candidate,
+                    to: peer,
+                    term: candidate.current_term,
+                    last_log_index: candidate.last_log_index,
+                    last_log_term: candidate.last_log_term
+                )
+
+        candidate.election_deadline = now + random(election_timeout_min, election_timeout_max)
+}
+
+-- A server grants its vote if (a) the term is current, (b) it hasn't voted
+-- for someone else this term, and (c) the candidate's log is at least as
+-- up-to-date as its own.
+-- (§5.4.1: log comparison by last entry's term, then index.)
+
+rule HandleVoteRequest {
+    when: request: VoteRequest.created
+
+    let receiver = request.to
+
+    let candidate_log_up_to_date =
+        request.last_log_term > receiver.last_log_term
+        or (request.last_log_term = receiver.last_log_term
+            and request.last_log_index >= receiver.last_log_index)
+
+    ensures:
+        -- Adopt higher term if seen.  This clears voted_for,
+        -- making the receiver eligible to vote in the new term.
+        -- (§5.1)
+        if request.term > receiver.current_term:
+            receiver.current_term = request.term
+            receiver.role = Follower
+            receiver.voted_for = null
+
+        -- Grant decision uses post-step-up state:
+        -- after a term step-up, voted_for is null, so only log matters.
+        if request.term >= receiver.current_term
+            and (receiver.voted_for = null or receiver.voted_for = request.from)
+            and candidate_log_up_to_date:
+
+            receiver.voted_for = request.from
+
+            -- Granting a vote resets the election timer (§5.2).
+            if receiver.role = Follower:
+                receiver.election_deadline = now + random(election_timeout_min, election_timeout_max)
+
+            VoteResponse.created(
+                from: receiver, to: request.from,
+                term: receiver.current_term, granted: true
+            )
+        else:
+            VoteResponse.created(
+                from: receiver, to: request.from,
+                term: receiver.current_term, granted: false
+            )
+}
+
+-- A candidate collects votes.  A majority wins the election.
+-- Vote denials are intentionally unhandled: the candidate simply
+-- waits for a majority or times out.
+
+rule HandleVoteGranted {
+    when: response: VoteResponse.created
+
+    requires: response.granted = true
+    requires: response.to.role = Candidate
+    requires: response.term = response.to.current_term
+
+    let candidate = response.to
+
+    ensures:
+        candidate.votes_received = candidate.votes_received.add(response.from)
+
+        if candidate.votes_received.count >= candidate.cluster.majority:
+            WinElection(candidate)
+}
+
+-- A VoteResponse carrying a higher term causes the recipient to step down.
+-- (§5.1: "If RPC response contains term T > currentTerm:
+-- set currentTerm = T, convert to follower.")
+
+rule StepDownOnVoteResponse {
+    when: response: VoteResponse.created
+
+    requires: response.term > response.to.current_term
+
+    let server = response.to
+
+    ensures:
+        server.current_term = response.term
+        server.voted_for = null
+        server.role = Follower
+}
+
+rule WinElection {
+    when: WinElection(server)
+
+    requires: server.role = Candidate
+
+    ensures:
+        server.role = Leader
+
+        -- §5.3: nextIndex initialised to leader's last log index + 1.
+        for each peer in server.cluster.servers:
+            if peer != server:
+                server.next_index.set(peer, server.last_log_index + 1)
+                server.match_index.set(peer, 0)
+
+        -- Establish authority with immediate heartbeats.
+        server.last_append_at = now
+        for each peer in server.cluster.servers:
+            if peer != server:
+                SendAppendEntries(server, peer)
+}
+
+-- ==========================================================
+-- Log Replication
+-- ==========================================================
+
+-- The leader appends client commands to its log, then replicates.
+
+rule ClientSubmitsCommand {
+    when: ClientSubmitsCommand(client, server, command)
+
+    requires: server.role = Leader
+
+    let entry = LogEntry {
+        term: server.current_term,
+        index: server.last_log_index + 1,
+        command: command
+    }
+
+    ensures:
+        server.log = server.log.append(entry)
+
+        for each peer in server.cluster.servers:
+            if peer != server:
+                SendAppendEntries(server, peer)
+}
+
+-- Non-leaders redirect clients to the known leader, or ask them to retry.
+
+rule ClientContactsNonLeader {
+    when: ClientSubmitsCommand(client, server, command)
+
+    requires: server.role != Leader
+
+    ensures:
+        -- known_leader is a Follower field; only accessible within this type guard.
+        if server.role = Follower and server.known_leader != null:
+            ClientRedirected(client, server.known_leader)
+        else:
+            ClientRetryLater(client)
+}
+
+-- The leader sends AppendEntries to replicate log entries.
+-- Empty entries (when the follower is caught up) serve as heartbeats.
+
+rule SendAppendEntries {
+    when: SendAppendEntries(leader, peer)
+
+    requires: leader.role = Leader
+
+    let next = leader.next_index.get(peer)
+    let prev_index = next - 1
+    let prev_term = if prev_index > 0: leader.log.at(prev_index).term else: 0
+    let entries = leader.log.from(next)
+
+    ensures:
+        AppendRequest.created(
+            from: leader,
+            to: peer,
+            term: leader.current_term,
+            prev_log_index: prev_index,
+            prev_log_term: prev_term,
+            entries: entries,
+            leader_commit: leader.commit_index
+        )
+
+        leader.last_append_at = now
+}
+
+-- The leader sends periodic heartbeats to prevent followers
+-- from starting elections.
+
+rule HeartbeatTimeout {
+    when: leader: Leader.last_append_at + heartbeat_interval <= now
+
+    requires: leader.role = Leader
+
+    ensures:
+        for each peer in leader.cluster.servers:
+            if peer != leader:
+                SendAppendEntries(leader, peer)
+}
+
+-- A server handles an AppendEntries request.
+-- Three paths:
+--   1. Valid term + log consistent → accept entries, advance commit index.
+--   2. Valid term + log inconsistent → reject, but still recognise the leader.
+--   3. Stale term → reject outright.
+-- (§5.3: "If an existing entry conflicts with a new one (same index
+-- but different terms), delete the existing entry and all that follow it.")
+
+rule HandleAppendRequest {
+    when: request: AppendRequest.created
+
+    let receiver = request.to
+
+    let log_consistent =
+        request.prev_log_index = 0
+        or (receiver.log.count >= request.prev_log_index
+            and receiver.log.at(request.prev_log_index).term = request.prev_log_term)
+
+    ensures:
+        if request.term >= receiver.current_term:
+            -- Valid term: recognise the leader and reset election timer,
+            -- regardless of log consistency.
+            -- This prevents unnecessary elections while the leader
+            -- backtracks to find the matching point.
+            if request.term > receiver.current_term:
+                receiver.current_term = request.term
+                receiver.voted_for = null
+
+            receiver.role = Follower
+            receiver.known_leader = request.from
+            receiver.election_deadline = now + random(election_timeout_min, election_timeout_max)
+
+            if log_consistent:
+                -- Truncate any conflicting suffix and append new entries.
+                receiver.log = receiver.log.take(request.prev_log_index).append(request.entries)
+
+                if request.leader_commit > receiver.commit_index:
+                    receiver.commit_index = min(request.leader_commit, receiver.log.count)
+
+                AppendResponse.created(
+                    from: receiver, to: request.from,
+                    term: receiver.current_term, success: true,
+                    match_index: request.prev_log_index + request.entries.count
+                )
+            else:
+                -- Log inconsistency; the leader will decrement nextIndex and retry.
+                AppendResponse.created(
+                    from: receiver, to: request.from,
+                    term: receiver.current_term, success: false,
+                    match_index: 0
+                )
+        else:
+            -- Stale term: reject without recognising the leader.
+            AppendResponse.created(
+                from: receiver, to: request.from,
+                term: receiver.current_term, success: false,
+                match_index: 0
+            )
+}
+
+-- Successful replication: advance nextIndex and matchIndex for the peer.
+
+rule HandleAppendSuccess {
+    when: response: AppendResponse.created
+
+    requires: response.success = true
+    requires: response.to.role = Leader
+    requires: response.term = response.to.current_term
+
+    let leader = response.to
+    let peer = response.from
+
+    ensures:
+        leader.next_index.set(peer, response.match_index + 1)
+        leader.match_index.set(peer, response.match_index)
+        AdvanceCommitIndex(leader)
+}
+
+-- Failed replication (log inconsistency): decrement nextIndex and retry.
+-- (The optimisation of skipping past conflicting terms is deferred.)
+
+rule HandleAppendFailure {
+    when: response: AppendResponse.created
+
+    requires: response.success = false
+    requires: response.to.role = Leader
+    requires: response.term = response.to.current_term
+
+    let leader = response.to
+    let peer = response.from
+
+    ensures:
+        leader.next_index.set(peer, max(1, leader.next_index.get(peer) - 1))
+        SendAppendEntries(leader, peer)
+}
+
+-- An AppendResponse carrying a higher term causes the leader to step down.
+-- (§5.1)
+
+rule StepDownOnAppendResponse {
+    when: response: AppendResponse.created
+
+    requires: response.term > response.to.current_term
+
+    let server = response.to
+
+    ensures:
+        server.current_term = response.term
+        server.voted_for = null
+        server.role = Follower
+}
+
+-- ==========================================================
+-- Commitment
+-- ==========================================================
+
+-- The leader commits an entry once a majority has replicated it.
+-- Only entries from the leader's current term are committed directly;
+-- older entries are committed indirectly when a current-term entry
+-- beyond them is committed.
+-- (§5.4.2; Figure 8 illustrates the safety violation without this restriction.)
+
+rule AdvanceCommitIndex {
+    when: AdvanceCommitIndex(leader)
+
+    requires: leader.role = Leader
+
+    -- The highest index N such that:
+    --   N > current commit_index,
+    --   log[N].term = leader's current term,
+    --   a majority (including the leader) have replicated entry N.
+    let new_commit = highest N where:
+        N > leader.commit_index
+        and leader.log.at(N).term = leader.current_term
+        and (leader.match_index.values.count(v => v >= N) + 1) >= leader.cluster.majority
+
+    ensures:
+        if new_commit != null:
+            leader.commit_index = new_commit
+}
+
+-- All servers apply committed entries to the state machine in log order.
+
+rule ApplyCommittedEntries {
+    when: server: Server.has_unapplied
+
+    ensures:
+        for each index in (server.last_applied + 1) to server.commit_index:
+            ApplyToStateMachine(server, server.log.at(index))
+        server.last_applied = server.commit_index
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor Client {
+    identified_by: external session
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface ClientAPI {
+    for caller: Client
+
+    context server: Server
+
+    provides:
+        ClientSubmitsCommand(caller, server, command)
+
+    guidance:
+        -- Clients may contact any server.
+        -- Non-leaders redirect to the known leader (see ClientContactsNonLeader).
+        -- Clients should retry with exponential backoff if no leader is known.
+
+    invariant: Linearisability
+        -- Once a command is committed and a response returned,
+        -- that command's effects are visible to all subsequent operations.
+        -- (Full linearisable reads require ReadIndex or similar; deferred.)
+
+    invariant: ElectionSafety
+        -- At most one leader can be elected in a given term.
+
+    invariant: StateMachineSafety
+        -- If a server has applied a log entry at a given index,
+        -- no other server will ever apply a different entry at that index.
+}
+
+surface InterServerRPC {
+    -- The communication layer between cluster members.
+    -- Raft assumes RPCs may be delayed, reordered, or lost,
+    -- but not corrupted.  Servers retry indefinitely.
+
+    context sender: Server
+    context receiver: Server
+
+    exposes:
+        VoteRequest
+        VoteResponse
+        AppendRequest
+        AppendResponse
+
+    invariant: LogMatching
+        -- If two logs contain an entry with the same index and term,
+        -- the logs are identical in all preceding entries.
+
+    invariant: LeaderAppendOnly
+        -- A leader never overwrites or deletes entries in its log;
+        -- it only appends new entries.
+
+    invariant: LeaderCompleteness
+        -- If a log entry is committed in a given term,
+        -- it will be present in the logs of leaders for all higher terms.
+}
+
+------------------------------------------------------------
+-- Deferred Specifications
+------------------------------------------------------------
+
+deferred ApplyToStateMachine         -- application-specific state machine
+deferred LogCompaction               -- snapshotting (§7)
+deferred MembershipChange            -- joint consensus (§6)
+deferred ConflictTermOptimisation    -- fast log backtracking on AppendEntries rejection
+deferred ReadIndex                   -- linearisable reads without log entries
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open_question "No-op on election: should a new leader commit a no-op entry to flush older terms? (§8)"
+open_question "Pre-vote: should candidates probe before incrementing their term? (§9.6 of the dissertation)"
+open_question "Batching: should the leader batch multiple client commands into a single AppendEntries?"
+open_question "Pipelining: should the leader send the next AppendEntries before receiving the previous response?"
+open_question "Leader lease: can the leader serve reads locally with a valid lease? (Tension with linearisability.)"
