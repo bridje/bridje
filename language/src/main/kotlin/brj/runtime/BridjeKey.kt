@@ -32,3 +32,29 @@ class BridjeKey(val name: String) : TruffleObject {
     @TruffleBoundary
     fun toDisplayString(allowSideEffects: Boolean): String = name
 }
+
+@ExportLibrary(InteropLibrary::class)
+class BridjeOptionalKey(val name: String) : TruffleObject {
+
+    companion object {
+        private val INTEROP = InteropLibrary.getUncached()
+    }
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    @Throws(ArityException::class)
+    fun execute(arguments: Array<Any?>): Any? {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val record = arguments[0]
+        return if (INTEROP.isMemberReadable(record, name))
+            INTEROP.readMember(record, name)
+        else BridjeNull
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage
+    @TruffleBoundary
+    fun toDisplayString(allowSideEffects: Boolean): String = "?$name"
+}
