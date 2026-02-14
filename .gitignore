@@ -8,3 +8,6 @@ kls_database.db
 
 # nREPL port file
 .nrepl-port
+
+# worktree
+.tasks
