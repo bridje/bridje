@@ -2,6 +2,7 @@ package brj
 
 import brj.Reader.Companion.readForms
 import com.oracle.truffle.api.source.Source
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
@@ -137,4 +138,186 @@ class ReaderTest {
             list(qsym("java:time:Instant", "now")),
             "java:time:Instant:now()".readSingle()
         )
+
+    private fun String.readWithLocation(): Form =
+        Source.newBuilder("bridje", this, "test.brj").build().readForms().first()
+
+    private fun String.readAllWithLocation(): List<Form> =
+        Source.newBuilder("bridje", this, "test.brj").build().readForms().toList()
+
+    // Location tests for blocks - verifying extents don't include trailing whitespace
+    @Test
+    fun `simple block location excludes trailing whitespace`() {
+        val source = """
+            def: foo()
+              bar()
+            baz()
+        """.trimIndent()
+        val form = source.readWithLocation()
+        
+        val loc = requireNotNull(form.loc) { "Form should have location information" }
+        assertEquals(0, loc.charIndex, "Block should start at position 0")
+        assertEquals(18, loc.charLength, "Block should end at bar()'s closing paren")
+        assertEquals("def: foo()\n  bar()", loc.characters.toString())
+    }
+
+    @Test
+    fun `nested block locations exclude trailing whitespace`() {
+        val source = """
+            def: outer()
+              if: condition
+                inner()
+              after()
+            next()
+        """.trimIndent()
+        val form = source.readWithLocation()
+        
+        val loc = requireNotNull(form.loc) { "Form should have location information" }
+        assertEquals(0, loc.charIndex, "Outer block should start at position 0")
+        assertEquals(50, loc.charLength, "Outer block should end at after()'s closing paren")
+        assertEquals("def: outer()\n  if: condition\n    inner()\n  after()", loc.characters.toString())
+    }
+
+    @Test
+    fun `block with blank line in body location`() {
+        val source = """
+            def: foo()
+              bar()
+
+              baz()
+            qux()
+        """.trimIndent()
+        val form = source.readWithLocation()
+        
+        val loc = requireNotNull(form.loc) { "Form should have location information" }
+        assertEquals(0, loc.charIndex, "Block should start at position 0")
+        assertEquals(27, loc.charLength, "Block should include blank line but not trailing whitespace")
+        assertEquals("def: foo()\n  bar()\n\n  baz()", loc.characters.toString())
+    }
+
+    @Test
+    fun `block with blank line before dedent location`() {
+        val source = """
+            def: foo()
+              bar()
+
+            baz()
+        """.trimIndent()
+        val form = source.readWithLocation()
+        
+        val loc = requireNotNull(form.loc) { "Form should have location information" }
+        assertEquals(0, loc.charIndex, "Block should start at position 0")
+        assertEquals(18, loc.charLength, "Block should not include blank line before dedent")
+        assertEquals("def: foo()\n  bar()", loc.characters.toString())
+    }
+
+    @Test
+    fun `do block at EOF location`() {
+        val source = """
+            do:
+              foo()
+              bar()
+        """.trimIndent()
+        val form = source.readWithLocation()
+        
+        val loc = requireNotNull(form.loc) { "Form should have location information" }
+        assertEquals(0, loc.charIndex, "Block should start at position 0")
+        assertEquals(19, loc.charLength, "Block at EOF should end at last content")
+        assertEquals("do:\n  foo()\n  bar()", loc.characters.toString())
+    }
+
+    // Multi-level dedent: exercises the queued_dedent_target path in the scanner
+    // where multiple DEDENT tokens are emitted in sequence
+    @Test
+    fun `multi-level dedent location`() {
+        val source = """
+            def: a()
+              if: b
+                c()
+            d()
+        """.trimIndent()
+        val form = source.readWithLocation()
+
+        val expected = "def: a()\n  if: b\n    c()"
+        val loc = requireNotNull(form.loc) { "Form should have location information" }
+        assertEquals(0, loc.charIndex)
+        assertEquals(expected.length, loc.charLength)
+        assertEquals(expected, loc.characters.toString())
+    }
+
+    // Block with args on the call line before the indented body
+    @Test
+    fun `block with args before body location`() {
+        val source = """
+            if: cond
+              body()
+            next()
+        """.trimIndent()
+        val form = source.readWithLocation()
+
+        val expected = "if: cond\n  body()"
+        val loc = requireNotNull(form.loc) { "Form should have location information" }
+        assertEquals(0, loc.charIndex)
+        assertEquals(expected.length, loc.charLength)
+        assertEquals(expected, loc.characters.toString())
+    }
+
+    // Verify the second of two sequential blocks also has correct extents
+    @Test
+    fun `sequential blocks second block location`() {
+        val source = """
+            def: a()
+              x()
+            def: b()
+              y()
+        """.trimIndent()
+        val forms = source.readAllWithLocation()
+
+        val firstExpected = "def: a()\n  x()"
+        val firstLoc = requireNotNull(forms[0].loc)
+        assertEquals(0, firstLoc.charIndex)
+        assertEquals(firstExpected.length, firstLoc.charLength)
+        assertEquals(firstExpected, firstLoc.characters.toString())
+
+        val secondExpected = "def: b()\n  y()"
+        val secondLoc = requireNotNull(forms[1].loc)
+        assertEquals(firstExpected.length + 1, secondLoc.charIndex, "Second block starts after newline")
+        assertEquals(secondExpected.length, secondLoc.charLength)
+        assertEquals(secondExpected, secondLoc.characters.toString())
+    }
+
+    // Block inside parentheses: exercises the closing-bracket dedent path.
+    // Verifies the inner block_call extent ends at its body content, not at the closing paren.
+    @Test
+    fun `block inside parens inner block location`() {
+        val source = """
+            foo(if: x
+              y())
+        """.trimIndent()
+        val form = source.readWithLocation() as ListForm
+        val innerBlock = form.els[1] // the block_call form (if: x y())
+
+        val expected = "if: x\n  y()"
+        val loc = requireNotNull(innerBlock.loc) { "Inner block should have location information" }
+        assertEquals(expected.length, loc.charLength)
+        assertEquals(expected, loc.characters.toString())
+    }
+
+    // Deeply nested block at EOF: multiple queued dedents triggered by EOF
+    @Test
+    fun `deeply nested block at EOF location`() {
+        val source = """
+            def: a()
+              if: b
+                do:
+                  c()
+        """.trimIndent()
+        val form = source.readWithLocation()
+
+        val expected = "def: a()\n  if: b\n    do:\n      c()"
+        val loc = requireNotNull(form.loc) { "Form should have location information" }
+        assertEquals(0, loc.charIndex)
+        assertEquals(expected.length, loc.charLength)
+        assertEquals(expected, loc.characters.toString())
+    }
 }
