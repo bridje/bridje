@@ -85,6 +85,36 @@ class RecordTest {
     }
 
     @Test
+    fun `optional key returns nil when missing`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkey: name Str
+              ?name({})
+        """.trimIndent())
+        assertTrue(result.isNull)
+    }
+
+    @Test
+    fun `optional key returns value when present`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkey: name Str
+              ?name({name "Alice"})
+        """.trimIndent())
+        assertEquals("Alice", result.asString())
+    }
+
+    @Test
+    fun `optional key display string`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkey: name Str
+              ?name
+        """.trimIndent())
+        assertEquals("?name", result.toString())
+    }
+
+    @Test
     fun `key arity error - no args`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
