@@ -79,7 +79,8 @@ class ParseRootNode(
 
                 is DefExpr -> {
                     val value = evalExpr(expr.valueExpr, analyser.slotCount)
-                    nsEnv = nsEnv.def(expr.name, value)
+                    val meta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
+                    nsEnv = nsEnv.def(expr.name, value, meta)
                     value
                 }
 

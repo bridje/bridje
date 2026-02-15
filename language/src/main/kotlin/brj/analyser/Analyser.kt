@@ -546,6 +546,8 @@ data class Analyser(
         val sigForm = els.getOrNull(1)
             ?: return errorExpr("def requires a name", form.loc)
 
+        val metaExpr = form.meta?.let { analyseValueExpr(it) }
+
         return when (sigForm) {
             is ListForm -> {
                 // def: foo(a, b) body -> define a function
@@ -554,7 +556,7 @@ data class Analyser(
                 // Reuse analyseFn by constructing: (fn (name params...) body...)
                 val fnForm = ListForm(listOf(SymbolForm("fn")) + els.drop(1), form.loc)
                 val fnExpr = analyseFn(fnForm)
-                DefExpr(name, fnExpr, form.loc)
+                DefExpr(name, fnExpr, metaExpr, form.loc)
             }
             is SymbolForm -> {
                 // def: foo value -> define a value
@@ -562,7 +564,7 @@ data class Analyser(
                 val valueForm = els.getOrNull(2)
                     ?: return errorExpr("def requires a value", form.loc)
                 val valueExpr = analyseValueExpr(valueForm)
-                DefExpr(name, valueExpr, form.loc)
+                DefExpr(name, valueExpr, metaExpr, form.loc)
             }
             else -> errorExpr("def requires a name or signature", form.loc)
         }

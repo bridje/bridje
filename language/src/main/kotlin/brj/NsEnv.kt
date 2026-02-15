@@ -45,8 +45,8 @@ data class NsEnv(
 
     operator fun get(name: String): GlobalVar? = vars[name]
 
-    fun def(name: String, value: Any?): NsEnv =
-        copy(vars = vars + (name to GlobalVar(name, value)))
+    fun def(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
+        copy(vars = vars + (name to GlobalVar(name, value, meta)))
 
     @ExportMessage
     fun hasLanguage() = true
