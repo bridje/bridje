@@ -12,6 +12,7 @@ sealed interface Expr {
 class DefExpr(
     val name: String,
     val valueExpr: ValueExpr,
+    val metaExpr: ValueExpr? = null,
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String = "(def $name $valueExpr)"
