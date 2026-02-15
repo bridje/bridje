@@ -8,6 +8,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.api.tasks.testing.Test
 
 interface BridjeExtension {
     val version: Property<String>
@@ -47,6 +48,42 @@ class GradlePlugin : Plugin<Project> {
         project.dependencies.addProvider(lspConfig.name, extension.version.map { "dev.bridje:lsp:$it" })
         project.dependencies.addProvider(replConfig.name, extension.version.map { "dev.bridje:repl:$it" })
         project.dependencies.addProvider(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, extension.version.map { "dev.bridje:language:$it" })
+        project.dependencies.addProvider(JavaPlugin.TEST_RUNTIME_ONLY_CONFIGURATION_NAME, extension.version.map { "dev.bridje:gradle-plugin:$it" })
+        project.dependencies.add(JavaPlugin.TEST_RUNTIME_ONLY_CONFIGURATION_NAME, "org.junit.platform:junit-platform-launcher:1.9.0")
+
+        val writeBridjeTestMarker = project.tasks.register("writeBridjeTestMarker") {
+            val testSourceSet = sourceSets.getByName("test")
+            val markerDir = project.layout.buildDirectory.dir("bridje-test-marker")
+            val bridjeTestDirs = testSourceSet.bridje.srcDirs
+
+            inputs.files(project.files(bridjeTestDirs))
+            outputs.dir(markerDir)
+
+            doLast {
+                val hasBrjFiles = bridjeTestDirs.any { dir ->
+                    dir.exists() && dir.walkTopDown().any { it.extension == "brj" }
+                }
+                val dir = markerDir.get().asFile
+                dir.mkdirs()
+                if (hasBrjFiles) {
+                    // Gradle only forks the test JVM when it finds .class files in testClassesDirs.
+                    // Write a minimal marker so the JVM starts and our TestEngine gets discovered.
+                    val markerBytes = BridjeTestMarker::class.java.getResourceAsStream("BridjeTestMarker.class")!!.readBytes()
+                    val packageDir = java.io.File(dir, "brj/gradle")
+                    packageDir.mkdirs()
+                    java.io.File(packageDir, "BridjeTestMarker.class").writeBytes(markerBytes)
+                }
+            }
+        }
+
+        project.tasks.withType(Test::class.java) {
+            dependsOn(writeBridjeTestMarker)
+            useJUnitPlatform()
+
+            val markerDir = project.layout.buildDirectory.dir("bridje-test-marker")
+            testClassesDirs += project.files(markerDir)
+            classpath += project.files(markerDir)
+        }
 
         project.tasks.register("bridjeLsp", JavaExec::class.java) {
             group = "bridje"
