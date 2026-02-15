@@ -18,6 +18,22 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
+    implementation(project(":language"))
+    implementation(libs.junit.platform.engine)
+    implementation(libs.graal.sdk)
+    implementation(libs.truffle.api)
+
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit.jupiter.api)
+    testImplementation(libs.junit.jupiter.engine)
+    testImplementation(gradleTestKit())
+}
+
+tasks.test {
+    useJUnitPlatform()
+
+    val worktreeRoot = project.rootDir.absolutePath
+    systemProperty("worktreeRoot", worktreeRoot)
 }
 
 gradlePlugin {

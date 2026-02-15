@@ -66,15 +66,29 @@ data class NsEnv(
 
     @ExportMessage
     @TruffleBoundary
-    fun isMemberReadable(member: String) = vars.containsKey(member)
+    fun isMemberReadable(member: String) = vars.containsKey(member) || member == "__test_var_names__"
 
     @ExportMessage
     @TruffleBoundary
     @Throws(UnknownIdentifierException::class)
     fun readMember(member: String): Any {
+        if (member == "__test_var_names__") {
+            return BridjeRecord.Keys(testVarNames().toTypedArray())
+        }
         val v = vars[member] ?: throw UnknownIdentifierException.create(member)
         return v.value ?: throw UnknownIdentifierException.create(member)
     }
+
+    @TruffleBoundary
+    fun testVarNames(): List<String> =
+        vars.values.filter { it.meta !== BridjeRecord.EMPTY }.mapNotNull { gv ->
+            try {
+                val interop = InteropLibrary.getUncached()
+                if (interop.isMemberReadable(gv.meta, "test") && interop.readMember(gv.meta, "test") == true)
+                    gv.name
+                else null
+            } catch (_: Exception) { null }
+        }
 
     @ExportMessage
     @TruffleBoundary
