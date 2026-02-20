@@ -12,6 +12,7 @@ enum TokenType {
     FLOAT,
     BIGINT,
     BIGDEC,
+    KEYWORD,
     CARET,
     INDENT,
     DEDENT,
@@ -156,6 +157,19 @@ static bool read_dot_symbol(TSLexer *lexer) {
     if (!is_symbol_head_char(ch)) return false;
 
     read_symbol_core(lexer);
+
+    // Allow namespace-qualified dot symbols like .ns:member
+    while (lexer->lookahead == ':') {
+        lexer->mark_end(lexer);
+        lexer->advance(lexer, false);
+        if (is_symbol_head_char(lexer->lookahead)) {
+            read_symbol_core(lexer);
+        } else {
+            lexer->result_symbol = DOT_SYMBOL;
+            return true;
+        }
+    }
+
     lexer->mark_end(lexer);
     lexer->result_symbol = DOT_SYMBOL;
     return true;
@@ -225,6 +239,31 @@ static bool read_number(TSLexer *lexer, const bool *valid_symbols) {
     lexer->result_symbol = is_float ? FLOAT : INT;
     return true;
 
+}
+
+static bool read_keyword(TSLexer *lexer) {
+    // Leading ':' already consumed by caller
+    int32_t ch = lexer->lookahead;
+    if (!is_symbol_head_char(ch)) return false;
+
+    read_symbol_core(lexer);
+
+    // Allow namespace-qualified keywords like :ns:member
+    while (lexer->lookahead == ':') {
+        lexer->mark_end(lexer);
+        lexer->advance(lexer, false);
+        if (is_symbol_head_char(lexer->lookahead)) {
+            read_symbol_core(lexer);
+        } else {
+            // Colon not followed by symbol char — keyword ends before colon
+            lexer->result_symbol = KEYWORD;
+            return true;
+        }
+    }
+
+    lexer->mark_end(lexer);
+    lexer->result_symbol = KEYWORD;
+    return true;
 }
 
 static uint16_t get_current_indent(Scanner *scanner) {
@@ -340,11 +379,15 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     if (ch == '^' && valid_symbols[CARET]) {
         lexer->advance(lexer, false);
         ch = lexer->lookahead;
-        if (is_symbol_head_char(ch) || ch == '{') {
+        if (ch == '{' || ch == ':') {
             lexer->result_symbol = CARET;
             return true;
         }
         return false;
+    }
+    if (ch == ':' && valid_symbols[KEYWORD]) {
+        lexer->advance(lexer, false);
+        return read_keyword(lexer);
     }
     if (is_symbol_head_char(ch)) return read_symbol(lexer);
     if (ch == '.') return read_dot_symbol(lexer);

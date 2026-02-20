@@ -119,6 +119,22 @@ data class Analyser(
                 ?: errorExpr("Unknown symbol: ${form.name}", form.loc)
         }
 
+    private fun resolveKey(name: String): GlobalVar? {
+        val idx = name.lastIndexOf(':')
+        if (idx >= 0) {
+            val nsAlias = name.substring(0, idx)
+            val member = name.substring(idx + 1)
+            ctx.namespaces[nsAlias]?.key(member)?.let { return it }
+            nsEnv.requires[nsAlias]?.key(member)?.let { return it }
+            return null
+        }
+        return nsEnv.key(name) ?: ctx.brjCore.key(name)
+    }
+
+    private fun analyseKeyword(form: KeywordForm): ValueExpr =
+        resolveKey(form.name)?.let { GlobalVarExpr(it, form.loc) }
+            ?: errorExpr("Unknown key: :${form.name}", form.loc)
+
     private fun analyseRecord(form: RecordForm): ValueExpr {
         val els = form.els
 
@@ -127,12 +143,11 @@ data class Analyser(
         val fields = mutableListOf<Pair<String, ValueExpr>>()
 
         for (i in els.indices step 2) {
-            val keyForm = els[i] as? SymbolForm
-                ?: return errorExpr("record keys must be symbols", els[i].loc)
-            val keyValue = nsEnv[keyForm.name]?.value
-                ?: ctx.brjCore[keyForm.name]?.value
+            val keyForm = els[i] as? KeywordForm
+                ?: return errorExpr("record keys must be keywords", els[i].loc)
+            val keyValue = resolveKey(keyForm.name)?.value
             if (keyValue !is BridjeKey) {
-                return errorExpr("${keyForm.name} is not a key", els[i].loc)
+                return errorExpr(":${keyForm.name} is not a key", els[i].loc)
             }
             val valueExpr = analyseValueExpr(els[i + 1])
             fields.add(keyValue.name to valueExpr)
@@ -239,6 +254,9 @@ data class Analyser(
                 }
                 callFormConstructor("Symbol", listOf(StringExpr(name, form.loc)), form.loc)
             }
+
+            is KeywordForm ->
+                callFormConstructor("Keyword", listOf(StringExpr(form.name, form.loc)), form.loc)
 
             is QualifiedSymbolForm -> {
                 val member = if (form.member.endsWith("#")) {
@@ -518,6 +536,7 @@ data class Analyser(
             is BigDecForm -> BigDecExpr(form.value, form.loc)
             is StringForm -> StringExpr(form.value, form.loc)
             is SymbolForm -> analyseSymbol(form)
+            is KeywordForm -> analyseKeyword(form)
             is QualifiedSymbolForm -> analyseQualifiedSymbol(form)
             is ListForm -> analyseListValueExpr(form)
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
@@ -601,10 +620,9 @@ data class Analyser(
 
     private fun analyseDefKey(form: ListForm): Expr {
         val els = form.els
-        val keySymbol = els.getOrNull(1) as? SymbolForm
-            ?: return errorExpr("defkey requires a name: defkey: name Type", form.loc)
-        // Third element (type) is ignored for now
-        return DefKeyExpr(keySymbol.name, form.loc)
+        val keyKeyword = els.getOrNull(1) as? KeywordForm
+            ?: return errorExpr("defkey requires a keyword: defkey: :name Type", form.loc)
+        return DefKeyExpr(keyKeyword.name, form.loc)
     }
 
     private fun analyseDefMacro(form: ListForm): Expr {

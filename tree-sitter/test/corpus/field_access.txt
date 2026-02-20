@@ -127,3 +127,16 @@ foo.bar().baz
       (symbol)
       (dot_symbol))
     (dot_symbol)))
+
+==================
+Qualified field access
+==================
+
+foo.u:bar
+
+---
+
+(source_file
+  (field_access
+    (symbol)
+    (dot_symbol)))

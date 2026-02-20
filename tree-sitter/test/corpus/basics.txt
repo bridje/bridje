@@ -92,17 +92,41 @@ Simple vector
     (int)))
 
 ==================
-Simple map
+Simple map with keyword keys
 ==================
 
-{a 1}
+{:a 1}
 
 ---
 
 (source_file
   (map
-    (symbol)
+    (keyword)
     (int)))
+
+==================
+Standalone keyword
+==================
+
+:foo
+
+---
+
+(source_file
+  (keyword))
+
+==================
+Keyword call
+==================
+
+:foo(x)
+
+---
+
+(source_file
+  (call
+    (keyword)
+    (symbol)))
 
 ==================
 Simple set
@@ -327,30 +351,30 @@ Unquote in quote
       (int))))
 
 ==================
-Metadata with symbol
+Metadata with keyword
 ==================
 
-^test? foo
+^:test foo
 
 ---
 
 (source_file
   (metadata
-    (symbol)
+    (keyword)
     (symbol)))
 
 ==================
 Metadata with map
 ==================
 
-^{a 1} foo
+^{:a 1} foo
 
 ---
 
 (source_file
   (metadata
     (map
-      (symbol)
+      (keyword)
       (int))
     (symbol)))
 
@@ -358,30 +382,52 @@ Metadata with map
 Stacked metadata
 ==================
 
-^a ^b foo
+^:a ^:b foo
 
 ---
 
 (source_file
   (metadata
-    (symbol)
+    (keyword)
     (metadata
-      (symbol)
+      (keyword)
       (symbol))))
 
 ==================
 Metadata on vector
 ==================
 
-^test? [1 2 3]
+^:test [1 2 3]
 
 ---
 
 (source_file
   (metadata
-    (symbol)
+    (keyword)
     (vector
       (int)
       (int)
       (int))))
+
+==================
+Optional keyword
+==================
+
+:?foo
+
+---
+
+(source_file
+  (keyword))
+
+==================
+Qualified keyword
+==================
+
+:ns:member
+
+---
+
+(source_file
+  (keyword))
 

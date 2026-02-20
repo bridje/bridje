@@ -18,7 +18,7 @@ defmacro: unlessLet(bindings, else, then)
          nil ~else
          ~bname ~then))
 
-defkey: test Bool
+defkey: :test Bool
 
 defmacro: orElse(value, default)
   '(case ~value

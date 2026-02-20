@@ -106,7 +106,8 @@ class ParseRootNode(
 
                 is DefKeyExpr -> {
                     val key = BridjeKey(expr.name)
-                    nsEnv = nsEnv.def(expr.name, key)
+                    nsEnv = nsEnv.defKey(expr.name, key)
+                    nsEnv = nsEnv.defKey("?${expr.name}", BridjeOptionalKey(expr.name))
                     nsEnv = nsEnv.def("?${expr.name}", BridjeOptionalKey(expr.name))
                     key
                 }

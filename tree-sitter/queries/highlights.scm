@@ -10,6 +10,9 @@
 ; comment
 (comment) @comment
 
+; keywords
+(keyword) @string.special.symbol
+
 ; symbols - general fallback
 (symbol) @variable
 (dot_symbol) @property
@@ -48,7 +51,7 @@
 (quote "'" @keyword)
 
 ; metadata
-(metadata (symbol) @attribute)
+(metadata (keyword) @attribute)
 
 ; punctuation
 ":" @punctuation.delimiter

@@ -23,6 +23,7 @@ module.exports = grammar({
     $.dot_symbol,
     $.int, $.float,
     $.bigint, $.bigdec,
+    $.keyword,
     $._caret,
     $._indent, $._dedent, $._newline
   ],
@@ -33,6 +34,7 @@ module.exports = grammar({
     _form: $ => choice(
       $.int, $.float, $.bigint, $.bigdec,
       $.string, $.symbol, $.qualified_symbol,
+      $.keyword,
       $.list, $.vector, $.map, $.set,
       $.call,
       $.block_call,
@@ -44,12 +46,12 @@ module.exports = grammar({
     ),
 
     // ^symbol or ^{map} attached to following form
-    metadata: $ => seq($._caret, choice($.symbol, $.map), $._form),
+    metadata: $ => seq($._caret, choice($.keyword, $.map), $._form),
 
     string: _ => token(/"([^"]|\\")*"/),
 
     // foo(a, b) or ns/foo(a, b)
-    call: $ => seq(choice($.symbol, $.qualified_symbol), token.immediate('('), repeat($._form), ')'),
+    call: $ => seq(choice($.symbol, $.qualified_symbol, $.keyword), token.immediate('('), repeat($._form), ')'),
 
     // foo: args
     //   body

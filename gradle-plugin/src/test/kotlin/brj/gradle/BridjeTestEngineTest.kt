@@ -79,7 +79,7 @@ class BridjeTestEngineTest {
         writeBrjFile("my/tests.brj", """
             ns: my:tests
 
-            ^test
+            ^:test
             def: twoPlusTwo()
               eq(add(2, 2), 4)
         """.trimIndent())
@@ -94,7 +94,7 @@ class BridjeTestEngineTest {
         writeBrjFile("my/tests.brj", """
             ns: my:tests
 
-            ^test
+            ^:test
             def: thisOneFails()
               eq(1, 2)
         """.trimIndent())
@@ -109,15 +109,15 @@ class BridjeTestEngineTest {
         writeBrjFile("my/tests.brj", """
             ns: my:tests
 
-            ^test
+            ^:test
             def: twoPlusTwo()
               eq(add(2, 2), 4)
 
-            ^test
+            ^:test
             def: stringsWork()
               eq("hello", "hello")
 
-            ^test
+            ^:test
             def: thisOneFails()
               eq(add(1, 1), 3)
         """.trimIndent())

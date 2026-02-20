@@ -19,6 +19,7 @@ data class NsEnv(
     val requires: Requires = emptyMap(),
     val imports: Imports = emptyMap(),
     val vars: Map<String, GlobalVar> = emptyMap(),
+    val keys: Map<String, GlobalVar> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
 ) : TruffleObject {
@@ -35,6 +36,7 @@ data class NsEnv(
             "String" to GlobalVar("String", StringMeta),
             "BigInt" to GlobalVar("BigInt", BigIntMeta),
             "BigDec" to GlobalVar("BigDec", BigDecMeta),
+            "Keyword" to GlobalVar("Keyword", KeywordMeta),
         )
 
         fun withBuiltins(language: BridjeLanguage): NsEnv {
@@ -45,8 +47,13 @@ data class NsEnv(
 
     operator fun get(name: String): GlobalVar? = vars[name]
 
+    fun key(name: String): GlobalVar? = keys[name]
+
     fun def(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
         copy(vars = vars + (name to GlobalVar(name, value, meta)))
+
+    fun defKey(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
+        copy(keys = keys + (name to GlobalVar(name, value, meta)))
 
     @ExportMessage
     fun hasLanguage() = true
@@ -62,11 +69,11 @@ data class NsEnv(
 
     @ExportMessage
     @TruffleBoundary
-    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys(vars.keys.toTypedArray())
+    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys((vars.keys + keys.keys).toTypedArray())
 
     @ExportMessage
     @TruffleBoundary
-    fun isMemberReadable(member: String) = vars.containsKey(member) || member == "__test_var_names__"
+    fun isMemberReadable(member: String) = vars.containsKey(member) || keys.containsKey(member) || member == "__test_var_names__"
 
     @ExportMessage
     @TruffleBoundary
@@ -75,7 +82,7 @@ data class NsEnv(
         if (member == "__test_var_names__") {
             return BridjeRecord.Keys(testVarNames().toTypedArray())
         }
-        val v = vars[member] ?: throw UnknownIdentifierException.create(member)
+        val v = vars[member] ?: keys[member] ?: throw UnknownIdentifierException.create(member)
         return v.value ?: throw UnknownIdentifierException.create(member)
     }
 

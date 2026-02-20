@@ -439,6 +439,45 @@ object BigDecMeta : TruffleObject {
     fun toDisplayString(allowSideEffects: Boolean) = "BigDec"
 }
 
+@ExportLibrary(InteropLibrary::class)
+object KeywordMeta : TruffleObject {
+    private val name = TruffleString.fromConstant("Keyword", TruffleString.Encoding.UTF_8)
+
+    @ExportMessage
+    fun isMetaObject() = true
+
+    @ExportMessage
+    fun getMetaSimpleName(): Any = name
+
+    @ExportMessage
+    fun getMetaQualifiedName(): Any = name
+
+    @ExportMessage
+    fun isMetaInstance(instance: Any?) = instance is KeywordForm
+
+    @ExportMessage
+    fun isExecutable() = true
+
+    @ExportMessage
+    fun isInstantiable() = true
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val str = arguments[0] as TruffleString
+        return KeywordForm(str.toJavaStringUncached())
+    }
+
+    @Throws(ArityException::class)
+    @ExportMessage
+    fun instantiate(arguments: Array<Any?>): Any = execute(arguments)
+
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage
+    fun toDisplayString(allowSideEffects: Boolean) = "Keyword"
+}
+
 sealed class Form : TruffleObject {
     abstract val loc: SourceSection?
     var meta: RecordForm? = null
@@ -446,8 +485,8 @@ sealed class Form : TruffleObject {
 
     abstract fun copy(): Form
 
-    fun withMeta(symbol: SymbolForm): Form =
-        withMeta(RecordForm(listOf(symbol, SymbolForm("true")), symbol.loc))
+    fun withMeta(keyword: KeywordForm): Form =
+        withMeta(RecordForm(listOf(keyword, SymbolForm("true")), keyword.loc))
 
     fun withMeta(record: RecordForm): Form = copy().also {
         it.meta = if (meta == null) record else RecordForm(meta!!.els + record.els, record.loc)
@@ -541,6 +580,18 @@ class QualifiedSymbolForm(val namespace: String, val member: String, override va
 
     @ExportMessage fun hasMetaObject() = true
     @ExportMessage fun getMetaObject(): Any = QualifiedSymbolMeta
+
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
+}
+
+@ExportLibrary(InteropLibrary::class)
+class KeywordForm(val name: String, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = KeywordForm(name, loc)
+    override fun toString(): String = ":$name"
+
+    @ExportMessage fun hasMetaObject() = true
+    @ExportMessage fun getMetaObject(): Any = KeywordMeta
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
