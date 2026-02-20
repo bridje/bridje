@@ -202,7 +202,7 @@ data class Analyser(
                 "def" -> errorExpr("def not allowed in value position", form.loc)
                 "deftag" -> errorExpr("deftag not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
-                "defkey" -> errorExpr("defkey not allowed in value position", form.loc)
+                "defkeys" -> errorExpr("defkeys not allowed in value position", form.loc)
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
@@ -618,11 +618,20 @@ data class Analyser(
         }
     }
 
-    private fun analyseDefKey(form: ListForm): Expr {
-        val els = form.els
-        val keyKeyword = els.getOrNull(1) as? KeywordForm
-            ?: return errorExpr("defkey requires a keyword: defkey: :name Type", form.loc)
-        return DefKeyExpr(keyKeyword.name, form.loc)
+    private fun analyseDefKeys(form: ListForm): Expr {
+        val record = form.els.getOrNull(1) as? RecordForm
+            ?: return errorExpr("defkeys requires a record literal: defkeys: {:name Type, ...}", form.loc)
+
+        val els = record.els
+        if (els.size % 2 != 0) return errorExpr("defkeys record must have even number of forms", form.loc)
+
+        val names = (els.indices step 2).map { i ->
+            val keyForm = els[i] as? KeywordForm
+                ?: return errorExpr("defkeys keys must be keywords", els[i].loc)
+            keyForm.name
+        }
+
+        return DefKeysExpr(names, form.loc)
     }
 
     private fun analyseDefMacro(form: ListForm): Expr {
@@ -664,7 +673,7 @@ data class Analyser(
                     "def" -> return analyseDef(form)
                     "deftag" -> return analyseDefTag(form)
                     "defmacro" -> return analyseDefMacro(form)
-                    "defkey" -> return analyseDefKey(form)
+                    "defkeys" -> return analyseDefKeys(form)
                 }
             }
         }

@@ -104,12 +104,16 @@ class ParseRootNode(
                     macro
                 }
 
-                is DefKeyExpr -> {
-                    val key = BridjeKey(expr.name)
-                    nsEnv = nsEnv.defKey(expr.name, key)
-                    nsEnv = nsEnv.defKey("?${expr.name}", BridjeOptionalKey(expr.name))
-                    nsEnv = nsEnv.def("?${expr.name}", BridjeOptionalKey(expr.name))
-                    key
+                is DefKeysExpr -> {
+                    var lastKey: BridjeKey? = null
+                    for (name in expr.names) {
+                        val key = BridjeKey(name)
+                        nsEnv = nsEnv.defKey(name, key)
+                        nsEnv = nsEnv.defKey("?$name", BridjeOptionalKey(name))
+                        nsEnv = nsEnv.def("?$name", BridjeOptionalKey(name))
+                        lastKey = key
+                    }
+                    lastKey
                 }
 
                 is ValueExpr -> evalExpr(expr, analyser.slotCount)

@@ -36,11 +36,11 @@ class DefMacroExpr(
     override fun toString(): String = "(defmacro $name ${fn.params.joinToString(" ")} ${fn.bodyExpr})"
 }
 
-class DefKeyExpr(
-    val name: String,
+class DefKeysExpr(
+    val names: List<String>,
     override val loc: SourceSection? = null
 ) : Expr {
-    override fun toString(): String = "(defkey $name)"
+    override fun toString(): String = "(defkeys ${names.joinToString(" ")})"
 }
 
 class TopLevelDo(val forms: List<Form>, override val loc: SourceSection?) : Expr {
