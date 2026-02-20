@@ -186,6 +186,15 @@ class CaseExpr(
         "(case $scrutinee ${branches.joinToString(" ")})"
 }
 
+class RecordSetExpr(
+    val recordExpr: ValueExpr,
+    val key: String,
+    val valueExpr: ValueExpr,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String = "(set! $recordExpr :$key $valueExpr)"
+}
+
 class ErrorValueExpr(
     val message: String,
     override val loc: SourceSection? = null,

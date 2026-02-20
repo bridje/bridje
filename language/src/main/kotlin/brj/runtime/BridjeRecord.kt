@@ -39,6 +39,12 @@ class BridjeRecord internal constructor(
         return BridjeRecord(newStorage, meta)
     }
 
+    internal fun set(key: Any, value: Any?): Any? {
+        val old = OBJECT_LIBRARY.getOrDefault(storage, key, null)
+        OBJECT_LIBRARY.put(storage, key, value)
+        return old
+    }
+
     private class Storage(shape: Shape) : DynamicObject(shape)
 
     companion object {

@@ -272,6 +272,88 @@ class RecordTest {
     }
 
     @Test
+    fun `set! mutates a field`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkeys: {:foo Str}
+              let: [r {:foo 1}]
+                do:
+                  (set! r :foo 99)
+                  r
+        """.trimIndent())
+        assertEquals(99L, result.getMember("foo").asLong())
+    }
+
+    @Test
+    fun `set! returns old value`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkeys: {:foo Str}
+              (set! {:foo 1} :foo 99)
+        """.trimIndent())
+        assertEquals(1L, result.asLong())
+    }
+
+    @Test
+    fun `set! returns nil for missing key`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkeys: {:foo Str}
+              (set! {} :foo 99)
+        """.trimIndent())
+        assertTrue(result.isNull)
+    }
+
+    @Test
+    fun `set! preserves other fields`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkeys: {:a Str, :b Str}
+              let: [r {:a 1, :b 2}]
+                do:
+                  (set! r :a 99)
+                  r
+        """.trimIndent())
+        assertEquals(99L, result.getMember("a").asLong())
+        assertEquals(2L, result.getMember("b").asLong())
+    }
+
+    @Test
+    fun `set! via method call syntax`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkeys: {:foo Str}
+              let: [r {:foo 1}]
+                do:
+                  r.set!(:foo, 99)
+                  r
+        """.trimIndent())
+        assertEquals(99L, result.getMember("foo").asLong())
+    }
+
+    @Test
+    fun `set! with qualified key`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: my:keys
+            defkeys: {:foo Str}
+        """.trimIndent())
+
+        val ns = ctx.evalBridje("""
+            ns: consumer
+              require:
+                my:
+                  keys.as(k)
+            def: result
+              let: [r {:k:foo 1}]
+                do:
+                  (set! r :k:foo 42)
+                  r
+        """.trimIndent())
+
+        assertEquals(42L, ns.getMember("result").getMember("foo").asLong())
+    }
+
+    @Test
     fun `qualified field access across namespaces`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my:keys

@@ -199,6 +199,7 @@ data class Analyser(
                 "if" -> analyseIf(form)
                 "case" -> analyseCase(form)
                 "quote" -> analyseQuote(form)
+                "set!" -> analyseSet(form)
                 "def" -> errorExpr("def not allowed in value position", form.loc)
                 "deftag" -> errorExpr("deftag not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
@@ -455,6 +456,24 @@ data class Analyser(
         val bodyExpr = newAnalyser.analyseBindings(bindingEls.drop(2), bodyForms, loc)
 
         return LetExpr(localVar, bindingExpr, bodyExpr, loc)
+    }
+
+    private fun analyseSet(form: ListForm): ValueExpr {
+        val els = form.els
+        if (els.size != 4) return errorExpr("set! requires exactly 3 arguments: record, key, value", form.loc)
+
+        val keyForm = els[2] as? KeywordForm
+            ?: return errorExpr("set! second argument must be a keyword", els[2].loc)
+
+        val keyVar = resolveKey(keyForm.name)
+        if (keyVar == null) return errorExpr("Unknown key: :${keyForm.name}", els[2].loc)
+        val keyValue = keyVar.value
+        if (keyValue !is BridjeKey) return errorExpr(":${keyForm.name} is not a key", els[2].loc)
+
+        val recordExpr = analyseValueExpr(els[1])
+        val valueExpr = analyseValueExpr(els[3])
+
+        return RecordSetExpr(recordExpr, keyValue.name, valueExpr, form.loc)
     }
 
     private fun analyseLet(form: ListForm): ValueExpr {

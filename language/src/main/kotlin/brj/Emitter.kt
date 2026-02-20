@@ -104,6 +104,7 @@ class Emitter(private val language: BridjeLanguage) {
         is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result), expr.loc)
         is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr), expr.loc)
         is CaseExpr -> emitCase(expr)
+        is RecordSetExpr -> RecordSetNode(expr.key, emitExpr(expr.recordExpr), emitExpr(expr.valueExpr), expr.loc)
 
         is ErrorValueExpr -> error("analyser error: ${expr.message}")
     }
