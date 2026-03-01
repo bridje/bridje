@@ -57,6 +57,67 @@ class TypeTest {
     }
 
     @Test
+    fun `do returns type of last expression`() {
+        val type = DoExpr(listOf(StringExpr("hi")), IntExpr(42)).checkType()
+        assertEquals(IntType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `let binding infers type from value`() {
+        val x = LocalVar("x", 0)
+        val type = LetExpr(x, IntExpr(1), LocalVarExpr(x)).checkType()
+        assertEquals(IntType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `let with unused binding`() {
+        val x = LocalVar("x", 0)
+        val type = LetExpr(x, IntExpr(1), StringExpr("hello")).checkType()
+        assertEquals(StringType, type.base)
+    }
+
+    @Test
+    fun `fn literal has FnType`() {
+        val x = LocalVar("x", 0)
+        val type = FnExpr("f", listOf("x"), LocalVarExpr(x), 1).checkType()
+        val fnBase = type.base as FnType
+        assertEquals(1, fnBase.paramTypes.size)
+        assertNotNull(fnBase.returnType)
+    }
+
+    @Test
+    fun `call infers return type from fn`() {
+        val x = LocalVar("x", 0)
+        val fn = FnExpr("f", listOf("x"), IntExpr(42), 1)
+        val type = CallExpr(fn, listOf(StringExpr("hello"))).checkType()
+        assertEquals(IntType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `identity fn called with int`() {
+        val x = LocalVar("x", 0)
+        val identity = FnExpr("id", listOf("x"), LocalVarExpr(x), 1)
+        val type = CallExpr(identity, listOf(IntExpr(1))).checkType()
+        assertEquals(IntType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `higher-order fn returning fn`() {
+        val x = LocalVar("x", 0)
+        val y = LocalVar("y", 0)
+        val inner = FnExpr("inner", listOf("y"), LocalVarExpr(x), 1)
+        val outer = FnExpr("outer", listOf("x"), inner, 1)
+        val type = outer.checkType()
+        val outerFn = type.base as FnType
+        val innerFn = outerFn.returnType.base as FnType
+        assertEquals(1, innerFn.paramTypes.size)
+    }
+
+    @Test
     fun `if with vectors`() {
         // (if true [1] [nil]) -> Vector(Int?)
         val type = IfExpr(

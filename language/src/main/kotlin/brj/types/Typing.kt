@@ -63,6 +63,65 @@ internal fun IfExpr.typing(): Typing {
     )
 }
 
+internal fun DoExpr.typing(): Typing {
+    val allTypings = sideEffects.map { it.typing() } + result.typing()
+    val resultTyping = allTypings.last()
+
+    return Typing.build(
+        resultTyping.type,
+        childTypings = allTypings,
+        constraints = emptyList(),
+    )
+}
+
+internal fun LetExpr.typing(): Typing {
+    val bindingTyping = bindingExpr.typing()
+    val bodyTyping = bodyExpr.typing()
+
+    val constraints = mutableListOf<Constraint>()
+    val bodyReqmt = bodyTyping.monoEnv[localVar]
+    if (bodyReqmt != null) {
+        constraints.add(bindingTyping.type subOf bodyReqmt)
+    }
+
+    val strippedBodyTyping = Typing(bodyTyping.type, bodyTyping.monoEnv.minus(localVar))
+
+    return Typing.build(
+        bodyTyping.type,
+        childTypings = listOf(bindingTyping, strippedBodyTyping),
+        constraints = constraints,
+    )
+}
+
+internal fun FnExpr.typing(): Typing {
+    val bodyTyping = bodyExpr.typing()
+
+    val paramLocalVars = bodyTyping.monoEnv.keys.filter { it.slot < params.size }
+    val capturedEnv = bodyTyping.monoEnv.filterKeys { it.slot >= params.size }
+
+    val paramTypes = (0 until params.size).map { slot ->
+        paramLocalVars.find { it.slot == slot }?.let { bodyTyping.monoEnv[it] } ?: freshType()
+    }
+
+    val fnType = FnType(paramTypes, bodyTyping.type).notNull()
+    return Typing(fnType, capturedEnv)
+}
+
+internal fun CallExpr.typing(): Typing {
+    val fnTyping = fnExpr.typing()
+    val argTypings = argExprs.map { it.typing() }
+
+    val freshReturn = freshType()
+
+    return Typing.build(
+        freshReturn,
+        childTypings = listOf(fnTyping) + argTypings,
+        constraints = listOf(
+            fnTyping.type subOf FnType(argTypings.map { it.type }, freshReturn).notNull()
+        ),
+    )
+}
+
 internal fun ValueExpr.typing(): Typing =
     when (this) {
         is IntExpr -> Typing(IntType.notNull())
@@ -77,10 +136,10 @@ internal fun ValueExpr.typing(): Typing =
         is RecordExpr -> TODO()
         is LocalVarExpr -> typing()
         is GlobalVarExpr -> TODO()
-        is LetExpr -> TODO()
-        is FnExpr -> TODO()
-        is CallExpr -> TODO()
-        is DoExpr -> TODO()
+        is LetExpr -> typing()
+        is FnExpr -> typing()
+        is CallExpr -> typing()
+        is DoExpr -> typing()
         is IfExpr -> typing()
         is CaseExpr -> TODO()
         is QuoteExpr -> TODO()

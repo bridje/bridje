@@ -28,6 +28,10 @@ internal infix fun Nullability.meet(other: Nullability): Nullability = when {
 internal infix fun BaseType.join(other: BaseType): BaseType = when {
     this == other -> this
     this is VectorType && other is VectorType -> VectorType(el.join(other.el))
+    this is FnType && other is FnType -> {
+        if (paramTypes.size != other.paramTypes.size) throw TypeErrorException("Cannot join functions with different arities")
+        FnType(paramTypes.zip(other.paramTypes) { a, b -> a.meet(b) }, returnType.join(other.returnType))
+    }
     else -> throw TypeErrorException("Cannot join $this with $other")
 }
 
@@ -35,6 +39,10 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
 internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     this == other -> this
     this is VectorType && other is VectorType -> VectorType(el.meet(other.el))
+    this is FnType && other is FnType -> {
+        if (paramTypes.size != other.paramTypes.size) throw TypeErrorException("Cannot meet functions with different arities")
+        FnType(paramTypes.zip(other.paramTypes) { a, b -> a.join(b) }, returnType.meet(other.returnType))
+    }
     else -> throw TypeErrorException("Cannot meet $this with $other")
 }
 
@@ -54,11 +62,13 @@ internal infix fun Type.meet(other: Type): Type {
 
 internal fun BaseType.applySubst(subst: Subst): BaseType = when (this) {
     is VectorType -> VectorType(el.applySubst(subst))
+    is FnType -> FnType(paramTypes.map { it.applySubst(subst) }, returnType.applySubst(subst))
     else -> this
 }
 
 internal fun Type.applySubst(subst: Subst): Type {
-    val bound = subst[tv] ?: return Type(nullability, tv, base?.applySubst(subst))
+    val rawBound = subst[tv] ?: return Type(nullability, tv, base?.applySubst(subst))
+    val bound = if (rawBound.tv != tv) rawBound.applySubst(subst) else rawBound
     return Type(bound.nullability, tv, base?.applySubst(subst) ?: bound.base)
 }
 

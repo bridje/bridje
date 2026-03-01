@@ -109,6 +109,39 @@ class SubstTest {
     }
 
     @Nested
+    inner class FnTypeJoinTests {
+
+        @Test
+        fun `join identical FnTypes`() {
+            val fn1 = FnType(listOf(IntType.notNull()), StringType.notNull())
+            val fn2 = FnType(listOf(IntType.notNull()), StringType.notNull())
+            val joined = fn1 join fn2
+            assertTrue(joined is FnType)
+        }
+
+        @Test
+        fun `join FnTypes with different arities throws`() {
+            val fn1 = FnType(listOf(IntType.notNull()), StringType.notNull())
+            val fn2 = FnType(listOf(IntType.notNull(), IntType.notNull()), StringType.notNull())
+            assertThrows(TypeErrorException::class.java) { fn1 join fn2 }
+        }
+    }
+
+    @Nested
+    inner class ApplySubstFnTypeTests {
+
+        @Test
+        fun `applySubst recurses into FnType`() {
+            val tv = TypeVar()
+            val fnType = FnType(listOf(freshType(tv)), IntType.notNull()).notNull()
+            val subst = mapOf(tv to StringType.notNull())
+            val result = fnType.applySubst(subst)
+            val fn = result.base as FnType
+            assertEquals(StringType, fn.paramTypes[0].base)
+        }
+    }
+
+    @Nested
     inner class ApplySubstTests {
 
         @Test

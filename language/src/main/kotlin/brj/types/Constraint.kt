@@ -41,6 +41,14 @@ internal fun Collection<Constraint>.resolve(): Subst {
                         queue.add(lower.base.el subOf upper.base.el)
                     }
 
+                    lower.base is FnType && upper.base is FnType -> {
+                        if (lower.base.paramTypes.size != upper.base.paramTypes.size)
+                            throw TypeErrorException("Function arity mismatch: ${lower.base.paramTypes.size} vs ${upper.base.paramTypes.size}")
+                        // params contravariant, return covariant
+                        upper.base.paramTypes.zip(lower.base.paramTypes).forEach { (u, l) -> queue.add(u subOf l) }
+                        queue.add(lower.base.returnType subOf upper.base.returnType)
+                    }
+
                     else -> throw TypeErrorException(
                         "Incompatible types: ${lower.base} is not a subtype of ${upper.base}"
                     )
@@ -49,10 +57,7 @@ internal fun Collection<Constraint>.resolve(): Subst {
         }
 
         // Check nullability compatibility
-        val lowerNull = lower.nullability
-        val upperNull = upper.nullability
-
-        if (lowerNull == NULLABLE && upperNull == NOT_NULL) {
+        if (lower.nullability == NULLABLE && upper.nullability == NOT_NULL) {
             throw TypeErrorException("Cannot pass nullable to non-null context")
         }
     }

@@ -66,6 +66,40 @@ class ConstraintTest {
     }
 
     @Nested
+    inner class FnTypeConstraints {
+
+        @Test
+        fun `FnType subOf FnType decomposes - covariant return`() {
+            val retTv = TypeVar()
+            val subst = listOf(
+                FnType(listOf(IntType.notNull()), StringType.notNull()).notNull() subOf
+                    FnType(listOf(IntType.notNull()), freshType(retTv)).notNull()
+            ).resolve()
+            assertEquals(StringType, subst[retTv]?.base)
+        }
+
+        @Test
+        fun `FnType subOf FnType decomposes - contravariant params`() {
+            val paramTv = TypeVar()
+            val subst = listOf(
+                FnType(listOf(freshType(paramTv)), IntType.notNull()).notNull() subOf
+                    FnType(listOf(StringType.notNull()), IntType.notNull()).notNull()
+            ).resolve()
+            assertEquals(StringType, subst[paramTv]?.base)
+        }
+
+        @Test
+        fun `FnType arity mismatch throws`() {
+            assertThrows(TypeErrorException::class.java) {
+                listOf(
+                    FnType(listOf(IntType.notNull()), IntType.notNull()).notNull() subOf
+                        FnType(listOf(IntType.notNull(), IntType.notNull()), IntType.notNull()).notNull()
+                ).resolve()
+            }
+        }
+    }
+
+    @Nested
     inner class ApplySubstAfterResolve {
 
         @Test
