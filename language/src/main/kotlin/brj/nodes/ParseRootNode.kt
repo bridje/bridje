@@ -3,6 +3,7 @@ package brj.nodes
 import brj.*
 import brj.analyser.*
 import brj.runtime.*
+import brj.types.TypeChecker
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
@@ -56,6 +57,7 @@ class ParseRootNode(
 
     @TruffleBoundary
     private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
+        TypeChecker.checkIfEnabled(expr)
         val frameDescriptor = buildFrameDescriptor(slotCount)
         val emitter = Emitter(lang)
         val node = emitter.emitExpr(expr)
