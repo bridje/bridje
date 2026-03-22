@@ -1,6 +1,7 @@
 package brj
 
 import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
@@ -13,9 +14,11 @@ class BuiltinsTest {
     }
 
     @Test
-    fun `add integer and double`() = withContext { ctx ->
-        val result = ctx.evalBridje("(add 2 3.5)")
-        assertEquals(5.5, result.asDouble())
+    fun `add integer and double is a type error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("(add 2 3.5)")
+        }
+        assertTrue(ex.message?.contains("Cannot join") == true, "Expected type error, got: ${ex.message}")
     }
 
     @Test

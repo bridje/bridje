@@ -37,7 +37,10 @@ class CallTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("(1 2 3)")
         }
-        assertTrue(ex.message?.contains("Not callable") == true, "Expected 'Not callable' error, got: ${ex.message}")
+        assertTrue(
+            ex.message?.contains("Not callable") == true || ex.message?.contains("not a subtype of FnType") == true,
+            "Expected callable error, got: ${ex.message}"
+        )
     }
 
     @Test

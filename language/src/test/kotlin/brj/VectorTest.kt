@@ -1,5 +1,6 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -40,13 +41,11 @@ class VectorTest {
     }
 
     @Test
-    fun `mixed type vector`() = withContext { ctx ->
-        val result = ctx.evalBridje("[1 \"hello\" 3.14]")
-        assertTrue(result.hasArrayElements())
-        assertEquals(3, result.arraySize)
-        assertEquals(1L, result.getArrayElement(0).asLong())
-        assertEquals("hello", result.getArrayElement(1).asString())
-        assertEquals(3.14, result.getArrayElement(2).asDouble())
+    fun `mixed type vector is a type error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("[1 \"hello\" 3.14]")
+        }
+        assertTrue(ex.message?.contains("Cannot join") == true, "Expected type error, got: ${ex.message}")
     }
 
     @Test
