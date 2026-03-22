@@ -32,8 +32,8 @@ object Builtins {
             comparisonOp("gte", GteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             createBuiltinFunction("println", PrintlnNode(language),
                 FnType(listOf(freshType()), nullType()).notNull()),
-            createBuiltinFunction("gensym", GensymNode(language),
-                FnType(emptyList(), FormType.notNull()).notNull()),
+            // TODO: gensym is variadic (0 or 1 args) — FnType can't represent optional arity yet
+            createBuiltinFunction("gensym", GensymNode(language), freshType()),
             createBuiltinFunction("nth", NthNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1)),
                 run { val el = freshType(); FnType(listOf(VectorType(el).notNull(), IntType.notNull()), el).notNull() }),
             createBuiltinFunction("meta", MetaNode(language),
