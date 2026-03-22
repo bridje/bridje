@@ -26,6 +26,11 @@ data object StringType: BaseType
 data object BigIntType: BaseType
 data object BigDecType: BaseType
 
+data object RecordType: BaseType
+data object TagType: BaseType
+data object SetType: BaseType
+data object FormType: BaseType
+
 data class VectorType(val el: Type): BaseType
 data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType
 
