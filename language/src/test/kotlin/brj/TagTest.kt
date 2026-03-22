@@ -160,16 +160,16 @@ class TagTest {
 
     @Test
     fun `meta object isMetaInstance works`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
-            do:
-              deftag: Just(value)
-              deftag: Other(value)
-              [Just, Other, Just(42), Other(42)]
+        ctx.evalBridje("""
+            ns: tag_meta_test
+            deftag: Just(value)
+            deftag: Other(value)
         """.trimIndent())
-        val justConstructor = result.getArrayElement(0)
-        val otherConstructor = result.getArrayElement(1)
-        val justValue = result.getArrayElement(2)
-        val otherValue = result.getArrayElement(3)
+
+        val justConstructor = ctx.evalBridje("tag_meta_test:Just")
+        val otherConstructor = ctx.evalBridje("tag_meta_test:Other")
+        val justValue = ctx.evalBridje("tag_meta_test:Just(42)")
+        val otherValue = ctx.evalBridje("tag_meta_test:Other(42)")
 
         assertTrue(justConstructor.isMetaInstance(justValue))
         assertFalse(justConstructor.isMetaInstance(otherValue))
@@ -189,13 +189,13 @@ class TagTest {
 
     @Test
     fun `constructor meta object for tagged tuple`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
-            do:
-              deftag: Just(value)
-              [Just, Just(42)]
+        ctx.evalBridje("""
+            ns: tag_tuple_test
+            deftag: Just(value)
         """.trimIndent())
-        val constructor = result.getArrayElement(0)
-        val tuple = result.getArrayElement(1)
+
+        val constructor = ctx.evalBridje("tag_tuple_test:Just")
+        val tuple = ctx.evalBridje("tag_tuple_test:Just(42)")
         val meta = tuple.metaObject
 
         // The meta object should be the constructor

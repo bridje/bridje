@@ -122,6 +122,71 @@ internal fun CallExpr.typing(): Typing {
     )
 }
 
+internal fun RecordExpr.typing(): Typing {
+    val fieldTypings = fields.map { (_, v) -> v.typing() }
+
+    return Typing.build(
+        RecordType.notNull(),
+        childTypings = fieldTypings,
+        constraints = emptyList(),
+    )
+}
+
+internal fun RecordSetExpr.typing(): Typing {
+    val recordTyping = recordExpr.typing()
+    val valueTyping = valueExpr.typing()
+
+    return Typing.build(
+        RecordType.notNull(),
+        childTypings = listOf(recordTyping, valueTyping),
+        constraints = listOf(recordTyping.type subOf RecordType.notNull()),
+    )
+}
+
+internal fun SetExpr.typing(): Typing {
+    val elemTypings = els.map { it.typing() }
+
+    return Typing.build(
+        SetType.notNull(),
+        childTypings = elemTypings,
+        constraints = emptyList(),
+    )
+}
+
+internal fun CaseExpr.typing(): Typing {
+    val scrutineeTyping = scrutinee.typing()
+    val resultType = freshType()
+
+    val branchTypings = branches.map { branch ->
+        val bodyTyping = branch.bodyExpr.typing()
+
+        val patternBindings = when (val p = branch.pattern) {
+            is TagPattern -> p.bindings.toSet()
+            is CatchAllBindingPattern -> setOf(p.binding)
+            is DefaultPattern, is NilPattern -> emptySet()
+        }
+
+        val strippedMonoEnv = bodyTyping.monoEnv.filterKeys { it !in patternBindings }
+
+        val patternConstraints = when (val p = branch.pattern) {
+            is CatchAllBindingPattern -> {
+                val bindingReqmt = bodyTyping.monoEnv[p.binding]
+                if (bindingReqmt != null) listOf(scrutineeTyping.type subOf bindingReqmt)
+                else emptyList()
+            }
+            else -> emptyList()
+        }
+
+        Triple(Typing(bodyTyping.type, strippedMonoEnv), bodyTyping.type subOf resultType, patternConstraints)
+    }
+
+    return Typing.build(
+        resultType,
+        childTypings = listOf(scrutineeTyping) + branchTypings.map { it.first },
+        constraints = branchTypings.map { it.second } + branchTypings.flatMap { it.third },
+    )
+}
+
 internal fun ValueExpr.typing(): Typing =
     when (this) {
         is IntExpr -> Typing(IntType.notNull())
@@ -132,20 +197,20 @@ internal fun ValueExpr.typing(): Typing =
         is BoolExpr -> Typing(BoolType.notNull())
         is NilExpr -> Typing(nullType())
         is VectorExpr -> typing()
-        is SetExpr -> TODO()
-        is RecordExpr -> TODO()
+        is SetExpr -> typing()
+        is RecordExpr -> typing()
         is LocalVarExpr -> typing()
-        is GlobalVarExpr -> TODO()
+        is GlobalVarExpr -> Typing(globalVar.type?.instantiate() ?: freshType())
         is LetExpr -> typing()
         is FnExpr -> typing()
         is CallExpr -> typing()
         is DoExpr -> typing()
         is IfExpr -> typing()
-        is CaseExpr -> TODO()
-        is QuoteExpr -> TODO()
-        is TruffleObjectExpr -> TODO()
-        is HostStaticMethodExpr -> TODO()
-        is HostConstructorExpr -> TODO()
-        is RecordSetExpr -> TODO()
-        is ErrorValueExpr -> TODO()
+        is CaseExpr -> typing()
+        is QuoteExpr -> Typing(FormType.notNull())
+        is TruffleObjectExpr -> Typing(freshType())
+        is HostStaticMethodExpr -> Typing(freshType())
+        is HostConstructorExpr -> Typing(freshType())
+        is RecordSetExpr -> typing()
+        is ErrorValueExpr -> Typing(freshType())
     }

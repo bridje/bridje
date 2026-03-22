@@ -1,5 +1,6 @@
 package brj.types
 
+import brj.*
 import brj.analyser.*
 import brj.types.Nullability.*
 import org.junit.jupiter.api.Assertions.*
@@ -129,5 +130,139 @@ class TypeTest {
         val vecBase = type.base as VectorType
         assertEquals(IntType, vecBase.el.base)
         assertEquals(NULLABLE, vecBase.el.nullability)
+    }
+
+    @Test
+    fun `record literal has record type`() {
+        val type = RecordExpr(listOf("name" to StringExpr("Alice"), "age" to IntExpr(30))).checkType()
+        assertEquals(RecordType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `empty record has record type`() {
+        val type = RecordExpr(emptyList()).checkType()
+        assertEquals(RecordType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `record set has record type`() {
+        val x = LocalVar("x", 0)
+        val type = RecordSetExpr(LocalVarExpr(x), "name", StringExpr("Alice")).checkType()
+        assertEquals(RecordType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `set literal has set type`() {
+        val type = SetExpr(listOf(IntExpr(1), IntExpr(2))).checkType()
+        assertEquals(SetType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `case with nil pattern`() {
+        val type = CaseExpr(
+            NilExpr(),
+            listOf(CaseBranch(NilPattern(), IntExpr(42)))
+        ).checkType()
+        assertEquals(IntType, type.base)
+    }
+
+    @Test
+    fun `case with default pattern`() {
+        val type = CaseExpr(
+            IntExpr(1),
+            listOf(CaseBranch(DefaultPattern(), StringExpr("hello")))
+        ).checkType()
+        assertEquals(StringType, type.base)
+    }
+
+    @Test
+    fun `case with catchall binding`() {
+        val x = LocalVar("x", 0)
+        val type = CaseExpr(
+            IntExpr(1),
+            listOf(CaseBranch(CatchAllBindingPattern(x), LocalVarExpr(x)))
+        ).checkType()
+        assertEquals(IntType, type.base)
+    }
+
+    @Test
+    fun `case joins branch types`() {
+        val type = CaseExpr(
+            NilExpr(),
+            listOf(
+                CaseBranch(NilPattern(), IntExpr(1)),
+                CaseBranch(DefaultPattern(), IntExpr(2)),
+            )
+        ).checkType()
+        assertEquals(IntType, type.base)
+    }
+
+    @Test
+    fun `case with tag pattern bindings`() {
+        val x = LocalVar("x", 0)
+        val scrutinee = LocalVar("s", 1)
+        val type = CaseExpr(
+            LocalVarExpr(scrutinee),
+            listOf(CaseBranch(TagPattern("Just", listOf(x)), LocalVarExpr(x)))
+        ).checkType()
+        assertNotNull(type)
+    }
+
+    @Test
+    fun `global var reads type from GlobalVar`() {
+        val tv = TypeVar()
+        val fnType = FnType(listOf(Type(NOT_NULL, tv, null)), Type(NOT_NULL, tv, null)).notNull()
+        val gv = GlobalVar("id", null, type = fnType)
+        val type = GlobalVarExpr(gv).checkType()
+        val fn = type.base as FnType
+        assertEquals(fn.paramTypes[0].tv, fn.returnType.tv)
+        assertNotEquals(tv, fn.paramTypes[0].tv)
+    }
+
+    @Test
+    fun `global var with no type returns fresh`() {
+        val type = GlobalVarExpr(GlobalVar("x", 42)).checkType()
+        assertNotNull(type)
+    }
+
+    @Test
+    fun `quote has form type`() {
+        val type = QuoteExpr(IntForm(1)).checkType()
+        assertEquals(FormType, type.base)
+        assertEquals(NOT_NULL, type.nullability)
+    }
+
+    @Test
+    fun `instantiate replaces type variables with fresh ones`() {
+        val tv = TypeVar()
+        val original = FnType(listOf(Type(NOT_NULL, tv, IntType)), Type(NOT_NULL, tv, IntType)).notNull()
+        val instantiated = original.instantiate()
+
+        val fn = instantiated.base as FnType
+        assertEquals(IntType, fn.paramTypes[0].base)
+        assertEquals(IntType, fn.returnType.base)
+
+        // Type variables are fresh but internally consistent
+        assertEquals(fn.paramTypes[0].tv, fn.returnType.tv)
+        assertNotEquals(tv, fn.paramTypes[0].tv)
+    }
+
+    @Test
+    fun `instantiate gives different vars for different originals`() {
+        val tv1 = TypeVar()
+        val tv2 = TypeVar()
+        val original = FnType(
+            listOf(Type(NOT_NULL, tv1, null), Type(NOT_NULL, tv2, null)),
+            Type(NOT_NULL, tv1, null)
+        ).notNull()
+        val instantiated = original.instantiate()
+
+        val fn = instantiated.base as FnType
+        assertEquals(fn.paramTypes[0].tv, fn.returnType.tv)
+        assertNotEquals(fn.paramTypes[0].tv, fn.paramTypes[1].tv)
     }
 }

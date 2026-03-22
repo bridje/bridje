@@ -3,6 +3,7 @@ package brj
 import brj.analyser.NsDecl
 import brj.builtins.Builtins
 import brj.runtime.BridjeRecord
+import brj.types.Type
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
@@ -49,11 +50,11 @@ data class NsEnv(
 
     fun key(name: String): GlobalVar? = keys[name]
 
-    fun def(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
-        copy(vars = vars + (name to GlobalVar(name, value, meta)))
+    fun def(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
+        copy(vars = vars + (name to GlobalVar(name, value, meta, type)))
 
-    fun defKey(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
-        copy(keys = keys + (name to GlobalVar(name, value, meta)))
+    fun defKey(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
+        copy(keys = keys + (name to GlobalVar(name, value, meta, type)))
 
     @ExportMessage
     fun hasLanguage() = true

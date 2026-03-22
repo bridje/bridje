@@ -26,6 +26,11 @@ data object StringType: BaseType
 data object BigIntType: BaseType
 data object BigDecType: BaseType
 
+data object RecordType: BaseType
+data object TagType: BaseType
+data object SetType: BaseType
+data object FormType: BaseType
+
 data class VectorType(val el: Type): BaseType
 data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType
 
@@ -42,5 +47,19 @@ private val Type.tvs0: List<TypeVar> get() =
     }.plus(tv)
 
 val Type.tvs: List<TypeVar> get() = tvs0.distinct()
+
+private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): Type {
+    fun TypeVar.fresh(): TypeVar = mapping.getOrPut(this) { TypeVar() }
+
+    fun instBase(base: BaseType): BaseType = when (base) {
+        is VectorType -> VectorType(instantiateType(base.el, mapping))
+        is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
+        else -> base
+    }
+
+    return Type(type.nullability, type.tv.fresh(), type.base?.let { instBase(it) })
+}
+
+fun Type.instantiate(): Type = instantiateType(this, mutableMapOf())
 
 fun ValueExpr.checkType(): Type = typing().type
