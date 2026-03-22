@@ -4,7 +4,6 @@ import brj.*
 import brj.analyser.*
 import brj.runtime.*
 import brj.types.*
-import brj.types.TypeChecker
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
@@ -80,7 +79,7 @@ class ParseRootNode(
                 }
 
                 is DefExpr -> {
-                    val type = TypeChecker.checkIfEnabled(expr.valueExpr)
+                    val type = expr.valueExpr.checkType()
                     val value = evalExpr(expr.valueExpr, analyser.slotCount)
                     val meta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
                     nsEnv = nsEnv.def(expr.name, value, meta, type)
@@ -106,7 +105,7 @@ class ParseRootNode(
                 }
 
                 is DefMacroExpr -> {
-                    val type = TypeChecker.checkIfEnabled(expr.fn)
+                    val type = expr.fn.checkType()
                     val fn = evalExpr(expr.fn, analyser.slotCount)
                     val macro = BridjeMacro(fn!!)
                     nsEnv = nsEnv.def(expr.name, macro, type = type)
@@ -128,7 +127,7 @@ class ParseRootNode(
                 }
 
                 is ValueExpr -> {
-                    TypeChecker.checkIfEnabled(expr)
+                    expr.checkType()
                     evalExpr(expr, analyser.slotCount)
                 }
 
