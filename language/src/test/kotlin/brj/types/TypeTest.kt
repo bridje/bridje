@@ -130,4 +130,34 @@ class TypeTest {
         assertEquals(IntType, vecBase.el.base)
         assertEquals(NULLABLE, vecBase.el.nullability)
     }
+
+    @Test
+    fun `instantiate replaces type variables with fresh ones`() {
+        val tv = TypeVar()
+        val original = FnType(listOf(Type(NOT_NULL, tv, IntType)), Type(NOT_NULL, tv, IntType)).notNull()
+        val instantiated = original.instantiate()
+
+        val fn = instantiated.base as FnType
+        assertEquals(IntType, fn.paramTypes[0].base)
+        assertEquals(IntType, fn.returnType.base)
+
+        // Type variables are fresh but internally consistent
+        assertEquals(fn.paramTypes[0].tv, fn.returnType.tv)
+        assertNotEquals(tv, fn.paramTypes[0].tv)
+    }
+
+    @Test
+    fun `instantiate gives different vars for different originals`() {
+        val tv1 = TypeVar()
+        val tv2 = TypeVar()
+        val original = FnType(
+            listOf(Type(NOT_NULL, tv1, null), Type(NOT_NULL, tv2, null)),
+            Type(NOT_NULL, tv1, null)
+        ).notNull()
+        val instantiated = original.instantiate()
+
+        val fn = instantiated.base as FnType
+        assertEquals(fn.paramTypes[0].tv, fn.returnType.tv)
+        assertNotEquals(fn.paramTypes[0].tv, fn.paramTypes[1].tv)
+    }
 }

@@ -48,4 +48,18 @@ private val Type.tvs0: List<TypeVar> get() =
 
 val Type.tvs: List<TypeVar> get() = tvs0.distinct()
 
+private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): Type {
+    fun TypeVar.fresh(): TypeVar = mapping.getOrPut(this) { TypeVar() }
+
+    fun instBase(base: BaseType): BaseType = when (base) {
+        is VectorType -> VectorType(instantiateType(base.el, mapping))
+        is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
+        else -> base
+    }
+
+    return Type(type.nullability, type.tv.fresh(), type.base?.let { instBase(it) })
+}
+
+fun Type.instantiate(): Type = instantiateType(this, mutableMapOf())
+
 fun ValueExpr.checkType(): Type = typing().type
