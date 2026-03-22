@@ -7,9 +7,6 @@ object TypeChecker {
         it == "true" || it == "1"
     } ?: false
 
-    fun checkIfEnabled(expr: ValueExpr) {
-        if (enabled) {
-            expr.checkType()
-        }
-    }
+    fun checkIfEnabled(expr: ValueExpr): Type? =
+        if (enabled) expr.checkType() else null
 }
