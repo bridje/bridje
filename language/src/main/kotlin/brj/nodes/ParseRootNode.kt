@@ -3,7 +3,7 @@ package brj.nodes
 import brj.*
 import brj.analyser.*
 import brj.runtime.*
-import brj.types.TypeChecker
+import brj.types.*
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
@@ -57,7 +57,6 @@ class ParseRootNode(
 
     @TruffleBoundary
     private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
-        TypeChecker.checkIfEnabled(expr)
         val frameDescriptor = buildFrameDescriptor(slotCount)
         val emitter = Emitter(lang)
         val node = emitter.emitExpr(expr)
@@ -80,9 +79,10 @@ class ParseRootNode(
                 }
 
                 is DefExpr -> {
+                    val type = expr.valueExpr.checkType()
                     val value = evalExpr(expr.valueExpr, analyser.slotCount)
                     val meta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
-                    nsEnv = nsEnv.def(expr.name, value, meta)
+                    nsEnv = nsEnv.def(expr.name, value, meta, type)
                     value
                 }
 
@@ -94,15 +94,21 @@ class ParseRootNode(
                             BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
                         }
 
-                    nsEnv = nsEnv.def(expr.name, value)
+                    val type = if (expr.fieldNames.isEmpty()) {
+                        TagType.notNull()
+                    } else {
+                        FnType(expr.fieldNames.map { freshType() }, TagType.notNull()).notNull()
+                    }
 
+                    nsEnv = nsEnv.def(expr.name, value, type = type)
                     value
                 }
 
                 is DefMacroExpr -> {
+                    val type = expr.fn.checkType()
                     val fn = evalExpr(expr.fn, analyser.slotCount)
                     val macro = BridjeMacro(fn!!)
-                    nsEnv = nsEnv.def(expr.name, macro)
+                    nsEnv = nsEnv.def(expr.name, macro, type = type)
                     macro
                 }
 
@@ -110,15 +116,20 @@ class ParseRootNode(
                     var lastKey: BridjeKey? = null
                     for (name in expr.names) {
                         val key = BridjeKey(name)
-                        nsEnv = nsEnv.defKey(name, key)
-                        nsEnv = nsEnv.defKey("?$name", BridjeOptionalKey(name))
-                        nsEnv = nsEnv.def("?$name", BridjeOptionalKey(name))
+                        val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
+                        val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
+                        nsEnv = nsEnv.defKey(name, key, type = keyType)
+                        nsEnv = nsEnv.defKey("?$name", BridjeOptionalKey(name), type = optKeyType)
+                        nsEnv = nsEnv.def("?$name", BridjeOptionalKey(name), type = optKeyType)
                         lastKey = key
                     }
                     lastKey
                 }
 
-                is ValueExpr -> evalExpr(expr, analyser.slotCount)
+                is ValueExpr -> {
+                    expr.checkType()
+                    evalExpr(expr, analyser.slotCount)
+                }
 
                 is AnalyserErrors -> {
                     errors.addAll(expr.errors)
