@@ -24,28 +24,28 @@ The question: what's the minimal set of language features that closes those gaps
 
 ## Decision 1: Effects as lexically-scoped implicit parameters
 
-**Decision**: Interfaces are declared with `definterface`, effect vars are declared with `defx`, and effects are bound with `withFx`.
-Implemented as dictionary (implicit parameter) passing.
-The effect declaration is a bindable var of an interface type, not a special kind of interface.
+**Decision**: Traits define the interface shape, effect vars are declared with `defx`, and effects are bound with `withFx`.
+The effect declaration is a bindable var of any type (often a trait), not a special kind of interface.
+Effects are orthogonal to traits — a trait defines a record of functions, an effect is a scoped value.
 Default implementations can be provided at the declaration site.
 
 ```bridje
-definterface: RaftNetwork
-  decl: sendVoteRequest(to, req)
+trait: RaftNetwork
+  decl: sendVoteRequest(ServerId, VoteRequest)
 
-defx: raftNet RaftNetwork
-  reify: RaftNetwork
-    def: sendVoteRequest(to, req)
-      <default impl>
+defx: net RaftNetwork
+
+defx: log Fn(Str) println       // with a default
 ```
 
-Call sites just call the function — `raftNet.sendVoteRequest(to, req)` — with no indication that it's an effect.
-The compiler tracks which effects a function transitively requires.
+Call sites just call the function — `net.sendVoteRequest(to, req)` — with no indication that it's an effect.
+The compiler fully infers the effect set of every expression.
+Users do not annotate effects.
 
 **Why not algebraic effects (Koka-style)?**
 Algebraic effects add handler composition and resumable continuations.
 For the "code reads like the spec" goal, that machinery isn't needed — the value is in the separation of interface from implementation, not in the handler mechanics.
-An interface of functions with implicit passing achieves the same readability and testability with less conceptual overhead.
+Lexically-scoped implicit parameters achieve the same readability and testability with less conceptual overhead.
 
 **Why not monads (Haskell-style)?**
 Monadic do-notation changes how the code reads — the plumbing becomes visible.
@@ -78,7 +78,7 @@ It infects signatures, splits the world into sync and async, and adds noise that
 The Allium spec doesn't distinguish "this rule is async" — it just says what happens.
 
 **Why not `Async(T)` as a return type?**
-Explored during discussion — `Async(T)` as a first-class value (a future) raises questions about structured concurrency (futures escaping their scope).
+`Async(T)` as a first-class value (a future) raises questions about structured concurrency (futures escaping their scope).
 Virtual threads make this unnecessary: everything can block transparently.
 
 **Why virtual threads?**
@@ -89,7 +89,6 @@ Leaning on the platform avoids reinventing concurrency and keeps the language fo
 ## Decision 3: Structured concurrency via scopes
 
 **Decision**: Concurrency primitives are `scope:` and `s.fork:`, thin wrappers over Java's `StructuredTaskScope`.
-Scopes are `iso` (unique ownership) — they can't be aliased or stashed, so the compiler prevents them escaping their lexical block.
 
 ```bridje
 scope: s
@@ -97,119 +96,95 @@ scope: s
   s.fork: sendAppendEntries(server, peer2)
 ```
 
-**Why iso for scopes?**
-A scope must be the sole owner because it's responsible for cleanup — cancelling children, propagating exceptions.
-This is literally what `iso` means in the capability system.
-No special "scope can't escape" rule needed — the capability system already provides it.
-
 **Why not full compile-time scope safety (Rust lifetimes)?**
-Explored during discussion.
 The additional type system machinery is significant for a narrow problem.
 If the syntax encourages the right pattern (scope and forks visually nested), runtime enforcement of the rare misuse case is pragmatically sufficient.
-Pony-style capabilities (specifically `iso`) give most of the safety without the complexity of full lifetime tracking.
 
-## Decision 4: Agents for serialised stateful processes
+## Decision 4: Procs — CSP-style state machines driven by a select function
 
-**Decision**: Agents are Clojure-style — a mutable state behind a serialised queue.
-You `send` a `State -> State` function to the agent.
-One special method: `onTimeout(duration, f)` — if no message arrives within the duration, `f` is sent to the agent.
-The timeout resets on every message.
+**Decision**: A proc is a loop over `State -> [Select(State)]`: given the current state, declare what to wait for (channels, timeouts), and which handler to call for each branch.
+The runtime owns the loop.
+Each handler is a pure function `(State, Msg) -> State` that calls `defx` for effects.
 
 ```bridje
-let: [server agent(initialState)]
-  server.onTimeout(electionTimeout(), startElection)
-  server
+def: serverProc(rpcCh)
+  fn: [state]
+    let: [rpc proc:Recv(rpcCh, handleRpc)
+          el proc:Timeout(#dur("PT0.15S"), startElection)]
+      case: state.role
+        Leader(_): [rpc, proc:Timeout(#dur("PT0.02S"), sendHeartbeats)]
+        Candidate(_): [rpc, el]
+        Follower(_): [rpc, el]
 ```
 
-Sending messages:
+The select function is re-evaluated after each handler, so behaviour changes naturally with state.
+No manual timeout re-arming, no imperative lifecycle management.
 
-```bridje
-server.send(handleVoteRequest(request))
-```
+**Select is essential, channels are incidental.**
+The select function (what to wait for in each state) is domain logic.
+The channel implementations (Kafka, TCP, in-memory) are wiring.
 
-Timeout behaviour is reconfigured from within sent functions (e.g. on role transition):
+**DST via inspectable select.**
+The select function returns data.
+A test harness calls the select function directly, inspects the branches, chooses which fires (seeded random), checks invariants.
+Same proc function in production and simulation.
 
-```bridje
-def: becomeLeader(server, state)
-  server.onTimeout(heartbeatInterval, sendHeartbeats)
-  initLeaderState(state)
-```
+**Why not Clojure-style agents?**
+Agents (a state behind a serialised queue) don't capture the select pattern — which channels to listen on varies with state.
+The select function makes this explicit and inspectable.
 
 **Why not Erlang-style actors?**
 Erlang actors couple process identity to the mailbox.
-Agents are simpler — they're just a ref behind a queue.
-The domain logic lives in plain functions (`State -> State`), not in actor method definitions.
-This keeps the logic testable without the actor machinery.
+Procs are simpler — the domain logic lives in plain functions, not in actor method definitions.
+An "agent" is just a proc where one of the select's channels is a public mailbox that others can send to.
 
-**Why not Pony-style actors?**
-Pony actors are tightly coupled to Pony's capability system — the actor is the unit of isolation, with a built-in mailbox.
-This doesn't interact well with standalone typed channels or CSP patterns.
-Agents with Pony-inspired capabilities (agent reference is `tag`, internal state is `ref`) get the safety benefits without the coupling.
+**Why not Pony-style capability types?**
+Immutable-by-default makes sharing safe.
+No iso/val/ref/tag annotations needed.
+The proc runtime provides single-threaded execution; the type system doesn't need to enforce it.
 
-**Why not actor classes with typed methods?**
-Explored during discussion — actor classes with method-call syntax (`server.handleVoteRequest(request)`) read nicely.
-But returning an `ActorAction` ADT from every method handler is boilerplate, especially in an expression language where the last value is the return.
-Agents with `send` avoid this — the sent function is just a function, the timeout is mutable state on the agent.
+See issue #37 for full design details and open questions.
+See `notes/raft/raft.brj` for the Raft consensus example.
 
-**Why `onTimeout` instead of a return value?**
-The timeout resets on every message — that's the default behaviour.
-Making every handler return a timeout instruction is repetitive.
-`onTimeout` sets the policy; handlers only interact with it when the policy changes (e.g. role transitions).
+## The aim: one artifact, not two
 
-**Why not channels?**
-Channels were explored as the primary concurrency primitive (CSP-style, like core.async or Kotlin channels).
-Agents subsume the main use case — serialised message handling with timeouts.
-Channels introduce lifecycle questions (who creates, who closes, what happens when one end disappears) that agents avoid by tying the mailbox to the agent's lifetime.
-If unusual topologies (fan-out, merge) are needed later, channels could be added as a lower-level primitive.
+The ideal is that Bridje code *is* the spec — not a separate artifact that can drift out of sync with a specification document.
 
-## Decision 5: Pony-inspired capabilities (val/ref/iso/tag)
+A behavioural spec like Allium captures the essence of a protocol: the domain types, the rules, the invariants.
+Bridje aims to express the same essential information in executable form, with the incidental machinery (I/O, concurrency, resource lifecycle) factored out to the edges.
 
-**Decision**: Three-and-a-half capabilities, with sensible defaults so most code never mentions them:
+The test: can someone who knows the Raft paper read the Bridje implementation and verify it implements the protocol correctly, without needing to understand the runtime, channels, or proc model?
+The lifecycle and wiring should be a small, separate section at the bottom of the file — not interleaved with the protocol logic.
 
-| Capability | Meaning | Default for |
-|---|---|---|
-| `val` | Immutable, shareable everywhere | Records, data types |
-| `ref` | Mutable, only within owning process | Explicit opt-in |
-| `iso` | Unique owner, for resource lifecycle | Scopes |
-| `tag` | Opaque, can only send messages to | Agents |
+This is a stronger goal than "functional core, imperative shell."
+It's closer to: the functional core should read like a specification, and the imperative shell should be data (the select function) rather than imperative control flow.
 
-`val` is transitive — a `val` cannot contain a `ref`.
-Agent `send` and `fork` closures can only close over `val` and `tag`.
-Effect implementations follow the same rules as any parameter — their capability is declared on the `defx`.
+The proc/select model serves this directly: the select function is the only concurrency-aware piece, and it's expressed as data — what to wait for, and what to do when each event arrives.
+Everything else is pure functions on immutable state.
 
-**Why not Pony's full six capabilities?**
-Pony has `iso`, `trn`, `ref`, `val`, `box`, `tag`.
-`trn` (write-unique) and `box` (read-only, possibly aliased) add complexity for edge cases.
-With immutable-by-default, `val` covers the vast majority of values.
-Three capabilities plus `iso` for resources covers the practical cases without the learning curve.
-
-**Why not just immutable-by-default with no capability system?**
-You need `ref` for agent internal state — that's the whole point of agents.
-You need `iso` for scopes — to prevent them escaping.
-You need `tag` for agent references — to prevent reading state from outside.
-Without capabilities, these safety properties would need ad-hoc rules. The capability system provides them uniformly.
-
-**Why defaults per type?**
-So that most code never mentions capabilities.
-A record is `val` — you don't write `val MyRecord`.
-An agent reference is `tag` — you don't write `tag Server`.
-The capability system helps without getting in the way, per the README's stated goal.
-
-## Decision 6: Effect interfaces are just interfaces
-
-**Decision**: No separate concept for "effect interfaces" vs "normal interfaces."
-`definterface` declares an interface.
-`defx` declares a bindable var of that interface type.
-They're orthogonal — the same interface can be used with or without `defx`.
-
-**Why not a special effect-interface?**
-If effect interfaces and normal interfaces are different kinds, you end up with two parallel worlds — duplication, and awkward interop when something starts as one and becomes the other.
-Kotlin has this mildly with `suspend` interfaces vs regular interfaces.
-Keeping them the same means refactoring between "explicit parameter" and "implicit effect" is just adding or removing a `defx` — no interface changes needed.
+This also enables simulation testing from the same artifact.
+A test harness calls the select function directly, inspects the branches, chooses which fires, checks invariants.
+Same code in production and simulation — no mocking, no special test mode.
 
 ## Summary
 
-The core insight: effects (implicit parameter passing) and agents (serialised state + timeout) are the two novel concurrency/effect features.
-Everything else is either standard type system features (sum types, records, interfaces) or thin wrappers over the JVM (structured concurrency, virtual threads).
-Pony-inspired capabilities unify the safety story without dominating the syntax.
-The result should be a language where protocol logic reads almost identically to a behavioural spec, with the implementation machinery (I/O, concurrency, resource lifecycle) handled by the type system and runtime, invisible at the call site.
+Two novel features enable this:
+
+1. **Effects** (lexically-scoped implicit parameters) — separate pure domain logic from I/O without changing how the code reads at the call site.
+2. **Procs** (CSP state machines with inspectable select) — express concurrency as data, enabling both execution and deterministic simulation from the same code.
+
+Everything else is standard type system features (structural records, nominal tags, traits) or thin wrappers over the JVM (structured concurrency, virtual threads).
+
+## Validation
+
+A clean-room test was run: an LLM with no prior Bridje knowledge was given only the language reference docs (`notes/TYPES.md`, `notes/SYNTAX.md`) and the proc model description.
+It produced a Raft implementation (`notes/raft/raft-clean.brj`) that:
+
+- Follows the same file structure as the hand-written version (types → helpers → handlers → lifecycle)
+- Expresses the same essential domain logic with minimal incidental noise
+- Uses effects for I/O, pure functions for protocol logic, and the select function for concurrency
+- Is recognisably close to the Allium spec for the same protocol — the type definitions are near 1:1, and the handler logic maps rule-by-rule
+
+The main incidental noise in the executable version compared to a declarative spec is state threading (`state.with(...)`, returning new state) — a predictable, mechanical pattern that doesn't obscure the essential logic.
+
+See `notes/raft/raft.allium` for the Allium spec and `notes/raft/README.md` for the side-by-side comparison.

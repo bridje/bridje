@@ -25,15 +25,52 @@ For me, there have been two main drivers for writing Bridje:
 
 2. No matter how much experience I amass, it seems that there are some areas of software engineering that still require significant thought - I'd like Bridje to help with this complexity.
 
-   - types: the age-old debate.
+   - **types**: the age-old debate.
      Both sides have very valid points: static-types advocates are correct in saying that a compile-time type-checker eliminates a class of bugs; dynamic-types folks are also correct in saying that a type-checker (especially as implemented in the main programming languages) requires too much up-front design and speculation, as well as introducing unnecessary rigidity into the code.
 
      Bridje aims to find another point on the solution spectrum: the relative safety of a compile-time type-system but without hindering progress - instead, reflecting the natural types of your domain while still preventing mistakes.
-   - side effect management: Clojure (and FP, more broadly) has patterns and idioms here which make this simpler - 'functional core, imperative shell' - but I'd like Bridje to help me out here in a similar way to how a type-system helps with types, by helping its users track what side-effects each function relies on, and allowing them to be substituted easily for testing.
-   - concurrency: I have come to really appreciate Kotlin's 'structured concurrency' - knowing that threads are carefully managed, exceptions propagated etc has been a boon.
+
+   - **essential vs incidental complexity**: (cf. Moseley & Marks, "Out of the Tar Pit")
+     I want my code to read as close to a specification as possible - the domain logic (essential) should not be interleaved with I/O, serialisation, concurrency plumbing, or framework wiring (incidental).
+
+     When I look at a function that implements a business rule, I want to see the business rule - not the database calls, the HTTP requests, or the thread management that happen to surround it.
+
+     Bridje aims to make this separation natural: pure domain logic reads like a spec; side effects are declared, explicit, and substitutable; high-level "what" is expressible without low-level "how".
+
+   - **side effect management**: Clojure (and FP, more broadly) has patterns and idioms here which make this simpler - 'functional core, imperative shell' - but I'd like Bridje to help me out here in a similar way to how a type-system helps with types, by helping its users track what side-effects each function relies on, and allowing them to be substituted easily for testing.
+
+   - **concurrency and simulation testing**: I have come to really appreciate Kotlin's 'structured concurrency' - knowing that threads are carefully managed, exceptions propagated etc has been a boon.
 
      I have found that systems that work through 'communicating sequential processes' (CSP) have often been easier to reason about, and, as a result, contain fewer bugs.
-     Again, Bridje will support this as a core pattern.
+
+     But I want to go further: if the concurrency model is expressed as inspectable data (what is this process waiting for, and what will it do when each event arrives?), then the same code that runs in production can be simulated deterministically in tests.
+     A test harness can control the order of events, inject failures, and verify invariants - all without mocking the runtime.
+
+     Bridje's proc/select model aims to make this the default, not a special testing mode.
+
+## Inspiration: Allium and "Out of the Tar Pit"
+
+[Allium](https://github.com/juxt/allium) is a behavioural specification language developed at JUXT - it takes informal specs and gives them a more formal structure.
+It's been a major inspiration for Bridje, particularly in how it strips a complex domain down to its essence: the types, the rules, and the invariants - nothing more.
+
+Moseley & Marks' ["Out of the Tar Pit"](http://curtclifton.net/papers/MosessleyMarks06a.pdf) makes the same argument from a different angle: most of the complexity in software is incidental (I/O, state management, concurrency plumbing), and the essential complexity - the actual domain logic - is surprisingly small once you separate it out.
+
+Bridje takes this seriously.
+The aim is that Bridje code reads like a spec - the domain logic is front and centre, and the incidental machinery is factored out to the edges.
+
+Where Bridje differs from Allium:
+
+- **Allium is deliberately non-executable** - it specifies *what* should be true, not *how* to make it true.
+  Bridje is a full programming language - it has to actually run.
+  The challenge is keeping the incidental cost of executability low enough that the essential logic still reads clearly.
+
+- **Bridje is statically type-checked** - the domain model (entities, variants, value types) is expressed in the type system, and the compiler catches mistakes.
+  Allium captures this structure too, but as documentation rather than something a compiler enforces.
+
+- **Bridje is simulation-testable** - because the concurrency model is expressed as inspectable data (the proc/select model), the same code that runs in production can be simulated deterministically in tests.
+  Allium's invariants describe what should be true; Bridje aims to verify them automatically through property-based and simulation testing.
+
+The ideal: one artifact that serves as spec, implementation, and test subject - not three separate documents that drift out of sync.
 
 ## A spoonful of sugar
 
@@ -53,7 +90,7 @@ That said, it has two syntactic sugars that make it feel like a more mainstream 
        mul(c, 2)
    ```
 
-   desugars to 
+   desugars to
 
    ```clojure
    (def (foo a b)
@@ -76,7 +113,7 @@ if: <pred>
   <then expr>
   <else expr>
 
-// `let` bindings - pairs of symbols and expressions, binding `a` and `b` within `<body>`: 
+// `let` bindings - pairs of symbols and expressions, binding `a` and `b` within `<body>`:
 
 let: [a <expr>
       b <expr>]
