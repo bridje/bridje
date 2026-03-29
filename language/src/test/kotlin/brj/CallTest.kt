@@ -38,7 +38,7 @@ class CallTest {
             ctx.evalBridje("(1 2 3)")
         }
         assertTrue(
-            ex.message?.contains("Not callable") == true || ex.message?.contains("not a subtype of FnType") == true,
+            ex.message?.contains("Not callable") == true || ex.message?.contains("not a subtype of Fn(") == true,
             "Expected callable error, got: ${ex.message}"
         )
     }

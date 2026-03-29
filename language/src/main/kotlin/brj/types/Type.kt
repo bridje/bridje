@@ -2,6 +2,10 @@ package brj.types
 
 import brj.analyser.*
 import brj.types.Nullability.*
+import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.library.ExportLibrary
+import com.oracle.truffle.api.library.ExportMessage
 
 class TypeVar {
     override fun toString(): String = "T${hashCode().toString(16).take(4)}"
@@ -11,33 +15,125 @@ enum class Nullability {
     NOT_NULL, MAYBE_NULL, NULLABLE
 }
 
+@ExportLibrary(InteropLibrary::class)
 data class Type (
     val nullability: Nullability,
     val tv: TypeVar,
     val base: BaseType?
-)
+) : TruffleObject {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
 
-sealed interface BaseType
+    override fun toString(): String {
+        val baseStr = base?.toString() ?: "?"
+        return when (nullability) {
+            NULLABLE -> "$baseStr?"
+            else -> baseStr
+        }
+    }
+}
 
-data object IntType: BaseType
-data object FloatType: BaseType
-data object BoolType: BaseType
-data object StringType: BaseType
-data object BigIntType: BaseType
-data object BigDecType: BaseType
+sealed interface BaseType : TruffleObject
 
-data object RecordType: BaseType
-data object TagType: BaseType
-data object SetType: BaseType
-data object FormType: BaseType
+@ExportLibrary(InteropLibrary::class)
+data object IntType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Int"
+}
 
-data class VectorType(val el: Type): BaseType
-data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType
+@ExportLibrary(InteropLibrary::class)
+data object FloatType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Double"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data object BoolType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Bool"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data object StringType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Str"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data object BigIntType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "BigInt"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data object BigDecType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "BigDec"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data object RecordType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Record"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data class TagType(val ns: String, val name: String): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
+    override fun toString() = if (ns.isEmpty()) name else "$ns:$name"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data object SetType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Set"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data object FormType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Form"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data object ErrorType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "<error>"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data class VectorType(val el: Type): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "[$el]"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString(): String {
+        val params = paramTypes.joinToString(", ")
+        return "Fn([$params] $returnType)"
+    }
+}
 
 fun BaseType.nullable(tv: TypeVar = TypeVar()) = Type(NULLABLE, tv, this)
 fun BaseType.notNull(tv: TypeVar = TypeVar()) = Type(NOT_NULL, tv, this)
 fun freshType(tv: TypeVar = TypeVar()) = Type(MAYBE_NULL, tv, null)
 fun nullType(tv: TypeVar = TypeVar()) = Type(NULLABLE, tv, null)
+fun errorType() = ErrorType.notNull()
 
 private val Type.tvs0: List<TypeVar> get() =
     when (val base = this.base) {

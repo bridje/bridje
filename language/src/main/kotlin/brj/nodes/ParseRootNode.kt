@@ -94,10 +94,11 @@ class ParseRootNode(
                             BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
                         }
 
+                    val tagType = TagType(nsEnv.nsDecl?.name ?: "", expr.name)
                     val type = if (expr.fieldNames.isEmpty()) {
-                        TagType.notNull()
+                        tagType.notNull()
                     } else {
-                        FnType(expr.fieldNames.map { freshType() }, TagType.notNull()).notNull()
+                        FnType(expr.fieldNames.map { freshType() }, tagType.notNull()).notNull()
                     }
 
                     nsEnv = nsEnv.def(expr.name, value, type = type)
@@ -110,6 +111,11 @@ class ParseRootNode(
                     val macro = BridjeMacro(fn!!)
                     nsEnv = nsEnv.def(expr.name, macro, type = type)
                     macro
+                }
+
+                is DeclExpr -> {
+                    nsEnv = nsEnv.decl(expr.name, expr.declaredType)
+                    null
                 }
 
                 is DefKeysExpr -> {

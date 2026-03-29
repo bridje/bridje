@@ -5,6 +5,10 @@ import brj.Result
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeKey
 import brj.runtime.BridjeMacro
+import brj.runtime.BridjeTagConstructor
+import brj.runtime.BridjeTaggedSingleton
+import brj.types.*
+import brj.types.Nullability.*
 import com.oracle.truffle.api.exception.AbstractTruffleException
 import com.oracle.truffle.api.interop.ExceptionType
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -87,11 +91,15 @@ data class Analyser(
         fun readArrayElement(index: Long): Error = errors[index.toInt()]
     }
 
+    fun addError(message: String, loc: SourceSection? = null) {
+        errors.add(Error(message, loc))
+    }
+
     fun errorExpr(
         message: String,
         loc: SourceSection? = null,
     ): ValueExpr {
-        errors.add(Error(message, loc))
+        addError(message, loc)
         return ErrorValueExpr(message, loc = loc)
     }
 
@@ -201,6 +209,7 @@ data class Analyser(
                 "quote" -> analyseQuote(form)
                 "set!" -> analyseSet(form)
                 "def" -> errorExpr("def not allowed in value position", form.loc)
+                "decl" -> errorExpr("decl not allowed in value position", form.loc)
                 "deftag" -> errorExpr("deftag not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
                 "defkeys" -> errorExpr("defkeys not allowed in value position", form.loc)
@@ -579,6 +588,106 @@ data class Analyser(
         )
     }
 
+    private fun errorType(message: String, loc: SourceSection?): Type {
+        addError(message, loc)
+        return errorType()
+    }
+
+    private fun analyseTypeSymbol(name: String, loc: SourceSection?): Type =
+        when (name) {
+            "Int" -> IntType.notNull()
+            "Str" -> StringType.notNull()
+            "Bool" -> BoolType.notNull()
+            "Double" -> FloatType.notNull()
+            "BigInt" -> BigIntType.notNull()
+            "BigDec" -> BigDecType.notNull()
+            "Nothing" -> nullType()
+            else -> when {
+                name[0].isUpperCase() -> {
+                    val ns = nsEnv[name]?.let { nsEnv.nsDecl?.name ?: "" }
+                        ?: ctx.brjCore[name]?.let { "brj:core" }
+                    if (ns != null) {
+                        TagType(ns, name).notNull()
+                    } else {
+                        errorType("Unknown type: $name", loc)
+                    }
+                }
+                else -> errorType("Unsupported type form: $name", loc)
+            }
+        }
+
+    internal fun analyseTypeForm(form: Form): Type =
+        when (form) {
+            is SymbolForm -> {
+                val name = form.name
+                if (name.endsWith("?")) {
+                    val inner = analyseTypeSymbol(name.dropLast(1), form.loc)
+                    Type(NULLABLE, TypeVar(), inner.base)
+                } else {
+                    analyseTypeSymbol(name, form.loc)
+                }
+            }
+
+            is VectorForm -> {
+                val elForm = form.els.singleOrNull()
+                    ?: return errorType("Vector type must have exactly one element type", form.loc)
+                VectorType(analyseTypeForm(elForm)).notNull()
+            }
+
+            is SetForm -> {
+                val elForm = form.els.singleOrNull()
+                    ?: return errorType("Set type must have exactly one element type", form.loc)
+                analyseTypeForm(elForm)
+                SetType.notNull()
+            }
+
+            is ListForm -> {
+                val first = form.els.firstOrNull() as? SymbolForm
+                    ?: return errorType("Type form must start with a symbol", form.loc)
+                if (first.name == "Fn") {
+                    val paramVec = form.els.getOrNull(1) as? VectorForm
+                        ?: return errorType("Fn type requires a vector of parameter types", form.loc)
+                    val retForm = form.els.getOrNull(2)
+                        ?: return errorType("Fn type requires a return type", form.loc)
+                    val paramTypes = paramVec.els.map { analyseTypeForm(it) }
+                    val returnType = analyseTypeForm(retForm)
+                    FnType(paramTypes, returnType).notNull()
+                } else {
+                    errorType("Unsupported type constructor: ${first.name}", form.loc)
+                }
+            }
+
+            is RecordForm -> RecordType.notNull()
+
+            else -> errorType("Unsupported type form", form.loc)
+        }
+
+    private fun analyseDecl(form: ListForm): Expr {
+        val els = form.els
+        val sigForm = els.getOrNull(1)
+            ?: return errorExpr("decl requires a name", form.loc)
+
+        return when (sigForm) {
+            is ListForm -> {
+                // decl: foo(Int, Str) Bool -> function type declaration
+                val nameForm = sigForm.els.firstOrNull() as? SymbolForm
+                    ?: return errorExpr("decl signature must start with a name", sigForm.loc)
+                val retForm = els.getOrNull(2)
+                    ?: return errorExpr("decl function requires a return type", form.loc)
+                val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it) }
+                val returnType = analyseTypeForm(retForm)
+                DeclExpr(nameForm.name, FnType(paramTypes, returnType).notNull(), form.loc)
+            }
+            is SymbolForm -> {
+                // decl: x Int -> value type declaration
+                val typeForm = els.getOrNull(2)
+                    ?: return errorExpr("decl requires a type", form.loc)
+                DeclExpr(sigForm.name, analyseTypeForm(typeForm), form.loc)
+            }
+            else -> errorExpr("decl requires a name or signature", form.loc)
+        }
+    }
+
     private fun analyseDef(form: ListForm): Expr {
         val els = form.els
         val sigForm = els.getOrNull(1)
@@ -690,6 +799,7 @@ data class Analyser(
                 when (first.name) {
                     "do" -> return TopLevelDo(form.els.drop(1), form.loc)
                     "def" -> return analyseDef(form)
+                    "decl" -> return analyseDecl(form)
                     "deftag" -> return analyseDefTag(form)
                     "defmacro" -> return analyseDefMacro(form)
                     "defkeys" -> return analyseDefKeys(form)

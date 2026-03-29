@@ -21,6 +21,7 @@ data class NsEnv(
     val imports: Imports = emptyMap(),
     val vars: Map<String, GlobalVar> = emptyMap(),
     val keys: Map<String, GlobalVar> = emptyMap(),
+    val pendingDecls: Map<String, Type> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
 ) : TruffleObject {
@@ -50,8 +51,17 @@ data class NsEnv(
 
     fun key(name: String): GlobalVar? = keys[name]
 
-    fun def(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
-        copy(vars = vars + (name to GlobalVar(name, value, meta, type)))
+    fun decl(name: String, declaredType: Type): NsEnv =
+        copy(pendingDecls = pendingDecls + (name to declaredType))
+
+    fun def(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv {
+        val declaredType = pendingDecls[name]
+        val finalMeta = if (declaredType != null) meta.put("declaredType", declaredType) else meta
+        return copy(
+            vars = vars + (name to GlobalVar(name, value, finalMeta, type)),
+            pendingDecls = pendingDecls - name
+        )
+    }
 
     fun defKey(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
         copy(keys = keys + (name to GlobalVar(name, value, meta, type)))
@@ -74,7 +84,10 @@ data class NsEnv(
 
     @ExportMessage
     @TruffleBoundary
-    fun isMemberReadable(member: String) = vars.containsKey(member) || keys.containsKey(member) || member == "__test_var_names__"
+    fun isMemberReadable(member: String) =
+        vars.containsKey(member) || keys.containsKey(member)
+            || member == "__test_var_names__"
+            || member.startsWith("__var_meta__:")
 
     @ExportMessage
     @TruffleBoundary
@@ -82,6 +95,11 @@ data class NsEnv(
     fun readMember(member: String): Any {
         if (member == "__test_var_names__") {
             return BridjeRecord.Keys(testVarNames().toTypedArray())
+        }
+        if (member.startsWith("__var_meta__:")) {
+            val varName = member.removePrefix("__var_meta__:")
+            val gv = vars[varName] ?: throw UnknownIdentifierException.create(member)
+            return gv.meta
         }
         val v = vars[member] ?: keys[member] ?: throw UnknownIdentifierException.create(member)
         return v.value ?: throw UnknownIdentifierException.create(member)
