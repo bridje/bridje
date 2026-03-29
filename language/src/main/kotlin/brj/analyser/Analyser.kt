@@ -25,6 +25,7 @@ data class Analyser(
     private val ctx: BridjeContext,
     private val nsEnv: NsEnv = NsEnv(),
     private val locals: Map<String, LocalVar> = emptyMap(),
+    private val capturedVars: Map<String, CapturedVar> = emptyMap(),
     private val nextSlot: AtomicInteger = AtomicInteger(0),
     private val expansionDepth: Int = 0,
     private val errors: MutableList<Error> = mutableListOf(),
@@ -116,7 +117,8 @@ data class Analyser(
             "true" -> BoolExpr(true, form.loc)
             "false" -> BoolExpr(false, form.loc)
 
-            else -> locals[form.name]?.let { LocalVarExpr(it, form.loc) }
+            else -> capturedVars[form.name]?.let { CapturedVarExpr(it.captureIndex, it.outerLocalVar, form.loc) }
+                ?: locals[form.name]?.let { LocalVarExpr(it, form.loc) }
                 ?: nsEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
                 ?: ctx.brjCore[form.name]?.let { GlobalVarExpr(it, form.loc) }
                 ?: nsEnv.imports[form.name]?.let { fqClass ->
@@ -524,26 +526,36 @@ data class Analyser(
 
         val paramSet = params.toSet()
         val captures = mutableListOf<CapturedVar>()
-        val innerLocals = mutableMapOf<String, LocalVar>()
-        val innerNextSlot = AtomicInteger(0)
+        val innerCapturedVars = mutableMapOf<String, CapturedVar>()
+        var nextCaptureIndex = 0
 
         for ((name, outerLv) in locals) {
             if (name !in paramSet) {
-                val innerSlot = innerNextSlot.getAndIncrement()
-                captures.add(CapturedVar(name, outerLv, innerSlot))
-                innerLocals[name] = LocalVar(name, innerSlot)
+                val cv = CapturedVar(name, outerLv, nextCaptureIndex++, FrameSlotCapture(outerLv.slot))
+                captures.add(cv)
+                innerCapturedVars[name] = cv
             }
         }
 
-        var fnAnalyser = Analyser(ctx, nsEnv, locals = innerLocals.toMap(), nextSlot = innerNextSlot, errors = errors, gensymScope = gensymScope)
+        for ((name, outerCv) in capturedVars) {
+            if (name !in paramSet && name !in innerCapturedVars) {
+                val cv = CapturedVar(name, outerCv.outerLocalVar, nextCaptureIndex++, TransitiveCapture(outerCv.captureIndex))
+                captures.add(cv)
+                innerCapturedVars[name] = cv
+            }
+        }
+
+        var fnAnalyser = Analyser(ctx, nsEnv, capturedVars = innerCapturedVars.toMap(), errors = errors, gensymScope = gensymScope)
+        val paramLvs = mutableListOf<LocalVar>()
         for (param in params) {
-            val (newAnalyser, _) = fnAnalyser.withLocal(param)
+            val (newAnalyser, lv) = fnAnalyser.withLocal(param)
             fnAnalyser = newAnalyser
+            paramLvs.add(lv)
         }
 
         val bodyExpr = fnAnalyser.analyseBody(bodyForms, form.loc)
 
-        return FnExpr(fnName, params, bodyExpr, fnAnalyser.slotCount, captures, form.loc)
+        return FnExpr(fnName, paramLvs, bodyExpr, fnAnalyser.slotCount, captures, form.loc)
     }
 
     private fun analyseCall(form: ListForm): ValueExpr {
@@ -795,14 +807,16 @@ data class Analyser(
         if (bodyForms.isEmpty()) return errorExpr("defmacro requires a body", form.loc)
 
         var macroAnalyser = Analyser(ctx, nsEnv, errors = errors, gensymScope = gensymScope)
+        val paramLvs = mutableListOf<LocalVar>()
         for (param in params) {
-            val (newAnalyser, _) = macroAnalyser.withLocal(param)
+            val (newAnalyser, lv) = macroAnalyser.withLocal(param)
             macroAnalyser = newAnalyser
+            paramLvs.add(lv)
         }
 
         val bodyExpr = macroAnalyser.analyseBody(bodyForms, form.loc)
 
-        return DefMacroExpr(name, FnExpr(name, params, bodyExpr, macroAnalyser.slotCount, emptyList(), form.loc), form.loc)
+        return DefMacroExpr(name, FnExpr(name, paramLvs, bodyExpr, macroAnalyser.slotCount, emptyList(), form.loc), form.loc)
     }
 
     fun analyseExpr(form: Form): Expr {

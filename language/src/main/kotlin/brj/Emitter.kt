@@ -93,6 +93,7 @@ class Emitter(private val language: BridjeLanguage) {
             ExecuteArrayNode(expr.fields.map { emitExpr(it.second) }.toTypedArray(), expr.loc)
         )
         is LocalVarExpr -> ReadLocalNode(expr.localVar.slot, expr.loc)
+        is CapturedVarExpr -> ReadCapturedVarNode(expr.captureIndex, expr.loc)
         is GlobalVarExpr -> GlobalVarNode(expr.globalVar, expr.loc)
         is TruffleObjectExpr -> TruffleObjectNode(expr.value, expr.loc)
         is HostStaticMethodExpr -> HostStaticMethodNode(expr.hostClass, expr.methodName, expr.loc)
@@ -143,14 +144,13 @@ class Emitter(private val language: BridjeLanguage) {
         repeat(expr.slotCount) {
             fdBuilder.addSlot(FrameSlotKind.Illegal, null, null)
         }
-        val capturedCount = expr.captures.size
-        val rootNode = FnRootNode(language, fdBuilder.build(), capturedCount, expr.params.size, bodyNode)
+        val rootNode = FnRootNode(language, fdBuilder.build(), expr.params.size, expr.captures.isNotEmpty(), bodyNode)
 
         return if (expr.captures.isEmpty()) {
             FnNode(BridjeFunction(rootNode.callTarget), expr.loc)
         } else {
-            val captureSlots = expr.captures.map { it.outerLocalVar.slot }.toIntArray()
-            ClosureFnNode(rootNode.callTarget, captureSlots, expr.loc)
+            val captureSources = expr.captures.map { it.source }.toTypedArray()
+            ClosureFnNode(rootNode.callTarget, captureSources, expr.loc)
         }
     }
 }

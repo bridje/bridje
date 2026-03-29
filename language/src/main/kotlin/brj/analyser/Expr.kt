@@ -34,7 +34,7 @@ class DefMacroExpr(
     val fn: FnExpr,
     override val loc: SourceSection? = null
 ) : Expr {
-    override fun toString(): String = "(defmacro $name ${fn.params.joinToString(" ")} ${fn.bodyExpr})"
+    override fun toString(): String = "(defmacro $name ${fn.params.joinToString(" ") { it.name }} ${fn.bodyExpr})"
 }
 
 class DefKeysExpr(

@@ -35,6 +35,11 @@ internal fun LocalVarExpr.typing(): Typing {
     return Typing(t, mapOf(localVar to t))
 }
 
+internal fun CapturedVarExpr.typing(): Typing {
+    val t = freshType()
+    return Typing(t, mapOf(outerLocalVar to t))
+}
+
 internal fun VectorExpr.typing(): Typing {
     val elemTypings = els.map { it.typing() }
     val elemType = freshType()
@@ -96,23 +101,12 @@ internal fun LetExpr.typing(): Typing {
 internal fun FnExpr.typing(): Typing {
     val bodyTyping = bodyExpr.typing()
 
-    val capturedCount = captures.size
+    val paramLvSet = params.toSet()
+    val capturedEnv = bodyTyping.monoEnv.filterKeys { it !in paramLvSet }
+    val paramMonoEnv = bodyTyping.monoEnv.filterKeys { it in paramLvSet }
 
-    val capturedEnv = mutableMapOf<LocalVar, Type>()
-    val paramMonoEnv = mutableMapOf<LocalVar, Type>()
-
-    for ((lv, type) in bodyTyping.monoEnv) {
-        val capture = captures.find { it.name == lv.name && it.innerSlot == lv.slot }
-        if (capture != null) {
-            capturedEnv[capture.outerLocalVar] = type
-        } else {
-            paramMonoEnv[lv] = type
-        }
-    }
-
-    val paramTypes = (0 until params.size).map { paramIndex ->
-        val paramSlot = capturedCount + paramIndex
-        paramMonoEnv.keys.find { it.slot == paramSlot }?.let { paramMonoEnv[it] } ?: freshType()
+    val paramTypes = params.map { lv ->
+        paramMonoEnv[lv] ?: freshType()
     }
 
     val fnType = FnType(paramTypes, bodyTyping.type).notNull()
@@ -212,6 +206,7 @@ internal fun ValueExpr.typing(): Typing =
         is SetExpr -> typing()
         is RecordExpr -> typing()
         is LocalVarExpr -> typing()
+        is CapturedVarExpr -> typing()
         is GlobalVarExpr -> Typing(globalVar.type?.instantiate() ?: freshType())
         is LetExpr -> typing()
         is FnExpr -> typing()

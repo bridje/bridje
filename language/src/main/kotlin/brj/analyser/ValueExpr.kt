@@ -49,6 +49,10 @@ class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection? = nu
     override fun toString(): String = localVar.name
 }
 
+class CapturedVarExpr(val captureIndex: Int, val outerLocalVar: LocalVar, override val loc: SourceSection? = null) : ValueExpr {
+    override fun toString(): String = outerLocalVar.name
+}
+
 class LetExpr(
     val localVar: LocalVar,
     val bindingExpr: ValueExpr,
@@ -60,13 +64,13 @@ class LetExpr(
 
 class FnExpr(
     val fnName: String,
-    val params: List<String>,
+    val params: List<LocalVar>,
     val bodyExpr: ValueExpr,
     val slotCount: Int,
     val captures: List<CapturedVar>,
     override val loc: SourceSection? = null
 ) : ValueExpr {
-    override fun toString(): String = "(fn ($fnName ${params.joinToString(" ")}) $bodyExpr)"
+    override fun toString(): String = "(fn ($fnName ${params.joinToString(" ") { it.name }}) $bodyExpr)"
 }
 
 class CallExpr(

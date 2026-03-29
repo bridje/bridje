@@ -9,14 +9,15 @@ import com.oracle.truffle.api.nodes.RootNode
 class FnRootNode(
     language: BridjeLanguage,
     frameDescriptor: FrameDescriptor,
-    private val capturedCount: Int,
     private val paramCount: Int,
+    private val hasCapturedValues: Boolean = false,
     @field:Child private var bodyNode: BridjeNode
 ) : RootNode(language, frameDescriptor) {
 
     override fun execute(frame: VirtualFrame): Any? {
         val args = frame.arguments
-        repeat(capturedCount + paramCount) { frame.setObject(it, args[it]) }
+        val paramStartIndex = if (hasCapturedValues) 1 else 0
+        repeat(paramCount) { frame.setObject(it, args[paramStartIndex + it]) }
         return bodyNode.execute(frame)
     }
 }

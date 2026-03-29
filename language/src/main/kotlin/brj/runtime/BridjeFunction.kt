@@ -8,20 +8,8 @@ import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
 class BridjeFunction(
-    private val callTarget: RootCallTarget
-) : TruffleObject {
-
-    @ExportMessage
-    fun isExecutable() = true
-
-    @ExportMessage
-    fun execute(arguments: Array<Any?>): Any? = callTarget.call(*arguments)
-}
-
-@ExportLibrary(InteropLibrary::class)
-class ClosureBridjeFunction(
     private val callTarget: RootCallTarget,
-    private val capturedValues: Array<Any?>
+    private val capturedValues: Array<Any?>? = null
 ) : TruffleObject {
 
     @ExportMessage
@@ -29,9 +17,10 @@ class ClosureBridjeFunction(
 
     @ExportMessage
     fun execute(arguments: Array<Any?>): Any? {
-        val allArgs = arrayOfNulls<Any>(capturedValues.size + arguments.size)
-        capturedValues.copyInto(allArgs)
-        arguments.copyInto(allArgs, capturedValues.size)
-        return callTarget.call(*allArgs)
+        return if (capturedValues != null) {
+            callTarget.call(capturedValues, *arguments)
+        } else {
+            callTarget.call(*arguments)
+        }
     }
 }
