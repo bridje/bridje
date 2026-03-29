@@ -10,4 +10,4 @@ kls_database.db
 .nrepl-port
 
 # worktree
-.tasks
+.claude/worktrees
