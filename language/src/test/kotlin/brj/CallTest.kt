@@ -49,12 +49,45 @@ class CallTest {
         assertEquals(42L, result.asLong())
     }
 
-    // Closures not yet implemented - this test would require fn to capture outer scope
-    // @Test
-    // fun `higher order - fn returning fn`() = withContext { ctx ->
-    //     val result = ctx.evalBridje("(((fn (outer x) (fn (inner y) x)) 1) 2)")
-    //     assertEquals(1L, result.asLong())
-    // }
+    @Test
+    fun `higher order - fn returning fn`() = withContext { ctx ->
+        val result = ctx.evalBridje("(((fn (outer x) (fn (inner y) x)) 1) 2)")
+        assertEquals(1L, result.asLong())
+    }
+
+    @Test
+    fun `closure over let binding`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            let: [x 10]
+              let: [f fn: add-x(y) [x y]]
+                f(5)
+        """.trimIndent())
+        assertTrue(result.hasArrayElements())
+        assertEquals(10L, result.getArrayElement(0).asLong())
+        assertEquals(5L, result.getArrayElement(1).asLong())
+    }
+
+    @Test
+    fun `nested closures - three deep`() = withContext { ctx ->
+        val result = ctx.evalBridje("((((fn (a x) (fn (b y) (fn (c z) x))) 42) 0) 0)")
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `shadowing - param shadows captured`() = withContext { ctx ->
+        val result = ctx.evalBridje("(((fn (outer x) (fn (inner x) x)) 1) 2)")
+        assertEquals(2L, result.asLong())
+    }
+
+    @Test
+    fun `multiple captures`() = withContext { ctx ->
+        val result = ctx.evalBridje("((fn (outer x y) ((fn (inner z) [x y z]) 3)) 1 2)")
+        assertTrue(result.hasArrayElements())
+        assertEquals(3, result.arraySize)
+        assertEquals(1L, result.getArrayElement(0).asLong())
+        assertEquals(2L, result.getArrayElement(1).asLong())
+        assertEquals(3L, result.getArrayElement(2).asLong())
+    }
 
     @Test
     fun `call fn that returns vector`() = withContext { ctx ->

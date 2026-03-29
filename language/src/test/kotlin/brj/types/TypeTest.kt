@@ -82,7 +82,7 @@ class TypeTest {
     @Test
     fun `fn literal has FnType`() {
         val x = LocalVar("x", 0)
-        val type = FnExpr("f", listOf("x"), LocalVarExpr(x), 1).checkType()
+        val type = FnExpr("f", listOf("x"), LocalVarExpr(x), 1, emptyList()).checkType()
         val fnBase = type.base as FnType
         assertEquals(1, fnBase.paramTypes.size)
         assertNotNull(fnBase.returnType)
@@ -91,7 +91,7 @@ class TypeTest {
     @Test
     fun `call infers return type from fn`() {
         val x = LocalVar("x", 0)
-        val fn = FnExpr("f", listOf("x"), IntExpr(42), 1)
+        val fn = FnExpr("f", listOf("x"), IntExpr(42), 1, emptyList())
         val type = CallExpr(fn, listOf(StringExpr("hello"))).checkType()
         assertEquals(IntType, type.base)
         assertEquals(NOT_NULL, type.nullability)
@@ -100,7 +100,7 @@ class TypeTest {
     @Test
     fun `identity fn called with int`() {
         val x = LocalVar("x", 0)
-        val identity = FnExpr("id", listOf("x"), LocalVarExpr(x), 1)
+        val identity = FnExpr("id", listOf("x"), LocalVarExpr(x), 1, emptyList())
         val type = CallExpr(identity, listOf(IntExpr(1))).checkType()
         assertEquals(IntType, type.base)
         assertEquals(NOT_NULL, type.nullability)
@@ -110,8 +110,8 @@ class TypeTest {
     fun `higher-order fn returning fn`() {
         val x = LocalVar("x", 0)
         val y = LocalVar("y", 0)
-        val inner = FnExpr("inner", listOf("y"), LocalVarExpr(x), 1)
-        val outer = FnExpr("outer", listOf("x"), inner, 1)
+        val inner = FnExpr("inner", listOf("y"), LocalVarExpr(x), 2, listOf(CapturedVar("x", x, 0)))
+        val outer = FnExpr("outer", listOf("x"), inner, 1, emptyList())
         val type = outer.checkType()
         val outerFn = type.base as FnType
         val innerFn = outerFn.returnType.base as FnType

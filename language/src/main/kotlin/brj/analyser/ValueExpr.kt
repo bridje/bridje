@@ -63,6 +63,7 @@ class FnExpr(
     val params: List<String>,
     val bodyExpr: ValueExpr,
     val slotCount: Int,
+    val captures: List<CapturedVar>,
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String = "(fn ($fnName ${params.joinToString(" ")}) $bodyExpr)"

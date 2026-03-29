@@ -96,11 +96,23 @@ internal fun LetExpr.typing(): Typing {
 internal fun FnExpr.typing(): Typing {
     val bodyTyping = bodyExpr.typing()
 
-    val paramLocalVars = bodyTyping.monoEnv.keys.filter { it.slot < params.size }
-    val capturedEnv = bodyTyping.monoEnv.filterKeys { it.slot >= params.size }
+    val capturedCount = captures.size
 
-    val paramTypes = (0 until params.size).map { slot ->
-        paramLocalVars.find { it.slot == slot }?.let { bodyTyping.monoEnv[it] } ?: freshType()
+    val capturedEnv = mutableMapOf<LocalVar, Type>()
+    val paramMonoEnv = mutableMapOf<LocalVar, Type>()
+
+    for ((lv, type) in bodyTyping.monoEnv) {
+        val capture = captures.find { it.name == lv.name && it.innerSlot == lv.slot }
+        if (capture != null) {
+            capturedEnv[capture.outerLocalVar] = type
+        } else {
+            paramMonoEnv[lv] = type
+        }
+    }
+
+    val paramTypes = (0 until params.size).map { paramIndex ->
+        val paramSlot = capturedCount + paramIndex
+        paramMonoEnv.keys.find { it.slot == paramSlot }?.let { paramMonoEnv[it] } ?: freshType()
     }
 
     val fnType = FnType(paramTypes, bodyTyping.type).notNull()

@@ -522,7 +522,20 @@ data class Analyser(
         val bodyForms = els.drop(2)
         if (bodyForms.isEmpty()) return errorExpr("fn requires a body", form.loc)
 
-        var fnAnalyser = Analyser(ctx, nsEnv, errors = errors, gensymScope = gensymScope)
+        val paramSet = params.toSet()
+        val captures = mutableListOf<CapturedVar>()
+        val innerLocals = mutableMapOf<String, LocalVar>()
+        val innerNextSlot = AtomicInteger(0)
+
+        for ((name, outerLv) in locals) {
+            if (name !in paramSet) {
+                val innerSlot = innerNextSlot.getAndIncrement()
+                captures.add(CapturedVar(name, outerLv, innerSlot))
+                innerLocals[name] = LocalVar(name, innerSlot)
+            }
+        }
+
+        var fnAnalyser = Analyser(ctx, nsEnv, locals = innerLocals.toMap(), nextSlot = innerNextSlot, errors = errors, gensymScope = gensymScope)
         for (param in params) {
             val (newAnalyser, _) = fnAnalyser.withLocal(param)
             fnAnalyser = newAnalyser
@@ -530,7 +543,7 @@ data class Analyser(
 
         val bodyExpr = fnAnalyser.analyseBody(bodyForms, form.loc)
 
-        return FnExpr(fnName, params, bodyExpr, fnAnalyser.slotCount, form.loc)
+        return FnExpr(fnName, params, bodyExpr, fnAnalyser.slotCount, captures, form.loc)
     }
 
     private fun analyseCall(form: ListForm): ValueExpr {
@@ -789,7 +802,7 @@ data class Analyser(
 
         val bodyExpr = macroAnalyser.analyseBody(bodyForms, form.loc)
 
-        return DefMacroExpr(name, FnExpr(name, params, bodyExpr, macroAnalyser.slotCount, form.loc), form.loc)
+        return DefMacroExpr(name, FnExpr(name, params, bodyExpr, macroAnalyser.slotCount, emptyList(), form.loc), form.loc)
     }
 
     fun analyseExpr(form: Form): Expr {

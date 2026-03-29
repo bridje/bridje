@@ -137,13 +137,20 @@ class Emitter(private val language: BridjeLanguage) {
         return CaseNode(scrutineeNode, branchNodes, expr.loc)
     }
 
-    private fun emitFn(expr: FnExpr): FnNode {
+    private fun emitFn(expr: FnExpr): BridjeNode {
         val bodyNode = emitExpr(expr.bodyExpr)
         val fdBuilder = FrameDescriptor.newBuilder()
         repeat(expr.slotCount) {
             fdBuilder.addSlot(FrameSlotKind.Illegal, null, null)
         }
-        val rootNode = FnRootNode(language, fdBuilder.build(), expr.params.size, bodyNode)
-        return FnNode(BridjeFunction(rootNode.callTarget), expr.loc)
+        val capturedCount = expr.captures.size
+        val rootNode = FnRootNode(language, fdBuilder.build(), capturedCount, expr.params.size, bodyNode)
+
+        return if (expr.captures.isEmpty()) {
+            FnNode(BridjeFunction(rootNode.callTarget), expr.loc)
+        } else {
+            val captureSlots = expr.captures.map { it.outerLocalVar.slot }.toIntArray()
+            ClosureFnNode(rootNode.callTarget, captureSlots, expr.loc)
+        }
     }
 }
