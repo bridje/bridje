@@ -1,6 +1,7 @@
 package brj.analyser
 
 import brj.Form
+import brj.GlobalVar
 import brj.types.Type
 
 import com.oracle.truffle.api.source.SourceSection
@@ -50,6 +51,15 @@ class DeclExpr(
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String = "(decl $name $declaredType)"
+}
+
+class DefxExpr(
+    val name: String,
+    val declaredType: Type,
+    val defaultExpr: ValueExpr?,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "(defx $name $declaredType${defaultExpr?.let { " $it" } ?: ""})"
 }
 
 class TopLevelDo(val forms: List<Form>, override val loc: SourceSection?) : Expr {

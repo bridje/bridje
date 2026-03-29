@@ -219,5 +219,15 @@ internal fun ValueExpr.typing(): Typing =
         is HostStaticMethodExpr -> Typing(freshType())
         is HostConstructorExpr -> Typing(freshType())
         is RecordSetExpr -> typing()
+        is EffectVarExpr -> Typing(effectVar.type?.instantiate() ?: freshType())
+        is WithFxExpr -> {
+            val bindingTypings = bindings.map { (_, expr) -> expr.typing() }
+            val bodyTyping = bodyExpr.typing()
+            Typing.build(
+                bodyTyping.type,
+                childTypings = bindingTypings + listOf(bodyTyping),
+                constraints = emptyList(),
+            )
+        }
         is ErrorValueExpr -> Typing(freshType())
     }

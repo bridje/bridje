@@ -21,6 +21,7 @@ data class NsEnv(
     val imports: Imports = emptyMap(),
     val vars: Map<String, GlobalVar> = emptyMap(),
     val keys: Map<String, GlobalVar> = emptyMap(),
+    val effectVars: Map<String, GlobalVar> = emptyMap(),
     val pendingDecls: Map<String, Type> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
@@ -51,6 +52,11 @@ data class NsEnv(
 
     fun key(name: String): GlobalVar? = keys[name]
 
+    fun effectVar(name: String): GlobalVar? = effectVars[name]
+
+    fun defx(name: String, value: Any?, type: Type): NsEnv =
+        copy(effectVars = effectVars + (name to GlobalVar(name, value, type = type)))
+
     fun decl(name: String, declaredType: Type): NsEnv =
         copy(pendingDecls = pendingDecls + (name to declaredType))
 
@@ -61,6 +67,11 @@ data class NsEnv(
             vars = vars + (name to GlobalVar(name, value, finalMeta, type)),
             pendingDecls = pendingDecls - name
         )
+    }
+
+    fun withEffects(name: String, effects: List<GlobalVar>): NsEnv {
+        val existing = vars[name] ?: return this
+        return copy(vars = vars + (name to GlobalVar(existing.name, existing.value, existing.meta, existing.type, effects)))
     }
 
     fun defKey(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
@@ -80,12 +91,12 @@ data class NsEnv(
 
     @ExportMessage
     @TruffleBoundary
-    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys((vars.keys + keys.keys).toTypedArray())
+    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys((vars.keys + keys.keys + effectVars.keys).toTypedArray())
 
     @ExportMessage
     @TruffleBoundary
     fun isMemberReadable(member: String) =
-        vars.containsKey(member) || keys.containsKey(member)
+        vars.containsKey(member) || keys.containsKey(member) || effectVars.containsKey(member)
             || member == "__test_var_names__"
             || member.startsWith("__var_meta__:")
 
@@ -101,7 +112,7 @@ data class NsEnv(
             val gv = vars[varName] ?: throw UnknownIdentifierException.create(member)
             return gv.meta
         }
-        val v = vars[member] ?: keys[member] ?: throw UnknownIdentifierException.create(member)
+        val v = vars[member] ?: keys[member] ?: effectVars[member] ?: throw UnknownIdentifierException.create(member)
         return v.value ?: throw UnknownIdentifierException.create(member)
     }
 

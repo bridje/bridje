@@ -200,6 +200,25 @@ class RecordSetExpr(
     override fun toString(): String = "(set! $recordExpr :$key $valueExpr)"
 }
 
+class EffectVarExpr(
+    val name: String,
+    val effectVar: GlobalVar,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String = name
+}
+
+class WithFxExpr(
+    val bindings: List<Pair<GlobalVar, ValueExpr>>,
+    val bodyExpr: ValueExpr,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String {
+        val bindingsStr = bindings.joinToString(" ") { (gv, expr) -> "${gv.name} $expr" }
+        return "(withFx [$bindingsStr] $bodyExpr)"
+    }
+}
+
 class ErrorValueExpr(
     val message: String,
     override val loc: SourceSection? = null,

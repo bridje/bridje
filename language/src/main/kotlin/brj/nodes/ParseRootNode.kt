@@ -2,6 +2,7 @@ package brj.nodes
 
 import brj.*
 import brj.analyser.*
+import brj.effects.inferEffects
 import brj.runtime.*
 import brj.types.*
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
@@ -64,6 +65,42 @@ class ParseRootNode(
     }
 
     @TruffleBoundary
+    private fun evalEffectfulDef(fnExpr: FnExpr, effects: List<GlobalVar>, slotCount: Int): Any? {
+        // Two-stage function: outer fn takes effect args, returns inner fn (closure over effects).
+        //
+        // Outer fn frame: effect args in slots [0, N)
+        // Inner fn: captures the effect values from the outer frame, reads them via ReadCapturedVarNode.
+        //           Params and locals are in the regular frame at their analyser-assigned slots.
+
+        val effectCount = effects.size
+        val emitter = Emitter(lang)
+
+        // The inner fn body reads effects from the captures array via ReadCapturedVarNode.
+        // Effect at index i in the captures array corresponds to effects[i].
+        val effectEnv = effects.mapIndexed { idx, gv ->
+            gv to ReadCapturedVarNode(idx) as BridjeNode
+        }.toMap()
+
+        val innerBodyNode = emitter.emitExpr(fnExpr.bodyExpr, effectEnv)
+
+        // Inner fn: params at their analyser-assigned slots, effects in captures array
+        val innerFdBuilder = FrameDescriptor.newBuilder()
+        repeat(fnExpr.slotCount) { innerFdBuilder.addSlot(FrameSlotKind.Illegal, null, null) }
+        val innerRoot = FnRootNode(lang, innerFdBuilder.build(), fnExpr.params.size, true, innerBodyNode)
+
+        // Capture effect args from the outer frame's slots [0, N)
+        val captureSources = (0 until effectCount).map { FrameSlotCapture(it) as CaptureSource }.toTypedArray()
+        val innerFnNode = ClosureFnNode(innerRoot.callTarget, captureSources, fnExpr.loc)
+
+        // Outer fn: takes effect args as params, returns the inner fn closure
+        val outerFdBuilder = FrameDescriptor.newBuilder()
+        repeat(effectCount) { outerFdBuilder.addSlot(FrameSlotKind.Illegal, null, null) }
+        val outerRoot = FnRootNode(lang, outerFdBuilder.build(), effectCount, false, innerFnNode)
+
+        return BridjeFunction(outerRoot.callTarget)
+    }
+
+    @TruffleBoundary
     private fun List<Form>.evalForms(ctx: BridjeContext, nsEnv: NsEnv): Pair<NsEnv, Any?> {
         var nsEnv = nsEnv
         val errors = mutableListOf<Analyser.Error>()
@@ -80,10 +117,21 @@ class ParseRootNode(
 
                 is DefExpr -> {
                     val type = expr.valueExpr.checkType()
-                    val value = evalExpr(expr.valueExpr, analyser.slotCount)
+                    val effects = expr.valueExpr.inferEffects().toList()
                     val meta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
-                    nsEnv = nsEnv.def(expr.name, value, meta, type)
-                    value
+
+                    if (effects.isNotEmpty()) {
+                        if (expr.valueExpr !is FnExpr) {
+                            throw Analyser.Error("effects can only be used within a function body: ${expr.name}", expr.loc)
+                        }
+                        val value = evalEffectfulDef(expr.valueExpr, effects, analyser.slotCount)
+                        nsEnv = nsEnv.def(expr.name, value, meta, type).withEffects(expr.name, effects)
+                        value
+                    } else {
+                        val value = evalExpr(expr.valueExpr, analyser.slotCount)
+                        nsEnv = nsEnv.def(expr.name, value, meta, type)
+                        value
+                    }
                 }
 
                 is DefTagExpr -> {
@@ -116,6 +164,12 @@ class ParseRootNode(
                 is DeclExpr -> {
                     nsEnv = nsEnv.decl(expr.name, expr.declaredType)
                     null
+                }
+
+                is DefxExpr -> {
+                    val defaultValue = expr.defaultExpr?.let { evalExpr(it, analyser.slotCount) }
+                    nsEnv = nsEnv.defx(expr.name, defaultValue, expr.declaredType)
+                    defaultValue
                 }
 
                 is DefKeysExpr -> {

@@ -77,7 +77,7 @@ class HostStaticMethodNode(
 }
 
 class Emitter(private val language: BridjeLanguage) {
-    fun emitExpr(expr: ValueExpr): BridjeNode = when (expr) {
+    fun emitExpr(expr: ValueExpr, effectEnv: Map<GlobalVar, BridjeNode> = emptyMap()): BridjeNode = when (expr) {
         is NilExpr -> NilNode(expr.loc)
         is BoolExpr -> BoolNode(expr.value, expr.loc)
         is IntExpr -> IntNode(expr.value, expr.loc)
@@ -85,12 +85,12 @@ class Emitter(private val language: BridjeLanguage) {
         is BigIntExpr -> BigIntNode(expr.value, expr.loc)
         is BigDecExpr -> BigDecNode(expr.value, expr.loc)
         is StringExpr -> StringNode(expr.value, expr.loc)
-        is VectorExpr -> VectorNodeGen.create(expr.loc, ExecuteArrayNode(expr.els.map { emitExpr(it) }.toTypedArray(), expr.loc))
+        is VectorExpr -> VectorNodeGen.create(expr.loc, ExecuteArrayNode(expr.els.map { emitExpr(it, effectEnv) }.toTypedArray(), expr.loc))
         is SetExpr -> TODO()
         is RecordExpr -> RecordNodeGen.create(
             expr.fields.map { it.first }.toTypedArray(),
             expr.loc,
-            ExecuteArrayNode(expr.fields.map { emitExpr(it.second) }.toTypedArray(), expr.loc)
+            ExecuteArrayNode(expr.fields.map { emitExpr(it.second, effectEnv) }.toTypedArray(), expr.loc)
         )
         is LocalVarExpr -> ReadLocalNode(expr.localVar.slot, expr.loc)
         is CapturedVarExpr -> ReadCapturedVarNode(expr.captureIndex, expr.loc)
@@ -99,38 +99,63 @@ class Emitter(private val language: BridjeLanguage) {
         is HostStaticMethodExpr -> HostStaticMethodNode(expr.hostClass, expr.methodName, expr.loc)
         is HostConstructorExpr -> TruffleObjectNode(HostClass(expr.hostClass), expr.loc)
         is QuoteExpr -> TruffleObjectNode(expr.form, expr.loc)
-        is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr), emitExpr(expr.bodyExpr), expr.loc)
-        is FnExpr -> emitFn(expr)
-        is CallExpr -> InvokeNode(emitExpr(expr.fnExpr), expr.argExprs.map { emitExpr(it) }.toTypedArray(), expr.loc)
-        is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it) }.toTypedArray(), emitExpr(expr.result), expr.loc)
-        is IfExpr -> IfNode(emitExpr(expr.predExpr), emitExpr(expr.thenExpr), emitExpr(expr.elseExpr), expr.loc)
-        is CaseExpr -> emitCase(expr)
-        is RecordSetExpr -> RecordSetNode(expr.key, emitExpr(expr.recordExpr), emitExpr(expr.valueExpr), expr.loc)
+        is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr, effectEnv), emitExpr(expr.bodyExpr, effectEnv), expr.loc)
+        is FnExpr -> emitFn(expr, effectEnv)
+        is CallExpr -> emitCall(expr, effectEnv)
+        is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it, effectEnv) }.toTypedArray(), emitExpr(expr.result, effectEnv), expr.loc)
+        is IfExpr -> IfNode(emitExpr(expr.predExpr, effectEnv), emitExpr(expr.thenExpr, effectEnv), emitExpr(expr.elseExpr, effectEnv), expr.loc)
+        is CaseExpr -> emitCase(expr, effectEnv)
+        is RecordSetExpr -> RecordSetNode(expr.key, emitExpr(expr.recordExpr, effectEnv), emitExpr(expr.valueExpr, effectEnv), expr.loc)
+        is EffectVarExpr -> effectEnv[expr.effectVar] ?: GlobalVarNode(expr.effectVar, expr.loc)
+        is WithFxExpr -> {
+            val newEnv = effectEnv + expr.bindings.associate { (gv, implExpr) -> gv to emitExpr(implExpr, effectEnv) }
+            emitExpr(expr.bodyExpr, newEnv)
+        }
 
         is ErrorValueExpr -> error("analyser error: ${expr.message}")
     }
 
-    private fun emitCase(expr: CaseExpr): CaseNode {
-        val scrutineeNode = emitExpr(expr.scrutinee)
+    private fun emitCall(expr: CallExpr, effectEnv: Map<GlobalVar, BridjeNode>): BridjeNode {
+        val fnNode = emitExpr(expr.fnExpr, effectEnv)
+        val argNodes = expr.argExprs.map { emitExpr(it, effectEnv) }.toTypedArray()
+
+        val calleeEffects = when (val fnExpr = expr.fnExpr) {
+            is GlobalVarExpr -> fnExpr.globalVar.effects
+            else -> emptyList()
+        }
+
+        if (calleeEffects.isNotEmpty()) {
+            val effectNodes = calleeEffects.map { effectVar ->
+                effectEnv[effectVar] ?: GlobalVarNode(effectVar, expr.loc)
+            }.toTypedArray()
+            val stage1 = InvokeNode(fnNode, effectNodes, expr.loc)
+            return InvokeNode(stage1, argNodes, expr.loc)
+        }
+
+        return InvokeNode(fnNode, argNodes, expr.loc)
+    }
+
+    private fun emitCase(expr: CaseExpr, effectEnv: Map<GlobalVar, BridjeNode>): CaseNode {
+        val scrutineeNode = emitExpr(expr.scrutinee, effectEnv)
         val branchNodes = expr.branches.map { branch ->
             when (val pattern = branch.pattern) {
                 is TagPattern -> TagBranchNode(
                     pattern.tagValue,
                     pattern.bindings.map { it.slot }.toIntArray(),
-                    emitExpr(branch.bodyExpr),
+                    emitExpr(branch.bodyExpr, effectEnv),
                     branch.loc
                 )
                 is DefaultPattern -> DefaultBranchNode(
-                    emitExpr(branch.bodyExpr),
+                    emitExpr(branch.bodyExpr, effectEnv),
                     branch.loc
                 )
                 is NilPattern -> NilBranchNode(
-                    emitExpr(branch.bodyExpr),
+                    emitExpr(branch.bodyExpr, effectEnv),
                     branch.loc
                 )
                 is CatchAllBindingPattern -> CatchAllBindingBranchNode(
                     pattern.binding.slot,
-                    emitExpr(branch.bodyExpr),
+                    emitExpr(branch.bodyExpr, effectEnv),
                     branch.loc
                 )
             }
@@ -138,8 +163,10 @@ class Emitter(private val language: BridjeLanguage) {
         return CaseNode(scrutineeNode, branchNodes, expr.loc)
     }
 
-    private fun emitFn(expr: FnExpr): BridjeNode {
-        val bodyNode = emitExpr(expr.bodyExpr)
+    private fun emitFn(expr: FnExpr, effectEnv: Map<GlobalVar, BridjeNode>): BridjeNode {
+        // Inner fns have their own frame.
+        // Effect env is cleared: inner fns that need effects get them via their own two-stage calling convention.
+        val bodyNode = emitExpr(expr.bodyExpr, effectEnv = emptyMap())
         val fdBuilder = FrameDescriptor.newBuilder()
         repeat(expr.slotCount) {
             fdBuilder.addSlot(FrameSlotKind.Illegal, null, null)

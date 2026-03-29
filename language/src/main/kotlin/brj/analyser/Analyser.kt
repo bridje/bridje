@@ -119,6 +119,8 @@ data class Analyser(
 
             else -> capturedVars[form.name]?.let { CapturedVarExpr(it.captureIndex, it.outerLocalVar, form.loc) }
                 ?: locals[form.name]?.let { LocalVarExpr(it, form.loc) }
+                ?: nsEnv.effectVar(form.name)?.let { EffectVarExpr(form.name, it, form.loc) }
+                ?: ctx.brjCore.effectVar(form.name)?.let { EffectVarExpr(form.name, it, form.loc) }
                 ?: nsEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
                 ?: ctx.brjCore[form.name]?.let { GlobalVarExpr(it, form.loc) }
                 ?: nsEnv.imports[form.name]?.let { fqClass ->
@@ -210,11 +212,13 @@ data class Analyser(
                 "case" -> analyseCase(form)
                 "quote" -> analyseQuote(form)
                 "set!" -> analyseSet(form)
+                "withFx" -> analyseWithFx(form)
                 "def" -> errorExpr("def not allowed in value position", form.loc)
                 "decl" -> errorExpr("decl not allowed in value position", form.loc)
                 "deftag" -> errorExpr("deftag not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
                 "defkeys" -> errorExpr("defkeys not allowed in value position", form.loc)
+                "defx" -> errorExpr("defx not allowed in value position", form.loc)
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
@@ -819,6 +823,42 @@ data class Analyser(
         return DefMacroExpr(name, FnExpr(name, paramLvs, bodyExpr, macroAnalyser.slotCount, emptyList(), form.loc), form.loc)
     }
 
+    private fun analyseDefx(form: ListForm): Expr {
+        val els = form.els
+        val nameForm = els.getOrNull(1) as? SymbolForm
+            ?: return errorExpr("defx requires a name", form.loc)
+        val typeForm = els.getOrNull(2)
+            ?: return errorExpr("defx requires a type", form.loc)
+        val type = analyseTypeForm(typeForm)
+        val defaultExpr = els.getOrNull(3)?.let { analyseValueExpr(it) }
+        return DefxExpr(nameForm.name, type, defaultExpr, form.loc)
+    }
+
+    private fun analyseWithFx(form: ListForm): ValueExpr {
+        val els = form.els
+        val bindingsForm = els.getOrNull(1) as? VectorForm
+            ?: return errorExpr("withFx requires a vector of bindings", form.loc)
+        val bindingEls = bindingsForm.els
+        if (bindingEls.size % 2 != 0)
+            return errorExpr("withFx bindings must have even number of forms", form.loc)
+
+        val bindings = mutableListOf<Pair<GlobalVar, ValueExpr>>()
+        for (i in bindingEls.indices step 2) {
+            val nameForm = bindingEls[i] as? SymbolForm
+                ?: return errorExpr("withFx binding name must be a symbol", bindingEls[i].loc)
+            val effectVar = nsEnv.effectVar(nameForm.name)
+                ?: ctx.brjCore.effectVar(nameForm.name)
+                ?: return errorExpr("Unknown effect: ${nameForm.name}", nameForm.loc)
+            bindings.add(effectVar to analyseValueExpr(bindingEls[i + 1]))
+        }
+
+        val bodyForms = els.drop(2)
+        if (bodyForms.isEmpty()) return errorExpr("withFx requires a body", form.loc)
+        val bodyExpr = analyseBody(bodyForms, form.loc)
+
+        return WithFxExpr(bindings, bodyExpr, form.loc)
+    }
+
     fun analyseExpr(form: Form): Expr {
         if (form is ListForm) {
             val first = form.els.firstOrNull()
@@ -830,6 +870,7 @@ data class Analyser(
                     "deftag" -> return analyseDefTag(form)
                     "defmacro" -> return analyseDefMacro(form)
                     "defkeys" -> return analyseDefKeys(form)
+                    "defx" -> return analyseDefx(form)
                 }
             }
         }

@@ -1,0 +1,152 @@
+package brj
+
+import org.graalvm.polyglot.PolyglotException
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+
+class EffectTest {
+
+    @Test
+    fun `defx declares effect var with default`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test:fx1
+            (defx myId (Fn [Int] Int) (fn (id x) x))
+        """.trimIndent())
+        val myId = ns.getMember("myId")
+        assertNotNull(myId, "myId should be accessible as a member")
+        assertTrue(myId.canExecute(), "myId default should be executable")
+        assertEquals(42L, myId.execute(42L).asLong())
+    }
+
+    @Test
+    fun `effect var callable at top level`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx myId (Fn [Int] Int) (fn (id x) x))
+              (myId 42))
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `defx with default, used in fn`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx transform (Fn [Int] Int) (fn (id x) x))
+              (def (apply n) (transform n))
+              (apply 42))
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `withFx overrides effect`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx transform (Fn [Int] Int) (fn (id x) x))
+              (def (apply n) (transform n))
+              (withFx [transform (fn (inc x) (add x 1))]
+                (apply 10)))
+        """.trimIndent())
+        assertEquals(11L, result.asLong())
+    }
+
+    @Test
+    fun `transitive effects`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx base (Fn [Int] Int) (fn (id x) x))
+              (def (inner x) (base x))
+              (def (outer x) (inner x))
+              (withFx [base (fn (add100 x) (add x 100))]
+                (outer 5)))
+        """.trimIndent())
+        assertEquals(105L, result.asLong())
+    }
+
+    @Test
+    fun `multiple effects`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx e1 (Fn [Int] Int) (fn (id x) x))
+              (defx e2 (Fn [Int] Int) (fn (id x) x))
+              (def (both x) (add (e1 x) (e2 x)))
+              (withFx [e1 (fn (add10 x) (add x 10))
+                       e2 (fn (add100 x) (add x 100))]
+                (both 1)))
+        """.trimIndent())
+        assertEquals(112L, result.asLong())
+    }
+
+    @Test
+    fun `nested withFx`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx e1 (Fn [Int] Int) (fn (id x) x))
+              (defx e2 (Fn [Int] Int) (fn (id x) x))
+              (def (both x) (add (e1 x) (e2 x)))
+              (withFx [e1 (fn (add10 x) (add x 10))]
+                (withFx [e2 (fn (add100 x) (add x 100))]
+                  (both 1))))
+        """.trimIndent())
+        assertEquals(112L, result.asLong())
+    }
+
+    @Test
+    fun `pure fn calling effectful fn`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx base (Fn [Int] Int) (fn (id x) x))
+              (def (effectful x) (base x))
+              (def (pure x) (add x 1))
+              (def (mixed x) (pure (effectful x)))
+              (withFx [base (fn (dbl x) (add x x))]
+                (mixed 5)))
+        """.trimIndent())
+        assertEquals(11L, result.asLong())
+    }
+
+    @Test
+    fun `defx in value position is error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                (do
+                  (let [x (defx e (Fn [Int] Int))]
+                    x))
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("defx not allowed in value position") == true,
+            "Expected 'defx not allowed in value position', got: ${ex.message}")
+    }
+
+    @Test
+    fun `withFx unknown effect is error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                (do
+                  (withFx [nonexistent 42] 1))
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Unknown effect") == true,
+            "Expected 'Unknown effect', got: ${ex.message}")
+    }
+
+    @Test
+    fun `effect in namespace`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test:fx:ns
+            (defx myEffect (Fn [Int] Int) (fn (id x) x))
+            (def (useEffect n) (myEffect n))
+        """.trimIndent())
+        // The fn useEffect should be a two-stage function
+        val useEffect = ns.getMember("useEffect")
+        assertNotNull(useEffect, "useEffect should be accessible")
+        assertTrue(useEffect.canExecute(), "useEffect should be executable (stage 1)")
+        // Stage 1: apply default effect
+        val myEffect = ns.getMember("myEffect")
+        val ready = useEffect.execute(myEffect)
+        assertTrue(ready.canExecute(), "ready fn should be executable (stage 2)")
+        // Stage 2: apply user arg
+        assertEquals(42L, ready.execute(42L).asLong())
+    }
+}
