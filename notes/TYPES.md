@@ -105,13 +105,13 @@ Types can be parameterised by type variables.
 Lowercase names in type positions are type variables; uppercase names are concrete types.
 
 ```bridje
-tag: Ok(a)
-tag: Err(e)
+deftag: Ok(a)
+deftag: Err(e)
 
 type: Result(a, e)
   Sum: Ok(a) | Err(e)
 
-tag: Pair(a, b)
+deftag: Pair(a, b)
 ```
 
 Collection types are generic: `[a]`, `#{a}`, `Map(k, v)`.
@@ -228,8 +228,8 @@ Tags are nominal wrappers around records.
 A tag is distinct from any other tag, even with identical keys.
 
 ```bridje
-tag: User({:fn, :ln, :email, :role})
-tag: Customer({:fn, :ln, :email, :since})
+deftag: User({:fn, :ln, :email, :role})
+deftag: Customer({:fn, :ln, :email, :since})
 ```
 
 `User` is not `Customer`, even though they share keys.
