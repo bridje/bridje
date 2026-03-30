@@ -1,22 +1,11 @@
 #include <tree_sitter/parser.h>
-#include <ctype.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
 enum TokenType {
-    SYMBOL,
-    QUALIFIED_SYMBOL,
-    DOT_SYMBOL,
-    INT,
-    FLOAT,
-    BIGINT,
-    BIGDEC,
-    KEYWORD,
-    CARET,
     INDENT,
     DEDENT,
-    NEWLINE
+    NEWLINE,
 };
 
 #define MAX_INDENT_DEPTH 100
@@ -76,194 +65,12 @@ void tree_sitter_bridje_external_scanner_deserialize(void *payload, const char *
     }
 }
 
-static bool is_symbol_head_char(int32_t ch) {
-    if (isalpha(ch)) return true;
-
-    switch(ch) {
-        case '*':
-        case '-':
-        case '_':
-        case '+':
-        case '=':
-        case '?':
-        case '!':
-        case '<':
-        case '>':
-        case '&':
-            return true;
-        default:
-            return false;
-    }
-}
-
-static bool is_symbol_char(int32_t ch) {
-    return is_symbol_head_char(ch) || isdigit(ch);
-}
-
 static bool is_inline_whitespace(int32_t ch) {
     return (ch == ' ' || ch == '\t' || ch == ',');
 }
 
 static bool is_closing_bracket(int32_t ch) {
     return (ch == ']' || ch == ')' || ch == '}');
-}
-
-static bool read_symbol_core(TSLexer *lexer) {
-    // Assumes first char already validated, advances past it
-    lexer->advance(lexer, false);
-
-    while (true) {
-        int32_t ch = lexer->lookahead;
-        if (!is_symbol_char(ch)) break;
-        lexer->advance(lexer, false);
-    }
-    return true;
-}
-
-static bool read_symbol(TSLexer *lexer) {
-    read_symbol_core(lexer);
-    bool has_colon = false;
-
-    // Check for colon - namespace separator (ns:member) or block call (foo:)
-    while (lexer->lookahead == ':') {
-        lexer->mark_end(lexer);  // Mark before colon in case it's a block call
-        lexer->advance(lexer, false);
-        if (is_symbol_head_char(lexer->lookahead)) {
-            // Qualified symbol - continue reading
-            has_colon = true;
-            read_symbol_core(lexer);
-        } else {
-            // Block call - return symbol without the colon (mark_end already set)
-            lexer->result_symbol = SYMBOL;
-            return true;
-        }
-    }
-
-    // Check for trailing # (gensym syntax)
-    if (lexer->lookahead == '#') {
-        lexer->advance(lexer, false);
-    }
-
-    lexer->mark_end(lexer);  // Mark final position
-    lexer->result_symbol = has_colon ? QUALIFIED_SYMBOL : SYMBOL;
-    return true;
-}
-
-static bool read_dot_symbol(TSLexer *lexer) {
-    // Skip the '.'
-    lexer->advance(lexer, false);
-
-    int32_t ch = lexer->lookahead;
-    if (!is_symbol_head_char(ch)) return false;
-
-    read_symbol_core(lexer);
-
-    // Allow namespace-qualified dot symbols like .ns:member
-    while (lexer->lookahead == ':') {
-        lexer->mark_end(lexer);
-        lexer->advance(lexer, false);
-        if (is_symbol_head_char(lexer->lookahead)) {
-            read_symbol_core(lexer);
-        } else {
-            lexer->result_symbol = DOT_SYMBOL;
-            return true;
-        }
-    }
-
-    lexer->mark_end(lexer);
-    lexer->result_symbol = DOT_SYMBOL;
-    return true;
-}
-
-static bool is_end_of_number(TSLexer *lexer, int32_t ch) {
-    return is_inline_whitespace(ch) || is_closing_bracket(ch) || ch == '\n' || lexer->eof(lexer);
-}
-
-static bool read_number(TSLexer *lexer, const bool *valid_symbols) {
-    int32_t ch;
-    lexer->advance(lexer, false);
-
-    bool is_float = false;
-    bool needs_mark = false;
-
-    while (true) {
-        ch = lexer->lookahead;
-        if (isdigit(ch)) {
-            lexer->advance(lexer, false);
-            continue;
-        }
-
-        if (ch == '.' && is_float) return false;
-
-        if (ch == '.' && !is_float) {
-            // Peek ahead to see if this is a float or int.method
-            lexer->mark_end(lexer);  // Mark before the dot
-            lexer->advance(lexer, false);
-            if (isdigit(lexer->lookahead)) {
-                // It's a float - continue parsing, but need to re-mark at end
-                is_float = true;
-                needs_mark = true;
-                lexer->advance(lexer, false);
-                continue;
-            }
-            // It's an int followed by .symbol - return int (mark_end already set)
-            lexer->result_symbol = INT;
-            return true;
-        }
-
-        if (ch == 'n' || ch == 'N') {
-            lexer->advance(lexer, false);
-            if (is_float) return false;
-            ch = lexer->lookahead;
-            if (!is_end_of_number(lexer, ch)) return false;
-            lexer->mark_end(lexer);
-            lexer->result_symbol = BIGINT;
-            return true;
-        }
-
-        if (ch == 'm'|| ch == 'M') {
-            lexer->advance(lexer, false);
-            ch = lexer->lookahead;
-            if (!is_end_of_number(lexer, ch)) return false;
-            lexer->mark_end(lexer);
-            lexer->result_symbol = BIGDEC;
-            return true;
-        }
-
-        if (!is_end_of_number(lexer, ch)) return false;
-
-        break;
-    }
-
-    lexer->mark_end(lexer);
-    lexer->result_symbol = is_float ? FLOAT : INT;
-    return true;
-
-}
-
-static bool read_keyword(TSLexer *lexer) {
-    // Leading ':' already consumed by caller
-    int32_t ch = lexer->lookahead;
-    if (!is_symbol_head_char(ch)) return false;
-
-    read_symbol_core(lexer);
-
-    // Allow namespace-qualified keywords like :ns:member
-    while (lexer->lookahead == ':') {
-        lexer->mark_end(lexer);
-        lexer->advance(lexer, false);
-        if (is_symbol_head_char(lexer->lookahead)) {
-            read_symbol_core(lexer);
-        } else {
-            // Colon not followed by symbol char — keyword ends before colon
-            lexer->result_symbol = KEYWORD;
-            return true;
-        }
-    }
-
-    lexer->mark_end(lexer);
-    lexer->result_symbol = KEYWORD;
-    return true;
 }
 
 static uint16_t get_current_indent(Scanner *scanner) {
@@ -282,6 +89,20 @@ static void pop_indent(Scanner *scanner) {
     }
 }
 
+// Consume newlines and following inline whitespace, return the column of the next content.
+static uint16_t skip_to_next_content(TSLexer *lexer) {
+    int32_t ch = lexer->lookahead;
+    while (ch == '\n') {
+        lexer->advance(lexer, true);
+        ch = lexer->lookahead;
+        while (is_inline_whitespace(ch)) {
+            lexer->advance(lexer, true);
+            ch = lexer->lookahead;
+        }
+    }
+    return lexer->get_column(lexer);
+}
+
 bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Scanner *scanner = (Scanner *)payload;
     int32_t ch = lexer->lookahead;
@@ -290,12 +111,11 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     if (scanner->queued_dedent_target >= 0) {
         uint16_t current_indent = get_current_indent(scanner);
         if (valid_symbols[DEDENT] && scanner->queued_dedent_target < current_indent) {
-            lexer->mark_end(lexer);  // Zero-width subsequent dedents
+            lexer->mark_end(lexer);
             pop_indent(scanner);
             lexer->result_symbol = DEDENT;
             return true;
         }
-        // Done dedenting
         scanner->queued_dedent_target = -1;
     }
 
@@ -306,37 +126,20 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     }
 
     // Handle newline - this is where indentation logic happens.
-    // mark_end before consuming whitespace so DEDENT tokens are zero-width
-    // (block extents exclude trailing whitespace). Only mark when DEDENT is
-    // valid; reset if we don't actually emit DEDENT, so fall-through content
-    // scanning gets correct token boundaries.
+    // Always mark_end before consuming whitespace so DEDENT tokens are zero-width.
+    // Re-mark after for INDENT/NEWLINE.
     if (ch == '\n') {
-        bool marked_for_dedent = valid_symbols[DEDENT];
-        if (marked_for_dedent) {
-            lexer->mark_end(lexer);
-        }
-
-        // Skip the newline and any following blank lines
-        while (ch == '\n') {
-            lexer->advance(lexer, true);
-            ch = lexer->lookahead;
-            // Skip inline whitespace after newline
-            while (is_inline_whitespace(ch)) {
-                lexer->advance(lexer, true);
-                ch = lexer->lookahead;
-            }
-        }
-
-        uint16_t indent = lexer->get_column(lexer);
+        lexer->mark_end(lexer);
+        uint16_t indent = skip_to_next_content(lexer);
         uint16_t current_indent = get_current_indent(scanner);
 
         if (valid_symbols[INDENT] && indent > current_indent) {
+            lexer->mark_end(lexer);
             push_indent(scanner, indent);
             lexer->result_symbol = INDENT;
             return true;
         }
 
-        // DEDENT keeps the pre-newline mark_end for zero-width
         if (valid_symbols[DEDENT] && indent < current_indent) {
             scanner->queued_dedent_target = indent;
             pop_indent(scanner);
@@ -344,13 +147,8 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
             return true;
         }
 
-        // Not a DEDENT — reset mark_end so fall-through tokens get correct
-        // boundaries (e.g. dot_symbol for method chains)
-        if (marked_for_dedent) {
-            lexer->mark_end(lexer);
-        }
-
         if (valid_symbols[NEWLINE] && indent == current_indent) {
+            lexer->mark_end(lexer);
             lexer->result_symbol = NEWLINE;
             return true;
         }
@@ -359,7 +157,7 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
     // Handle EOF - if grammar expects DEDENT, emit it
     if (lexer->eof(lexer)) {
         if (valid_symbols[DEDENT]) {
-            lexer->mark_end(lexer);  // Zero-width at EOF
+            lexer->mark_end(lexer);
             pop_indent(scanner);
             lexer->result_symbol = DEDENT;
             return true;
@@ -369,29 +167,11 @@ bool tree_sitter_bridje_external_scanner_scan(void *payload, TSLexer *lexer, con
 
     // Handle closing brackets - if grammar expects DEDENT, emit it
     if (is_closing_bracket(ch) && valid_symbols[DEDENT]) {
-        lexer->mark_end(lexer);  // Zero-width before bracket
+        lexer->mark_end(lexer);
         pop_indent(scanner);
         lexer->result_symbol = DEDENT;
         return true;
     }
-
-    // Now scan actual tokens
-    if (ch == '^' && valid_symbols[CARET]) {
-        lexer->advance(lexer, false);
-        ch = lexer->lookahead;
-        if (ch == '{' || ch == ':') {
-            lexer->result_symbol = CARET;
-            return true;
-        }
-        return false;
-    }
-    if (ch == ':' && valid_symbols[KEYWORD]) {
-        lexer->advance(lexer, false);
-        return read_keyword(lexer);
-    }
-    if (is_symbol_head_char(ch)) return read_symbol(lexer);
-    if (ch == '.') return read_dot_symbol(lexer);
-    if (isdigit(ch)) return read_number(lexer, valid_symbols);
 
     return false;
 }

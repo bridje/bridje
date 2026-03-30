@@ -7,6 +7,10 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-nocheck
 
+const SYMBOL_HEAD = /[a-zA-Z*\-_+=?!<>&]/;
+const SYMBOL_CHAR = /[a-zA-Z*\-_+=?!<>&0-9]/;
+const SYMBOL_BODY = seq(SYMBOL_HEAD, repeat(SYMBOL_CHAR));
+
 module.exports = grammar({
   name: "bridje",
 
@@ -18,14 +22,7 @@ module.exports = grammar({
   ],
 
   externals: $ => [
-    $.symbol,
-    $.qualified_symbol,
-    $.dot_symbol,
-    $.int, $.float,
-    $.bigint, $.bigdec,
-    $.keyword,
-    $._caret,
-    $._indent, $._dedent, $._newline
+    $._indent, $._dedent, $._newline,
   ],
 
   rules: {
@@ -45,18 +42,31 @@ module.exports = grammar({
       $.metadata,
     ),
 
-    // ^symbol or ^{map} attached to following form
-    metadata: $ => seq($._caret, choice($.keyword, $.map), $._form),
+    // ^keyword or ^{map} attached to following form
+    metadata: $ => seq('^', choice($.keyword, $.map), $._form),
 
     string: _ => token(/"([^"]|\\")*"/),
 
-    // foo(a, b) or ns/foo(a, b)
+    symbol: _ => token(seq(SYMBOL_BODY, optional('#'))),
+
+    qualified_symbol: _ => token(seq(SYMBOL_BODY, repeat1(seq(':', SYMBOL_BODY)), optional('#'))),
+
+    dot_symbol: _ => token(seq('.', SYMBOL_BODY, repeat(seq(':', SYMBOL_BODY)))),
+
+    keyword: _ => token(seq(':', SYMBOL_BODY, repeat(seq(':', SYMBOL_BODY)))),
+
+    int: _ => token(/[0-9]+/),
+    float: _ => token(/[0-9]+\.[0-9]+/),
+    bigint: _ => token(seq(/[0-9]+/, /[nN]/)),
+    bigdec: _ => token(seq(/[0-9]+/, optional(seq('.', /[0-9]+/)), /[mM]/)),
+
+    // foo(a, b) or ns:foo(a, b)
     call: $ => seq(choice($.symbol, $.qualified_symbol, $.keyword), token.immediate('('), repeat($._form), ')'),
 
     // foo: args
     //   body
     block_call: $ => prec.right(seq(
-      $.symbol, token.immediate(':'),
+      choice($.symbol, $.qualified_symbol), token.immediate(':'),
       repeat($._form),
       optional($._newline),
       optional($.block_body)
