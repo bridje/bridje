@@ -42,10 +42,18 @@ internal fun Collection<Constraint>.resolve(): Subst {
                     }
 
                     lower.base is FnType && upper.base is FnType -> {
-                        if (lower.base.paramTypes.size != upper.base.paramTypes.size)
-                            throw TypeErrorException("Function arity mismatch: ${lower.base.paramTypes.size} vs ${upper.base.paramTypes.size}")
+                        val lParams = lower.base.paramTypes
+                        val uParams = upper.base.paramTypes
+
+                        val commonParams = when {
+                            lParams.size == uParams.size -> lParams.size
+                            lParams.size == uParams.size + 1 && lParams.last().base is RecordType -> uParams.size
+                            uParams.size == lParams.size + 1 && uParams.last().base is RecordType -> lParams.size
+                            else -> throw TypeErrorException("Function arity mismatch: ${lParams.size} vs ${uParams.size}")
+                        }
+
                         // params contravariant, return covariant
-                        upper.base.paramTypes.zip(lower.base.paramTypes).forEach { (u, l) -> queue.add(u subOf l) }
+                        (0 until commonParams).forEach { i -> queue.add(uParams[i] subOf lParams[i]) }
                         queue.add(lower.base.returnType subOf upper.base.returnType)
                     }
 

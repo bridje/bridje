@@ -237,6 +237,55 @@ class TypeTest {
     }
 
     @Test
+    fun `call fn with trailing Record param without passing record`() {
+        val x = LocalVar("x", 0)
+        val opts = LocalVar("opts", 1)
+        val fn = FnExpr("f", listOf(x, opts), LocalVarExpr(x), 2, emptyList())
+        // fn is Fn([?, Record] ?) — give opts a Record type by using it in a record position
+        // Simpler: just use a GlobalVar with a known FnType
+        val fnType = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull()
+        val gv = GlobalVar("open", null, type = fnType)
+        val type = CallExpr(GlobalVarExpr(gv), listOf(StringExpr("hello"))).checkType()
+        assertEquals(IntType, type.base)
+    }
+
+    @Test
+    fun `call fn without trailing Record param but pass a record`() {
+        val fnType = FnType(listOf(StringType.notNull()), IntType.notNull()).notNull()
+        val gv = GlobalVar("simple", null, type = fnType)
+        val type = CallExpr(GlobalVarExpr(gv), listOf(StringExpr("hello"), RecordExpr(emptyList()))).checkType()
+        assertEquals(IntType, type.base)
+    }
+
+    @Test
+    fun `call fn with trailing Record param passing the record`() {
+        val fnType = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull()
+        val gv = GlobalVar("open", null, type = fnType)
+        val type = CallExpr(GlobalVarExpr(gv), listOf(StringExpr("hello"), RecordExpr(emptyList()))).checkType()
+        assertEquals(IntType, type.base)
+    }
+
+    @Test
+    fun `call fn with trailing non-Record extra arg still fails`() {
+        val fnType = FnType(listOf(StringType.notNull()), IntType.notNull()).notNull()
+        val gv = GlobalVar("simple", null, type = fnType)
+        assertThrows(TypeErrorException::class.java) {
+            CallExpr(GlobalVarExpr(gv), listOf(StringExpr("hello"), IntExpr(42))).checkType()
+        }
+    }
+
+    @Test
+    fun `if branches with different fn arities - trailing record - joins to shorter`() {
+        val fnWithRecord = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull()
+        val fnWithout = FnType(listOf(StringType.notNull()), IntType.notNull()).notNull()
+        val gv1 = GlobalVar("open", null, type = fnWithRecord)
+        val gv2 = GlobalVar("openFast", null, type = fnWithout)
+        val type = IfExpr(BoolExpr(true), GlobalVarExpr(gv1), GlobalVarExpr(gv2)).checkType()
+        val fn = type.base as FnType
+        assertEquals(1, fn.paramTypes.size)
+    }
+
+    @Test
     fun `instantiate replaces type variables with fresh ones`() {
         val tv = TypeVar()
         val original = FnType(listOf(Type(NOT_NULL, tv, IntType)), Type(NOT_NULL, tv, IntType)).notNull()

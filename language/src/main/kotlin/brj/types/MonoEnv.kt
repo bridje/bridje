@@ -8,6 +8,10 @@ internal fun Collection<MonoEnv>.groupReqmts(): Map<LocalVar, Pair<Type, Collect
     flatMap { it.entries }
         .groupBy { it.key }
         .mapValues {
-            val tv = TypeVar()
-            Pair(freshType(tv), it.value.map { e -> e.value })
+            val types = it.value.map { e -> e.value }
+            if (types.size == 1) {
+                Pair(types.single(), types)
+            } else {
+                Pair(freshType(), types)
+            }
         }

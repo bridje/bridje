@@ -29,8 +29,13 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
     this == other -> this
     this is VectorType && other is VectorType -> VectorType(el.join(other.el))
     this is FnType && other is FnType -> {
-        if (paramTypes.size != other.paramTypes.size) throw TypeErrorException("Cannot join functions with different arities")
-        FnType(paramTypes.zip(other.paramTypes) { a, b -> a.meet(b) }, returnType.join(other.returnType))
+        val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
+        if (shorter.paramTypes.size != longer.paramTypes.size) {
+            if (longer.paramTypes.size != shorter.paramTypes.size + 1 || longer.paramTypes.last().base !is RecordType)
+                throw TypeErrorException("Cannot join functions with different arities")
+        }
+        // Join uses the shorter param list (common ground)
+        FnType(shorter.paramTypes.zip(longer.paramTypes) { a, b -> a.meet(b) }, shorter.returnType.join(longer.returnType))
     }
     else -> throw TypeErrorException("Cannot join $this with $other")
 }
@@ -40,8 +45,15 @@ internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     this == other -> this
     this is VectorType && other is VectorType -> VectorType(el.meet(other.el))
     this is FnType && other is FnType -> {
-        if (paramTypes.size != other.paramTypes.size) throw TypeErrorException("Cannot meet functions with different arities")
-        FnType(paramTypes.zip(other.paramTypes) { a, b -> a.join(b) }, returnType.meet(other.returnType))
+        val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
+        if (shorter.paramTypes.size != longer.paramTypes.size) {
+            if (longer.paramTypes.size != shorter.paramTypes.size + 1 || longer.paramTypes.last().base !is RecordType)
+                throw TypeErrorException("Cannot meet functions with different arities")
+        }
+        // Meet uses the longer param list (more specific)
+        val commonParams = shorter.paramTypes.zip(longer.paramTypes) { a, b -> a.join(b) }
+        val extraParams = longer.paramTypes.drop(shorter.paramTypes.size)
+        FnType(commonParams + extraParams, shorter.returnType.meet(longer.returnType))
     }
     else -> throw TypeErrorException("Cannot meet $this with $other")
 }

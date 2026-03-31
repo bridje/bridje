@@ -125,6 +125,47 @@ class SubstTest {
             val fn2 = FnType(listOf(IntType.notNull(), IntType.notNull()), StringType.notNull())
             assertThrows(TypeErrorException::class.java) { fn1 join fn2 }
         }
+
+        @Test
+        fun `join FnTypes with trailing Record produces shorter arity`() {
+            val fn1 = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull())
+            val fn2 = FnType(listOf(StringType.notNull()), IntType.notNull())
+            val joined = fn1 join fn2
+            assertTrue(joined is FnType)
+            assertEquals(1, (joined as FnType).paramTypes.size)
+        }
+
+        @Test
+        fun `join FnTypes with trailing Record is symmetric`() {
+            val fn1 = FnType(listOf(StringType.notNull()), IntType.notNull())
+            val fn2 = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull())
+            val joined = fn1 join fn2
+            assertTrue(joined is FnType)
+            assertEquals(1, (joined as FnType).paramTypes.size)
+        }
+    }
+
+    @Nested
+    inner class FnTypeMeetTests {
+
+        @Test
+        fun `meet FnTypes with trailing Record produces longer arity`() {
+            val fn1 = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull())
+            val fn2 = FnType(listOf(StringType.notNull()), IntType.notNull())
+            val met = fn1 meet fn2
+            assertTrue(met is FnType)
+            assertEquals(2, (met as FnType).paramTypes.size)
+            assertEquals(RecordType, met.paramTypes[1].base)
+        }
+
+        @Test
+        fun `meet FnTypes with trailing Record is symmetric`() {
+            val fn1 = FnType(listOf(StringType.notNull()), IntType.notNull())
+            val fn2 = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull())
+            val met = fn1 meet fn2
+            assertTrue(met is FnType)
+            assertEquals(2, (met as FnType).paramTypes.size)
+        }
     }
 
     @Nested

@@ -97,6 +97,52 @@ class ConstraintTest {
                 ).resolve()
             }
         }
+
+        @Test
+        fun `lower has extra trailing Record param - resolves`() {
+            val retTv = TypeVar()
+            val subst = listOf(
+                FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull() subOf
+                    FnType(listOf(StringType.notNull()), freshType(retTv)).notNull()
+            ).resolve()
+            assertEquals(IntType, subst[retTv]?.base)
+        }
+
+        @Test
+        fun `upper has extra trailing Record param - resolves`() {
+            val retTv = TypeVar()
+            val subst = listOf(
+                FnType(listOf(StringType.notNull()), IntType.notNull()).notNull() subOf
+                    FnType(listOf(StringType.notNull(), RecordType.notNull()), freshType(retTv)).notNull()
+            ).resolve()
+            assertEquals(IntType, subst[retTv]?.base)
+        }
+
+        @Test
+        fun `single Record param can be elided`() {
+            val retTv = TypeVar()
+            val subst = listOf(
+                FnType(listOf(RecordType.notNull()), IntType.notNull()).notNull() subOf
+                    FnType(emptyList(), freshType(retTv)).notNull()
+            ).resolve()
+            assertEquals(IntType, subst[retTv]?.base)
+        }
+
+        @Test
+        fun `extra trailing non-Record param still throws`() {
+            assertThrows(TypeErrorException::class.java) {
+                listOf(
+                    FnType(listOf(StringType.notNull(), IntType.notNull()), IntType.notNull()).notNull() subOf
+                        FnType(listOf(StringType.notNull()), IntType.notNull()).notNull()
+                ).resolve()
+            }
+            assertThrows(TypeErrorException::class.java) {
+                listOf(
+                    FnType(listOf(StringType.notNull()), IntType.notNull()).notNull() subOf
+                        FnType(listOf(StringType.notNull(), IntType.notNull()), IntType.notNull()).notNull()
+                ).resolve()
+            }
+        }
     }
 
     @Nested
