@@ -39,3 +39,34 @@ fun ValueExpr.inferEffects(): Set<GlobalVar> = when (this) {
     is TruffleObjectExpr, is HostStaticMethodExpr, is HostConstructorExpr,
     is QuoteExpr, is ErrorValueExpr -> emptySet()
 }
+
+/**
+ * Collects the set of GlobalVars that appear as callees in CallExpr nodes
+ * where the callee has non-empty effects (i.e. effectful function calls that
+ * need two-stage invocation). Recurses through FnExpr bodies but stops at
+ * WithFxExpr boundaries (those get their own pre-application scope).
+ */
+fun ValueExpr.collectEffectfulCallees(): Set<GlobalVar> = when (this) {
+    is CallExpr -> {
+        val callee = when (fnExpr) {
+            is GlobalVarExpr -> if (fnExpr.globalVar.effects.isNotEmpty()) setOf(fnExpr.globalVar) else emptySet()
+            else -> emptySet()
+        }
+        callee + fnExpr.collectEffectfulCallees() + argExprs.flatMap { it.collectEffectfulCallees() }
+    }
+    is WithFxExpr -> bindings.flatMap { it.second.collectEffectfulCallees() }.toSet()
+    is FnExpr -> bodyExpr.collectEffectfulCallees()
+    is LetExpr -> bindingExpr.collectEffectfulCallees() + bodyExpr.collectEffectfulCallees()
+    is DoExpr -> (sideEffects + listOf(result)).flatMap { it.collectEffectfulCallees() }.toSet()
+    is IfExpr -> predExpr.collectEffectfulCallees() + thenExpr.collectEffectfulCallees() + elseExpr.collectEffectfulCallees()
+    is CaseExpr -> scrutinee.collectEffectfulCallees() + branches.flatMap { it.bodyExpr.collectEffectfulCallees() }
+    is RecordExpr -> fields.flatMap { it.second.collectEffectfulCallees() }.toSet()
+    is RecordSetExpr -> recordExpr.collectEffectfulCallees() + valueExpr.collectEffectfulCallees()
+    is VectorExpr -> els.flatMap { it.collectEffectfulCallees() }.toSet()
+    is SetExpr -> els.flatMap { it.collectEffectfulCallees() }.toSet()
+    is IntExpr, is DoubleExpr, is BigIntExpr, is BigDecExpr,
+    is StringExpr, is BoolExpr, is NilExpr,
+    is LocalVarExpr, is CapturedVarExpr, is GlobalVarExpr,
+    is TruffleObjectExpr, is HostStaticMethodExpr, is HostConstructorExpr,
+    is QuoteExpr, is EffectVarExpr, is ErrorValueExpr -> emptySet()
+}

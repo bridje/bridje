@@ -138,15 +138,53 @@ class EffectTest {
             (defx myEffect (Fn [Int] Int) (fn (id x) x))
             (def (useEffect n) (myEffect n))
         """.trimIndent())
-        // The fn useEffect should be a two-stage function
+        val myEffect = ns.getMember("myEffect")
+        assertNotNull(myEffect, "myEffect should be accessible as a member")
+        assertTrue(myEffect.canExecute(), "myEffect default should be executable")
+        assertEquals(42L, myEffect.execute(42L).asLong())
         val useEffect = ns.getMember("useEffect")
         assertNotNull(useEffect, "useEffect should be accessible")
-        assertTrue(useEffect.canExecute(), "useEffect should be executable (stage 1)")
-        // Stage 1: apply default effect
-        val myEffect = ns.getMember("myEffect")
-        val ready = useEffect.execute(myEffect)
-        assertTrue(ready.canExecute(), "ready fn should be executable (stage 2)")
-        // Stage 2: apply user arg
-        assertEquals(42L, ready.execute(42L).asLong())
+        assertTrue(useEffect.canExecute(), "useEffect should be executable (outer stage)")
+    }
+
+    @Test
+    fun `repeated calls to effectful fn`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx transform (Fn [Int] Int) (fn (id x) x))
+              (def (apply n) (transform n))
+              (def (repeated)
+                (add (add (apply 1) (apply 2)) (apply 3)))
+              (withFx [transform (fn (dbl x) (add x x))]
+                (repeated)))
+        """.trimIndent())
+        assertEquals(12L, result.asLong())
+    }
+
+    @Test
+    fun `inner lambda calling effectful fn`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx transform (Fn [Int] Int) (fn (id x) x))
+              (def (apply n) (transform n))
+              (def (outer n)
+                (let [f (fn (inner x) (apply x))]
+                  (f n)))
+              (withFx [transform (fn (add10 x) (add x 10))]
+                (outer 5)))
+        """.trimIndent())
+        assertEquals(15L, result.asLong())
+    }
+
+    @Test
+    fun `withFx with multiple effectful calls in body`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            (do
+              (defx e1 (Fn [Int] Int) (fn (id x) x))
+              (def (use-e1 x) (e1 x))
+              (withFx [e1 (fn (mul2 x) (add x x))]
+                (add (use-e1 3) (use-e1 7))))
+        """.trimIndent())
+        assertEquals(20L, result.asLong())
     }
 }
