@@ -18,7 +18,7 @@ defmacro: unlessLet(bindings, else, then)
          nil ~else
          ~bname ~then))
 
-defkeys: {:test Bool}
+defkeys: {:test Bool, :exnMessage Str}
 
 // Anomaly categories (Cognitect-style)
 // Retryable

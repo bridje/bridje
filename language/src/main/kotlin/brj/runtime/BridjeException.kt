@@ -9,7 +9,7 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.Node
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeException(val anomalyValue: Any, node: Node? = null) : AbstractTruffleException(null, null, UNLIMITED_STACK_TRACE, node) {
+class BridjeException(val anomalyValue: Any, node: Node? = null) : AbstractTruffleException(null, extractCause(anomalyValue), UNLIMITED_STACK_TRACE, node) {
 
     @ExportMessage
     fun isException(): Boolean = true
@@ -25,6 +25,39 @@ class BridjeException(val anomalyValue: Any, node: Node? = null) : AbstractTruff
 
     @ExportMessage
     @TruffleBoundary
-    fun getExceptionMessage(): String =
-        InteropLibrary.getUncached().toDisplayString(anomalyValue).toString()
+    fun getExceptionMessage(): String {
+        val msg = readDataMember(anomalyValue, "exnMessage")
+        if (msg != null) return InteropLibrary.getUncached().asString(msg)
+        return InteropLibrary.getUncached().toDisplayString(anomalyValue).toString()
+    }
+
+    @ExportMessage
+    @TruffleBoundary
+    fun hasExceptionCause(): Boolean = extractCause(anomalyValue) != null
+
+    @ExportMessage
+    @TruffleBoundary
+    fun getExceptionCause(): AbstractTruffleException {
+        val cause = extractCause(anomalyValue)
+            ?: throw UnsupportedOperationException("No exception cause")
+        return if (cause is AbstractTruffleException) cause
+        else throw UnsupportedOperationException("Cause is not a guest exception")
+    }
+
+    companion object {
+        @TruffleBoundary
+        private fun readDataMember(anomalyValue: Any, memberName: String): Any? {
+            val interop = InteropLibrary.getUncached()
+            if (!interop.hasArrayElements(anomalyValue)) return null
+            val data = try { interop.readArrayElement(anomalyValue, 0) } catch (_: Exception) { return null }
+            if (!interop.isMemberReadable(data, memberName)) return null
+            return try { interop.readMember(data, memberName) } catch (_: Exception) { null }
+        }
+
+        @TruffleBoundary
+        private fun extractCause(anomalyValue: Any): Throwable? {
+            val cause = readDataMember(anomalyValue, "exnCause") ?: return null
+            return cause as? Throwable
+        }
+    }
 }

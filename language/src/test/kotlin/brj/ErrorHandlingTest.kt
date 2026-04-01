@@ -215,4 +215,13 @@ class ErrorHandlingTest {
         """.trimIndent())
         assertEquals(42, result.asInt())
     }
+
+    @Test
+    fun `exnMessage key provides exception message`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""throw(NotFound({:exnMessage "user 123 not found"}))""")
+        }
+        assertTrue(ex.isGuestException)
+        assertEquals("user 123 not found", ex.message)
+    }
 }
