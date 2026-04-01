@@ -2,8 +2,13 @@ package brj
 
 import brj.analyser.NsDecl
 import brj.builtins.Builtins
+import brj.runtime.Anomaly
 import brj.runtime.BridjeRecord
+import brj.types.FnType
+import brj.types.RecordType
+import brj.types.TagType
 import brj.types.Type
+import brj.types.notNull
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
@@ -42,9 +47,15 @@ data class NsEnv(
             "Keyword" to GlobalVar("Keyword", KeywordMeta),
         )
 
+        private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->
+            val tagType = TagType("brj:core", meta.tag)
+            val type = FnType(listOf(RecordType.notNull()), tagType.notNull()).notNull()
+            meta.tag to GlobalVar(meta.tag, meta, type = type)
+        }
+
         fun withBuiltins(language: BridjeLanguage): NsEnv {
             val builtinFunctions = Builtins.createBuiltinFunctions(language)
-            return NsEnv(vars = builtinFormMetas + builtinFunctions)
+            return NsEnv(vars = builtinFormMetas + builtinFunctions + anomalyTags)
         }
     }
 

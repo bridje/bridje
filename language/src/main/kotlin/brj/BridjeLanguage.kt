@@ -9,6 +9,7 @@ import brj.runtime.BridjeScope
 import com.oracle.truffle.api.CallTarget
 import com.oracle.truffle.api.TruffleLanguage
 import com.oracle.truffle.api.TruffleLanguage.*
+import java.util.concurrent.TimeUnit
 import com.oracle.truffle.api.dsl.Bind
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.source.Source
@@ -41,6 +42,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
 
     override fun finalizeContext(context: BridjeContext) {
         context.executor.shutdownNow()
+        context.executor.awaitTermination(5, TimeUnit.SECONDS)
     }
 
     override fun isThreadAccessAllowed(thread: Thread, singleThreaded: Boolean) = true

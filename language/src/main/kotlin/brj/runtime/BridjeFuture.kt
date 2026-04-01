@@ -1,5 +1,7 @@
 package brj.runtime
 
+import brj.runtime.Anomaly.Companion.fault
+import brj.runtime.Anomaly.Companion.interrupted
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
@@ -13,8 +15,7 @@ import java.util.concurrent.TimeUnit
 
 @ExportLibrary(InteropLibrary::class)
 class BridjeFuture(
-    private val delegate: Future<Any?>,
-    private val interruptedCtor: BridjeTagConstructor
+    private val delegate: Future<Any?>
 ) : Future<Any?> by delegate, TruffleObject {
 
     @ExportMessage
@@ -48,12 +49,11 @@ class BridjeFuture(
 
     private fun rethrowCause(e: Exception): Nothing {
         val cause = if (e is ExecutionException) (e.cause ?: e) else e
-        if (cause is BridjeException) throw cause
+        if (cause is Anomaly) throw cause
         if (cause is CancellationException || cause is InterruptedException) {
-            val data = BridjeRecord.EMPTY.put("exnMessage", "Task was interrupted")
-            throw BridjeException(BridjeTaggedTuple(interruptedCtor, arrayOf(data)), cause)
+            throw interrupted("Task was interrupted", cause)
         }
-        throw BridjeException(cause.message ?: "Task failed")
+        throw fault(cause.message ?: "Task failed", cause)
     }
 
     @ExportMessage

@@ -9,44 +9,36 @@ class ErrorHandlingTest {
     @Test
     fun `throw produces guest exception`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("""throw("something went wrong")""")
+            ctx.evalBridje("""throw(Fault({:exnMessage "something went wrong"}))""")
         }
         assertTrue(ex.isGuestException)
         assertTrue(ex.message!!.contains("something went wrong"))
     }
 
     @Test
-    fun `throw with tag value`() = withContext { ctx ->
+    fun `throw anomaly with data`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("""
-                do:
-                  deftag: Boom(msg)
-                  throw(Boom("kaboom"))
-            """.trimIndent())
+            ctx.evalBridje("""throw(Fault({:exnMessage "kaboom"}))""")
         }
         assertTrue(ex.isGuestException)
     }
 
     @Test
-    fun `try-catch catches thrown tag`() = withContext { ctx ->
+    fun `try-catch catches anomaly`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              deftag: Boom
-              try: throw(Boom)
-                catch:
-                  Boom 42
+            try: throw(Fault({}))
+              catch:
+                (Fault d) 42
         """.trimIndent())
         assertEquals(42, result.asInt())
     }
 
     @Test
-    fun `try-catch catches tag with bindings`() = withContext { ctx ->
+    fun `try-catch catches anomaly with bindings`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              deftag: Problem(msg)
-              try: throw(Problem("oops"))
-                catch:
-                  (Problem m) m
+            try: throw(Fault({:exnMessage "oops"}))
+              catch:
+                (Fault d) d.exnMessage
         """.trimIndent())
         assertEquals("oops", result.asString())
     }
@@ -55,12 +47,9 @@ class ErrorHandlingTest {
     fun `try-catch rethrows on no match`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
-                do:
-                  deftag: A
-                  deftag: B
-                  try: throw(B)
-                    catch:
-                      A 42
+                try: throw(Conflict({}))
+                  catch:
+                    (NotFound d) 42
             """.trimIndent())
         }
         assertTrue(ex.isGuestException)
@@ -69,13 +58,10 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch with default branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              deftag: A
-              deftag: B
-              try: throw(B)
-                catch:
-                  A 1
-                  e 99
+            try: throw(Conflict({}))
+              catch:
+                (NotFound d) 1
+                e 99
         """.trimIndent())
         assertEquals(99, result.asInt())
     }
@@ -83,11 +69,9 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch returns body value on no exception`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              deftag: A
-              try: 42
-                catch:
-                  A 99
+            try: 42
+              catch:
+                (Fault d) 99
         """.trimIndent())
         assertEquals(42, result.asInt())
     }
@@ -95,13 +79,11 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch-finally runs finally on success`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              deftag: A
-              try: 42
-                catch:
-                  A 99
-                finally:
-                  println("cleanup")
+            try: 42
+              catch:
+                (Fault d) 99
+              finally:
+                println("cleanup")
         """.trimIndent())
         assertEquals(42, result.asInt())
     }
@@ -109,13 +91,11 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch-finally runs finally on exception`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              deftag: A
-              try: throw(A)
-                catch:
-                  A 42
-                finally:
-                  println("cleanup")
+            try: throw(Fault({}))
+              catch:
+                (Fault d) 42
+              finally:
+                println("cleanup")
         """.trimIndent())
         assertEquals(42, result.asInt())
     }
@@ -123,15 +103,12 @@ class ErrorHandlingTest {
     @Test
     fun `nested try-catch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              deftag: Inner
-              deftag: Outer
-              try:
-                try: throw(Inner)
-                  catch:
-                    Inner throw(Outer)
+            try:
+              try: throw(NotFound({}))
                 catch:
-                  Outer 42
+                  (NotFound d) throw(Conflict({}))
+              catch:
+                (Conflict d) 42
         """.trimIndent())
         assertEquals(42, result.asInt())
     }
@@ -139,13 +116,11 @@ class ErrorHandlingTest {
     @Test
     fun `catch-all binding pattern`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              deftag: Problem(code)
-              try: throw(Problem(404))
-                catch:
-                  (Problem c) c
+            try: throw(Incorrect({:exnMessage "bad input"}))
+              catch:
+                e 42
         """.trimIndent())
-        assertEquals(404, result.asInt())
+        assertEquals(42, result.asInt())
     }
 
     // Anomaly tags
@@ -212,6 +187,16 @@ class ErrorHandlingTest {
             try: div(1, 0)
               catch:
                 e 42
+        """.trimIndent())
+        assertEquals(42, result.asInt())
+    }
+
+    @Test
+    fun `runtime errors are catchable by category`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            try: div(1, 0)
+              catch:
+                (Incorrect d) 42
         """.trimIndent())
         assertEquals(42, result.asInt())
     }

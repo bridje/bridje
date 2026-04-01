@@ -1,7 +1,7 @@
 package brj.nodes
 
 import brj.BridjeNode
-import brj.runtime.BridjeException
+import brj.runtime.Anomaly
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.source.SourceSection
@@ -20,7 +20,7 @@ class TryCatchNode(
         val result: Any?
         try {
             result = bodyNode.execute(frame)
-        } catch (ex: BridjeException) {
+        } catch (ex: Anomaly) {
             try {
                 return matchCatch(frame, ex)
             } finally {
@@ -31,11 +31,9 @@ class TryCatchNode(
         return result
     }
 
-    private fun matchCatch(frame: VirtualFrame, ex: BridjeException): Any? {
-        val anomaly = ex.anomalyValue
-
+    private fun matchCatch(frame: VirtualFrame, ex: Anomaly): Any? {
         for (branch in catchBranchNodes) {
-            val branchResult = branch.tryMatch(frame, anomaly, interop)
+            val branchResult = branch.tryMatch(frame, ex, interop)
             if (branchResult != null || branch is DefaultBranchNode) {
                 return branchResult
             }

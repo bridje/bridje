@@ -23,11 +23,6 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
     var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj:core" to brjCore, "brj:concurrent" to brjConcurrent))
         private set
 
-    val interruptedCtor: BridjeTagConstructor by lazy {
-        brjCore["Interrupted"]?.value as? BridjeTagConstructor
-            ?: error("Interrupted tag not found in brj:core")
-    }
-
     val loadingInProgress: MutableSet<String> = mutableSetOf()
 
     private val gensymCounter = AtomicLong(0)
@@ -37,12 +32,6 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
     // Convenience accessor for backwards compatibility
     val namespaces: Map<String, NsEnv>
         get() = globalEnv.namespaces
-
-    fun interruptedException(message: String, cause: Throwable? = null): BridjeException {
-        val data = BridjeRecord.EMPTY.put("exnMessage", message)
-        val anomaly = BridjeTaggedTuple(interruptedCtor, arrayOf(data))
-        return if (cause != null) BridjeException(anomaly, cause) else BridjeException(anomaly)
-    }
 
     fun updateGlobalEnv(update: (GlobalEnv) -> GlobalEnv) {
         globalEnv = update(globalEnv)

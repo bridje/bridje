@@ -2,7 +2,7 @@ package brj.builtins
 
 import brj.BridjeLanguage
 import brj.BridjeTypes
-import brj.runtime.BridjeException
+import brj.runtime.Anomaly.Companion.incorrect
 import com.oracle.truffle.api.dsl.NodeChild
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.dsl.TypeSystemReference
@@ -73,25 +73,25 @@ abstract class MulNode(language: BridjeLanguage) : BinaryOpNode(language) {
 abstract class DivNode(language: BridjeLanguage) : BinaryOpNode(language) {
     @Specialization
     protected fun doDiv(left: Long, right: Long): Long {
-        if (right == 0L) throw BridjeException("Division by zero")
+        if (right == 0L) throw incorrect("Division by zero")
         return left / right
     }
 
     @Specialization
     protected fun doDiv(left: Long, right: Double): Double {
-        if (right == 0.0) throw BridjeException("Division by zero")
+        if (right == 0.0) throw incorrect("Division by zero")
         return left / right
     }
 
     @Specialization
     protected fun doDiv(left: Double, right: Long): Double {
-        if (right == 0L) throw BridjeException("Division by zero")
+        if (right == 0L) throw incorrect("Division by zero")
         return left / right
     }
 
     @Specialization
     protected fun doDiv(left: Double, right: Double): Double {
-        if (right == 0.0) throw BridjeException("Division by zero")
+        if (right == 0.0) throw incorrect("Division by zero")
         return left / right
     }
 }

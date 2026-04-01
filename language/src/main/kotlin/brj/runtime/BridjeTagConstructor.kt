@@ -24,7 +24,6 @@ class BridjeTagConstructor(
     fun isInstantiable() = true
 
     @ExportMessage
-    @Throws(ArityException::class)
     fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != arity) {
             throw ArityException.create(arity, arity, arguments.size)
@@ -33,7 +32,6 @@ class BridjeTagConstructor(
     }
 
     @ExportMessage
-    @Throws(ArityException::class)
     fun instantiate(arguments: Array<Any?>): Any {
         if (arguments.size != arity) {
             throw ArityException.create(arity, arity, arguments.size)

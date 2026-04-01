@@ -20,6 +20,6 @@ class SpawnNode(language: BridjeLanguage) : RootNode(language) {
         val interop = InteropLibrary.getUncached()
         val ctx = BridjeContext.get(this)
         val future = ctx.executor.submit<Any?> { interop.execute(fn) }
-        return BridjeFuture(future, ctx.interruptedCtor)
+        return BridjeFuture(future)
     }
 }

@@ -6,15 +6,12 @@ import com.oracle.truffle.api.interop.InvalidArrayIndexException
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
-import com.oracle.truffle.api.strings.TruffleString
 
 @ExportLibrary(InteropLibrary::class)
 class BridjeTaggedTuple(
     val constructor: BridjeTagConstructor,
     val values: Array<Any>
 ) : TruffleObject {
-
-    private val tagString: TruffleString = TruffleString.fromConstant(constructor.tag, TruffleString.Encoding.UTF_8)
 
     @ExportMessage
     fun hasArrayElements() = true
