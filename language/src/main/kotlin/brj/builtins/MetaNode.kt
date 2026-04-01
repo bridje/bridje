@@ -1,6 +1,7 @@
 package brj.builtins
 
 import brj.BridjeLanguage
+import brj.runtime.BridjeException
 import brj.runtime.BridjeRecord
 import brj.runtime.Meta
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -20,7 +21,7 @@ class WithMetaNode(language: BridjeLanguage) : RootNode(language) {
         val newMeta = frame.arguments.getOrNull(1) as? BridjeRecord
         return when (obj) {
             is Meta<*> -> obj.withMeta(newMeta)
-            else -> throw RuntimeException("withMeta: object does not support metadata")
+            else -> throw BridjeException("withMeta: object does not support metadata", this)
         }
     }
 }

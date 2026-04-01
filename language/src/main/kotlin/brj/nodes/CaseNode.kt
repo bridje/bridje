@@ -1,6 +1,7 @@
 package brj.nodes
 
 import brj.BridjeNode
+import brj.runtime.BridjeException
 import brj.runtime.BridjeNull
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -102,6 +103,6 @@ class CaseNode(
             }
         }
 
-        error("No matching case branch for: $scrutinee")
+        throw BridjeException("No matching case branch for: $scrutinee", this)
     }
 }

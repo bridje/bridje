@@ -20,6 +20,22 @@ defmacro: unlessLet(bindings, else, then)
 
 defkeys: {:test Bool}
 
+// Anomaly categories (Cognitect-style)
+// Retryable
+deftag: Unavailable(data)
+deftag: Interrupted(data)
+deftag: Busy(data)
+
+// Not retryable
+deftag: Incorrect(data)
+deftag: Forbidden(data)
+deftag: Unsupported(data)
+deftag: NotFound(data)
+deftag: Conflict(data)
+
+// Callee bug
+deftag: Fault(data)
+
 defmacro: orElse(value, default)
   '(case ~value
      nil ~default

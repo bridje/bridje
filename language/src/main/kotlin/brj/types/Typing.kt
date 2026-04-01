@@ -193,6 +193,36 @@ internal fun CaseExpr.typing(): Typing {
     )
 }
 
+internal fun TryCatchExpr.typing(): Typing {
+    val bodyTyping = bodyExpr.typing()
+    val resultType = freshType()
+
+    val branchTypings = catchBranches.map { branch ->
+        val branchBodyTyping = branch.bodyExpr.typing()
+
+        val patternBindings = when (val p = branch.pattern) {
+            is TagPattern -> p.bindings.toSet()
+            is CatchAllBindingPattern -> setOf(p.binding)
+            is DefaultPattern, is NilPattern -> emptySet()
+        }
+
+        val strippedMonoEnv = branchBodyTyping.monoEnv.filterKeys { it !in patternBindings }
+
+        Pair(Typing(branchBodyTyping.type, strippedMonoEnv), branchBodyTyping.type subOf resultType)
+    }
+
+    val finallyTyping = finallyExpr?.typing()
+
+    val childTypings = listOf(bodyTyping) + branchTypings.map { it.first } + listOfNotNull(finallyTyping)
+    val constraints = listOf(bodyTyping.type subOf resultType) + branchTypings.map { it.second }
+
+    return Typing.build(
+        resultType,
+        childTypings = childTypings,
+        constraints = constraints,
+    )
+}
+
 internal fun ValueExpr.typing(): Typing =
     when (this) {
         is IntExpr -> Typing(IntType.notNull())
@@ -214,6 +244,7 @@ internal fun ValueExpr.typing(): Typing =
         is DoExpr -> typing()
         is IfExpr -> typing()
         is CaseExpr -> typing()
+        is TryCatchExpr -> typing()
         is QuoteExpr -> Typing(FormType.notNull())
         is TruffleObjectExpr -> Typing(freshType())
         is HostStaticMethodExpr -> Typing(freshType())

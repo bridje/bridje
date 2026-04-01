@@ -136,6 +136,7 @@ class Emitter(private val language: BridjeLanguage) {
         is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it, fxSource, preApplied) }.toTypedArray(), emitExpr(expr.result, fxSource, preApplied), expr.loc)
         is IfExpr -> IfNode(emitExpr(expr.predExpr, fxSource, preApplied), emitExpr(expr.thenExpr, fxSource, preApplied), emitExpr(expr.elseExpr, fxSource, preApplied), expr.loc)
         is CaseExpr -> emitCase(expr, fxSource, preApplied)
+        is TryCatchExpr -> emitTryCatch(expr, fxSource, preApplied)
         is RecordSetExpr -> RecordSetNode(expr.key, emitExpr(expr.recordExpr, fxSource, preApplied), emitExpr(expr.valueExpr, fxSource, preApplied), expr.loc)
         is EffectVarExpr -> {
             if (fxSource != null) ReadFxMapEntryNode(fxSource.create(), expr.effectVar, expr.loc)
@@ -231,6 +232,35 @@ class Emitter(private val language: BridjeLanguage) {
             }
         }.toTypedArray()
         return CaseNode(scrutineeNode, branchNodes, expr.loc)
+    }
+
+    private fun emitTryCatch(expr: TryCatchExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
+        val bodyNode = emitExpr(expr.bodyExpr, fxSource, preApplied)
+        val branchNodes = expr.catchBranches.map { branch ->
+            when (val pattern = branch.pattern) {
+                is TagPattern -> TagBranchNode(
+                    pattern.tagValue,
+                    pattern.bindings.map { it.slot }.toIntArray(),
+                    emitExpr(branch.bodyExpr, fxSource, preApplied),
+                    branch.loc
+                )
+                is DefaultPattern -> DefaultBranchNode(
+                    emitExpr(branch.bodyExpr, fxSource, preApplied),
+                    branch.loc
+                )
+                is NilPattern -> NilBranchNode(
+                    emitExpr(branch.bodyExpr, fxSource, preApplied),
+                    branch.loc
+                )
+                is CatchAllBindingPattern -> CatchAllBindingBranchNode(
+                    pattern.binding.slot,
+                    emitExpr(branch.bodyExpr, fxSource, preApplied),
+                    branch.loc
+                )
+            }
+        }.toTypedArray()
+        val finallyNode = expr.finallyExpr?.let { emitExpr(it, fxSource, preApplied) }
+        return TryCatchNode(bodyNode, branchNodes, finallyNode, expr.loc)
     }
 
     private fun emitFn(expr: FnExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {

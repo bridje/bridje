@@ -26,7 +26,9 @@ class Reader private constructor(private val src: Source) {
             val tree = Parser(lang).parse(characters.toString()).orElseThrow()
 
             return Reader(this).run {
-                tree.rootNode.children.asSequence().map { it.readForm() }
+                tree.rootNode.children.asSequence()
+                    .filter { it.type != "comment" }
+                    .map { it.readForm() }
             }
         }
     }

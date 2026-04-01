@@ -1,6 +1,7 @@
 package brj.nodes
 
 import brj.BridjeNode
+import brj.runtime.BridjeException
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.ArityException
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -32,11 +33,11 @@ class InvokeNode(
         return try {
             interop.execute(fn, *args)
         } catch (e: UnsupportedMessageException) {
-            throw RuntimeException("Not callable: $fn")
+            throw BridjeException("Not callable: $fn", this)
         } catch (e: ArityException) {
-            throw RuntimeException("Wrong arity: expected ${e.expectedMinArity}, got ${e.actualArity}")
+            throw BridjeException("Wrong arity: expected ${e.expectedMinArity}, got ${e.actualArity}", this)
         } catch (e: UnsupportedTypeException) {
-            throw RuntimeException("Unsupported argument type")
+            throw BridjeException("Unsupported argument type", this)
         }
     }
 }

@@ -210,6 +210,7 @@ data class Analyser(
                 "do" -> analyseDo(form)
                 "if" -> analyseIf(form)
                 "case" -> analyseCase(form)
+                "try" -> analyseTry(form)
                 "quote" -> analyseQuote(form)
                 "set!" -> analyseSet(form)
                 "withFx" -> analyseWithFx(form)
@@ -441,6 +442,82 @@ data class Analyser(
             }
             else -> Result.Err(Error("case pattern must be a tag", patternForm.loc))
         }
+
+    private fun analyseTry(form: ListForm): ValueExpr {
+        val els = form.els
+        if (els.size < 3) return errorExpr("try requires a body and at least a catch clause", form.loc)
+
+        // Find catch and finally clauses
+        var catchForm: ListForm? = null
+        var finallyForm: ListForm? = null
+        val bodyForms = mutableListOf<Form>()
+
+        for (el in els.drop(1)) {
+            if (el is ListForm && el.els.firstOrNull().let { it is SymbolForm && it.name == "catch" }) {
+                catchForm = el
+            } else if (el is ListForm && el.els.firstOrNull().let { it is SymbolForm && it.name == "finally" }) {
+                finallyForm = el
+            } else {
+                bodyForms.add(el)
+            }
+        }
+
+        if (catchForm == null) return errorExpr("try requires a catch clause", form.loc)
+
+        val bodyExpr = analyseBody(bodyForms, form.loc)
+
+        // Parse catch branches — same as case branches, pattern-matching on the anomaly value
+        val catchEls = catchForm.els.drop(1)
+        val catchBranches = mutableListOf<CaseBranch>()
+        var i = 0
+        while (i < catchEls.size) {
+            val patternForm = catchEls[i]
+
+            val isPattern = when (patternForm) {
+                is SymbolForm -> patternForm.name[0].isUpperCase() || patternForm.name == "nil" ||
+                    (patternForm.name[0].isLowerCase() && i + 1 < catchEls.size)
+                is ListForm -> {
+                    val first = patternForm.els.firstOrNull()
+                    first is SymbolForm && first.name[0].isUpperCase()
+                }
+                else -> false
+            }
+
+            if (isPattern) {
+                val bodyForm = catchEls.getOrNull(i + 1)
+                if (bodyForm == null) {
+                    errorExpr("catch branch missing body expression", patternForm.loc)
+                    i += 1
+                    continue
+                }
+                when (val branchResult = analyseCaseBranch(patternForm, bodyForm)) {
+                    is Result.Ok -> catchBranches.add(branchResult.value)
+                    is Result.Err -> errors.add(branchResult.error)
+                }
+                i += 2
+            } else {
+                if (i != catchEls.size - 1) {
+                    errorExpr("default expression must be last in catch", patternForm.loc)
+                }
+                val catchBodyExpr = analyseValueExpr(patternForm)
+                catchBranches.add(CaseBranch(DefaultPattern(patternForm.loc), catchBodyExpr, patternForm.loc))
+                i += 1
+            }
+        }
+
+        if (catchBranches.isEmpty()) return errorExpr("catch requires at least one branch", catchForm.loc)
+
+        val finallyExpr = if (finallyForm != null) {
+            val finallyBodyForms = finallyForm.els.drop(1)
+            if (finallyBodyForms.isEmpty()) {
+                errorExpr("finally requires a body", finallyForm.loc)
+            } else {
+                analyseBody(finallyBodyForms, finallyForm.loc)
+            }
+        } else null
+
+        return TryCatchExpr(bodyExpr, catchBranches, finallyExpr, form.loc)
+    }
 
     private fun analyseBody(forms: List<Form>, loc: SourceSection?): ValueExpr =
         when {

@@ -133,6 +133,7 @@ fun BaseType.nullable(tv: TypeVar = TypeVar()) = Type(NULLABLE, tv, this)
 fun BaseType.notNull(tv: TypeVar = TypeVar()) = Type(NOT_NULL, tv, this)
 fun freshType(tv: TypeVar = TypeVar()) = Type(MAYBE_NULL, tv, null)
 fun nullType(tv: TypeVar = TypeVar()) = Type(NULLABLE, tv, null)
+fun nothingType(tv: TypeVar = TypeVar()) = Type(NOT_NULL, tv, null)
 fun errorType() = ErrorType.notNull()
 
 private val Type.tvs0: List<TypeVar> get() =

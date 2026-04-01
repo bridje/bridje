@@ -29,6 +29,12 @@ fun ValueExpr.inferEffects(): Set<GlobalVar> = when (this) {
         val branchEffects = branches.flatMap { it.bodyExpr.inferEffects() }.toSet()
         scrutEffects + branchEffects
     }
+    is TryCatchExpr -> {
+        val bodyEffects = bodyExpr.inferEffects()
+        val catchEffects = catchBranches.flatMap { it.bodyExpr.inferEffects() }.toSet()
+        val finallyEffects = finallyExpr?.inferEffects() ?: emptySet()
+        bodyEffects + catchEffects + finallyEffects
+    }
     is RecordExpr -> fields.flatMap { it.second.inferEffects() }.toSet()
     is RecordSetExpr -> recordExpr.inferEffects() + valueExpr.inferEffects()
     is VectorExpr -> els.flatMap { it.inferEffects() }.toSet()
@@ -60,6 +66,9 @@ fun ValueExpr.collectEffectfulCallees(): Set<GlobalVar> = when (this) {
     is DoExpr -> (sideEffects + listOf(result)).flatMap { it.collectEffectfulCallees() }.toSet()
     is IfExpr -> predExpr.collectEffectfulCallees() + thenExpr.collectEffectfulCallees() + elseExpr.collectEffectfulCallees()
     is CaseExpr -> scrutinee.collectEffectfulCallees() + branches.flatMap { it.bodyExpr.collectEffectfulCallees() }
+    is TryCatchExpr -> bodyExpr.collectEffectfulCallees() +
+        catchBranches.flatMap { it.bodyExpr.collectEffectfulCallees() } +
+        (finallyExpr?.collectEffectfulCallees() ?: emptySet())
     is RecordExpr -> fields.flatMap { it.second.collectEffectfulCallees() }.toSet()
     is RecordSetExpr -> recordExpr.collectEffectfulCallees() + valueExpr.collectEffectfulCallees()
     is VectorExpr -> els.flatMap { it.collectEffectfulCallees() }.toSet()

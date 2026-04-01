@@ -1,6 +1,7 @@
 package brj.builtins
 
 import brj.BridjeLanguage
+import brj.runtime.BridjeException
 import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.InvalidArrayIndexException
@@ -15,9 +16,9 @@ abstract class NthNode(language: BridjeLanguage) : BinaryOpNode(language) {
         return try {
             interop.readArrayElement(collection, index)
         } catch (e: UnsupportedMessageException) {
-            throw RuntimeException("nth: not a collection")
+            throw BridjeException("nth: not a collection")
         } catch (e: InvalidArrayIndexException) {
-            throw RuntimeException("nth: index out of bounds: $index")
+            throw BridjeException("nth: index out of bounds: $index")
         }
     }
 }

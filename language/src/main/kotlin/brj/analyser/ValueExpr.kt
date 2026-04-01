@@ -219,6 +219,19 @@ class WithFxExpr(
     }
 }
 
+class TryCatchExpr(
+    val bodyExpr: ValueExpr,
+    val catchBranches: List<CaseBranch>,
+    val finallyExpr: ValueExpr?,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String {
+        val catchStr = catchBranches.joinToString(" ")
+        val finallyStr = if (finallyExpr != null) " (finally $finallyExpr)" else ""
+        return "(try $bodyExpr (catch $catchStr)$finallyStr)"
+    }
+}
+
 class ErrorValueExpr(
     val message: String,
     override val loc: SourceSection? = null,
