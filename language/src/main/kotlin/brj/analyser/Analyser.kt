@@ -743,23 +743,28 @@ data class Analyser(
             is SetForm -> {
                 val elForm = form.els.singleOrNull()
                     ?: return errorType("Set type must have exactly one element type", form.loc)
-                analyseTypeForm(elForm)
-                SetType.notNull()
+                SetType(analyseTypeForm(elForm)).notNull()
             }
 
             is ListForm -> {
                 val first = form.els.firstOrNull() as? SymbolForm
                     ?: return errorType("Type form must start with a symbol", form.loc)
-                if (first.name == "Fn") {
-                    val paramVec = form.els.getOrNull(1) as? VectorForm
-                        ?: return errorType("Fn type requires a vector of parameter types", form.loc)
-                    val retForm = form.els.getOrNull(2)
-                        ?: return errorType("Fn type requires a return type", form.loc)
-                    val paramTypes = paramVec.els.map { analyseTypeForm(it) }
-                    val returnType = analyseTypeForm(retForm)
-                    FnType(paramTypes, returnType).notNull()
-                } else {
-                    errorType("Unsupported type constructor: ${first.name}", form.loc)
+                when (first.name) {
+                    "Fn" -> {
+                        val paramVec = form.els.getOrNull(1) as? VectorForm
+                            ?: return errorType("Fn type requires a vector of parameter types", form.loc)
+                        val retForm = form.els.getOrNull(2)
+                            ?: return errorType("Fn type requires a return type", form.loc)
+                        val paramTypes = paramVec.els.map { analyseTypeForm(it) }
+                        val returnType = analyseTypeForm(retForm)
+                        FnType(paramTypes, returnType).notNull()
+                    }
+                    "Future" -> {
+                        val elForm = form.els.getOrNull(1)
+                            ?: return errorType("Future type requires an element type", form.loc)
+                        FutureType(analyseTypeForm(elForm)).notNull()
+                    }
+                    else -> errorType("Unsupported type constructor: ${first.name}", form.loc)
                 }
             }
 

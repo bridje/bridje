@@ -2,17 +2,31 @@ package brj.runtime
 
 import brj.BridjeLanguage
 import brj.NsEnv
+import brj.builtins.ConcurrentNs
 import com.oracle.truffle.api.TruffleLanguage.ContextReference
 import com.oracle.truffle.api.TruffleLanguage.Env
 import com.oracle.truffle.api.nodes.Node
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 
 class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
+
+    val executor: ExecutorService = Executors.newThreadPerTaskExecutor { runnable ->
+        truffleEnv.newTruffleThreadBuilder(runnable).virtual(true).build()
+    }
     var brjCore: NsEnv = NsEnv.withBuiltins(lang)
         internal set
 
-    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj:core" to brjCore))
+    val brjConcurrent: NsEnv = ConcurrentNs.create(lang)
+
+    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj:core" to brjCore, "brj:concurrent" to brjConcurrent))
         private set
+
+    val interruptedCtor: BridjeTagConstructor by lazy {
+        brjCore["Interrupted"]?.value as? BridjeTagConstructor
+            ?: error("Interrupted tag not found in brj:core")
+    }
 
     val loadingInProgress: MutableSet<String> = mutableSetOf()
 
@@ -23,6 +37,12 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
     // Convenience accessor for backwards compatibility
     val namespaces: Map<String, NsEnv>
         get() = globalEnv.namespaces
+
+    fun interruptedException(message: String, cause: Throwable? = null): BridjeException {
+        val data = BridjeRecord.EMPTY.put("exnMessage", message)
+        val anomaly = BridjeTaggedTuple(interruptedCtor, arrayOf(data))
+        return if (cause != null) BridjeException(anomaly, cause) else BridjeException(anomaly)
+    }
 
     fun updateGlobalEnv(update: (GlobalEnv) -> GlobalEnv) {
         globalEnv = update(globalEnv)

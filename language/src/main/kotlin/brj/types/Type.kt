@@ -91,11 +91,25 @@ data class TagType(val ns: String, val name: String): BaseType {
     override fun toString() = if (ns.isEmpty()) name else "$ns:$name"
 }
 
+enum class Variance { IN, OUT, INVARIANT }
+
+data class TypeConstructor(val name: String, val variances: List<Variance>) {
+    companion object {
+        val VECTOR = TypeConstructor("Vector", listOf(Variance.OUT))
+        val SET = TypeConstructor("Set", listOf(Variance.OUT))
+        val FUTURE = TypeConstructor("Future", listOf(Variance.OUT))
+    }
+}
+
 @ExportLibrary(InteropLibrary::class)
-data object SetType: BaseType {
+data class AppliedType(val ctor: TypeConstructor, val args: List<Type>) : BaseType {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Set"
+    override fun toString() = when (ctor) {
+        TypeConstructor.VECTOR -> "[${args[0]}]"
+        TypeConstructor.SET -> "#{${args[0]}}"
+        else -> "${ctor.name}(${args.joinToString(", ")})"
+    }
 }
 
 @ExportLibrary(InteropLibrary::class)
@@ -112,12 +126,9 @@ data object ErrorType: BaseType {
     override fun toString() = "<error>"
 }
 
-@ExportLibrary(InteropLibrary::class)
-data class VectorType(val el: Type): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "[$el]"
-}
+fun VectorType(el: Type) = AppliedType(TypeConstructor.VECTOR, listOf(el))
+fun SetType(el: Type) = AppliedType(TypeConstructor.SET, listOf(el))
+fun FutureType(el: Type) = AppliedType(TypeConstructor.FUTURE, listOf(el))
 
 @ExportLibrary(InteropLibrary::class)
 data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType {
@@ -138,7 +149,7 @@ fun errorType() = ErrorType.notNull()
 
 private val Type.tvs0: List<TypeVar> get() =
     when (val base = this.base) {
-        is VectorType -> base.el.tvs0
+        is AppliedType -> base.args.flatMap { it.tvs0 }
         is FnType -> base.paramTypes.flatMap { it.tvs0 } + base.returnType.tvs0
         else -> emptyList()
     }.plus(tv)
@@ -149,7 +160,7 @@ private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): 
     fun TypeVar.fresh(): TypeVar = mapping.getOrPut(this) { TypeVar() }
 
     fun instBase(base: BaseType): BaseType = when (base) {
-        is VectorType -> VectorType(instantiateType(base.el, mapping))
+        is AppliedType -> AppliedType(base.ctor, base.args.map { instantiateType(it, mapping) })
         is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
         else -> base
     }

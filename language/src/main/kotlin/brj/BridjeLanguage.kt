@@ -39,6 +39,12 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         context.truffleEnv.parsePublic(source).call()
     }
 
+    override fun finalizeContext(context: BridjeContext) {
+        context.executor.shutdownNow()
+    }
+
+    override fun isThreadAccessAllowed(thread: Thread, singleThreaded: Boolean) = true
+
     override fun getScope(context: BridjeContext): Any = BridjeScope(context)
 
     override fun parse(request: ParsingRequest): CallTarget {

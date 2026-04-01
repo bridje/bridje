@@ -73,8 +73,8 @@ class SubstTest {
 
         @Test
         fun `join VectorTypes joins elements`() {
-            val joined = (VectorType(IntType.notNull()) join VectorType(IntType.notNull())) as VectorType
-            assertEquals(IntType, joined.el.base)
+            val joined = (VectorType(IntType.notNull()) join VectorType(IntType.notNull())) as AppliedType
+            assertEquals(IntType, joined.args[0].base)
         }
     }
 
@@ -217,8 +217,8 @@ class SubstTest {
             val vecType = VectorType(elemType).notNull()
             val subst = mapOf(elemTv to IntType.notNull())
             val result = vecType.applySubst(subst)
-            val vecBase = result.base as VectorType
-            assertEquals(IntType, vecBase.el.base)
+            val vecBase = result.base as AppliedType
+            assertEquals(IntType, vecBase.args[0].base)
         }
     }
 }

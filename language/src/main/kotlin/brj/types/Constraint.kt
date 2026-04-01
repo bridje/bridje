@@ -37,8 +37,17 @@ internal fun Collection<Constraint>.resolve(): Subst {
                 when {
                     lower.base == upper.base -> { /* ok */ }
 
-                    lower.base is VectorType && upper.base is VectorType -> {
-                        queue.add(lower.base.el subOf upper.base.el)
+                    lower.base is AppliedType && upper.base is AppliedType -> {
+                        if (lower.base.ctor != upper.base.ctor)
+                            throw TypeErrorException("Incompatible types: ${lower.base} is not a subtype of ${upper.base}")
+                        lower.base.ctor.variances.zip(lower.base.args.zip(upper.base.args)).forEach { (variance, args) ->
+                            val (lArg, uArg) = args
+                            when (variance) {
+                                Variance.OUT -> queue.add(lArg subOf uArg)
+                                Variance.IN -> queue.add(uArg subOf lArg)
+                                Variance.INVARIANT -> { queue.add(lArg subOf uArg); queue.add(uArg subOf lArg) }
+                            }
+                        }
                     }
 
                     lower.base is FnType && upper.base is FnType -> {

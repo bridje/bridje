@@ -27,7 +27,15 @@ internal infix fun Nullability.meet(other: Nullability): Nullability = when {
 // Join two base types - must be same or error
 internal infix fun BaseType.join(other: BaseType): BaseType = when {
     this == other -> this
-    this is VectorType && other is VectorType -> VectorType(el.join(other.el))
+    this is AppliedType && other is AppliedType && ctor == other.ctor ->
+        AppliedType(ctor, ctor.variances.zip(args.zip(other.args)).map { (variance, pair) ->
+            val (a, b) = pair
+            when (variance) {
+                Variance.OUT -> a.join(b)
+                Variance.IN -> a.meet(b)
+                Variance.INVARIANT -> if (a == b) a else throw TypeErrorException("Cannot join invariant type args: $a vs $b")
+            }
+        })
     this is FnType && other is FnType -> {
         val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
         if (shorter.paramTypes.size != longer.paramTypes.size) {
@@ -43,7 +51,15 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
 // Meet two base types - must be same or error
 internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     this == other -> this
-    this is VectorType && other is VectorType -> VectorType(el.meet(other.el))
+    this is AppliedType && other is AppliedType && ctor == other.ctor ->
+        AppliedType(ctor, ctor.variances.zip(args.zip(other.args)).map { (variance, pair) ->
+            val (a, b) = pair
+            when (variance) {
+                Variance.OUT -> a.meet(b)
+                Variance.IN -> a.join(b)
+                Variance.INVARIANT -> if (a == b) a else throw TypeErrorException("Cannot meet invariant type args: $a vs $b")
+            }
+        })
     this is FnType && other is FnType -> {
         val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
         if (shorter.paramTypes.size != longer.paramTypes.size) {
@@ -73,7 +89,7 @@ internal infix fun Type.meet(other: Type): Type {
 }
 
 internal fun BaseType.applySubst(subst: Subst): BaseType = when (this) {
-    is VectorType -> VectorType(el.applySubst(subst))
+    is AppliedType -> AppliedType(ctor, args.map { it.applySubst(subst) })
     is FnType -> FnType(paramTypes.map { it.applySubst(subst) }, returnType.applySubst(subst))
     else -> this
 }

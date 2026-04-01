@@ -151,11 +151,12 @@ internal fun RecordSetExpr.typing(): Typing {
 
 internal fun SetExpr.typing(): Typing {
     val elemTypings = els.map { it.typing() }
+    val elemType = freshType()
 
     return Typing.build(
-        SetType.notNull(),
+        SetType(elemType).notNull(),
         childTypings = elemTypings,
-        constraints = emptyList(),
+        elemTypings.map { it.type subOf elemType },
     )
 }
 

@@ -27,8 +27,8 @@ class TypeTest {
         val type = VectorExpr(listOf(IntExpr(1), IntExpr(2))).checkType()
         assertEquals(NOT_NULL, type.nullability)
 
-        val vecBase = type.base as VectorType
-        assertEquals(IntType, vecBase.el.base)
+        val vecBase = type.base as AppliedType
+        assertEquals(IntType, vecBase.args[0].base)
     }
 
     @Test
@@ -36,9 +36,9 @@ class TypeTest {
         val type = VectorExpr(listOf(IntExpr(1), NilExpr())).checkType()
         assertEquals(NOT_NULL, type.nullability)
 
-        val vecBase = type.base as VectorType
-        assertEquals(IntType, vecBase.el.base)
-        assertEquals(NULLABLE, vecBase.el.nullability)
+        val vecBase = type.base as AppliedType
+        assertEquals(IntType, vecBase.args[0].base)
+        assertEquals(NULLABLE, vecBase.args[0].nullability)
     }
 
     @Test
@@ -127,9 +127,9 @@ class TypeTest {
             VectorExpr(listOf(NilExpr()))
         ).checkType()
 
-        val vecBase = type.base as VectorType
-        assertEquals(IntType, vecBase.el.base)
-        assertEquals(NULLABLE, vecBase.el.nullability)
+        val vecBase = type.base as AppliedType
+        assertEquals(IntType, vecBase.args[0].base)
+        assertEquals(NULLABLE, vecBase.args[0].nullability)
     }
 
     @Test
@@ -157,7 +157,9 @@ class TypeTest {
     @Test
     fun `set literal has set type`() {
         val type = SetExpr(listOf(IntExpr(1), IntExpr(2))).checkType()
-        assertEquals(SetType, type.base)
+        val setBase = type.base as AppliedType
+        assertEquals(TypeConstructor.SET, setBase.ctor)
+        assertEquals(IntType, setBase.args[0].base)
         assertEquals(NOT_NULL, type.nullability)
     }
 
