@@ -15,6 +15,9 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
     val executor: ExecutorService = Executors.newThreadPerTaskExecutor { runnable ->
         truffleEnv.newTruffleThreadBuilder(runnable).virtual(true).build()
     }
+
+    val rootScope = TaskScope(parent = null)
+
     var brjCore: NsEnv = NsEnv.withBuiltins(lang)
         internal set
 

@@ -88,6 +88,7 @@ class ConcurrentTest {
         Thread.sleep(50)
         ns.getMember("doInterrupt").execute(d)
         assertEquals("interrupted", ns.getMember("doAwait").execute(d).asString())
+        Thread.sleep(50) // let interrupted thread wind down before context closes
     }
 
     @Test
@@ -159,5 +160,118 @@ class ConcurrentTest {
         """.trimIndent())
 
         assertEquals(30L, result.getMember("result").asLong())
+    }
+
+    @Test
+    fun `parent awaits unawaited children`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test:scope:join
+              require:
+                brj:
+                  concurrent.as(c)
+            def: go()
+              c:spawn(fn: outer()
+                do:
+                  c:spawn(fn: inner() do: c:sleepMs(100) 42)
+                  "outer-done")
+            def: doAwait(d) c:await(d)
+        """.trimIndent())
+
+        val start = System.currentTimeMillis()
+        val d = ns.getMember("go").execute()
+        ns.getMember("doAwait").execute(d)
+        val elapsed = System.currentTimeMillis() - start
+        assertTrue(elapsed >= 80, "Parent should have waited for child, elapsed: ${elapsed}ms")
+    }
+
+    @Test
+    fun `cascading interrupt cancels children`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test:scope:cascade
+              require:
+                brj:
+                  concurrent.as(c)
+            def: go()
+              c:spawn(fn: outer()
+                do:
+                  c:spawn(fn: inner() c:sleepMs(10000))
+                  c:sleepMs(10000))
+            def: doInterrupt(d) c:interrupt(d)
+            def: doAwait(d)
+              try: c:await(d)
+                catch:
+                  (Interrupted data) "interrupted"
+                  e "other"
+        """.trimIndent())
+
+        val d = ns.getMember("go").execute()
+        Thread.sleep(50)
+        ns.getMember("doInterrupt").execute(d)
+        val start = System.currentTimeMillis()
+        val result = ns.getMember("doAwait").execute(d)
+        val elapsed = System.currentTimeMillis() - start
+        assertEquals("interrupted", result.asString())
+        assertTrue(elapsed < 2000, "Should resolve quickly after interrupt, elapsed: ${elapsed}ms")
+        Thread.sleep(50) // let cancelled threads wind down before context closes
+    }
+
+    @Test
+    fun `failed child cancels siblings`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test:scope:fail
+              require:
+                brj:
+                  concurrent.as(c)
+            def: go()
+              c:spawn(fn: outer()
+                do:
+                  c:spawn(fn: slow() c:sleepMs(10000))
+                  c:spawn(fn: failing() do: c:sleepMs(50) throw(Fault({:exnMessage "boom"})))
+                  c:sleepMs(10000))
+            def: doAwait(d)
+              try: c:await(d)
+                catch:
+                  (Fault data) "fault"
+                  e "other"
+        """.trimIndent())
+
+        val d = ns.getMember("go").execute()
+        val start = System.currentTimeMillis()
+        val result = ns.getMember("doAwait").execute(d)
+        val elapsed = System.currentTimeMillis() - start
+        assertEquals("fault", result.asString())
+        assertTrue(elapsed < 2000, "Should resolve quickly after child failure, elapsed: ${elapsed}ms")
+        Thread.sleep(50) // let cancelled threads wind down before context closes
+    }
+
+    @Test
+    fun `error propagates up the tree`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test:scope:propagate
+              require:
+                brj:
+                  concurrent.as(c)
+            def: go()
+              c:spawn(fn: l1()
+                do:
+                  c:spawn(fn: l2()
+                    do:
+                      c:spawn(fn: l3() do: c:sleepMs(50) throw(Fault({:exnMessage "deep"})))
+                      c:sleepMs(10000))
+                  c:sleepMs(10000))
+            def: doAwait(d)
+              try: c:await(d)
+                catch:
+                  (Fault data) "fault"
+                  e "other"
+        """.trimIndent())
+
+        val d = ns.getMember("go").execute()
+        val start = System.currentTimeMillis()
+        val result = ns.getMember("doAwait").execute(d)
+        val elapsed = System.currentTimeMillis() - start
+        assertEquals("fault", result.asString())
+        assertTrue(elapsed < 2000, "Should resolve quickly after deep failure, elapsed: ${elapsed}ms")
+        Thread.sleep(50) // let cancelled threads wind down before context closes
     }
 }

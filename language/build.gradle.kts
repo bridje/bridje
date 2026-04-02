@@ -57,6 +57,17 @@ tasks.matching { it.name == "sourcesJar" }.configureEach {
     dependsOn(":tree-sitter:buildTreeSitter", ":tree-sitter:copyQueries")
 }
 
+kapt {
+    javacOptions {
+        option("--enable-preview")
+    }
+}
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("--enable-preview")
+}
+
 tasks.test {
     useJUnitPlatform()
+    jvmArgs("--enable-preview")
 }

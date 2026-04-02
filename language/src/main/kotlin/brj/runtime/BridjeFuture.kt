@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit
 
 @ExportLibrary(InteropLibrary::class)
 class BridjeFuture(
-    private val delegate: Future<Any?>
+    private val delegate: Future<Any?>,
+    internal val scope: TaskScope? = null
 ) : Future<Any?> by delegate, TruffleObject {
 
     @ExportMessage

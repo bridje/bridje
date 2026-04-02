@@ -41,6 +41,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
     }
 
     override fun finalizeContext(context: BridjeContext) {
+        context.rootScope.cancelChildren()
         context.executor.shutdownNow()
         context.executor.awaitTermination(5, TimeUnit.SECONDS)
     }

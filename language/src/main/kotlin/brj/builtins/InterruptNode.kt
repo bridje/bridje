@@ -14,5 +14,8 @@ class InterruptNode(language: BridjeLanguage) : RootNode(language) {
     }
 
     @TruffleBoundary
-    private fun doInterrupt(deferred: BridjeFuture): Boolean = deferred.cancel(true)
+    private fun doInterrupt(deferred: BridjeFuture): Boolean {
+        deferred.scope?.cancelChildren()
+        return deferred.cancel(true)
+    }
 }
