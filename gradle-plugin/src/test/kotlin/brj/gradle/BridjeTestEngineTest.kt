@@ -54,7 +54,7 @@ class BridjeTestEngineTest {
 
             java {
                 toolchain {
-                    languageVersion = JavaLanguageVersion.of(22)
+                    languageVersion = JavaLanguageVersion.of(24)
                     vendor = JvmVendorSpec.GRAAL_VM
                 }
             }
@@ -153,7 +153,7 @@ class BridjeTestEngineTest {
 
             java {
                 toolchain {
-                    languageVersion = JavaLanguageVersion.of(22)
+                    languageVersion = JavaLanguageVersion.of(24)
                     vendor = JvmVendorSpec.GRAAL_VM
                 }
             }

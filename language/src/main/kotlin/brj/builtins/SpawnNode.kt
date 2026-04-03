@@ -28,7 +28,7 @@ class SpawnNode(language: BridjeLanguage) : RootNode(language) {
         val future = ctx.executor.submit<Any?> {
             childScope.ownerThread = Thread.currentThread()
             registered.await() // ensure handle is registered before we can call childFailed
-            ScopedValue.callWhere(TaskScope.SCOPED_VALUE, childScope) {
+            ScopedValue.where(TaskScope.SCOPED_VALUE, childScope).call<Any?, RuntimeException>(ScopedValue.CallableOp {
                 try {
                     val result = interop.execute(fn)
                     childScope.joinChildren()
@@ -40,7 +40,7 @@ class SpawnNode(language: BridjeLanguage) : RootNode(language) {
                     parentScope.childFailed(childScope, realCause)
                     throw realCause
                 }
-            }
+            })
         }
 
         val handle = parentScope.addChild(future, childScope)

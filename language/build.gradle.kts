@@ -12,7 +12,7 @@ mavenPublishing {
 }
 
 java.toolchain {
-    languageVersion.set(JavaLanguageVersion.of(22))
+    languageVersion.set(JavaLanguageVersion.of(24))
     vendor.set(JvmVendorSpec.GRAAL_VM)
 }
 
@@ -69,5 +69,4 @@ tasks.withType<JavaCompile> {
 
 tasks.test {
     useJUnitPlatform()
-    jvmArgs("--enable-preview")
 }
