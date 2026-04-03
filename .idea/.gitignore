@@ -1,1 +1,10 @@
-/workspace.xml
+*
+!.gitignore
+!compiler.xml
+!gradle.xml
+!kotlinc.xml
+!misc.xml
+!modules.xml
+!modules/
+!modules/*
+!vcs.xml
