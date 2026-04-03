@@ -127,30 +127,6 @@ do:
         (symbol)))))
 
 ==================
-Method chain across lines
-==================
-
-def: foo()
-  bar()
-    .baz()
-    .qux()
-
----
-
-(source_file
-  (block_call
-    (symbol)
-    (call
-      (symbol))
-    (block_body
-      (method_call
-        (method_call
-          (call
-            (symbol))
-          (dot_symbol))
-        (dot_symbol)))))
-
-==================
 Block inside vector
 ==================
 

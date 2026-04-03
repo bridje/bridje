@@ -52,7 +52,7 @@ class RecordTest {
             do:
               defkeys: {:name Str, :age Int}
               let: [person {:name "Alice", :age 30}]
-                person.name
+                :name(person)
         """.trimIndent())
         assertEquals("Alice", result.asString())
     }
@@ -155,7 +155,7 @@ class RecordTest {
         val result = ctx.evalBridje("""
             do:
               defkeys: {:inner Str, :outer Str}
-              {:outer {:inner 42}}.outer.inner
+              :inner(:outer({:outer {:inner 42}}))
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -237,7 +237,7 @@ class RecordTest {
             ns: consumer
               require:
                 my:
-                  keys.as(k)
+                  as(keys, k)
             def: result (:k:foo {:k:foo 42})
         """.trimIndent())
 
@@ -255,7 +255,7 @@ class RecordTest {
             ns: consumer
               require:
                 my:
-                  keys.as(k)
+                  as(keys, k)
             def: result {:k:foo 42}
         """.trimIndent())
 
@@ -326,7 +326,7 @@ class RecordTest {
               defkeys: {:foo Str}
               let: [r {:foo 1}]
                 do:
-                  r.set!(:foo, 99)
+                  set!(r, :foo, 99)
                   r
         """.trimIndent())
         assertEquals(99L, result.getMember("foo").asLong())
@@ -343,7 +343,7 @@ class RecordTest {
             ns: consumer
               require:
                 my:
-                  keys.as(k)
+                  as(keys, k)
             def: result
               let: [r {:k:foo 1}]
                 do:
@@ -365,8 +365,8 @@ class RecordTest {
             ns: consumer
               require:
                 my:
-                  keys.as(u)
-            def: result {:u:bar 99}.u:bar
+                  as(keys, u)
+            def: result :u:bar({:u:bar 99})
         """.trimIndent())
 
         assertEquals(99L, ns.getMember("result").asLong())

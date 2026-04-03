@@ -63,19 +63,6 @@ class Reader private constructor(private val src: Source) {
                 ListForm(listOf(fn) + args, loc)
             }
 
-            "method_call" -> {
-                val receiver = namedChildren[0].readForm()
-                val methodName = namedChildren[1].text!!.drop(1)
-                val args = namedChildren.drop(2).map { it.readForm() }
-                ListForm(listOf(SymbolForm(methodName, loc), receiver) + args, loc)
-            }
-
-            "field_access" -> {
-                val receiver = namedChildren[0].readForm()
-                val fieldName = namedChildren[1].text!!.drop(1)
-                ListForm(listOf(KeywordForm(fieldName, loc), receiver), loc)
-            }
-
             "block_call" -> {
                 val blockName = namedChildren[0].text!!
                 val args = namedChildren.drop(1).flatMap { child ->

@@ -15,10 +15,6 @@ module.exports = grammar({
   name: "bridje",
 
   conflicts: $ => [
-    [$.block_call, $.method_call, $.field_access],
-    [$.quote, $.method_call, $.field_access],
-    [$.unquote, $.method_call, $.field_access],
-    [$.metadata, $.method_call, $.field_access],
   ],
 
   externals: $ => [
@@ -35,8 +31,6 @@ module.exports = grammar({
       $.list, $.vector, $.map, $.set,
       $.call,
       $.block_call,
-      $.method_call,
-      $.field_access,
       $.quote,
       $.unquote,
       $.metadata,
@@ -50,8 +44,6 @@ module.exports = grammar({
     symbol: _ => token(seq(SYMBOL_BODY, optional('#'))),
 
     qualified_symbol: _ => token(seq(SYMBOL_BODY, repeat1(seq(':', SYMBOL_BODY)), optional('#'))),
-
-    dot_symbol: _ => token(seq('.', SYMBOL_BODY, repeat(seq(':', SYMBOL_BODY)))),
 
     keyword: _ => token(seq(':', SYMBOL_BODY, repeat(seq(':', SYMBOL_BODY)))),
 
@@ -77,12 +69,6 @@ module.exports = grammar({
       repeat1($._form),
       $._dedent
     ),
-
-    // expr.bar(a, b)
-    method_call: $ => seq($._form, $.dot_symbol, token.immediate('('), repeat($._form), ')'),
-
-    // expr.field
-    field_access: $ => seq($._form, $.dot_symbol),
 
     list: $ => seq('(', repeat($._form), ')'),
     vector: $ => seq('[', repeat($._form), ']'),

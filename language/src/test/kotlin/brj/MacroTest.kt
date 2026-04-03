@@ -243,7 +243,7 @@ class MacroTest {
     @Test
     fun `orElse returns value when non-nil`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            42.orElse(99)
+            orElse(42, 99)
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -251,7 +251,7 @@ class MacroTest {
     @Test
     fun `orElse returns default when nil`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            nil.orElse(99)
+            orElse(nil, 99)
         """.trimIndent())
         assertEquals(99L, result.asLong())
     }
@@ -260,7 +260,7 @@ class MacroTest {
     fun `orElse does not evaluate default when value is non-nil`() = withContext { ctx ->
         // If default were evaluated, this would cause a division by zero
         val result = ctx.evalBridje("""
-            42.orElse(div(1, 0))
+            orElse(42, div(1, 0))
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }

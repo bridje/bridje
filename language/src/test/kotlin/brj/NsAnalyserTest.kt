@@ -17,8 +17,8 @@ class NsAnalyserTest {
             ns: foo:bar
               import:
                 java:time:
-                  Instant.as(Inst)
-                  Duration.as(Dur)
+                  as(Instant, Inst)
+                  as(Duration, Dur)
                 java:util:
                   Map List Set
         """.trimIndent().parseNs()
@@ -42,7 +42,7 @@ class NsAnalyserTest {
             ns: foo:bar
               require:
                 other:
-                  lib.as(lib)
+                  as(lib, lib)
                   util
         """.trimIndent().parseNs()
 

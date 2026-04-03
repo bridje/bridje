@@ -78,7 +78,7 @@ Bridje is, at its core, a LISP.
 
 That said, it has two syntactic sugars that make it feel like a more mainstream C/Java-style language, without compromising on its LISP foundations:
 
-1. `foo(b, c)` and `a.foo(b, c)` method calls (desugars to `(foo b c)` and `(foo a b c)` respectively)
+1. `foo(a, b)` call syntax (desugars to `(foo a b)`)
 2. Colon blocks: a symbol suffixed with a colon (e.g. `def:`) starts a new block.
    Anything indented further than that symbol is included in the block.
 
@@ -97,6 +97,13 @@ That said, it has two syntactic sugars that make it feel like a more mainstream 
      (let [c (add a b)]
        (mul c 2)))
    ```
+
+Left-to-right chaining uses the `->` threading macro (defined in `brj:core`), which inserts the previous value as the first argument to each step:
+
+```bridje
+->: cluster count() div(2) inc()
+// macro-expands to: inc(div(count(cluster), 2))
+```
 
 That is: you can write s-expressions, but I don't expect this to be the norm.
 

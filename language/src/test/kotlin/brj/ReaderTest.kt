@@ -71,12 +71,6 @@ class ReaderTest {
     fun `reads call`() = assertReads(list(sym("foo"), sym("a"), sym("b")), "foo(a, b)".readSingle())
 
     @Test
-    fun `reads method call`() = assertReads(list(sym("foo"), sym("x"), sym("a")), "x.foo(a)".readSingle())
-
-    @Test
-    fun `reads field access`() = assertReads(list(kw("foo"), sym("x")), "x.foo".readSingle())
-
-    @Test
     fun `reads simple block`() =
         assertReads(
             list(sym("def"), list(sym("foo")), list(sym("bar"))),

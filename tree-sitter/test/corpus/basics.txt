@@ -182,33 +182,6 @@ java:time:Instant
   (qualified_symbol))
 
 ==================
-Java class with field access
-==================
-
-java:time:Instant.now
-
----
-
-(source_file
-  (field_access
-    (qualified_symbol)
-    (dot_symbol)))
-
-==================
-Java class with method call
-==================
-
-java:time:Instant.parse("2024-01-01")
-
----
-
-(source_file
-  (method_call
-    (qualified_symbol)
-    (dot_symbol)
-    (string)))
-
-==================
 Qualified symbol (ns:member)
 ==================
 

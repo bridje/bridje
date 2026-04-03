@@ -10,6 +10,4 @@
 (set) @sexp
 (call) @sexp
 (block_call) @sexp
-(method_call) @sexp
-(field_access) @sexp
 (metadata) @sexp

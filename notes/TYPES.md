@@ -120,7 +120,7 @@ Generic functions are inferred — the compiler determines type variables from u
 
 ```bridje
 def: first(xs)          // inferred: [a] -> a
-  xs.nth(0)
+  nth(xs, 0)
 
 def: pair(a, b)         // inferred: (a, b) -> Pair(a, b)
   Pair(a, b)
@@ -268,12 +268,12 @@ A function that only returns `Ok` is typed as returning `Ok`, not `Result`.
 ```bridje
 // Inferred return type: Ok(a)
 def: lookup(m, k)
-  Ok(m.get(k))
+  Ok(get(m, k))
 
 // Inferred return type: Ok(a) | Err(Str)
 def: safeLookup(m, k)
-  if: m.hasKey(k)
-    Ok(m.get(k))
+  if: hasKey(m, k)
+    Ok(get(m, k))
     Err("key not found")
 ```
 
@@ -306,13 +306,13 @@ trait: Show
   decl: show() Str
 
 impl: Show(Int)
-  def: it.show() intToStr(it)
+  def: show(it) intToStr(it)
 
 impl: Show(User)
-  def: User({fn, ln}).show() "${fn} ${ln}"
+  def: show(User({fn, ln})) "${fn} ${ln}"
 ```
 
-The `impl` names the type; the `def` uses UFCS — `def: it.show()` is equivalent to `def: show(it)`.
+The `impl` names the type; the receiver is a parameter like any other.
 Destructuring works in the receiver position, same as any function parameter.
 
 Traits are open — any tag can implement any number of traits (M:N).

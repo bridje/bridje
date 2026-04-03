@@ -26,7 +26,7 @@ class NsClasspathLoadingTest {
             ns: test:user
               require:
                 require_test:
-                  dependent.as(dep)
+                  as(dependent, dep)
 
             def: result dep:doubled
         """.trimIndent())

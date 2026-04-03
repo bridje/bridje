@@ -1,7 +1,6 @@
 ; lists indent by shiftwidth (2)
 (list) @indent.begin
 (call) @indent.begin
-(method_call) @indent.begin
 (block_call) @indent.begin
 (block_body) @indent.begin
 

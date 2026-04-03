@@ -15,7 +15,6 @@
 
 ; symbols - general fallback
 (symbol) @variable
-(dot_symbol) @property
 
 ; call: highlight the symbol as function
 (call
@@ -24,14 +23,6 @@
 ; block_call: highlight the symbol as function
 (block_call
   (symbol) @function)
-
-; method_call: highlight the dot_symbol as method
-(method_call
-  (dot_symbol) @function.method)
-
-; field_access: highlight the dot_symbol as property
-(field_access
-  (dot_symbol) @property)
 
 ; block_call: highlight the symbol as keyword if it's a special form (higher priority)
 (block_call

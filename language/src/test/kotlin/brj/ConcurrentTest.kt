@@ -13,7 +13,7 @@ class ConcurrentTest {
             ns: test:concurrent
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: result c:await(c:spawn(fn: f() 42))
         """.trimIndent())
 
@@ -26,7 +26,7 @@ class ConcurrentTest {
             ns: test:concurrent:thread
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: result c:await(c:spawn(fn: f() "hello"))
         """.trimIndent())
 
@@ -39,7 +39,7 @@ class ConcurrentTest {
             ns: test:concurrent:interrupt
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: result
               let: [d c:spawn(fn: f() 42)]
                 do:
@@ -56,7 +56,7 @@ class ConcurrentTest {
             ns: test:concurrent:ensure
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: check() c:ensureActive()
         """.trimIndent())
 
@@ -74,7 +74,7 @@ class ConcurrentTest {
             ns: test:concurrent:interrupt:sleep
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: spawnSleeper() c:spawn(fn: sleeper() c:sleepMs(10000))
             def: doInterrupt(d) c:interrupt(d)
             def: doAwait(d)
@@ -97,7 +97,7 @@ class ConcurrentTest {
             ns: test:concurrent:interrupt:polyglot
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: spawnSleeper() c:spawn(fn: sleeper() c:sleepMs(10000))
             def: doInterrupt(d) c:interrupt(d)
             def: doAwait(d) c:await(d)
@@ -117,7 +117,7 @@ class ConcurrentTest {
             ns: test:concurrent:catch
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: result
               let: [d c:spawn(fn: failing() throw(Fault({:exnMessage "boom"})))]
                 try: c:await(d)
@@ -134,7 +134,7 @@ class ConcurrentTest {
             ns: test:concurrent:catch:tag
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: result
               let: [d c:spawn(fn: failing() throw(NotFound({:exnMessage "gone"})))]
                 try: c:await(d)
@@ -152,7 +152,7 @@ class ConcurrentTest {
             ns: test:concurrent:nested
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: result c:await(c:spawn(fn: outer()
                                           let: [a c:spawn(fn: work1() 10)
                                                 b c:spawn(fn: work2() 20)]
@@ -168,7 +168,7 @@ class ConcurrentTest {
             ns: test:scope:join
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: go()
               c:spawn(fn: outer()
                 do:
@@ -190,7 +190,7 @@ class ConcurrentTest {
             ns: test:scope:cascade
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: go()
               c:spawn(fn: outer()
                 do:
@@ -221,7 +221,7 @@ class ConcurrentTest {
             ns: test:scope:fail
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: go()
               c:spawn(fn: outer()
                 do:
@@ -250,7 +250,7 @@ class ConcurrentTest {
             ns: test:scope:propagate
               require:
                 brj:
-                  concurrent.as(c)
+                  as(concurrent, c)
             def: go()
               c:spawn(fn: l1()
                 do:

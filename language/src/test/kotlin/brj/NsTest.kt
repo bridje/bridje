@@ -100,7 +100,7 @@ class NsTest {
             ns: foo
               import:
                 java:util:
-                  ArrayList.as(AL)
+                  as(ArrayList, AL)
             def: result AL()
         """.trimIndent())
         assertTrue(ns.getMember("result").hasArrayElements())
@@ -135,7 +135,7 @@ class NsTest {
             ns: consumer
               require:
                 my:
-                  utils.as(u)
+                  as(utils, u)
             def: result u:double(21)
         """.trimIndent())
 

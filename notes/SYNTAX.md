@@ -37,7 +37,7 @@ Commas are whitespace everywhere — they're optional.
 
 ## Syntactic Sugar
 
-Bridje has three sugars over its s-expression core.
+Bridje has two sugars over its s-expression core.
 All examples below use them, so they're introduced here first.
 
 The goal is to bring LISP simplicity to a wider audience through syntax that looks like a C/Java-style language — "brackets where you'd expect them" — while retaining the benefits of a LISP core.
@@ -101,46 +101,34 @@ if: gt(a, b)
   b)
 ```
 
-### Universal Function Call Syntax (UFCS)
+### Threading macro
 
-`a.foo(b, c)` desugars to `(foo a b c)`.
-`a.field` desugars to `(:field a)`.
-
+`->` is a macro (defined in `brj:core`, not syntactic sugar) that threads a value through a sequence of calls, inserting it as the first argument to each.
 This turns inside-out LISP nesting into left-to-right chaining.
-Without UFCS, accessing a nested field and calling a function reads inside-out:
 
 ```bridje
-// Without UFCS (raw s-expression style):
+// Without threading:
 inc(div(count(cluster), 2))
 
-// With UFCS:
-cluster.count.div(2).inc()
+// With threading:
+->: cluster count() div(2) inc()
+
+// macro-expands to:
+inc(div(count(cluster), 2))
 ```
 
-Both desugar to the same s-expression: `(inc (div (count cluster) 2))`.
-
-UFCS is purely syntactic — there is no special method dispatch, no receiver, no `this`.
-`a.foo(b)` and `foo(a, b)` are identical after desugaring.
-Trait methods, key accessors, and plain functions all use the same call mechanism.
-
-**When to use UFCS vs call syntax:**
-
-UFCS is preferred when the function has a natural receiver — accessing a field, calling a method on a value, chaining transformations:
+The rules follow Clojure's `->`:
+- The first element is the seed — evaluated as-is, becomes the initial threaded value.
+- A bare symbol (`count`) is treated as a one-arg call: `count(prev)`.
+- A call form (`div(2)`) gets the threaded value inserted as the first argument: `div(prev, 2)`.
+- Prefer parens on function calls for clarity: `count()` rather than `count`.
 
 ```bridje
-state.currentTerm
-state.with(:role newRole)
-cluster.count.div(2).inc()
-peers.associateWith(#: 0)
-```
+// Keyword access and chaining:
+->: state :currentTerm
 
-Normal call syntax is preferred when there's no natural receiver — standalone functions, constructors, predicates:
-
-```bridje
-add(a, b)
-eq(req.term, state.currentTerm)
-max(1, nextIndex.dec())
-ServerState({:id serverId, :cluster cluster})
+// Mixing accessors and functions:
+->: state :log count() div(2) inc()
 ```
 
 ## Core Forms
@@ -208,7 +196,7 @@ Short form — always one parameter, named `it`:
 ```bridje
 #: inc(it)
 #: add(it, 1)
-#: it.name
+#: :name(it)
 ```
 
 ### do
@@ -236,7 +224,7 @@ case: expr
 Exhaustive matching — when all variants are handled, no default is needed:
 
 ```bridje
-case: state.role
+case: :role(state)
   Follower(f): handleFollower(f)
   Candidate(c): handleCandidate(c)
   Leader(l): handleLeader(l)
@@ -260,7 +248,6 @@ Bridje is immutable by default, but mutation is available when performance requi
 
 ```bridje
 set!(record, :key, value)         // returns old value
-record.set!(:key, value)          // UFCS form
 ```
 
 ### quote and unquote
@@ -327,18 +314,21 @@ Construction:
 {:name "James", :age 30}
 ```
 
-Field access via UFCS — desugars to a keyword call:
+Field access via keyword call:
 
 ```bridje
-state.currentTerm             // (:currentTerm state)
-req.from                      // (:from req)
+:currentTerm(state)            // access :currentTerm on state
+:from(req)                     // access :from on req
+
+// With threading:
+->: state :currentTerm
 ```
 
-Optional access — any key can be accessed in a nullable way with `?` via UFCS:
+Optional access — any key can be accessed in a nullable way with `?`:
 
 ```bridje
-state.?timeout                // desugars to (:?timeout state) — returns the value or nil
-state.timeout                 // desugars to (:timeout state) — assumes the key is present
+:?timeout(state)               // returns the value or nil
+:timeout(state)                // assumes the key is present
 ```
 
 Optionality is at the call site, not the definition.
@@ -348,7 +338,10 @@ Any key can be accessed optionally — there's no distinction between "required"
 Update with `with` — returns a new record, does not mutate:
 
 ```bridje
-state.with(:currentTerm newTerm, :votedFor nil)
+->: state with(:currentTerm newTerm, :votedFor nil)
+
+// or without threading:
+with(state, :currentTerm newTerm, :votedFor nil)
 ```
 
 Destructuring in function parameters and `let` bindings.
@@ -359,8 +352,7 @@ Destructuring in function parameters and `let` bindings.
 {:name "James", :age 30}
 
 // Destructuring — no colon prefix (these become local bindings):
-def: displayName({fn, ln})
-  "${fn} ${ln}"
+def: displayName({fn, ln}) "${fn} ${ln}"
 
 def: greet({name, age})
   if: gt(age, 18)
@@ -392,7 +384,7 @@ Tagged record construction — two forms, both equivalent:
 
 ```bridje
 // Call syntax:
-VoteResponse({:from state.id, :to req.from, :term state.currentTerm, :granted true})
+VoteResponse({:from :id(state), :to :from(req), :term :currentTerm(state), :granted true})
 
 // Colon block syntax (desugars to the same thing):
 ServerState:
@@ -407,7 +399,7 @@ Destructuring tagged records in function parameters:
 
 ```bridje
 def: majority(ServerState({cluster}))
-  cluster.count.div(2).inc()
+  ->: cluster count() div(2) inc()
 
 def: formatEntry(LogEntry({term, index, command}))
   "[${term}:${index}] ${command}"
@@ -463,21 +455,21 @@ trait: RaftNetwork
 ### impl
 
 Implement a trait for a type.
-The `impl` names the type; the `def` uses UFCS.
+The `impl` names the type and trait; method `def`s take the receiver as a parameter.
 
 ```bridje
 impl: Show(Int)
-  def: it.show() intToStr(it)
+  def: show(it) intToStr(it)
 
 impl: Show(User)
-  def: User({fn, ln}).show() "${fn} ${ln}"
+  def: show(User({fn, ln})) "${fn} ${ln}"
 
-impl: Int.Ord(Int)
-  def: it.compareTo(other) intCompare(it, other)
+impl: Ord(Int, Int)
+  def: compareTo(it, other) intCompare(it, other)
 ```
 
 Destructuring works in the receiver position.
-For parameterised traits like `Ord(t)`, the impl specifies both the receiver type and the type parameter: `Int.Ord(Int)`.
+For parameterised traits like `Ord(t)`, the impl specifies both the receiver type and the type parameter: `Ord(Int, Int)`.
 
 ### defmacro
 
@@ -493,9 +485,9 @@ defmacro: unless(cond, body)
 
 // Macro that manipulates Form objects directly:
 defmacro: ifLet(bindings, then, else)
-  let: [bvec bindings.nth(0)
-        bname bvec.nth(0)
-        bexpr bvec.nth(1)]
+  let: [bvec first(bindings)
+        bname first(bvec)
+        bexpr nth(bvec, 1)]
     '(let [v# ~bexpr]
        (case v#
          nil ~else
@@ -574,7 +566,7 @@ Defined in `brj.core`.
 Conditional binding — binds the expression result, takes the then-branch if non-nil, else-branch if nil:
 
 ```bridje
-ifLet: [leader f.knownLeader]
+ifLet: [leader :knownLeader(f)]
   redirect(leader)        // then — leader is bound and non-nil
   retryLater()            // else — expression was nil
 ```
@@ -591,12 +583,12 @@ unlessLet: [config loadConfig()]
 
 ### orElse
 
-Default for a nullable value.
-Default expression is lazy — not evaluated if value is non-nil:
+Default for a nullable value — variadic, for chained fallbacks.
+Default expressions are lazy — not evaluated if value is non-nil:
 
 ```bridje
-name.orElse("anonymous")
-config.timeout.orElse(#dur("PT30S"))
+orElse(name, "anonymous")
+orElse(:timeout(config), :timeout(defaults), #dur("PT30S"))
 ```
 
 ### when
@@ -605,8 +597,8 @@ Conditional execution — evaluates body if predicate is true, returns nil if fa
 No else branch.
 
 ```bridje
-when: neq(peer, state.id)
-  peer.sendAppendEntries(state)
+when: neq(peer, :id(state))
+  sendAppendEntries(peer, state)
 ```
 
 ### cond
@@ -627,7 +619,7 @@ When the result expression is complex, it can use a colon block or indentation:
 
 ```bridje
 cond:
-  req.term.lt(state.currentTerm)
+  lt(:term(req), :currentTerm(state))
     rejectStale(state, req)
 
   not(logConsistent(state, req))
@@ -644,12 +636,12 @@ Side-effecting iteration over a collection.
 Binding form is like `let` — a vector of name-expression pairs:
 
 ```bridje
-doseq: [peer state.cluster]
-  when: neq(peer, state.id)
-    peer.sendAppendEntries(state)
+doseq: [peer :cluster(state)]
+  when: neq(peer, :id(state))
+    sendAppendEntries(peer, state)
 
-doseq: [idx range(state.lastApplied.inc(), state.commitIndex.inc())]
-  sm.apply(state.log.nth(idx).command)
+doseq: [idx range(inc(:lastApplied(state)), inc(:commitIndex(state)))]
+  ->: state :log nth(idx) :command apply(sm)
 ```
 
 ## Namespaces
@@ -673,7 +665,7 @@ Metadata is a keyword or a record attached to the following form:
 ^:test
 def: testElection()
   let: [state createTestState()]
-    assert(eq(state.role, Follower({:knownLeader nil})))
+    assert(eq(:role(state), Follower({:knownLeader nil})))
 
 ^{:doc "Returns the majority threshold for a cluster"}
 def: majority(state) ...
@@ -755,37 +747,26 @@ def: startServer(...) ...
 Bridje has no infix operators.
 Arithmetic and comparison are regular functions.
 
-For binary operations, either call syntax or UFCS works — use whichever reads better:
-
 ```bridje
-// UFCS for chains — reads left-to-right:
-cluster.count.div(2).inc()
-state.currentTerm.gt(req.term)
-n.add(1).mul(2)
-
 // Call syntax for standalone operations:
 add(a, b)
-eq(req.term, state.currentTerm)
+eq(:term(req), :currentTerm(state))
 max(commitIndex, 0)
+
+// Threading for chains:
+->: cluster count() div(2) inc()
 ```
 
 For variadic operations, colon block syntax avoids deep nesting:
 
 ```bridje
-// Binary — either style:
-and(condA, condB)
-condA.and(condB)
-
 // Variadic — block style reads better:
 and:
-  req.term.gte(state.currentTerm)
+  gte(:term(req), :currentTerm(state))
   or:
-    nil?(state.votedFor)
-    eq(req.from, state.votedFor)
+    nil?(:votedFor(state))
+    eq(:from(req), :votedFor(state))
   candidateLogUpToDate(state, req)
-
-// Compare with the call-syntax equivalent:
-and(req.term.gte(state.currentTerm), or(nil?(state.votedFor), eq(req.from, state.votedFor)), candidateLogUpToDate(state, req))
 ```
 
 The block form is preferred when the expression has more than two arguments or when arguments are themselves complex expressions.

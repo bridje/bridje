@@ -38,7 +38,7 @@ class ErrorHandlingTest {
         val result = ctx.evalBridje("""
             try: throw(Fault({:exnMessage "oops"}))
               catch:
-                (Fault d) d.exnMessage
+                (Fault d) :exnMessage(d)
         """.trimIndent())
         assertEquals("oops", result.asString())
     }
