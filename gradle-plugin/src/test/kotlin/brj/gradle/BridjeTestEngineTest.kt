@@ -77,7 +77,7 @@ class BridjeTestEngineTest {
     @Test
     fun `passing tests succeed`() {
         writeBrjFile("my/tests.brj", """
-            ns: my:tests
+            ns: my.tests
 
             ^.test
             def: twoPlusTwo()
@@ -92,7 +92,7 @@ class BridjeTestEngineTest {
     @Test
     fun `failing test fails the build`() {
         writeBrjFile("my/tests.brj", """
-            ns: my:tests
+            ns: my.tests
 
             ^.test
             def: thisOneFails()
@@ -107,7 +107,7 @@ class BridjeTestEngineTest {
     @Test
     fun `mixed pass and fail`() {
         writeBrjFile("my/tests.brj", """
-            ns: my:tests
+            ns: my.tests
 
             ^.test
             def: twoPlusTwo()
@@ -131,7 +131,7 @@ class BridjeTestEngineTest {
     @Test
     fun `no test metadata means no tests discovered`() {
         writeBrjFile("my/lib.brj", """
-            ns: my:lib
+            ns: my.lib
 
             def: helper()
               add(1, 1)

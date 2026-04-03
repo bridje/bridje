@@ -245,7 +245,7 @@ class ParseRootNode(
         }
 
         // Update brjCore if this is brj:core namespace
-        if (nsDecl.name == "brj:core") {
+        if (nsDecl.name == "brj.core") {
             ctx.brjCore = nsEnv
         }
 
@@ -255,7 +255,7 @@ class ParseRootNode(
     override fun execute(frame: VirtualFrame): Any? {
         val initialNsEnv = when {
             // brj:core starts with Kotlin builtins
-            nsDecl?.name == "brj:core" -> NsEnv.withBuiltins(lang).copy(
+            nsDecl?.name == "brj.core" -> NsEnv.withBuiltins(lang).copy(
                 imports = nsDecl.imports,
                 nsDecl = nsDecl,
                 source = source

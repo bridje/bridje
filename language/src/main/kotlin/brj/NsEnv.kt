@@ -48,7 +48,7 @@ data class NsEnv(
         )
 
         private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->
-            val tagType = TagType("brj:core", meta.tag)
+            val tagType = TagType("brj.core", meta.tag)
             val type = FnType(listOf(RecordType.notNull()), tagType.notNull()).notNull()
             meta.tag to GlobalVar(meta.tag, meta, type = type)
         }

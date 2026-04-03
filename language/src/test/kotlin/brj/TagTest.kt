@@ -166,10 +166,10 @@ class TagTest {
             deftag: Other(value)
         """.trimIndent())
 
-        val justConstructor = ctx.evalBridje("tag_meta_test:Just")
-        val otherConstructor = ctx.evalBridje("tag_meta_test:Other")
-        val justValue = ctx.evalBridje("tag_meta_test:Just(42)")
-        val otherValue = ctx.evalBridje("tag_meta_test:Other(42)")
+        val justConstructor = ctx.evalBridje("tag_meta_test/Just")
+        val otherConstructor = ctx.evalBridje("tag_meta_test/Other")
+        val justValue = ctx.evalBridje("tag_meta_test/Just(42)")
+        val otherValue = ctx.evalBridje("tag_meta_test/Other(42)")
 
         assertTrue(justConstructor.isMetaInstance(justValue))
         assertFalse(justConstructor.isMetaInstance(otherValue))
@@ -194,8 +194,8 @@ class TagTest {
             deftag: Just(value)
         """.trimIndent())
 
-        val constructor = ctx.evalBridje("tag_tuple_test:Just")
-        val tuple = ctx.evalBridje("tag_tuple_test:Just(42)")
+        val constructor = ctx.evalBridje("tag_tuple_test/Just")
+        val tuple = ctx.evalBridje("tag_tuple_test/Just(42)")
         val meta = tuple.metaObject
 
         // The meta object should be the constructor

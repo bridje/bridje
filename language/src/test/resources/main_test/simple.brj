@@ -1,4 +1,4 @@
-ns: main_test:simple
+ns: main_test.simple
 
 def: main(args)
   args

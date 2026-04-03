@@ -576,7 +576,7 @@ class SymbolForm(val name: String, override val loc: SourceSection? = null) : Fo
 @ExportLibrary(InteropLibrary::class)
 class QualifiedSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
     override fun copy() = QualifiedSymbolForm(namespace, member, loc)
-    override fun toString(): String = "$namespace:$member"
+    override fun toString(): String = "$namespace/$member"
 
     @ExportMessage fun hasMetaObject() = true
     @ExportMessage fun getMetaObject(): Any = QualifiedSymbolMeta

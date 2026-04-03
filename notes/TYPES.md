@@ -46,7 +46,7 @@ decl: lookup Map(Str, Int)            // Map — no literal type syntax
 Record types list their required and optional keys:
 
 ```bridje
-decl: person {:name, :age}            // record with at least :name and :age
+decl: person {.name, .age}            // record with at least .name and .age
 ```
 
 ### Tags
@@ -55,7 +55,7 @@ A tag name alone, or with a record shape constraint:
 
 ```bridje
 decl: user User                       // any User
-decl: user User({:fn, :ln})           // a User, only requiring :fn and :ln
+decl: user User({.fn, .ln})           // a User, only requiring .fn and .ln
 ```
 
 ### Nullable
@@ -196,10 +196,10 @@ Keys are the atoms of the record system.
 A key has a globally fixed value type, declared once.
 
 ```bridje
-defkeys: {:name Str, :age Int, :email Str}
+defkeys: {.name Str, .age Int, .email Str}
 ```
 
-`:name` means `Str` everywhere.
+`.name` means `Str` everywhere.
 If you need a different type, use a different key.
 This follows the clojure.spec school of thought: a fully-qualified key has one meaning.
 
@@ -214,13 +214,13 @@ Records are **structural** — any record with at least the required keys is acc
 def: displayName({fn, ln})
   "${fn} ${ln}"
 
-// Accepts any record with :fn and :ln, regardless of other keys
-displayName({:fn "James", :ln "Henderson"})
-displayName({:fn "James", :ln "Henderson", :email "j@h.com"})
+// Accepts any record with .fn and .ln, regardless of other keys
+displayName({.fn "James", .ln "Henderson"})
+displayName({.fn "James", .ln "Henderson", .email "j@h.com"})
 ```
 
 More keys = more specific = subtype.
-`{:name, :age, :email}` is a subtype of `{:name, :age}`.
+`{.name, .age, .email}` is a subtype of `{.name, .age}`.
 
 ## Tags
 
@@ -228,8 +228,8 @@ Tags are nominal wrappers around records.
 A tag is distinct from any other tag, even with identical keys.
 
 ```bridje
-deftag: User({:fn, :ln, :email, :role})
-deftag: Customer({:fn, :ln, :email, :since})
+deftag: User({.fn, .ln, .email, .role})
+deftag: Customer({.fn, .ln, .email, .since})
 ```
 
 `User` is not `Customer`, even though they share keys.
@@ -238,22 +238,22 @@ The tag carries domain identity.
 ### Tags are subtypes of their underlying record shape
 
 A tagged record is more specific than its untagged equivalent.
-`User({:fn, :ln})` is a subtype of `{:fn, :ln}`.
+`User({.fn, .ln})` is a subtype of `{.fn, .ln}`.
 
 This means functions can choose their level of specificity:
 
 ```bridje
-// Structural — accepts any record with :fn and :ln
+// Structural — accepts any record with .fn and .ln
 def: displayName({fn, ln})
   "${fn} ${ln}"
 
-// Nominal — must be a User, only needs :fn and :ln
+// Nominal — must be a User, only needs .fn and .ln
 def: userDisplayName(User({fn, ln}))
   "${fn} ${ln}"
 
 // Both of these work with displayName:
-displayName({:fn "James", :ln "Henderson"})
-displayName(User({:fn "James", :ln "Henderson", :email "j@h.com"}))
+displayName({.fn "James", .ln "Henderson"})
+displayName(User({.fn "James", .ln "Henderson", .email "j@h.com"}))
 ```
 
 The tag asserts domain identity.
@@ -285,9 +285,9 @@ Each tag belongs to exactly one closed sum (1:N).
 ```bridje
 type: ServerRole
   Sum:
-    Follower({:knownLeader})
-    Candidate({:votesReceived})
-    Leader({:nextIndex, :matchIdx})
+    Follower({.knownLeader})
+    Candidate({.votesReceived})
+    Leader({.nextIndex, .matchIdx})
 ```
 
 The compiler infers the sum type from its members — seeing `Follower` is enough to know `ServerRole`.

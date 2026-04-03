@@ -107,7 +107,7 @@ class BridjeTestEngine : TestEngine {
             .filter { it.extension == "brj" }
             .forEach { file ->
                 val relativePath = file.relativeTo(dir).path
-                val nsName = relativePath.removeSuffix(".brj").replace('/', ':')
+                val nsName = relativePath.removeSuffix(".brj").replace('/', '.')
                 if (nsName !in brjFiles) {
                     brjFiles[nsName] = relativePath to file.readText()
                 }

@@ -118,7 +118,7 @@ Person({.name "James", .age 42})
 
 ## Threading macro
 
-`->` is a macro (defined in `brj:core`, not syntactic sugar) that threads a value through a sequence of calls, inserting it as the first argument to each.
+`->` is a macro (defined in `brj.core`, not syntactic sugar) that threads a value through a sequence of calls, inserting it as the first argument to each.
 This turns inside-out LISP nesting into left-to-right chaining.
 
 ```bridje
@@ -663,19 +663,21 @@ doseq: [idx range(inc(.lastApplied(state)), inc(.commitIndex(state)))]
 ## Namespaces
 
 ```bridje
-ns: raft:server
-  alias:
-    proc: brj:proc
+ns: raft.server
+  require:
+    brj:
+      as(proc, p)
 ```
 
-`:` separates namespace segments.
-`alias` creates short names for other namespaces.
-Qualified symbols: `proc:spawn`, `proc:Recv`.
+`.` separates namespace segments.
+`/` separates namespace from member.
+`require` brings in Bridje namespaces; `import` brings in Java classes.
+Qualified symbols: `p/spawn`, `p/Recv`.
 
 ## Metadata
 
 Attach metadata to forms with `^`.
-Metadata is a keyword or a record attached to the following form:
+Metadata is a member key or a record attached to the following form:
 
 ```bridje
 ^.test

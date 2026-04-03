@@ -10,7 +10,7 @@ class NsTest {
             ns: foo
             def: x 42
         """.trimIndent())
-        val result = ctx.evalBridje("foo:x")
+        val result = ctx.evalBridje("foo/x")
         assertEquals(42L, result.asLong())
     }
 
@@ -21,8 +21,8 @@ class NsTest {
             def: a 1
             def: b 2
         """.trimIndent())
-        assertEquals(1L, ctx.evalBridje("foo:a").asLong())
-        assertEquals(2L, ctx.evalBridje("foo:b").asLong())
+        assertEquals(1L, ctx.evalBridje("foo.a").asLong())
+        assertEquals(2L, ctx.evalBridje("foo.b").asLong())
     }
 
     @Test
@@ -31,45 +31,45 @@ class NsTest {
             ns: math
             def: double(x) add(x, x)
         """.trimIndent())
-        val result = ctx.evalBridje("math:double(21)")
+        val result = ctx.evalBridje("math/double(21)")
         assertEquals(42L, result.asLong())
     }
 
     @Test
     fun `qualified reference to core`() = withContext { ctx ->
-        val result = ctx.evalBridje("brj:core:add(1, 2)")
+        val result = ctx.evalBridje("brj.core/add(1, 2)")
         assertEquals(3L, result.asLong())
     }
 
     @Test
     fun `ns with nested name`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: my:lib
+            ns: my.lib
             def: val 99
         """.trimIndent())
-        val result = ctx.evalBridje("my:lib:val")
+        val result = ctx.evalBridje("my.lib/val")
         assertEquals(99L, result.asLong())
     }
 
     @Test
     fun `scope exposes namespaces`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: test:ns
+            ns: test.ns
             def: x 42
         """.trimIndent())
         val bindings = ctx.getBindings("bridje")
-        assertTrue(bindings.hasMember("brj:core"))
-        assertTrue(bindings.hasMember("test:ns"))
+        assertTrue(bindings.hasMember("brj.core"))
+        assertTrue(bindings.hasMember("test.ns"))
     }
 
     @Test
     fun `scope exposes namespace members`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: test:ns
+            ns: test.ns
             def: x 42
         """.trimIndent())
         val bindings = ctx.getBindings("bridje")
-        val ns = bindings.getMember("test:ns")
+        val ns = bindings.getMember("test.ns")
         assertTrue(ns.hasMember("x"))
         assertEquals(42L, ns.getMember("x").asLong())
     }
@@ -77,7 +77,7 @@ class NsTest {
     @Test
     fun `scope exposes core functions`() = withContext { ctx ->
         val bindings = ctx.getBindings("bridje")
-        val core = bindings.getMember("brj:core")
+        val core = bindings.getMember("brj.core")
         assertTrue(core.hasMember("add"))
         assertTrue(core.getMember("add").canExecute())
     }
@@ -87,9 +87,9 @@ class NsTest {
         val ns = ctx.evalBridje("""
             ns: foo
               import:
-                java:time:
+                java.time:
                   Instant
-            def: result Instant:now()
+            def: result Instant/now()
         """.trimIndent())
         assertTrue(ns.getMember("result").isInstant)
     }
@@ -99,7 +99,7 @@ class NsTest {
         val ns = ctx.evalBridje("""
             ns: foo
               import:
-                java:util:
+                java.util:
                   as(ArrayList, AL)
             def: result AL()
         """.trimIndent())
@@ -109,7 +109,7 @@ class NsTest {
     @Test
     fun `require allows using alias`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: my:lib
+            ns: my.lib
             def: answer 42
         """.trimIndent())
 
@@ -118,7 +118,7 @@ class NsTest {
               require:
                 my:
                   lib
-            def: result lib:answer
+            def: result lib/answer
         """.trimIndent())
 
         assertEquals(42L, ns.getMember("result").asLong())
@@ -127,7 +127,7 @@ class NsTest {
     @Test
     fun `require with explicit alias`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: my:utils
+            ns: my.utils
             def: double(x) add(x, x)
         """.trimIndent())
 
@@ -136,7 +136,7 @@ class NsTest {
               require:
                 my:
                   as(utils, u)
-            def: result u:double(21)
+            def: result u/double(21)
         """.trimIndent())
 
         assertEquals(42L, ns.getMember("result").asLong())

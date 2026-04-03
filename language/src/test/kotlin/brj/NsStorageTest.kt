@@ -7,13 +7,13 @@ class NsStorageTest {
     @Test
     fun `ns stores NsDecl and forms`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: test:storage
+            ns: test.storage
             def: x 42
             def: y 100
         """.trimIndent())
         
         val bindings = ctx.getBindings("bridje")
-        val ns = bindings.getMember("test:storage")
+        val ns = bindings.getMember("test.storage")
         
         // Verify the namespace exists
         assertNotNull(ns)
@@ -28,20 +28,20 @@ class NsStorageTest {
     @Test
     fun `ns with requires stores dependency info`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: lib:base
+            ns: lib.base
             def: value 10
         """.trimIndent())
         
         ctx.evalBridje("""
-            ns: lib:dependent
+            ns: lib.dependent
               require:
                 lib:
                   base
-            def: doubled lib:base:value
+            def: doubled lib.base/value
         """.trimIndent())
         
         val bindings = ctx.getBindings("bridje")
-        val dependentNs = bindings.getMember("lib:dependent")
+        val dependentNs = bindings.getMember("lib.dependent")
         
         assertNotNull(dependentNs)
         assertTrue(dependentNs.hasMember("doubled"))

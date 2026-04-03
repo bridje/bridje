@@ -84,7 +84,7 @@ class RunCommand : CliktCommand(name = "run") {
     }
 
     private fun nsNameToResourcePath(nsName: String): String =
-        nsName.replace(':', '/') + ".brj"
+        nsName.replace('.', '/') + ".brj"
 }
 
 private val logger = System.getLogger("brj.main")

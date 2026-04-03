@@ -6,20 +6,20 @@ import org.junit.jupiter.api.Test
 class InteropTest {
     @Test
     fun `calls java static method via qualified symbol`() = withContext { ctx ->
-        val result = ctx.evalBridje("java:time:Instant:now()")
+        val result = ctx.evalBridje("java.time.Instant/now()")
         assertTrue(result.isInstant, "Result should be an Instant")
     }
 
     @Test
     fun `instantiates java object with constructor call`() = withContext { ctx ->
-        val result = ctx.evalBridje("java:lang:String(\"hello\")")
+        val result = ctx.evalBridje("java.lang.String(\"hello\")")
         assertTrue(result.isString, "Result should be a String")
         assertEquals("hello", result.asString())
     }
 
     @Test
     fun `constructor as first-class value can be invoked`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("java:lang:String")
+        val constructor = ctx.evalBridje("java.lang.String")
         assertTrue(constructor.canInstantiate(), "Constructor should be instantiable")
         val result = constructor.newInstance("world")
         assertTrue(result.isString, "Result should be a String")
@@ -29,7 +29,7 @@ class InteropTest {
     @Test
     fun `returns first-class constructor value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            let: [ctor java:lang:String]
+            let: [ctor java.lang.String]
               ctor("from-constructor")
         """.trimIndent())
         assertTrue(result.isString, "Result should be a String")
@@ -38,7 +38,7 @@ class InteropTest {
 
     @Test
     fun `evaluating package class returns Truffle object that can be instantiated via Graal API`() = withContext { ctx ->
-        val hostClass = ctx.evalBridje("java:lang:String")
+        val hostClass = ctx.evalBridje("java.lang.String")
 
         assertTrue(hostClass.canInstantiate())
         val instance = hostClass.newInstance("via-instantiate")

@@ -107,7 +107,7 @@ data class Analyser(
 
     private fun tryHostLookup(name: String, loc: SourceSection?): TruffleObject? =
         try {
-            ctx.truffleEnv.lookupHostSymbol(name.replace(':', '.')) as TruffleObject
+            ctx.truffleEnv.lookupHostSymbol(name) as TruffleObject
         } catch (_: Exception) {
             null
         }
@@ -133,7 +133,7 @@ data class Analyser(
         }
 
     private fun resolveKey(name: String): GlobalVar? {
-        val idx = name.lastIndexOf(':')
+        val idx = name.lastIndexOf('/')
         if (idx >= 0) {
             val nsAlias = name.substring(0, idx)
             val member = name.substring(idx + 1)
@@ -184,15 +184,15 @@ data class Analyser(
             return GlobalVarExpr(globalVar, form.loc)
         }
 
-        val fqClass = nsEnv.imports[form.namespace] ?: form.namespace.replace(':', '.')
+        val fqClass = nsEnv.imports[form.namespace] ?: form.namespace
 
         val hostClass =
             try {
-                ctx.truffleEnv.lookupHostSymbol(fqClass.replace(':', '.')) as TruffleObject
+                ctx.truffleEnv.lookupHostSymbol(fqClass) as TruffleObject
             } catch (_: Exception) {
                 // Namespace lookup failed - try the full qualified name as a Java class
-                // (e.g., java:lang:String where namespace=java:lang, member=String)
-                val fullName = "${form.namespace}:${form.member}"
+                // (e.g., java.lang.String where namespace=java.lang, member=String)
+                val fullName = "${form.namespace}.${form.member}"
                 tryHostLookup(fullName, form.loc)?.let { return HostConstructorExpr(it, form.loc) }
                 return errorExpr("Unknown namespace: ${form.namespace}", form.loc)
             }
@@ -754,7 +754,7 @@ data class Analyser(
             else -> when {
                 name[0].isUpperCase() -> {
                     val ns = nsEnv[name]?.let { nsEnv.nsDecl?.name ?: "" }
-                        ?: ctx.brjCore[name]?.let { "brj:core" }
+                        ?: ctx.brjCore[name]?.let { "brj.core" }
                     if (ns != null) {
                         TagType(ns, name).notNull()
                     } else {

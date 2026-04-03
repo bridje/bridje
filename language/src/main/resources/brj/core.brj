@@ -1,4 +1,4 @@
-ns: brj:core
+ns: brj.core
 
 defmacro: ifLet(bindings, then, else)
   let: [bvec first(bindings)]

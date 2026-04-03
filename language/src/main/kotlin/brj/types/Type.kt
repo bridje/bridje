@@ -88,7 +88,7 @@ data object RecordType: BaseType {
 data class TagType(val ns: String, val name: String): BaseType {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
-    override fun toString() = if (ns.isEmpty()) name else "$ns:$name"
+    override fun toString() = if (ns.isEmpty()) name else "$ns.$name"
 }
 
 enum class Variance { IN, OUT, INVARIANT }

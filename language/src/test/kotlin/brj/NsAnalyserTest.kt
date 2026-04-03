@@ -14,23 +14,23 @@ class NsAnalyserTest {
     @Test
     fun `parses imports`() {
         val (nsDecl, _) = """
-            ns: foo:bar
+            ns: foo.bar
               import:
-                java:time:
+                java.time:
                   as(Instant, Inst)
                   as(Duration, Dur)
-                java:util:
+                java.util:
                   Map List Set
         """.trimIndent().parseNs()
 
-        assertEquals("foo:bar", nsDecl?.name)
+        assertEquals("foo.bar", nsDecl?.name)
         assertEquals(
             mapOf(
-                "Inst" to "java:time:Instant",
-                "Dur" to "java:time:Duration",
-                "Map" to "java:util:Map",
-                "List" to "java:util:List",
-                "Set" to "java:util:Set"
+                "Inst" to "java.time.Instant",
+                "Dur" to "java.time.Duration",
+                "Map" to "java.util.Map",
+                "List" to "java.util.List",
+                "Set" to "java.util.Set"
             ),
             nsDecl?.imports
         )
@@ -39,18 +39,18 @@ class NsAnalyserTest {
     @Test
     fun `parses requires`() {
         val (nsDecl, _) = """
-            ns: foo:bar
+            ns: foo.bar
               require:
                 other:
                   as(lib, lib)
                   util
         """.trimIndent().parseNs()
 
-        assertEquals("foo:bar", nsDecl?.name)
+        assertEquals("foo.bar", nsDecl?.name)
         assertEquals(
             mapOf(
-                "lib" to "other:lib",
-                "util" to "other:util"
+                "lib" to "other.lib",
+                "util" to "other.util"
             ),
             nsDecl?.requires
         )

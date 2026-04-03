@@ -9,7 +9,7 @@ class EffectTest {
     @Test
     fun `defx declares effect var with default`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:fx1
+            ns: test.fx1
             (defx myId (Fn [Int] Int) (fn (id x) x))
         """.trimIndent())
         val myId = ns.getMember("myId")
@@ -134,7 +134,7 @@ class EffectTest {
     @Test
     fun `effect in namespace`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:fx:ns
+            ns: test.fx.ns
             (defx myEffect (Fn [Int] Int) (fn (id x) x))
             (def (useEffect n) (myEffect n))
         """.trimIndent())

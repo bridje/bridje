@@ -174,7 +174,7 @@ foo(a, b)
 Java class reference (parses as qualified symbol)
 ==================
 
-java:time:Instant
+java.time.Instant
 
 ---
 
@@ -182,10 +182,10 @@ java:time:Instant
   (qualified_symbol))
 
 ==================
-Qualified symbol (ns:member)
+Qualified symbol (ns/member)
 ==================
 
-java:time:Instant:now
+java.time.Instant/now
 
 ---
 
@@ -196,7 +196,7 @@ java:time:Instant:now
 Qualified symbol call
 ==================
 
-java:time:Instant:now()
+java.time.Instant/now()
 
 ---
 
@@ -208,7 +208,7 @@ java:time:Instant:now()
 Simple qualified symbol
 ==================
 
-foo:bar
+foo/bar
 
 ---
 
@@ -219,7 +219,7 @@ foo:bar
 Qualified symbol with args
 ==================
 
-math:add(1, 2)
+math/add(1, 2)
 
 ---
 
@@ -261,7 +261,7 @@ Gensym in quoted list
 Qualified symbol with gensym suffix
 ==================
 
-ns:foo#
+ns/foo#
 
 ---
 
@@ -430,7 +430,7 @@ Foo{.name "James", .age 42}
 Record sugar with qualified symbol
 ==================
 
-ns:Foo{.name "James"}
+ns/Foo{.name "James"}
 
 ---
 
@@ -455,7 +455,7 @@ Optional keyword
 Qualified keyword
 ==================
 
-.ns:member
+ns/.member
 
 ---
 

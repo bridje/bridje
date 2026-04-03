@@ -45,11 +45,27 @@ class Reader private constructor(private val src: Source) {
             "bigdec" -> BigDecForm(BigDecimal(text!!.dropLast(1)), loc)
             "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
             "symbol" -> SymbolForm(text!!, loc)
-            "keyword" -> KeywordForm(text!!.drop(1), loc)
+            "keyword" -> {
+                val t = text!!
+                val slashDot = t.indexOf("/.")
+                if (slashDot >= 0) {
+                    // Qualified: ns/.member → name="ns/member"
+                    KeywordForm(t.substring(0, slashDot) + "/" + t.substring(slashDot + 2), loc)
+                } else {
+                    // Simple: .member → name="member"
+                    KeywordForm(t.drop(1), loc)
+                }
+            }
             "qualified_symbol" -> {
                 val t = text!!
-                val idx = t.lastIndexOf(':')
-                QualifiedSymbolForm(t.substring(0, idx), t.substring(idx + 1), loc)
+                val slash = t.indexOf('/')
+                if (slash >= 0) {
+                    QualifiedSymbolForm(t.substring(0, slash), t.substring(slash + 1), loc)
+                } else {
+                    // Dotted namespace name: split on last dot
+                    val lastDot = t.lastIndexOf('.')
+                    QualifiedSymbolForm(t.substring(0, lastDot), t.substring(lastDot + 1), loc)
+                }
             }
 
             "list" -> ListForm(namedChildren.map { it.readForm() }, loc)

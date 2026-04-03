@@ -1,4 +1,4 @@
-ns: require_test:circular_b
+ns: require_test.circular_b
   require:
     require_test:
       circular_a

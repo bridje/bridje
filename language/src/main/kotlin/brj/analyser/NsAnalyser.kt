@@ -6,7 +6,7 @@ private fun analyseSpec(prefix: String, spec: Form): Pair<String, String> =
     when (spec) {
         is SymbolForm -> {
             val name = spec.name
-            name to "$prefix:$name"
+            name to "$prefix.$name"
         }
         is ListForm -> {
             if ((spec.els.firstOrNull() as? SymbolForm)?.name != "as") {
@@ -16,7 +16,7 @@ private fun analyseSpec(prefix: String, spec: Form): Pair<String, String> =
                 ?: error("as requires name: $spec")
             val alias = (spec.els.getOrNull(2) as? SymbolForm)?.name
                 ?: error("as requires alias: $spec")
-            alias to "$prefix:$name"
+            alias to "$prefix.$name"
         }
         else -> error("invalid spec: $spec")
     }
@@ -48,7 +48,7 @@ fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
 
     val nsName = when (val nameForm = els.getOrNull(1)) {
         is SymbolForm -> nameForm.name
-        is QualifiedSymbolForm -> "${nameForm.namespace}:${nameForm.member}"
+        is QualifiedSymbolForm -> "${nameForm.namespace}.${nameForm.member}"
         else -> error("ns requires a name")
     }
 

@@ -14,7 +14,7 @@ class RequireNsNode(
 
     companion object {
         private fun nsNameToResourcePath(nsName: String): String =
-            nsName.replace(':', '/') + ".brj"
+            nsName.replace('.', '/') + ".brj"
     }
 
     @TruffleBoundary

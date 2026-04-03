@@ -14,7 +14,7 @@ class DeclTest {
     @Test
     fun `decl value type`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl
+            ns: test.decl
             decl: x Int
             def: x 42
         """.trimIndent())
@@ -27,7 +27,7 @@ class DeclTest {
     @Test
     fun `decl function type`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl:fn
+            ns: test.decl.fn
             decl: foo(Int, Str) Bool
             def: foo(a, b) true
         """.trimIndent())
@@ -40,7 +40,7 @@ class DeclTest {
     @Test
     fun `decl nullable type`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl:nullable
+            ns: test.decl.nullable
             decl: name Str?
             def: name nil
         """.trimIndent())
@@ -53,7 +53,7 @@ class DeclTest {
     @Test
     fun `decl vector type`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl:vec
+            ns: test.decl.vec
             decl: nums [Int]
             def: nums [1, 2, 3]
         """.trimIndent())
@@ -66,7 +66,7 @@ class DeclTest {
     @Test
     fun `decl fn type value`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl:fnval
+            ns: test.decl.fnval
             decl: callback Fn([Int] Bool)
             def: callback(x) true
         """.trimIndent())
@@ -79,7 +79,7 @@ class DeclTest {
     @Test
     fun `decl tag type`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl:tag
+            ns: test.decl.tag
             deftag: User(name)
             decl: user User
             def: user User("James")
@@ -87,13 +87,13 @@ class DeclTest {
         val meta = ns.varMeta("user")
         assertTrue(meta.hasMember("declaredType"))
         val declType = meta.getMember("declaredType")
-        assertEquals("test:decl:tag:User", declType.displayString())
+        assertEquals("test.decl.tag.User", declType.displayString())
     }
 
     @Test
     fun `decl without def does not error`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl:pending
+            ns: test.decl.pending
             decl: x Int
         """.trimIndent())
         assertNotNull(ns)
@@ -102,7 +102,7 @@ class DeclTest {
     @Test
     fun `def without decl has no declaredType in meta`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl:noDecl
+            ns: test.decl.noDecl
             def: x 42
         """.trimIndent())
         val meta = ns.varMeta("x")
@@ -125,7 +125,7 @@ class DeclTest {
     @Test
     fun `decl preserves existing meta`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:decl:meta
+            ns: test.decl.meta
             defkeys: {.test Bool}
             decl: x Int
             ^.test

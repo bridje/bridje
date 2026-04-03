@@ -1,4 +1,4 @@
-ns: main_test:nested:app
+ns: main_test.nested.app
 
 def: main(args)
   "nested"

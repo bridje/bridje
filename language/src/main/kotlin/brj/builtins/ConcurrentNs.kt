@@ -38,7 +38,7 @@ object ConcurrentNs {
                 "ensureActive" to GlobalVar("ensureActive", BridjeFunction(EnsureActiveNode(language).callTarget), type = ensureActiveType),
                 "sleepMs" to GlobalVar("sleepMs", BridjeFunction(SleepMsNode(language).callTarget), type = sleepMsType),
             ),
-            nsDecl = NsDecl("brj:concurrent"),
+            nsDecl = NsDecl("brj.concurrent"),
         )
     }
 }

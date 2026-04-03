@@ -10,7 +10,7 @@ class MainTest {
     @Test
     fun `runs namespace main function with no args`() {
         val command = BridjeMain().subcommands(RunCommand())
-        val result = command.test("run main_test:simple")
+        val result = command.test("run main_test.simple")
 
         assertEquals(0, result.statusCode)
     }
@@ -18,7 +18,7 @@ class MainTest {
     @Test
     fun `runs namespace main function with args`() {
         val command = BridjeMain().subcommands(RunCommand())
-        val result = command.test("run main_test:simple arg1 arg2")
+        val result = command.test("run main_test.simple arg1 arg2")
 
         assertEquals(0, result.statusCode)
     }
@@ -42,7 +42,7 @@ class MainTest {
     @Test
     fun `fails when namespace not found`() {
         val command = BridjeMain().subcommands(RunCommand())
-        val result = command.test("run nonexistent:namespace")
+        val result = command.test("run nonexistent.namespace")
         
         assertNotEquals(0, result.statusCode)
         assertTrue(result.output.contains("not found") || result.output.contains("Error"))
@@ -51,7 +51,7 @@ class MainTest {
     @Test
     fun `fails when main function not defined`() {
         val command = BridjeMain().subcommands(RunCommand())
-        val result = command.test("run require_test:base")
+        val result = command.test("run require_test.base")
         
         assertNotEquals(0, result.statusCode)
         assertTrue(result.output.contains("main") || result.output.contains("Error"))
@@ -60,7 +60,7 @@ class MainTest {
     @Test
     fun `runs nested namespace main function`() {
         val command = BridjeMain().subcommands(RunCommand())
-        val result = command.test("run main_test:nested:app")
+        val result = command.test("run main_test.nested.app")
 
         assertEquals(0, result.statusCode)
     }

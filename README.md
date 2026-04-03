@@ -99,7 +99,7 @@ That said, it has three syntactic sugars that make it feel like a more mainstrea
        (mul c 2)))
    ```
 
-Left-to-right chaining uses the `->` threading macro (defined in `brj:core`), which inserts the previous value as the first argument to each step:
+Left-to-right chaining uses the `->` threading macro (defined in `brj.core`), which inserts the previous value as the first argument to each step:
 
 ```bridje
 ->: cluster count() div(2) inc()

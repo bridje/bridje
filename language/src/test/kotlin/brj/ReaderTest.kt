@@ -122,17 +122,17 @@ class ReaderTest {
 
     @Test
     fun `reads qualified symbol`() =
-        assertReads(qsym("java:time:Instant", "now"), "java:time:Instant:now".readSingle())
+        assertReads(qsym("java.time.Instant", "now"), "java.time.Instant/now".readSingle())
 
     @Test
     fun `reads simple qualified symbol`() =
-        assertReads(qsym("foo", "bar"), "foo:bar".readSingle())
+        assertReads(qsym("foo", "bar"), "foo/bar".readSingle())
 
     @Test
     fun `reads qualified symbol call`() =
         assertReads(
-            list(qsym("java:time:Instant", "now")),
-            "java:time:Instant:now()".readSingle()
+            list(qsym("java.time.Instant", "now")),
+            "java.time.Instant/now()".readSingle()
         )
 
     private fun String.readWithLocation(): Form =

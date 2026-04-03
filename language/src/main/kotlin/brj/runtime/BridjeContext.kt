@@ -23,7 +23,7 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
 
     val brjConcurrent: NsEnv = ConcurrentNs.create(lang)
 
-    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj:core" to brjCore, "brj:concurrent" to brjConcurrent))
+    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj.core" to brjCore, "brj.concurrent" to brjConcurrent))
         private set
 
     val loadingInProgress: MutableSet<String> = mutableSetOf()

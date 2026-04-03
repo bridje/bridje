@@ -10,11 +10,11 @@ class ConcurrentTest {
     @Test
     fun `spawn and await basic`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            ns: test:concurrent
+            ns: test.concurrent
               require:
                 brj:
                   as(concurrent, c)
-            def: result c:await(c:spawn(fn: f() 42))
+            def: result c/await(c/spawn(fn: f() 42))
         """.trimIndent())
 
         assertEquals(42L, result.getMember("result").asLong())
@@ -23,11 +23,11 @@ class ConcurrentTest {
     @Test
     fun `spawn runs on a different thread`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            ns: test:concurrent:thread
+            ns: test.concurrent.thread
               require:
                 brj:
                   as(concurrent, c)
-            def: result c:await(c:spawn(fn: f() "hello"))
+            def: result c/await(c/spawn(fn: f() "hello"))
         """.trimIndent())
 
         assertEquals("hello", result.getMember("result").asString())
@@ -36,15 +36,15 @@ class ConcurrentTest {
     @Test
     fun `interrupt completed deferred returns false`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            ns: test:concurrent:interrupt
+            ns: test.concurrent.interrupt
               require:
                 brj:
                   as(concurrent, c)
             def: result
-              let: [d c:spawn(fn: f() 42)]
+              let: [d c/spawn(fn: f() 42)]
                 do:
-                  c:await(d)
-                  c:interrupt(d)
+                  c/await(d)
+                  c/interrupt(d)
         """.trimIndent())
 
         assertEquals(false, result.getMember("result").asBoolean())
@@ -53,11 +53,11 @@ class ConcurrentTest {
     @Test
     fun `ensureActive throws when interrupted`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:concurrent:ensure
+            ns: test.concurrent.ensure
               require:
                 brj:
                   as(concurrent, c)
-            def: check() c:ensureActive()
+            def: check() c/ensureActive()
         """.trimIndent())
 
         val check = ns.getMember("check")
@@ -71,14 +71,14 @@ class ConcurrentTest {
     @Test
     fun `interrupt sleeping task`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:concurrent:interrupt:sleep
+            ns: test.concurrent.interrupt.sleep
               require:
                 brj:
                   as(concurrent, c)
-            def: spawnSleeper() c:spawn(fn: sleeper() c:sleepMs(10000))
-            def: doInterrupt(d) c:interrupt(d)
+            def: spawnSleeper() c/spawn(fn: sleeper() c/sleepMs(10000))
+            def: doInterrupt(d) c/interrupt(d)
             def: doAwait(d)
-              try: c:await(d)
+              try: c/await(d)
                 catch:
                   (Interrupted data) "interrupted"
                   e "other"
@@ -94,13 +94,13 @@ class ConcurrentTest {
     @Test
     fun `interrupt surfaces as interrupted polyglot exception`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:concurrent:interrupt:polyglot
+            ns: test.concurrent.interrupt.polyglot
               require:
                 brj:
                   as(concurrent, c)
-            def: spawnSleeper() c:spawn(fn: sleeper() c:sleepMs(10000))
-            def: doInterrupt(d) c:interrupt(d)
-            def: doAwait(d) c:await(d)
+            def: spawnSleeper() c/spawn(fn: sleeper() c/sleepMs(10000))
+            def: doInterrupt(d) c/interrupt(d)
+            def: doAwait(d) c/await(d)
         """.trimIndent())
 
         val d = ns.getMember("spawnSleeper").execute()
@@ -114,13 +114,13 @@ class ConcurrentTest {
     @Test
     fun `spawned task error is catchable`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            ns: test:concurrent:catch
+            ns: test.concurrent.catch
               require:
                 brj:
                   as(concurrent, c)
             def: result
-              let: [d c:spawn(fn: failing() throw(Fault({.exnMessage "boom"})))]
-                try: c:await(d)
+              let: [d c/spawn(fn: failing() throw(Fault({.exnMessage "boom"})))]
+                try: c/await(d)
                   catch:
                     e "caught"
         """.trimIndent())
@@ -131,13 +131,13 @@ class ConcurrentTest {
     @Test
     fun `spawned task error preserves anomaly category`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            ns: test:concurrent:catch:tag
+            ns: test.concurrent.catch.tag
               require:
                 brj:
                   as(concurrent, c)
             def: result
-              let: [d c:spawn(fn: failing() throw(NotFound({.exnMessage "gone"})))]
-                try: c:await(d)
+              let: [d c/spawn(fn: failing() throw(NotFound({.exnMessage "gone"})))]
+                try: c/await(d)
                   catch:
                     (NotFound data) "not-found"
                     e "other"
@@ -149,14 +149,14 @@ class ConcurrentTest {
     @Test
     fun `nested spawn and await`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            ns: test:concurrent:nested
+            ns: test.concurrent.nested
               require:
                 brj:
                   as(concurrent, c)
-            def: result c:await(c:spawn(fn: outer()
-                                          let: [a c:spawn(fn: work1() 10)
-                                                b c:spawn(fn: work2() 20)]
-                                            add(c:await(a), c:await(b))))
+            def: result c/await(c/spawn(fn: outer()
+                                          let: [a c/spawn(fn: work1() 10)
+                                                b c/spawn(fn: work2() 20)]
+                                            add(c/await(a), c/await(b))))
         """.trimIndent())
 
         assertEquals(30L, result.getMember("result").asLong())
@@ -165,16 +165,16 @@ class ConcurrentTest {
     @Test
     fun `parent awaits unawaited children`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:scope:join
+            ns: test.scope.join
               require:
                 brj:
                   as(concurrent, c)
             def: go()
-              c:spawn(fn: outer()
+              c/spawn(fn: outer()
                 do:
-                  c:spawn(fn: inner() do: c:sleepMs(100) 42)
+                  c/spawn(fn: inner() do: c/sleepMs(100) 42)
                   "outer-done")
-            def: doAwait(d) c:await(d)
+            def: doAwait(d) c/await(d)
         """.trimIndent())
 
         val start = System.currentTimeMillis()
@@ -187,18 +187,18 @@ class ConcurrentTest {
     @Test
     fun `cascading interrupt cancels children`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:scope:cascade
+            ns: test.scope.cascade
               require:
                 brj:
                   as(concurrent, c)
             def: go()
-              c:spawn(fn: outer()
+              c/spawn(fn: outer()
                 do:
-                  c:spawn(fn: inner() c:sleepMs(10000))
-                  c:sleepMs(10000))
-            def: doInterrupt(d) c:interrupt(d)
+                  c/spawn(fn: inner() c/sleepMs(10000))
+                  c/sleepMs(10000))
+            def: doInterrupt(d) c/interrupt(d)
             def: doAwait(d)
-              try: c:await(d)
+              try: c/await(d)
                 catch:
                   (Interrupted data) "interrupted"
                   e "other"
@@ -218,18 +218,18 @@ class ConcurrentTest {
     @Test
     fun `failed child cancels siblings`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:scope:fail
+            ns: test.scope.fail
               require:
                 brj:
                   as(concurrent, c)
             def: go()
-              c:spawn(fn: outer()
+              c/spawn(fn: outer()
                 do:
-                  c:spawn(fn: slow() c:sleepMs(10000))
-                  c:spawn(fn: failing() do: c:sleepMs(50) throw(Fault({.exnMessage "boom"})))
-                  c:sleepMs(10000))
+                  c/spawn(fn: slow() c/sleepMs(10000))
+                  c/spawn(fn: failing() do: c/sleepMs(50) throw(Fault({.exnMessage "boom"})))
+                  c/sleepMs(10000))
             def: doAwait(d)
-              try: c:await(d)
+              try: c/await(d)
                 catch:
                   (Fault data) "fault"
                   e "other"
@@ -247,20 +247,20 @@ class ConcurrentTest {
     @Test
     fun `error propagates up the tree`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
-            ns: test:scope:propagate
+            ns: test.scope.propagate
               require:
                 brj:
                   as(concurrent, c)
             def: go()
-              c:spawn(fn: l1()
+              c/spawn(fn: l1()
                 do:
-                  c:spawn(fn: l2()
+                  c/spawn(fn: l2()
                     do:
-                      c:spawn(fn: l3() do: c:sleepMs(50) throw(Fault({.exnMessage "deep"})))
-                      c:sleepMs(10000))
-                  c:sleepMs(10000))
+                      c/spawn(fn: l3() do: c/sleepMs(50) throw(Fault({.exnMessage "deep"})))
+                      c/sleepMs(10000))
+                  c/sleepMs(10000))
             def: doAwait(d)
-              try: c:await(d)
+              try: c/await(d)
                 catch:
                   (Fault data) "fault"
                   e "other"

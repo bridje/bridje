@@ -7,40 +7,40 @@ class NsClasspathLoadingTest {
     @Test
     fun `loads namespace from classpath`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: test:user
+            ns: test.user
               require:
                 require_test:
                   base
 
-            def: result require_test:base:value
+            def: result require_test.base/value
         """.trimIndent())
 
         val bindings = ctx.getBindings("bridje")
-        assertTrue(bindings.hasMember("test:user"))
-        assertEquals(42L, bindings.getMember("test:user").getMember("result").asLong())
+        assertTrue(bindings.hasMember("test.user"))
+        assertEquals(42L, bindings.getMember("test.user").getMember("result").asLong())
     }
 
     @Test
     fun `loads transitive dependencies from classpath`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: test:user
+            ns: test.user
               require:
                 require_test:
                   as(dependent, dep)
 
-            def: result dep:doubled
+            def: result dep/doubled
         """.trimIndent())
 
         val bindings = ctx.getBindings("bridje")
-        assertTrue(bindings.hasMember("test:user"))
-        assertEquals(84L, bindings.getMember("test:user").getMember("result").asLong())
+        assertTrue(bindings.hasMember("test.user"))
+        assertEquals(84L, bindings.getMember("test.user").getMember("result").asLong())
     }
 
     @Test
     fun `detects circular dependency`() = withContext { ctx ->
         try {
             ctx.evalBridje("""
-                ns: test:user
+                ns: test.user
                   require:
                     require_test:
                       circular_a
@@ -57,7 +57,7 @@ class NsClasspathLoadingTest {
     fun `error when namespace not found on classpath`() = withContext { ctx ->
         try {
             ctx.evalBridje("""
-                ns: test:user
+                ns: test.user
                   require:
                     nonexistent:
                       module
@@ -67,31 +67,31 @@ class NsClasspathLoadingTest {
             fail("Expected namespace not found error")
         } catch (e: Exception) {
             assertTrue(e.message?.contains("not found") ?: false ||
-                      e.message?.contains("nonexistent:module") ?: false)
+                      e.message?.contains("nonexistent.module") ?: false)
         }
     }
 
     @Test
     fun `mixed in-memory and classpath loading`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: inmemory:base
+            ns: inmemory.base
 
             def: value 100
         """.trimIndent())
 
         ctx.evalBridje("""
-            ns: test:user
+            ns: test.user
               require:
                 inmemory:
                   base
                 require_test:
                   base
 
-            def: sum add(inmemory:base:value, require_test:base:value)
+            def: sum add(inmemory.base/value, require_test.base/value)
         """.trimIndent())
 
         val bindings = ctx.getBindings("bridje")
-        assertTrue(bindings.hasMember("test:user"))
-        assertEquals(142L, bindings.getMember("test:user").getMember("sum").asLong())
+        assertTrue(bindings.hasMember("test.user"))
+        assertEquals(142L, bindings.getMember("test.user").getMember("sum").asLong())
     }
 }

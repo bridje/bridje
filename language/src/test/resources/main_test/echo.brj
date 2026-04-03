@@ -1,4 +1,4 @@
-ns: main_test:echo
+ns: main_test.echo
 
 def: main(args)
   42
