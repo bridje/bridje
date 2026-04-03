@@ -8,7 +8,7 @@ plugins {
 }
 
 java.toolchain {
-    languageVersion.set(JavaLanguageVersion.of(24))
+    languageVersion.set(JavaLanguageVersion.of(25))
     vendor.set(JvmVendorSpec.GRAAL_VM)
 }
 
