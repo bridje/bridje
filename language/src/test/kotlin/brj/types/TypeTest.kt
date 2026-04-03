@@ -82,7 +82,7 @@ class TypeTest {
     @Test
     fun `fn literal has FnType`() {
         val x = LocalVar("x", 0)
-        val type = FnExpr("f", listOf(x), LocalVarExpr(x), 1, emptyList()).checkType()
+        val type = FnExpr("f", listOf(x), LocalVarExpr(x), 1, emptyList(), isVariadic = false).checkType()
         val fnBase = type.base as FnType
         assertEquals(1, fnBase.paramTypes.size)
         assertNotNull(fnBase.returnType)
@@ -91,7 +91,7 @@ class TypeTest {
     @Test
     fun `call infers return type from fn`() {
         val x = LocalVar("x", 0)
-        val fn = FnExpr("f", listOf(x), IntExpr(42), 1, emptyList())
+        val fn = FnExpr("f", listOf(x), IntExpr(42), 1, emptyList(), isVariadic = false)
         val type = CallExpr(fn, listOf(StringExpr("hello"))).checkType()
         assertEquals(IntType, type.base)
         assertEquals(NOT_NULL, type.nullability)
@@ -100,7 +100,7 @@ class TypeTest {
     @Test
     fun `identity fn called with int`() {
         val x = LocalVar("x", 0)
-        val identity = FnExpr("id", listOf(x), LocalVarExpr(x), 1, emptyList())
+        val identity = FnExpr("id", listOf(x), LocalVarExpr(x), 1, emptyList(), isVariadic = false)
         val type = CallExpr(identity, listOf(IntExpr(1))).checkType()
         assertEquals(IntType, type.base)
         assertEquals(NOT_NULL, type.nullability)
@@ -110,8 +110,8 @@ class TypeTest {
     fun `higher-order fn returning fn`() {
         val x = LocalVar("x", 0)
         val y = LocalVar("y", 0)
-        val inner = FnExpr("inner", listOf(y), CapturedVarExpr(0, x), 1, listOf(CapturedVar("x", x, 0, FrameSlotCapture(0))))
-        val outer = FnExpr("outer", listOf(x), inner, 1, emptyList())
+        val inner = FnExpr("inner", listOf(y), CapturedVarExpr(0, x), 1, listOf(CapturedVar("x", x, 0, FrameSlotCapture(0))), isVariadic = false)
+        val outer = FnExpr("outer", listOf(x), inner, 1, emptyList(), isVariadic = false)
         val type = outer.checkType()
         val outerFn = type.base as FnType
         val innerFn = outerFn.returnType.base as FnType
@@ -242,7 +242,7 @@ class TypeTest {
     fun `call fn with trailing Record param without passing record`() {
         val x = LocalVar("x", 0)
         val opts = LocalVar("opts", 1)
-        val fn = FnExpr("f", listOf(x, opts), LocalVarExpr(x), 2, emptyList())
+        val fn = FnExpr("f", listOf(x, opts), LocalVarExpr(x), 2, emptyList(), isVariadic = false)
         // fn is Fn([?, Record] ?) — give opts a Record type by using it in a record position
         // Simpler: just use a GlobalVar with a known FnType
         val fnType = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull()

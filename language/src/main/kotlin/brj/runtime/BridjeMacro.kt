@@ -6,7 +6,7 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeMacro(val fn: Any) : TruffleObject {
+class BridjeMacro(val fn: Any, val fixedArity: Int, val isVariadic: Boolean) : TruffleObject {
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage

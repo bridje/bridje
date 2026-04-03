@@ -68,9 +68,15 @@ class FnExpr(
     val bodyExpr: ValueExpr,
     val slotCount: Int,
     val captures: List<CapturedVar>,
+    val isVariadic: Boolean,
     override val loc: SourceSection? = null
 ) : ValueExpr {
-    override fun toString(): String = "(fn ($fnName ${params.joinToString(" ") { it.name }}) $bodyExpr)"
+    override fun toString(): String {
+        val paramStrs = params.mapIndexed { i, lv ->
+            if (isVariadic && i == params.lastIndex) "& ${lv.name}" else lv.name
+        }
+        return "(fn ($fnName ${paramStrs.joinToString(" ")}) $bodyExpr)"
+    }
 }
 
 class CallExpr(

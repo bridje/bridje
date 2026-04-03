@@ -5,6 +5,7 @@ import brj.Result
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeKey
 import brj.runtime.BridjeMacro
+import brj.runtime.BridjeVector
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
 import brj.types.*
@@ -636,7 +637,7 @@ data class Analyser(
 
         val bodyExpr = fnAnalyser.analyseBody(bodyForms, form.loc)
 
-        return FnExpr(fnName, paramLvs, bodyExpr, fnAnalyser.slotCount, captures, form.loc)
+        return FnExpr(fnName, paramLvs, bodyExpr, fnAnalyser.slotCount, captures, isVariadic = false, loc = form.loc)
     }
 
     private fun analyseCall(form: ListForm): ValueExpr {
@@ -651,7 +652,14 @@ data class Analyser(
                     return errorExpr("Maximum macro expansion depth ($MAX_EXPANSION_DEPTH) exceeded", form.loc)
                 }
                 val interop = InteropLibrary.getUncached()
-                val args = els.drop(1).toTypedArray<Any>()
+                val argForms = els.drop(1)
+                val args: Array<Any> = if (value.isVariadic) {
+                    val fixed = argForms.take(value.fixedArity)
+                    val rest = BridjeVector(argForms.drop(value.fixedArity).toTypedArray<Any>())
+                    (fixed + rest).toTypedArray()
+                } else {
+                    argForms.toTypedArray<Any>()
+                }
                 val expanded = interop.execute(value.fn, *args) as Form
                 return copy(expansionDepth = expansionDepth + 1)
                     .analyseValueExpr(expanded)
@@ -883,9 +891,20 @@ data class Analyser(
             ?: return errorExpr("defmacro signature must start with a name", sigForm.loc)
 
         val params = mutableListOf<String>()
-        for (el in sigEls.drop(1)) {
+        var isVariadic = false
+        val paramForms = sigEls.drop(1)
+        for ((i, el) in paramForms.withIndex()) {
             val sym = el as? SymbolForm
                 ?: return errorExpr("defmacro parameter must be a symbol", el.loc)
+            if (sym.name == "&") {
+                val restSym = paramForms.getOrNull(i + 1) as? SymbolForm
+                    ?: return errorExpr("& must be followed by a rest parameter name", el.loc)
+                if (i + 2 < paramForms.size)
+                    return errorExpr("& rest parameter must be the last parameter", paramForms[i + 2].loc)
+                params.add(restSym.name)
+                isVariadic = true
+                break
+            }
             params.add(sym.name)
         }
 
@@ -902,7 +921,7 @@ data class Analyser(
 
         val bodyExpr = macroAnalyser.analyseBody(bodyForms, form.loc)
 
-        return DefMacroExpr(name, FnExpr(name, paramLvs, bodyExpr, macroAnalyser.slotCount, emptyList(), form.loc), form.loc)
+        return DefMacroExpr(name, FnExpr(name, paramLvs, bodyExpr, macroAnalyser.slotCount, emptyList(), isVariadic, form.loc), form.loc)
     }
 
     private fun analyseDefx(form: ListForm): Expr {

@@ -264,4 +264,81 @@ class MacroTest {
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
+
+    @Test
+    fun `variadic macro with rest-only param`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: always42(& forms)
+                '42
+              always42(1, 2, 3)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `variadic macro with rest-only param and zero args`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: always42(& forms)
+                '42
+              always42()
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `variadic macro with fixed and rest params`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: returnFirst(x, & rest)
+                x
+              returnFirst(42, 1, 2, 3)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `variadic macro with empty rest`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: returnFirst(x, & rest)
+                x
+              returnFirst(42)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `variadic macro can access rest elements`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: secondArg(x, & rest)
+                first(rest)
+              secondArg(1, 42, 3)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `variadic macro can count rest elements`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: countRest(& rest)
+                Int(count(rest))
+              countRest(1, 2, 3)
+        """)
+        assertEquals(3L, result.asLong())
+    }
+
+    @Test
+    fun `variadic macro empty rest has zero count`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: countRest(& rest)
+                Int(count(rest))
+              countRest()
+        """)
+        assertEquals(0L, result.asLong())
+    }
 }

@@ -182,7 +182,8 @@ class ParseRootNode(
                 is DefMacroExpr -> {
                     val type = expr.fn.checkType()
                     val fn = evalExpr(expr.fn, analyser.slotCount)
-                    val macro = BridjeMacro(fn!!)
+                    val fixedArity = if (expr.fn.isVariadic) expr.fn.params.size - 1 else expr.fn.params.size
+                    val macro = BridjeMacro(fn!!, fixedArity, expr.fn.isVariadic)
                     nsEnv = nsEnv.def(expr.name, macro, type = type)
                     macro
                 }
