@@ -28,6 +28,22 @@ defmacro: orElse(value, & defaults)
          nil ~fallback
          x# x#)
 
+defmacro: and(& forms)
+  if: empty?(forms)
+    'true
+    if: eq(count(forms), 1)
+      first(forms)
+      let: [remaining '(and ~@rest(forms))]
+        '(if ~first(forms) ~remaining false)
+
+defmacro: or(& forms)
+  if: empty?(forms)
+    'false
+    if: eq(count(forms), 1)
+      first(forms)
+      let: [remaining '(or ~@rest(forms))]
+        '(if ~first(forms) true ~remaining)
+
 defmacro: ->(seed, & steps)
   if: empty?(steps)
     seed

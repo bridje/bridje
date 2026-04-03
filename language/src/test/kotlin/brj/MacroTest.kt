@@ -405,6 +405,58 @@ class MacroTest {
         assertEquals(42L, result.asLong())
     }
 
+    // and/or macros
+
+    @Test
+    fun `and with no args returns true`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("and()").asBoolean())
+    }
+
+    @Test
+    fun `and with single true arg`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("and(true)").asBoolean())
+    }
+
+    @Test
+    fun `and with single false arg`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("and(false)").asBoolean())
+    }
+
+    @Test
+    fun `and with all true`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("and(true, true, true)").asBoolean())
+    }
+
+    @Test
+    fun `and short-circuits on false`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("and(true, false, eq(div(1, 0), 0))").asBoolean())
+    }
+
+    @Test
+    fun `or with no args returns false`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("or()").asBoolean())
+    }
+
+    @Test
+    fun `or with single false arg`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("or(false)").asBoolean())
+    }
+
+    @Test
+    fun `or with all false`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("or(false, false, false)").asBoolean())
+    }
+
+    @Test
+    fun `or returns true on first true`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("or(false, true, false)").asBoolean())
+    }
+
+    @Test
+    fun `or short-circuits on true`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("or(false, true, eq(div(1, 0), 0))").asBoolean())
+    }
+
     // Unquote-splicing tests
 
     @Test
