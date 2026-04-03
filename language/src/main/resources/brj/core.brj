@@ -1,48 +1,82 @@
 ns: brj:core
 
 defmacro: ifLet(bindings, then, else)
-  let: [bvec first(bindings)
-        bname first(bvec)
-        bexpr nth(bvec, 1)]
-    '(let [v# ~bexpr]
+  let: [bvec first(bindings)]
+    '(let [v# ~nth(bvec, 1)]
        (case v#
          nil ~else
-         ~bname ~then))
+         ~first(bvec) ~then))
 
 defmacro: unlessLet(bindings, else, then)
-  let: [bvec first(bindings)
-        bname first(bvec)
-        bexpr nth(bvec, 1)]
-    '(let [v# ~bexpr]
+  let: [bvec first(bindings)]
+    '(let [v# ~nth(bvec, 1)]
        (case v#
          nil ~else
-         ~bname ~then))
+         ~first(bvec) ~then))
 
 defkeys: {:test Bool, :exnMessage Str}
 
 defmacro: orElse(value, & defaults)
   if: empty?(defaults)
     value
-    let: [fallback '(orElse ~@defaults)]
-      '(case ~value
-         nil ~fallback
-         x# x#)
+    '(case ~value
+       nil (orElse ~@defaults)
+       x# x#)
 
 defmacro: and(& forms)
   if: empty?(forms)
     'true
     if: eq(count(forms), 1)
       first(forms)
-      let: [remaining '(and ~@rest(forms))]
-        '(if ~first(forms) ~remaining false)
+      '(if ~first(forms) (and ~@rest(forms)) false)
 
 defmacro: or(& forms)
   if: empty?(forms)
     'false
     if: eq(count(forms), 1)
       first(forms)
-      let: [remaining '(or ~@rest(forms))]
-        '(if ~first(forms) true ~remaining)
+      '(if ~first(forms) true (or ~@rest(forms)))
+
+defmacro: when(cond, & body)
+  '(if ~cond (do ~@body) nil)
+
+defmacro: unless(cond, & body)
+  '(if ~cond nil (do ~@body))
+
+defmacro: cond(& clauses)
+  if: empty?(clauses)
+    'nil
+    if: eq(count(clauses), 1)
+      first(clauses)
+      '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
+
+defmacro: cond->(seed, & clauses)
+  if: empty?(clauses)
+    seed
+    let: [applied case: nth(clauses, 1)
+                    List(els) '(~first(els) v# ~@rest(els))
+                    bare '(~bare v#)]
+      '(let [v# ~seed
+             v# (if ~first(clauses) ~applied v#)]
+         (cond-> v# ~@rest(rest(clauses))))
+
+defmacro: doto(val, & forms)
+  if: empty?(forms)
+    val
+    let: [applied case: first(forms)
+                    List(els) '(~first(els) v# ~@rest(els))
+                    bare '(~bare v#)]
+      '(let [v# ~val]
+         (do ~applied (doto v# ~@rest(forms))))
+
+defmacro: as->(seed, name, & steps)
+  if: empty?(steps)
+    seed
+    '(let [~name ~seed]
+       (as-> ~first(steps) ~name ~@rest(steps)))
+
+defmacro: comment(& forms)
+  'nil
 
 defmacro: ->(seed, & steps)
   if: empty?(steps)

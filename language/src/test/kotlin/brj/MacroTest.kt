@@ -457,6 +457,128 @@ class MacroTest {
         assertTrue(ctx.evalBridje("or(false, true, eq(div(1, 0), 0))").asBoolean())
     }
 
+    // when/unless
+
+    @Test
+    fun `when true evaluates body`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("when(true, 42)").asLong())
+    }
+
+    @Test
+    fun `when false returns nil`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("when(false, 42)").isNull)
+    }
+
+    @Test
+    fun `when with multiple body forms`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("when(true, println(1), 42)").asLong())
+    }
+
+    @Test
+    fun `unless false evaluates body`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("unless(false, 42)").asLong())
+    }
+
+    @Test
+    fun `unless true returns nil`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("unless(true, 42)").isNull)
+    }
+
+    // cond
+
+    @Test
+    fun `cond matches first true test`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("cond(false, 1, true, 42, 99)").asLong())
+    }
+
+    @Test
+    fun `cond falls through to default`() = withContext { ctx ->
+        assertEquals(99L, ctx.evalBridje("cond(false, 1, false, 2, 99)").asLong())
+    }
+
+    @Test
+    fun `cond with no default returns nil`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("cond(false, 1)").isNull)
+    }
+
+    @Test
+    fun `cond short-circuits`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("cond(true, 42, eq(div(1, 0), 0), 99)").asLong())
+    }
+
+    // cond->
+
+    @Test
+    fun `cond-then applies matching steps`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("cond->(10, true, add(32), false, sub(1))").asLong())
+    }
+
+    @Test
+    fun `cond-then skips non-matching steps`() = withContext { ctx ->
+        assertEquals(10L, ctx.evalBridje("cond->(10, false, add(32))").asLong())
+    }
+
+    @Test
+    fun `cond-then threads through multiple matching steps`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("cond->(10, true, add(31), true, add(1), false, sub(100))").asLong())
+    }
+
+    @Test
+    fun `cond-then with no clauses returns seed`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("cond->(42)").asLong())
+    }
+
+    // doto
+
+    @Test
+    fun `doto threads and returns value`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: x [1, 2, 3]
+              doto(x, count(), count())
+        """)
+        // doto returns x, not the result of the side effects
+        assertTrue(result.hasArrayElements())
+        assertEquals(3L, result.arraySize)
+    }
+
+    // as->
+
+    @Test
+    fun `as-then threads with explicit binding`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            as->: 10 it
+              add(it, 32)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `as-then allows arbitrary position`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            as->: 1 it
+              add(41, it)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `as-then with multiple steps`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            as->: 10 it
+              add(it, 1)
+              add(it, 31)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    // comment
+
+    @Test
+    fun `comment returns nil`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("comment(1, 2, 3)").isNull)
+    }
+
     // Unquote-splicing tests
 
     @Test
