@@ -78,6 +78,16 @@ defmacro: as->(seed, name, & steps)
 defmacro: comment(& forms)
   'nil
 
+defmacro: ?>(seed, & steps)
+  if: empty?(steps)
+    seed
+    let: [applied case: first(steps)
+                    List(els) '(~first(els) v# ~@rest(els))
+                    bare '(~bare v#)]
+      '(case ~seed
+         nil nil
+         v# (?> ~applied ~@rest(steps)))
+
 defmacro: ->(seed, & steps)
   if: empty?(steps)
     seed

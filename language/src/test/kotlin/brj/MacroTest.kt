@@ -572,6 +572,53 @@ class MacroTest {
         assertEquals(42L, result.asLong())
     }
 
+    // ?>
+
+    @Test
+    fun `nil-thread with non-nil seed`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("?>(10, add(32))").asLong())
+    }
+
+    @Test
+    fun `nil-thread short-circuits on nil seed`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("?>(nil, add(32))").isNull)
+    }
+
+    @Test
+    fun `nil-thread short-circuits on nil intermediate`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: nilIfBig(x) if(gt(x, 5), nil, x)
+              ?>: 10
+                nilIfBig()
+                add(32)
+        """)
+        assertTrue(result.isNull)
+    }
+
+    @Test
+    fun `nil-thread passes through multiple steps`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: nilIfBig(x) if(gt(x, 5), nil, x)
+              ?>: 1
+                add(1)
+                nilIfBig()
+                add(40)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `nil-thread with no steps returns seed`() = withContext { ctx ->
+        assertEquals(42L, ctx.evalBridje("?>(42)").asLong())
+    }
+
+    @Test
+    fun `nil-thread with no steps returns nil seed`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("?>(nil)").isNull)
+    }
+
     // comment
 
     @Test
