@@ -588,7 +588,7 @@ class QualifiedSymbolForm(val namespace: String, val member: String, override va
 @ExportLibrary(InteropLibrary::class)
 class KeywordForm(val name: String, override val loc: SourceSection? = null) : Form() {
     override fun copy() = KeywordForm(name, loc)
-    override fun toString(): String = ":$name"
+    override fun toString(): String = ".$name"
 
     @ExportMessage fun hasMetaObject() = true
     @ExportMessage fun getMetaObject(): Any = KeywordMeta

@@ -14,7 +14,7 @@ defmacro: unlessLet(bindings, else, then)
          nil ~else
          ~first(bvec) ~then))
 
-defkeys: {:test Bool, :exnMessage Str}
+defkeys: {.test Bool, .exnMessage Str}
 
 defmacro: orElse(value, & defaults)
   if: empty?(defaults)

@@ -146,7 +146,7 @@ data class Analyser(
 
     private fun analyseKeyword(form: KeywordForm): ValueExpr =
         resolveKey(form.name)?.let { GlobalVarExpr(it, form.loc) }
-            ?: errorExpr("Unknown key: :${form.name}", form.loc)
+            ?: errorExpr("Unknown key: .${form.name}", form.loc)
 
     private fun analyseRecord(form: RecordForm): ValueExpr {
         val els = form.els
@@ -160,7 +160,7 @@ data class Analyser(
                 ?: return errorExpr("record keys must be keywords", els[i].loc)
             val keyValue = resolveKey(keyForm.name)?.value
             if (keyValue !is BridjeKey) {
-                return errorExpr(":${keyForm.name} is not a key", els[i].loc)
+                return errorExpr(".${keyForm.name} is not a key", els[i].loc)
             }
             val valueExpr = analyseValueExpr(els[i + 1])
             fields.add(keyValue.name to valueExpr)
@@ -595,7 +595,7 @@ data class Analyser(
         val keyVar = resolveKey(keyForm.name)
         if (keyVar == null) return errorExpr("Unknown key: :${keyForm.name}", els[2].loc)
         val keyValue = keyVar.value
-        if (keyValue !is BridjeKey) return errorExpr(":${keyForm.name} is not a key", els[2].loc)
+        if (keyValue !is BridjeKey) return errorExpr(".${keyForm.name} is not a key", els[2].loc)
 
         val recordExpr = analyseValueExpr(els[1])
         val valueExpr = analyseValueExpr(els[3])

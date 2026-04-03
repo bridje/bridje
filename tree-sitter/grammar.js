@@ -47,7 +47,7 @@ module.exports = grammar({
 
     qualified_symbol: _ => token(seq(SYMBOL_BODY, repeat1(seq(':', SYMBOL_BODY)), optional('#'))),
 
-    keyword: _ => token(seq(':', SYMBOL_BODY, repeat(seq(':', SYMBOL_BODY)))),
+    keyword: _ => token(seq('.', SYMBOL_BODY, repeat(seq(':', SYMBOL_BODY)))),
 
     int: _ => token(/[0-9]+/),
     float: _ => token(/[0-9]+\.[0-9]+/),

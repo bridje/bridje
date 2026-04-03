@@ -8,7 +8,7 @@ class RecordTest {
 
     @Test
     fun `defkeys creates keys`() = withContext { ctx ->
-        val key = ctx.evalBridje("defkeys: {:foo Str}")
+        val key = ctx.evalBridje("defkeys: {.foo Str}")
         assertTrue(key.canExecute())
         assertEquals("foo", key.toString())
     }
@@ -17,8 +17,8 @@ class RecordTest {
     fun `key is callable as getter`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              :foo({:foo 42})
+              defkeys: {.foo Str}
+              .foo({.foo 42})
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -27,8 +27,8 @@ class RecordTest {
     fun `record literal creates record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              {:foo 42}
+              defkeys: {.foo Str}
+              {.foo 42}
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals(42L, result.getMember("foo").asLong())
@@ -38,8 +38,8 @@ class RecordTest {
     fun `record with multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str, :bar Int}
-              {:foo "hello", :bar 42}
+              defkeys: {.foo Str, .bar Int}
+              {.foo "hello", .bar 42}
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals("hello", result.getMember("foo").asString())
@@ -50,9 +50,9 @@ class RecordTest {
     fun `key getter extracts field from record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:name Str, :age Int}
-              let: [person {:name "Alice", :age 30}]
-                :name(person)
+              defkeys: {.name Str, .age Int}
+              let: [person {.name "Alice", .age 30}]
+                .name(person)
         """.trimIndent())
         assertEquals("Alice", result.asString())
     }
@@ -61,8 +61,8 @@ class RecordTest {
     fun `record display string`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              {:foo 42}
+              defkeys: {.foo Str}
+              {.foo 42}
         """.trimIndent())
         assertEquals("{foo 42}", result.toString())
     }
@@ -71,8 +71,8 @@ class RecordTest {
     fun `record display string with multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:a Str, :b Str}
-              {:a 1, :b 2}
+              defkeys: {.a Str, .b Str}
+              {.a 1, .b 2}
         """.trimIndent())
         val str = result.toString()
         assertTrue(str.startsWith("{") && str.endsWith("}"))
@@ -84,7 +84,7 @@ class RecordTest {
     fun `optional key returns nil when missing`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:name Str}
+              defkeys: {.name Str}
               ?name({})
         """.trimIndent())
         assertTrue(result.isNull)
@@ -94,8 +94,8 @@ class RecordTest {
     fun `optional key returns value when present`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:name Str}
-              ?name({:name "Alice"})
+              defkeys: {.name Str}
+              ?name({.name "Alice"})
         """.trimIndent())
         assertEquals("Alice", result.asString())
     }
@@ -104,7 +104,7 @@ class RecordTest {
     fun `optional key display string`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:name Str}
+              defkeys: {.name Str}
               ?name
         """.trimIndent())
         assertEquals("?name", result.toString())
@@ -112,13 +112,13 @@ class RecordTest {
 
     @Test
     fun `key on empty record - no args gets empty record padded`() = withContext { ctx ->
-        // :foo() with no args gets an empty record padded via trailing record subtyping.
-        // BridjeKey then tries to read :foo from the empty record and fails at runtime.
+        // .foo() with no args gets an empty record padded via trailing record subtyping.
+        // BridjeKey then tries to read .foo from the empty record and fails at runtime.
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  defkeys: {:foo Str}
-                  :foo()
+                  defkeys: {.foo Str}
+                  .foo()
             """.trimIndent())
         }
         assertNotNull(ex.message, "Expected runtime error from key lookup on empty record")
@@ -129,8 +129,8 @@ class RecordTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  defkeys: {:foo Str}
-                  :foo({:foo 1}, {:foo 2})
+                  defkeys: {.foo Str}
+                  .foo({.foo 1}, {.foo 2})
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("Arity") == true || ex.message?.contains("arity") == true,
@@ -141,8 +141,8 @@ class RecordTest {
     fun `nested records`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:inner Str, :outer Str}
-              {:outer {:inner 42}}
+              defkeys: {.inner Str, .outer Str}
+              {.outer {.inner 42}}
         """.trimIndent())
         assertTrue(result.hasMembers())
         val inner = result.getMember("outer")
@@ -154,8 +154,8 @@ class RecordTest {
     fun `key on nested record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:inner Str, :outer Str}
-              :inner(:outer({:outer {:inner 42}}))
+              defkeys: {.inner Str, .outer Str}
+              .inner(.outer({.outer {.inner 42}}))
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -164,8 +164,8 @@ class RecordTest {
     fun `record in vector`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:x Int}
-              [{:x 1}, {:x 2}, {:x 3}]
+              defkeys: {.x Int}
+              [{.x 1}, {.x 2}, {.x 3}]
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(3, result.arraySize)
@@ -178,8 +178,8 @@ class RecordTest {
     fun `record field can be function result`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:sum Int}
-              {:sum add(1 2)}
+              defkeys: {.sum Int}
+              {.sum add(1 2)}
         """.trimIndent())
         assertEquals(3L, result.getMember("sum").asLong())
     }
@@ -188,8 +188,8 @@ class RecordTest {
     fun `keyword in value position resolves to key`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              :foo
+              defkeys: {.foo Str}
+              .foo
         """.trimIndent())
         assertTrue(result.canExecute())
         assertEquals("foo", result.toString())
@@ -199,8 +199,8 @@ class RecordTest {
     fun `keyword metadata shorthand`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:test Str}
-              ^:test def: myVal 42
+              defkeys: {.test Str}
+              ^.test def: myVal 42
               myVal
         """.trimIndent())
         assertEquals(42L, result.asLong())
@@ -210,8 +210,8 @@ class RecordTest {
     fun `optional keyword syntax`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:name Str}
-              (:?name {:name "Alice"})
+              defkeys: {.name Str}
+              (.?name {.name "Alice"})
         """.trimIndent())
         assertEquals("Alice", result.asString())
     }
@@ -220,8 +220,8 @@ class RecordTest {
     fun `optional keyword returns nil when missing`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:name Str}
-              (:?name {})
+              defkeys: {.name Str}
+              (.?name {})
         """.trimIndent())
         assertTrue(result.isNull)
     }
@@ -230,7 +230,7 @@ class RecordTest {
     fun `qualified keyword across namespaces`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my:keys
-            defkeys: {:foo Str}
+            defkeys: {.foo Str}
         """.trimIndent())
 
         val ns = ctx.evalBridje("""
@@ -238,7 +238,7 @@ class RecordTest {
               require:
                 my:
                   as(keys, k)
-            def: result (:k:foo {:k:foo 42})
+            def: result (.k:foo {.k:foo 42})
         """.trimIndent())
 
         assertEquals(42L, ns.getMember("result").asLong())
@@ -248,7 +248,7 @@ class RecordTest {
     fun `qualified keyword in record literal`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my:keys
-            defkeys: {:foo Str}
+            defkeys: {.foo Str}
         """.trimIndent())
 
         val ns = ctx.evalBridje("""
@@ -256,7 +256,7 @@ class RecordTest {
               require:
                 my:
                   as(keys, k)
-            def: result {:k:foo 42}
+            def: result {.k:foo 42}
         """.trimIndent())
 
         assertEquals(42L, ns.getMember("result").getMember("foo").asLong())
@@ -266,8 +266,8 @@ class RecordTest {
     fun `defkeys creates optional key variants`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:name Str}
-              (:?name {:name "Alice"})
+              defkeys: {.name Str}
+              (.?name {.name "Alice"})
         """.trimIndent())
         assertEquals("Alice", result.asString())
     }
@@ -276,10 +276,10 @@ class RecordTest {
     fun `set! mutates a field`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              let: [r {:foo 1}]
+              defkeys: {.foo Str}
+              let: [r {.foo 1}]
                 do:
-                  (set! r :foo 99)
+                  (set! r .foo 99)
                   r
         """.trimIndent())
         assertEquals(99L, result.getMember("foo").asLong())
@@ -289,8 +289,8 @@ class RecordTest {
     fun `set! returns old value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              (set! {:foo 1} :foo 99)
+              defkeys: {.foo Str}
+              (set! {.foo 1} .foo 99)
         """.trimIndent())
         assertEquals(1L, result.asLong())
     }
@@ -299,8 +299,8 @@ class RecordTest {
     fun `set! returns nil for missing key`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              (set! {} :foo 99)
+              defkeys: {.foo Str}
+              (set! {} .foo 99)
         """.trimIndent())
         assertTrue(result.isNull)
     }
@@ -309,10 +309,10 @@ class RecordTest {
     fun `set! preserves other fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:a Str, :b Str}
-              let: [r {:a 1, :b 2}]
+              defkeys: {.a Str, .b Str}
+              let: [r {.a 1, .b 2}]
                 do:
-                  (set! r :a 99)
+                  (set! r .a 99)
                   r
         """.trimIndent())
         assertEquals(99L, result.getMember("a").asLong())
@@ -323,10 +323,10 @@ class RecordTest {
     fun `set! via method call syntax`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              let: [r {:foo 1}]
+              defkeys: {.foo Str}
+              let: [r {.foo 1}]
                 do:
-                  set!(r, :foo, 99)
+                  set!(r, .foo, 99)
                   r
         """.trimIndent())
         assertEquals(99L, result.getMember("foo").asLong())
@@ -336,7 +336,7 @@ class RecordTest {
     fun `set! with qualified key`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my:keys
-            defkeys: {:foo Str}
+            defkeys: {.foo Str}
         """.trimIndent())
 
         val ns = ctx.evalBridje("""
@@ -345,9 +345,9 @@ class RecordTest {
                 my:
                   as(keys, k)
             def: result
-              let: [r {:k:foo 1}]
+              let: [r {.k:foo 1}]
                 do:
-                  (set! r :k:foo 42)
+                  (set! r .k:foo 42)
                   r
         """.trimIndent())
 
@@ -358,9 +358,9 @@ class RecordTest {
     fun `record sugar desugars to call with record arg`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:x Int}
+              defkeys: {.x Int}
               deftag: Wrapper(value)
-              Wrapper{:x 42}
+              Wrapper{.x 42}
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(1, result.arraySize)
@@ -372,7 +372,7 @@ class RecordTest {
     fun `qualified field access across namespaces`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my:keys
-            defkeys: {:bar Str}
+            defkeys: {.bar Str}
         """.trimIndent())
 
         val ns = ctx.evalBridje("""
@@ -380,7 +380,7 @@ class RecordTest {
               require:
                 my:
                   as(keys, u)
-            def: result :u:bar({:u:bar 99})
+            def: result .u:bar({.u:bar 99})
         """.trimIndent())
 
         assertEquals(99L, ns.getMember("result").asLong())

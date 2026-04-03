@@ -17,8 +17,8 @@ class MetaTest {
     fun `withMeta adds meta to vector`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              meta(withMeta([1 2 3], {:foo "bar"}))
+              defkeys: {.foo Str}
+              meta(withMeta([1 2 3], {.foo "bar"}))
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals("bar", result.getMember("foo").asString())
@@ -28,8 +28,8 @@ class MetaTest {
     fun `withMeta preserves vector contents`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:foo Str}
-              withMeta([1 2 3], {:foo "bar"})
+              defkeys: {.foo Str}
+              withMeta([1 2 3], {.foo "bar"})
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(3, result.arraySize)
@@ -42,8 +42,8 @@ class MetaTest {
     fun `record has empty meta by default`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:x Int}
-              meta({:x 42})
+              defkeys: {.x Int}
+              meta({.x 42})
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals(0, result.memberKeys.size)
@@ -53,8 +53,8 @@ class MetaTest {
     fun `withMeta adds meta to record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:x Int, :tag Str}
-              meta(withMeta({:x 42}, {:tag "special"}))
+              defkeys: {.x Int, .tag Str}
+              meta(withMeta({.x 42}, {.tag "special"}))
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals("special", result.getMember("tag").asString())
@@ -64,8 +64,8 @@ class MetaTest {
     fun `withMeta preserves record contents`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:x Int, :tag Str}
-              withMeta({:x 42}, {:tag "special"})
+              defkeys: {.x Int, .tag Str}
+              withMeta({.x 42}, {.tag "special"})
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals(42L, result.getMember("x").asLong())
@@ -75,8 +75,8 @@ class MetaTest {
     fun `meta does not leak into record members`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:x Int, :tag Str}
-              withMeta({:x 42}, {:tag "special"})
+              defkeys: {.x Int, .tag Str}
+              withMeta({.x 42}, {.tag "special"})
         """.trimIndent())
         assertFalse(result.hasMember("tag"))
     }
@@ -86,8 +86,8 @@ class MetaTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  defkeys: {:foo Str}
-                  let: [v withMeta([1 2], {:foo "bar"})]
+                  defkeys: {.foo Str}
+                  let: [v withMeta([1 2], {.foo "bar"})]
                     meta(withMeta(v, nil))
             """.trimIndent())
         }

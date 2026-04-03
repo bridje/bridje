@@ -51,9 +51,9 @@ class FnTest {
     fun `trailing record param is optional`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:greeting Str}
-              def: greet(name, opts) (:greeting opts)
-              greet("Alice", {:greeting "Hi"})
+              defkeys: {.greeting Str}
+              def: greet(name, opts) (.greeting opts)
+              greet("Alice", {.greeting "Hi"})
         """.trimIndent())
         assertEquals("Hi", result.asString())
     }
@@ -62,8 +62,8 @@ class FnTest {
     fun `trailing record param can be elided at call site`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defkeys: {:greeting Str}
-              def: greet(name, opts) (:?greeting opts)
+              defkeys: {.greeting Str}
+              def: greet(name, opts) (.?greeting opts)
               greet("Alice")
         """.trimIndent())
         assertTrue(result.isNull, "Expected null when optional key is missing from elided record")

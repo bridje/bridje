@@ -119,7 +119,7 @@ class ConcurrentTest {
                 brj:
                   as(concurrent, c)
             def: result
-              let: [d c:spawn(fn: failing() throw(Fault({:exnMessage "boom"})))]
+              let: [d c:spawn(fn: failing() throw(Fault({.exnMessage "boom"})))]
                 try: c:await(d)
                   catch:
                     e "caught"
@@ -136,7 +136,7 @@ class ConcurrentTest {
                 brj:
                   as(concurrent, c)
             def: result
-              let: [d c:spawn(fn: failing() throw(NotFound({:exnMessage "gone"})))]
+              let: [d c:spawn(fn: failing() throw(NotFound({.exnMessage "gone"})))]
                 try: c:await(d)
                   catch:
                     (NotFound data) "not-found"
@@ -226,7 +226,7 @@ class ConcurrentTest {
               c:spawn(fn: outer()
                 do:
                   c:spawn(fn: slow() c:sleepMs(10000))
-                  c:spawn(fn: failing() do: c:sleepMs(50) throw(Fault({:exnMessage "boom"})))
+                  c:spawn(fn: failing() do: c:sleepMs(50) throw(Fault({.exnMessage "boom"})))
                   c:sleepMs(10000))
             def: doAwait(d)
               try: c:await(d)
@@ -256,7 +256,7 @@ class ConcurrentTest {
                 do:
                   c:spawn(fn: l2()
                     do:
-                      c:spawn(fn: l3() do: c:sleepMs(50) throw(Fault({:exnMessage "deep"})))
+                      c:spawn(fn: l3() do: c:sleepMs(50) throw(Fault({.exnMessage "deep"})))
                       c:sleepMs(10000))
                   c:sleepMs(10000))
             def: doAwait(d)

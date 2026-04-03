@@ -15,7 +15,7 @@ Everything is an s-expression: `(operator arg1 arg2 ...)`.
 true                  // Bool
 false
 nil                   // null value, type Nothing?
-:name                 // Keyword — used as record keys
+.name                 // Member key — used as record keys and accessors
 ```
 
 ## Collections
@@ -23,7 +23,7 @@ nil                   // null value, type Nothing?
 ```bridje
 [1, 2, 3]            // Vec — ordered, homogeneous
 #{1, 2, 3}           // Set — unordered, unique, homogeneous
-{:name "James", :age 30}  // Record — heterogeneous, keyed
+{.name "James", .age 30}  // Record — heterogeneous, keyed
 ```
 
 Commas are whitespace everywhere — they're optional.
@@ -109,11 +109,11 @@ When a symbol is immediately followed by curly braces, it desugars to calling th
 This makes tagged record construction concise:
 
 ```bridje
-Person{:name "James", :age 42}
+Person{.name "James", .age 42}
 // desugars to:
-Person({:name "James", :age 42})
+Person({.name "James", .age 42})
 // which is:
-(Person {:name "James" :age 42})
+(Person {.name "James" .age 42})
 ```
 
 ## Threading macro
@@ -140,10 +140,10 @@ The rules follow Clojure's `->`:
 
 ```bridje
 // Keyword access and chaining:
-->: state :currentTerm
+->: state .currentTerm
 
 // Mixing accessors and functions:
-->: state :log count() div(2) inc()
+->: state .log count() div(2) inc()
 ```
 
 ## Core Forms
@@ -211,7 +211,7 @@ Short form — always one parameter, named `it`:
 ```bridje
 #: inc(it)
 #: add(it, 1)
-#: :name(it)
+#: .name(it)
 ```
 
 ### do
@@ -239,7 +239,7 @@ case: expr
 Exhaustive matching — when all variants are handled, no default is needed:
 
 ```bridje
-case: :role(state)
+case: .role(state)
   Follower(f): handleFollower(f)
   Candidate(c): handleCandidate(c)
   Leader(l): handleLeader(l)
@@ -262,7 +262,7 @@ Returns the old value (or `nil` if the key was not previously set).
 Bridje is immutable by default, but mutation is available when performance requires it (consenting adults).
 
 ```bridje
-set!(record, :key, value)         // returns old value
+set!(record, .key, value)         // returns old value
 ```
 
 ### quote and unquote
@@ -313,12 +313,12 @@ Define record keys with globally fixed types.
 A key has one meaning everywhere (the clojure.spec approach).
 
 ```bridje
-defkeys: {:name Str, :age Int}
+defkeys: {.name Str, .age Int}
 
 defkeys:
-  {:host Str
-   :port Int
-   :timeout Duration}
+  {.host Str
+   .port Int
+   .timeout Duration}
 ```
 
 ### Records
@@ -326,24 +326,24 @@ defkeys:
 Construction:
 
 ```bridje
-{:name "James", :age 30}
+{.name "James", .age 30}
 ```
 
 Field access via keyword call:
 
 ```bridje
-:currentTerm(state)            // access :currentTerm on state
-:from(req)                     // access :from on req
+.currentTerm(state)            // access .currentTerm on state
+.from(req)                     // access .from on req
 
 // With threading:
-->: state :currentTerm
+->: state .currentTerm
 ```
 
 Optional access — any key can be accessed in a nullable way with `?`:
 
 ```bridje
-:?timeout(state)               // returns the value or nil
-:timeout(state)                // assumes the key is present
+.?timeout(state)               // returns the value or nil
+.timeout(state)                // assumes the key is present
 ```
 
 Optionality is at the call site, not the definition.
@@ -353,18 +353,18 @@ Any key can be accessed optionally — there's no distinction between "required"
 Update with `with` — returns a new record, does not mutate:
 
 ```bridje
-->: state with(:currentTerm newTerm, :votedFor nil)
+->: state with(.currentTerm newTerm, .votedFor nil)
 
 // or without threading:
-with(state, :currentTerm newTerm, :votedFor nil)
+with(state, .currentTerm newTerm, .votedFor nil)
 ```
 
 Destructuring in function parameters and `let` bindings.
-**Important**: keys use `:` prefix in construction but **not** in destructuring (like Clojure's `:keys`):
+**Important**: keys use `.` prefix in construction but **not** in destructuring (like Clojure's `:keys`):
 
 ```bridje
-// Construction — colon prefix:
-{:name "James", :age 30}
+// Construction — dot prefix:
+{.name "James", .age 30}
 
 // Destructuring — no colon prefix (these become local bindings):
 def: displayName({fn, ln}) "${fn} ${ln}"
@@ -384,8 +384,8 @@ Nominal wrapper around a record.
 A tag is distinct from any other tag, even with identical keys.
 
 ```bridje
-deftag: User({:name, :age, :email})
-deftag: LogEntry({:term, :index, :command})
+deftag: User({.name, .age, .email})
+deftag: LogEntry({.term, .index, .command})
 ```
 
 Tags with type parameters:
@@ -399,16 +399,16 @@ Tagged record construction — three forms, all equivalent:
 
 ```bridje
 // Record sugar (preferred):
-VoteResponse{:from :id(state), :to :from(req), :term :currentTerm(state), :granted true}
+VoteResponse{.from .id(state), .to .from(req), .term .currentTerm(state), .granted true}
 
 // Call syntax:
-VoteResponse({:from :id(state), :to :from(req), :term :currentTerm(state), :granted true})
+VoteResponse({.from .id(state), .to .from(req), .term .currentTerm(state), .granted true})
 
 // Colon block syntax:
 ServerState:
-  {:id serverId
-   :cluster cluster
-   :currentTerm 0}
+  {.id serverId
+   .cluster cluster
+   .currentTerm 0}
 ```
 
 Destructuring tagged records in function parameters:
@@ -428,9 +428,9 @@ Closed sum type — a fixed set of variants.
 ```bridje
 type: ServerRole
   Sum:
-    Follower({:knownLeader})
-    Candidate({:votesReceived})
-    Leader({:nextIndex, :matchIdx})
+    Follower({.knownLeader})
+    Candidate({.votesReceived})
+    Leader({.nextIndex, .matchIdx})
 
 type: Result(a, e)
   Sum: Ok(a) | Err(e)
@@ -582,7 +582,7 @@ Defined in `brj.core`.
 Conditional binding — binds the expression result, takes the then-branch if non-nil, else-branch if nil:
 
 ```bridje
-ifLet: [leader :knownLeader(f)]
+ifLet: [leader .knownLeader(f)]
   redirect(leader)        // then — leader is bound and non-nil
   retryLater()            // else — expression was nil
 ```
@@ -604,7 +604,7 @@ Default expressions are lazy — not evaluated if value is non-nil:
 
 ```bridje
 orElse(name, "anonymous")
-orElse(:timeout(config), :timeout(defaults), #dur("PT30S"))
+orElse(.timeout(config), .timeout(defaults), #dur("PT30S"))
 ```
 
 ### when
@@ -613,7 +613,7 @@ Conditional execution — evaluates body if predicate is true, returns nil if fa
 No else branch.
 
 ```bridje
-when: neq(peer, :id(state))
+when: neq(peer, .id(state))
   sendAppendEntries(peer, state)
 ```
 
@@ -635,7 +635,7 @@ When the result expression is complex, it can use a colon block or indentation:
 
 ```bridje
 cond:
-  lt(:term(req), :currentTerm(state))
+  lt(.term(req), .currentTerm(state))
     rejectStale(state, req)
 
   not(logConsistent(state, req))
@@ -652,12 +652,12 @@ Side-effecting iteration over a collection.
 Binding form is like `let` — a vector of name-expression pairs:
 
 ```bridje
-doseq: [peer :cluster(state)]
-  when: neq(peer, :id(state))
+doseq: [peer .cluster(state)]
+  when: neq(peer, .id(state))
     sendAppendEntries(peer, state)
 
-doseq: [idx range(inc(:lastApplied(state)), inc(:commitIndex(state)))]
-  ->: state :log nth(idx) :command apply(sm)
+doseq: [idx range(inc(.lastApplied(state)), inc(.commitIndex(state)))]
+  ->: state .log nth(idx) .command apply(sm)
 ```
 
 ## Namespaces
@@ -678,12 +678,12 @@ Attach metadata to forms with `^`.
 Metadata is a keyword or a record attached to the following form:
 
 ```bridje
-^:test
+^.test
 def: testElection()
   let: [state createTestState()]
-    assert(eq(:role(state), Follower({:knownLeader nil})))
+    assert(eq(.role(state), Follower({.knownLeader nil})))
 
-^{:doc "Returns the majority threshold for a cluster"}
+^{.doc "Returns the majority threshold for a cluster"}
 def: majority(state) ...
 ```
 
@@ -766,7 +766,7 @@ Arithmetic and comparison are regular functions.
 ```bridje
 // Call syntax for standalone operations:
 add(a, b)
-eq(:term(req), :currentTerm(state))
+eq(.term(req), .currentTerm(state))
 max(commitIndex, 0)
 
 // Threading for chains:
@@ -778,10 +778,10 @@ For variadic operations, colon block syntax avoids deep nesting:
 ```bridje
 // Variadic — block style reads better:
 and:
-  gte(:term(req), :currentTerm(state))
+  gte(.term(req), .currentTerm(state))
   or:
-    nil?(:votedFor(state))
-    eq(:from(req), :votedFor(state))
+    nil?(.votedFor(state))
+    eq(.from(req), .votedFor(state))
   candidateLogUpToDate(state, req)
 ```
 
