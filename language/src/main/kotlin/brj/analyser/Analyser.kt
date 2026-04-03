@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 private const val MAX_EXPANSION_DEPTH = 100
 
+data class RecurTarget(val arity: Int, val bindings: List<LocalVar>)
+
 data class Analyser(
     private val ctx: BridjeContext,
     private val nsEnv: NsEnv = NsEnv(),
@@ -31,6 +33,7 @@ data class Analyser(
     private val expansionDepth: Int = 0,
     private val errors: MutableList<Error> = mutableListOf(),
     private val gensymScope: MutableMap<String, String> = mutableMapOf(),
+    private val recurTarget: RecurTarget? = null,
 ) {
     val slotCount: Int get() = nextSlot.get()
 
@@ -215,6 +218,8 @@ data class Analyser(
                 "quote" -> analyseQuote(form)
                 "set!" -> analyseSet(form)
                 "withFx" -> analyseWithFx(form)
+                "loop" -> analyseLoop(form)
+                "recur" -> analyseRecur(form)
                 "def" -> errorExpr("def not allowed in value position", form.loc)
                 "decl" -> errorExpr("decl not allowed in value position", form.loc)
                 "tag" -> errorExpr("tag not allowed in value position", form.loc)
@@ -342,8 +347,9 @@ data class Analyser(
         val els = form.els
         if (els.size != 4) return errorExpr("if requires exactly 3 arguments: predicate, then, else", form.loc)
 
+        val nonTail = copy(recurTarget = null)
         return IfExpr(
-            analyseValueExpr(els[1]),
+            nonTail.analyseValueExpr(els[1]),
             analyseValueExpr(els[2]),
             analyseValueExpr(els[3]),
             form.loc
@@ -359,7 +365,7 @@ data class Analyser(
         val els = form.els
         if (els.size < 3) return errorExpr("case requires a scrutinee and at least one branch", form.loc)
 
-        val scrutinee = analyseValueExpr(els[1])
+        val scrutinee = copy(recurTarget = null).analyseValueExpr(els[1])
         val branchForms = els.drop(2)
 
         val branches = mutableListOf<CaseBranch>()
@@ -559,7 +565,8 @@ data class Analyser(
             forms.isEmpty() -> errorExpr("body requires at least one expression", loc)
             forms.size == 1 -> analyseValueExpr(forms[0])
             else -> {
-                val sideEffects = forms.dropLast(1).map { analyseValueExpr(it) }
+                val nonTail = copy(recurTarget = null)
+                val sideEffects = forms.dropLast(1).map { nonTail.analyseValueExpr(it) }
                 val result = analyseValueExpr(forms.last())
                 DoExpr(sideEffects, result, loc)
             }
@@ -577,7 +584,7 @@ data class Analyser(
 
         val valueForm = bindingEls[1]
 
-        val bindingExpr = analyseValueExpr(valueForm)
+        val bindingExpr = copy(recurTarget = null).analyseValueExpr(valueForm)
         val (newAnalyser, localVar) = withLocal(nameForm.name)
 
         val bodyExpr = newAnalyser.analyseBindings(bindingEls.drop(2), bodyForms, loc)
@@ -619,6 +626,53 @@ data class Analyser(
         }
 
         return analyseBindings(bindingEls, bodyForms, form.loc)
+    }
+
+    private fun analyseLoop(form: ListForm): ValueExpr {
+        val els = form.els
+        val bindingsForm = els.getOrNull(1) as? VectorForm
+            ?: return errorExpr("loop requires a vector of bindings", form.loc)
+
+        val bindingEls = bindingsForm.els
+        if (bindingEls.size % 2 != 0) {
+            return errorExpr("loop bindings must have even number of forms", form.loc)
+        }
+
+        val bodyForms = els.drop(2)
+        if (bodyForms.isEmpty()) {
+            return errorExpr("loop requires a body", form.loc)
+        }
+
+        val nonTail = copy(recurTarget = null)
+        val bindings = mutableListOf<Pair<LocalVar, ValueExpr>>()
+        var analyser = this
+        for (i in bindingEls.indices step 2) {
+            val nameForm = bindingEls[i] as? SymbolForm
+                ?: return errorExpr("loop binding name must be a symbol", bindingEls[i].loc)
+            val bindingExpr = nonTail.analyseValueExpr(bindingEls[i + 1])
+            val (newAnalyser, localVar) = analyser.withLocal(nameForm.name)
+            analyser = newAnalyser
+            bindings.add(localVar to bindingExpr)
+        }
+
+        val loopAnalyser = analyser.copy(recurTarget = RecurTarget(bindings.size, bindings.map { it.first }))
+        val bodyExpr = loopAnalyser.analyseBody(bodyForms, form.loc)
+
+        return LoopExpr(bindings, bodyExpr, form.loc)
+    }
+
+    private fun analyseRecur(form: ListForm): ValueExpr {
+        val target = recurTarget
+            ?: return errorExpr("recur outside of loop or fn", form.loc)
+
+        val argForms = form.els.drop(1)
+        if (argForms.size != target.arity) {
+            return errorExpr("recur expects ${target.arity} arguments, got ${argForms.size}", form.loc)
+        }
+
+        val nonTail = copy(recurTarget = null)
+        val argExprs = argForms.map { nonTail.analyseValueExpr(it) }
+        return RecurExpr(target.bindings, argExprs, form.loc)
     }
 
     private fun analyseFn(form: ListForm): ValueExpr {
@@ -669,6 +723,7 @@ data class Analyser(
             paramLvs.add(lv)
         }
 
+        fnAnalyser = fnAnalyser.copy(recurTarget = RecurTarget(paramLvs.size, paramLvs))
         val bodyExpr = fnAnalyser.analyseBody(bodyForms, form.loc)
 
         return FnExpr(fnName, paramLvs, bodyExpr, fnAnalyser.slotCount, captures, isVariadic = false, loc = form.loc)

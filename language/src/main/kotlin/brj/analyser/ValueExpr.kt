@@ -238,6 +238,25 @@ class TryCatchExpr(
     }
 }
 
+class LoopExpr(
+    val bindings: List<Pair<LocalVar, ValueExpr>>,
+    val bodyExpr: ValueExpr,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String {
+        val bindingsStr = bindings.joinToString(" ") { (lv, expr) -> "${lv.name} $expr" }
+        return "(loop [$bindingsStr] $bodyExpr)"
+    }
+}
+
+class RecurExpr(
+    val bindings: List<LocalVar>,
+    val argExprs: List<ValueExpr>,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String = "(recur ${argExprs.joinToString(" ")})"
+}
+
 class ErrorValueExpr(
     val message: String,
     override val loc: SourceSection? = null,

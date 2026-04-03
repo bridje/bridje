@@ -224,6 +224,33 @@ internal fun TryCatchExpr.typing(): Typing {
     )
 }
 
+internal fun LoopExpr.typing(): Typing {
+    val bindingTypings = bindings.map { (_, expr) -> expr.typing() }
+    val bodyTyping = bodyExpr.typing()
+
+    val constraints = bindings.zip(bindingTypings).mapNotNull { (binding, bindingTyping) ->
+        val bodyReqmt = bodyTyping.monoEnv[binding.first]
+        bodyReqmt?.let { bindingTyping.type subOf it }
+    }
+
+    val loopLvs = bindings.map { it.first }.toSet()
+    val strippedBodyTyping = Typing(bodyTyping.type, bodyTyping.monoEnv.filterKeys { it !in loopLvs })
+
+    return Typing.build(bodyTyping.type, listOf(strippedBodyTyping) + bindingTypings, constraints)
+}
+
+internal fun RecurExpr.typing(): Typing {
+    val argTypings = argExprs.map { it.typing() }
+
+    val monoEnv = bindings.zip(argTypings).associate { (lv, argTyping) ->
+        lv to argTyping.type
+    }
+
+    return Typing.build(nothingType(), argTypings, emptyList()).let {
+        Typing(it.type, it.monoEnv + monoEnv)
+    }
+}
+
 internal fun ValueExpr.typing(): Typing =
     when (this) {
         is IntExpr -> Typing(IntType.notNull())
@@ -261,5 +288,7 @@ internal fun ValueExpr.typing(): Typing =
                 constraints = emptyList(),
             )
         }
+        is LoopExpr -> typing()
+        is RecurExpr -> typing()
         is ErrorValueExpr -> Typing(freshType())
     }

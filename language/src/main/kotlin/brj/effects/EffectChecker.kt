@@ -39,6 +39,8 @@ fun ValueExpr.inferEffects(): Set<GlobalVar> = when (this) {
     is RecordSetExpr -> recordExpr.inferEffects() + valueExpr.inferEffects()
     is VectorExpr -> els.flatMap { it.inferEffects() }.toSet()
     is SetExpr -> els.flatMap { it.inferEffects() }.toSet()
+    is LoopExpr -> bindings.flatMap { it.second.inferEffects() }.toSet() + bodyExpr.inferEffects()
+    is RecurExpr -> argExprs.flatMap { it.inferEffects() }.toSet()
     is IntExpr, is DoubleExpr, is BigIntExpr, is BigDecExpr,
     is StringExpr, is BoolExpr, is NilExpr,
     is LocalVarExpr, is CapturedVarExpr, is GlobalVarExpr,
@@ -73,6 +75,8 @@ fun ValueExpr.collectEffectfulCallees(): Set<GlobalVar> = when (this) {
     is RecordSetExpr -> recordExpr.collectEffectfulCallees() + valueExpr.collectEffectfulCallees()
     is VectorExpr -> els.flatMap { it.collectEffectfulCallees() }.toSet()
     is SetExpr -> els.flatMap { it.collectEffectfulCallees() }.toSet()
+    is LoopExpr -> bindings.flatMap { it.second.collectEffectfulCallees() }.toSet() + bodyExpr.collectEffectfulCallees()
+    is RecurExpr -> argExprs.flatMap { it.collectEffectfulCallees() }.toSet()
     is IntExpr, is DoubleExpr, is BigIntExpr, is BigDecExpr,
     is StringExpr, is BoolExpr, is NilExpr,
     is LocalVarExpr, is CapturedVarExpr, is GlobalVarExpr,

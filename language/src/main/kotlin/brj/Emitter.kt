@@ -8,6 +8,7 @@ import brj.runtime.BridjeFxMap
 import brj.runtime.BridjeFunction
 import brj.runtime.HostClass
 import brj.runtime.BridjeNull
+import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.dsl.TypeSystemReference
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
@@ -143,6 +144,8 @@ class Emitter(private val language: BridjeLanguage) {
             else GlobalVarNode(expr.effectVar, expr.loc)
         }
         is WithFxExpr -> emitWithFx(expr, fxSource, preApplied)
+        is LoopExpr -> emitLoop(expr, fxSource, preApplied)
+        is RecurExpr -> RecurNode(expr.argExprs.map { emitExpr(it, fxSource, preApplied) }.toTypedArray(), expr.loc)
 
         is ErrorValueExpr -> error("analyser error: ${expr.message}")
     }
@@ -263,6 +266,16 @@ class Emitter(private val language: BridjeLanguage) {
         return TryCatchNode(bodyNode, branchNodes, finallyNode, expr.loc)
     }
 
+    private fun emitLoop(expr: LoopExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
+        val slots = expr.bindings.map { it.first.slot }.toIntArray()
+        val initNodes = expr.bindings.map { emitExpr(it.second, fxSource, preApplied) }.toTypedArray()
+        val resultSlot = allocSlot()
+        val bodyNode = emitExpr(expr.bodyExpr, fxSource, preApplied)
+        val repeatingNode = LoopRepeatingNode(slots, resultSlot, bodyNode)
+        val loopNode = Truffle.getRuntime().createLoopNode(repeatingNode)
+        return LoopBridjeNode(slots, resultSlot, initNodes, loopNode, expr.loc)
+    }
+
     private fun emitFn(expr: FnExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
         // Inner fns capture the fx map and any pre-applied callees they need.
         val analyserCaptures = expr.captures.map { it.source }
@@ -292,7 +305,13 @@ class Emitter(private val language: BridjeLanguage) {
 
         val innerEmitter = Emitter(language)
         innerEmitter.nextSlot = expr.slotCount
-        val bodyNode = innerEmitter.emitExpr(expr.bodyExpr, innerFxSource, innerPreApplied)
+        val rawBodyNode = innerEmitter.emitExpr(expr.bodyExpr, innerFxSource, innerPreApplied)
+
+        val paramSlots = expr.params.map { it.slot }.toIntArray()
+        val resultSlot = innerEmitter.allocSlot()
+        val repeatingNode = LoopRepeatingNode(paramSlots, resultSlot, rawBodyNode)
+        val loopNode = Truffle.getRuntime().createLoopNode(repeatingNode)
+        val bodyNode = LoopBridjeNode(paramSlots, resultSlot, emptyArray(), loopNode, expr.loc)
 
         val fdBuilder = FrameDescriptor.newBuilder()
         repeat(innerEmitter.nextSlot) {
