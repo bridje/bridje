@@ -172,8 +172,8 @@ class ErrorHandlingTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  deftag: A
-                  deftag: B
+                  tag: A
+                  tag: B
                   case: B
                     A 1
             """.trimIndent())

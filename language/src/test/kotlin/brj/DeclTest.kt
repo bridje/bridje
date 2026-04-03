@@ -80,7 +80,7 @@ class DeclTest {
     fun `decl tag type`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
             ns: test.decl.tag
-            deftag: User(name)
+            tag: User(name)
             decl: user User
             def: user User("James")
         """.trimIndent())

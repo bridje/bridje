@@ -378,21 +378,21 @@ let: [{name, email} getUser()]
   sendWelcome(name, email)
 ```
 
-### deftag
+### tag
 
 Nominal wrapper around a record.
 A tag is distinct from any other tag, even with identical keys.
 
 ```bridje
-deftag: User({.name, .age, .email})
-deftag: LogEntry({.term, .index, .command})
+tag: User({.name, .age, .email})
+tag: LogEntry({.term, .index, .command})
 ```
 
 Tags with type parameters:
 
 ```bridje
-deftag: Ok(a)
-deftag: Err(e)
+tag: Ok(a)
+tag: Err(e)
 ```
 
 Tagged record construction — three forms, all equivalent:
@@ -740,7 +740,7 @@ Files naturally read top-down: types and helpers at the top, entry points at the
 ```bridje
 //// Types
 defkeys: ...
-deftag: ...
+tag: ...
 type: ...
 
 //// Helpers

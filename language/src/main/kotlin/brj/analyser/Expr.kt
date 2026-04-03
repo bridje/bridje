@@ -26,8 +26,8 @@ class DefTagExpr(
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String =
-        if (fieldNames.isEmpty()) "(deftag $name)"
-        else "(deftag ($name ${fieldNames.joinToString(" ")}))"
+        if (fieldNames.isEmpty()) "(tag $name)"
+        else "(tag ($name ${fieldNames.joinToString(" ")}))"
 }
 
 class DefMacroExpr(

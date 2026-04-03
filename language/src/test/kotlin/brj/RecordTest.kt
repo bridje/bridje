@@ -359,7 +359,7 @@ class RecordTest {
         val result = ctx.evalBridje("""
             do:
               defkeys: {.x Int}
-              deftag: Wrapper(value)
+              tag: Wrapper(value)
               Wrapper{.x 42}
         """.trimIndent())
         assertTrue(result.hasArrayElements())

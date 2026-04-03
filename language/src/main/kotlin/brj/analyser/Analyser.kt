@@ -217,7 +217,7 @@ data class Analyser(
                 "withFx" -> analyseWithFx(form)
                 "def" -> errorExpr("def not allowed in value position", form.loc)
                 "decl" -> errorExpr("decl not allowed in value position", form.loc)
-                "deftag" -> errorExpr("deftag not allowed in value position", form.loc)
+                "tag" -> errorExpr("tag not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
                 "defkeys" -> errorExpr("defkeys not allowed in value position", form.loc)
                 "defx" -> errorExpr("defx not allowed in value position", form.loc)
@@ -871,21 +871,21 @@ data class Analyser(
         }
     }
 
-    private fun analyseDefTag(form: ListForm): Expr {
+    private fun analyseTag(form: ListForm): Expr {
         val sigForm = form.els.getOrNull(1)
-            ?: return errorExpr("deftag requires a tag signature", form.loc)
+            ?: return errorExpr("tag requires a tag signature", form.loc)
 
         return when (sigForm) {
             is SymbolForm -> {
-                // deftag: Nothing (nullary)
+                // tag: Nothing (nullary)
                 val name = sigForm.name
                 if (!name[0].isUpperCase()) return errorExpr("tag names must be capitalized: $name", sigForm.loc)
                 DefTagExpr(name, emptyList(), form.loc)
             }
             is ListForm -> {
-                // deftag: Just(value)
+                // tag: Just(value)
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
-                    ?: return errorExpr("deftag signature must start with a name", sigForm.loc)
+                    ?: return errorExpr("tag signature must start with a name", sigForm.loc)
                 val name = nameForm.name
                 if (!name[0].isUpperCase()) return errorExpr("tag names must be capitalized: $name", nameForm.loc)
                 val fieldNames = mutableListOf<String>()
@@ -896,7 +896,7 @@ data class Analyser(
                 }
                 DefTagExpr(name, fieldNames, form.loc)
             }
-            else -> errorExpr("deftag requires a tag name or signature", form.loc)
+            else -> errorExpr("tag requires a tag name or signature", form.loc)
         }
     }
 
@@ -1003,7 +1003,7 @@ data class Analyser(
                     "do" -> return TopLevelDo(form.els.drop(1), form.loc)
                     "def" -> return analyseDef(form)
                     "decl" -> return analyseDecl(form)
-                    "deftag" -> return analyseDefTag(form)
+                    "tag" -> return analyseTag(form)
                     "defmacro" -> return analyseDefMacro(form)
                     "defkeys" -> return analyseDefKeys(form)
                     "defx" -> return analyseDefx(form)

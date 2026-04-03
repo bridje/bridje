@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test
 
 class TagTest {
     @Test
-    fun `deftag creates constructor in scope`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("deftag: Just(value)")
+    fun `tag creates constructor in scope`() = withContext { ctx ->
+        val constructor = ctx.evalBridje("tag: Just(value)")
         assertTrue(constructor.canExecute())
         assertEquals("Just", constructor.toString())
     }
@@ -16,7 +16,7 @@ class TagTest {
     fun `Just(42) creates tuple with value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Just(value)
+              tag: Just(value)
               Just(42)
         """.trimIndent())
         assertTrue(result.hasArrayElements())
@@ -25,8 +25,8 @@ class TagTest {
     }
 
     @Test
-    fun `deftag Nothing creates singleton value`() = withContext { ctx ->
-        val singleton = ctx.evalBridje("deftag: Nothing")
+    fun `tag Nothing creates singleton value`() = withContext { ctx ->
+        val singleton = ctx.evalBridje("tag: Nothing")
         assertFalse(singleton.canExecute())
         assertFalse(singleton.canInstantiate())
         assertFalse(singleton.hasArrayElements())
@@ -37,7 +37,7 @@ class TagTest {
     fun `Nothing is a singleton - same identity`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Nothing
+              tag: Nothing
               Nothing
         """.trimIndent())
         assertFalse(result.hasArrayElements())
@@ -48,7 +48,7 @@ class TagTest {
     fun `nullary tag display string is just the tag name`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Nothing
+              tag: Nothing
               Nothing
         """.trimIndent())
         assertEquals("Nothing", result.toString())
@@ -58,7 +58,7 @@ class TagTest {
     fun `unary tag display string includes value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Just(value)
+              tag: Just(value)
               Just(42)
         """.trimIndent())
         assertEquals("Just(42)", result.toString())
@@ -68,7 +68,7 @@ class TagTest {
     fun `multi-field tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Pair(first, second)
+              tag: Pair(first, second)
               Pair(1, 2)
         """.trimIndent())
         assertTrue(result.hasArrayElements())
@@ -83,7 +83,7 @@ class TagTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  deftag: Just(value)
+                  tag: Just(value)
                   Just()
             """.trimIndent())
         }
@@ -96,7 +96,7 @@ class TagTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  deftag: Just(value)
+                  tag: Just(value)
                   Just(1, 2)
             """.trimIndent())
         }
@@ -107,7 +107,7 @@ class TagTest {
     @Test
     fun `tag name must be capitalized`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("deftag: just(value)")
+            ctx.evalBridje("tag: just(value)")
         }
         assertTrue(ex.message?.contains("capitalized") == true,
             "Expected capitalization error, got: ${ex.message}")
@@ -117,8 +117,8 @@ class TagTest {
     fun `nested tuples`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Just(value)
-              deftag: Nothing
+              tag: Just(value)
+              tag: Nothing
               Just(Just(42))
         """.trimIndent())
         assertEquals(1, result.arraySize)
@@ -131,14 +131,14 @@ class TagTest {
 
     @Test
     fun `constructor is executable and instantiable`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("deftag: Just(value)")
+        val constructor = ctx.evalBridje("tag: Just(value)")
         assertTrue(constructor.canExecute())
         assertTrue(constructor.canInstantiate())
     }
 
     @Test
     fun `can instantiate using constructor`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("deftag: Just(value)")
+        val constructor = ctx.evalBridje("tag: Just(value)")
         val result = constructor.newInstance(42L)
         assertTrue(result.hasArrayElements())
         assertEquals(1, result.arraySize)
@@ -149,7 +149,7 @@ class TagTest {
     fun `tagged tuple has meta object`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Just(value)
+              tag: Just(value)
               Just(42)
         """.trimIndent())
         val meta = result.metaObject
@@ -162,8 +162,8 @@ class TagTest {
     fun `meta object isMetaInstance works`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: tag_meta_test
-            deftag: Just(value)
-            deftag: Other(value)
+            tag: Just(value)
+            tag: Other(value)
         """.trimIndent())
 
         val justConstructor = ctx.evalBridje("tag_meta_test/Just")
@@ -179,7 +179,7 @@ class TagTest {
 
     @Test
     fun `singleton is its own meta object`() = withContext { ctx ->
-        val singleton = ctx.evalBridje("deftag: Nothing")
+        val singleton = ctx.evalBridje("tag: Nothing")
         val meta = singleton.metaObject
         assertNotNull(meta)
         assertEquals("Nothing", meta.metaSimpleName)
@@ -191,7 +191,7 @@ class TagTest {
     fun `constructor meta object for tagged tuple`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: tag_tuple_test
-            deftag: Just(value)
+            tag: Just(value)
         """.trimIndent())
 
         val constructor = ctx.evalBridje("tag_tuple_test/Just")

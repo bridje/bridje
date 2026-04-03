@@ -9,7 +9,7 @@ class CaseTest {
     fun `case matches nullary tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Nothing
+              tag: Nothing
               case: Nothing
                 Nothing 42
         """.trimIndent())
@@ -20,7 +20,7 @@ class CaseTest {
     fun `case matches unary tag and binds value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Just(value)
+              tag: Just(value)
               case: Just(10)
                 Just(x) x
         """.trimIndent())
@@ -31,7 +31,7 @@ class CaseTest {
     fun `case matches multi-field tag and binds values`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Pair(first, second)
+              tag: Pair(first, second)
               case: Pair(3, 4)
                 Pair(a, b) [a, b]
         """.trimIndent())
@@ -44,8 +44,8 @@ class CaseTest {
     fun `case selects correct branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Nothing
-              deftag: Just(value)
+              tag: Nothing
+              tag: Just(value)
               case: Just(42)
                 Nothing 0
                 Just(x) x
@@ -57,8 +57,8 @@ class CaseTest {
     fun `case selects nothing branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Nothing
-              deftag: Just(value)
+              tag: Nothing
+              tag: Just(value)
               case: Nothing
                 Nothing 0
                 Just(x) x
@@ -70,8 +70,8 @@ class CaseTest {
     fun `case with default branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Nothing
-              deftag: Just(value)
+              tag: Nothing
+              tag: Just(value)
               case: Nothing
                 Just(x) x
                 99
@@ -83,9 +83,9 @@ class CaseTest {
     fun `case default branch when tag does not match`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: A
-              deftag: B
-              deftag: C
+              tag: A
+              tag: B
+              tag: C
               case: C
                 A 1
                 B 2
@@ -98,7 +98,7 @@ class CaseTest {
     fun `case bindings are scoped to branch body`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Just(value)
+              tag: Just(value)
               let: [x 100]
                 case: Just(42)
                   Just(x) x
@@ -110,7 +110,7 @@ class CaseTest {
     fun `case branch can return tagged value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              deftag: Just(value)
+              tag: Just(value)
               case: Just(10)
                 Just(x) Just(x)
         """.trimIndent())
@@ -123,8 +123,8 @@ class CaseTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  deftag: A
-                  deftag: B
+                  tag: A
+                  tag: B
                   case: B
                     A 1
             """.trimIndent())
