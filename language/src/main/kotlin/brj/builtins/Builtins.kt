@@ -54,6 +54,8 @@ object Builtins {
                 run { val el = freshType(); FnType(listOf(el, VectorType(el).notNull()), VectorType(el).notNull()).notNull() }),
             createBuiltinFunction("empty?", EmptyNode(language),
                 FnType(listOf(VectorType(freshType()).notNull()), BoolType.notNull()).notNull()),
+            createBuiltinFunction("concat", ConcatNode(language),
+                run { val el = freshType(); FnType(listOf(VectorType(el).notNull(), VectorType(el).notNull()), VectorType(el).notNull()).notNull() }),
         ).associateBy { it.name }
     }
 

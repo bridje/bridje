@@ -112,3 +112,24 @@ class EmptyNode(language: BridjeLanguage) : RootNode(language) {
         }
     }
 }
+
+class ConcatNode(language: BridjeLanguage) : RootNode(language) {
+    @Child
+    private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
+
+    override fun execute(frame: VirtualFrame): Any {
+        val vec1 = frame.arguments[0]
+        val vec2 = frame.arguments[1]
+        return try {
+            val size1 = interop.getArraySize(vec1)
+            val size2 = interop.getArraySize(vec2)
+            val els = Array<Any>((size1 + size2).toInt()) { i ->
+                if (i < size1) interop.readArrayElement(vec1, i.toLong())
+                else interop.readArrayElement(vec2, (i - size1).toLong())
+            }
+            BridjeVector(els)
+        } catch (e: UnsupportedMessageException) {
+            throw incorrect("concat: arguments must be collections")
+        }
+    }
+}

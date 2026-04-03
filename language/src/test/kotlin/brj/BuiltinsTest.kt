@@ -225,6 +225,40 @@ class BuiltinsTest {
     }
 
     @Test
+    fun `concat two vectors`() = withContext { ctx ->
+        val result = ctx.evalBridje("concat([1, 2], [3, 4])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(4L, result.arraySize)
+        assertEquals(1L, result.getArrayElement(0).asLong())
+        assertEquals(2L, result.getArrayElement(1).asLong())
+        assertEquals(3L, result.getArrayElement(2).asLong())
+        assertEquals(4L, result.getArrayElement(3).asLong())
+    }
+
+    @Test
+    fun `concat with empty left`() = withContext { ctx ->
+        val result = ctx.evalBridje("concat([], [1, 2])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(2L, result.arraySize)
+        assertEquals(1L, result.getArrayElement(0).asLong())
+    }
+
+    @Test
+    fun `concat with empty right`() = withContext { ctx ->
+        val result = ctx.evalBridje("concat([1, 2], [])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(2L, result.arraySize)
+        assertEquals(2L, result.getArrayElement(1).asLong())
+    }
+
+    @Test
+    fun `concat two empty vectors`() = withContext { ctx ->
+        val result = ctx.evalBridje("concat([], [])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(0L, result.arraySize)
+    }
+
+    @Test
     fun `println prints value and returns it`() {
         val output = ByteArrayOutputStream()
         Context.newBuilder()
