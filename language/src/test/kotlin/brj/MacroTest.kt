@@ -266,6 +266,18 @@ class MacroTest {
     }
 
     @Test
+    fun `orElse chains multiple defaults`() = withContext { ctx ->
+        val result = ctx.evalBridje("orElse(nil, nil, 42)")
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `orElse chain short-circuits`() = withContext { ctx ->
+        val result = ctx.evalBridje("orElse(nil, 42, div(1, 0))")
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
     fun `variadic macro with rest-only param`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:

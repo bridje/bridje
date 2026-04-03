@@ -20,10 +20,13 @@ defmacro: unlessLet(bindings, else, then)
 
 defkeys: {:test Bool, :exnMessage Str}
 
-defmacro: orElse(value, default)
-  '(case ~value
-     nil ~default
-     x# x#)
+defmacro: orElse(value, & defaults)
+  if: empty?(defaults)
+    value
+    let: [fallback List(cons(Symbol("orElse"), defaults))]
+      '(case ~value
+         nil ~fallback
+         x# x#)
 
 defmacro: ->(seed, & steps)
   if: empty?(steps)
