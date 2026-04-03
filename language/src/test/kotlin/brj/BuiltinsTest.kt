@@ -259,6 +259,16 @@ class BuiltinsTest {
     }
 
     @Test
+    fun `not true is false`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("not(true)").asBoolean())
+    }
+
+    @Test
+    fun `not false is true`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("not(false)").asBoolean())
+    }
+
+    @Test
     fun `println prints value and returns it`() {
         val output = ByteArrayOutputStream()
         Context.newBuilder()
