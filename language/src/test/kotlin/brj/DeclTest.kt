@@ -126,7 +126,7 @@ class DeclTest {
     fun `decl preserves existing meta`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
             ns: test.decl.meta
-            defkeys: {.test Bool}
+            decl: .test Bool
             decl: x Int
             ^.test
             def: x 42

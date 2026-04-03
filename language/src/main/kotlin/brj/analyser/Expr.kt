@@ -42,7 +42,7 @@ class DefKeysExpr(
     val names: List<String>,
     override val loc: SourceSection? = null
 ) : Expr {
-    override fun toString(): String = "(defkeys ${names.joinToString(" ")})"
+    override fun toString(): String = "(decl ${names.joinToString(" ") { ".$it" }})"
 }
 
 class DeclExpr(

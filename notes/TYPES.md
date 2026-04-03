@@ -196,7 +196,7 @@ Keys are the atoms of the record system.
 A key has a globally fixed value type, declared once.
 
 ```bridje
-defkeys: {.name Str, .age Int, .email Str}
+decl: .name Str, .age Int, .email Str
 ```
 
 `.name` means `Str` everywhere.

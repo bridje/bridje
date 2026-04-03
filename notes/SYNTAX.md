@@ -307,18 +307,18 @@ Auto-gensyms with `#` suffix prevent variable capture in macros:
 
 ## Top-Level Forms
 
-### defkeys
+### decl (keys)
 
-Define record keys with globally fixed types.
+`decl` also declares record keys with globally fixed types.
 A key has one meaning everywhere (the clojure.spec approach).
 
 ```bridje
-defkeys: {.name Str, .age Int}
+decl: .name Str, .age Int
 
-defkeys:
-  {.host Str
-   .port Int
-   .timeout Duration}
+decl:
+  .host Str
+  .port Int
+  .timeout Duration
 ```
 
 ### Records
@@ -347,7 +347,7 @@ Optional access — any key can be accessed in a nullable way with `?`:
 ```
 
 Optionality is at the call site, not the definition.
-Any key can be accessed optionally — there's no distinction between "required" and "optional" keys in `defkeys`.
+Any key can be accessed optionally — there's no distinction between "required" and "optional" keys in `decl`.
 (See Rich Hickey's "Maybe Not" talk for the rationale.)
 
 Update with `with` — returns a new record, does not mutate:
@@ -739,7 +739,7 @@ Files naturally read top-down: types and helpers at the top, entry points at the
 
 ```bridje
 //// Types
-defkeys: ...
+decl: ...
 tag: ...
 type: ...
 

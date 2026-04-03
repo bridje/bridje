@@ -219,7 +219,7 @@ data class Analyser(
                 "decl" -> errorExpr("decl not allowed in value position", form.loc)
                 "tag" -> errorExpr("tag not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
-                "defkeys" -> errorExpr("defkeys not allowed in value position", form.loc)
+                "defkeys" -> errorExpr("defkeys has been replaced: use decl: .name Str", form.loc)
                 "defx" -> errorExpr("defx not allowed in value position", form.loc)
                 else -> analyseCall(form)
             }
@@ -822,6 +822,15 @@ data class Analyser(
             ?: return errorExpr("decl requires a name", form.loc)
 
         return when (sigForm) {
+            is KeywordForm -> {
+                // decl: .name Str .age Int — key declarations
+                val names = (1 until els.size step 2).map { i ->
+                    val kw = els[i] as? KeywordForm
+                        ?: return errorExpr("decl key entries must alternate keyword and type", els[i].loc)
+                    kw.name
+                }
+                DefKeysExpr(names, form.loc)
+            }
             is ListForm -> {
                 // decl: foo(Int, Str) Bool -> function type declaration
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
@@ -838,6 +847,7 @@ data class Analyser(
                     ?: return errorExpr("decl requires a type", form.loc)
                 DeclExpr(sigForm.name, analyseTypeForm(typeForm), form.loc)
             }
+            is RecordForm -> errorExpr("defkeys has been replaced: use decl: .name Str .age Int", form.loc)
             else -> errorExpr("decl requires a name or signature", form.loc)
         }
     }
@@ -898,22 +908,6 @@ data class Analyser(
             }
             else -> errorExpr("tag requires a tag name or signature", form.loc)
         }
-    }
-
-    private fun analyseDefKeys(form: ListForm): Expr {
-        val record = form.els.getOrNull(1) as? RecordForm
-            ?: return errorExpr("defkeys requires a record literal: defkeys: {:name Type, ...}", form.loc)
-
-        val els = record.els
-        if (els.size % 2 != 0) return errorExpr("defkeys record must have even number of forms", form.loc)
-
-        val names = (els.indices step 2).map { i ->
-            val keyForm = els[i] as? KeywordForm
-                ?: return errorExpr("defkeys keys must be keywords", els[i].loc)
-            keyForm.name
-        }
-
-        return DefKeysExpr(names, form.loc)
     }
 
     private fun analyseDefMacro(form: ListForm): Expr {
@@ -1005,7 +999,7 @@ data class Analyser(
                     "decl" -> return analyseDecl(form)
                     "tag" -> return analyseTag(form)
                     "defmacro" -> return analyseDefMacro(form)
-                    "defkeys" -> return analyseDefKeys(form)
+                    "defkeys" -> return errorExpr("defkeys has been replaced: use decl: .name Str", form.loc)
                     "defx" -> return analyseDefx(form)
                 }
             }
