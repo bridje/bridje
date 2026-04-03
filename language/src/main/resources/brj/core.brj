@@ -24,3 +24,12 @@ defmacro: orElse(value, default)
   '(case ~value
      nil ~default
      x# x#)
+
+defmacro: ->(seed, & steps)
+  if: empty?(steps)
+    seed
+    let: [step first(steps)
+          applied case: step
+                    List(els) List(cons(first(els), cons(seed, rest(els))))
+                    bare List([bare, seed])]
+      List(cons(Symbol("->"), cons(applied, rest(steps))))

@@ -341,4 +341,48 @@ class MacroTest {
         """)
         assertEquals(0L, result.asLong())
     }
+
+    // Threading macro
+
+    @Test
+    fun `thread with no steps returns seed`() = withContext { ctx ->
+        val result = ctx.evalBridje("->(42)")
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `thread with bare symbol`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: inc(x) add(x, 1)
+              ->(41, inc)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `thread with call form inserts as first arg`() = withContext { ctx ->
+        val result = ctx.evalBridje("->(10, add(32))")
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `thread with multiple steps`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: inc(x) add(x, 1)
+              ->(10, add(31), inc)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `thread with colon block syntax`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              def: inc(x) add(x, 1)
+              ->: 10 add(31) inc()
+        """)
+        assertEquals(42L, result.asLong())
+    }
 }
