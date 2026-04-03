@@ -6,7 +6,7 @@ Everything is an s-expression: `(operator arg1 arg2 ...)`.
 ## Primitives
 
 ```bridje
-42                    // Int (32-bit integer)
+42                    // Int (64-bit integer)
 3.14                  // Double (default float type)
 42N                   // BigInt
 3.14M                 // BigDec
@@ -15,15 +15,15 @@ Everything is an s-expression: `(operator arg1 arg2 ...)`.
 true                  // Bool
 false
 nil                   // null value, type Nothing?
-.name                 // Member key — used as record keys and accessors
+.name                 // Member key — record key and first-class accessor function
 ```
 
 ## Collections
 
 ```bridje
-[1, 2, 3]            // Vec — ordered, homogeneous
-#{1, 2, 3}           // Set — unordered, unique, homogeneous
-{.name "James", .age 30}  // Record — heterogeneous, keyed
+[1, 2, 3]                        // Vec — ordered, homogeneous
+#{1, 2, 3}                       // Set — unordered, unique, homogeneous
+{.name "James", .age 30}         // Record — heterogeneous, keyed by members
 ```
 
 Commas are whitespace everywhere — they're optional.
@@ -60,6 +60,8 @@ add(1, 2)             // (add 1 2)
 foo(a, b, c)          // (foo a b c)
 println("hello")      // (println "hello")
 ```
+
+Commas are optional here — `add(1 2)` === `add(1, 2)` but the latter is probably more familiar.
 
 ### Colon blocks
 
@@ -116,10 +118,45 @@ Person({.name "James", .age 42})
 (Person {.name "James" .age 42})
 ```
 
-## Threading macro
+## Instance Members
+
+Instance members use a dot prefix: `.name`, `.age`, `.toEpochMilli`.
+They are first-class functions — `.name` is a function that takes a value and returns the named member.
+
+```bridje
+.name(person)                  // access .name on person — returns the value
+.toEpochMilli(instant)         // call .toEpochMilli on instant — returns Int
+
+// Members are just functions, so they compose with higher-order functions:
+map(.name, people)             // extract .name from each person
+filter(.?nickname, profiles)   // only those with .nickname present
+```
+
+Members from other namespaces are qualified with `/`: `I/.toEpochMilli`, `myns/.customField`.
+The `/` separates the namespace, the `.` marks it as an instance member.
+
+There is no postfix dot syntax (`a.b`).
+Left-to-right chaining uses the threading macro `->`.
+
+### Optional member access
+
+Optionality is at the access site, not the definition (per Rich Hickey's "Maybe Not").
+Any member can be accessed optionally — returning `nil` if absent:
+
+```bridje
+.?timeout(state)               // returns the value or nil
+->: state .?timeout            // threaded form
+```
+
+The member `.timeout` is always `Duration` when present.
+Whether it's required or optional depends on the context that accepts the value.
+
+## Threading Macros
+
+### ->
 
 `->` is a macro (defined in `brj.core`, not syntactic sugar) that threads a value through a sequence of calls, inserting it as the first argument to each.
-This turns inside-out LISP nesting into left-to-right chaining.
+This is the primary way to chain operations left-to-right.
 
 ```bridje
 // Without threading:
@@ -134,16 +171,29 @@ inc(div(count(cluster), 2))
 
 The rules follow Clojure's `->`:
 - The first element is the seed — evaluated as-is, becomes the initial threaded value.
-- A bare symbol (`count`) is treated as a one-arg call: `count(prev)`.
-- A call form (`div(2)`) gets the threaded value inserted as the first argument: `div(prev, 2)`.
+- A bare symbol or member (`.name`, `count`) is treated as a one-arg call: `.name(prev)`, `count(prev)`.
+- A call form (`div(2)`, `.toUpperCase()`) gets the threaded value inserted as the first argument: `div(prev, 2)`, `.toUpperCase(prev)`.
 - Prefer parens on function calls for clarity: `count()` rather than `count`.
 
 ```bridje
-// Keyword access and chaining:
-->: state .currentTerm
+// Threading with instance members:
+->: person .name .toUpperCase()
 
-// Mixing accessors and functions:
+// macro-expands to:
+.toUpperCase(.name(person))
+
+// Mixing members and static functions:
 ->: state .log count() div(2) inc()
+```
+
+### ?>
+
+`?>` is a nil-safe threading macro.
+If any step produces `nil`, the entire chain short-circuits to `nil`.
+
+```bridje
+// Nil-safe chaining:
+?>: state .?config .?timeout
 ```
 
 ## Core Forms
@@ -187,7 +237,7 @@ let: [a expr1
 ```
 
 Record destructuring works in let bindings.
-Keys are written without the `:` prefix when destructuring (like Clojure's `:keys`):
+Members are written without the `.` prefix when destructuring (they become local bindings):
 
 ```bridje
 let: [{name, age} getUser()]
@@ -214,6 +264,12 @@ Short form — always one parameter, named `it`:
 #: .name(it)
 ```
 
+Since `.name` is already a first-class function, you can often use it directly instead of `#:`:
+
+```bridje
+map(.name, people)             // no need for #: .name(it)
+```
+
 ### do
 
 Sequential evaluation — returns the last expression.
@@ -227,12 +283,18 @@ do:
 ### case
 
 Pattern matching on tagged values.
-Patterns can be tag names, `nil`, or a binding variable (lowercase).
-The last expression is the default — no `_` or `:else` keyword needed (like Clojure's `case`).
+
+Branches are pairs of forms: pattern then body expression.
+Patterns can be:
+- A tag with bindings: `Ok(v)`, `Follower({knownLeader})`
+- `nil` for the null case
+- A binding variable (lowercase): catches anything and binds it
+
+If the number of forms is odd, the last is the default (like Clojure's `case`).
 
 ```bridje
 case: expr
-  Ok(v): handleOk(v)
+  Ok(v) handleOk(v)
   defaultValue              // last expression is the default
 ```
 
@@ -240,9 +302,9 @@ Exhaustive matching — when all variants are handled, no default is needed:
 
 ```bridje
 case: .role(state)
-  Follower(f): handleFollower(f)
-  Candidate(c): handleCandidate(c)
-  Leader(l): handleLeader(l)
+  Follower(f) handleFollower(f)
+  Candidate(c) handleCandidate(c)
+  Leader(l) handleLeader(l)
 ```
 
 Without a default, the compiler verifies all variants of the sum type are handled.
@@ -251,27 +313,28 @@ Destructuring inside tags:
 
 ```bridje
 case: result
-  Ok({value, metadata}): process(value, metadata)
-  Err({message, code}): log("Error ${code}: ${message}")
+  Ok({value, metadata}) process(value, metadata)
+  Err({message, code}) log("Error ${code}: ${message}")
 ```
 
 ### set!
 
 Mutate a record field in place.
-Returns the old value (or `nil` if the key was not previously set).
+Returns the old value (or `nil` if the member was not previously set).
 Bridje is immutable by default, but mutation is available when performance requires it (consenting adults).
 
 ```bridje
-set!(record, .key, value)         // returns old value
+set!(record, .key, value)
 ```
 
-### quote and unquote
+### quote, unquote, and unquote-splice
 
 Code as data — but unlike Clojure, Bridje's quote returns **typed Form ADT objects**, not raw data structures.
 This is because Bridje is fully type-checked: the quoted representation must be statically typed.
 
 `'form` returns a Form object.
 `~form` inside a quote evaluates that sub-expression and splices the result in.
+`~@form` inside a quote evaluates a list and splices its elements in (unquote-splice).
 
 ```bridje
 'foo                  // SymbolForm("foo")
@@ -284,6 +347,7 @@ The Form ADT types are:
 - `ListForm`, `VectorForm`, `SetForm`, `RecordForm`
 - `QualifiedSymbolForm` for namespaced symbols
 - `UnquoteForm` for `~expr` inside quotes
+- `UnquoteSpliceForm` for `~@expr` inside quotes
 
 Form constructors are available as functions: `Symbol("foo")`, `Int(42)`, `List([...])`, etc.
 These are used in macro bodies to build forms programmatically.
@@ -293,6 +357,13 @@ Unquote splices evaluated expressions into quoted forms:
 ```bridje
 let: [x 'foo]
   '(bar ~x)           // ListForm([SymbolForm("bar"), SymbolForm("foo")])
+```
+
+Unquote-splice expands a list into the surrounding form:
+
+```bridje
+let: [xs '(1 2 3)]
+  '(foo ~@xs)         // ListForm([SymbolForm("foo"), IntForm(1), IntForm(2), IntForm(3)])
 ```
 
 Desugaring happens before quoting — `'foo(a, b)` captures the desugared s-expression `(foo a b)`, not the sugared form.
@@ -307,10 +378,14 @@ Auto-gensyms with `#` suffix prevent variable capture in macros:
 
 ## Top-Level Forms
 
-### decl (keys)
+### decl
 
-`decl` also declares record keys with globally fixed types.
-A key has one meaning everywhere (the clojure.spec approach).
+`decl` serves two purposes: declaring member keys and declaring type signatures.
+
+#### Member key declarations
+
+A dot-prefixed name declares an instance member with a globally fixed type.
+A member has one meaning everywhere (the clojure.spec approach).
 
 ```bridje
 decl: .name Str, .age Int
@@ -321,15 +396,29 @@ decl:
   .timeout Duration
 ```
 
+Each declared member creates a callable accessor function (`.name`) and an optional variant (`.?name`).
+
+#### Type declarations
+
+A symbol or call form declares a type signature for a value or function.
+
+```bridje
+decl: x Int
+decl: foo(Int, Str) Bool
+decl: callback Fn([Int, Str] Bool)
+decl: identity(a) a
+decl: map([a], Fn([a] b)) [b]
+```
+
 ### Records
 
-Construction:
+Construction uses dot-prefixed members:
 
 ```bridje
 {.name "James", .age 30}
 ```
 
-Field access via keyword call:
+Member access uses the accessor function:
 
 ```bridje
 .currentTerm(state)            // access .currentTerm on state
@@ -338,17 +427,6 @@ Field access via keyword call:
 // With threading:
 ->: state .currentTerm
 ```
-
-Optional access — any key can be accessed in a nullable way with `?`:
-
-```bridje
-.?timeout(state)               // returns the value or nil
-.timeout(state)                // assumes the key is present
-```
-
-Optionality is at the call site, not the definition.
-Any key can be accessed optionally — there's no distinction between "required" and "optional" keys in `decl`.
-(See Rich Hickey's "Maybe Not" talk for the rationale.)
 
 Update with `with` — returns a new record, does not mutate:
 
@@ -360,13 +438,13 @@ with(state, .currentTerm newTerm, .votedFor nil)
 ```
 
 Destructuring in function parameters and `let` bindings.
-**Important**: keys use `.` prefix in construction but **not** in destructuring (like Clojure's `:keys`):
+Members are written without the `.` prefix in destructuring (they become local bindings):
 
 ```bridje
 // Construction — dot prefix:
 {.name "James", .age 30}
 
-// Destructuring — no colon prefix (these become local bindings):
+// Destructuring — no dot prefix (these become local bindings):
 def: displayName({fn, ln}) "${fn} ${ln}"
 
 def: greet({name, age})
@@ -380,46 +458,28 @@ let: [{name, email} getUser()]
 
 ### tag
 
-Nominal wrapper around a record.
-A tag is distinct from any other tag, even with identical keys.
+Nominal type — a thing you can construct and pattern match on.
+A tag is distinct from any other tag, even with identical members.
 
-```bridje
-tag: User({.name, .age, .email})
-tag: LogEntry({.term, .index, .command})
-```
-
-Tags with type parameters:
+Positional members (tuple-style):
 
 ```bridje
 tag: Ok(a)
 tag: Err(e)
+tag: Pair(first, second)
+tag: Nothing                   // nullary — a singleton value
 ```
 
-Tagged record construction — three forms, all equivalent:
+Construction uses call syntax:
 
 ```bridje
-// Record sugar (preferred):
-VoteResponse{.from .id(state), .to .from(req), .term .currentTerm(state), .granted true}
-
-// Call syntax:
-VoteResponse({.from .id(state), .to .from(req), .term .currentTerm(state), .granted true})
-
-// Colon block syntax:
-ServerState:
-  {.id serverId
-   .cluster cluster
-   .currentTerm 0}
+Ok(42)
+Pair(1, 2)
+Nothing                        // singleton, no parens needed
 ```
 
-Destructuring tagged records in function parameters:
-
-```bridje
-def: majority(ServerState({cluster}))
-  ->: cluster count() div(2) inc()
-
-def: formatEntry(LogEntry({term, index, command}))
-  "[${term}:${index}] ${command}"
-```
+<!-- TODO: tag with named members via {} — tag: User{.name, .age} -->
+<!-- TODO: curly-brace construction sugar for named tags — User{.name "James"} -->
 
 ### type ... Sum
 
@@ -436,61 +496,67 @@ type: Result(a, e)
   Sum: Ok(a) | Err(e)
 ```
 
-### decl
+<!-- TODO: replace with adt: syntax -->
+<!-- adt: Maybe(a)          -->
+<!--   tag: Just(a)         -->
+<!--   tag: Nothing          -->
 
-Type declaration for a value or function.
-
-```bridje
-decl: x Int
-decl: foo(Int, Str) Bool
-decl: callback Fn([Int, Str] Bool)
-decl: identity(a) a
-decl: map([a], Fn([a] b)) [b]
-```
+Pattern matching on sum types is exhaustive — the compiler verifies all variants are handled.
 
 ### trait
 
-A named set of method declarations.
-The receiver (the type implementing the trait) is implicit — it does not appear in the `decl`.
-Declared parameters are the *additional* parameters beyond the receiver.
+<!-- TODO: trait is not yet implemented -->
+
+A named bundle of instance members — a structural type alias.
+Any value with the right members satisfies the trait, no declaration of conformance needed.
 
 ```bridje
-trait: Show
-  decl: show() Str               // receiver only, no additional params
+trait: Named{.name, .age}
 
-trait: Ord(t)
-  decl: compareTo(t) Int         // receiver compared to t
+trait: Temporal{.toEpochMilli, .isAfter}
+```
 
-trait: RaftNetwork
-  decl: sendVoteRequest(ServerId, VoteRequest)
-  decl: sendVoteResponse(ServerId, VoteResponse)
-  decl: sendAppendRequest(ServerId, AppendRequest)
-  decl: sendAppendResponse(ServerId, AppendResponse)
+Traits compose — a trait can include other traits and additional members:
+
+```bridje
+trait: Person{Named, .email}
+// Person requires .name, .age (from Named), and .email
+```
+
+Trait subtyping is structural: if `A` has all the members of `B` and more, then `A` is a subtype of `B`.
+
+Optional members in traits:
+
+```bridje
+trait: Profile{.name, .?nickname}      // .name required, .nickname optional
 ```
 
 ### impl
 
-Implement a trait for a type.
-The `impl` names the type and trait; method `def`s take the receiver as a parameter.
+<!-- TODO: impl is not yet implemented -->
+
+Implement methods for a tag.
+The member name comes first; the receiver is a parameter like any other.
 
 ```bridje
-impl: Show(Int)
-  def: show(it) intToStr(it)
+impl: User
+  def: .greet(this)
+    "Hello, ${.name(this)}"
 
-impl: Show(User)
-  def: show(User({fn, ln})) "${fn} ${ln}"
-
-impl: Ord(Int, Int)
-  def: compareTo(it, other) intCompare(it, other)
+  def: .fullName(this)
+    "${.firstName(this)} ${.lastName(this)}"
 ```
 
-Destructuring works in the receiver position.
-For parameterised traits like `Ord(t)`, the impl specifies both the receiver type and the type parameter: `Ord(Int, Int)`.
+Methods are instance members — available via `.greet(user)` or `->: user .greet()` after implementation.
+
+The prototypical delegation model: member lookup checks the instance (the record data) first, then falls through to the tag's implementations.
+A record member can shadow a tag method.
 
 ### defmacro
 
 Compile-time macro.
 Receives unevaluated Form objects as arguments, must return a Form.
+Supports variadic parameters with `&` rest syntax.
 
 Because Bridje's quote returns typed Form ADT objects (not raw data), macros manipulate Form values directly:
 
@@ -499,15 +565,17 @@ Because Bridje's quote returns typed Form ADT objects (not raw data), macros man
 defmacro: unless(cond, body)
   '(if ~cond nil ~body)
 
+// Variadic macro using & rest params and ~@ unquote-splice:
+defmacro: when(cond, & body)
+  '(if ~cond (do ~@body) nil)
+
 // Macro that manipulates Form objects directly:
 defmacro: ifLet(bindings, then, else)
-  let: [bvec first(bindings)
-        bname first(bvec)
-        bexpr nth(bvec, 1)]
-    '(let [v# ~bexpr]
+  let: [bvec first(bindings)]
+    '(let [v# ~nth(bvec, 1)]
        (case v#
          nil ~else
-         ~bname ~then))
+         ~first(bvec) ~then))
 ```
 
 Maximum macro expansion depth is 100 to prevent infinite expansion.
@@ -607,24 +675,37 @@ orElse(name, "anonymous")
 orElse(.timeout(config), .timeout(defaults), #dur("PT30S"))
 ```
 
-### when
+### when / unless
 
-Conditional execution — evaluates body if predicate is true, returns nil if false.
-No else branch.
+Conditional execution — evaluates body if predicate is true (when) or false (unless).
+Returns nil otherwise.
 
 ```bridje
 when: neq(peer, .id(state))
   sendAppendEntries(peer, state)
+
+unless: empty?(items)
+  processAll(items)
+```
+
+### and / or
+
+Short-circuiting boolean macros — variadic.
+`and` returns `false` at the first falsy value, `or` returns `true` at the first truthy value.
+
+```bridje
+and: gt(x, 0) lt(x, 100)       // true if 0 < x < 100
+or: nil?(x) empty?(x)          // true if x is nil or empty
 ```
 
 ### cond
 
 Multiple condition branches, evaluated top-to-bottom, first match wins.
-Like Clojure's `cond`: a flat sequence of pairs — test expression, then result expression.
+A flat sequence of pairs — test expression, then result expression.
 If the number of expressions is odd, the last one is the default (no test needed).
 
 ```bridje
-// Simple — alternating test, result pairs on the same line:
+// Simple — alternating test, result pairs:
 cond:
   gt(n, 0) "positive"
   lt(n, 0) "negative"
@@ -646,6 +727,50 @@ cond:
 
 This works because each result expression is just the next form after the test — colon block desugaring means an indented block is a single form.
 
+### cond->
+
+Conditional threading — threads a value through steps, but each step is guarded by a predicate.
+If the predicate is false, the step is skipped and the value passes through unchanged.
+
+```bridje
+cond->: state
+  dirty?(state) flush()
+  stale?(state) refresh()
+```
+
+### doto
+
+Evaluate side-effecting forms on a value, then return the value.
+Useful for initialization or logging.
+
+```bridje
+doto: createConnection()
+  .setAutoCommit(false)
+  .setReadOnly(true)
+```
+
+### as->
+
+Thread a value through forms with an explicit binding name, allowing it in any argument position.
+Unlike `->` which always inserts as the first argument.
+
+```bridje
+as->: initial-value name
+  transform(name, extra-arg)
+  otherFn(something, name)
+```
+
+### comment
+
+Ignores all body forms, returns nil.
+Used to keep code around for development without executing it:
+
+```bridje
+comment:
+  experimental-feature()
+  debug-output()
+```
+
 ### doseq
 
 Side-effecting iteration over a collection.
@@ -655,9 +780,6 @@ Binding form is like `let` — a vector of name-expression pairs:
 doseq: [peer .cluster(state)]
   when: neq(peer, .id(state))
     sendAppendEntries(peer, state)
-
-doseq: [idx range(inc(.lastApplied(state)), inc(.commitIndex(state)))]
-  ->: state .log nth(idx) .command apply(sm)
 ```
 
 ## Namespaces
@@ -666,18 +788,34 @@ doseq: [idx range(inc(.lastApplied(state)), inc(.commitIndex(state)))]
 ns: raft.server
   require:
     brj:
-      as(proc, p)
+      as(concurrent, c)
+  import:
+    java.time:
+      as(Instant, I)
 ```
 
-`.` separates namespace segments.
-`/` separates namespace from member.
-`require` brings in Bridje namespaces; `import` brings in Java classes.
-Qualified symbols: `p/spawn`, `p/Recv`.
+`.` separates namespace segments: `raft.server`, `brj.concurrent`.
+`/` separates namespace from local name: `c/spawn`, `I/now`.
+
+`require` brings in Bridje namespaces.
+`import` brings in Java classes — creating both a type and a namespace of methods.
+
+Qualified symbols:
+
+```bridje
+c/spawn(fn: () 42)
+I/now()
+brj.core/map(.name, people)
+```
+
+<!-- TODO: typed host interop — import creates typed method namespace via reflection -->
+<!-- TODO: instance method syntax — I/.toEpochMilli(instant) for receiver-first calls -->
 
 ## Metadata
 
 Attach metadata to forms with `^`.
-Metadata is a member key or a record attached to the following form:
+Metadata is a member key or a record attached to the following form.
+`^.test` is shorthand for `^{.test true}`:
 
 ```bridje
 ^.test
@@ -707,7 +845,40 @@ def: publicApi(x) _helper(x)     // nothing prevents calling _helper
 
 ## Error Handling
 
-TBC.
+Bridje uses anomaly-based error handling.
+Errors are thrown as anomaly records with a category tag.
+`try`/`catch`/`finally` work like Clojure/Java but catch anomaly categories.
+
+```bridje
+throw: NotFound({.message "user not found"})
+
+try:
+  riskyOperation()
+  catch: NotFound(e) handleNotFound(e)
+  catch: Forbidden(e) handleForbidden(e)
+  finally: cleanup()
+```
+
+## Concurrency
+
+Bridje uses structured concurrency via `brj.concurrent`.
+
+```bridje
+ns: my.app
+  require:
+    brj:
+      as(concurrent, c)
+
+def: fetchBoth()
+  let: [a c/spawn(fn: () fetchA())
+        b c/spawn(fn: () fetchB())]
+    [c/await(a), c/await(b)]
+```
+
+`c/spawn` creates a virtual thread within a structured scope.
+`c/await` blocks until the result is ready.
+`c/interrupt` cancels a spawned task.
+Parent tasks wait for all children; errors propagate up.
 
 ## Idioms
 
@@ -738,8 +909,12 @@ Namespaces are single-pass like Clojure — definitions can only reference earli
 Files naturally read top-down: types and helpers at the top, entry points at the bottom.
 
 ```bridje
+//// Members
+decl:
+  .name Str
+  .age Int
+
 //// Types
-decl: ...
 tag: ...
 type: ...
 
@@ -756,7 +931,8 @@ def: startServer(...) ...
 
 - `camelCase` for functions and values: `handleVoteRequest`, `startElection`
 - `PascalCase` for tags and types: `ServerState`, `VoteRequest`, `Result`
-- Predicates and boolean values end in `?`: `nil?`, `pos?`, `some?`, `empty?`, `canGrant?`, `upToDate?`
+- `.camelCase` for instance members: `.name`, `.currentTerm`, `.toEpochMilli`
+- Predicates and boolean values end in `?`: `nil?`, `pos?`, `some?`, `empty?`
 - Effects optionally end in `!` by convention: `log!`, `send!`
 - Private by convention with `_` prefix: `_helper`, `_internal`
 
@@ -778,7 +954,6 @@ max(commitIndex, 0)
 For variadic operations, colon block syntax avoids deep nesting:
 
 ```bridje
-// Variadic — block style reads better:
 and:
   gte(.term(req), .currentTerm(state))
   or:
@@ -792,6 +967,6 @@ The block form is preferred when the expression has more than two arguments or w
 ### Data-oriented design
 
 Prefer plain records and tags over complex abstractions.
-Reach for a record when you have keyed data, a tag when you need domain identity, a sum type when you have a fixed set of alternatives.
+Reach for a record when you have keyed data, a tag when you need domain identity, an ADT when you have a fixed set of alternatives.
 Functions transform data — they take records in and return records out.
-Keep data and behavior separate; use traits when you need polymorphic dispatch.
+Use traits for structural polymorphism — any value with the right members satisfies the trait.
