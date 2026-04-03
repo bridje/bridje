@@ -63,6 +63,12 @@ class Reader private constructor(private val src: Source) {
                 ListForm(listOf(fn) + args, loc)
             }
 
+            "record_sugar" -> {
+                val fn = namedChildren[0].readForm()
+                val recordFields = namedChildren.drop(1).map { it.readForm() }
+                ListForm(listOf(fn, RecordForm(recordFields, loc)), loc)
+            }
+
             "block_call" -> {
                 val blockName = namedChildren[0].text!!
                 val args = namedChildren.drop(1).flatMap { child ->

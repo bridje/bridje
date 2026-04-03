@@ -411,6 +411,36 @@ Metadata on vector
       (int))))
 
 ==================
+Record sugar
+==================
+
+Foo{:name "James", :age 42}
+
+---
+
+(source_file
+  (record_sugar
+    (symbol)
+    (keyword)
+    (string)
+    (keyword)
+    (int)))
+
+==================
+Record sugar with qualified symbol
+==================
+
+ns:Foo{:name "James"}
+
+---
+
+(source_file
+  (record_sugar
+    (qualified_symbol)
+    (keyword)
+    (string)))
+
+==================
 Optional keyword
 ==================
 

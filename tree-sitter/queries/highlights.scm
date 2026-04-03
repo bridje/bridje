@@ -20,6 +20,10 @@
 (call
   (symbol) @function)
 
+; record_sugar: highlight the symbol as function (constructor)
+(record_sugar
+  (symbol) @function)
+
 ; block_call: highlight the symbol as function
 (block_call
   (symbol) @function)

@@ -30,6 +30,7 @@ module.exports = grammar({
       $.keyword,
       $.list, $.vector, $.map, $.set,
       $.call,
+      $.record_sugar,
       $.block_call,
       $.quote,
       $.unquote_splice,
@@ -55,6 +56,9 @@ module.exports = grammar({
 
     // foo(a, b) or ns:foo(a, b)
     call: $ => seq(choice($.symbol, $.qualified_symbol, $.keyword), token.immediate('('), repeat($._form), ')'),
+
+    // Foo{a b} — record construction sugar, desugars to Foo({a b})
+    record_sugar: $ => seq(choice($.symbol, $.qualified_symbol), token.immediate('{'), repeat($._form), '}'),
 
     // foo: args
     //   body

@@ -76,10 +76,11 @@ The ideal: one artifact that serves as spec, implementation, and test subject - 
 
 Bridje is, at its core, a LISP.
 
-That said, it has two syntactic sugars that make it feel like a more mainstream C/Java-style language, without compromising on its LISP foundations:
+That said, it has three syntactic sugars that make it feel like a more mainstream C/Java-style language, without compromising on its LISP foundations:
 
 1. `foo(a, b)` call syntax (desugars to `(foo a b)`)
-2. Colon blocks: a symbol suffixed with a colon (e.g. `def:`) starts a new block.
+2. `Foo{:name "James"}` record construction sugar (desugars to `Foo({:name "James"})`)
+3. Colon blocks: a symbol suffixed with a colon (e.g. `def:`) starts a new block.
    Anything indented further than that symbol is included in the block.
 
    For example:

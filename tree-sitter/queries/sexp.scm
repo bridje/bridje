@@ -9,5 +9,6 @@
 (map) @sexp
 (set) @sexp
 (call) @sexp
+(record_sugar) @sexp
 (block_call) @sexp
 (metadata) @sexp

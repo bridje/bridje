@@ -37,7 +37,7 @@ Commas are whitespace everywhere — they're optional.
 
 ## Syntactic Sugar
 
-Bridje has two sugars over its s-expression core.
+Bridje has three sugars over its s-expression core.
 All examples below use them, so they're introduced here first.
 
 The goal is to bring LISP simplicity to a wider audience through syntax that looks like a C/Java-style language — "brackets where you'd expect them" — while retaining the benefits of a LISP core.
@@ -101,7 +101,22 @@ if: gt(a, b)
   b)
 ```
 
-### Threading macro
+### Curly-brace construction sugar
+
+`Foo{...}` desugars to `Foo({...})`.
+
+When a symbol is immediately followed by curly braces, it desugars to calling that symbol with a record argument.
+This makes tagged record construction concise:
+
+```bridje
+Person{:name "James", :age 42}
+// desugars to:
+Person({:name "James", :age 42})
+// which is:
+(Person {:name "James" :age 42})
+```
+
+## Threading macro
 
 `->` is a macro (defined in `brj:core`, not syntactic sugar) that threads a value through a sequence of calls, inserting it as the first argument to each.
 This turns inside-out LISP nesting into left-to-right chaining.
@@ -380,19 +395,20 @@ deftag: Ok(a)
 deftag: Err(e)
 ```
 
-Tagged record construction — two forms, both equivalent:
+Tagged record construction — three forms, all equivalent:
 
 ```bridje
+// Record sugar (preferred):
+VoteResponse{:from :id(state), :to :from(req), :term :currentTerm(state), :granted true}
+
 // Call syntax:
 VoteResponse({:from :id(state), :to :from(req), :term :currentTerm(state), :granted true})
 
-// Colon block syntax (desugars to the same thing):
+// Colon block syntax:
 ServerState:
   {:id serverId
    :cluster cluster
    :currentTerm 0}
-
-// ServerState: {...} desugars to (ServerState {...}) which is ServerState({...})
 ```
 
 Destructuring tagged records in function parameters:

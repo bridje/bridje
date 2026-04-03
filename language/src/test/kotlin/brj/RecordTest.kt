@@ -355,6 +355,20 @@ class RecordTest {
     }
 
     @Test
+    fun `record sugar desugars to call with record arg`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defkeys: {:x Int}
+              deftag: Wrapper(value)
+              Wrapper{:x 42}
+        """.trimIndent())
+        assertTrue(result.hasArrayElements())
+        assertEquals(1, result.arraySize)
+        assertTrue(result.getArrayElement(0).hasMembers())
+        assertEquals(42L, result.getArrayElement(0).getMember("x").asLong())
+    }
+
+    @Test
     fun `qualified field access across namespaces`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my:keys
