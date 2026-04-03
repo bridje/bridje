@@ -135,6 +135,13 @@ class MacroTest {
     }
 
     @Test
+    fun `error on unquote-splice outside quote`() = withContext { ctx ->
+        assertThrows(RuntimeException::class.java) {
+            ctx.evalBridje("~@[1 2 3]")
+        }
+    }
+
+    @Test
     fun `gensym returns unique symbols`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
@@ -394,6 +401,54 @@ class MacroTest {
             do:
               def: inc(x) add(x, 1)
               ->: 10 add(31) inc()
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    // Unquote-splicing tests
+
+    @Test
+    fun `unquote-splice in macro body`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: myDo(& body)
+                '(do ~@body)
+              myDo: println(1) add(10, 32)
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `unquote-splice mixed with unquote`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: myIf(cond, & branches)
+                '(if ~cond ~@branches)
+              myIf: true
+                42
+                0
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `unquote-splice with single element`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: wrap(& body)
+                '(do ~@body)
+              wrap: 42
+        """)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `unquote-splice at start of list`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: applyFn(& fnAndArgs)
+                '(~@fnAndArgs)
+              applyFn(add, 10, 32)
         """)
         assertEquals(42L, result.asLong())
     }

@@ -23,7 +23,7 @@ defkeys: {:test Bool, :exnMessage Str}
 defmacro: orElse(value, & defaults)
   if: empty?(defaults)
     value
-    let: [fallback List(cons(Symbol("orElse"), defaults))]
+    let: [fallback '(orElse ~@defaults)]
       '(case ~value
          nil ~fallback
          x# x#)
@@ -33,6 +33,6 @@ defmacro: ->(seed, & steps)
     seed
     let: [step first(steps)
           applied case: step
-                    List(els) List(cons(first(els), cons(seed, rest(els))))
-                    bare List([bare, seed])]
-      List(cons(Symbol("->"), cons(applied, rest(steps))))
+                    List(els) '(~first(els) ~seed ~@rest(els))
+                    bare '(~bare ~seed)]
+      '(-> ~applied ~@rest(steps))

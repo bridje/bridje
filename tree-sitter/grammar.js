@@ -32,6 +32,7 @@ module.exports = grammar({
       $.call,
       $.block_call,
       $.quote,
+      $.unquote_splice,
       $.unquote,
       $.metadata,
     ),
@@ -79,6 +80,7 @@ module.exports = grammar({
     discard: $ => seq('#_', $._form),
     quote: $ => seq("'", $._form),
     unquote: $ => seq("~", $._form),
+    unquote_splice: $ => seq("~@", $._form),
   },
 
   extras: $ => [

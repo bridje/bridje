@@ -74,6 +74,7 @@ class Reader private constructor(private val src: Source) {
 
             "quote" -> ListForm(listOf(SymbolForm("quote", loc), namedChildren[0].readForm()), loc)
             "unquote" -> UnquoteForm(namedChildren[0].readForm(), loc)
+            "unquote_splice" -> UnquoteSpliceForm(namedChildren[0].readForm(), loc)
 
             "metadata" -> {
                 val metaValue = namedChildren[0].readForm()

@@ -240,13 +240,47 @@ data class Analyser(
     }
 
     private fun collFormConstructor(name: String, els: List<Form>, loc: SourceSection?): ValueExpr {
-        val elements = els.map { analyseQuotedForm(it) }
-        return callFormConstructor(name, listOf(VectorExpr(elements, loc)), loc)
+        val hasSplice = els.any { it is UnquoteSpliceForm }
+
+        if (!hasSplice) {
+            val elements = els.map { analyseQuotedForm(it) }
+            return callFormConstructor(name, listOf(VectorExpr(elements, loc)), loc)
+        }
+
+        val chunks = mutableListOf<ValueExpr>()
+        val currentGroup = mutableListOf<ValueExpr>()
+
+        fun flushGroup() {
+            if (currentGroup.isNotEmpty()) {
+                chunks.add(VectorExpr(currentGroup.toList(), loc))
+                currentGroup.clear()
+            }
+        }
+
+        for (el in els) {
+            if (el is UnquoteSpliceForm) {
+                flushGroup()
+                chunks.add(analyseValueExpr(el.form))
+            } else {
+                currentGroup.add(analyseQuotedForm(el))
+            }
+        }
+        flushGroup()
+
+        val concatVar = nsEnv["concat"] ?: ctx.brjCore["concat"]
+            ?: return errorExpr("concat not found", loc)
+
+        val concatenated = chunks.fold(VectorExpr(emptyList(), loc) as ValueExpr) { acc, chunk ->
+            CallExpr(GlobalVarExpr(concatVar, loc), listOf(acc, chunk), loc)
+        }
+
+        return callFormConstructor(name, listOf(concatenated), loc)
     }
 
     private fun analyseQuotedForm(form: Form): ValueExpr =
         when (form) {
             is UnquoteForm -> analyseValueExpr(form.form)
+            is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) not valid outside collection", form.loc)
 
             is IntForm -> 
                 callFormConstructor("Int", listOf(IntExpr(form.value, form.loc)), form.loc)
@@ -685,6 +719,7 @@ data class Analyser(
             is SetForm -> SetExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is RecordForm -> analyseRecord(form)
             is UnquoteForm -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
+            is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) can only be used inside a quote", form.loc)
         }
     }
 

@@ -324,6 +324,34 @@ Unquote in quote
       (int))))
 
 ==================
+Simple unquote-splice
+==================
+
+~@xs
+
+---
+
+(source_file
+  (unquote_splice
+    (symbol)))
+
+==================
+Unquote-splice in quote
+==================
+
+'(a ~@xs b)
+
+---
+
+(source_file
+  (quote
+    (list
+      (symbol)
+      (unquote_splice
+        (symbol))
+      (symbol))))
+
+==================
 Metadata with keyword
 ==================
 
