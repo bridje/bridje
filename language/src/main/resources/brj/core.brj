@@ -2,7 +2,7 @@ ns: brj:core
 
 defmacro: ifLet(bindings, then, else)
   let: [bvec bindings.nth(0)
-        bname bvec.nth(0)
+        bname first(bvec)
         bexpr bvec.nth(1)]
     '(let [v# ~bexpr]
        (case v#
@@ -11,7 +11,7 @@ defmacro: ifLet(bindings, then, else)
 
 defmacro: unlessLet(bindings, else, then)
   let: [bvec bindings.nth(0)
-        bname bvec.nth(0)
+        bname first(bvec)
         bexpr bvec.nth(1)]
     '(let [v# ~bexpr]
        (case v#

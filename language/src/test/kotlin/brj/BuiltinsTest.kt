@@ -149,6 +149,81 @@ class BuiltinsTest {
         assertTrue(ex.message?.contains("Division by zero") == true)
     }
 
+    // Vector builtins
+
+    @Test
+    fun `count of vector`() = withContext { ctx ->
+        assertEquals(3L, ctx.evalBridje("count([1, 2, 3])").asLong())
+    }
+
+    @Test
+    fun `count of empty vector`() = withContext { ctx ->
+        assertEquals(0L, ctx.evalBridje("count([])").asLong())
+    }
+
+    @Test
+    fun `first of vector`() = withContext { ctx ->
+        assertEquals(1L, ctx.evalBridje("first([1, 2, 3])").asLong())
+    }
+
+    @Test
+    fun `first of empty vector throws`() = withContext { ctx ->
+        assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("first([])")
+        }
+    }
+
+    @Test
+    fun `firstOrNull of vector`() = withContext { ctx ->
+        assertEquals(1L, ctx.evalBridje("firstOrNull([1, 2, 3])").asLong())
+    }
+
+    @Test
+    fun `firstOrNull of empty vector returns nil`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("firstOrNull([])").isNull)
+    }
+
+    @Test
+    fun `rest of vector`() = withContext { ctx ->
+        val result = ctx.evalBridje("rest([1, 2, 3])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(2L, result.arraySize)
+    }
+
+    @Test
+    fun `rest of empty vector`() = withContext { ctx ->
+        val result = ctx.evalBridje("rest([])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(0L, result.arraySize)
+    }
+
+    @Test
+    fun `empty? of empty vector`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("empty?([])").asBoolean())
+    }
+
+    @Test
+    fun `empty? of non-empty vector`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("empty?([1])").asBoolean())
+    }
+
+    @Test
+    fun `cons prepends to vector`() = withContext { ctx ->
+        val result = ctx.evalBridje("cons(0, [1, 2])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(3L, result.arraySize)
+        assertEquals(0L, result.getArrayElement(0).asLong())
+        assertEquals(1L, result.getArrayElement(1).asLong())
+    }
+
+    @Test
+    fun `cons onto empty vector`() = withContext { ctx ->
+        val result = ctx.evalBridje("cons(42, [])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(1L, result.arraySize)
+        assertEquals(42L, result.getArrayElement(0).asLong())
+    }
+
     @Test
     fun `println prints value and returns it`() {
         val output = ByteArrayOutputStream()
