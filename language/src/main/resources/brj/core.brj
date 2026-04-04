@@ -31,18 +31,16 @@ defmacro: orElse(value, & defaults)
        x# x#)
 
 defmacro: and(& forms)
-  if: empty?(forms)
-    'true
-    if: eq(count(forms), 1)
-      first(forms)
-      '(if ~first(forms) (and ~@rest(forms)) false)
+  cond:
+    empty?(forms) 'true
+    eq(count(forms), 1) first(forms)
+    '(if ~first(forms) (and ~@rest(forms)) false)
 
 defmacro: or(& forms)
-  if: empty?(forms)
-    'false
-    if: eq(count(forms), 1)
-      first(forms)
-      '(if ~first(forms) true (or ~@rest(forms)))
+  cond:
+    empty?(forms) 'false
+    eq(count(forms), 1) first(forms)
+    '(if ~first(forms) true (or ~@rest(forms)))
 
 defmacro: when(cond, & body)
   '(if ~cond (do ~@body) nil)
