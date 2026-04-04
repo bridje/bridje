@@ -1,5 +1,12 @@
 ns: brj.core
 
+defmacro: cond(& clauses)
+  if: empty?(clauses)
+    'nil
+    if: eq(count(clauses), 1)
+      first(clauses)
+      '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
+
 defmacro: ifLet(bindings, then, else)
   let: [bvec first(bindings)]
     '(let [v# ~nth(bvec, 1)]
@@ -24,31 +31,24 @@ defmacro: orElse(value, & defaults)
        x# x#)
 
 defmacro: and(& forms)
-  if: empty?(forms)
+  cond: empty?(forms)
     'true
-    if: eq(count(forms), 1)
-      first(forms)
-      '(if ~first(forms) (and ~@rest(forms)) false)
+    eq(count(forms), 1)
+    first(forms)
+    '(if ~first(forms) (and ~@rest(forms)) false)
 
 defmacro: or(& forms)
-  if: empty?(forms)
+  cond: empty?(forms)
     'false
-    if: eq(count(forms), 1)
-      first(forms)
-      '(if ~first(forms) true (or ~@rest(forms)))
+    eq(count(forms), 1)
+    first(forms)
+    '(if ~first(forms) true (or ~@rest(forms)))
 
 defmacro: when(cond, & body)
   '(if ~cond (do ~@body) nil)
 
 defmacro: unless(cond, & body)
   '(if ~cond nil (do ~@body))
-
-defmacro: cond(& clauses)
-  if: empty?(clauses)
-    'nil
-    if: eq(count(clauses), 1)
-      first(clauses)
-      '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
 
 defmacro: cond->(seed, & clauses)
   if: empty?(clauses)
