@@ -4,6 +4,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
+import org.gradle.work.DisableCachingByDefault
 
 /**
  * Gradle task type for running Bridje namespaces during development.
@@ -19,6 +20,7 @@ import org.gradle.api.tasks.SourceSetContainer
  * }
  * ```
  */
+@DisableCachingByDefault(because = "BridjeExec executes a program and should not be cached")
 abstract class BridjeExec : JavaExec() {
     
     /**
