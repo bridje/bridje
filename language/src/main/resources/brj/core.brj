@@ -1,5 +1,12 @@
 ns: brj.core
 
+defmacro: cond(& clauses)
+  if: empty?(clauses)
+    'nil
+    if: eq(count(clauses), 1)
+      first(clauses)
+      '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
+
 defmacro: ifLet(bindings, then, else)
   let: [bvec first(bindings)]
     '(let [v# ~nth(bvec, 1)]
@@ -42,13 +49,6 @@ defmacro: when(cond, & body)
 
 defmacro: unless(cond, & body)
   '(if ~cond nil (do ~@body))
-
-defmacro: cond(& clauses)
-  if: empty?(clauses)
-    'nil
-    if: eq(count(clauses), 1)
-      first(clauses)
-      '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
 
 defmacro: cond->(seed, & clauses)
   if: empty?(clauses)
