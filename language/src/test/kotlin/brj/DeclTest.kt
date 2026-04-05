@@ -110,6 +110,42 @@ class DeclTest {
     }
 
     @Test
+    fun `decl polymorphic function type`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test.decl.poly
+            decl: [a] identity(a) a
+            def: identity(x) x
+        """.trimIndent())
+        val meta = ns.varMeta("identity")
+        assertTrue(meta.hasMember("declaredType"))
+        val declType = meta.getMember("declaredType")
+        assertTrue(declType.displayString().startsWith("Fn(["), "Expected a Fn type, got: ${declType.displayString()}")
+    }
+
+    @Test
+    fun `decl polymorphic value type`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test.decl.polyval
+            decl: [a] x a
+            def: x 42
+        """.trimIndent())
+        val meta = ns.varMeta("x")
+        assertTrue(meta.hasMember("declaredType"))
+    }
+
+    @Test
+    fun `decl polymorphic function type param and return share type var`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test.decl.polytv
+            decl: [a] identity(a) a
+            def: identity(x) x
+        """.trimIndent())
+        val declType = ns.varMeta("identity").getMember("declaredType")
+        val str = declType.displayString()
+        // Both param and return are the same type variable (displayed as "?")
+        assertEquals("Fn([?] ?)", str)
+    }
+    @Test
     fun `decl in value position is an error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
