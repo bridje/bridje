@@ -3,7 +3,6 @@ package brj.analyser
 import brj.Form
 import brj.GlobalVar
 import brj.types.Type
-
 import com.oracle.truffle.api.source.SourceSection
 
 sealed interface Expr {
@@ -60,6 +59,23 @@ class DefxExpr(
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String = "(defx $name $declaredType${defaultExpr?.let { " $it" } ?: ""})"
+}
+
+enum class InteropMemberKind { STATIC_FIELD, STATIC_METHOD, INSTANCE_METHOD, INSTANCE_FIELD }
+
+data class InteropMember(
+    val qualifiedName: String,
+    val importAlias: String,
+    val memberName: String,
+    val kind: InteropMemberKind,
+    val declaredType: Type,
+)
+
+class InteropDeclExpr(
+    val members: List<InteropMember>,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String = "(interop-decl ${members.joinToString(" ") { it.qualifiedName }})"
 }
 
 class TopLevelDo(val forms: List<Form>, override val loc: SourceSection?) : Expr {

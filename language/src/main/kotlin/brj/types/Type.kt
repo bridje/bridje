@@ -120,6 +120,13 @@ data object FormType: BaseType {
 }
 
 @ExportLibrary(InteropLibrary::class)
+data class HostType(val className: String): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = className.substringAfterLast('.')
+}
+
+@ExportLibrary(InteropLibrary::class)
 data object ErrorType: BaseType {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()

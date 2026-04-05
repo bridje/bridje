@@ -10,6 +10,8 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.InteropLibrary
+import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.nodes.ExplodeLoop
 import com.oracle.truffle.api.nodes.Node.Child
 import com.oracle.truffle.api.nodes.Node.Children
@@ -190,6 +192,38 @@ class ParseRootNode(
 
                 is DeclExpr -> {
                     nsEnv = nsEnv.decl(expr.name, expr.declaredType)
+                    null
+                }
+
+                is InteropDeclExpr -> {
+                    val interopLib = InteropLibrary.getUncached()
+                    for (member in expr.members) {
+                        val fqClass = nsEnv.imports[member.importAlias]
+                            ?: throw Analyser.Error("Unknown import alias: ${member.importAlias}", expr.loc)
+                        val hostClass = ctx.truffleEnv.lookupHostSymbol(fqClass) as TruffleObject
+
+                        when (member.kind) {
+                            InteropMemberKind.STATIC_FIELD -> {
+                                if (!interopLib.isMemberReadable(hostClass, member.memberName)) {
+                                    throw Analyser.Error("${member.memberName} is not a readable field on ${member.importAlias} — did you mean ${member.memberName}()?", expr.loc)
+                                }
+                                val value = interopLib.readMember(hostClass, member.memberName)
+                                nsEnv = nsEnv.defInterop(member.qualifiedName, value, member.declaredType)
+                            }
+                            InteropMemberKind.STATIC_METHOD -> {
+                                val rootNode = HostStaticMethodInvokeNode(lang, hostClass, member.memberName)
+                                nsEnv = nsEnv.defInterop(member.qualifiedName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                            }
+                            InteropMemberKind.INSTANCE_METHOD -> {
+                                val rootNode = HostInstanceMethodInvokeNode(lang, member.memberName)
+                                nsEnv = nsEnv.defInterop(member.qualifiedName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                            }
+                            InteropMemberKind.INSTANCE_FIELD -> {
+                                val rootNode = HostInstanceFieldReadNode(lang, member.memberName)
+                                nsEnv = nsEnv.defInterop(member.qualifiedName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                            }
+                        }
+                    }
                     null
                 }
 
