@@ -801,7 +801,7 @@ data class Analyser(
         return errorType()
     }
 
-    private fun analyseTypeSymbol(name: String, loc: SourceSection?): Type =
+    private fun analyseTypeSymbol(name: String, loc: SourceSection?, typeVars: Map<String, TypeVar>): Type =
         when (name) {
             "Int" -> IntType.notNull()
             "Str" -> StringType.notNull()
@@ -825,32 +825,33 @@ data class Analyser(
                         }
                     }
                 }
+                name in typeVars -> Type(NOT_NULL, typeVars[name]!!, null)
                 else -> errorType("Unsupported type form: $name", loc)
             }
         }
 
-    internal fun analyseTypeForm(form: Form): Type =
+    internal fun analyseTypeForm(form: Form, typeVars: Map<String, TypeVar>): Type =
         when (form) {
             is SymbolForm -> {
                 val name = form.name
                 if (name.endsWith("?")) {
-                    val inner = analyseTypeSymbol(name.dropLast(1), form.loc)
-                    Type(NULLABLE, TypeVar(), inner.base)
+                    val inner = analyseTypeSymbol(name.dropLast(1), form.loc, typeVars)
+                    Type(NULLABLE, inner.tv, inner.base)
                 } else {
-                    analyseTypeSymbol(name, form.loc)
+                    analyseTypeSymbol(name, form.loc, typeVars)
                 }
             }
 
             is VectorForm -> {
                 val elForm = form.els.singleOrNull()
                     ?: return errorType("Vector type must have exactly one element type", form.loc)
-                VectorType(analyseTypeForm(elForm)).notNull()
+                VectorType(analyseTypeForm(elForm, typeVars)).notNull()
             }
 
             is SetForm -> {
                 val elForm = form.els.singleOrNull()
                     ?: return errorType("Set type must have exactly one element type", form.loc)
-                SetType(analyseTypeForm(elForm)).notNull()
+                SetType(analyseTypeForm(elForm, typeVars)).notNull()
             }
 
             is ListForm -> {
@@ -862,14 +863,14 @@ data class Analyser(
                             ?: return errorType("Fn type requires a vector of parameter types", form.loc)
                         val retForm = form.els.getOrNull(2)
                             ?: return errorType("Fn type requires a return type", form.loc)
-                        val paramTypes = paramVec.els.map { analyseTypeForm(it) }
-                        val returnType = analyseTypeForm(retForm)
+                        val paramTypes = paramVec.els.map { analyseTypeForm(it, typeVars) }
+                        val returnType = analyseTypeForm(retForm, typeVars)
                         FnType(paramTypes, returnType).notNull()
                     }
                     "Future" -> {
                         val elForm = form.els.getOrNull(1)
                             ?: return errorType("Future type requires an element type", form.loc)
-                        FutureType(analyseTypeForm(elForm)).notNull()
+                        FutureType(analyseTypeForm(elForm, typeVars)).notNull()
                     }
                     else -> errorType("Unsupported type constructor: ${first.name}", form.loc)
                 }
@@ -880,7 +881,9 @@ data class Analyser(
             else -> errorType("Unsupported type form", form.loc)
         }
 
-    private fun analyseInteropDecl(forms: List<Form>, loc: SourceSection?): Expr {
+    internal fun analyseTypeForm(form: Form): Type = analyseTypeForm(form, emptyMap())
+
+    private fun analyseInteropDecl(forms: List<Form>, typeVars: Map<String, TypeVar>, loc: SourceSection?): Expr {
         val specForm = forms[0]
         val retForm = forms.getOrNull(1)
             ?: return errorExpr("interop decl missing return type", specForm.loc)
@@ -888,7 +891,7 @@ data class Analyser(
         val member = when {
             specForm is QualifiedSymbolForm -> {
                 // I/EPOCH I — static field
-                val returnType = analyseTypeForm(retForm)
+                val returnType = analyseTypeForm(retForm, typeVars)
                 InteropMember(
                     qualifiedName = "${specForm.namespace}/${specForm.member}",
                     importAlias = specForm.namespace,
@@ -906,7 +909,7 @@ data class Analyser(
                 val fqClass = nsEnv.imports[alias]
                     ?: return errorExpr("Unknown import alias: $alias", specForm.loc)
                 val receiverType = HostType(fqClass).notNull()
-                val returnType = analyseTypeForm(retForm)
+                val returnType = analyseTypeForm(retForm, typeVars)
                 InteropMember(
                     qualifiedName = specForm.name,
                     importAlias = alias,
@@ -919,8 +922,8 @@ data class Analyser(
             specForm is ListForm -> {
                 val callee = specForm.els.firstOrNull()
                     ?: return errorExpr("interop decl call must have a callee", specForm.loc)
-                val paramTypes = specForm.els.drop(1).map { analyseTypeForm(it) }
-                val returnType = analyseTypeForm(retForm)
+                val paramTypes = specForm.els.drop(1).map { analyseTypeForm(it, typeVars) }
+                val returnType = analyseTypeForm(retForm, typeVars)
 
                 when {
                     callee is QualifiedSymbolForm -> {
@@ -982,12 +985,22 @@ data class Analyser(
                 DefKeysExpr(listOf(sigForm.name), form.loc)
             }
 
-            // single decl
-            else -> analyseSingleDecl(els.drop(1), form.loc)
+            // type variables: decl: [a] identity(a) a
+            sigForm is VectorForm -> {
+                val typeVarNames = sigForm.els.map { tvForm ->
+                    (tvForm as? SymbolForm)?.name
+                        ?: return errorExpr("type variable must be a symbol", tvForm.loc)
+                }
+                val typeVars = typeVarNames.associateWith { TypeVar() }
+                analyseSingleDecl(els.drop(2), typeVars, form.loc)
+            }
+
+            // single decl without type vars
+            else -> analyseSingleDecl(els.drop(1), emptyMap(), form.loc)
         }
     }
 
-    private fun analyseSingleDecl(forms: List<Form>, loc: SourceSection?): Expr {
+    private fun analyseSingleDecl(forms: List<Form>, typeVars: Map<String, TypeVar>, loc: SourceSection?): Expr {
         val sigForm = forms.firstOrNull()
             ?: return errorExpr("decl requires a signature", loc)
 
@@ -1002,7 +1015,7 @@ data class Analyser(
         }
 
         return when {
-            isInteropForm(sigForm) -> analyseInteropDecl(forms, loc)
+            isInteropForm(sigForm) -> analyseInteropDecl(forms, typeVars, loc)
 
             sigForm is ListForm -> {
                 // decl: foo(Int, Str) Bool — function type declaration
@@ -1010,8 +1023,8 @@ data class Analyser(
                     ?: return errorExpr("decl signature must start with a name", sigForm.loc)
                 val retForm = forms.getOrNull(1)
                     ?: return errorExpr("decl function requires a return type", loc)
-                val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it) }
-                val returnType = analyseTypeForm(retForm)
+                val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it, typeVars) }
+                val returnType = analyseTypeForm(retForm, typeVars)
                 DeclExpr(nameForm.name, FnType(paramTypes, returnType).notNull(), loc)
             }
 
@@ -1019,7 +1032,7 @@ data class Analyser(
                 // decl: x Int — value type declaration
                 val typeForm = forms.getOrNull(1)
                     ?: return errorExpr("decl requires a type", loc)
-                DeclExpr(sigForm.name, analyseTypeForm(typeForm), loc)
+                DeclExpr(sigForm.name, analyseTypeForm(typeForm, typeVars), loc)
             }
 
             else -> errorExpr("decl requires a name or signature", loc)

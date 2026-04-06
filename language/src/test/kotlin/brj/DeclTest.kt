@@ -110,6 +110,17 @@ class DeclTest {
     }
 
     @Test
+    fun `decl polymorphic function type`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test.decl.poly
+            decl: [a] identity(a) a
+            def: identity(x) x
+        """.trimIndent())
+        val declType = ns.varMeta("identity").getMember("declaredType")
+        assertEquals("Fn([?] ?)", declType.displayString())
+    }
+
+    @Test
     fun `decl in value position is an error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""

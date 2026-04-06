@@ -1,4 +1,23 @@
 ns: brj.core
+  import:
+    brj.runtime:
+      as(BridjeVector, Vec)
+
+decl: [a] Vec/count([a]) Int
+decl: [a] Vec/first([a]) a
+decl: [a] Vec/firstOrNull([a]) a?
+decl: [a] Vec/rest([a]) [a]
+decl: [a] Vec/cons(a, [a]) [a]
+decl: [a] Vec/isEmpty([a]) Bool
+decl: [a] Vec/concat([a], [a]) [a]
+
+def: count(xs) Vec/count(xs)
+def: first(xs) Vec/first(xs)
+def: firstOrNull(xs) Vec/firstOrNull(xs)
+def: rest(xs) Vec/rest(xs)
+def: cons(x, xs) Vec/cons(x, xs)
+def: empty?(xs) Vec/isEmpty(xs)
+def: concat(xs, ys) Vec/concat(xs, ys)
 
 defmacro: cond(& clauses)
   if: empty?(clauses)

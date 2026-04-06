@@ -42,22 +42,8 @@ object Builtins {
                 run { val t = freshType(); FnType(listOf(t, RecordType.notNull()), t).notNull() }),
             createBuiltinFunction("throw", ThrowNode(language),
                 FnType(listOf(freshType()), nothingType()).notNull()),
-            createBuiltinFunction("count", CountNode(language),
-                FnType(listOf(VectorType(freshType()).notNull()), IntType.notNull()).notNull()),
-            createBuiltinFunction("first", FirstNode(language),
-                run { val el = freshType(); FnType(listOf(VectorType(el).notNull()), el).notNull() }),
-            createBuiltinFunction("firstOrNull", FirstOrNullNode(language),
-                run { val el = freshType(); FnType(listOf(VectorType(el).notNull()), el.copy(nullability = Nullability.NULLABLE)).notNull() }),
-            createBuiltinFunction("rest", RestNode(language),
-                run { val el = freshType(); FnType(listOf(VectorType(el).notNull()), VectorType(el).notNull()).notNull() }),
-            createBuiltinFunction("cons", ConsNode(language),
-                run { val el = freshType(); FnType(listOf(el, VectorType(el).notNull()), VectorType(el).notNull()).notNull() }),
-            createBuiltinFunction("empty?", EmptyNode(language),
-                FnType(listOf(VectorType(freshType()).notNull()), BoolType.notNull()).notNull()),
             createBuiltinFunction("not", NotNode(language),
                 FnType(listOf(BoolType.notNull()), BoolType.notNull()).notNull()),
-            createBuiltinFunction("concat", ConcatNode(language),
-                run { val el = freshType(); FnType(listOf(VectorType(el).notNull(), VectorType(el).notNull()), VectorType(el).notNull()).notNull() }),
         ).associateBy { it.name }
     }
 
