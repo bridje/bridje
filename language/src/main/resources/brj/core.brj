@@ -8,18 +8,20 @@ defmacro: cond(& clauses)
       '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
 
 defmacro: ifLet(bindings, then, else)
-  let: [bvec first(bindings)]
-    '(let [v# ~nth(bvec, 1)]
-       (case v#
-         nil ~else
-         ~first(bvec) ~then))
+  case: bindings
+    Vector(els)
+      '(let [v# ~nth(els, 1)]
+         (case v#
+           nil ~else
+           ~first(els) ~then))
 
 defmacro: unlessLet(bindings, else, then)
-  let: [bvec first(bindings)]
-    '(let [v# ~nth(bvec, 1)]
-       (case v#
-         nil ~else
-         ~first(bvec) ~then))
+  case: bindings
+    Vector(els)
+      '(let [v# ~nth(els, 1)]
+         (case v#
+           nil ~else
+           ~first(els) ~then))
 
 decl: .test Bool .exnMessage Str
 
