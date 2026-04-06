@@ -38,7 +38,7 @@ class RecordTest {
     fun `record with multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str .bar Int
+              decl: {.foo Str, .bar Int}
               {.foo "hello", .bar 42}
         """.trimIndent())
         assertTrue(result.hasMembers())
@@ -50,7 +50,7 @@ class RecordTest {
     fun `key getter extracts field from record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .name Str .age Int
+              decl: {.name Str, .age Int}
               let: [person {.name "Alice", .age 30}]
                 .name(person)
         """.trimIndent())
@@ -71,7 +71,7 @@ class RecordTest {
     fun `record display string with multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .a Str .b Str
+              decl: {.a Str, .b Str}
               {.a 1, .b 2}
         """.trimIndent())
         val str = result.toString()
@@ -141,7 +141,7 @@ class RecordTest {
     fun `nested records`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .inner Str .outer Str
+              decl: {.inner Str, .outer Str}
               {.outer {.inner 42}}
         """.trimIndent())
         assertTrue(result.hasMembers())
@@ -154,7 +154,7 @@ class RecordTest {
     fun `key on nested record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .inner Str .outer Str
+              decl: {.inner Str, .outer Str}
               .inner(.outer({.outer {.inner 42}}))
         """.trimIndent())
         assertEquals(42L, result.asLong())
@@ -309,7 +309,7 @@ class RecordTest {
     fun `set! preserves other fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .a Str .b Str
+              decl: {.a Str, .b Str}
               let: [r {.a 1, .b 2}]
                 do:
                   (set! r .a 99)

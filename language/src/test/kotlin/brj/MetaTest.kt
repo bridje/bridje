@@ -53,7 +53,7 @@ class MetaTest {
     fun `withMeta adds meta to record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .x Int .tag Str
+              decl: {.x Int, .tag Str}
               meta(withMeta({.x 42}, {.tag "special"}))
         """.trimIndent())
         assertTrue(result.hasMembers())
@@ -64,7 +64,7 @@ class MetaTest {
     fun `withMeta preserves record contents`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .x Int .tag Str
+              decl: {.x Int, .tag Str}
               withMeta({.x 42}, {.tag "special"})
         """.trimIndent())
         assertTrue(result.hasMembers())
@@ -75,7 +75,7 @@ class MetaTest {
     fun `meta does not leak into record members`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .x Int .tag Str
+              decl: {.x Int, .tag Str}
               withMeta({.x 42}, {.tag "special"})
         """.trimIndent())
         assertFalse(result.hasMember("tag"))

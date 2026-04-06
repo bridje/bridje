@@ -54,9 +54,8 @@ class TypedInteropTest {
               import:
                 java.time:
                   as(Instant, I)
-            decl:
-              I/ofEpochMilli(Int) I
-              I/.toEpochMilli() Int
+            decl: I/ofEpochMilli(Int) I
+            decl: I/.toEpochMilli() Int
             def: roundtrip(ms) I/.toEpochMilli(I/ofEpochMilli(ms))
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.instance/roundtrip(1000)")
@@ -64,16 +63,15 @@ class TypedInteropTest {
     }
 
     @Test
-    fun `multiple interop decls in one block`() = withContext { ctx ->
+    fun `multiple interop decls`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.interop.multi
               import:
                 java.time:
                   as(Instant, I)
-            decl:
-              I/EPOCH I
-              I/now() I
-              I/.toEpochMilli() Int
+            decl: I/EPOCH I
+            decl: I/now() I
+            decl: I/.toEpochMilli() Int
             def: epochMillis I/.toEpochMilli(I/EPOCH)
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.multi/epochMillis")
@@ -87,9 +85,8 @@ class TypedInteropTest {
               import:
                 java.time:
                   as(Instant, I)
-            decl:
-              I/ofEpochMilli(Int) I
-              I/.toEpochMilli() Int
+            decl: I/ofEpochMilli(Int) I
+            decl: I/.toEpochMilli() Int
             def: roundtrip(ms)
               ->: I/ofEpochMilli(ms) I/.toEpochMilli()
         """.trimIndent())
@@ -104,9 +101,8 @@ class TypedInteropTest {
               import:
                 java.time:
                   as(Instant, I)
-            decl:
-              I/ofEpochMilli(Int) I
-              I/.toEpochMilli() Int
+            decl: I/ofEpochMilli(Int) I
+            decl: I/.toEpochMilli() Int
             def: roundtrip(ms)
               let: [f I/.toEpochMilli]
                 f(I/ofEpochMilli(ms))

@@ -880,93 +880,85 @@ data class Analyser(
             else -> errorType("Unsupported type form", form.loc)
         }
 
-    private fun analyseInteropDecl(els: List<Form>, loc: SourceSection?): Expr {
-        val members = mutableListOf<InteropMember>()
-        var i = 1
+    private fun analyseInteropDecl(forms: List<Form>, loc: SourceSection?): Expr {
+        val specForm = forms[0]
+        val retForm = forms.getOrNull(1)
+            ?: return errorExpr("interop decl missing return type", specForm.loc)
 
-        while (i < els.size) {
-            val specForm = els[i]
-            val retForm = els.getOrNull(i + 1)
-                ?: return errorExpr("interop decl missing return type", specForm.loc)
-
-            val member = when {
-                specForm is QualifiedSymbolForm -> {
-                    // I/EPOCH I — static field
-                    val returnType = analyseTypeForm(retForm)
-                    InteropMember(
-                        qualifiedName = "${specForm.namespace}/${specForm.member}",
-                        importAlias = specForm.namespace,
-                        memberName = specForm.member,
-                        kind = InteropMemberKind.STATIC_FIELD,
-                        declaredType = returnType,
-                    )
-                }
-
-                specForm is KeywordForm && '/' in specForm.name -> {
-                    // I/.someField Int — instance field
-                    val slashIdx = specForm.name.lastIndexOf('/')
-                    val alias = specForm.name.substring(0, slashIdx)
-                    val memberName = specForm.name.substring(slashIdx + 1)
-                    val fqClass = nsEnv.imports[alias]
-                        ?: return errorExpr("Unknown import alias: $alias", specForm.loc)
-                    val receiverType = HostType(fqClass).notNull()
-                    val returnType = analyseTypeForm(retForm)
-                    InteropMember(
-                        qualifiedName = specForm.name,
-                        importAlias = alias,
-                        memberName = memberName,
-                        kind = InteropMemberKind.INSTANCE_FIELD,
-                        declaredType = FnType(listOf(receiverType), returnType).notNull(),
-                    )
-                }
-
-                specForm is ListForm -> {
-                    val callee = specForm.els.firstOrNull()
-                        ?: return errorExpr("interop decl call must have a callee", specForm.loc)
-                    val paramTypes = specForm.els.drop(1).map { analyseTypeForm(it) }
-                    val returnType = analyseTypeForm(retForm)
-
-                    when {
-                        callee is QualifiedSymbolForm -> {
-                            // I/now() I or I/parse(Str) I — static method
-                            InteropMember(
-                                qualifiedName = "${callee.namespace}/${callee.member}",
-                                importAlias = callee.namespace,
-                                memberName = callee.member,
-                                kind = InteropMemberKind.STATIC_METHOD,
-                                declaredType = FnType(paramTypes, returnType).notNull(),
-                            )
-                        }
-
-                        callee is KeywordForm && '/' in callee.name -> {
-                            // I/.toEpochMilli() Int — instance method
-                            val slashIdx = callee.name.lastIndexOf('/')
-                            val alias = callee.name.substring(0, slashIdx)
-                            val memberName = callee.name.substring(slashIdx + 1)
-                            val fqClass = nsEnv.imports[alias]
-                                ?: return errorExpr("Unknown import alias: $alias", callee.loc)
-                            val receiverType = HostType(fqClass).notNull()
-                            InteropMember(
-                                qualifiedName = callee.name,
-                                importAlias = alias,
-                                memberName = memberName,
-                                kind = InteropMemberKind.INSTANCE_METHOD,
-                                declaredType = FnType(listOf(receiverType) + paramTypes, returnType).notNull(),
-                            )
-                        }
-
-                        else -> return errorExpr("interop decl: unsupported call form", specForm.loc)
-                    }
-                }
-
-                else -> return errorExpr("interop decl: unsupported member form", specForm.loc)
+        val member = when {
+            specForm is QualifiedSymbolForm -> {
+                // I/EPOCH I — static field
+                val returnType = analyseTypeForm(retForm)
+                InteropMember(
+                    qualifiedName = "${specForm.namespace}/${specForm.member}",
+                    importAlias = specForm.namespace,
+                    memberName = specForm.member,
+                    kind = InteropMemberKind.STATIC_FIELD,
+                    declaredType = returnType,
+                )
             }
 
-            members.add(member)
-            i += 2
+            specForm is KeywordForm && '/' in specForm.name -> {
+                // I/.someField Int — instance field
+                val slashIdx = specForm.name.lastIndexOf('/')
+                val alias = specForm.name.substring(0, slashIdx)
+                val memberName = specForm.name.substring(slashIdx + 1)
+                val fqClass = nsEnv.imports[alias]
+                    ?: return errorExpr("Unknown import alias: $alias", specForm.loc)
+                val receiverType = HostType(fqClass).notNull()
+                val returnType = analyseTypeForm(retForm)
+                InteropMember(
+                    qualifiedName = specForm.name,
+                    importAlias = alias,
+                    memberName = memberName,
+                    kind = InteropMemberKind.INSTANCE_FIELD,
+                    declaredType = FnType(listOf(receiverType), returnType).notNull(),
+                )
+            }
+
+            specForm is ListForm -> {
+                val callee = specForm.els.firstOrNull()
+                    ?: return errorExpr("interop decl call must have a callee", specForm.loc)
+                val paramTypes = specForm.els.drop(1).map { analyseTypeForm(it) }
+                val returnType = analyseTypeForm(retForm)
+
+                when {
+                    callee is QualifiedSymbolForm -> {
+                        // I/now() I or I/parse(Str) I — static method
+                        InteropMember(
+                            qualifiedName = "${callee.namespace}/${callee.member}",
+                            importAlias = callee.namespace,
+                            memberName = callee.member,
+                            kind = InteropMemberKind.STATIC_METHOD,
+                            declaredType = FnType(paramTypes, returnType).notNull(),
+                        )
+                    }
+
+                    callee is KeywordForm && '/' in callee.name -> {
+                        // I/.toEpochMilli() Int — instance method
+                        val slashIdx = callee.name.lastIndexOf('/')
+                        val alias = callee.name.substring(0, slashIdx)
+                        val memberName = callee.name.substring(slashIdx + 1)
+                        val fqClass = nsEnv.imports[alias]
+                            ?: return errorExpr("Unknown import alias: $alias", callee.loc)
+                        val receiverType = HostType(fqClass).notNull()
+                        InteropMember(
+                            qualifiedName = callee.name,
+                            importAlias = alias,
+                            memberName = memberName,
+                            kind = InteropMemberKind.INSTANCE_METHOD,
+                            declaredType = FnType(listOf(receiverType) + paramTypes, returnType).notNull(),
+                        )
+                    }
+
+                    else -> return errorExpr("interop decl: unsupported call form", specForm.loc)
+                }
+            }
+
+            else -> return errorExpr("interop decl: unsupported member form", specForm.loc)
         }
 
-        return InteropDeclExpr(members, loc)
+        return InteropDeclExpr(listOf(member), loc)
     }
 
     private fun analyseDecl(form: ListForm): Expr {
@@ -975,47 +967,62 @@ data class Analyser(
             ?: return errorExpr("decl requires a name", form.loc)
 
         return when {
-            sigForm is KeywordForm && '/' !in sigForm.name -> {
-                // decl: .name Str .age Int — key declarations
-                val names = (1 until els.size step 2).map { i ->
-                    val kw = els[i] as? KeywordForm
-                        ?: return errorExpr("decl key entries must alternate keyword and type", els[i].loc)
+            // batch keys — record sugar: decl: {.name Str, .age Int}
+            sigForm is RecordForm -> {
+                val names = (0 until sigForm.els.size step 2).map { i ->
+                    val kw = sigForm.els[i] as? KeywordForm
+                        ?: return errorExpr("record key decl entries must alternate keyword and type", sigForm.els[i].loc)
                     kw.name
                 }
                 DefKeysExpr(names, form.loc)
             }
 
-            sigForm is QualifiedSymbolForm -> analyseInteropDecl(els, form.loc)
+            // single key: decl: .name Str
+            sigForm is KeywordForm && '/' !in sigForm.name -> {
+                DefKeysExpr(listOf(sigForm.name), form.loc)
+            }
 
-            sigForm is KeywordForm && '/' in sigForm.name -> analyseInteropDecl(els, form.loc)
+            // single decl
+            else -> analyseSingleDecl(els.drop(1), form.loc)
+        }
+    }
+
+    private fun analyseSingleDecl(forms: List<Form>, loc: SourceSection?): Expr {
+        val sigForm = forms.firstOrNull()
+            ?: return errorExpr("decl requires a signature", loc)
+
+        fun isInteropForm(form: Form): Boolean = when {
+            form is QualifiedSymbolForm -> true
+            form is KeywordForm && '/' in form.name -> true
+            form is ListForm -> {
+                val first = form.els.firstOrNull()
+                first is QualifiedSymbolForm || (first is KeywordForm && '/' in first.name)
+            }
+            else -> false
+        }
+
+        return when {
+            isInteropForm(sigForm) -> analyseInteropDecl(forms, loc)
 
             sigForm is ListForm -> {
-                val first = sigForm.els.firstOrNull()
-                when {
-                    first is QualifiedSymbolForm -> analyseInteropDecl(els, form.loc)
-                    first is KeywordForm && '/' in first.name -> analyseInteropDecl(els, form.loc)
-                    else -> {
-                        // decl: foo(Int, Str) Bool -> function type declaration
-                        val nameForm = first as? SymbolForm
-                            ?: return errorExpr("decl signature must start with a name", sigForm.loc)
-                        val retForm = els.getOrNull(2)
-                            ?: return errorExpr("decl function requires a return type", form.loc)
-                        val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it) }
-                        val returnType = analyseTypeForm(retForm)
-                        DeclExpr(nameForm.name, FnType(paramTypes, returnType).notNull(), form.loc)
-                    }
-                }
+                // decl: foo(Int, Str) Bool — function type declaration
+                val nameForm = sigForm.els.firstOrNull() as? SymbolForm
+                    ?: return errorExpr("decl signature must start with a name", sigForm.loc)
+                val retForm = forms.getOrNull(1)
+                    ?: return errorExpr("decl function requires a return type", loc)
+                val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it) }
+                val returnType = analyseTypeForm(retForm)
+                DeclExpr(nameForm.name, FnType(paramTypes, returnType).notNull(), loc)
             }
 
             sigForm is SymbolForm -> {
-                // decl: x Int -> value type declaration
-                val typeForm = els.getOrNull(2)
-                    ?: return errorExpr("decl requires a type", form.loc)
-                DeclExpr(sigForm.name, analyseTypeForm(typeForm), form.loc)
+                // decl: x Int — value type declaration
+                val typeForm = forms.getOrNull(1)
+                    ?: return errorExpr("decl requires a type", loc)
+                DeclExpr(sigForm.name, analyseTypeForm(typeForm), loc)
             }
 
-            sigForm is RecordForm -> errorExpr("defkeys has been replaced: use decl: .name Str .age Int", form.loc)
-            else -> errorExpr("decl requires a name or signature", form.loc)
+            else -> errorExpr("decl requires a name or signature", loc)
         }
     }
 
