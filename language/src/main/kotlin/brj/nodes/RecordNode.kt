@@ -2,19 +2,15 @@ package brj.nodes
 
 import brj.BridjeNode
 import brj.runtime.BridjeRecord
-import com.oracle.truffle.api.dsl.NodeChild
-import com.oracle.truffle.api.dsl.Specialization
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.nodes.Node.Child
 import com.oracle.truffle.api.source.SourceSection
 
-@NodeChild(value = "values", type = ExecuteArrayNode::class)
-abstract class RecordNode(
+class RecordNode(
     private val fieldNames: Array<String>,
+    @field:Child private var values: ExecuteCollNode,
     loc: SourceSection? = null
 ) : BridjeNode(loc) {
 
-    @Specialization
-    fun createRecord(values: Array<Any>): BridjeRecord = BridjeRecord(fieldNames, values)
-
-    abstract override fun execute(frame: VirtualFrame): Any?
+    override fun execute(frame: VirtualFrame): Any = BridjeRecord(fieldNames, values.execute(frame))
 }

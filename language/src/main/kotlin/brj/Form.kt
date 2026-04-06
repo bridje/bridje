@@ -613,7 +613,7 @@ class ListForm(val els: List<Form>, override val loc: SourceSection? = null) : F
     @Throws(InvalidArrayIndexException::class)
     fun readArrayElement(idx: Long): Any {
         if (idx != 0L) throw InvalidArrayIndexException.create(idx)
-        return BridjeVector(els.toTypedArray())
+        return BridjeVector(els)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -636,7 +636,7 @@ class VectorForm(val els: List<Form>, override val loc: SourceSection? = null) :
     @Throws(InvalidArrayIndexException::class)
     fun readArrayElement(idx: Long): Any {
         if (idx != 0L) throw InvalidArrayIndexException.create(idx)
-        return BridjeVector(els.toTypedArray())
+        return BridjeVector(els)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -659,7 +659,7 @@ class SetForm(val els: List<Form>, override val loc: SourceSection? = null) : Fo
     @Throws(InvalidArrayIndexException::class)
     fun readArrayElement(idx: Long): Any {
         if (idx != 0L) throw InvalidArrayIndexException.create(idx)
-        return BridjeVector(els.toTypedArray())
+        return BridjeVector(els)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -682,7 +682,7 @@ class RecordForm(val els: List<Form>, override val loc: SourceSection? = null) :
     @Throws(InvalidArrayIndexException::class)
     fun readArrayElement(idx: Long): Any {
         if (idx != 0L) throw InvalidArrayIndexException.create(idx)
-        return BridjeVector(els.toTypedArray())
+        return BridjeVector(els)
     }
 
     @Suppress("UNUSED_PARAMETER")

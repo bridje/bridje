@@ -67,7 +67,7 @@ class RestNode(language: BridjeLanguage) : RootNode(language) {
         val collection = frame.arguments[0]
         return try {
             val size = interop.getArraySize(collection)
-            val els = Array<Any>(maxOf(0, (size - 1).toInt())) { i ->
+            val els = List(maxOf(0, (size - 1).toInt())) { i ->
                 interop.readArrayElement(collection, (i + 1).toLong())
             }
             BridjeVector(els)
@@ -87,7 +87,7 @@ class ConsNode(language: BridjeLanguage) : RootNode(language) {
         val collection = frame.arguments[1]
         return try {
             val size = interop.getArraySize(collection)
-            val els = Array<Any>((size + 1).toInt()) { i ->
+            val els = List((size + 1).toInt()) { i ->
                 if (i == 0) element!!
                 else interop.readArrayElement(collection, (i - 1).toLong())
             }
@@ -123,7 +123,7 @@ class ConcatNode(language: BridjeLanguage) : RootNode(language) {
         return try {
             val size1 = interop.getArraySize(vec1)
             val size2 = interop.getArraySize(vec2)
-            val els = Array<Any>((size1 + size2).toInt()) { i ->
+            val els = List((size1 + size2).toInt()) { i ->
                 if (i < size1) interop.readArrayElement(vec1, i.toLong())
                 else interop.readArrayElement(vec2, (i - size1).toLong())
             }

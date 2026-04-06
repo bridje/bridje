@@ -117,12 +117,12 @@ class Emitter(private val language: BridjeLanguage) {
         is BigIntExpr -> BigIntNode(expr.value, expr.loc)
         is BigDecExpr -> BigDecNode(expr.value, expr.loc)
         is StringExpr -> StringNode(expr.value, expr.loc)
-        is VectorExpr -> VectorNodeGen.create(expr.loc, ExecuteArrayNode(expr.els.map { emitExpr(it, fxSource, preApplied) }.toTypedArray(), expr.loc))
+        is VectorExpr -> VectorNode(ExecuteCollNode(expr.els.map { emitExpr(it, fxSource, preApplied) }.toTypedArray(), expr.loc), expr.loc)
         is SetExpr -> TODO()
-        is RecordExpr -> RecordNodeGen.create(
+        is RecordExpr -> RecordNode(
             expr.fields.map { it.first }.toTypedArray(),
-            expr.loc,
-            ExecuteArrayNode(expr.fields.map { emitExpr(it.second, fxSource, preApplied) }.toTypedArray(), expr.loc)
+            ExecuteCollNode(expr.fields.map { emitExpr(it.second, fxSource, preApplied) }.toTypedArray(), expr.loc),
+            expr.loc
         )
         is LocalVarExpr -> ReadLocalNode(expr.localVar.slot, expr.loc)
         is CapturedVarExpr -> ReadCapturedVarNode(expr.captureIndex, expr.loc)

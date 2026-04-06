@@ -9,7 +9,7 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeVector(val els: Array<Any>, override val meta: BridjeRecord = BridjeRecord.EMPTY) : TruffleObject, Meta<BridjeVector> {
+class BridjeVector(val els: List<Any>, override val meta: BridjeRecord = BridjeRecord.EMPTY) : TruffleObject, Meta<BridjeVector> {
 
     override fun withMeta(newMeta: BridjeRecord?): BridjeVector = BridjeVector(els, newMeta ?: BridjeRecord.EMPTY)
 

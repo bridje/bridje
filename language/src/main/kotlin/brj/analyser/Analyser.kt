@@ -748,7 +748,7 @@ data class Analyser(
                 val argForms = els.drop(1)
                 val args: Array<Any> = if (value.isVariadic) {
                     val fixed = argForms.take(value.fixedArity)
-                    val rest = BridjeVector(argForms.drop(value.fixedArity).toTypedArray<Any>())
+                    val rest = BridjeVector(argForms.drop(value.fixedArity))
                     (fixed + rest).toTypedArray()
                 } else {
                     argForms.toTypedArray<Any>()

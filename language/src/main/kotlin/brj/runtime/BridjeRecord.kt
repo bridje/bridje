@@ -19,7 +19,7 @@ class BridjeRecord internal constructor(
 
     override val meta: BridjeRecord get() = _meta ?: EMPTY
 
-    internal constructor(keys: Array<String>, values: Array<Any>) : this(
+    internal constructor(keys: Array<String>, values: List<Any>) : this(
         Storage(SHAPE).also { storage ->
             for (i in keys.indices) {
                 OBJECT_LIBRARY.put(storage, keys[i], values[i])
