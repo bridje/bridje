@@ -193,4 +193,13 @@ class TypedInteropTest {
         val result = ctx.evalBridje("test.interop.firstclass/roundtrip(99)")
         assertEquals(99L, result.asLong())
     }
+
+    @Test
+    fun `bridje fn passed to host method expecting functional interface`() = withContext { ctx ->
+        val double = ctx.evalBridje("""fn: double(x) (mul x 2)""")
+        val opt = ctx.asValue(java.util.Optional.of(21L))
+        val mapped = opt.invokeMember("map", double)
+        val result = mapped.invokeMember("get")
+        assertEquals(42L, result.asLong())
+    }
 }
