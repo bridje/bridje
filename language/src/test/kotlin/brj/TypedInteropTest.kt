@@ -1,7 +1,9 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class TypedInteropTest {
 
@@ -101,7 +103,7 @@ class TypedInteropTest {
               import:
                 java.lang:
                   as(System, Sys)
-            decl: (Sys/getProperty Str) Str
+            decl: Sys/getProperty(Str) Str
             def: missing Sys/getProperty("no.such.property.exists")
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.nullable/missing")
@@ -115,7 +117,7 @@ class TypedInteropTest {
               import:
                 java.lang:
                   as(System, Sys)
-            decl: (Sys/getProperty Str) Str
+            decl: Sys/getProperty(Str) Str
             def: result
               case: Sys/getProperty("no.such.property.exists")
                 nil "was nil"
@@ -123,6 +125,56 @@ class TypedInteropTest {
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.nullable2/result")
         assertEquals("was nil", result.asString())
+    }
+
+    @Test
+    fun `nullable return type declared in interop`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.interop.nullable3
+              import:
+                java.lang:
+                  as(System, Sys)
+            decl: Sys/getProperty(Str) Str?
+            def: missing Sys/getProperty("no.such.property.exists")
+            def: present Sys/getProperty("java.version")
+        """.trimIndent())
+        val missing = ctx.evalBridje("test.interop.nullable3/missing")
+        assertTrue(missing.isNull, "missing property should be nil")
+        val present = ctx.evalBridje("test.interop.nullable3/present")
+        assertFalse(present.isNull, "present property should not be nil")
+        assertTrue(present.isString, "present property should be a string")
+    }
+
+    @Test
+    fun `nullable interop return passed to non-null param is type error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.interop.nullable4
+                  import:
+                    java.lang:
+                      as(System, Sys)
+                decl: Sys/getProperty(Str) Str?
+                decl: Sys/getenv(Str) Str
+                def: result
+                  ->: Sys/getProperty("no.such.property") Sys/getenv()
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("nullable") == true, "Expected nullable type error, got: ${ex.message}")
+    }
+
+    @Test
+    fun `non-nullable interop return passes type check`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.interop.nullable5
+              import:
+                java.lang:
+                  as(System, Sys)
+            decl: Sys/getProperty(Str) Str
+            decl: Sys/getenv(Str) Str
+            def: result
+              ->: Sys/getProperty("java.version") Sys/getenv()
+        """.trimIndent())
+        // If this evaluates without a type error, the non-nullable decl is accepted
     }
 
     @Test
