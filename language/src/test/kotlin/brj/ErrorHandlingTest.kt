@@ -202,6 +202,26 @@ class ErrorHandlingTest {
     }
 
     @Test
+    fun `host InterruptedException caught as Interrupted anomaly`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ns: test.interrupt
+              import:
+                java.lang:
+                  as(Thread, T)
+            decl: T/sleep(Int) Nothing
+            decl: T/currentThread() T
+            decl: T/.interrupt() Nothing
+            def: result
+              do:
+                T/.interrupt(T/currentThread())
+                try: T/sleep(100)
+                  catch:
+                    Interrupted(_) "caught"
+        """.trimIndent())
+        assertEquals("caught", ctx.evalBridje("test.interrupt/result").asString())
+    }
+
+    @Test
     fun `exnMessage key provides exception message`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""throw(NotFound({.exnMessage "user 123 not found"}))""")

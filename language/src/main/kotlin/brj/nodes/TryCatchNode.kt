@@ -2,7 +2,11 @@ package brj.nodes
 
 import brj.BridjeNode
 import brj.runtime.Anomaly
+import brj.runtime.Anomaly.Companion.interrupted
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
+import com.oracle.truffle.api.exception.AbstractTruffleException
 import com.oracle.truffle.api.frame.VirtualFrame
+import com.oracle.truffle.api.interop.ExceptionType
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.source.SourceSection
 
@@ -26,9 +30,27 @@ class TryCatchNode(
             } finally {
                 finallyNode?.execute(frame)
             }
+        } catch (ex: AbstractTruffleException) {
+            val anomaly = toAnomalyOrNull(ex)
+                ?: throw ex
+            try {
+                return matchCatch(frame, anomaly)
+            } finally {
+                finallyNode?.execute(frame)
+            }
         }
         finallyNode?.execute(frame)
         return result
+    }
+
+    @TruffleBoundary
+    private fun toAnomalyOrNull(ex: AbstractTruffleException): Anomaly? {
+        val uncached = InteropLibrary.getUncached()
+        if (!uncached.isException(ex)) return null
+        return when (uncached.getExceptionType(ex)) {
+            ExceptionType.INTERRUPT -> interrupted("Interrupted", ex)
+            else -> null
+        }
     }
 
     private fun matchCatch(frame: VirtualFrame, ex: Anomaly): Any? {
