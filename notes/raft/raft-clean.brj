@@ -1,0 +1,421 @@
+ns: raft.server
+  require:
+    brj:
+      as(proc)
+
+//// ---- Types ----
+
+decl:
+  {.id Int
+   .cluster [Int]
+   .currentTerm Int
+   .votedFor Int?
+   .log [LogEntry]
+   .commitIndex Int
+   .lastApplied Int
+   .role ServerRole
+   .leaderId Int?}
+
+decl:
+  {.term Int
+   .index Int
+   .command Str}
+
+decl:
+  {.from Int
+   .to Int
+   .granted? Bool
+   .success? Bool
+   .lastLogIndex Int
+   .lastLogTerm Int
+   .prevLogIndex Int
+   .prevLogTerm Int
+   .entries [LogEntry]
+   .leaderCommit Int}
+
+decl:
+  {.knownLeader Int?
+   .votesReceived #{Int}
+   .nextIndex Map(Int, Int)
+   .matchIndex Map(Int, Int)}
+
+tag: LogEntry({.term, .index, .command})
+
+type: ServerRole
+  Sum:
+    Follower({.knownLeader})
+    Candidate({.votesReceived})
+    Leader({.nextIndex, .matchIndex})
+
+tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role, .leaderId})
+
+//// RPC message types
+
+tag: VoteRequest({.term, .from, .lastLogIndex, .lastLogTerm})
+tag: VoteResponse({.term, .from, .to, .granted?})
+tag: AppendRequest({.term, .from, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
+tag: AppendResponse({.term, .from, .to, .success?, .lastLogIndex})
+
+//// Client command wrapper
+
+tag: ClientCommand({.command, .from})
+
+type: Rpc
+  Sum:
+    VoteRequest({.term, .from, .lastLogIndex, .lastLogTerm})
+    VoteResponse({.term, .from, .to, .granted?})
+    AppendRequest({.term, .from, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
+    AppendResponse({.term, .from, .to, .success?, .lastLogIndex})
+    ClientCommand({.command, .from})
+
+//// ---- Effects ----
+
+trait: RaftNetwork
+  decl: sendVoteRequest(Int, VoteRequest)
+  decl: sendVoteResponse(Int, VoteResponse)
+  decl: sendAppendRequest(Int, AppendRequest)
+  decl: sendAppendResponse(Int, AppendResponse)
+  decl: redirectClient(Int, Str)
+
+trait: StateMachine
+  decl: apply(Str)
+
+defx: net RaftNetwork
+defx: sm StateMachine
+
+//// ---- Pure Helpers ----
+
+def: majority(ServerState({cluster}))
+  ->: cluster count() div(2) inc()
+
+def: lastLogIndex(ServerState({log}))
+  if: empty?(log)
+    0
+    .index(last(log))
+
+def: lastLogTerm(ServerState({log}))
+  if: empty?(log)
+    0
+    .term(last(log))
+
+def: logTerm(state, idx)
+  if: or(lte(idx, 0), gt(idx, count(.log(state))))
+    0
+    .term(nth(.log(state), sub(idx, 1)))
+
+def: stepDown(state, term, leaderId)
+  with(state, .currentTerm term, .votedFor nil, .role Follower{.knownLeader leaderId}, .leaderId leaderId)
+
+def: _candidateLogUpToDate(state, reqLastLogTerm, reqLastLogIndex)
+  let: [myLastTerm lastLogTerm(state)
+        myLastIndex lastLogIndex(state)]
+    or:
+      gt(reqLastLogTerm, myLastTerm)
+      and:
+        eq(reqLastLogTerm, myLastTerm)
+        gte(reqLastLogIndex, myLastIndex)
+
+def: _initLeaderState(state)
+  let: [peers remove(.cluster(state), .id(state))
+        lastIdx lastLogIndex(state)
+        nextIdx associateWith(peers, #: inc(lastIdx))
+        matchIdx associateWith(peers, #: 0)]
+    with(state, .role Leader{.nextIndex nextIdx, .matchIndex matchIdx}, .leaderId .id(state))
+
+//// ---- Log Helpers ----
+
+def: _appendEntry(state, term, command)
+  let: [newIndex inc(lastLogIndex(state))
+        entry LogEntry{.term term, .index newIndex, .command command}]
+    with(state, .log append(.log(state), entry))
+
+def: _truncateLog(state, fromIndex)
+  if: gt(fromIndex, count(.log(state)))
+    state
+    with(state, .log take(.log(state), sub(fromIndex, 1)))
+
+def: _appendEntries(state, prevLogIndex, entries)
+  let: [truncated _truncateLog(state, inc(prevLogIndex))]
+    foldl(entries, truncated, fn: [s, entry] with(s, .log append(.log(s), entry)))
+
+def: _logConsistent(state, prevLogIndex, prevLogTerm)
+  cond:
+    eq(prevLogIndex, 0)
+      true
+    gt(prevLogIndex, count(.log(state)))
+      false
+    eq(logTerm(state, prevLogIndex), prevLogTerm)
+
+//// ---- Commitment ----
+
+def: _advanceCommitIndex(state)
+  case: .role(state)
+    Leader({matchIndex})
+      // matchIndex only tracks peers (not self), so we need majority-2
+      // (majority minus 1 for the leader who always agrees, minus 1 for 0-based nth)
+      let: [sorted ->: values(matchIndex) sort() reverse()
+            majorityIdx nth(sorted, sub(majority(state), 2))]
+        if: and(gt(majorityIdx, .commitIndex(state)), eq(logTerm(state, majorityIdx), .currentTerm(state)))
+          with(state, .commitIndex majorityIdx)
+          state
+    state
+
+def: _applyCommitted(state)
+  if: gt(.commitIndex(state), .lastApplied(state))
+    do:
+      doseq: [idx range(inc(.lastApplied(state)), inc(.commitIndex(state)))]
+        .apply(sm, .command(nth(.log(state), sub(idx, 1))))
+      with(state, .lastApplied .commitIndex(state))
+    state
+
+//// ---- Election ----
+
+def: _startElection(state)
+  let: [newTerm inc(.currentTerm(state))
+        votes #{.id(state)}
+        newState with(state, .currentTerm newTerm, .votedFor .id(state), .role Candidate{.votesReceived votes}, .leaderId nil)]
+    do:
+      doseq: [peer .cluster(newState)]
+        when: neq(peer, .id(newState))
+          .sendVoteRequest(net, peer,
+            VoteRequest:
+              {.term newTerm
+               .from .id(newState)
+               .lastLogIndex lastLogIndex(newState)
+               .lastLogTerm lastLogTerm(newState)})
+      newState
+
+def: _handleVoteRequestInTerm(state, {from, term, lastLogIndex, lastLogTerm})
+  let: [upToDate? _candidateLogUpToDate(state, lastLogTerm, lastLogIndex)
+        canGrant? and(or(nil?(.votedFor(state)), eq(.votedFor(state), from)), upToDate?)]
+    do:
+      .sendVoteResponse(net, from, VoteResponse{.term .currentTerm(state), .from .id(state), .to from, .granted? canGrant?})
+      if: canGrant?
+        with(state, .votedFor from)
+        state
+
+def: handleVoteRequest(state, req)
+  cond:
+    lt(.term(req), .currentTerm(state))
+      do:
+        .sendVoteResponse(net, .from(req), VoteResponse{.term .currentTerm(state), .from .id(state), .to .from(req), .granted? false})
+        state
+
+    gt(.term(req), .currentTerm(state))
+      let: [stepped stepDown(state, .term(req), nil)]
+        _handleVoteRequestInTerm(stepped, req)
+
+    _handleVoteRequestInTerm(state, req)
+
+def: handleVoteResponse(state, {term, from, granted?})
+  cond:
+    gt(term, .currentTerm(state))
+      stepDown(state, term, nil)
+
+    lt(term, .currentTerm(state))
+      state
+
+    case: .role(state)
+      Candidate({votesReceived})
+        if: granted?
+          let: [newVotes add(votesReceived, from)]
+            if: gte(count(newVotes), majority(state))
+              _initLeaderState(with(state, .role Candidate{.votesReceived newVotes}))
+              with(state, .role Candidate{.votesReceived newVotes})
+          state
+      state
+
+//// ---- Log Replication ----
+
+def: _sendAppendEntries(state, peerId)
+  case: .role(state)
+    Leader({nextIndex, matchIndex})
+      // ni is 1-based log index; sub(1) converts to 0-based for collection access
+      let: [ni get(nextIndex, peerId)
+            prevIdx sub(ni, 1)
+            prevTerm logTerm(state, prevIdx)
+            entries from(.log(state), sub(ni, 1))]
+        .sendAppendRequest(net, peerId,
+          AppendRequest:
+            {.term .currentTerm(state)
+             .from .id(state)
+             .prevLogIndex prevIdx
+             .prevLogTerm prevTerm
+             .entries entries
+             .leaderCommit .commitIndex(state)})
+    nil
+
+def: sendHeartbeats(state)
+  do:
+    doseq: [peer .cluster(state)]
+      when: neq(peer, .id(state))
+        _sendAppendEntries(state, peer)
+    state
+
+def: _handleAppendRequestInTerm(state, {from, term, prevLogIndex, prevLogTerm, entries, leaderCommit})
+  if: not(_logConsistent(state, prevLogIndex, prevLogTerm))
+    do:
+      .sendAppendResponse(net, from, AppendResponse{.term .currentTerm(state), .from .id(state), .to from, .success? false, .lastLogIndex lastLogIndex(state)})
+      state
+    let: [withEntries _appendEntries(state, prevLogIndex, entries)
+          newCommitIndex if: gt(leaderCommit, .commitIndex(withEntries))
+            min(leaderCommit, lastLogIndex(withEntries))
+            .commitIndex(withEntries)
+          updated with(withEntries, .commitIndex newCommitIndex)
+          applied _applyCommitted(updated)]
+      do:
+        .sendAppendResponse(net, from, AppendResponse{.term .currentTerm(applied), .from .id(applied), .to from, .success? true, .lastLogIndex lastLogIndex(applied)})
+        applied
+
+def: handleAppendRequest(state, req)
+  cond:
+    lt(.term(req), .currentTerm(state))
+      do:
+        .sendAppendResponse(net, .from(req), AppendResponse{.term .currentTerm(state), .from .id(state), .to .from(req), .success? false, .lastLogIndex lastLogIndex(state)})
+        state
+
+    gt(.term(req), .currentTerm(state))
+      let: [stepped stepDown(state, .term(req), .from(req))]
+        _handleAppendRequestInTerm(stepped, req)
+
+    let: [asFollower case: .role(state)
+                       Follower(f) with(state, .role Follower{.knownLeader .from(req)}, .leaderId .from(req))
+                       stepDown(state, .term(req), .from(req))]
+      _handleAppendRequestInTerm(asFollower, req)
+
+def: handleAppendResponse(state, {term, from, success?, lastLogIndex})
+  cond:
+    gt(term, .currentTerm(state))
+      stepDown(state, term, nil)
+
+    lt(term, .currentTerm(state))
+      state
+
+    case: .role(state)
+      Leader({nextIndex, matchIndex})
+        if: success?
+          let: [newNextIndex assoc(nextIndex, from, inc(lastLogIndex))
+                newMatchIndex assoc(matchIndex, from, lastLogIndex)
+                updated with(state, .role Leader{.nextIndex newNextIndex, .matchIndex newMatchIndex})
+                committed _advanceCommitIndex(updated)]
+            _applyCommitted(committed)
+          let: [newNextIndex assoc(nextIndex, from, max(1, dec(get(nextIndex, from))))
+                updated with(state, .role Leader{.nextIndex newNextIndex, .matchIndex matchIndex})]
+            do:
+              _sendAppendEntries(updated, from)
+              updated
+      state
+
+//// ---- Client Interface ----
+
+def: handleClientCommand(state, {command, from})
+  case: .role(state)
+    Leader(l)
+      let: [withEntry _appendEntry(state, .currentTerm(state), command)]
+        do:
+          doseq: [peer .cluster(withEntry)]
+            when: neq(peer, .id(withEntry))
+              _sendAppendEntries(withEntry, peer)
+          withEntry
+
+    Follower({knownLeader})
+      do:
+        ifLet: [leader knownLeader]
+          .redirectClient(net, from, "REDIRECT:${leader}")
+          .redirectClient(net, from, "NO_LEADER")
+        state
+
+    Candidate(c)
+      do:
+        .redirectClient(net, from, "ELECTION_IN_PROGRESS")
+        state
+
+//// ---- RPC Dispatch ----
+
+def: handleRpc(state, rpc)
+  case: rpc
+    VoteRequest(req) handleVoteRequest(state, req)
+    VoteResponse(resp) handleVoteResponse(state, resp)
+    AppendRequest(req) handleAppendRequest(state, req)
+    AppendResponse(resp) handleAppendResponse(state, resp)
+    ClientCommand(cmd) handleClientCommand(state, cmd)
+
+//// ---- Timeout Handlers ----
+
+def: onElectionTimeout(state)
+  case: .role(state)
+    Leader(l) state
+    _startElection(state)
+
+def: onHeartbeatTimeout(state)
+  sendHeartbeats(state)
+
+//// ---- Server Lifecycle ----
+
+def: serverProc(rpcCh)
+  fn: [state]
+    let: [rpc proc/Recv(rpcCh, handleRpc)
+          electionTimeout proc/Timeout(#dur("PT0.15S"), onElectionTimeout)]
+      case: .role(state)
+        Leader(l) [rpc, proc/Timeout(#dur("PT0.05S"), onHeartbeatTimeout)]
+        Candidate(c) [rpc, electionTimeout]
+        Follower(f) [rpc, electionTimeout]
+
+def: createServer(serverId, cluster, rpcCh)
+  let: [initialState
+        ServerState:
+          {.id serverId
+           .cluster cluster
+           .currentTerm 0
+           .votedFor nil
+           .log []
+           .commitIndex 0
+           .lastApplied 0
+           .role Follower{.knownLeader nil}
+           .leaderId nil}]
+    proc/spawn(initialState, serverProc(rpcCh))
+
+//// ---- Simulation-Level Invariants ----
+////
+//// The following are cross-server, cross-time properties that belong in a
+//// simulation test harness, not as inline assertions.
+//// They correspond to the invariant blocks in the Allium spec.
+////
+//// ElectionSafety:
+////   For any term T, at most one server has role = Leader with currentTerm = T.
+////   Checked by scanning all live servers after every step.
+////
+//// LeaderAppendOnly:
+////   A leader's log at indices 1..N is a prefix of its log at any later time.
+////   Checked by snapshotting each leader's log and verifying the prefix
+////   property after every state transition.
+////
+//// LogMatching:
+////   If two servers have a log entry with the same index and term,
+////   all preceding entries are identical.
+////   Checked by pairwise comparison of all server logs after every step.
+////
+//// LeaderCompleteness:
+////   If a log entry is committed in term T, it is present in the log of
+////   every leader elected in any term > T.
+////   Checked by recording committed entries and verifying them against
+////   every newly elected leader's log.
+////
+//// StateMachineSafety:
+////   If any server has applied a log entry at index I, no other server
+////   will ever apply a different entry at index I.
+////   Checked by recording (index, command) pairs applied by each server
+////   and verifying they never conflict.
+////
+//// CommitIndexMonotonicity:
+////   A server's commitIndex never decreases across state transitions.
+////   Checked by recording commitIndex before and after each step.
+////
+//// TermMonotonicity:
+////   A server's currentTerm never decreases across state transitions.
+////   Checked by recording currentTerm before and after each step.
+////
+//// VotedForConsistency:
+////   Within a single term, a server's votedFor never changes from one
+////   non-nil value to a different non-nil value.
+////   Checked by tracking (term, votedFor) pairs across transitions.
