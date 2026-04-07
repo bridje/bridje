@@ -95,6 +95,37 @@ class TypedInteropTest {
     }
 
     @Test
+    fun `host method returning null arrives as nil`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.interop.nullable
+              import:
+                java.lang:
+                  as(System, Sys)
+            decl: (Sys/getProperty Str) Str
+            def: missing Sys/getProperty("no.such.property.exists")
+        """.trimIndent())
+        val result = ctx.evalBridje("test.interop.nullable/missing")
+        assertTrue(result.isNull, "null return from host method should be nil")
+    }
+
+    @Test
+    fun `host method returning null works with case nil branch`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.interop.nullable2
+              import:
+                java.lang:
+                  as(System, Sys)
+            decl: (Sys/getProperty Str) Str
+            def: result
+              case: Sys/getProperty("no.such.property.exists")
+                nil "was nil"
+                s s
+        """.trimIndent())
+        val result = ctx.evalBridje("test.interop.nullable2/result")
+        assertEquals("was nil", result.asString())
+    }
+
+    @Test
     fun `interop instance method as first-class function`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.interop.firstclass
