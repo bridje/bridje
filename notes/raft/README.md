@@ -13,8 +13,9 @@ See raft.allium and raft.brj for the full versions.
 
 **TL;DR:** Bridje gets surprisingly close to spec-like for executable code.
 Domain logic, effects, and types all read well.
-The main gaps are postconditions (no `ensures:` equivalent) and visible agent lifecycle plumbing.
+The main gaps are postconditions (no `ensures:` equivalent) and first-class invariants.
 Preconditions are well served by `cond:` and `case:`.
+The proc model with select functions brings Bridje closer to the declarative style of the spec — timeouts and behaviour are declared, not imperatively managed.
 The real opportunity is bridging the two — generating test properties from Allium invariants to verify Bridje implementations.
 
 ## Data Model
@@ -63,6 +64,7 @@ decl:
    .lastApplied Int
    .role ServerRole
    .id ServerId}
+
 tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role})
 
 type: ServerRole
@@ -75,7 +77,7 @@ def: lastLogIndex(ServerState({log}))
   count(log)
 
 def: lastLogTerm(ServerState({log}))
-  if: gt(count(log), 0)
+  if: pos?(count(log))
     .term(last(log))
     0
 ```
@@ -125,41 +127,53 @@ rule FollowerStartsElection {
 ### Bridje
 
 ```bridje
-def: startElection(state, server)
-  set!(state, .currentTerm, inc(.currentTerm(state)))
-  set!(state, .role, Candidate{.votesReceived #{.id(state)}})
-  set!(state, .votedFor, .id(state))
+// The handler — pure state transform + effects
+def: startElection(state)
+  let: [state
+        with(state,
+          .currentTerm inc(.currentTerm(state)),
+          .role Candidate{.votesReceived #{.id(state)}},
+          .votedFor .id(state))]
+    doseq: [peer .cluster(state)]
+      when: neq(peer, .id(state))
+        .sendVoteRequest(net, peer,
+          VoteRequest:
+            {.from .id(state)
+             .to peer
+             .term .currentTerm(state)
+             .lastLogIndex lastLogIndex(state)
+             .lastLogTerm lastLogTerm(state)})
+    state
 
-  doseq: [peer .cluster(state)]
-    when: neq(peer, .id(state))
-      .sendVoteRequest(net, peer,
-        VoteRequest:
-          {.from .id(state)
-           .to peer
-           .term .currentTerm(state)
-           .lastLogIndex lastLogIndex(state)
-           .lastLogTerm lastLogTerm(state)})
-
-  .onTimeout(server, .electionTimeout(clock), startElection, server)
+// The select function — declares when startElection fires
+def: serverProc(rpcCh)
+  fn: [state]
+    let: [rpc proc/Recv(rpcCh, handleRpc)
+          el proc/Timeout(#dur("PT0.15S"), startElection)]
+      case: .role(state)
+        Leader(_) [rpc, proc/Timeout(#dur("PT0.02S"), sendHeartbeats)]
+        Candidate(_) [rpc, el]
+        Follower(_) [rpc, el]
 ```
 
 ### Commentary
 
-The state transitions read clearly — `set!(state, .currentTerm, ...)`, `set!(state, .role, ...)` are self-explanatory.
-The `doseq:` loop with `when:` guard maps naturally to "for each peer that isn't us, send a vote request."
-The `VoteRequest:` constructor with named fields is easy to compare against the spec.
+The handler is a pure function: takes state, returns new state, calls effects.
+No agent ref, no timeout re-arming, no concurrency plumbing.
+The `with` updates read close to the spec's declarative assignments — `with(state, .currentTerm inc(.currentTerm(state)))` vs `follower.current_term = follower.current_term + 1`.
+
+The election timeout is expressed in the select function, not in the handler.
+`proc/Timeout(#dur("PT0.15S"), startElection)` says "if nothing happens for 150ms, call startElection" — the same concept as the spec's `election_deadline <= now`, but declared as a select branch rather than a temporal condition.
+The select function is re-evaluated after each handler, so when the role changes to Leader, the timeout naturally switches to heartbeat interval.
 
 **Where mechanism leaks in:**
 The effect indirection (`.sendVoteRequest(net, ...)` rather than just `sendVoteRequest(...)`) is a small tax for substitutability.
 Worth it for testing, but it does add a layer that the spec doesn't have.
 
-Note that `.onTimeout(server, .electionTimeout(clock), ...)` is *not* implementation detail — the election timeout is core Raft business logic.
-The spec expresses it as a deadline (`election_deadline <= now`); Bridje expresses it as a callback registration.
-Different framing, same protocol concept.
-
 **How close to the spec?**
-Close.
-The core logic (increment term, become candidate, broadcast vote requests, set election timeout) is all there and readable.
+Very close.
+The core logic (increment term, become candidate, broadcast vote requests) is all there and readable.
+The timeout, previously the most visible mechanism, is now a declarative select branch — closer to the spec's approach than the old imperative style.
 
 ## A Complex Rule: HandleAppendRequest
 
@@ -201,58 +215,117 @@ rule HandleAppendRequest {
 ### Bridje
 
 ```bridje
-def: handleAppendRequest(state, req, server)
-  let: [reject fn: []
-          .sendAppendResponse(net, .from(req),
-            AppendResponse:
-              {.from .id(state), .to .from(req),
-               .term .currentTerm(state),
-               .success false, .matchIndex 0})]
-    cond:
-      lt(.term(req), .currentTerm(state)) reject()
-
-      not(logConsistent(state, req))
-        do:
-          stepUpTerm(state, .term(req))
-          set!(state, .role, Follower{.knownLeader .from(req)})
-          .onTimeout(server, .electionTimeout(clock), startElection, server)
-          reject()
-
+def: handleAppendRequest(state, req)
+  cond:
+    lt(.term(req), .currentTerm(state))
       do:
-        stepUpTerm(state, .term(req))
-        set!(state, .role, Follower{.knownLeader .from(req)})
-        .onTimeout(server, .electionTimeout(clock), startElection, server)
-        set!(state, .log, ->: .log(state) take(.prevLogIndex(req)) append(.entries(req)))
-
-        when: gt(.leaderCommit(req), .commitIndex(state))
-          set!(state, .commitIndex, min(.leaderCommit(req), count(.log(state))))
-
         .sendAppendResponse(net, .from(req),
           AppendResponse:
-            {.from .id(state), .to .from(req),
-             .term .currentTerm(state), .success true,
+            {.from .id(state)
+             .to .from(req)
+             .term .currentTerm(state)
+             .success false
+             .matchIndex 0})
+        state
+
+    not(logConsistent(state, req))
+      let: [state ->: state
+              stepUpTerm(.term(req))
+              with(.role Follower{.knownLeader .from(req)})]
+        .sendAppendResponse(net, .from(req),
+          AppendResponse:
+            {.from .id(state)
+             .to .from(req)
+             .term .currentTerm(state)
+             .success false
+             .matchIndex 0})
+        state
+
+    do:
+      let: [state ->: state
+              stepUpTerm(.term(req))
+              with(.role Follower{.knownLeader .from(req)},
+                   .log ->: .log(state) take(.prevLogIndex(req)) append(.entries(req)))
+            state if: gt(.leaderCommit(req), .commitIndex(state))
+                    with(state, .commitIndex min(.leaderCommit(req), count(.log(state))))
+                    state]
+        .sendAppendResponse(net, .from(req),
+          AppendResponse:
+            {.from .id(state)
+             .to .from(req)
+             .term .currentTerm(state)
+             .success true
              .matchIndex add(.prevLogIndex(req), count(.entries(req)))})
+        state
 ```
 
 ### Commentary
 
 **What works well:**
 `cond:` flattens the three cases (stale term, inconsistent log, success) to the same visual level.
-The `reject` thunk is a nice idiom — name the failure path once, call it twice.
 `logConsistent` and `stepUpTerm` as extracted helpers keep the main function focused.
+The immutable state threading with `->: state stepUpTerm(.term(req)) with(.role ...)` chains transforms fluently.
 
 **What doesn't work as well:**
-The `stepUpTerm` + `set!(state, .role, ...)` + `.onTimeout(...)` sequence is duplicated across the two non-stale branches.
+The `stepUpTerm` + `with(.role ...)` sequence is duplicated across the two non-stale branches.
 The spec avoids this because its nesting puts "recognise the leader" outside the log consistency check.
 Bridje's `cond:` trades that structural fidelity for flatness — whether that's a net win depends on the reader.
-
-The `reject` thunk, while DRY, is an abstraction the spec doesn't have.
-A reviewer comparing against the spec has to mentally inline it.
 
 **How close to the spec?**
 The branching logic is all present and the cases are clear.
 The structure differs — flat `cond:` vs nested `if`/`else` — but the same decisions are being made.
 This is probably the function where Bridje diverges most from the spec's structure, and it's still followable.
+
+## The Proc Model: Behaviour as Data
+
+### Allium
+
+```allium
+rule FollowerStartsElection {
+    when: follower: Follower.election_deadline <= now
+    ...
+}
+
+rule HeartbeatTimeout {
+    when: leader: Leader.last_append_at + heartbeat_interval <= now
+    ...
+}
+```
+
+Allium's rules are standing declarations — "when this condition holds, this happens."
+No loop, no re-arming.
+The runtime figures out when to check.
+
+### Bridje
+
+```bridje
+def: serverProc(rpcCh)
+  fn: [state]
+    let: [rpc proc/Recv(rpcCh, handleRpc)
+          el proc/Timeout(#dur("PT0.15S"), startElection)]
+      case: .role(state)
+        Leader(_) [rpc, proc/Timeout(#dur("PT0.02S"), sendHeartbeats)]
+        Candidate(_) [rpc, el]
+        Follower(_) [rpc, el]
+```
+
+### Commentary
+
+The proc model is `State -> Select(State)` — a function that, given the current state, declares what to wait for and which handler to call for each branch.
+This is CSP with explicit state.
+The runtime owns the loop.
+
+The select function is re-evaluated after each handler, so state changes naturally change the behaviour.
+When `winElection` sets the role to Leader, the next select evaluation returns a heartbeat timeout instead of an election timeout.
+No manual re-arming needed.
+
+This is the closest Bridje gets to Allium's declarative rules.
+The select function is a data description of "what this process is willing to do next" — inspectable, testable, and the foundation for deterministic simulation testing.
+
+**How close to the spec?**
+The proc model bridges most of the gap between imperative code and declarative rules.
+The remaining difference is framing: Allium declares conditions (`election_deadline <= now`), Bridje declares timeouts (`proc/Timeout(#dur("PT0.15S"), ...)`).
+Both express "if nothing happens within this window, do this."
 
 ## Structural Differences
 
@@ -273,11 +346,12 @@ This is probably the function where Bridje diverges most from the spec's structu
 | Bridje concept | Purpose |
 |---|---|
 | `defx`/`withFx` | Substitutable effect implementations for testing |
-| `agent`/`onTimeout` | Concrete concurrency model |
+| `proc/Recv`/`proc/Timeout` | Declarative select-function proc model |
 | Destructuring | `ServerState({cluster})` in function params |
 | `cond:`/`case:` | Pattern matching and multi-way branching |
-| Capability system | `ref`/`val`/`tag`/`iso` compile-time safety |
-| Reusable helpers | `stepUpTerm`, `logConsistent`, `reject` thunk |
+| `cond->` | Conditional state transforms (like Clojure's `cond->`) |
+| `with` (variadic) | Immutable state updates, like Clojure's `assoc` |
+| Reusable helpers | `stepUpTerm`, `logConsistent` as chainable transforms |
 
 ## Critique: How Spec-Like Is the Bridje?
 
@@ -285,7 +359,7 @@ This is probably the function where Bridje diverges most from the spec's structu
 
 1. **The domain logic reads clearly.**
 Function names (`startElection`, `handleVoteRequest`, `advanceCommitIndex`) map directly to protocol concepts.
-State transitions (`set!(state, .currentTerm, ...)`, `set!(state, .role, ...)`) are self-documenting.
+Immutable state updates (`with(state, .currentTerm ...)`) read close to the spec's declarative assignments.
 A reader familiar with Raft could follow the code without Bridje experience.
 
 2. **Effects separate concerns cleanly.**
@@ -299,6 +373,11 @@ Tagged constructors (`VoteRequest: {...}`) make message creation visually match 
 4. **Shared keys reduce cross-type noise.**
 Declaring `.from`, `.to`, `.term` once and reusing them across message types is genuinely less repetitive than redeclaring them per entity.
 
+5. **The proc model makes behaviour declarative.**
+The select function declares what the process is willing to do in each state.
+Timeouts and channel handlers are data, not imperative callbacks.
+This is the single biggest improvement over the earlier agent+onTimeout model — the concurrency plumbing is gone from the essential layer.
+
 ### Where Bridje falls short of spec-like
 
 1. **No postconditions.**
@@ -306,31 +385,89 @@ Preconditions are well served by `cond:` guards and `case:` pattern matching —
 Postconditions are harder. There's no `ensures:` equivalent — you'd need something like `assert` to express "after this function, commitIndex >= old commitIndex."
 The spec's postcondition framing is genuinely something Bridje lacks.
 
-2. **Some mechanism is visible.**
-`agent(state)` and `.send(server, ...)` are concurrency plumbing that a spec would omit.
-The timeout and effect calls are protocol logic expressed concretely, which is fine — but the agent lifecycle is genuinely incidental.
-
-3. **Imperative mutation is noisier than declarative assignment.**
-`set!(state, .commitIndex, newCommit)` vs `server.commit_index = new_commit`.
-The `set!` form is concise and the `!` suffix signals mutation clearly.
-But it's still a step removed from "this field now has this value" — it reads as an instruction rather than a fact.
-
-4. **Rule decomposition doesn't come naturally.**
+2. **Rule decomposition doesn't come naturally.**
 The spec splits vote handling into `HandleVoteGranted` and `StepDownOnVoteResponse` — separate, focused rules.
 Bridje merges them into one function with nested branching because that's what functions do.
 You *could* split them, but the language doesn't encourage it the way Allium's `rule` blocks do.
 
-5. **No first-class invariants.**
+3. **No first-class invariants.**
 "At most one leader per term" is a property test in Bridje, not a declaration next to the protocol.
 The invariant exists, but it lives in a test file, not alongside the code it constrains.
+
+4. **Timeout framing differs.**
+Allium expresses timeouts as state conditions (`election_deadline <= now`).
+Bridje expresses them as select branches (`proc/Timeout(duration, handler)`).
+Both work, but the spec's version is more declarative — it doesn't say *when* to check, just *what must hold*.
 
 ### The honest summary
 
 Bridje gets surprisingly close to spec-like for an executable language.
-The main gap isn't readability — the code reads well.
-The gap is *structural*: specs have preconditions, postconditions, invariants, and rule boundaries as first-class concepts.
-Bridje has functions.
+The proc model closed the biggest gap — concurrency plumbing is no longer visible in the essential layer.
+Immutable state with `with` reads closer to declarative assignment than `set!` did.
+
+The remaining gaps are *structural*: specs have postconditions, invariants, and rule boundaries as first-class concepts.
+Bridje has functions and select branches.
 Functions are powerful and general, but they don't carve the protocol at the same joints.
+
+## Deterministic Simulation Testing
+
+This is where Bridje goes beyond what Allium can offer.
+
+Because the proc model is `State -> Select(State)` — data in, data out — a test harness can drive the select function directly.
+The harness controls which branch fires, when timeouts elapse, and what messages arrive.
+Same code, no mocks, fully deterministic.
+
+### What the user provides
+
+A simulation test needs three things:
+
+1. **The proc function** — already written as `serverProc`. No changes needed.
+2. **Effect implementations** — test versions of `net` and `sm` that record calls instead of performing I/O. The network effect captures outgoing messages so the harness can deliver them to other servers.
+3. **Invariants** — properties that must hold after every state transition. For Raft: at most one leader per term, logs match at committed indices, committed entries are never lost.
+
+### How the harness works
+
+The harness doesn't run the proc's real loop.
+Instead, it calls the select function directly.
+
+For each proc in the simulation, the harness calls the select function with the proc's current state.
+This returns a `Select(State)` — a data description of what the proc is waiting for: which channels, what timeout duration, which handler for each.
+
+The harness now has a global view: every proc's pending select, every in-flight message, every pending timeout.
+It uses a seeded random to choose what happens next — deliver a message to a channel, fire a timeout, drop a message (simulating network failure), reorder deliveries.
+Whatever it chooses, it calls the corresponding handler, gets new state, and checks invariants.
+
+Because the select is data, the harness can inspect it without running it.
+Because the handlers are pure functions (state in, state out, effects recorded), there's no hidden state, no thread timing, no races.
+The seed determines the entire execution — same seed, same sequence of choices, same outcome.
+
+Each iteration uses a different seed, exploring different scheduling paths.
+When an invariant fails, the seed is reported — replay with that seed to reproduce exactly.
+Then attach a debugger or add logging to that specific run.
+
+The key insight: **the same `serverProc` function that runs in production drives the simulation**.
+No separate model, no test-specific version, no mocks of the proc machinery.
+The effect interfaces (`net`, `sm`) are the only substitution point, and they're already designed for this.
+
+### What this catches
+
+- **Election safety**: two leaders in the same term (scheduling-dependent race)
+- **Log divergence**: different servers applying different entries at the same index
+- **Liveness**: the cluster gets stuck and never elects a leader (timeout ordering issue)
+- **Stale message handling**: a delayed VoteResponse arrives after a term change
+
+These are exactly the bugs that are hard to find with unit tests and hard to reproduce in integration tests.
+Simulation testing explores thousands of scheduling paths systematically.
+
+### The advantage over Allium
+
+Allium can declare invariants and generate test skeletons, but it can't *run* the protocol.
+It specifies what should be true, not whether it's true for a given implementation.
+
+Bridje's proc model is both the spec (the select function declares behaviour) and the implementation (the handlers execute it).
+Simulation testing verifies the implementation against invariants across thousands of concurrent execution paths — something a specification language fundamentally cannot do.
+
+The two remain complementary: Allium for capturing intent and surfacing ambiguities before implementation, Bridje for executable verification that the implementation holds up under adversarial scheduling.
 
 ## The Gap Between Them
 
@@ -343,5 +480,6 @@ Potential bridges:
 - Generating property-test skeletons from Allium invariants for Bridje to fill in
 - Checking that Bridje's state transition functions preserve Allium's `ensures:` postconditions
 - Using Allium's `surface` declarations to verify that Bridje's `trait` + `defx` cover the same API boundary
+- Generating simulation test invariants from Allium's `invariant:` declarations
 
 The value of having both isn't that one replaces the other — it's that they could check each other.
