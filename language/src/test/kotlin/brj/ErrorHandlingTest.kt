@@ -146,8 +146,8 @@ class ErrorHandlingTest {
     }
 
     @Test
-    fun `all nine anomaly categories exist`() = withContext { ctx ->
-        for (tag in listOf("Unavailable", "Interrupted", "Busy", "Incorrect", "Forbidden", "Unsupported", "NotFound", "Conflict", "Fault")) {
+    fun `all ten anomaly categories exist`() = withContext { ctx ->
+        for (tag in listOf("Unavailable", "Interrupted", "Busy", "Incorrect", "Forbidden", "Unsupported", "NotFound", "Conflict", "Fault", "Host")) {
             val result = ctx.evalBridje("""
                 case: $tag({})
                   ($tag d) true
@@ -219,6 +219,23 @@ class ErrorHandlingTest {
                     Interrupted(_) "caught"
         """.trimIndent())
         assertEquals("caught", ctx.evalBridje("test.interrupt/result").asString())
+    }
+
+    @Test
+    fun `host RuntimeException caught as Host anomaly`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ns: test.hostex
+              import:
+                java.lang:
+                  as(Integer, Int)
+            decl: Int/parseInt(Str) Int
+            def: result
+              try: Int/parseInt("not a number")
+                catch:
+                  Host(d) .exnMessage(d)
+        """.trimIndent())
+        val msg = ctx.evalBridje("test.hostex/result").asString()
+        assertTrue(msg.contains("not a number"), "Expected message about bad input, got: $msg")
     }
 
     @Test

@@ -2,6 +2,7 @@ package brj.nodes
 
 import brj.BridjeNode
 import brj.runtime.Anomaly
+import brj.runtime.Anomaly.Companion.host
 import brj.runtime.Anomaly.Companion.interrupted
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.exception.AbstractTruffleException
@@ -47,9 +48,13 @@ class TryCatchNode(
     private fun toAnomalyOrNull(ex: AbstractTruffleException): Anomaly? {
         val uncached = InteropLibrary.getUncached()
         if (!uncached.isException(ex)) return null
+        val message = if (uncached.hasExceptionMessage(ex))
+            uncached.getExceptionMessage(ex).toString()
+        else "Host exception"
+
         return when (uncached.getExceptionType(ex)) {
-            ExceptionType.INTERRUPT -> interrupted("Interrupted", ex)
-            else -> null
+            ExceptionType.INTERRUPT -> interrupted(message, ex)
+            else -> host(message, ex)
         }
     }
 

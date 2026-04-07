@@ -32,7 +32,8 @@ class Anomaly(
         UNSUPPORTED("Unsupported"),
         NOT_FOUND("NotFound"),
         CONFLICT("Conflict"),
-        FAULT("Fault");
+        FAULT("Fault"),
+        HOST("Host");
 
         private val tagString = TruffleString.fromConstant(tag, TruffleString.Encoding.UTF_8)
 
@@ -147,5 +148,8 @@ class Anomaly(
 
         fun fault(message: String, cause: Throwable? = null) =
             Anomaly(FAULT, BridjeRecord.EMPTY.put("exnMessage", message), cause = cause)
+
+        fun host(message: String, cause: Throwable? = null) =
+            Anomaly(HOST, BridjeRecord.EMPTY.put("exnMessage", message), cause = cause)
     }
 }
