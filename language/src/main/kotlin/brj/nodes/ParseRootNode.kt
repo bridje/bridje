@@ -6,6 +6,7 @@ import brj.effects.collectEffectfulCallees
 import brj.effects.inferEffects
 import brj.runtime.*
 import brj.types.*
+import brj.types.Nullability.NOT_NULL
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.frame.FrameDescriptor
 import com.oracle.truffle.api.frame.FrameSlotKind
@@ -170,11 +171,19 @@ class ParseRootNode(
                             BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
                         }
 
-                    val tagType = TagType(nsEnv.nsDecl?.name ?: "", expr.name)
+                    val ns = nsEnv.nsDecl?.name ?: ""
                     val type = if (expr.fieldNames.isEmpty()) {
-                        tagType.notNull()
+                        TagType(ns, expr.name).notNull()
                     } else {
-                        FnType(expr.fieldNames.map { freshType() }, tagType.notNull()).notNull()
+                        val typeVars = expr.typeVarNames.associateWith { TypeVar() }
+                        val variances = expr.typeVarNames.map { Variance.INVARIANT }
+                        val fieldTypes = expr.fieldNames.map { fieldName ->
+                            if (fieldName in typeVars) Type(NOT_NULL, typeVars[fieldName]!!, null)
+                            else freshType()
+                        }
+                        val tagArgs = typeVars.values.map { Type(NOT_NULL, it, null) }
+                        val tagType = TagType(ns, expr.name, tagArgs, variances)
+                        FnType(fieldTypes, tagType.notNull()).notNull()
                     }
 
                     nsEnv = nsEnv.def(expr.name, value, type = type)
@@ -294,6 +303,15 @@ class ParseRootNode(
                 nsDecl = nsDecl,
                 source = source
             )
+            // brj:concurrent starts with spawn as a Kotlin builtin
+            nsDecl?.name == "brj.concurrent" -> NsEnv.withConcurrentBuiltins(lang).let { base ->
+                base.copy(
+                    requires = resolveRequires(frame),
+                    imports = nsDecl.imports,
+                    nsDecl = nsDecl,
+                    source = source
+                )
+            }
             nsDecl != null -> nsDecl.resolve(frame)
             else -> NsEnv()
         }

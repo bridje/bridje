@@ -22,6 +22,7 @@ class DefExpr(
 class DefTagExpr(
     val name: String,
     val fieldNames: List<String>,
+    val typeVarNames: List<String> = emptyList(),
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String =

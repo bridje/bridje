@@ -202,4 +202,36 @@ class TypedInteropTest {
         val result = mapped.invokeMember("get")
         assertEquals(42L, result.asLong())
     }
+
+    @Test
+    fun `import alias as applied type constructor in decl`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.interop.applied
+              import:
+                java.util:
+                  as(Optional, Opt)
+            decl: [a] Opt/of(a) Opt(a)
+            decl: [a] Opt/.get() a
+            def: result Opt/.get(Opt/of(42))
+        """.trimIndent())
+        val result = ctx.evalBridje("test.interop.applied/result")
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `applied host type preserves type variable identity`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.interop.applied2
+              import:
+                java.util:
+                  as(Optional, Opt)
+            decl: [a] Opt/of(a) Opt(a)
+            decl: [a] Opt/.get() a
+            decl: [a] unwrap(Opt(a)) a
+            def: unwrap(o) Opt/.get(o)
+            def: result unwrap(Opt/of("hello"))
+        """.trimIndent())
+        val result = ctx.evalBridje("test.interop.applied2/result")
+        assertEquals("hello", result.asString())
+    }
 }

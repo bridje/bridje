@@ -867,12 +867,25 @@ data class Analyser(
                         val returnType = analyseTypeForm(retForm, typeVars)
                         FnType(paramTypes, returnType).notNull()
                     }
-                    "Future" -> {
-                        val elForm = form.els.getOrNull(1)
-                            ?: return errorType("Future type requires an element type", form.loc)
-                        FutureType(analyseTypeForm(elForm, typeVars)).notNull()
+                    else -> {
+                        val args = form.els.drop(1).map { analyseTypeForm(it, typeVars) }
+                        val invariantVariances = args.map { Variance.INVARIANT }
+
+                        // Check if it's a tag name
+                        val tagNs = nsEnv[first.name]?.let { nsEnv.nsDecl?.name ?: "" }
+                            ?: ctx.brjCore[first.name]?.let { "brj.core" }
+                        if (tagNs != null) {
+                            return TagType(tagNs, first.name, args, invariantVariances).notNull()
+                        }
+
+                        // Check if it's an import alias
+                        val fqClass = nsEnv.imports[first.name]
+                        if (fqClass != null) {
+                            return HostType(fqClass, args, invariantVariances).notNull()
+                        }
+
+                        errorType("Unsupported type constructor: ${first.name}", form.loc)
                     }
-                    else -> errorType("Unsupported type constructor: ${first.name}", form.loc)
                 }
             }
 
@@ -1069,18 +1082,35 @@ data class Analyser(
     }
 
     private fun analyseTag(form: ListForm): Expr {
-        val sigForm = form.els.getOrNull(1)
+        val els = form.els
+        val sigForm = els.getOrNull(1)
             ?: return errorExpr("tag requires a tag signature", form.loc)
 
+        // tag: [t] Just(t) — type variables via leading vector
+        if (sigForm is VectorForm) {
+            val typeVarNames = sigForm.els.map { tvForm ->
+                (tvForm as? SymbolForm)?.name
+                    ?: return errorExpr("type variable must be a symbol", tvForm.loc)
+            }
+            val innerSigForm = els.getOrNull(2)
+                ?: return errorExpr("parameterised tag requires a signature after type vars", form.loc)
+            return analyseTagSig(innerSigForm, typeVarNames, form.loc)
+        }
+
+        return analyseTagSig(sigForm, emptyList(), form.loc)
+    }
+
+    private fun analyseTagSig(sigForm: Form, typeVarNames: List<String>, loc: SourceSection?): Expr {
         return when (sigForm) {
             is SymbolForm -> {
                 // tag: Nothing (nullary)
                 val name = sigForm.name
                 if (!name[0].isUpperCase()) return errorExpr("tag names must be capitalized: $name", sigForm.loc)
-                DefTagExpr(name, emptyList(), form.loc)
+                if (typeVarNames.isNotEmpty()) return errorExpr("nullary tag cannot have type variables", sigForm.loc)
+                DefTagExpr(name, emptyList(), emptyList(), loc)
             }
             is ListForm -> {
-                // tag: Just(value)
+                // tag: Just(t) or tag: [t] Just(t)
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
                     ?: return errorExpr("tag signature must start with a name", sigForm.loc)
                 val name = nameForm.name
@@ -1091,9 +1121,9 @@ data class Analyser(
                         ?: return errorExpr("field names must be symbols", el.loc)
                     fieldNames.add(sym.name)
                 }
-                DefTagExpr(name, fieldNames, form.loc)
+                DefTagExpr(name, fieldNames, typeVarNames, loc)
             }
-            else -> errorExpr("tag requires a tag name or signature", form.loc)
+            else -> errorExpr("tag requires a tag name or signature", loc)
         }
     }
 

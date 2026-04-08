@@ -202,4 +202,29 @@ class TagTest {
         assertTrue(meta.canExecute())
         assertTrue(meta.isMetaInstance(tuple))
     }
+
+    @Test
+    fun `parameterised tag with type variable`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: [t] Box(t)
+              case: Box(42)
+                Box(x) x
+        """.trimIndent())
+        assertEquals(42, result.asInt())
+    }
+
+    @Test
+    fun `parameterised tag preserves type identity`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: [t] Wrapper(t)
+              decl: [t] unwrap(Wrapper(t)) t
+              def: unwrap(w) case: w
+                Wrapper(x) x
+              unwrap(Wrapper("hello"))
+        """.trimIndent())
+        assertEquals("hello", result.asString())
+    }
+
 }
