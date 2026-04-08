@@ -85,10 +85,13 @@ data object RecordType: BaseType {
 }
 
 @ExportLibrary(InteropLibrary::class)
-data class TagType(val ns: String, val name: String): BaseType {
+data class TagType(val ns: String, val name: String, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
-    override fun toString() = if (ns.isEmpty()) name else "$ns.$name"
+    override fun toString(): String {
+        val base = if (ns.isEmpty()) name else "$ns.$name"
+        return if (args.isEmpty()) base else "$base(${args.joinToString(", ")})"
+    }
 }
 
 enum class Variance { IN, OUT, INVARIANT }
@@ -121,7 +124,6 @@ data object ErrorType: BaseType {
 
 fun VectorType(el: Type) = HostType("brj.runtime.BridjeVector", listOf(el), listOf(Variance.OUT))
 fun SetType(el: Type) = HostType("brj.runtime.BridjeSet", listOf(el), listOf(Variance.OUT))
-fun FutureType(el: Type) = HostType("brj.runtime.BridjeFuture", listOf(el), listOf(Variance.OUT))
 
 @ExportLibrary(InteropLibrary::class)
 data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType {
@@ -143,6 +145,7 @@ fun errorType() = ErrorType.notNull()
 private val Type.tvs0: List<TypeVar> get() =
     when (val base = this.base) {
         is HostType -> base.args.flatMap { it.tvs0 }
+        is TagType -> base.args.flatMap { it.tvs0 }
         is FnType -> base.paramTypes.flatMap { it.tvs0 } + base.returnType.tvs0
         else -> emptyList()
     }.plus(tv)
@@ -154,6 +157,7 @@ private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): 
 
     fun instBase(base: BaseType): BaseType = when (base) {
         is HostType -> if (base.args.isEmpty()) base else HostType(base.className, base.args.map { instantiateType(it, mapping) }, base.variances)
+        is TagType -> if (base.args.isEmpty()) base else TagType(base.ns, base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
         is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
         else -> base
     }

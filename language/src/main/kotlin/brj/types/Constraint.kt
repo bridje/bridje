@@ -55,6 +55,20 @@ internal fun Collection<Constraint>.resolve(): Subst {
                     lower.base is HostType && upper.base is HostType
                         && lower.base.className == upper.base.className -> { /* ok — erased */ }
 
+                    lower.base is TagType && upper.base is TagType
+                        && lower.base.ns == upper.base.ns
+                        && lower.base.name == upper.base.name
+                        && lower.base.args.size == upper.base.args.size -> {
+                        lower.base.variances.zip(lower.base.args.zip(upper.base.args)).forEach { (variance, args) ->
+                            val (lArg, uArg) = args
+                            when (variance) {
+                                Variance.OUT -> queue.add(lArg subOf uArg)
+                                Variance.IN -> queue.add(uArg subOf lArg)
+                                Variance.INVARIANT -> { queue.add(lArg subOf uArg); queue.add(uArg subOf lArg) }
+                            }
+                        }
+                    }
+
                     lower.base is FnType && upper.base is FnType -> {
                         val lParams = lower.base.paramTypes
                         val uParams = upper.base.paramTypes

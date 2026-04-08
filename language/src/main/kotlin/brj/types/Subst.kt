@@ -30,7 +30,10 @@ private fun joinArgs(variances: List<Variance>, a: List<Type>, b: List<Type>): L
         when (variance) {
             Variance.OUT -> x.join(y)
             Variance.IN -> x.meet(y)
-            Variance.INVARIANT -> if (x == y) x else throw TypeErrorException("Cannot join invariant type args: $x vs $y")
+            Variance.INVARIANT -> x.meet(y).also { merged ->
+                if (merged.base != null && x.base != null && y.base != null && x.base != y.base)
+                    throw TypeErrorException("Cannot join invariant type args: $x vs $y")
+            }
         }
     }
 
@@ -40,7 +43,10 @@ private fun meetArgs(variances: List<Variance>, a: List<Type>, b: List<Type>): L
         when (variance) {
             Variance.OUT -> x.meet(y)
             Variance.IN -> x.join(y)
-            Variance.INVARIANT -> if (x == y) x else throw TypeErrorException("Cannot meet invariant type args: $x vs $y")
+            Variance.INVARIANT -> x.meet(y).also { merged ->
+                if (merged.base != null && x.base != null && y.base != null && x.base != y.base)
+                    throw TypeErrorException("Cannot meet invariant type args: $x vs $y")
+            }
         }
     }
 
@@ -49,6 +55,8 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
     this == other -> this
     this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
         HostType(className, joinArgs(variances, args, other.args), variances)
+    this is TagType && other is TagType && ns == other.ns && name == other.name && args.size == other.args.size && args.isNotEmpty() ->
+        TagType(ns, name, joinArgs(variances, args, other.args), variances)
     this is FnType && other is FnType -> {
         val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
         if (shorter.paramTypes.size != longer.paramTypes.size) {
@@ -66,6 +74,8 @@ internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     this == other -> this
     this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
         HostType(className, meetArgs(variances, args, other.args), variances)
+    this is TagType && other is TagType && ns == other.ns && name == other.name && args.size == other.args.size && args.isNotEmpty() ->
+        TagType(ns, name, meetArgs(variances, args, other.args), variances)
     this is FnType && other is FnType -> {
         val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
         if (shorter.paramTypes.size != longer.paramTypes.size) {
@@ -96,6 +106,7 @@ internal infix fun Type.meet(other: Type): Type {
 
 internal fun BaseType.applySubst(subst: Subst): BaseType = when (this) {
     is HostType -> if (args.isEmpty()) this else HostType(className, args.map { it.applySubst(subst) }, variances)
+    is TagType -> if (args.isEmpty()) this else TagType(ns, name, args.map { it.applySubst(subst) }, variances)
     is FnType -> FnType(paramTypes.map { it.applySubst(subst) }, returnType.applySubst(subst))
     else -> this
 }
