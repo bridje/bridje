@@ -24,18 +24,31 @@ internal infix fun Nullability.meet(other: Nullability): Nullability = when {
     else -> NULLABLE
 }
 
+private fun joinArgs(variances: List<Variance>, a: List<Type>, b: List<Type>): List<Type> =
+    variances.zip(a.zip(b)).map { (variance, pair) ->
+        val (x, y) = pair
+        when (variance) {
+            Variance.OUT -> x.join(y)
+            Variance.IN -> x.meet(y)
+            Variance.INVARIANT -> if (x == y) x else throw TypeErrorException("Cannot join invariant type args: $x vs $y")
+        }
+    }
+
+private fun meetArgs(variances: List<Variance>, a: List<Type>, b: List<Type>): List<Type> =
+    variances.zip(a.zip(b)).map { (variance, pair) ->
+        val (x, y) = pair
+        when (variance) {
+            Variance.OUT -> x.meet(y)
+            Variance.IN -> x.join(y)
+            Variance.INVARIANT -> if (x == y) x else throw TypeErrorException("Cannot meet invariant type args: $x vs $y")
+        }
+    }
+
 // Join two base types - must be same or error
 internal infix fun BaseType.join(other: BaseType): BaseType = when {
     this == other -> this
-    this is AppliedType && other is AppliedType && ctor == other.ctor ->
-        AppliedType(ctor, ctor.variances.zip(args.zip(other.args)).map { (variance, pair) ->
-            val (a, b) = pair
-            when (variance) {
-                Variance.OUT -> a.join(b)
-                Variance.IN -> a.meet(b)
-                Variance.INVARIANT -> if (a == b) a else throw TypeErrorException("Cannot join invariant type args: $a vs $b")
-            }
-        })
+    this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
+        HostType(className, joinArgs(variances, args, other.args), variances)
     this is FnType && other is FnType -> {
         val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
         if (shorter.paramTypes.size != longer.paramTypes.size) {
@@ -51,15 +64,8 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
 // Meet two base types - must be same or error
 internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     this == other -> this
-    this is AppliedType && other is AppliedType && ctor == other.ctor ->
-        AppliedType(ctor, ctor.variances.zip(args.zip(other.args)).map { (variance, pair) ->
-            val (a, b) = pair
-            when (variance) {
-                Variance.OUT -> a.meet(b)
-                Variance.IN -> a.join(b)
-                Variance.INVARIANT -> if (a == b) a else throw TypeErrorException("Cannot meet invariant type args: $a vs $b")
-            }
-        })
+    this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
+        HostType(className, meetArgs(variances, args, other.args), variances)
     this is FnType && other is FnType -> {
         val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
         if (shorter.paramTypes.size != longer.paramTypes.size) {
@@ -89,7 +95,7 @@ internal infix fun Type.meet(other: Type): Type {
 }
 
 internal fun BaseType.applySubst(subst: Subst): BaseType = when (this) {
-    is AppliedType -> AppliedType(ctor, args.map { it.applySubst(subst) })
+    is HostType -> if (args.isEmpty()) this else HostType(className, args.map { it.applySubst(subst) }, variances)
     is FnType -> FnType(paramTypes.map { it.applySubst(subst) }, returnType.applySubst(subst))
     else -> this
 }

@@ -93,25 +93,6 @@ data class TagType(val ns: String, val name: String): BaseType {
 
 enum class Variance { IN, OUT, INVARIANT }
 
-data class TypeConstructor(val name: String, val variances: List<Variance>) {
-    companion object {
-        val VECTOR = TypeConstructor("Vector", listOf(Variance.OUT))
-        val SET = TypeConstructor("Set", listOf(Variance.OUT))
-        val FUTURE = TypeConstructor("Future", listOf(Variance.OUT))
-    }
-}
-
-@ExportLibrary(InteropLibrary::class)
-data class AppliedType(val ctor: TypeConstructor, val args: List<Type>) : BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = when (ctor) {
-        TypeConstructor.VECTOR -> "[${args[0]}]"
-        TypeConstructor.SET -> "#{${args[0]}}"
-        else -> "${ctor.name}(${args.joinToString(", ")})"
-    }
-}
-
 @ExportLibrary(InteropLibrary::class)
 data object FormType: BaseType {
     @Suppress("UNUSED_PARAMETER")
@@ -120,10 +101,15 @@ data object FormType: BaseType {
 }
 
 @ExportLibrary(InteropLibrary::class)
-data class HostType(val className: String): BaseType {
+data class HostType(val className: String, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = className.substringAfterLast('.')
+    override fun toString(): String = when {
+        className == "brj.runtime.BridjeVector" && args.size == 1 -> "[${args[0]}]"
+        className == "brj.runtime.BridjeSet" && args.size == 1 -> "#{${args[0]}}"
+        args.isEmpty() -> className.substringAfterLast('.')
+        else -> "${className.substringAfterLast('.')}(${args.joinToString(", ")})"
+    }
 }
 
 @ExportLibrary(InteropLibrary::class)
@@ -133,9 +119,9 @@ data object ErrorType: BaseType {
     override fun toString() = "<error>"
 }
 
-fun VectorType(el: Type) = AppliedType(TypeConstructor.VECTOR, listOf(el))
-fun SetType(el: Type) = AppliedType(TypeConstructor.SET, listOf(el))
-fun FutureType(el: Type) = AppliedType(TypeConstructor.FUTURE, listOf(el))
+fun VectorType(el: Type) = HostType("brj.runtime.BridjeVector", listOf(el), listOf(Variance.OUT))
+fun SetType(el: Type) = HostType("brj.runtime.BridjeSet", listOf(el), listOf(Variance.OUT))
+fun FutureType(el: Type) = HostType("brj.runtime.BridjeFuture", listOf(el), listOf(Variance.OUT))
 
 @ExportLibrary(InteropLibrary::class)
 data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType {
@@ -156,7 +142,7 @@ fun errorType() = ErrorType.notNull()
 
 private val Type.tvs0: List<TypeVar> get() =
     when (val base = this.base) {
-        is AppliedType -> base.args.flatMap { it.tvs0 }
+        is HostType -> base.args.flatMap { it.tvs0 }
         is FnType -> base.paramTypes.flatMap { it.tvs0 } + base.returnType.tvs0
         else -> emptyList()
     }.plus(tv)
@@ -167,7 +153,7 @@ private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): 
     fun TypeVar.fresh(): TypeVar = mapping.getOrPut(this) { TypeVar() }
 
     fun instBase(base: BaseType): BaseType = when (base) {
-        is AppliedType -> AppliedType(base.ctor, base.args.map { instantiateType(it, mapping) })
+        is HostType -> if (base.args.isEmpty()) base else HostType(base.className, base.args.map { instantiateType(it, mapping) }, base.variances)
         is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
         else -> base
     }

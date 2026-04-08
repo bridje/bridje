@@ -37,10 +37,11 @@ internal fun Collection<Constraint>.resolve(): Subst {
                 when {
                     lower.base == upper.base -> { /* ok */ }
 
-                    lower.base is AppliedType && upper.base is AppliedType -> {
-                        if (lower.base.ctor != upper.base.ctor)
-                            throw TypeErrorException("Incompatible types: ${lower.base} is not a subtype of ${upper.base}")
-                        lower.base.ctor.variances.zip(lower.base.args.zip(upper.base.args)).forEach { (variance, args) ->
+                    lower.base is HostType && upper.base is HostType
+                        && lower.base.className == upper.base.className
+                        && lower.base.args.size == upper.base.args.size
+                        && lower.base.args.isNotEmpty() -> {
+                        lower.base.variances.zip(lower.base.args.zip(upper.base.args)).forEach { (variance, args) ->
                             val (lArg, uArg) = args
                             when (variance) {
                                 Variance.OUT -> queue.add(lArg subOf uArg)
@@ -49,6 +50,10 @@ internal fun Collection<Constraint>.resolve(): Subst {
                             }
                         }
                     }
+
+                    // HostType with no args is the erased form — compatible if class names match
+                    lower.base is HostType && upper.base is HostType
+                        && lower.base.className == upper.base.className -> { /* ok — erased */ }
 
                     lower.base is FnType && upper.base is FnType -> {
                         val lParams = lower.base.paramTypes
