@@ -44,6 +44,7 @@ object Builtins {
                 FnType(listOf(freshType()), nothingType()).notNull()),
             createBuiltinFunction("not", NotNode(language),
                 FnType(listOf(BoolType.notNull()), BoolType.notNull()).notNull()),
+            comparisonOp("same?", SameNode(language)),
         ).associateBy { it.name }
     }
 

@@ -258,6 +258,26 @@ class BuiltinsTest {
         assertEquals(0L, result.arraySize)
     }
 
+    // Identity comparison
+
+    @Test
+    fun `same? with identical values`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("""
+            let: [x [1, 2, 3]]
+              same?(x, x)
+        """).asBoolean())
+    }
+
+    @Test
+    fun `same? with equal but distinct values`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("same?([1, 2], [1, 2])").asBoolean())
+    }
+
+    @Test
+    fun `same? with different values`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("same?(1, 2)").asBoolean())
+    }
+
     @Test
     fun `not true is false`() = withContext { ctx ->
         assertFalse(ctx.evalBridje("not(true)").asBoolean())
