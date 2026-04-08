@@ -31,7 +31,11 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         fun get(node: Node): BridjeLanguage = LANGUAGE_REF.get(node)
     }
 
-    override fun createContext(env: Env) = BridjeContext(env, this)
+    override fun createContext(env: Env): BridjeContext {
+        val ctx = BridjeContext(env, this)
+        BridjeContext.register(ctx)
+        return ctx
+    }
 
     override fun initializeContext(context: BridjeContext) {
         val coreUrl = BridjeLanguage::class.java.classLoader.getResource("brj/core.brj")
@@ -44,6 +48,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
         context.rootScope.cancelChildren()
         context.executor.shutdownNow()
         context.executor.awaitTermination(5, TimeUnit.SECONDS)
+        BridjeContext.unregister()
     }
 
     override fun isThreadAccessAllowed(thread: Thread, singleThreaded: Boolean) = true

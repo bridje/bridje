@@ -61,4 +61,15 @@ class BridjeFuture(
     @TruffleBoundary
     fun toDisplayString(@Suppress("UNUSED_PARAMETER") allowSideEffects: Boolean) =
         if (isDone) "#<Future: done>" else "#<Future: pending>"
+
+    companion object {
+        @JvmStatic
+        fun cancel(future: BridjeFuture, mayInterrupt: Boolean): Boolean = future.cancel(mayInterrupt)
+
+        @JvmStatic
+        fun cancelChildren(future: BridjeFuture): Any {
+            future.scope?.cancelChildren()
+            return BridjeNull
+        }
+    }
 }

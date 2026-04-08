@@ -2,7 +2,10 @@ package brj
 
 import brj.analyser.NsDecl
 import brj.builtins.Builtins
+import brj.builtins.AwaitNode
+import brj.builtins.SpawnNode
 import brj.runtime.Anomaly
+import brj.runtime.BridjeFunction
 import brj.runtime.BridjeRecord
 import brj.types.FnType
 import brj.types.RecordType
@@ -57,6 +60,15 @@ data class NsEnv(
         fun withBuiltins(language: BridjeLanguage): NsEnv {
             val builtinFunctions = Builtins.createBuiltinFunctions(language)
             return NsEnv(vars = builtinFormMetas + builtinFunctions + anomalyTags)
+        }
+
+        fun withConcurrentBuiltins(language: BridjeLanguage): NsEnv {
+            val spawnFn = BridjeFunction(SpawnNode(language).callTarget)
+            val awaitFn = BridjeFunction(AwaitNode(language).callTarget)
+            return NsEnv(vars = mapOf(
+                "spawn" to GlobalVar("spawn", spawnFn),
+                "await" to GlobalVar("await", awaitFn),
+            ))
         }
     }
 

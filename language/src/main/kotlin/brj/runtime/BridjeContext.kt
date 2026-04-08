@@ -2,7 +2,6 @@ package brj.runtime
 
 import brj.BridjeLanguage
 import brj.NsEnv
-import brj.builtins.ConcurrentNs
 import com.oracle.truffle.api.TruffleLanguage.ContextReference
 import com.oracle.truffle.api.TruffleLanguage.Env
 import com.oracle.truffle.api.nodes.Node
@@ -21,9 +20,7 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
     var brjCore: NsEnv = NsEnv.withBuiltins(lang)
         internal set
 
-    val brjConcurrent: NsEnv = ConcurrentNs.create(lang)
-
-    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj.core" to brjCore, "brj.concurrent" to brjConcurrent))
+    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj.core" to brjCore))
         private set
 
     val loadingInProgress: MutableSet<String> = mutableSetOf()
@@ -44,7 +41,21 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
         private val CONTEXT_REF: ContextReference<BridjeContext> =
             ContextReference.create(BridjeLanguage::class.java)
 
+        @Volatile
+        private var instance: BridjeContext? = null
+
         @JvmStatic
         fun get(node: Node): BridjeContext = CONTEXT_REF.get(node)
+
+        @JvmStatic
+        fun current(): BridjeContext = instance ?: error("No BridjeContext registered")
+
+        fun register(ctx: BridjeContext) {
+            instance = ctx
+        }
+
+        fun unregister() {
+            instance = null
+        }
     }
 }

@@ -1,0 +1,24 @@
+ns: brj.concurrent
+  import:
+    java.lang:
+      as(Thread, T)
+    brj.runtime:
+      as(BridjeFuture, Fut)
+
+decl: [x] Fut/cancel(Fut(x), Bool) Bool
+decl: [x] Fut/cancelChildren(Fut(x)) Nothing
+decl: T/sleep(Int) Nothing
+decl: T/interrupted() Bool
+
+def: interrupt(f)
+  do:
+    Fut/cancelChildren(f)
+    Fut/cancel(f, true)
+def: ensureActive()
+  if: T/interrupted()
+    throw(Interrupted({.exnMessage "Task was interrupted"}))
+    nil
+def: sleepMs(ms)
+  try: T/sleep(ms)
+    catch:
+      (Interrupted data) throw(Interrupted({.exnMessage "Sleep was interrupted"}))
