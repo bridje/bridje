@@ -34,6 +34,14 @@ defmacro: ifLet(bindings, then, else)
            nil ~else
            ~first(els) ~then))
 
+defmacro: whenLet(bindings, & body)
+  case: bindings
+    Vector(els)
+      '(let [v# ~nth(els, 1)]
+         (case v#
+           nil nil
+           ~first(els) (do ~@body)))
+
 defmacro: unlessLet(bindings, else, then)
   case: bindings
     Vector(els)

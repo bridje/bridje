@@ -1,0 +1,105 @@
+ns: brj.task-scope
+  import:
+    brj.runtime:
+      as(TaskScope, TS)
+      as(TaskScopeState, State)
+      as(ChildHandle, CH)
+    java.util.concurrent.atomic:
+      as(AtomicReference, AR)
+    java.util.concurrent:
+      as(ConcurrentLinkedQueue, CLQ)
+      as(Future, Fut)
+    java.util:
+      as(ArrayList, AL)
+    java.lang:
+      as(Thread, T)
+      as(Throwable, Thr)
+
+//// State enum values
+decl: State/ACTIVE State
+decl: State/CANCELLING State
+
+//// ChildHandle constructor and fields
+decl: CH/new(Fut, TS) CH
+decl: CH/.future Fut
+decl: CH/.scope TS
+
+//// TaskScope field access
+decl: TS/.state AR
+decl: TS/.children CLQ
+decl: TS/.childFailure AR
+decl: TS/.ownerThread T?
+
+//// TaskScope setter for volatile field
+decl: TS/.setOwnerThread(T?) Nothing
+
+//// AtomicReference methods
+decl: [a] AR/.get() a?
+decl: [a] AR/.set(a?) Nothing
+decl: [a] AR/.compareAndSet(a?, a?) Bool
+
+//// ConcurrentLinkedQueue methods
+decl: [a] CLQ/.add(a) Bool
+
+//// Future methods
+decl: [a] Fut/.get() a
+decl: Fut/.cancel(Bool) Bool
+
+//// ArrayList for work queues
+decl: AL/new() AL
+decl: [a] AL/.add(a) Bool
+decl: AL/.isEmpty() Bool
+decl: [a] AL/.remove(Int) a
+
+//// Thread methods
+decl: T/.interrupt() Nothing
+
+//// Throwable methods
+decl: Thr/.addSuppressed(Thr) Nothing
+
+//// ---- TaskScope methods ----
+
+def: cancelChildren(rootScope)
+  let: [work AL/new()]
+    AL/.add(work, rootScope)
+    loop: []
+      unless: AL/.isEmpty(work)
+        let: [scope AL/.remove(work, 0)]
+          AR/.set(TS/.state(scope), State/CANCELLING)
+          doseq: [child TS/.children(scope)]
+            AL/.add(work, CH/.scope(child))
+            Fut/.cancel(CH/.future(child), true)
+          recur:
+
+def: joinChildren(rootScope)
+  let: [work AL/new()]
+    AL/.add(work, rootScope)
+    loop: []
+      unless: AL/.isEmpty(work)
+        let: [scope AL/.remove(work, 0)]
+          doseq: [child TS/.children(scope)]
+            try: Fut/.get(CH/.future(child))
+              catch: e nil
+            AL/.add(work, CH/.scope(child))
+          recur:
+
+def: addChild(parent, future, childScope)
+  let: [handle CH/new(future, childScope)]
+    CLQ/.add(TS/.children(parent), handle)
+    when: same?(AR/.get(TS/.state(parent)), State/CANCELLING)
+      cancelChildren(childScope)
+      Fut/.cancel(future, true)
+    handle
+
+def: childFailed(scope, failedScope, cause)
+  when: not(AR/.compareAndSet(TS/.childFailure(scope), nil, cause))
+    whenLet: [primary AR/.get(TS/.childFailure(scope))]
+      unless: same?(primary, cause)
+        Thr/.addSuppressed(primary, cause)
+  AR/.set(TS/.state(scope), State/CANCELLING)
+  doseq: [child TS/.children(scope)]
+    unless: same?(CH/.scope(child), failedScope)
+      cancelChildren(CH/.scope(child))
+      Fut/.cancel(CH/.future(child), true)
+  whenLet: [t TS/.ownerThread(scope)]
+    T/.interrupt(t)

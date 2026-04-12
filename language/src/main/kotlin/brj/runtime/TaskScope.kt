@@ -4,24 +4,24 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicReference
 
+enum class TaskScopeState { ACTIVE, CANCELLING }
+
+class ChildHandle(
+    val future: Future<Any?>,
+    val scope: TaskScope
+)
+
 class TaskScope(val parent: TaskScope?) {
 
-    enum class State { ACTIVE, CANCELLING }
-
-    val state = AtomicReference(State.ACTIVE)
+    val state = AtomicReference(TaskScopeState.ACTIVE)
     val children = ConcurrentLinkedQueue<ChildHandle>()
     @Volatile var ownerThread: Thread? = null
     val childFailure = AtomicReference<Throwable>(null)
 
-    class ChildHandle(
-        val future: Future<Any?>,
-        val scope: TaskScope
-    )
-
     fun addChild(future: Future<Any?>, childScope: TaskScope): ChildHandle {
         val handle = ChildHandle(future, childScope)
         children.add(handle)
-        if (state.get() == State.CANCELLING) {
+        if (state.get() == TaskScopeState.CANCELLING) {
             childScope.cancelChildren()
             future.cancel(true)
         }
@@ -29,7 +29,7 @@ class TaskScope(val parent: TaskScope?) {
     }
 
     fun cancelChildren() {
-        state.set(State.CANCELLING)
+        state.set(TaskScopeState.CANCELLING)
         for (child in children) {
             child.scope.cancelChildren()
             child.future.cancel(true)
@@ -52,7 +52,7 @@ class TaskScope(val parent: TaskScope?) {
             val primary = childFailure.get()
             if (primary != null && primary !== cause) primary.addSuppressed(cause)
         }
-        state.set(State.CANCELLING) // must be set before sibling loop so new children are cancelled on add
+        state.set(TaskScopeState.CANCELLING)
         for (child in children) {
             if (child.scope !== failedScope) {
                 child.scope.cancelChildren()
