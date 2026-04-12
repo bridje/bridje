@@ -8,6 +8,12 @@ internal data class Constraint(val lower: Type, val upper: Type)
 
 internal infix fun Type.subOf(upper: Type) = Constraint(this, upper)
 
+// Java interfaces backing the virtual protocol types.
+// See #78: HostType <: IterableType rewrites to HostType <: HostType(j.l.Iterable)
+// and lets existing class hierarchy subtyping handle the rest.
+private val J_L_ITERABLE = Iterable::class.java
+private val J_U_ITERATOR = Iterator::class.java
+
 internal fun Collection<Constraint>.resolve(): Subst {
     val queue: Queue<Constraint> = LinkedList(this)
     var subst: Subst = emptyMap()
@@ -36,6 +42,14 @@ internal fun Collection<Constraint>.resolve(): Subst {
                 // Both have bases - must be compatible
                 when {
                     lower.base == upper.base -> { /* ok */ }
+
+                    // Collection types — covariant in element
+                    lower.base is VectorType && upper.base is VectorType -> {
+                        queue.add(lower.base.el subOf upper.base.el)
+                    }
+                    lower.base is SetType && upper.base is SetType -> {
+                        queue.add(lower.base.el subOf upper.base.el)
+                    }
 
                     lower.base is HostType && upper.base is HostType
                         && lower.base.className == upper.base.className
@@ -102,6 +116,22 @@ internal fun Collection<Constraint>.resolve(): Subst {
                             }
                         }
                     }
+
+                    // Protocol types with themselves — covariant in el
+                    lower.base is IterableType && upper.base is IterableType ->
+                        queue.add(lower.base.el subOf upper.base.el)
+                    lower.base is IteratorType && upper.base is IteratorType ->
+                        queue.add(lower.base.el subOf upper.base.el)
+
+                    // VectorType <: IterableType — direct, covariant
+                    lower.base is VectorType && upper.base is IterableType ->
+                        queue.add(lower.base.el subOf upper.base.el)
+
+                    // HostType <: protocol type — rewrite to HostType <: HostType(java interface)
+                    lower.base is HostType && upper.base is IterableType ->
+                        queue.add(lower subOf HostType(J_L_ITERABLE.name, listOf(upper.base.el), listOf(Variance.OUT)).notNull())
+                    lower.base is HostType && upper.base is IteratorType ->
+                        queue.add(lower subOf HostType(J_U_ITERATOR.name, listOf(upper.base.el), listOf(Variance.OUT)).notNull())
 
                     lower.base is FnType && upper.base is FnType -> {
                         val lParams = lower.base.paramTypes

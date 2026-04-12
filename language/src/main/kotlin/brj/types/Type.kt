@@ -116,8 +116,6 @@ data class HostType(val className: String, val args: List<Type> = emptyList(), v
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
     override fun toString(): String = when {
-        className == "brj.runtime.BridjeVector" && args.size == 1 -> "[${args[0]}]"
-        className == "brj.runtime.BridjeSet" && args.size == 1 -> "#{${args[0]}}"
         args.isEmpty() -> className.substringAfterLast('.')
         else -> "${className.substringAfterLast('.')}(${args.joinToString(", ")})"
     }
@@ -130,8 +128,36 @@ data object ErrorType: BaseType {
     override fun toString() = "<error>"
 }
 
-fun VectorType(el: Type) = HostType("brj.runtime.BridjeVector", listOf(el), listOf(Variance.OUT))
-fun SetType(el: Type) = HostType("brj.runtime.BridjeSet", listOf(el), listOf(Variance.OUT))
+@ExportLibrary(InteropLibrary::class)
+data class VectorType(val el: Type): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "[${el}]"
+}
+@ExportLibrary(InteropLibrary::class)
+data class SetType(val el: Type): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "#{${el}}"
+}
+
+// Virtual protocol types — no Java class backs these.
+// They represent Truffle iterator protocol capabilities.
+// See #78: Truffle intercepts java.lang.Iterable on TruffleObjects,
+// so BridjeVector can't implement it. These exist in the type system only.
+@ExportLibrary(InteropLibrary::class)
+data class IterableType(val el: Type): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Iterable(${el})"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data class IteratorType(val el: Type): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Iterator(${el})"
+}
 
 @ExportLibrary(InteropLibrary::class)
 data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType {
@@ -152,10 +178,14 @@ fun errorType() = ErrorType.notNull()
 
 private val Type.tvs0: List<TypeVar> get() =
     when (val base = this.base) {
+        is VectorType -> base.el.tvs0
+        is SetType -> base.el.tvs0
         is HostType -> base.args.flatMap { it.tvs0 }
         is TagType -> base.args.flatMap { it.tvs0 }
         is EnumType -> base.args.flatMap { it.tvs0 }
         is FnType -> base.paramTypes.flatMap { it.tvs0 } + base.returnType.tvs0
+        is IterableType -> base.el.tvs0
+        is IteratorType -> base.el.tvs0
         else -> emptyList()
     }.plus(tv)
 
@@ -165,10 +195,14 @@ private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): 
     fun TypeVar.fresh(): TypeVar = mapping.getOrPut(this) { TypeVar() }
 
     fun instBase(base: BaseType): BaseType = when (base) {
+        is VectorType -> VectorType(instantiateType(base.el, mapping))
+        is SetType -> SetType(instantiateType(base.el, mapping))
         is HostType -> if (base.args.isEmpty()) base else HostType(base.className, base.args.map { instantiateType(it, mapping) }, base.variances)
         is TagType -> if (base.args.isEmpty()) base else TagType(base.ns, base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
         is EnumType -> if (base.args.isEmpty()) base else EnumType(base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
         is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
+        is IterableType -> IterableType(instantiateType(base.el, mapping))
+        is IteratorType -> IteratorType(instantiateType(base.el, mapping))
         else -> base
     }
 

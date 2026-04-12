@@ -27,8 +27,8 @@ class TypeTest {
         val type = VectorExpr(listOf(IntExpr(1), IntExpr(2))).checkType()
         assertEquals(NOT_NULL, type.nullability)
 
-        val vecBase = type.base as HostType
-        assertEquals(IntType, vecBase.args[0].base)
+        val vecBase = type.base as VectorType
+        assertEquals(IntType, vecBase.el.base)
     }
 
     @Test
@@ -36,9 +36,9 @@ class TypeTest {
         val type = VectorExpr(listOf(IntExpr(1), NilExpr())).checkType()
         assertEquals(NOT_NULL, type.nullability)
 
-        val vecBase = type.base as HostType
-        assertEquals(IntType, vecBase.args[0].base)
-        assertEquals(NULLABLE, vecBase.args[0].nullability)
+        val vecBase = type.base as VectorType
+        assertEquals(IntType, vecBase.el.base)
+        assertEquals(NULLABLE, vecBase.el.nullability)
     }
 
     @Test
@@ -127,9 +127,9 @@ class TypeTest {
             VectorExpr(listOf(NilExpr()))
         ).checkType()
 
-        val vecBase = type.base as HostType
-        assertEquals(IntType, vecBase.args[0].base)
-        assertEquals(NULLABLE, vecBase.args[0].nullability)
+        val vecBase = type.base as VectorType
+        assertEquals(IntType, vecBase.el.base)
+        assertEquals(NULLABLE, vecBase.el.nullability)
     }
 
     @Test
@@ -157,9 +157,8 @@ class TypeTest {
     @Test
     fun `set literal has set type`() {
         val type = SetExpr(listOf(IntExpr(1), IntExpr(2))).checkType()
-        val setBase = type.base as HostType
-        assertEquals("brj.runtime.BridjeSet", setBase.className)
-        assertEquals(IntType, setBase.args[0].base)
+        val setBase = type.base as SetType
+        assertEquals(IntType, setBase.el.base)
         assertEquals(NOT_NULL, type.nullability)
     }
 
@@ -300,6 +299,45 @@ class TypeTest {
         // Type variables are fresh but internally consistent
         assertEquals(fn.paramTypes[0].tv, fn.returnType.tv)
         assertNotEquals(tv, fn.paramTypes[0].tv)
+    }
+
+    @Test
+    fun `vector subtype of Iterable via constraint solver`() {
+        val tv = TypeVar()
+        val vecType = VectorType(IntType.notNull()).notNull()
+        val iterableType = IterableType(Type(NOT_NULL, tv, null)).notNull()
+        val subst = listOf(vecType subOf iterableType).resolve()
+        val resolved = iterableType.applySubst(subst)
+        assertEquals(IntType, (resolved.base as IterableType).el.base)
+    }
+
+    @Test
+    fun `non-iterable HostType rejected for Iterable`() {
+        val tv = TypeVar()
+        val sbType = HostType("java.lang.StringBuilder").notNull()
+        val iterableType = IterableType(Type(NOT_NULL, tv, null)).notNull()
+        assertThrows(TypeErrorException::class.java) {
+            listOf(sbType subOf iterableType).resolve()
+        }
+    }
+
+    @Test
+    fun `java Iterator subtype of brj Iterator`() {
+        val tv = TypeVar()
+        val hostIter = HostType("java.util.Iterator", listOf(IntType.notNull()), listOf(Variance.OUT)).notNull()
+        val brjIter = IteratorType(Type(NOT_NULL, tv, null)).notNull()
+        val subst = listOf(hostIter subOf brjIter).resolve()
+        val resolved = brjIter.applySubst(subst)
+        assertEquals(IntType, (resolved.base as IteratorType).el.base)
+    }
+
+    @Test
+    fun `IteratorType applySubst resolves element type`() {
+        val tv = TypeVar()
+        val iterType = IteratorType(Type(NOT_NULL, tv, null))
+        val subst = mapOf(tv to IntType.notNull())
+        val resolved = iterType.applySubst(subst)
+        assertEquals(IntType, (resolved as IteratorType).el.base)
     }
 
     @Test

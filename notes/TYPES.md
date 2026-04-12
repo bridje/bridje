@@ -157,6 +157,41 @@ Homogeneous, immutable, parameterised by element type:
 Element types are inferred from literals.
 Empty literals (`[]`, `#{}`) infer the element type from usage context.
 
+## Protocol Types
+
+Protocol types represent Truffle interop protocol capabilities rather than Java classes.
+They exist in the Bridje type system only — no Java class backs them.
+
+### Iterable and Iterator
+
+`Iterable(a)` is the type of anything that can produce an iterator over `a`.
+`Iterator(a)` is the type of a stateful cursor yielding values of type `a`.
+
+```bridje
+decl: [a] itr(Iterable(a)) Iterator(a)
+decl: [a] itrHasNext?(Iterator(a)) Bool
+decl: [a] itrNext(Iterator(a)) a
+```
+
+At runtime, `itr` dispatches via Truffle's `InteropLibrary.getIterator()`.
+This works for BridjeVector (via `hasArrayElements` auto-iteration), Java Iterables, and any polyglot object that exports the Truffle iterator protocol.
+
+Subtype relationships:
+
+```
+[a]                    <: Iterable(a)    // BridjeVector
+java.lang.Iterable(a)  <: Iterable(a)
+java.util.Iterator(a)   <: Iterator(a)
+```
+
+These are virtual — BridjeVector does not implement `java.lang.Iterable` at the Java level.
+Truffle intercepts that interface on TruffleObjects, so the relationship is modelled in the constraint solver instead.
+When traits land, the virtual relationships become trait impls.
+
+**Note**: `Iterable` is deliberately separate from a future `brj.List` type.
+Iteration is O(n) sequential access; List implies O(1) indexed access (`count`, `first`, `nth`).
+Conflating them would bake in wrong performance contracts.
+
 ## Function Types
 
 `Fn([a, b] c)` — a function taking `a` and `b`, returning `c`.

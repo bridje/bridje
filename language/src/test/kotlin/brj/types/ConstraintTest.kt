@@ -165,8 +165,8 @@ class ConstraintTest {
             ).resolve()
 
             val result = vecType.applySubst(subst)
-            val vecBase = result.base as HostType
-            assertEquals(IntType, vecBase.args[0].base)
+            val vecBase = result.base as VectorType
+            assertEquals(IntType, vecBase.el.base)
         }
     }
 }

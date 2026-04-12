@@ -900,6 +900,16 @@ data class Analyser(
                 val first = form.els.firstOrNull() as? SymbolForm
                     ?: return errorType("Type form must start with a symbol", form.loc)
                 when (first.name) {
+                    "Iterable" -> {
+                        val elForm = form.els.getOrNull(1)
+                            ?: return errorType("Iterable type requires an element type", form.loc)
+                        IterableType(analyseTypeForm(elForm, typeVars)).notNull()
+                    }
+                    "Iterator" -> {
+                        val elForm = form.els.getOrNull(1)
+                            ?: return errorType("Iterator type requires an element type", form.loc)
+                        IteratorType(analyseTypeForm(elForm, typeVars)).notNull()
+                    }
                     "Fn" -> {
                         val paramVec = form.els.getOrNull(1) as? VectorForm
                             ?: return errorType("Fn type requires a vector of parameter types", form.loc)
