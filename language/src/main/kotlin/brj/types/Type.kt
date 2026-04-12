@@ -141,6 +141,24 @@ data class SetType(val el: Type): BaseType {
     override fun toString() = "#{${el}}"
 }
 
+// Virtual protocol types — no Java class backs these.
+// They represent Truffle iterator protocol capabilities.
+// See #78: Truffle intercepts java.lang.Iterable on TruffleObjects,
+// so BridjeVector can't implement it. These exist in the type system only.
+@ExportLibrary(InteropLibrary::class)
+data class IterableType(val el: Type): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Iterable(${el})"
+}
+
+@ExportLibrary(InteropLibrary::class)
+data class IteratorType(val el: Type): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Iterator(${el})"
+}
+
 @ExportLibrary(InteropLibrary::class)
 data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType {
     @Suppress("UNUSED_PARAMETER")
@@ -166,6 +184,8 @@ private val Type.tvs0: List<TypeVar> get() =
         is TagType -> base.args.flatMap { it.tvs0 }
         is EnumType -> base.args.flatMap { it.tvs0 }
         is FnType -> base.paramTypes.flatMap { it.tvs0 } + base.returnType.tvs0
+        is IterableType -> base.el.tvs0
+        is IteratorType -> base.el.tvs0
         else -> emptyList()
     }.plus(tv)
 
@@ -181,6 +201,8 @@ private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): 
         is TagType -> if (base.args.isEmpty()) base else TagType(base.ns, base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
         is EnumType -> if (base.args.isEmpty()) base else EnumType(base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
         is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
+        is IterableType -> IterableType(instantiateType(base.el, mapping))
+        is IteratorType -> IteratorType(instantiateType(base.el, mapping))
         else -> base
     }
 

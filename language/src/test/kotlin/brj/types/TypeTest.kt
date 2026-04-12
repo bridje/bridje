@@ -302,6 +302,45 @@ class TypeTest {
     }
 
     @Test
+    fun `vector subtype of Iterable via constraint solver`() {
+        val tv = TypeVar()
+        val vecType = VectorType(IntType.notNull()).notNull()
+        val iterableType = IterableType(Type(NOT_NULL, tv, null)).notNull()
+        val subst = listOf(vecType subOf iterableType).resolve()
+        val resolved = iterableType.applySubst(subst)
+        assertEquals(IntType, (resolved.base as IterableType).el.base)
+    }
+
+    @Test
+    fun `non-iterable HostType rejected for Iterable`() {
+        val tv = TypeVar()
+        val sbType = HostType("java.lang.StringBuilder").notNull()
+        val iterableType = IterableType(Type(NOT_NULL, tv, null)).notNull()
+        assertThrows(TypeErrorException::class.java) {
+            listOf(sbType subOf iterableType).resolve()
+        }
+    }
+
+    @Test
+    fun `java Iterator subtype of brj Iterator`() {
+        val tv = TypeVar()
+        val hostIter = HostType("java.util.Iterator", listOf(IntType.notNull()), listOf(Variance.OUT)).notNull()
+        val brjIter = IteratorType(Type(NOT_NULL, tv, null)).notNull()
+        val subst = listOf(hostIter subOf brjIter).resolve()
+        val resolved = brjIter.applySubst(subst)
+        assertEquals(IntType, (resolved.base as IteratorType).el.base)
+    }
+
+    @Test
+    fun `IteratorType applySubst resolves element type`() {
+        val tv = TypeVar()
+        val iterType = IteratorType(Type(NOT_NULL, tv, null))
+        val subst = mapOf(tv to IntType.notNull())
+        val resolved = iterType.applySubst(subst)
+        assertEquals(IntType, (resolved as IteratorType).el.base)
+    }
+
+    @Test
     fun `instantiate gives different vars for different originals`() {
         val tv1 = TypeVar()
         val tv2 = TypeVar()

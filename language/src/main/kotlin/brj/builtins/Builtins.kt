@@ -45,6 +45,12 @@ object Builtins {
             createBuiltinFunction("not", NotNode(language),
                 FnType(listOf(BoolType.notNull()), BoolType.notNull()).notNull()),
             comparisonOp("same?", SameNode(language)),
+            createBuiltinFunction("itr", ItrNode(language),
+                run { val a = freshType(); FnType(listOf(IterableType(a).notNull()), IteratorType(a).notNull()).notNull() }),
+            createBuiltinFunction("itrHasNext?", ItrHasNextNode(language),
+                run { val a = freshType(); FnType(listOf(IteratorType(a).notNull()), BoolType.notNull()).notNull() }),
+            createBuiltinFunction("itrNext", ItrNextNode(language),
+                run { val a = freshType(); FnType(listOf(IteratorType(a).notNull()), a).notNull() }),
         ).associateBy { it.name }
     }
 
