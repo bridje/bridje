@@ -32,6 +32,7 @@ data class NsEnv(
     val effectVars: Map<String, GlobalVar> = emptyMap(),
     val interopVars: Map<String, GlobalVar> = emptyMap(),
     val pendingDecls: Map<String, Type> = emptyMap(),
+    val enums: Map<String, Set<String>> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
 ) : TruffleObject {
@@ -105,6 +106,11 @@ data class NsEnv(
 
     fun defKey(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
         copy(keys = keys + (name to GlobalVar(name, value, meta, type)))
+
+    fun defEnum(enumName: String, variantNames: Set<String>): NsEnv =
+        copy(enums = enums + (enumName to variantNames))
+
+    fun enumForTag(tagName: String): String? = enums.entries.firstOrNull { tagName in it.value }?.key
 
     @ExportMessage
     fun hasLanguage() = true

@@ -42,11 +42,10 @@ decl:
 
 tag: LogEntry({.term, .index, .command})
 
-type: ServerRole
-  Sum:
-    Follower({.knownLeader})
-    Candidate({.votesReceived})
-    Leader({.nextIndex, .matchIndex})
+enum: ServerRole
+  tag: Follower({.knownLeader})
+  tag: Candidate({.votesReceived})
+  tag: Leader({.nextIndex, .matchIndex})
 
 tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role, .leaderId})
 
@@ -61,13 +60,12 @@ tag: AppendResponse({.term, .from, .to, .success?, .lastLogIndex})
 
 tag: ClientCommand({.command, .from})
 
-type: Rpc
-  Sum:
-    VoteRequest({.term, .from, .lastLogIndex, .lastLogTerm})
-    VoteResponse({.term, .from, .to, .granted?})
-    AppendRequest({.term, .from, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
-    AppendResponse({.term, .from, .to, .success?, .lastLogIndex})
-    ClientCommand({.command, .from})
+enum: Rpc
+  tag: VoteRequest({.term, .from, .lastLogIndex, .lastLogTerm})
+  tag: VoteResponse({.term, .from, .to, .granted?})
+  tag: AppendRequest({.term, .from, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
+  tag: AppendResponse({.term, .from, .to, .success?, .lastLogIndex})
+  tag: ClientCommand({.command, .from})
 
 //// ---- Effects ----
 

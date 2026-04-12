@@ -300,7 +300,7 @@ case: .role(state)
   Leader(l) handleLeader(l)
 ```
 
-Without a default, the compiler verifies all variants of the sum type are handled.
+Without a default, the compiler verifies all variants of the enum are handled.
 
 Destructuring inside tags:
 
@@ -474,27 +474,39 @@ Nothing                        // singleton, no parens needed
 <!-- TODO: tag with named members via {} — tag: User{.name, .age} -->
 <!-- TODO: curly-brace construction sugar for named tags — User{.name "James"} -->
 
-### type ... Sum
+### enum
 
 Closed sum type — a fixed set of variants.
+Variants are constructors owned by the enum, not standalone types.
+`Just(x)` has type `Maybe(a)`, not type `Just`.
 
 ```bridje
-type: ServerRole
-  Sum:
-    Follower({.knownLeader})
-    Candidate({.votesReceived})
-    Leader({.nextIndex, .matchIdx})
+enum: ServerRole
+  tag: Follower({.knownLeader})
+  tag: Candidate({.votesReceived})
+  tag: Leader({.nextIndex, .matchIdx})
 
-type: Result(a, e)
-  Sum: Ok(a) | Err(e)
+enum: Result(a, e)
+  tag: Ok(a)
+  tag: Err(e)
+
+enum: Maybe(a)
+  tag: Just(a)
+  tag: Nothing
 ```
 
-<!-- TODO: replace with adt: syntax -->
-<!-- adt: Maybe(a)          -->
-<!--   tag: Just(a)         -->
-<!--   tag: Nothing          -->
+Variant constructors are interned into the declaring namespace.
+Pattern matching on enums is exhaustive — the compiler verifies all variants are handled.
 
-Pattern matching on sum types is exhaustive — the compiler verifies all variants are handled.
+This is a superset of Java enums — a Java-style enum is the degenerate case where all variants are nullary:
+
+```bridje
+enum: Direction
+  tag: North
+  tag: South
+  tag: East
+  tag: West
+```
 
 ### trait
 

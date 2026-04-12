@@ -14,12 +14,11 @@ decl: {.lastLogIndex Int, .lastLogTerm Int, .granted Bool}
 decl: {.prevLogIndex Int, .prevLogTerm Int, .entries Vec, .leaderCommit Int}
 decl: {.success Bool, .matchIndex Int}
 
-type: RpcMsg
-  Sum:
-    VoteRequest({.from, .to, .term, .lastLogIndex, .lastLogTerm})
-    VoteResponse({.from, .to, .term, .granted})
-    AppendRequest({.from, .to, .term, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
-    AppendResponse({.from, .to, .term, .success, .matchIndex})
+enum: RpcMsg
+  tag: VoteRequest({.from, .to, .term, .lastLogIndex, .lastLogTerm})
+  tag: VoteResponse({.from, .to, .term, .granted})
+  tag: AppendRequest({.from, .to, .term, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
+  tag: AppendResponse({.from, .to, .term, .success, .matchIndex})
 
 decl:
   {.cluster Set
@@ -37,11 +36,10 @@ tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .l
 
 decl: {.knownLeader ServerId, .votesReceived Set, .nextIndex Map, .matchIdx Map}
 
-type: ServerRole
-  Sum:
-    Follower({.knownLeader})
-    Candidate({.votesReceived})
-    Leader({.nextIndex, .matchIdx})
+enum: ServerRole
+  tag: Follower({.knownLeader})
+  tag: Candidate({.votesReceived})
+  tag: Leader({.nextIndex, .matchIdx})
 
 //// Derived
 

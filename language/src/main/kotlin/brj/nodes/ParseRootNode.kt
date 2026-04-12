@@ -129,6 +129,46 @@ class ParseRootNode(
         return BridjeFunction(outerRoot.callTarget)
     }
 
+    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: String? = null): Pair<Any, NsEnv> {
+        val value: Any =
+            if (expr.fieldNames.isEmpty()) {
+                BridjeTaggedSingleton(expr.name)
+            } else {
+                BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
+            }
+
+        val ns = nsEnv.nsDecl?.name ?: ""
+        val type = if (expr.fieldNames.isEmpty()) {
+            if (enumName != null && expr.typeVarNames.isNotEmpty()) {
+                // Nullary variant of a parameterised enum (e.g., Nothing in Maybe(a))
+                // needs fresh type vars so it can unify with any instantiation.
+                val variances = expr.typeVarNames.map { Variance.INVARIANT }
+                val freshArgs = expr.typeVarNames.map { freshType() }
+                EnumType(enumName, freshArgs, variances).notNull()
+            } else if (enumName != null) {
+                EnumType(enumName).notNull()
+            } else {
+                TagType(ns, expr.name).notNull()
+            }
+        } else {
+            val typeVars = expr.typeVarNames.associateWith { TypeVar() }
+            val variances = expr.typeVarNames.map { Variance.INVARIANT }
+            val fieldTypes = expr.fieldNames.map { fieldName ->
+                if (fieldName in typeVars) Type(NOT_NULL, typeVars[fieldName]!!, null)
+                else freshType()
+            }
+            val tagArgs = typeVars.values.map { Type(NOT_NULL, it, null) }
+            val returnType = if (enumName != null) {
+                EnumType(enumName, tagArgs, variances)
+            } else {
+                TagType(ns, expr.name, tagArgs, variances)
+            }
+            FnType(fieldTypes, returnType.notNull()).notNull()
+        }
+
+        return value to nsEnv.def(expr.name, value, type = type)
+    }
+
     @TruffleBoundary
     private fun List<Form>.evalForms(ctx: BridjeContext, nsEnv: NsEnv): Pair<NsEnv, Any?> {
         var nsEnv = nsEnv
@@ -164,30 +204,22 @@ class ParseRootNode(
                 }
 
                 is DefTagExpr -> {
-                    val value: Any =
-                        if (expr.fieldNames.isEmpty()) {
-                            BridjeTaggedSingleton(expr.name)
-                        } else {
-                            BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
-                        }
-
-                    val ns = nsEnv.nsDecl?.name ?: ""
-                    val type = if (expr.fieldNames.isEmpty()) {
-                        TagType(ns, expr.name).notNull()
-                    } else {
-                        val typeVars = expr.typeVarNames.associateWith { TypeVar() }
-                        val variances = expr.typeVarNames.map { Variance.INVARIANT }
-                        val fieldTypes = expr.fieldNames.map { fieldName ->
-                            if (fieldName in typeVars) Type(NOT_NULL, typeVars[fieldName]!!, null)
-                            else freshType()
-                        }
-                        val tagArgs = typeVars.values.map { Type(NOT_NULL, it, null) }
-                        val tagType = TagType(ns, expr.name, tagArgs, variances)
-                        FnType(fieldTypes, tagType.notNull()).notNull()
-                    }
-
-                    nsEnv = nsEnv.def(expr.name, value, type = type)
+                    val (value, updatedNsEnv) = evalDefTag(expr, nsEnv)
+                    nsEnv = updatedNsEnv
                     value
+                }
+
+                is DefEnumExpr -> {
+                    val variantNames = mutableSetOf<String>()
+                    var lastValue: Any? = null
+                    for (tagExpr in expr.variants) {
+                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv, enumName = expr.name)
+                        nsEnv = updatedNsEnv
+                        variantNames.add(tagExpr.name)
+                        lastValue = value
+                    }
+                    nsEnv = nsEnv.defEnum(expr.name, variantNames)
+                    lastValue
                 }
 
                 is DefMacroExpr -> {

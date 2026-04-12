@@ -30,6 +30,16 @@ class DefTagExpr(
         else "(tag ($name ${fieldNames.joinToString(" ")}))"
 }
 
+class DefEnumExpr(
+    val name: String,
+    val typeVarNames: List<String>,
+    val variants: List<DefTagExpr>,
+    override val loc: SourceSection? = null
+) : Expr {
+    override fun toString(): String =
+        "(enum $name ${variants.joinToString(" ")})"
+}
+
 class DefMacroExpr(
     val name: String,
     val fn: FnExpr,

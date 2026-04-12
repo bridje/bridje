@@ -2,7 +2,7 @@
 
 Bridje is a statically typed Lisp on the JVM (Truffle/GraalVM).
 Types are inferred by default; annotations are available at boundaries when they help.
-The type system is built around **structural records, nominal tags, open traits, and closed sums**.
+The type system is built around **structural records, nominal tags, open traits, and enums (closed sums)**.
 
 ## Type Syntax
 
@@ -75,9 +75,9 @@ decl: throw(Str) Nothing              // never returns
 
 `Nothing?` is the type of `null` itself.
 
-### Union (sum types)
+### Enums
 
-Named sum types are referenced by name:
+Enum types are referenced by name:
 
 ```bridje
 decl: role ServerRole                 // Follower | Candidate | Leader
@@ -108,8 +108,9 @@ Lowercase names in type positions are type variables; uppercase names are concre
 tag: Ok(a)
 tag: Err(e)
 
-type: Result(a, e)
-  Sum: Ok(a) | Err(e)
+enum: Result(a, e)
+  tag: Ok(a)
+  tag: Err(e)
 
 tag: Pair(a, b)
 ```
@@ -262,7 +263,7 @@ They are independently specified at each usage site.
 
 ### Tag-level type precision
 
-The compiler tracks individual tags, not just their containing sum type.
+The compiler tracks individual tags, not just their containing enum type.
 A function that only returns `Ok` is typed as returning `Ok`, not `Result`.
 
 ```bridje
@@ -277,24 +278,30 @@ def: safeLookup(m, k)
     Err("key not found")
 ```
 
-## Closed Sum Types
+## Enums (Closed Sum Types)
 
-A closed sum declares a fixed set of variants.
-Each tag belongs to exactly one closed sum (1:N).
+An enum declares a fixed set of tag variants.
+Variants are constructors owned by the enum, not standalone types — `Just(x)` has type `Maybe(a)`, not type `Just`.
+Each tag belongs to exactly one enum (1:N).
 
 ```bridje
-type: ServerRole
-  Sum:
-    Follower({.knownLeader})
-    Candidate({.votesReceived})
-    Leader({.nextIndex, .matchIdx})
+enum: ServerRole
+  tag: Follower({.knownLeader})
+  tag: Candidate({.votesReceived})
+  tag: Leader({.nextIndex, .matchIdx})
+
+enum: Maybe(a)
+  tag: Just(a)
+  tag: Nothing
 ```
 
-The compiler infers the sum type from its members — seeing `Follower` is enough to know `ServerRole`.
-Pattern matching is exhaustive against the declared set.
+The compiler infers the enum type from its members — seeing `Follower` is enough to know `ServerRole`.
+Pattern matching is exhaustive against the declared variant set.
 
 1:N is necessary for inference.
-If a tag could belong to multiple closed sums, the compiler couldn't determine which sum type to infer.
+If a tag could belong to multiple enums, the compiler couldn't determine which enum type to infer.
+
+This is a superset of Java enums — a Java-style enum is the degenerate case where all variants are nullary.
 
 ## Traits
 
@@ -316,7 +323,7 @@ The `impl` names the type; the receiver is a parameter like any other.
 Destructuring works in the receiver position, same as any function parameter.
 
 Traits are open — any tag can implement any number of traits (M:N).
-This contrasts with closed sums (1:N).
+This contrasts with enums (1:N).
 
 ### Resolution
 
@@ -348,7 +355,7 @@ Records and tags are duals in the subtyping lattice:
 - `case` removes a variant from a tag type (more specific).
 
 Keys are structural and shared across record shapes (M:N).
-Tags are nominal and belong to one closed sum (1:N), but can implement multiple traits (M:N).
+Tags are nominal and belong to one enum (1:N), but can implement multiple traits (M:N).
 
 ## Effects
 

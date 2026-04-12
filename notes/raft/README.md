@@ -65,11 +65,10 @@ decl:
 tag: LogEntry({.term, .index, .command})
 tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role})
 
-type: ServerRole
-  Sum:
-    Follower({.knownLeader})
-    Candidate({.votesReceived})
-    Leader({.nextIndex, .matchIndex})
+enum: ServerRole
+  tag: Follower({.knownLeader})
+  tag: Candidate({.votesReceived})
+  tag: Leader({.nextIndex, .matchIndex})
 
 def: lastLogIndex(ServerState({log}))
   if: empty?(log)
@@ -89,7 +88,7 @@ Near 1:1 after accounting for naming conventions (`snake_case` vs `camelCase`).
 Bridje's `decl:` + `tag:` separation is a Clojure-ism that pays for itself when keys are reused — `.from`, `.to`, `.term` appear in four message types and are declared once.
 The parameterised collection types (`[LogEntry]`, `Map(Int, Int)`, `#{Int}`) carry the same information as Allium's `List<LogEntry>`, `Map<Server, Integer>`, `Set<Server>`.
 
-Allium's `variant Leader : Server` maps to Bridje's sum type with per-variant keys.
+Allium's `variant Leader : Server` maps to Bridje's enum with per-variant keys.
 Derived fields (`lastLogIndex`, `lastLogTerm`) become standalone functions with destructuring rather than inline computed fields — they live separately from the type definition, but they're right next to it.
 
 ## A Simple Rule: Starting an Election

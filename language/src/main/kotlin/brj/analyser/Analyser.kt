@@ -227,6 +227,7 @@ data class Analyser(
                 "def" -> errorExpr("def not allowed in value position", form.loc)
                 "decl" -> errorExpr("decl not allowed in value position", form.loc)
                 "tag" -> errorExpr("tag not allowed in value position", form.loc)
+                "enum" -> errorExpr("enum not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
                 "defkeys" -> errorExpr("defkeys has been replaced: use decl: .name Str", form.loc)
                 "defx" -> errorExpr("defx not allowed in value position", form.loc)
@@ -412,6 +413,41 @@ data class Analyser(
         }
 
         if (branches.isEmpty()) return errorExpr("case requires at least one branch", form.loc)
+
+        // Exhaustiveness check for enum case expressions
+        val hasDefault = branches.any { it.pattern is DefaultPattern || it.pattern is CatchAllBindingPattern }
+        if (!hasDefault) {
+            val tagNames = branches.mapNotNull { branch ->
+                val pattern = branch.pattern
+                if (pattern is TagPattern) {
+                    when (val tv = pattern.tagValue) {
+                        is BridjeTagConstructor -> tv.tag
+                        is BridjeTaggedSingleton -> tv.tag
+                        else -> null
+                    }
+                } else null
+            }
+
+            if (tagNames.isNotEmpty()) {
+                val enumName = nsEnv.enumForTag(tagNames.first())
+                    ?: ctx.brjCore.enumForTag(tagNames.first())
+                    ?: nsEnv.requires.values.firstNotNullOfOrNull { it.enumForTag(tagNames.first()) }
+
+                if (enumName != null) {
+                    val allVariants = nsEnv.enums[enumName]
+                        ?: ctx.brjCore.enums[enumName]
+                        ?: nsEnv.requires.values.firstNotNullOfOrNull { it.enums[enumName] }
+                        ?: emptySet()
+                    val covered = tagNames.toSet()
+                    if (covered.all { it in allVariants }) {
+                        val missing = allVariants - covered
+                        if (missing.isNotEmpty()) {
+                            addError("Non-exhaustive case: missing variants ${missing.joinToString(", ")} of enum $enumName", form.loc)
+                        }
+                    }
+                }
+            }
+        }
 
         return CaseExpr(scrutinee, branches, form.loc)
     }
@@ -812,16 +848,22 @@ data class Analyser(
             "Nothing" -> nullType()
             else -> when {
                 name[0].isUpperCase() -> {
-                    val ns = nsEnv[name]?.let { nsEnv.nsDecl?.name ?: "" }
-                        ?: ctx.brjCore[name]?.let { "brj.core" }
-                    if (ns != null) {
-                        TagType(ns, name).notNull()
+                    // Check if it's an enum type first
+                    val enumVariants = nsEnv.enums[name] ?: ctx.brjCore.enums[name]
+                    if (enumVariants != null) {
+                        EnumType(name).notNull()
                     } else {
-                        val importFqClass = nsEnv.imports[name]
-                        if (importFqClass != null) {
-                            HostType(importFqClass).notNull()
+                        val ns = nsEnv[name]?.let { nsEnv.nsDecl?.name ?: "" }
+                            ?: ctx.brjCore[name]?.let { "brj.core" }
+                        if (ns != null) {
+                            TagType(ns, name).notNull()
                         } else {
-                            errorType("Unknown type: $name", loc)
+                            val importFqClass = nsEnv.imports[name]
+                            if (importFqClass != null) {
+                                HostType(importFqClass).notNull()
+                            } else {
+                                errorType("Unknown type: $name", loc)
+                            }
                         }
                     }
                 }
@@ -870,6 +912,12 @@ data class Analyser(
                     else -> {
                         val args = form.els.drop(1).map { analyseTypeForm(it, typeVars) }
                         val invariantVariances = args.map { Variance.INVARIANT }
+
+                        // Check if it's an enum type
+                        val enumVariants = nsEnv.enums[first.name] ?: ctx.brjCore.enums[first.name]
+                        if (enumVariants != null) {
+                            return EnumType(first.name, args, invariantVariances).notNull()
+                        }
 
                         // Check if it's a tag name
                         val tagNs = nsEnv[first.name]?.let { nsEnv.nsDecl?.name ?: "" }
@@ -1106,8 +1154,7 @@ data class Analyser(
                 // tag: Nothing (nullary)
                 val name = sigForm.name
                 if (!name[0].isUpperCase()) return errorExpr("tag names must be capitalized: $name", sigForm.loc)
-                if (typeVarNames.isNotEmpty()) return errorExpr("nullary tag cannot have type variables", sigForm.loc)
-                DefTagExpr(name, emptyList(), emptyList(), loc)
+                DefTagExpr(name, emptyList(), typeVarNames, loc)
             }
             is ListForm -> {
                 // tag: Just(t) or tag: [t] Just(t)
@@ -1125,6 +1172,55 @@ data class Analyser(
             }
             else -> errorExpr("tag requires a tag name or signature", loc)
         }
+    }
+
+    private fun analyseEnum(form: ListForm): Expr {
+        val els = form.els
+        val sigForm = els.getOrNull(1)
+            ?: return errorExpr("enum requires a name", form.loc)
+
+        val (enumName, typeVarNames) = when (sigForm) {
+            is SymbolForm -> sigForm.name to emptyList<String>()
+            is ListForm -> {
+                val name = (sigForm.els.firstOrNull() as? SymbolForm)?.name
+                    ?: return errorExpr("enum name must be a symbol", sigForm.loc)
+                val tvs = sigForm.els.drop(1).map { tvForm ->
+                    (tvForm as? SymbolForm)?.name
+                        ?: return errorExpr("type variable must be a symbol", tvForm.loc)
+                }
+                name to tvs
+            }
+            else -> return errorExpr("enum requires a name", sigForm.loc)
+        }
+
+        if (!enumName[0].isUpperCase()) return errorExpr("enum names must be capitalized: $enumName", sigForm.loc)
+
+        val variants = mutableListOf<DefTagExpr>()
+        for (nested in els.drop(2)) {
+            if (nested !is ListForm) {
+                errorExpr("enum variants must be tag: forms", nested.loc)
+                continue
+            }
+            val first = nested.els.firstOrNull() as? SymbolForm
+            if (first?.name != "tag") {
+                errorExpr("enum variants must be tag: forms, got: ${first?.name}", nested.loc)
+                continue
+            }
+            val tagSigForm = nested.els.getOrNull(1)
+            if (tagSigForm == null) {
+                errorExpr("tag requires a signature", nested.loc)
+                continue
+            }
+
+            val tagExpr = analyseTagSig(tagSigForm, typeVarNames, nested.loc)
+            if (tagExpr is DefTagExpr) {
+                variants.add(tagExpr)
+            }
+        }
+
+        if (variants.isEmpty()) return errorExpr("enum requires at least one variant", form.loc)
+
+        return DefEnumExpr(enumName, typeVarNames, variants, form.loc)
     }
 
     private fun analyseDefMacro(form: ListForm): Expr {
@@ -1215,6 +1311,7 @@ data class Analyser(
                     "def" -> return analyseDef(form)
                     "decl" -> return analyseDecl(form)
                     "tag" -> return analyseTag(form)
+                    "enum" -> return analyseEnum(form)
                     "defmacro" -> return analyseDefMacro(form)
                     "defkeys" -> return errorExpr("defkeys has been replaced: use decl: .name Str", form.loc)
                     "defx" -> return analyseDefx(form)

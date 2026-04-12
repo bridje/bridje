@@ -94,6 +94,14 @@ data class TagType(val ns: String, val name: String, val args: List<Type> = empt
     }
 }
 
+@ExportLibrary(InteropLibrary::class)
+data class EnumType(val name: String, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
+    override fun toString(): String =
+        if (args.isEmpty()) name else "$name(${args.joinToString(", ")})"
+}
+
 enum class Variance { IN, OUT, INVARIANT }
 
 @ExportLibrary(InteropLibrary::class)
@@ -146,6 +154,7 @@ private val Type.tvs0: List<TypeVar> get() =
     when (val base = this.base) {
         is HostType -> base.args.flatMap { it.tvs0 }
         is TagType -> base.args.flatMap { it.tvs0 }
+        is EnumType -> base.args.flatMap { it.tvs0 }
         is FnType -> base.paramTypes.flatMap { it.tvs0 } + base.returnType.tvs0
         else -> emptyList()
     }.plus(tv)
@@ -158,6 +167,7 @@ private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): 
     fun instBase(base: BaseType): BaseType = when (base) {
         is HostType -> if (base.args.isEmpty()) base else HostType(base.className, base.args.map { instantiateType(it, mapping) }, base.variances)
         is TagType -> if (base.args.isEmpty()) base else TagType(base.ns, base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
+        is EnumType -> if (base.args.isEmpty()) base else EnumType(base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
         is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
         else -> base
     }

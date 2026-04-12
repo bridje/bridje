@@ -65,6 +65,8 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
     }
     this is TagType && other is TagType && ns == other.ns && name == other.name && args.size == other.args.size && args.isNotEmpty() ->
         TagType(ns, name, joinArgs(variances, args, other.args), variances)
+    this is EnumType && other is EnumType && name == other.name && args.size == other.args.size && args.isNotEmpty() ->
+        EnumType(name, joinArgs(variances, args, other.args), variances)
     this is FnType && other is FnType -> {
         val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
         if (shorter.paramTypes.size != longer.paramTypes.size) {
@@ -92,6 +94,8 @@ internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     }
     this is TagType && other is TagType && ns == other.ns && name == other.name && args.size == other.args.size && args.isNotEmpty() ->
         TagType(ns, name, meetArgs(variances, args, other.args), variances)
+    this is EnumType && other is EnumType && name == other.name && args.size == other.args.size && args.isNotEmpty() ->
+        EnumType(name, meetArgs(variances, args, other.args), variances)
     this is FnType && other is FnType -> {
         val (shorter, longer) = if (paramTypes.size <= other.paramTypes.size) this to other else other to this
         if (shorter.paramTypes.size != longer.paramTypes.size) {
@@ -123,6 +127,7 @@ internal infix fun Type.meet(other: Type): Type {
 internal fun BaseType.applySubst(subst: Subst): BaseType = when (this) {
     is HostType -> if (args.isEmpty()) this else HostType(className, args.map { it.applySubst(subst) }, variances)
     is TagType -> if (args.isEmpty()) this else TagType(ns, name, args.map { it.applySubst(subst) }, variances)
+    is EnumType -> if (args.isEmpty()) this else EnumType(name, args.map { it.applySubst(subst) }, variances)
     is FnType -> FnType(paramTypes.map { it.applySubst(subst) }, returnType.applySubst(subst))
     else -> this
 }
