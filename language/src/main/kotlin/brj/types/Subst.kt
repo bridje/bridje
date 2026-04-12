@@ -55,6 +55,14 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
     this == other -> this
     this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
         HostType(className, joinArgs(variances, args, other.args), variances)
+    // Join of different HostTypes — pick the supertype (less specific)
+    this is HostType && other is HostType && className != other.className -> {
+        when {
+            HostTypeHierarchy.findSupertypeArgs(className, other.className, args) != null -> other
+            HostTypeHierarchy.findSupertypeArgs(other.className, className, other.args) != null -> this
+            else -> throw TypeErrorException("Cannot join $this with $other")
+        }
+    }
     this is TagType && other is TagType && ns == other.ns && name == other.name && args.size == other.args.size && args.isNotEmpty() ->
         TagType(ns, name, joinArgs(variances, args, other.args), variances)
     this is FnType && other is FnType -> {
@@ -74,6 +82,14 @@ internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     this == other -> this
     this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
         HostType(className, meetArgs(variances, args, other.args), variances)
+    // Meet of different HostTypes — pick the subtype (more specific)
+    this is HostType && other is HostType && className != other.className -> {
+        when {
+            HostTypeHierarchy.findSupertypeArgs(className, other.className, args) != null -> this
+            HostTypeHierarchy.findSupertypeArgs(other.className, className, other.args) != null -> other
+            else -> throw TypeErrorException("Cannot meet $this with $other")
+        }
+    }
     this is TagType && other is TagType && ns == other.ns && name == other.name && args.size == other.args.size && args.isNotEmpty() ->
         TagType(ns, name, meetArgs(variances, args, other.args), variances)
     this is FnType && other is FnType -> {

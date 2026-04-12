@@ -55,6 +55,26 @@ internal fun Collection<Constraint>.resolve(): Subst {
                     lower.base is HostType && upper.base is HostType
                         && lower.base.className == upper.base.className -> { /* ok — erased */ }
 
+                    // HostType subtyping across different classes via Java class hierarchy
+                    lower.base is HostType && upper.base is HostType
+                        && lower.base.className != upper.base.className -> {
+                        val mappedArgs = HostTypeHierarchy.findSupertypeArgs(
+                            lower.base.className, upper.base.className, lower.base.args
+                        ) ?: throw TypeErrorException(
+                            "Incompatible types: ${lower.base} is not a subtype of ${upper.base}"
+                        )
+                        if (mappedArgs.isNotEmpty() && upper.base.args.isNotEmpty()) {
+                            upper.base.variances.zip(mappedArgs.zip(upper.base.args)).forEach { (variance, args) ->
+                                val (lArg, uArg) = args
+                                when (variance) {
+                                    Variance.OUT -> queue.add(lArg subOf uArg)
+                                    Variance.IN -> queue.add(uArg subOf lArg)
+                                    Variance.INVARIANT -> { queue.add(lArg subOf uArg); queue.add(uArg subOf lArg) }
+                                }
+                            }
+                        }
+                    }
+
                     lower.base is TagType && upper.base is TagType
                         && lower.base.ns == upper.base.ns
                         && lower.base.name == upper.base.name
