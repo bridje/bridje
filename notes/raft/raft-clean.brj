@@ -2,6 +2,7 @@ ns: raft.server
   require:
     brj:
       as(proc)
+      as(time, t)
 
 //// ---- Types ----
 
@@ -355,9 +356,9 @@ def: onHeartbeatTimeout(state)
 def: serverProc(rpcCh)
   fn: [state]
     let: [rpc proc/Recv(rpcCh, handleRpc)
-          electionTimeout proc/Timeout(#dur("PT0.15S"), onElectionTimeout)]
+          electionTimeout proc/Timeout(t/dur("PT0.15S"), onElectionTimeout)]
       case: .role(state)
-        Leader(l) [rpc, proc/Timeout(#dur("PT0.05S"), onHeartbeatTimeout)]
+        Leader(l) [rpc, proc/Timeout(t/dur("PT0.05S"), onHeartbeatTimeout)]
         Candidate(c) [rpc, electionTimeout]
         Follower(f) [rpc, electionTimeout]
 

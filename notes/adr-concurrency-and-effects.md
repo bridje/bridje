@@ -110,9 +110,9 @@ Each handler is a pure function `(State, Msg) -> State` that calls `defx` for ef
 def: serverProc(rpcCh)
   fn: [state]
     let: [rpc proc:Recv(rpcCh, handleRpc)
-          el proc:Timeout(#dur("PT0.15S"), startElection)]
+          el proc:Timeout(t/dur("PT0.15S"), startElection)]
       case: state.role
-        Leader(_): [rpc, proc:Timeout(#dur("PT0.02S"), sendHeartbeats)]
+        Leader(_): [rpc, proc:Timeout(t/dur("PT0.02S"), sendHeartbeats)]
         Candidate(_): [rpc, el]
         Follower(_): [rpc, el]
 ```

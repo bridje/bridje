@@ -142,9 +142,9 @@ def: _startElection(state)
 def: serverProc(rpcCh)
   fn: [state]
     let: [rpc proc/Recv(rpcCh, handleRpc)
-          electionTimeout proc/Timeout(#dur("PT0.15S"), onElectionTimeout)]
+          electionTimeout proc/Timeout(t/dur("PT0.15S"), onElectionTimeout)]
       case: .role(state)
-        Leader(l) [rpc, proc/Timeout(#dur("PT0.05S"), onHeartbeatTimeout)]
+        Leader(l) [rpc, proc/Timeout(t/dur("PT0.05S"), onHeartbeatTimeout)]
         Candidate(c) [rpc, electionTimeout]
         Follower(f) [rpc, electionTimeout]
 ```
@@ -159,7 +159,7 @@ The `doseq`/`when` loop maps directly to the spec's `for each peer ... if peer !
 `.sendVoteRequest(net, ...)` maps to `VoteRequest.created(...)` — same information, different verb.
 
 The election timeout lives in the select function, not in the handler.
-`proc/Timeout(#dur("PT0.15S"), onElectionTimeout)` says "if nothing happens for 150ms, call onElectionTimeout" — the same concept as the spec's `election_deadline <= now`, but as a select branch rather than a temporal condition.
+`proc/Timeout(t/dur("PT0.15S"), onElectionTimeout)` says "if nothing happens for 150ms, call onElectionTimeout" — the same concept as the spec's `election_deadline <= now`, but as a select branch rather than a temporal condition.
 When the role changes to Leader, the next select evaluation returns a heartbeat timeout instead — no manual re-arming.
 
 **Incidental noise:** The `with(state, ...)` call and `newState` return at the end.
@@ -274,9 +274,9 @@ No loop, no re-arming.
 def: serverProc(rpcCh)
   fn: [state]
     let: [rpc proc/Recv(rpcCh, handleRpc)
-          electionTimeout proc/Timeout(#dur("PT0.15S"), onElectionTimeout)]
+          electionTimeout proc/Timeout(t/dur("PT0.15S"), onElectionTimeout)]
       case: .role(state)
-        Leader(l) [rpc, proc/Timeout(#dur("PT0.05S"), onHeartbeatTimeout)]
+        Leader(l) [rpc, proc/Timeout(t/dur("PT0.05S"), onHeartbeatTimeout)]
         Candidate(c) [rpc, electionTimeout]
         Follower(f) [rpc, electionTimeout]
 ```
@@ -290,7 +290,7 @@ The select function is re-evaluated after each handler, so state changes natural
 When `_initLeaderState` sets the role to Leader, the next select evaluation returns a heartbeat timeout instead of an election timeout.
 
 This is the closest Bridje gets to Allium's declarative rules.
-Allium declares conditions (`election_deadline <= now`), Bridje declares timeouts (`proc/Timeout(#dur("PT0.15S"), ...)`).
+Allium declares conditions (`election_deadline <= now`), Bridje declares timeouts (`proc/Timeout(t/dur("PT0.15S"), ...)`).
 Both express "if nothing happens within this window, do this" — the framing differs but the information content is the same.
 
 Crucially, the select function is data — inspectable, testable, and the foundation for deterministic simulation testing.
@@ -357,7 +357,7 @@ But for a language aiming to be a single artifact (spec + implementation + test 
    These belong in the simulation test harness, which has a god's-eye view of the whole cluster.
 
 4. **Timeout framing differs.**
-   Allium: `election_deadline <= now` (a condition that becomes true). Bridje: `proc/Timeout(#dur("PT0.15S"), ...)` (an explicit wait). Same information, different framing.
+   Allium: `election_deadline <= now` (a condition that becomes true). Bridje: `proc/Timeout(t/dur("PT0.15S"), ...)` (an explicit wait). Same information, different framing.
 
 ### The honest assessment
 

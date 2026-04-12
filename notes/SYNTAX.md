@@ -28,13 +28,6 @@ nil                   // null value, type Nothing?
 
 Commas are whitespace everywhere — they're optional.
 
-## Tagged literals
-
-```bridje
-#dur("PT0.15S")       // Duration
-#inst("2026-03-28")   // Instant
-```
-
 ## Syntactic Sugar
 
 Bridje has three sugars over its s-expression core.
@@ -672,7 +665,7 @@ Default expressions are lazy — not evaluated if value is non-nil:
 
 ```bridje
 orElse(name, "anonymous")
-orElse(.timeout(config), .timeout(defaults), #dur("PT30S"))
+orElse(.timeout(config), .timeout(defaults), t/dur("PT30S"))
 ```
 
 ### when / unless
