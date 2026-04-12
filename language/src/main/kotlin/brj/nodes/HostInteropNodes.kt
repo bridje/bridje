@@ -33,6 +33,17 @@ class HostInstanceMethodInvokeNode(
     }
 }
 
+class HostConstructorNode(
+    language: BridjeLanguage,
+    @field:CompilationFinal private val hostClass: TruffleObject,
+) : RootNode(language) {
+    @Child
+    private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
+
+    override fun execute(frame: VirtualFrame): Any? =
+        interop.instantiate(hostClass, *frame.arguments)
+}
+
 class HostInstanceFieldReadNode(
     language: BridjeLanguage,
     @field:CompilationFinal private val fieldName: String,

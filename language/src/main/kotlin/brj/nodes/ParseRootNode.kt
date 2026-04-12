@@ -220,7 +220,10 @@ class ParseRootNode(
                                 nsEnv = nsEnv.defInterop(member.qualifiedName, value, member.declaredType)
                             }
                             InteropMemberKind.STATIC_METHOD -> {
-                                val rootNode = HostStaticMethodInvokeNode(lang, hostClass, member.memberName)
+                                val rootNode = if (member.memberName == "new")
+                                    HostConstructorNode(lang, hostClass)
+                                else
+                                    HostStaticMethodInvokeNode(lang, hostClass, member.memberName)
                                 nsEnv = nsEnv.defInterop(member.qualifiedName, BridjeFunction(rootNode.callTarget), member.declaredType)
                             }
                             InteropMemberKind.INSTANCE_METHOD -> {

@@ -219,6 +219,36 @@ class TypedInteropTest {
     }
 
     @Test
+    fun `typed constructor via new`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.interop.constructor
+              import:
+                java.util:
+                  as(ArrayList, AL)
+            decl: AL/new() AL
+            decl: AL/.size() Int
+            def: result AL/.size(AL/new())
+        """.trimIndent())
+        val result = ctx.evalBridje("test.interop.constructor/result")
+        assertEquals(0L, result.asLong())
+    }
+
+    @Test
+    fun `typed constructor with params`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.interop.constructor2
+              import:
+                java.lang:
+                  as(StringBuilder, SB)
+            decl: SB/new(Str) SB
+            decl: SB/.toString() Str
+            def: result SB/.toString(SB/new("hello"))
+        """.trimIndent())
+        val result = ctx.evalBridje("test.interop.constructor2/result")
+        assertEquals("hello", result.asString())
+    }
+
+    @Test
     fun `applied host type preserves type variable identity`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.interop.applied2
