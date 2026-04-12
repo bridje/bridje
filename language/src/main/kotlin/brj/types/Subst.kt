@@ -53,6 +53,8 @@ private fun meetArgs(variances: List<Variance>, a: List<Type>, b: List<Type>): L
 // Join two base types - must be same or error
 internal infix fun BaseType.join(other: BaseType): BaseType = when {
     this == other -> this
+    this is VectorType && other is VectorType -> VectorType(el.join(other.el))
+    this is SetType && other is SetType -> SetType(el.join(other.el))
     this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
         HostType(className, joinArgs(variances, args, other.args), variances)
     // Join of different HostTypes — pick the supertype (less specific)
@@ -82,6 +84,8 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
 // Meet two base types - must be same or error
 internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     this == other -> this
+    this is VectorType && other is VectorType -> VectorType(el.meet(other.el))
+    this is SetType && other is SetType -> SetType(el.meet(other.el))
     this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
         HostType(className, meetArgs(variances, args, other.args), variances)
     // Meet of different HostTypes — pick the subtype (more specific)
@@ -125,6 +129,8 @@ internal infix fun Type.meet(other: Type): Type {
 }
 
 internal fun BaseType.applySubst(subst: Subst): BaseType = when (this) {
+    is VectorType -> VectorType(el.applySubst(subst))
+    is SetType -> SetType(el.applySubst(subst))
     is HostType -> if (args.isEmpty()) this else HostType(className, args.map { it.applySubst(subst) }, variances)
     is TagType -> if (args.isEmpty()) this else TagType(ns, name, args.map { it.applySubst(subst) }, variances)
     is EnumType -> if (args.isEmpty()) this else EnumType(name, args.map { it.applySubst(subst) }, variances)

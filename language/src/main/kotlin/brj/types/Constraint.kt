@@ -37,6 +37,14 @@ internal fun Collection<Constraint>.resolve(): Subst {
                 when {
                     lower.base == upper.base -> { /* ok */ }
 
+                    // Collection types — covariant in element
+                    lower.base is VectorType && upper.base is VectorType -> {
+                        queue.add(lower.base.el subOf upper.base.el)
+                    }
+                    lower.base is SetType && upper.base is SetType -> {
+                        queue.add(lower.base.el subOf upper.base.el)
+                    }
+
                     lower.base is HostType && upper.base is HostType
                         && lower.base.className == upper.base.className
                         && lower.base.args.size == upper.base.args.size
