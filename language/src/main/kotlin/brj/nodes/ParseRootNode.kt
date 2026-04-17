@@ -224,6 +224,16 @@ class ParseRootNode(
 
                 is DefMacroExpr -> {
                     val type = expr.fn.checkType()
+                    val fnType = type.base as? FnType
+                        ?: throw TypeErrorException("defmacro body did not produce a function type: $type")
+                    val formType = FormType.notNull()
+                    val formConstraints = fnType.paramTypes.mapIndexed { i, paramType ->
+                        val isRest = expr.fn.isVariadic && i == fnType.paramTypes.lastIndex
+                        val expected = if (isRest) VectorType(formType).notNull() else formType
+                        expected subOf paramType
+                    } + (fnType.returnType subOf formType)
+                    formConstraints.resolve()
+
                     val fn = evalExpr(expr.fn, analyser.slotCount)
                     val fixedArity = if (expr.fn.isVariadic) expr.fn.params.size - 1 else expr.fn.params.size
                     val macro = BridjeMacro(fn!!, fixedArity, expr.fn.isVariadic)

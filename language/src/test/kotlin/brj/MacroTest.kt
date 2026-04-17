@@ -1,7 +1,9 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class MacroTest {
     @Test
@@ -672,5 +674,34 @@ class MacroTest {
               applyFn(add, 10, 32)
         """)
         assertEquals(42L, result.asLong())
+    }
+
+    // Type-checking of macro bodies — params are Form, rest param is [Form], body returns Form.
+
+    @Test
+    fun `macro param used as non-Form is a type error`() = withContext { ctx ->
+        assertThrows<PolyglotException> {
+            ctx.evalBridje("""
+                defmacro: bad(x) add(x, 1)
+            """.trimIndent())
+        }
+    }
+
+    @Test
+    fun `macro body returning non-Form is a type error`() = withContext { ctx ->
+        assertThrows<PolyglotException> {
+            ctx.evalBridje("""
+                defmacro: bad(x) 42
+            """.trimIndent())
+        }
+    }
+
+    @Test
+    fun `variadic rest param used as non-Vec-Form is a type error`() = withContext { ctx ->
+        assertThrows<PolyglotException> {
+            ctx.evalBridje("""
+                defmacro: bad(& rest) add(rest, 1)
+            """.trimIndent())
+        }
     }
 }
