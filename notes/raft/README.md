@@ -53,39 +53,39 @@ variant Leader : Server {
 
 ```bridje
 decl:
-  {.id Int
-   .cluster [Int]
-   .currentTerm Int
-   .votedFor Int?
-   .log [LogEntry]
-   .commitIndex Int
-   .lastApplied Int
-   .role ServerRole}
+  {:id Int
+   :cluster [Int]
+   :currentTerm Int
+   :votedFor Int?
+   :log [LogEntry]
+   :commitIndex Int
+   :lastApplied Int
+   :role ServerRole}
 
-tag: LogEntry({.term, .index, .command})
-tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role})
+tag: LogEntry({:term, :index, :command})
+tag: ServerState({:id, :cluster, :currentTerm, :votedFor, :log, :commitIndex, :lastApplied, :role})
 
 enum: ServerRole
-  tag: Follower({.knownLeader})
-  tag: Candidate({.votesReceived})
-  tag: Leader({.nextIndex, .matchIndex})
+  tag: Follower({:knownLeader})
+  tag: Candidate({:votesReceived})
+  tag: Leader({:nextIndex, :matchIndex})
 
 def: lastLogIndex(ServerState({log}))
   if: empty?(log)
     0
-    .index(last(log))
+    :index(last(log))
 
 def: lastLogTerm(ServerState({log}))
   if: empty?(log)
     0
-    .term(last(log))
+    :term(last(log))
 ```
 
 ### Commentary
 
 Near 1:1 after accounting for naming conventions (`snake_case` vs `camelCase`).
 
-Bridje's `decl:` + `tag:` separation is a Clojure-ism that pays for itself when keys are reused — `.from`, `.to`, `.term` appear in four message types and are declared once.
+Bridje's `decl:` + `tag:` separation is a Clojure-ism that pays for itself when keys are reused — `:from`, `:to`, `:term` appear in four message types and are declared once.
 The parameterised collection types (`[LogEntry]`, `Map(Int, Int)`, `#{Int}`) carry the same information as Allium's `List<LogEntry>`, `Map<Server, Integer>`, `Set<Server>`.
 
 Allium's `variant Leader : Server` maps to Bridje's enum with per-variant keys.
@@ -123,18 +123,18 @@ rule FollowerStartsElection {
 ```bridje
 // The handler — pure state transform + effects
 def: _startElection(state)
-  let: [newTerm inc(.currentTerm(state))
-        votes #{.id(state)}
-        newState with(state, .currentTerm newTerm, .votedFor .id(state), .role Candidate{.votesReceived votes})]
+  let: [newTerm inc(:currentTerm(state))
+        votes #{:id(state)}
+        newState with(state, :currentTerm newTerm, :votedFor :id(state), :role Candidate{:votesReceived votes})]
     do:
-      doseq: [peer .cluster(newState)]
-        when: neq(peer, .id(newState))
-          .sendVoteRequest(net, peer,
+      doseq: [peer :cluster(newState)]
+        when: neq(peer, :id(newState))
+          :sendVoteRequest(net, peer,
             VoteRequest:
-              {.term newTerm
-               .from .id(newState)
-               .lastLogIndex lastLogIndex(newState)
-               .lastLogTerm lastLogTerm(newState)})
+              {:term newTerm
+               :from :id(newState)
+               :lastLogIndex lastLogIndex(newState)
+               :lastLogTerm lastLogTerm(newState)})
       newState
 
 // The select function — declares when _startElection fires
@@ -142,7 +142,7 @@ def: serverProc(rpcCh)
   fn: [state]
     let: [rpc proc/Recv(rpcCh, handleRpc)
           electionTimeout proc/Timeout(t/dur("PT0.15S"), onElectionTimeout)]
-      case: .role(state)
+      case: :role(state)
         Leader(l) [rpc, proc/Timeout(t/dur("PT0.05S"), onHeartbeatTimeout)]
         Candidate(c) [rpc, electionTimeout]
         Follower(f) [rpc, electionTimeout]
@@ -153,9 +153,9 @@ def: serverProc(rpcCh)
 The handler is a pure function: takes state, returns new state, calls effects.
 No agent ref, no timeout re-arming, no concurrency plumbing.
 
-The state update `with(state, .currentTerm newTerm, .votedFor .id(state), .role Candidate{.votesReceived votes})` reads close to the spec's declarative assignments.
+The state update `with(state, :currentTerm newTerm, :votedFor :id(state), :role Candidate{:votesReceived votes})` reads close to the spec's declarative assignments.
 The `doseq`/`when` loop maps directly to the spec's `for each peer ... if peer != follower`.
-`.sendVoteRequest(net, ...)` maps to `VoteRequest.created(...)` — same information, different verb.
+`:sendVoteRequest(net, ...)` maps to `VoteRequest.created(...)` — same information, different verb.
 
 The election timeout lives in the select function, not in the handler.
 `proc/Timeout(t/dur("PT0.15S"), onElectionTimeout)` says "if nothing happens for 150ms, call onElectionTimeout" — the same concept as the spec's `election_deadline <= now`, but as a select branch rather than a temporal condition.
@@ -179,7 +179,7 @@ rule HandleAppendRequest {
     let log_consistent =
         request.prev_log_index = 0
         or (receiver.log.count >= request.prev_log_index
-            and receiver.log.at(request.prev_log_index).term = request.prev_log_term)
+            and receiver.log.at(request.prev_log_index):term = request.prev_log_term)
 
     ensures:
         if request.term >= receiver.current_term:
@@ -191,7 +191,7 @@ rule HandleAppendRequest {
             receiver.known_leader = request.from
 
             if log_consistent:
-                receiver.log = receiver.log.take(...).append(request.entries)
+                receiver.log = receiver.log.take(...):append(request.entries)
                 if request.leader_commit > receiver.commit_index:
                     receiver.commit_index = min(request.leader_commit, receiver.log.count)
                 AppendResponse.created(... success: true ...)
@@ -208,32 +208,32 @@ rule HandleAppendRequest {
 def: _handleAppendRequestInTerm(state, {from, term, prevLogIndex, prevLogTerm, entries, leaderCommit})
   if: not(_logConsistent(state, prevLogIndex, prevLogTerm))
     do:
-      .sendAppendResponse(net, from, AppendResponse{.term .currentTerm(state), .from .id(state), .to from, .success? false, .lastLogIndex lastLogIndex(state)})
+      :sendAppendResponse(net, from, AppendResponse{:term :currentTerm(state), :from :id(state), :to from, :success? false, :lastLogIndex lastLogIndex(state)})
       state
     let: [withEntries _appendEntries(state, prevLogIndex, entries)
-          newCommitIndex if: gt(leaderCommit, .commitIndex(withEntries))
+          newCommitIndex if: gt(leaderCommit, :commitIndex(withEntries))
             min(leaderCommit, lastLogIndex(withEntries))
-            .commitIndex(withEntries)
-          updated with(withEntries, .commitIndex newCommitIndex)
+            :commitIndex(withEntries)
+          updated with(withEntries, :commitIndex newCommitIndex)
           applied _applyCommitted(updated)]
       do:
-        .sendAppendResponse(net, from, AppendResponse{.term .currentTerm(applied), .from .id(applied), .to from, .success? true, .lastLogIndex lastLogIndex(applied)})
+        :sendAppendResponse(net, from, AppendResponse{:term :currentTerm(applied), :from :id(applied), :to from, :success? true, :lastLogIndex lastLogIndex(applied)})
         applied
 
 def: handleAppendRequest(state, req)
   cond:
-    lt(.term(req), .currentTerm(state))
+    lt(:term(req), :currentTerm(state))
       do:
-        .sendAppendResponse(net, .from(req), AppendResponse{.term .currentTerm(state), .from .id(state), .to .from(req), .success? false, .lastLogIndex lastLogIndex(state)})
+        :sendAppendResponse(net, :from(req), AppendResponse{:term :currentTerm(state), :from :id(state), :to :from(req), :success? false, :lastLogIndex lastLogIndex(state)})
         state
 
-    gt(.term(req), .currentTerm(state))
-      let: [stepped stepDown(state, .term(req), .from(req))]
+    gt(:term(req), :currentTerm(state))
+      let: [stepped stepDown(state, :term(req), :from(req))]
         _handleAppendRequestInTerm(stepped, req)
 
-    let: [asFollower case: .role(state)
-                       Follower(f) with(state, .role Follower{.knownLeader .from(req)})
-                       stepDown(state, .term(req), .from(req))]
+    let: [asFollower case: :role(state)
+                       Follower(f) with(state, :role Follower{:knownLeader :from(req)})
+                       stepDown(state, :term(req), :from(req))]
       _handleAppendRequestInTerm(asFollower, req)
 ```
 
@@ -274,7 +274,7 @@ def: serverProc(rpcCh)
   fn: [state]
     let: [rpc proc/Recv(rpcCh, handleRpc)
           electionTimeout proc/Timeout(t/dur("PT0.15S"), onElectionTimeout)]
-      case: .role(state)
+      case: :role(state)
         Leader(l) [rpc, proc/Timeout(t/dur("PT0.05S"), onHeartbeatTimeout)]
         Candidate(c) [rpc, electionTimeout]
         Follower(f) [rpc, electionTimeout]
@@ -335,7 +335,7 @@ But for a language aiming to be a single artifact (spec + implementation + test 
    `_startElection` maps to `FollowerStartsElection`. `handleVoteRequest` maps to `HandleVoteRequest`. The function names are the rule names. The logic inside them makes the same decisions in the same order.
 
 3. **Effects read like spec actions.**
-   `.sendVoteRequest(net, peer, VoteRequest{...})` reads close to `VoteRequest.created(from: ..., to: ...)`. The `net.` prefix is a small tax for substitutability.
+   `:sendVoteRequest(net, peer, VoteRequest{...})` reads close to `VoteRequest.created(from: ..., to: ...)`. The `net.` prefix is a small tax for substitutability.
 
 4. **The proc model makes behaviour declarative.**
    The select function declares what the process is willing to do in each state — data, not imperative control flow.
@@ -343,7 +343,7 @@ But for a language aiming to be a single artifact (spec + implementation + test 
 ### Where it falls short
 
 1. **State threading.**
-   `with(state, .currentTerm newTerm)` vs `follower.current_term = follower.current_term + 1`. The Allium version is shorter and more direct. The Bridje version is the price of immutability and executability. It's predictable noise — you learn to read past it — but it's there.
+   `with(state, :currentTerm newTerm)` vs `follower.current_term = follower.current_term + 1`. The Allium version is shorter and more direct. The Bridje version is the price of immutability and executability. It's predictable noise — you learn to read past it — but it's there.
 
 2. **Helper extraction fragments the rules.**
    The spec has one `HandleAppendRequest` rule. Bridje has `handleAppendRequest`, `_handleAppendRequestInTerm`, `_logConsistent`, `_appendEntries`, `stepDown`. The factoring serves implementation (DRY, testability) but makes it harder to verify against the spec as a single unit.

@@ -150,7 +150,7 @@ data class Analyser(
 
     private fun analyseKeyword(form: KeywordForm): ValueExpr =
         resolveKey(form.name)?.let { GlobalVarExpr(it, form.loc) }
-            ?: errorExpr("Unknown key: .${form.name}", form.loc)
+            ?: errorExpr("Unknown key: :${form.name}", form.loc)
 
     private fun analyseRecord(form: RecordForm): ValueExpr {
         val els = form.els
@@ -164,7 +164,7 @@ data class Analyser(
                 ?: return errorExpr("record keys must be keywords", els[i].loc)
             val keyValue = resolveKey(keyForm.name)?.value
             if (keyValue !is BridjeKey) {
-                return errorExpr(".${keyForm.name} is not a key", els[i].loc)
+                return errorExpr(":${keyForm.name} is not a key", els[i].loc)
             }
             val valueExpr = analyseValueExpr(els[i + 1])
             fields.add(keyValue.name to valueExpr)
@@ -229,7 +229,7 @@ data class Analyser(
                 "tag" -> errorExpr("tag not allowed in value position", form.loc)
                 "enum" -> errorExpr("enum not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
-                "defkeys" -> errorExpr("defkeys has been replaced: use decl: .name Str", form.loc)
+                "defkeys" -> errorExpr("defkeys has been replaced: use decl: :name Str", form.loc)
                 "defx" -> errorExpr("defx not allowed in value position", form.loc)
                 else -> analyseCall(form)
             }
@@ -642,7 +642,7 @@ data class Analyser(
         val keyVar = resolveKey(keyForm.name)
         if (keyVar == null) return errorExpr("Unknown key: :${keyForm.name}", els[2].loc)
         val keyValue = keyVar.value
-        if (keyValue !is BridjeKey) return errorExpr(".${keyForm.name} is not a key", els[2].loc)
+        if (keyValue !is BridjeKey) return errorExpr(":${keyForm.name} is not a key", els[2].loc)
 
         val recordExpr = analyseValueExpr(els[1])
         val valueExpr = analyseValueExpr(els[3])
@@ -973,7 +973,7 @@ data class Analyser(
             }
 
             specForm is KeywordForm && '/' in specForm.name -> {
-                // I/.someField Int — instance field
+                // I/:someField Int — instance field
                 val slashIdx = specForm.name.lastIndexOf('/')
                 val alias = specForm.name.substring(0, slashIdx)
                 val memberName = specForm.name.substring(slashIdx + 1)
@@ -1009,7 +1009,7 @@ data class Analyser(
                     }
 
                     callee is KeywordForm && '/' in callee.name -> {
-                        // I/.toEpochMilli() Int — instance method
+                        // I/:toEpochMilli() Int — instance method
                         val slashIdx = callee.name.lastIndexOf('/')
                         val alias = callee.name.substring(0, slashIdx)
                         val memberName = callee.name.substring(slashIdx + 1)

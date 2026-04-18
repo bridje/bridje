@@ -47,12 +47,12 @@ class Reader private constructor(private val src: Source) {
             "symbol" -> SymbolForm(text!!, loc)
             "keyword" -> {
                 val t = text!!
-                val slashDot = t.indexOf("/.")
-                if (slashDot >= 0) {
-                    // Qualified: ns/.member → name="ns/member"
-                    KeywordForm(t.substring(0, slashDot) + "/" + t.substring(slashDot + 2), loc)
+                val slashColon = t.indexOf("/:")
+                if (slashColon >= 0) {
+                    // Qualified: ns/:member → name="ns/member"
+                    KeywordForm(t.substring(0, slashColon) + "/" + t.substring(slashColon + 2), loc)
                 } else {
-                    // Simple: .member → name="member"
+                    // Simple: :member → name="member"
                     KeywordForm(t.drop(1), loc)
                 }
             }

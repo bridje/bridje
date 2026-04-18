@@ -53,10 +53,10 @@ module.exports = grammar({
     )),
 
     keyword: _ => token(choice(
-      // qualified: ns/.member or ns.seg/.member
-      seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', '.', SYMBOL_BODY),
-      // simple: .member
-      seq('.', SYMBOL_BODY),
+      // qualified: ns/:member or ns.seg/:member
+      seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', ':', SYMBOL_BODY),
+      // simple: :member
+      seq(':', SYMBOL_BODY),
     )),
 
     int: _ => token(/[0-9]+/),

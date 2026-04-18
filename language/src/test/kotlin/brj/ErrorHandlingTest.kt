@@ -9,7 +9,7 @@ class ErrorHandlingTest {
     @Test
     fun `throw produces guest exception`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("""throw(Fault({.exnMessage "something went wrong"}))""")
+            ctx.evalBridje("""throw(Fault({:exnMessage "something went wrong"}))""")
         }
         assertTrue(ex.isGuestException)
         assertTrue(ex.message!!.contains("something went wrong"))
@@ -18,7 +18,7 @@ class ErrorHandlingTest {
     @Test
     fun `throw anomaly with data`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("""throw(Fault({.exnMessage "kaboom"}))""")
+            ctx.evalBridje("""throw(Fault({:exnMessage "kaboom"}))""")
         }
         assertTrue(ex.isGuestException)
     }
@@ -36,9 +36,9 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch catches anomaly with bindings`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Fault({.exnMessage "oops"}))
+            try: throw(Fault({:exnMessage "oops"}))
               catch:
-                (Fault d) .exnMessage(d)
+                (Fault d) :exnMessage(d)
         """.trimIndent())
         assertEquals("oops", result.asString())
     }
@@ -116,7 +116,7 @@ class ErrorHandlingTest {
     @Test
     fun `catch-all binding pattern`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Incorrect({.exnMessage "bad input"}))
+            try: throw(Incorrect({:exnMessage "bad input"}))
               catch:
                 e 42
         """.trimIndent())
@@ -210,10 +210,10 @@ class ErrorHandlingTest {
                   as(Thread, T)
             decl: T/sleep(Int) Nothing
             decl: T/currentThread() T
-            decl: T/.interrupt() Nothing
+            decl: T/:interrupt() Nothing
             def: result
               do:
-                T/.interrupt(T/currentThread())
+                T/:interrupt(T/currentThread())
                 try: T/sleep(100)
                   catch:
                     Interrupted(_) "caught"
@@ -232,7 +232,7 @@ class ErrorHandlingTest {
             def: result
               try: Int/parseInt("not a number")
                 catch:
-                  Host(d) .exnMessage(d)
+                  Host(d) :exnMessage(d)
         """.trimIndent())
         val msg = ctx.evalBridje("test.hostex/result").asString()
         assertTrue(msg.contains("not a number"), "Expected message about bad input, got: $msg")
@@ -241,7 +241,7 @@ class ErrorHandlingTest {
     @Test
     fun `exnMessage key provides exception message`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("""throw(NotFound({.exnMessage "user 123 not found"}))""")
+            ctx.evalBridje("""throw(NotFound({:exnMessage "user 123 not found"}))""")
         }
         assertTrue(ex.isGuestException)
         assertEquals("user 123 not found", ex.message)

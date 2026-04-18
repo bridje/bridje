@@ -16,9 +16,9 @@ def: interrupt(f)
     Fut/cancel(f, true)
 def: ensureActive()
   if: T/interrupted()
-    throw(Interrupted({.exnMessage "Task was interrupted"}))
+    throw(Interrupted({:exnMessage "Task was interrupted"}))
     nil
 def: sleepMs(ms)
   try: T/sleep(ms)
     catch:
-      (Interrupted data) throw(Interrupted({.exnMessage "Sleep was interrupted"}))
+      (Interrupted data) throw(Interrupted({:exnMessage "Sleep was interrupted"}))

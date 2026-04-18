@@ -9,7 +9,7 @@ import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.UnsupportedMessageException
 import com.oracle.truffle.api.nodes.RootNode
 
-// TODO: replace with interop (.count member) when available
+// TODO: replace with interop (:count member) when available
 class CountNode(language: BridjeLanguage) : RootNode(language) {
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
@@ -24,7 +24,7 @@ class CountNode(language: BridjeLanguage) : RootNode(language) {
     }
 }
 
-// TODO: replace with interop (.first member) when available
+// TODO: replace with interop (:first member) when available
 class FirstNode(language: BridjeLanguage) : RootNode(language) {
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
@@ -41,7 +41,7 @@ class FirstNode(language: BridjeLanguage) : RootNode(language) {
     }
 }
 
-// TODO: replace with interop (.firstOrNull member) when available
+// TODO: replace with interop (:firstOrNull member) when available
 class FirstOrNullNode(language: BridjeLanguage) : RootNode(language) {
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
@@ -58,7 +58,7 @@ class FirstOrNullNode(language: BridjeLanguage) : RootNode(language) {
     }
 }
 
-// TODO: replace with interop (.rest member) when available
+// TODO: replace with interop (:rest member) when available
 class RestNode(language: BridjeLanguage) : RootNode(language) {
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
@@ -77,7 +77,7 @@ class RestNode(language: BridjeLanguage) : RootNode(language) {
     }
 }
 
-// TODO: replace with interop (.cons member) when available
+// TODO: replace with interop (:cons member) when available
 class ConsNode(language: BridjeLanguage) : RootNode(language) {
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
@@ -98,7 +98,7 @@ class ConsNode(language: BridjeLanguage) : RootNode(language) {
     }
 }
 
-// TODO: replace with interop (.empty? member) when available
+// TODO: replace with interop (:empty? member) when available
 class EmptyNode(language: BridjeLanguage) : RootNode(language) {
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)

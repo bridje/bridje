@@ -37,12 +37,12 @@ class IteratorTest {
                 java.util:
                   as(ArrayList, AL)
             decl: AL/new() AL
-            decl: [a] AL/.add(a) Bool
+            decl: [a] AL/:add(a) Bool
             def: result
               let: [xs AL/new()]
                 do:
-                  AL/.add(xs, 10)
-                  AL/.add(xs, 20)
+                  AL/:add(xs, 10)
+                  AL/:add(xs, 20)
                   let: [it itr(xs)]
                     loop: [acc 0]
                       if: itrHasNext?(it)
