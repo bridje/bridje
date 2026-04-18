@@ -82,8 +82,8 @@ data class NsEnv(
 
     fun effectVar(name: String): GlobalVar? = effectVars[name]
 
-    fun defx(name: String, value: Any?, type: Type): NsEnv =
-        copy(effectVars = effectVars + (name to GlobalVar(name, value, type = type)))
+    fun defx(name: String, value: Any?, type: Type, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
+        copy(effectVars = effectVars + (name to GlobalVar(name, value, meta, type)))
 
     fun decl(name: String, declaredType: Type): NsEnv =
         copy(pendingDecls = pendingDecls + (name to declaredType))
