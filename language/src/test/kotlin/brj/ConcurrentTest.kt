@@ -1,5 +1,6 @@
 package brj
 
+import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -169,19 +170,25 @@ class ConcurrentTest {
               require:
                 brj:
                   as(concurrent, c)
-            def: go()
+              import:
+                java.util.concurrent.atomic:
+                  as(AtomicBoolean, AB)
+            decl: AB/:set(Bool) Nothing
+            def: go(flag)
               c/spawn(fn: outer()
-                do:
-                  c/spawn(fn: inner() do: c/sleepMs(100) 42)
-                  "outer-done")
+                c/spawn(fn: inner()
+                  c/sleepMs(50)
+                  AB/:set(flag, true)
+                  nil)
+                "outer-done")
             def: doAwait(d) c/await(d)
         """.trimIndent())
 
-        val start = System.currentTimeMillis()
-        val d = ns.getMember("go").execute()
-        ns.getMember("doAwait").execute(d)
-        val elapsed = System.currentTimeMillis() - start
-        assertTrue(elapsed >= 80, "Parent should have waited for child, elapsed: ${elapsed}ms")
+        val flag = AtomicBoolean(false)
+        val d = ns.getMember("go").execute(flag)
+        val result = ns.getMember("doAwait").execute(d)
+        assertEquals("outer-done", result.asString())
+        assertTrue(flag.get(), "Parent returned before unawaited child finished")
     }
 
     @Test

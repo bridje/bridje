@@ -39,8 +39,8 @@ class BridjeFuture(
 
     @TruffleBoundary
     override fun get(timeout: Long, unit: TimeUnit): Any? {
-        try {
-            return delegate.get(timeout, unit) ?: BridjeNull
+        return try {
+            delegate.get(timeout, unit) ?: BridjeNull
         } catch (e: ExecutionException) {
             rethrowCause(e)
         } catch (e: CancellationException) {
