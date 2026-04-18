@@ -53,6 +53,13 @@ object Builtins {
                 run { val a = freshType(); FnType(listOf(IteratorType(a).notNull()), BoolType.notNull()).notNull() }),
             createBuiltinFunction("itrNext", ItrNextNode(language),
                 run { val a = freshType(); FnType(listOf(IteratorType(a).notNull()), a).notNull() }),
+            createBuiltinFunction("allNses", AllNsesNode(language),
+                FnType(emptyList(), VectorType(TagType("brj.core", "Symbol").notNull()).notNull()).notNull()),
+            createBuiltinFunction("nsVars", NsVarsNode(language),
+                FnType(
+                    listOf(TagType("brj.core", "Symbol").notNull()),
+                    VectorType(TagType("brj.core", "Var").notNull()).notNull()
+                ).notNull()),
         ).associateBy { it.name }
     }
 
