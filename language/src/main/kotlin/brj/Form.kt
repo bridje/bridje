@@ -699,6 +699,15 @@ class UnquoteForm(val form: Form, override val loc: SourceSection? = null) : For
 }
 
 @ExportLibrary(InteropLibrary::class)
+class SyntaxQuoteForm(val form: Form, override val loc: SourceSection? = null) : Form() {
+    override fun copy() = SyntaxQuoteForm(form, loc)
+    override fun toString(): String = "`$form"
+
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
+}
+
+@ExportLibrary(InteropLibrary::class)
 class UnquoteSpliceForm(val form: Form, override val loc: SourceSection? = null) : Form() {
     override fun copy() = UnquoteSpliceForm(form, loc)
     override fun toString(): String = "~@$form"

@@ -45,6 +45,9 @@
 ; quote
 (quote "'" @keyword)
 
+; syntax-quote
+(syntax_quote "`" @keyword)
+
 ; metadata
 (metadata (keyword) @attribute)
 

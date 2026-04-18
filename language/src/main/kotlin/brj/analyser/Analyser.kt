@@ -115,24 +115,45 @@ data class Analyser(
             null
         }
 
+    private sealed interface SymbolResolution {
+        data class Captured(val cv: CapturedVar) : SymbolResolution
+        data class Local(val lv: LocalVar) : SymbolResolution
+        data class Effect(val ns: String?, val gv: GlobalVar) : SymbolResolution
+        data class Global(val ns: String?, val gv: GlobalVar) : SymbolResolution
+        data class Import(val fqClass: String) : SymbolResolution
+        data class Host(val obj: TruffleObject) : SymbolResolution
+        object NotFound : SymbolResolution
+    }
+
+    private fun resolveSymbol(name: String, loc: SourceSection?): SymbolResolution {
+        capturedVars[name]?.let { return SymbolResolution.Captured(it) }
+        locals[name]?.let { return SymbolResolution.Local(it) }
+        nsEnv.effectVar(name)?.let { return SymbolResolution.Effect(nsEnv.nsDecl?.name, it) }
+        ctx.brjCore.effectVar(name)?.let { return SymbolResolution.Effect("brj.core", it) }
+        nsEnv[name]?.let { return SymbolResolution.Global(nsEnv.nsDecl?.name, it) }
+        ctx.brjCore[name]?.let { return SymbolResolution.Global("brj.core", it) }
+        nsEnv.imports[name]?.let { return SymbolResolution.Import(it) }
+        tryHostLookup(name, loc)?.let { return SymbolResolution.Host(it) }
+        return SymbolResolution.NotFound
+    }
+
     private fun analyseSymbol(form: SymbolForm): ValueExpr =
         when (form.name) {
             "nil" -> NilExpr(form.loc)
             "true" -> BoolExpr(true, form.loc)
             "false" -> BoolExpr(false, form.loc)
 
-            else -> capturedVars[form.name]?.let { CapturedVarExpr(it.captureIndex, it.outerLocalVar, form.loc) }
-                ?: locals[form.name]?.let { LocalVarExpr(it, form.loc) }
-                ?: nsEnv.effectVar(form.name)?.let { EffectVarExpr(form.name, it, form.loc) }
-                ?: ctx.brjCore.effectVar(form.name)?.let { EffectVarExpr(form.name, it, form.loc) }
-                ?: nsEnv[form.name]?.let { GlobalVarExpr(it, form.loc) }
-                ?: ctx.brjCore[form.name]?.let { GlobalVarExpr(it, form.loc) }
-                ?: nsEnv.imports[form.name]?.let { fqClass ->
-                    tryHostLookup(fqClass, form.loc)?.let { HostConstructorExpr(it, form.loc) }
-                        ?: errorExpr("Imported class not found: $fqClass", form.loc)
-                }
-                ?: tryHostLookup(form.name, form.loc)?.let { HostConstructorExpr(it, form.loc) }
-                ?: errorExpr("Unknown symbol: ${form.name}", form.loc)
+            else -> when (val res = resolveSymbol(form.name, form.loc)) {
+                is SymbolResolution.Captured -> CapturedVarExpr(res.cv.captureIndex, res.cv.outerLocalVar, form.loc)
+                is SymbolResolution.Local -> LocalVarExpr(res.lv, form.loc)
+                is SymbolResolution.Effect -> EffectVarExpr(form.name, res.gv, form.loc)
+                is SymbolResolution.Global -> GlobalVarExpr(res.gv, form.loc)
+                is SymbolResolution.Import ->
+                    tryHostLookup(res.fqClass, form.loc)?.let { HostConstructorExpr(it, form.loc) }
+                        ?: errorExpr("Imported class not found: ${res.fqClass}", form.loc)
+                is SymbolResolution.Host -> HostConstructorExpr(res.obj, form.loc)
+                SymbolResolution.NotFound -> errorExpr("Unknown symbol: ${form.name}", form.loc)
+            }
         }
 
     private fun resolveKey(name: String): GlobalVar? {
@@ -291,6 +312,7 @@ data class Analyser(
         when (form) {
             is UnquoteForm -> analyseValueExpr(form.form)
             is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) not valid outside collection", form.loc)
+            is SyntaxQuoteForm -> analyseSyntaxQuote(form)
 
             is IntForm -> 
                 callFormConstructor("Int", listOf(IntExpr(form.value, form.loc)), form.loc)
@@ -346,6 +368,45 @@ data class Analyser(
     private fun analyseQuote(form: ListForm): ValueExpr {
         if (form.els.size != 2) return errorExpr("quote requires exactly one argument", form.loc)
         return analyseQuotedForm(form.els[1])
+    }
+
+    private fun analyseSyntaxQuote(form: SyntaxQuoteForm): ValueExpr {
+        val (ns, member, innerLoc) = when (val inner = form.form) {
+            is SymbolForm -> {
+                val resolvedNs = when (val res = resolveSymbol(inner.name, inner.loc)) {
+                    is SymbolResolution.Effect -> res.ns
+                    is SymbolResolution.Global -> res.ns
+                    is SymbolResolution.Captured, is SymbolResolution.Local ->
+                        return errorExpr("Cannot syntax-quote local: ${inner.name}", form.loc)
+                    is SymbolResolution.Import, is SymbolResolution.Host ->
+                        return errorExpr("Cannot syntax-quote host class: ${inner.name}", form.loc)
+                    SymbolResolution.NotFound ->
+                        return errorExpr("Unknown symbol: ${inner.name}", form.loc)
+                } ?: return errorExpr("Cannot syntax-quote: ${inner.name} has no namespace", form.loc)
+                Triple(resolvedNs, inner.name, inner.loc)
+            }
+
+            is QualifiedSymbolForm -> {
+                val resolvedNs =
+                    ctx.namespaces[inner.namespace]?.takeIf { it[inner.member] != null }?.let { inner.namespace }
+                        ?: nsEnv.requires[inner.namespace]?.let { req ->
+                            if (req[inner.member] != null) req.nsDecl?.name else null
+                        }
+                        ?: return errorExpr("Unknown symbol: ${inner.namespace}/${inner.member}", form.loc)
+                Triple(resolvedNs, inner.member, inner.loc)
+            }
+
+            else -> return errorExpr("syntax-quote requires a symbol", form.loc)
+        }
+
+        return callFormConstructor(
+            "QualifiedSymbol",
+            listOf(
+                StringExpr(ns, innerLoc),
+                StringExpr(member, innerLoc)
+            ),
+            form.loc
+        )
     }
 
     private fun analyseIf(form: ListForm): ValueExpr {
@@ -815,6 +876,7 @@ data class Analyser(
             is RecordForm -> analyseRecord(form)
             is UnquoteForm -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
             is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) can only be used inside a quote", form.loc)
+            is SyntaxQuoteForm -> analyseSyntaxQuote(form)
         }
     }
 

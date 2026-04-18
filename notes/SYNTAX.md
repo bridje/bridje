@@ -320,7 +320,7 @@ Bridje is immutable by default, but mutation is available when performance requi
 set!(record, :key, value)
 ```
 
-### quote, unquote, and unquote-splice
+### quote, unquote, unquote-splice, and syntax-quote
 
 Code as data — but unlike Clojure, Bridje's quote returns **typed Form ADT objects**, not raw data structures.
 This is because Bridje is fully type-checked: the quoted representation must be statically typed.
@@ -341,6 +341,7 @@ The Form ADT types are:
 - `QualifiedSymbolForm` for namespaced symbols
 - `UnquoteForm` for `~expr` inside quotes
 - `UnquoteSpliceForm` for `~@expr` inside quotes
+- `SyntaxQuoteForm` for `` `sym `` (resolves to a QualifiedSymbolForm at runtime)
 
 Form constructors are available as functions: `Symbol("foo")`, `Int(42)`, `List([...])`, etc.
 These are used in macro bodies to build forms programmatically.
@@ -368,6 +369,19 @@ Auto-gensyms with `#` suffix prevent variable capture in macros:
 '(let [tmp# ~x] (add tmp# tmp#))
 // Both occurrences of tmp# resolve to the same unique symbol
 ```
+
+**Syntax-quote** (`` ` ``) resolves a symbol to its fully-qualified form:
+
+```bridje
+`count                  // QualifiedSymbolForm("brj.core", "count")
+`foo                    // resolves to the current ns, e.g. QualifiedSymbolForm("my.ns", "foo")
+`f/bar                  // if f is a require alias for foo.lib: QualifiedSymbolForm("foo.lib", "bar")
+```
+
+Unlike Clojure, backtick in Bridje accepts **only a symbol** (bare or qualified) — not arbitrary forms.
+Regular quote (`'`) already supports unquotes, so it covers the common "build a template with holes" case.
+Backtick's job is narrower: pin a reference to a specific var so a macro's expansion survives regardless of the caller's namespace, requires, or imports.
+Locals and host classes cannot be syntax-quoted — only defs, effect vars, and qualified symbols resolvable through the global environment or a require alias.
 
 ## Top-Level Forms
 

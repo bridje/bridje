@@ -352,6 +352,30 @@ Unquote-splice in quote
       (symbol))))
 
 ==================
+Syntax quote symbol
+==================
+
+`foo
+
+---
+
+(source_file
+  (syntax_quote
+    (symbol)))
+
+==================
+Syntax quote qualified symbol
+==================
+
+`brj.core/count
+
+---
+
+(source_file
+  (syntax_quote
+    (qualified_symbol)))
+
+==================
 Metadata with keyword
 ==================
 

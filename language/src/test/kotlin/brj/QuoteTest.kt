@@ -2,6 +2,7 @@ package brj
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class QuoteTest {
     @Test
@@ -123,5 +124,64 @@ class QuoteTest {
         assertEquals(2L, result.arraySize)
         assertEquals("foo", result.getArrayElement(0).toString())
         assertEquals("bar", result.getArrayElement(1).toString())
+    }
+
+    @Test
+    fun `syntax-quote resolves brj core builtin`() = withContext { ctx ->
+        val result = ctx.evalBridje("`count")
+        assertEquals("QualifiedSymbol", result.metaObject.metaSimpleName)
+        assertEquals("brj.core/count", result.toString())
+    }
+
+    @Test
+    fun `syntax-quote errors on unknown symbol`() = withContext { ctx ->
+        assertThrows<RuntimeException> {
+            ctx.evalBridje("`noSuchThingExists")
+        }
+    }
+
+    @Test
+    fun `syntax-quote inside unquote in macro`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: useCount(xs)
+                '(~`count ~xs)
+              useCount([1 2 3])
+        """)
+        assertEquals(3L, result.asLong())
+    }
+
+    @Test
+    fun `syntax-quote on fully qualified symbol`() = withContext { ctx ->
+        val result = ctx.evalBridje("`brj.core/count")
+        assertEquals("QualifiedSymbol", result.metaObject.metaSimpleName)
+        assertEquals("brj.core/count", result.toString())
+    }
+
+    @Test
+    fun `syntax-quote errors on unknown qualified symbol`() = withContext { ctx ->
+        assertThrows<RuntimeException> {
+            ctx.evalBridje("`brj.core/noSuchThing")
+        }
+    }
+
+    @Test
+    fun `syntax-quote on require alias resolves to real namespace`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: foo.lib
+            def: bar 42
+        """.trimIndent())
+
+        val result = ctx.evalBridje("""
+            ns: consumer
+              require:
+                foo:
+                  as(lib, f)
+            def: result `f/bar
+        """.trimIndent())
+
+        val resolved = result.getMember("result")
+        assertEquals("QualifiedSymbol", resolved.metaObject.metaSimpleName)
+        assertEquals("foo.lib/bar", resolved.toString())
     }
 }
