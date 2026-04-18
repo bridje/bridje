@@ -36,14 +36,14 @@ class HostTypeSubtypingTest {
                 java.lang:
                   as(Iterable, Itr)
             decl: [a] AL/new() AL(a)
-            decl: [a] AL/:add(a) Bool
-            decl: [a] Itr/:iterator() Iter(a)
-            decl: [a] Iter/:next() a
-            def: firstViaIterable(itr) Iter/:next(Itr/:iterator(itr))
+            decl: [a] :AL/add(a) Bool
+            decl: [a] :Itr/iterator() Iter(a)
+            decl: [a] :Iter/next() a
+            def: firstViaIterable(itr) :Iter/next(:Itr/iterator(itr))
             def: result
               let: [xs AL/new()]
                 do:
-                  AL/:add(xs, 42)
+                  :AL/add(xs, 42)
                   firstViaIterable(xs)
         """.trimIndent())
         val result = ctx.evalBridje("test.subtype.propagation/result")
@@ -60,8 +60,8 @@ class HostTypeSubtypingTest {
                       as(StringBuilder, SB)
                       as(Iterable, Itr)
                 decl: SB/new() SB
-                decl: [a] Itr/:iterator() Itr(a)
-                def: result Itr/:iterator(SB/new())
+                decl: [a] :Itr/iterator() Itr(a)
+                def: result :Itr/iterator(SB/new())
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("not a subtype") == true || ex.message?.contains("Incompatible") == true,

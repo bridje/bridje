@@ -8,15 +8,15 @@ ns: brj.time
 decl: Dur/parse(Str) Dur
 decl: Dur/ofMillis(Int) Dur
 decl: Dur/ofSeconds(Int) Dur
-decl: Dur/:toMillis() Int
+decl: :Dur/toMillis() Int
 
 //// Instant
 decl: Inst/now() Inst
 decl: Inst/parse(Str) Inst
 decl: Inst/ofEpochMilli(Int) Inst
-decl: Inst/:toEpochMilli() Int
-decl: Inst/:isAfter(Inst) Bool
-decl: Inst/:isBefore(Inst) Bool
+decl: :Inst/toEpochMilli() Int
+decl: :Inst/isAfter(Inst) Bool
+decl: :Inst/isBefore(Inst) Bool
 
 //// Public API - re-export with friendly names
 def: dur(s) Dur/parse(s)

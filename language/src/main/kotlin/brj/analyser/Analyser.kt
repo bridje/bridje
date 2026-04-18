@@ -156,22 +156,29 @@ data class Analyser(
             }
         }
 
-    private fun resolveKey(name: String): GlobalVar? {
-        val idx = name.lastIndexOf('/')
-        if (idx >= 0) {
-            val nsAlias = name.substring(0, idx)
-            val member = name.substring(idx + 1)
-            ctx.namespaces[nsAlias]?.key(member)?.let { return it }
-            nsEnv.requires[nsAlias]?.key(member)?.let { return it }
-            nsEnv.interopVar(name)?.let { return it }
-            return null
-        }
-        return nsEnv.key(name) ?: ctx.brjCore.key(name)
+    private fun resolveKey(name: String): GlobalVar? =
+        nsEnv.key(name) ?: ctx.brjCore.key(name)
+
+    private fun resolveQualifiedKey(nsAlias: String, member: String): GlobalVar? {
+        ctx.namespaces[nsAlias]?.key(member)?.let { return it }
+        nsEnv.requires[nsAlias]?.key(member)?.let { return it }
+        nsEnv.interopVar("$nsAlias/$member")?.let { return it }
+        return null
     }
 
     private fun analyseKeyword(form: KeywordForm): ValueExpr =
         resolveKey(form.name)?.let { GlobalVarExpr(it, form.loc) }
             ?: errorExpr("Unknown key: :${form.name}", form.loc)
+
+    private fun analyseQualifiedKeyword(form: QKeywordForm): ValueExpr =
+        resolveQualifiedKey(form.namespace, form.member)?.let { GlobalVarExpr(it, form.loc) }
+            ?: errorExpr("Unknown key: $form", form.loc)
+
+    private fun resolveKeyForm(form: Form): GlobalVar? = when (form) {
+        is KeywordForm -> resolveKey(form.name)
+        is QKeywordForm -> resolveQualifiedKey(form.namespace, form.member)
+        else -> null
+    }
 
     private fun analyseRecord(form: RecordForm): ValueExpr {
         val els = form.els
@@ -181,11 +188,12 @@ data class Analyser(
         val fields = mutableListOf<Pair<String, ValueExpr>>()
 
         for (i in els.indices step 2) {
-            val keyForm = els[i] as? KeywordForm
-                ?: return errorExpr("record keys must be keywords", els[i].loc)
-            val keyValue = resolveKey(keyForm.name)?.value
+            val keyForm = els[i]
+            if (keyForm !is KeywordForm && keyForm !is QKeywordForm)
+                return errorExpr("record keys must be keywords", keyForm.loc)
+            val keyValue = resolveKeyForm(keyForm)?.value
             if (keyValue !is BridjeKey) {
-                return errorExpr(":${keyForm.name} is not a key", els[i].loc)
+                return errorExpr("$keyForm is not a key", keyForm.loc)
             }
             val valueExpr = analyseValueExpr(els[i + 1])
             fields.add(keyValue.name to valueExpr)
@@ -194,7 +202,7 @@ data class Analyser(
         return RecordExpr(fields, form.loc)
     }
 
-    private fun analyseQualifiedSymbol(form: QualifiedSymbolForm): ValueExpr {
+    private fun analyseQualifiedSymbol(form: QSymbolForm): ValueExpr {
         // Try Bridje namespace first (fully qualified)
         ctx.namespaces[form.namespace]?.let { ns ->
             val globalVar = ns[form.member]
@@ -342,7 +350,17 @@ data class Analyser(
             is KeywordForm ->
                 callFormConstructor("Keyword", listOf(StringExpr(form.name, form.loc)), form.loc)
 
-            is QualifiedSymbolForm -> {
+            is QKeywordForm ->
+                callFormConstructor(
+                    "QKeyword",
+                    listOf(
+                        StringExpr(form.namespace, form.loc),
+                        StringExpr(form.member, form.loc)
+                    ),
+                    form.loc
+                )
+
+            is QSymbolForm -> {
                 val member = if (form.member.endsWith("#")) {
                     val baseName = form.member.dropLast(1)
                     gensymScope.getOrPut(baseName) { "${baseName}__${ctx.nextGensymId()}" }
@@ -350,7 +368,7 @@ data class Analyser(
                     form.member
                 }
                 callFormConstructor(
-                    "QualifiedSymbol",
+                    "QSymbol",
                     listOf(
                         StringExpr(form.namespace, form.loc),
                         StringExpr(member, form.loc)
@@ -386,7 +404,7 @@ data class Analyser(
                 Triple(resolvedNs, inner.name, inner.loc)
             }
 
-            is QualifiedSymbolForm -> {
+            is QSymbolForm -> {
                 val resolvedNs =
                     ctx.namespaces[inner.namespace]?.takeIf { it[inner.member] != null }?.let { inner.namespace }
                         ?: nsEnv.requires[inner.namespace]?.let { req ->
@@ -400,7 +418,7 @@ data class Analyser(
         }
 
         return callFormConstructor(
-            "QualifiedSymbol",
+            "QSymbol",
             listOf(
                 StringExpr(ns, innerLoc),
                 StringExpr(member, innerLoc)
@@ -697,13 +715,14 @@ data class Analyser(
         val els = form.els
         if (els.size != 4) return errorExpr("set! requires exactly 3 arguments: record, key, value", form.loc)
 
-        val keyForm = els[2] as? KeywordForm
-            ?: return errorExpr("set! second argument must be a keyword", els[2].loc)
+        val keyForm = els[2]
+        if (keyForm !is KeywordForm && keyForm !is QKeywordForm)
+            return errorExpr("set! second argument must be a keyword", keyForm.loc)
 
-        val keyVar = resolveKey(keyForm.name)
-        if (keyVar == null) return errorExpr("Unknown key: :${keyForm.name}", els[2].loc)
+        val keyVar = resolveKeyForm(keyForm)
+            ?: return errorExpr("Unknown key: $keyForm", keyForm.loc)
         val keyValue = keyVar.value
-        if (keyValue !is BridjeKey) return errorExpr(":${keyForm.name} is not a key", els[2].loc)
+        if (keyValue !is BridjeKey) return errorExpr("$keyForm is not a key", keyForm.loc)
 
         val recordExpr = analyseValueExpr(els[1])
         val valueExpr = analyseValueExpr(els[3])
@@ -869,7 +888,8 @@ data class Analyser(
             is StringForm -> StringExpr(form.value, form.loc)
             is SymbolForm -> analyseSymbol(form)
             is KeywordForm -> analyseKeyword(form)
-            is QualifiedSymbolForm -> analyseQualifiedSymbol(form)
+            is QKeywordForm -> analyseQualifiedKeyword(form)
+            is QSymbolForm -> analyseQualifiedSymbol(form)
             is ListForm -> analyseListValueExpr(form)
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is SetForm -> SetExpr(form.els.map { analyseValueExpr(it) }, form.loc)
@@ -1022,7 +1042,7 @@ data class Analyser(
             ?: return errorExpr("interop decl missing return type", specForm.loc)
 
         val member = when {
-            specForm is QualifiedSymbolForm -> {
+            specForm is QSymbolForm -> {
                 // I/EPOCH I — static field
                 val returnType = analyseTypeForm(retForm, typeVars)
                 InteropMember(
@@ -1034,19 +1054,16 @@ data class Analyser(
                 )
             }
 
-            specForm is KeywordForm && '/' in specForm.name -> {
-                // I/:someField Int — instance field
-                val slashIdx = specForm.name.lastIndexOf('/')
-                val alias = specForm.name.substring(0, slashIdx)
-                val memberName = specForm.name.substring(slashIdx + 1)
-                val fqClass = nsEnv.imports[alias]
-                    ?: return errorExpr("Unknown import alias: $alias", specForm.loc)
+            specForm is QKeywordForm -> {
+                // :Alias/someField Int — instance field
+                val fqClass = nsEnv.imports[specForm.namespace]
+                    ?: return errorExpr("Unknown import alias: ${specForm.namespace}", specForm.loc)
                 val receiverType = HostType(fqClass).notNull()
                 val returnType = analyseTypeForm(retForm, typeVars)
                 InteropMember(
-                    qualifiedName = specForm.name,
-                    importAlias = alias,
-                    memberName = memberName,
+                    qualifiedName = "${specForm.namespace}/${specForm.member}",
+                    importAlias = specForm.namespace,
+                    memberName = specForm.member,
                     kind = InteropMemberKind.INSTANCE_FIELD,
                     declaredType = FnType(listOf(receiverType), returnType).notNull(),
                 )
@@ -1059,7 +1076,7 @@ data class Analyser(
                 val returnType = analyseTypeForm(retForm, typeVars)
 
                 when {
-                    callee is QualifiedSymbolForm -> {
+                    callee is QSymbolForm -> {
                         // I/now() I or I/parse(Str) I — static method
                         InteropMember(
                             qualifiedName = "${callee.namespace}/${callee.member}",
@@ -1070,18 +1087,15 @@ data class Analyser(
                         )
                     }
 
-                    callee is KeywordForm && '/' in callee.name -> {
-                        // I/:toEpochMilli() Int — instance method
-                        val slashIdx = callee.name.lastIndexOf('/')
-                        val alias = callee.name.substring(0, slashIdx)
-                        val memberName = callee.name.substring(slashIdx + 1)
-                        val fqClass = nsEnv.imports[alias]
-                            ?: return errorExpr("Unknown import alias: $alias", callee.loc)
+                    callee is QKeywordForm -> {
+                        // :Alias/toEpochMilli() Int — instance method
+                        val fqClass = nsEnv.imports[callee.namespace]
+                            ?: return errorExpr("Unknown import alias: ${callee.namespace}", callee.loc)
                         val receiverType = HostType(fqClass).notNull()
                         InteropMember(
-                            qualifiedName = callee.name,
-                            importAlias = alias,
-                            memberName = memberName,
+                            qualifiedName = "${callee.namespace}/${callee.member}",
+                            importAlias = callee.namespace,
+                            memberName = callee.member,
                             kind = InteropMemberKind.INSTANCE_METHOD,
                             declaredType = FnType(listOf(receiverType) + paramTypes, returnType).notNull(),
                         )
@@ -1113,8 +1127,8 @@ data class Analyser(
                 DefKeysExpr(names, form.loc)
             }
 
-            // single key: decl: .name Str
-            sigForm is KeywordForm && '/' !in sigForm.name -> {
+            // single key: decl: :name Str
+            sigForm is KeywordForm -> {
                 DefKeysExpr(listOf(sigForm.name), form.loc)
             }
 
@@ -1138,11 +1152,11 @@ data class Analyser(
             ?: return errorExpr("decl requires a signature", loc)
 
         fun isInteropForm(form: Form): Boolean = when {
-            form is QualifiedSymbolForm -> true
-            form is KeywordForm && '/' in form.name -> true
+            form is QSymbolForm -> true
+            form is QKeywordForm -> true
             form is ListForm -> {
                 val first = form.els.firstOrNull()
-                first is QualifiedSymbolForm || (first is KeywordForm && '/' in first.name)
+                first is QSymbolForm || first is QKeywordForm
             }
             else -> false
         }

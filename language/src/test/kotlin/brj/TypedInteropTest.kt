@@ -57,8 +57,8 @@ class TypedInteropTest {
                 java.time:
                   as(Instant, I)
             decl: I/ofEpochMilli(Int) I
-            decl: I/:toEpochMilli() Int
-            def: roundtrip(ms) I/:toEpochMilli(I/ofEpochMilli(ms))
+            decl: :I/toEpochMilli() Int
+            def: roundtrip(ms) :I/toEpochMilli(I/ofEpochMilli(ms))
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.instance/roundtrip(1000)")
         assertEquals(1000L, result.asLong())
@@ -73,8 +73,8 @@ class TypedInteropTest {
                   as(Instant, I)
             decl: I/EPOCH I
             decl: I/now() I
-            decl: I/:toEpochMilli() Int
-            def: epochMillis I/:toEpochMilli(I/EPOCH)
+            decl: :I/toEpochMilli() Int
+            def: epochMillis :I/toEpochMilli(I/EPOCH)
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.multi/epochMillis")
         assertEquals(0L, result.asLong())
@@ -88,9 +88,9 @@ class TypedInteropTest {
                 java.time:
                   as(Instant, I)
             decl: I/ofEpochMilli(Int) I
-            decl: I/:toEpochMilli() Int
+            decl: :I/toEpochMilli() Int
             def: roundtrip(ms)
-              ->: I/ofEpochMilli(ms) I/:toEpochMilli()
+              ->: I/ofEpochMilli(ms) :I/toEpochMilli()
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.thread/roundtrip(42)")
         assertEquals(42L, result.asLong())
@@ -185,9 +185,9 @@ class TypedInteropTest {
                 java.time:
                   as(Instant, I)
             decl: I/ofEpochMilli(Int) I
-            decl: I/:toEpochMilli() Int
+            decl: :I/toEpochMilli() Int
             def: roundtrip(ms)
-              let: [f I/:toEpochMilli]
+              let: [f :I/toEpochMilli]
                 f(I/ofEpochMilli(ms))
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.firstclass/roundtrip(99)")
@@ -211,8 +211,8 @@ class TypedInteropTest {
                 java.util:
                   as(Optional, Opt)
             decl: [a] Opt/of(a) Opt(a)
-            decl: [a] Opt/:get() a
-            def: result Opt/:get(Opt/of(42))
+            decl: [a] :Opt/get() a
+            def: result :Opt/get(Opt/of(42))
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.applied/result")
         assertEquals(42L, result.asLong())
@@ -226,8 +226,8 @@ class TypedInteropTest {
                 java.util:
                   as(ArrayList, AL)
             decl: AL/new() AL
-            decl: AL/:size() Int
-            def: result AL/:size(AL/new())
+            decl: :AL/size() Int
+            def: result :AL/size(AL/new())
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.constructor/result")
         assertEquals(0L, result.asLong())
@@ -241,8 +241,8 @@ class TypedInteropTest {
                 java.lang:
                   as(StringBuilder, SB)
             decl: SB/new(Str) SB
-            decl: SB/:toString() Str
-            def: result SB/:toString(SB/new("hello"))
+            decl: :SB/toString() Str
+            def: result :SB/toString(SB/new("hello"))
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.constructor2/result")
         assertEquals("hello", result.asString())
@@ -256,9 +256,9 @@ class TypedInteropTest {
                 java.util:
                   as(Optional, Opt)
             decl: [a] Opt/of(a) Opt(a)
-            decl: [a] Opt/:get() a
+            decl: [a] :Opt/get() a
             decl: [a] unwrap(Opt(a)) a
-            def: unwrap(o) Opt/:get(o)
+            def: unwrap(o) :Opt/get(o)
             def: result unwrap(Opt/of("hello"))
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.applied2/result")

@@ -173,12 +173,12 @@ class ConcurrentTest {
               import:
                 java.util.concurrent.atomic:
                   as(AtomicBoolean, AB)
-            decl: AB/:set(Bool) Nothing
+            decl: :AB/set(Bool) Nothing
             def: go(flag)
               c/spawn(fn: outer()
                 c/spawn(fn: inner()
                   c/sleepMs(50)
-                  AB/:set(flag, true)
+                  :AB/set(flag, true)
                   nil)
                 "outer-done")
             def: doAwait(d) c/await(d)

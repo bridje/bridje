@@ -45,26 +45,22 @@ class Reader private constructor(private val src: Source) {
             "bigdec" -> BigDecForm(BigDecimal(text!!.dropLast(1)), loc)
             "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
             "symbol" -> SymbolForm(text!!, loc)
-            "keyword" -> {
-                val t = text!!
-                val slashColon = t.indexOf("/:")
-                if (slashColon >= 0) {
-                    // Qualified: ns/:member → name="ns/member"
-                    KeywordForm(t.substring(0, slashColon) + "/" + t.substring(slashColon + 2), loc)
-                } else {
-                    // Simple: :member → name="member"
-                    KeywordForm(t.drop(1), loc)
-                }
+            "keyword" -> KeywordForm(text!!.drop(1), loc)
+            "qualified_keyword" -> {
+                // :ns/member — drop leading ':', split on '/'
+                val t = text!!.drop(1)
+                val slash = t.indexOf('/')
+                QKeywordForm(t.substring(0, slash), t.substring(slash + 1), loc)
             }
             "qualified_symbol" -> {
                 val t = text!!
                 val slash = t.indexOf('/')
                 if (slash >= 0) {
-                    QualifiedSymbolForm(t.substring(0, slash), t.substring(slash + 1), loc)
+                    QSymbolForm(t.substring(0, slash), t.substring(slash + 1), loc)
                 } else {
                     // Dotted namespace name: split on last dot
                     val lastDot = t.lastIndexOf('.')
-                    QualifiedSymbolForm(t.substring(0, lastDot), t.substring(lastDot + 1), loc)
+                    QSymbolForm(t.substring(0, lastDot), t.substring(lastDot + 1), loc)
                 }
             }
 
@@ -97,7 +93,7 @@ class Reader private constructor(private val src: Source) {
             "quote" -> ListForm(listOf(SymbolForm("quote", loc), namedChildren[0].readForm()), loc)
             "syntax_quote" -> {
                 val inner = namedChildren[0].readForm()
-                if (inner !is SymbolForm && inner !is QualifiedSymbolForm)
+                if (inner !is SymbolForm && inner !is QSymbolForm)
                     error("syntax quote must contain a symbol: $text")
                 SyntaxQuoteForm(inner, loc)
             }
@@ -109,6 +105,7 @@ class Reader private constructor(private val src: Source) {
                 val innerForm = namedChildren[1].readForm()
                 when (metaValue) {
                     is KeywordForm -> innerForm.withMeta(metaValue)
+                    is QKeywordForm -> innerForm.withMeta(metaValue)
                     is RecordForm -> innerForm.withMeta(metaValue)
                     else -> error("metadata must be keyword or map")
                 }

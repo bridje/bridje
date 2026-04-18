@@ -125,8 +125,8 @@ map(:name, people)             // extract :name from each person
 filter(:?nickname, profiles)   // only those with :nickname present
 ```
 
-Members from other namespaces are qualified with `/`: `I/:toEpochMilli`, `myns/:customField`.
-The `/` separates the namespace, the `.` marks it as an instance member.
+Members from other namespaces are qualified with a leading colon and slash: `:myns/customField`, `:I/toEpochMilli`.
+The colon marks it as a keyword, the `/` separates the namespace alias from the member name.
 
 There is no postfix dot syntax (`a.b`).
 Left-to-right chaining uses the threading macro `->`.
@@ -828,7 +828,7 @@ brj.core/map(:name, people)
 ```
 
 <!-- TODO: typed host interop — import creates typed method namespace via reflection -->
-<!-- TODO: instance method syntax — I/:toEpochMilli(instant) for receiver-first calls -->
+<!-- TODO: instance method syntax — I/.toEpochMilli(instant) for receiver-first calls -->
 
 ## Metadata
 

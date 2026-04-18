@@ -48,7 +48,7 @@ fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
 
     val nsName = when (val nameForm = els.getOrNull(1)) {
         is SymbolForm -> nameForm.name
-        is QualifiedSymbolForm -> "${nameForm.namespace}.${nameForm.member}"
+        is QSymbolForm -> "${nameForm.namespace}.${nameForm.member}"
         else -> error("ns requires a name")
     }
 

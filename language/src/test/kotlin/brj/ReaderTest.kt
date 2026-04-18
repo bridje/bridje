@@ -16,7 +16,8 @@ private fun Form.contentEquals(other: Form): Boolean = when {
     this is StringForm && other is StringForm -> value == other.value
     this is SymbolForm && other is SymbolForm -> name == other.name
     this is KeywordForm && other is KeywordForm -> name == other.name
-    this is QualifiedSymbolForm && other is QualifiedSymbolForm -> namespace == other.namespace && member == other.member
+    this is QKeywordForm && other is QKeywordForm -> namespace == other.namespace && member == other.member
+    this is QSymbolForm && other is QSymbolForm -> namespace == other.namespace && member == other.member
     this is ListForm && other is ListForm ->
         els.size == other.els.size && els.zip(other.els).all { (a, b) -> a.contentEquals(b) }
     this is VectorForm && other is VectorForm ->
@@ -30,7 +31,7 @@ private fun Form.contentEquals(other: Form): Boolean = when {
 
 private fun sym(name: String) = SymbolForm(name)
 private fun kw(name: String) = KeywordForm(name)
-private fun qsym(ns: String, member: String) = QualifiedSymbolForm(ns, member)
+private fun qsym(ns: String, member: String) = QSymbolForm(ns, member)
 private fun int(value: Long) = IntForm(value)
 private fun list(vararg els: Form) = ListForm(els.toList())
 private fun vec(vararg els: Form) = VectorForm(els.toList())

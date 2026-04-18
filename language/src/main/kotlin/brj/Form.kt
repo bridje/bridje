@@ -25,15 +25,15 @@ object SymbolMeta : BuiltinMetaObj("Symbol", "brj.forms") {
     }
 }
 
-object QualifiedSymbolMeta : BuiltinMetaObj("QualifiedSymbol", "brj.forms") {
-    override fun isMetaInstance(instance: Any?) = instance is QualifiedSymbolForm
+object QSymbolMeta : BuiltinMetaObj("QSymbol", "brj.forms") {
+    override fun isMetaInstance(instance: Any?) = instance is QSymbolForm
 
     @Throws(ArityException::class)
     override fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != 2) throw ArityException.create(2, 2, arguments.size)
         val ns = (arguments[0] as TruffleString).toJavaStringUncached()
         val member = (arguments[1] as TruffleString).toJavaStringUncached()
-        return QualifiedSymbolForm(ns, member)
+        return QSymbolForm(ns, member)
     }
 }
 
@@ -143,6 +143,18 @@ object KeywordMeta : BuiltinMetaObj("Keyword", "brj.forms") {
     }
 }
 
+object QKeywordMeta : BuiltinMetaObj("QKeyword", "brj.forms") {
+    override fun isMetaInstance(instance: Any?) = instance is QKeywordForm
+
+    @Throws(ArityException::class)
+    override fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 2) throw ArityException.create(2, 2, arguments.size)
+        val ns = (arguments[0] as TruffleString).toJavaStringUncached()
+        val member = (arguments[1] as TruffleString).toJavaStringUncached()
+        return QKeywordForm(ns, member)
+    }
+}
+
 object UnquoteMeta : BuiltinMetaObj("Unquote", "brj.forms") {
     override fun isMetaInstance(instance: Any?) = instance is UnquoteForm
 
@@ -184,6 +196,9 @@ sealed class Form : TruffleObject {
     abstract fun copy(): Form
 
     fun withMeta(keyword: KeywordForm): Form =
+        withMeta(RecordForm(listOf(keyword, SymbolForm("true")), keyword.loc))
+
+    fun withMeta(keyword: QKeywordForm): Form =
         withMeta(RecordForm(listOf(keyword, SymbolForm("true")), keyword.loc))
 
     fun withMeta(record: RecordForm): Form = copy().also {
@@ -241,9 +256,9 @@ class SymbolForm(val name: String, override val loc: SourceSection? = null) : Fo
     override fun toString(): String = name
 }
 
-class QualifiedSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = QualifiedSymbolMeta
-    override fun copy() = QualifiedSymbolForm(namespace, member, loc)
+class QSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = QSymbolMeta
+    override fun copy() = QSymbolForm(namespace, member, loc)
     override fun toString(): String = "$namespace/$member"
 }
 
@@ -251,6 +266,12 @@ class KeywordForm(val name: String, override val loc: SourceSection? = null) : F
     override val metaObj = KeywordMeta
     override fun copy() = KeywordForm(name, loc)
     override fun toString(): String = ":$name"
+}
+
+class QKeywordForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = QKeywordMeta
+    override fun copy() = QKeywordForm(namespace, member, loc)
+    override fun toString(): String = ":$namespace/$member"
 }
 
 @ExportLibrary(InteropLibrary::class)

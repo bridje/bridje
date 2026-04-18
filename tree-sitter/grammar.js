@@ -27,7 +27,7 @@ module.exports = grammar({
     _form: $ => choice(
       $.int, $.float, $.bigint, $.bigdec,
       $.string, $.symbol, $.qualified_symbol,
-      $.keyword,
+      $.keyword, $.qualified_keyword,
       $.list, $.vector, $.map, $.set,
       $.call,
       $.record_sugar,
@@ -40,7 +40,7 @@ module.exports = grammar({
     ),
 
     // ^keyword or ^{map} attached to following form
-    metadata: $ => seq('^', choice($.keyword, $.map), $._form),
+    metadata: $ => seq('^', choice($.keyword, $.qualified_keyword, $.map), $._form),
 
     string: _ => token(/"([^"]|\\")*"/),
 
@@ -53,20 +53,23 @@ module.exports = grammar({
       seq(SYMBOL_BODY, repeat1(seq('.', SYMBOL_BODY)), optional('#')),
     )),
 
-    keyword: _ => token(choice(
-      // qualified: ns/:member or ns.seg/:member
-      seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', ':', SYMBOL_BODY),
-      // simple: :member
-      seq(':', SYMBOL_BODY),
-    )),
+    // :member — unqualified keyword
+    keyword: _ => token(seq(':', SYMBOL_BODY)),
+
+    // :ns/member or :ns.seg/member — qualified keyword (colon first)
+    qualified_keyword: _ => token(
+      seq(':', SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', SYMBOL_BODY),
+    ),
 
     int: _ => token(/[0-9]+/),
     float: _ => token(/[0-9]+\.[0-9]+/),
     bigint: _ => token(seq(/[0-9]+/, /[nN]/)),
     bigdec: _ => token(seq(/[0-9]+/, optional(seq('.', /[0-9]+/)), /[mM]/)),
 
-    // foo(a, b) or ns:foo(a, b)
-    call: $ => seq(choice($.symbol, $.qualified_symbol, $.keyword), token.immediate('('), repeat($._form), ')'),
+    call: $ => seq(
+      choice($.symbol, $.qualified_symbol, $.keyword, $.qualified_keyword),
+      token.immediate('('), repeat($._form), ')'
+    ),
 
     // Foo{a b} — record construction sugar, desugars to Foo({a b})
     record_sugar: $ => seq(choice($.symbol, $.qualified_symbol), token.immediate('{'), repeat($._form), '}'),

@@ -129,7 +129,7 @@ class QuoteTest {
     @Test
     fun `syntax-quote resolves brj core builtin`() = withContext { ctx ->
         val result = ctx.evalBridje("`count")
-        assertEquals("QualifiedSymbol", result.metaObject.metaSimpleName)
+        assertEquals("QSymbol", result.metaObject.metaSimpleName)
         assertEquals("brj.core/count", result.toString())
     }
 
@@ -154,7 +154,7 @@ class QuoteTest {
     @Test
     fun `syntax-quote on fully qualified symbol`() = withContext { ctx ->
         val result = ctx.evalBridje("`brj.core/count")
-        assertEquals("QualifiedSymbol", result.metaObject.metaSimpleName)
+        assertEquals("QSymbol", result.metaObject.metaSimpleName)
         assertEquals("brj.core/count", result.toString())
     }
 
@@ -181,7 +181,7 @@ class QuoteTest {
         """.trimIndent())
 
         val resolved = result.getMember("result")
-        assertEquals("QualifiedSymbol", resolved.metaObject.metaSimpleName)
+        assertEquals("QSymbol", resolved.metaObject.metaSimpleName)
         assertEquals("foo.lib/bar", resolved.toString())
     }
 }

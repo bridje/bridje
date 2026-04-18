@@ -238,7 +238,7 @@ class RecordTest {
               require:
                 my:
                   as(keys, k)
-            def: result (k/:foo {k/:foo 42})
+            def: result (:k/foo {:k/foo 42})
         """.trimIndent())
 
         assertEquals(42L, ns.getMember("result").asLong())
@@ -256,7 +256,7 @@ class RecordTest {
               require:
                 my:
                   as(keys, k)
-            def: result {k/:foo 42}
+            def: result {:k/foo 42}
         """.trimIndent())
 
         assertEquals(42L, ns.getMember("result").getMember("foo").asLong())
@@ -345,9 +345,9 @@ class RecordTest {
                 my:
                   as(keys, k)
             def: result
-              let: [r {k/:foo 1}]
+              let: [r {:k/foo 1}]
                 do:
-                  (set! r k/:foo 42)
+                  (set! r :k/foo 42)
                   r
         """.trimIndent())
 
@@ -380,7 +380,7 @@ class RecordTest {
               require:
                 my:
                   as(keys, u)
-            def: result u/:bar({u/:bar 99})
+            def: result :u/bar({:u/bar 99})
         """.trimIndent())
 
         assertEquals(99L, ns.getMember("result").asLong())

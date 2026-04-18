@@ -39,7 +39,7 @@ data class NsEnv(
     companion object {
         private val builtinFormMetas = mapOf(
             "Symbol" to GlobalVar("Symbol", SymbolMeta),
-            "QualifiedSymbol" to GlobalVar("QualifiedSymbol", QualifiedSymbolMeta),
+            "QSymbol" to GlobalVar("QSymbol", QSymbolMeta),
             "List" to GlobalVar("List", ListMeta),
             "Vector" to GlobalVar("Vector", VectorMeta),
             "Record" to GlobalVar("Record", RecordMeta),
@@ -50,6 +50,7 @@ data class NsEnv(
             "BigInt" to GlobalVar("BigInt", BigIntMeta),
             "BigDec" to GlobalVar("BigDec", BigDecMeta),
             "Keyword" to GlobalVar("Keyword", KeywordMeta),
+            "QKeyword" to GlobalVar("QKeyword", QKeywordMeta),
         )
 
         private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->

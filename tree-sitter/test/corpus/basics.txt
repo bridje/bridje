@@ -479,10 +479,11 @@ Optional keyword
 Qualified keyword
 ==================
 
-ns/:member
+:ns/member
 
 ---
 
 (source_file
-  (keyword))
+  (qualified_keyword))
+
 
