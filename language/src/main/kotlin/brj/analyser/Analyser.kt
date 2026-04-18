@@ -162,7 +162,6 @@ data class Analyser(
     private fun resolveQualifiedKey(nsAlias: String, member: String): GlobalVar? {
         ctx.namespaces[nsAlias]?.key(member)?.let { return it }
         nsEnv.requires[nsAlias]?.key(member)?.let { return it }
-        nsEnv.interopVar("$nsAlias/$member")?.let { return it }
         return null
     }
 
@@ -173,6 +172,11 @@ data class Analyser(
     private fun analyseQualifiedKeyword(form: QKeywordForm): ValueExpr =
         resolveQualifiedKey(form.namespace, form.member)?.let { GlobalVarExpr(it, form.loc) }
             ?: errorExpr("Unknown key: $form", form.loc)
+
+    private fun analyseQualifiedDotSymbol(form: QDotSymbolForm): ValueExpr =
+        nsEnv.interopVar("${form.namespace}/${form.member}")
+            ?.let { GlobalVarExpr(it, form.loc) }
+            ?: errorExpr("Unknown host member: $form", form.loc)
 
     private fun resolveKeyForm(form: Form): GlobalVar? = when (form) {
         is KeywordForm -> resolveKey(form.name)
@@ -353,6 +357,19 @@ data class Analyser(
             is QKeywordForm ->
                 callFormConstructor(
                     "QKeyword",
+                    listOf(
+                        StringExpr(form.namespace, form.loc),
+                        StringExpr(form.member, form.loc)
+                    ),
+                    form.loc
+                )
+
+            is DotSymbolForm ->
+                callFormConstructor("DotSymbol", listOf(StringExpr(form.name, form.loc)), form.loc)
+
+            is QDotSymbolForm ->
+                callFormConstructor(
+                    "QDotSymbol",
                     listOf(
                         StringExpr(form.namespace, form.loc),
                         StringExpr(form.member, form.loc)
@@ -890,6 +907,8 @@ data class Analyser(
             is KeywordForm -> analyseKeyword(form)
             is QKeywordForm -> analyseQualifiedKeyword(form)
             is QSymbolForm -> analyseQualifiedSymbol(form)
+            is DotSymbolForm -> errorExpr("bare instance-member references are not supported yet: $form", form.loc)
+            is QDotSymbolForm -> analyseQualifiedDotSymbol(form)
             is ListForm -> analyseListValueExpr(form)
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is SetForm -> SetExpr(form.els.map { analyseValueExpr(it) }, form.loc)
@@ -1054,8 +1073,8 @@ data class Analyser(
                 )
             }
 
-            specForm is QKeywordForm -> {
-                // :Alias/someField Int — instance field
+            specForm is QDotSymbolForm -> {
+                // Alias/.someField Int — instance field
                 val fqClass = nsEnv.imports[specForm.namespace]
                     ?: return errorExpr("Unknown import alias: ${specForm.namespace}", specForm.loc)
                 val receiverType = HostType(fqClass).notNull()
@@ -1087,8 +1106,8 @@ data class Analyser(
                         )
                     }
 
-                    callee is QKeywordForm -> {
-                        // :Alias/toEpochMilli() Int — instance method
+                    callee is QDotSymbolForm -> {
+                        // Alias/.toEpochMilli() Int — instance method
                         val fqClass = nsEnv.imports[callee.namespace]
                             ?: return errorExpr("Unknown import alias: ${callee.namespace}", callee.loc)
                         val receiverType = HostType(fqClass).notNull()
@@ -1153,10 +1172,10 @@ data class Analyser(
 
         fun isInteropForm(form: Form): Boolean = when {
             form is QSymbolForm -> true
-            form is QKeywordForm -> true
+            form is QDotSymbolForm -> true
             form is ListForm -> {
                 val first = form.els.firstOrNull()
-                first is QSymbolForm || first is QKeywordForm
+                first is QSymbolForm || first is QDotSymbolForm
             }
             else -> false
         }

@@ -125,7 +125,7 @@ map(:name, people)             // extract :name from each person
 filter(:?nickname, profiles)   // only those with :nickname present
 ```
 
-Members from other namespaces are qualified with a leading colon and slash: `:myns/customField`, `:I/toEpochMilli`.
+Members from other namespaces are qualified with a leading colon and slash: `:myns/customField`, `I/.toEpochMilli`.
 The colon marks it as a keyword, the `/` separates the namespace alias from the member name.
 
 There is no postfix dot syntax (`a.b`).

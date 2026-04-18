@@ -52,6 +52,13 @@ class Reader private constructor(private val src: Source) {
                 val slash = t.indexOf('/')
                 QKeywordForm(t.substring(0, slash), t.substring(slash + 1), loc)
             }
+            "dot_symbol" -> DotSymbolForm(text!!.drop(1), loc)
+            "qualified_dot_symbol" -> {
+                // Alias/.member — split on '/.'
+                val t = text!!
+                val slashDot = t.indexOf("/.")
+                QDotSymbolForm(t.substring(0, slashDot), t.substring(slashDot + 2), loc)
+            }
             "qualified_symbol" -> {
                 val t = text!!
                 val slash = t.indexOf('/')

@@ -155,6 +155,29 @@ object QKeywordMeta : BuiltinMetaObj("QKeyword", "brj.forms") {
     }
 }
 
+object DotSymbolMeta : BuiltinMetaObj("DotSymbol", "brj.forms") {
+    override fun isMetaInstance(instance: Any?) = instance is DotSymbolForm
+
+    @Throws(ArityException::class)
+    override fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val str = arguments[0] as TruffleString
+        return DotSymbolForm(str.toJavaStringUncached())
+    }
+}
+
+object QDotSymbolMeta : BuiltinMetaObj("QDotSymbol", "brj.forms") {
+    override fun isMetaInstance(instance: Any?) = instance is QDotSymbolForm
+
+    @Throws(ArityException::class)
+    override fun execute(arguments: Array<Any?>): Any {
+        if (arguments.size != 2) throw ArityException.create(2, 2, arguments.size)
+        val ns = (arguments[0] as TruffleString).toJavaStringUncached()
+        val member = (arguments[1] as TruffleString).toJavaStringUncached()
+        return QDotSymbolForm(ns, member)
+    }
+}
+
 object UnquoteMeta : BuiltinMetaObj("Unquote", "brj.forms") {
     override fun isMetaInstance(instance: Any?) = instance is UnquoteForm
 
@@ -272,6 +295,18 @@ class QKeywordForm(val namespace: String, val member: String, override val loc: 
     override val metaObj = QKeywordMeta
     override fun copy() = QKeywordForm(namespace, member, loc)
     override fun toString(): String = ":$namespace/$member"
+}
+
+class DotSymbolForm(val name: String, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = DotSymbolMeta
+    override fun copy() = DotSymbolForm(name, loc)
+    override fun toString(): String = ".$name"
+}
+
+class QDotSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = QDotSymbolMeta
+    override fun copy() = QDotSymbolForm(namespace, member, loc)
+    override fun toString(): String = "$namespace/.$member"
 }
 
 @ExportLibrary(InteropLibrary::class)

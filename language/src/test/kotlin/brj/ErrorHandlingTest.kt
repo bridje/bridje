@@ -210,10 +210,10 @@ class ErrorHandlingTest {
                   as(Thread, T)
             decl: T/sleep(Int) Nothing
             decl: T/currentThread() T
-            decl: :T/interrupt() Nothing
+            decl: T/.interrupt() Nothing
             def: result
               do:
-                :T/interrupt(T/currentThread())
+                T/.interrupt(T/currentThread())
                 try: T/sleep(100)
                   catch:
                     Interrupted(_) "caught"

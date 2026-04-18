@@ -28,6 +28,7 @@ module.exports = grammar({
       $.int, $.float, $.bigint, $.bigdec,
       $.string, $.symbol, $.qualified_symbol,
       $.keyword, $.qualified_keyword,
+      $.dot_symbol, $.qualified_dot_symbol,
       $.list, $.vector, $.map, $.set,
       $.call,
       $.record_sugar,
@@ -61,13 +62,21 @@ module.exports = grammar({
       seq(':', SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', SYMBOL_BODY),
     ),
 
+    // .member — bare host-member reference
+    dot_symbol: _ => token(seq('.', SYMBOL_BODY)),
+
+    // Alias/.member or pkg.Alias/.member — qualified host-member reference
+    qualified_dot_symbol: _ => token(
+      seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', '.', SYMBOL_BODY),
+    ),
+
     int: _ => token(/[0-9]+/),
     float: _ => token(/[0-9]+\.[0-9]+/),
     bigint: _ => token(seq(/[0-9]+/, /[nN]/)),
     bigdec: _ => token(seq(/[0-9]+/, optional(seq('.', /[0-9]+/)), /[mM]/)),
 
     call: $ => seq(
-      choice($.symbol, $.qualified_symbol, $.keyword, $.qualified_keyword),
+      choice($.symbol, $.qualified_symbol, $.keyword, $.qualified_keyword, $.dot_symbol, $.qualified_dot_symbol),
       token.immediate('('), repeat($._form), ')'
     ),
 

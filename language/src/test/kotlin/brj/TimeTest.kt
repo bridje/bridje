@@ -42,8 +42,8 @@ class TimeTest {
               import:
                 java.time:
                   as(Duration, Dur)
-            decl: :Dur/toMillis() Int
-            def: result :Dur/toMillis(t/durMs(500))
+            decl: Dur/.toMillis() Int
+            def: result Dur/.toMillis(t/durMs(500))
         """.trimIndent())
         val result = ctx.evalBridje("test.time.roundtrip/result")
         assertEquals(500L, result.asLong())

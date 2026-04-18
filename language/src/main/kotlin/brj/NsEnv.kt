@@ -51,6 +51,8 @@ data class NsEnv(
             "BigDec" to GlobalVar("BigDec", BigDecMeta),
             "Keyword" to GlobalVar("Keyword", KeywordMeta),
             "QKeyword" to GlobalVar("QKeyword", QKeywordMeta),
+            "DotSymbol" to GlobalVar("DotSymbol", DotSymbolMeta),
+            "QDotSymbol" to GlobalVar("QDotSymbol", QDotSymbolMeta),
         )
 
         private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->

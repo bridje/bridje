@@ -486,4 +486,39 @@ Qualified keyword
 (source_file
   (qualified_keyword))
 
+==================
+Bare dot symbol
+==================
+
+.toMillis
+
+---
+
+(source_file
+  (dot_symbol))
+
+==================
+Qualified dot symbol
+==================
+
+Dur/.toMillis
+
+---
+
+(source_file
+  (qualified_dot_symbol))
+
+==================
+Qualified dot symbol call
+==================
+
+Dur/.toMillis(d)
+
+---
+
+(source_file
+  (call
+    (qualified_dot_symbol)
+    (symbol)))
+
 
