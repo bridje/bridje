@@ -13,15 +13,22 @@ class FormConstructorTest {
 
     @Test
     fun `List creates ListForm from forms`() = withContext { ctx ->
-        val result = ctx.evalBridje("List([Symbol(\"if\") Symbol(\"true\") Int(1) Int(2)])")
+        val result = ctx.evalBridje("List([SymbolForm(Symbol(\"if\")) SymbolForm(Symbol(\"true\")) Int(1) Int(2)])")
         assertEquals("List", result.metaObject.metaSimpleName)
         assertEquals("(if true 1 2)", result.toString())
     }
 
     @Test
-    fun `Symbol creates SymbolForm from string`() = withContext { ctx ->
+    fun `Symbol creates Symbol value from string`() = withContext { ctx ->
         val result = ctx.evalBridje("Symbol(\"foo\")")
         assertEquals("Symbol", result.metaObject.metaSimpleName)
+        assertEquals("foo", result.toString())
+    }
+
+    @Test
+    fun `SymbolForm wraps Symbol`() = withContext { ctx ->
+        val result = ctx.evalBridje("SymbolForm(Symbol(\"foo\"))")
+        assertEquals("SymbolForm", result.metaObject.metaSimpleName)
         assertEquals("foo", result.toString())
     }
 
@@ -41,7 +48,7 @@ class FormConstructorTest {
 
     @Test
     fun `nested form construction`() = withContext { ctx ->
-        val result = ctx.evalBridje("List([Symbol(\"let\") Vector(['x Int(1)]) Symbol(\"x\")])")
+        val result = ctx.evalBridje("List([SymbolForm(Symbol(\"let\")) Vector(['x Int(1)]) SymbolForm(Symbol(\"x\"))])")
         assertEquals("List", result.metaObject.metaSimpleName)
         assertEquals("(let [x 1] x)", result.toString())
     }
@@ -55,7 +62,7 @@ class FormConstructorTest {
 
     @Test
     fun `Record creates RecordForm`() = withContext { ctx ->
-        val result = ctx.evalBridje("Record([Symbol(\"a\") Int(1)])")
+        val result = ctx.evalBridje("Record([SymbolForm(Symbol(\"a\")) Int(1)])")
         assertEquals("Record", result.metaObject.metaSimpleName)
         assertEquals("{a 1}", result.toString())
     }

@@ -5,6 +5,8 @@ import brj.reader.NativeLibraryLoader
 import io.github.treesitter.jtreesitter.Language
 import io.github.treesitter.jtreesitter.Node
 import io.github.treesitter.jtreesitter.Parser
+import brj.runtime.Symbol
+import brj.runtime.sym
 import java.lang.foreign.Arena
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -44,30 +46,30 @@ class Reader private constructor(private val src: Source) {
             "bigint" -> BigIntForm(BigInteger(text!!.dropLast(1)), loc)
             "bigdec" -> BigDecForm(BigDecimal(text!!.dropLast(1)), loc)
             "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
-            "symbol" -> SymbolForm(text!!, loc)
-            "keyword" -> KeywordForm(text!!.drop(1), loc)
+            "symbol" -> SymbolForm(Symbol.intern(text!!), loc)
+            "keyword" -> KeywordForm(Symbol.intern(text!!.drop(1)), loc)
             "qualified_keyword" -> {
                 // :ns/member — drop leading ':', split on '/'
                 val t = text!!.drop(1)
                 val slash = t.indexOf('/')
-                QKeywordForm(t.substring(0, slash), t.substring(slash + 1), loc)
+                QKeywordForm(Symbol.intern(t.substring(0, slash)), Symbol.intern(t.substring(slash + 1)), loc)
             }
-            "dot_symbol" -> DotSymbolForm(text!!.drop(1), loc)
+            "dot_symbol" -> DotSymbolForm(Symbol.intern(text!!.drop(1)), loc)
             "qualified_dot_symbol" -> {
                 // Alias/.member — split on '/.'
                 val t = text!!
                 val slashDot = t.indexOf("/.")
-                QDotSymbolForm(t.substring(0, slashDot), t.substring(slashDot + 2), loc)
+                QDotSymbolForm(Symbol.intern(t.substring(0, slashDot)), Symbol.intern(t.substring(slashDot + 2)), loc)
             }
             "qualified_symbol" -> {
                 val t = text!!
                 val slash = t.indexOf('/')
                 if (slash >= 0) {
-                    QSymbolForm(t.substring(0, slash), t.substring(slash + 1), loc)
+                    QSymbolForm(Symbol.intern(t.substring(0, slash)), Symbol.intern(t.substring(slash + 1)), loc)
                 } else {
                     // Dotted namespace name: split on last dot
                     val lastDot = t.lastIndexOf('.')
-                    QSymbolForm(t.substring(0, lastDot), t.substring(lastDot + 1), loc)
+                    QSymbolForm(Symbol.intern(t.substring(0, lastDot)), Symbol.intern(t.substring(lastDot + 1)), loc)
                 }
             }
 
@@ -94,10 +96,10 @@ class Reader private constructor(private val src: Source) {
                     if (child.type == "block_body") child.namedChildren.map { it.readForm() }
                     else listOf(child.readForm())
                 }
-                ListForm(listOf(SymbolForm(blockName, loc)) + args, loc)
+                ListForm(listOf(SymbolForm(Symbol.intern(blockName), loc)) + args, loc)
             }
 
-            "quote" -> ListForm(listOf(SymbolForm("quote", loc), namedChildren[0].readForm()), loc)
+            "quote" -> ListForm(listOf(SymbolForm("quote".sym, loc), namedChildren[0].readForm()), loc)
             "syntax_quote" -> {
                 val inner = namedChildren[0].readForm()
                 if (inner !is SymbolForm && inner !is QSymbolForm)

@@ -17,10 +17,10 @@ class VarMetaNode(language: BridjeLanguage) : RootNode(language) {
             ?: throw incorrect("varMeta: expected a qualified symbol, got ${arg?.let { it::class.simpleName }}", this)
 
         val ctx = BridjeContext.get(this)
-        val nsEnv = ctx.namespaces[qsym.namespace]
-            ?: throw incorrect("varMeta: namespace not found: ${qsym.namespace}", this)
+        val nsEnv = ctx.namespaces[qsym.ns.name]
+            ?: throw incorrect("varMeta: namespace not found: ${qsym.ns.name}", this)
         val gv = nsEnv[qsym.member] ?: nsEnv.effectVar(qsym.member)
-            ?: throw incorrect("varMeta: var not found: ${qsym.namespace}/${qsym.member}", this)
+            ?: throw incorrect("varMeta: var not found: ${qsym.ns.name}/${qsym.member.name}", this)
 
         return gv.meta
     }

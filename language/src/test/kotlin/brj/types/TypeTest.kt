@@ -2,6 +2,7 @@ package brj.types
 
 import brj.*
 import brj.analyser.*
+import brj.runtime.sym
 import brj.types.Nullability.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -217,7 +218,7 @@ class TypeTest {
     fun `global var reads type from GlobalVar`() {
         val tv = TypeVar()
         val fnType = FnType(listOf(Type(NOT_NULL, tv, null)), Type(NOT_NULL, tv, null)).notNull()
-        val gv = GlobalVar("id", null, type = fnType)
+        val gv = GlobalVar("id".sym, null, type = fnType)
         val type = GlobalVarExpr(gv).checkType()
         val fn = type.base as FnType
         assertEquals(fn.paramTypes[0].tv, fn.returnType.tv)
@@ -226,7 +227,7 @@ class TypeTest {
 
     @Test
     fun `global var with no type returns fresh`() {
-        val type = GlobalVarExpr(GlobalVar("x", 42)).checkType()
+        val type = GlobalVarExpr(GlobalVar("x".sym, 42)).checkType()
         assertNotNull(type)
     }
 
@@ -245,7 +246,7 @@ class TypeTest {
         // fn is Fn([?, Record] ?) — give opts a Record type by using it in a record position
         // Simpler: just use a GlobalVar with a known FnType
         val fnType = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull()
-        val gv = GlobalVar("open", null, type = fnType)
+        val gv = GlobalVar("open".sym, null, type = fnType)
         val type = CallExpr(GlobalVarExpr(gv), listOf(StringExpr("hello"))).checkType()
         assertEquals(IntType, type.base)
     }
@@ -253,7 +254,7 @@ class TypeTest {
     @Test
     fun `call fn without trailing Record param but pass a record`() {
         val fnType = FnType(listOf(StringType.notNull()), IntType.notNull()).notNull()
-        val gv = GlobalVar("simple", null, type = fnType)
+        val gv = GlobalVar("simple".sym, null, type = fnType)
         val type = CallExpr(GlobalVarExpr(gv), listOf(StringExpr("hello"), RecordExpr(emptyList()))).checkType()
         assertEquals(IntType, type.base)
     }
@@ -261,7 +262,7 @@ class TypeTest {
     @Test
     fun `call fn with trailing Record param passing the record`() {
         val fnType = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull()
-        val gv = GlobalVar("open", null, type = fnType)
+        val gv = GlobalVar("open".sym, null, type = fnType)
         val type = CallExpr(GlobalVarExpr(gv), listOf(StringExpr("hello"), RecordExpr(emptyList()))).checkType()
         assertEquals(IntType, type.base)
     }
@@ -269,7 +270,7 @@ class TypeTest {
     @Test
     fun `call fn with trailing non-Record extra arg still fails`() {
         val fnType = FnType(listOf(StringType.notNull()), IntType.notNull()).notNull()
-        val gv = GlobalVar("simple", null, type = fnType)
+        val gv = GlobalVar("simple".sym, null, type = fnType)
         assertThrows(TypeErrorException::class.java) {
             CallExpr(GlobalVarExpr(gv), listOf(StringExpr("hello"), IntExpr(42))).checkType()
         }
@@ -279,8 +280,8 @@ class TypeTest {
     fun `if branches with different fn arities - trailing record - joins to shorter`() {
         val fnWithRecord = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull()
         val fnWithout = FnType(listOf(StringType.notNull()), IntType.notNull()).notNull()
-        val gv1 = GlobalVar("open", null, type = fnWithRecord)
-        val gv2 = GlobalVar("openFast", null, type = fnWithout)
+        val gv1 = GlobalVar("open".sym, null, type = fnWithRecord)
+        val gv2 = GlobalVar("openFast".sym, null, type = fnWithout)
         val type = IfExpr(BoolExpr(true), GlobalVarExpr(gv1), GlobalVarExpr(gv2)).checkType()
         val fn = type.base as FnType
         assertEquals(1, fn.paramTypes.size)

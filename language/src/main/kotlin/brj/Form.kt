@@ -2,6 +2,8 @@ package brj
 
 import brj.runtime.BridjeVector
 import brj.runtime.BuiltinMetaObj
+import brj.runtime.Symbol
+import brj.runtime.sym
 import com.oracle.truffle.api.interop.ArityException
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.InvalidArrayIndexException
@@ -14,30 +16,30 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 // Meta objects for each form type
-object SymbolMeta : BuiltinMetaObj("Symbol", "brj.forms") {
+object SymbolFormMeta : BuiltinMetaObj("SymbolForm".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is SymbolForm
 
     @Throws(ArityException::class)
     override fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val str = arguments[0] as TruffleString
-        return SymbolForm(str.toJavaStringUncached())
+        val sym = arguments[0] as Symbol
+        return SymbolForm(sym)
     }
 }
 
-object QSymbolMeta : BuiltinMetaObj("QSymbol", "brj.forms") {
+object QSymbolFormMeta : BuiltinMetaObj("QSymbolForm".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is QSymbolForm
 
     @Throws(ArityException::class)
     override fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != 2) throw ArityException.create(2, 2, arguments.size)
-        val ns = (arguments[0] as TruffleString).toJavaStringUncached()
-        val member = (arguments[1] as TruffleString).toJavaStringUncached()
+        val ns = arguments[0] as Symbol
+        val member = arguments[1] as Symbol
         return QSymbolForm(ns, member)
     }
 }
 
-object ListMeta : BuiltinMetaObj("List", "brj.forms") {
+object ListMeta : BuiltinMetaObj("List".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is ListForm
 
     @Throws(ArityException::class)
@@ -48,7 +50,7 @@ object ListMeta : BuiltinMetaObj("List", "brj.forms") {
     }
 }
 
-object VectorMeta : BuiltinMetaObj("Vector", "brj.forms") {
+object VectorMeta : BuiltinMetaObj("Vector".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is VectorForm
 
     @Throws(ArityException::class)
@@ -59,7 +61,7 @@ object VectorMeta : BuiltinMetaObj("Vector", "brj.forms") {
     }
 }
 
-object RecordMeta : BuiltinMetaObj("Record", "brj.forms") {
+object RecordMeta : BuiltinMetaObj("Record".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is RecordForm
 
     @Throws(ArityException::class)
@@ -70,7 +72,7 @@ object RecordMeta : BuiltinMetaObj("Record", "brj.forms") {
     }
 }
 
-object SetMeta : BuiltinMetaObj("Set", "brj.forms") {
+object SetMeta : BuiltinMetaObj("Set".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is SetForm
 
     @Throws(ArityException::class)
@@ -81,7 +83,7 @@ object SetMeta : BuiltinMetaObj("Set", "brj.forms") {
     }
 }
 
-object IntMeta : BuiltinMetaObj("Int", "brj.forms") {
+object IntMeta : BuiltinMetaObj("Int".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is IntForm
 
     @Throws(ArityException::class)
@@ -91,7 +93,7 @@ object IntMeta : BuiltinMetaObj("Int", "brj.forms") {
     }
 }
 
-object DoubleMeta : BuiltinMetaObj("Double", "brj.forms") {
+object DoubleMeta : BuiltinMetaObj("Double".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is DoubleForm
 
     @Throws(ArityException::class)
@@ -101,7 +103,7 @@ object DoubleMeta : BuiltinMetaObj("Double", "brj.forms") {
     }
 }
 
-object StringMeta : BuiltinMetaObj("String", "brj.forms") {
+object StringMeta : BuiltinMetaObj("String".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is StringForm
 
     @Throws(ArityException::class)
@@ -112,7 +114,7 @@ object StringMeta : BuiltinMetaObj("String", "brj.forms") {
     }
 }
 
-object BigIntMeta : BuiltinMetaObj("BigInt", "brj.forms") {
+object BigIntMeta : BuiltinMetaObj("BigInt".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is BigIntForm
 
     @Throws(ArityException::class)
@@ -122,7 +124,7 @@ object BigIntMeta : BuiltinMetaObj("BigInt", "brj.forms") {
     }
 }
 
-object BigDecMeta : BuiltinMetaObj("BigDec", "brj.forms") {
+object BigDecMeta : BuiltinMetaObj("BigDec".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is BigDecForm
 
     @Throws(ArityException::class)
@@ -132,53 +134,53 @@ object BigDecMeta : BuiltinMetaObj("BigDec", "brj.forms") {
     }
 }
 
-object KeywordMeta : BuiltinMetaObj("Keyword", "brj.forms") {
+object KeywordFormMeta : BuiltinMetaObj("KeywordForm".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is KeywordForm
 
     @Throws(ArityException::class)
     override fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val str = arguments[0] as TruffleString
-        return KeywordForm(str.toJavaStringUncached())
+        val sym = arguments[0] as Symbol
+        return KeywordForm(sym)
     }
 }
 
-object QKeywordMeta : BuiltinMetaObj("QKeyword", "brj.forms") {
+object QKeywordFormMeta : BuiltinMetaObj("QKeywordForm".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is QKeywordForm
 
     @Throws(ArityException::class)
     override fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != 2) throw ArityException.create(2, 2, arguments.size)
-        val ns = (arguments[0] as TruffleString).toJavaStringUncached()
-        val member = (arguments[1] as TruffleString).toJavaStringUncached()
+        val ns = arguments[0] as Symbol
+        val member = arguments[1] as Symbol
         return QKeywordForm(ns, member)
     }
 }
 
-object DotSymbolMeta : BuiltinMetaObj("DotSymbol", "brj.forms") {
+object DotSymbolFormMeta : BuiltinMetaObj("DotSymbolForm".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is DotSymbolForm
 
     @Throws(ArityException::class)
     override fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val str = arguments[0] as TruffleString
-        return DotSymbolForm(str.toJavaStringUncached())
+        val sym = arguments[0] as Symbol
+        return DotSymbolForm(sym)
     }
 }
 
-object QDotSymbolMeta : BuiltinMetaObj("QDotSymbol", "brj.forms") {
+object QDotSymbolFormMeta : BuiltinMetaObj("QDotSymbolForm".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is QDotSymbolForm
 
     @Throws(ArityException::class)
     override fun execute(arguments: Array<Any?>): Any {
         if (arguments.size != 2) throw ArityException.create(2, 2, arguments.size)
-        val ns = (arguments[0] as TruffleString).toJavaStringUncached()
-        val member = (arguments[1] as TruffleString).toJavaStringUncached()
+        val ns = arguments[0] as Symbol
+        val member = arguments[1] as Symbol
         return QDotSymbolForm(ns, member)
     }
 }
 
-object UnquoteMeta : BuiltinMetaObj("Unquote", "brj.forms") {
+object UnquoteMeta : BuiltinMetaObj("Unquote".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is UnquoteForm
 
     @Throws(ArityException::class)
@@ -188,7 +190,7 @@ object UnquoteMeta : BuiltinMetaObj("Unquote", "brj.forms") {
     }
 }
 
-object UnquoteSpliceMeta : BuiltinMetaObj("UnquoteSplice", "brj.forms") {
+object UnquoteSpliceMeta : BuiltinMetaObj("UnquoteSplice".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is UnquoteSpliceForm
 
     @Throws(ArityException::class)
@@ -198,7 +200,7 @@ object UnquoteSpliceMeta : BuiltinMetaObj("UnquoteSplice", "brj.forms") {
     }
 }
 
-object SyntaxQuoteMeta : BuiltinMetaObj("SyntaxQuote", "brj.forms") {
+object SyntaxQuoteMeta : BuiltinMetaObj("SyntaxQuote".sym, "brj.forms".sym) {
     override fun isMetaInstance(instance: Any?) = instance is SyntaxQuoteForm
 
     @Throws(ArityException::class)
@@ -219,10 +221,10 @@ sealed class Form : TruffleObject {
     abstract fun copy(): Form
 
     fun withMeta(keyword: KeywordForm): Form =
-        withMeta(RecordForm(listOf(keyword, SymbolForm("true")), keyword.loc))
+        withMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
 
     fun withMeta(keyword: QKeywordForm): Form =
-        withMeta(RecordForm(listOf(keyword, SymbolForm("true")), keyword.loc))
+        withMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
 
     fun withMeta(record: RecordForm): Form = copy().also {
         it.meta = if (meta == null) record else RecordForm(meta!!.els + record.els, record.loc)
@@ -273,40 +275,40 @@ class StringForm(val value: String, override val loc: SourceSection? = null) : F
     override fun toString(): String = "\"${value.reescape()}\""
 }
 
-class SymbolForm(val name: String, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = SymbolMeta
-    override fun copy() = SymbolForm(name, loc)
-    override fun toString(): String = name
+class SymbolForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = SymbolFormMeta
+    override fun copy() = SymbolForm(sym, loc)
+    override fun toString(): String = sym.name
 }
 
-class QSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = QSymbolMeta
-    override fun copy() = QSymbolForm(namespace, member, loc)
-    override fun toString(): String = "$namespace/$member"
+class QSymbolForm(val ns: Symbol, val member: Symbol, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = QSymbolFormMeta
+    override fun copy() = QSymbolForm(ns, member, loc)
+    override fun toString(): String = "${ns.name}/${member.name}"
 }
 
-class KeywordForm(val name: String, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = KeywordMeta
-    override fun copy() = KeywordForm(name, loc)
-    override fun toString(): String = ":$name"
+class KeywordForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = KeywordFormMeta
+    override fun copy() = KeywordForm(sym, loc)
+    override fun toString(): String = ":${sym.name}"
 }
 
-class QKeywordForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = QKeywordMeta
-    override fun copy() = QKeywordForm(namespace, member, loc)
-    override fun toString(): String = ":$namespace/$member"
+class QKeywordForm(val ns: Symbol, val member: Symbol, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = QKeywordFormMeta
+    override fun copy() = QKeywordForm(ns, member, loc)
+    override fun toString(): String = ":${ns.name}/${member.name}"
 }
 
-class DotSymbolForm(val name: String, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = DotSymbolMeta
-    override fun copy() = DotSymbolForm(name, loc)
-    override fun toString(): String = ".$name"
+class DotSymbolForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = DotSymbolFormMeta
+    override fun copy() = DotSymbolForm(sym, loc)
+    override fun toString(): String = ".${sym.name}"
 }
 
-class QDotSymbolForm(val namespace: String, val member: String, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = QDotSymbolMeta
-    override fun copy() = QDotSymbolForm(namespace, member, loc)
-    override fun toString(): String = "$namespace/.$member"
+class QDotSymbolForm(val ns: Symbol, val member: Symbol, override val loc: SourceSection? = null) : Form() {
+    override val metaObj = QDotSymbolFormMeta
+    override fun copy() = QDotSymbolForm(ns, member, loc)
+    override fun toString(): String = "${ns.name}/.${member.name}"
 }
 
 @ExportLibrary(InteropLibrary::class)

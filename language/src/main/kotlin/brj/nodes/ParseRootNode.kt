@@ -135,9 +135,9 @@ class ParseRootNode(
     private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: String? = null): Pair<Any, NsEnv> {
         val value: Any =
             if (expr.fieldNames.isEmpty()) {
-                BridjeTaggedSingleton(expr.name)
+                BridjeTaggedSingleton(expr.name.name)
             } else {
-                BridjeTagConstructor(expr.name, expr.fieldNames.size, expr.fieldNames)
+                BridjeTagConstructor(expr.name.name, expr.fieldNames.size, expr.fieldNames)
             }
 
         val ns = nsEnv.nsDecl?.name ?: ""
@@ -151,7 +151,7 @@ class ParseRootNode(
             } else if (enumName != null) {
                 EnumType(enumName).notNull()
             } else {
-                TagType(ns, expr.name).notNull()
+                TagType(ns, expr.name.name).notNull()
             }
         } else {
             val typeVars = expr.typeVarNames.associateWith { TypeVar() }
@@ -164,7 +164,7 @@ class ParseRootNode(
             val returnType = if (enumName != null) {
                 EnumType(enumName, tagArgs, variances)
             } else {
-                TagType(ns, expr.name, tagArgs, variances)
+                TagType(ns, expr.name.name, tagArgs, variances)
             }
             FnType(fieldTypes, returnType.notNull()).notNull()
         }
@@ -214,10 +214,10 @@ class ParseRootNode(
                 }
 
                 is DefEnumExpr -> {
-                    val variantNames = mutableSetOf<String>()
+                    val variantNames = mutableSetOf<Symbol>()
                     var lastValue: Any? = null
                     for (tagExpr in expr.variants) {
-                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv, enumName = expr.name)
+                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv, enumName = expr.name.name)
                         nsEnv = updatedNsEnv
                         variantNames.add(tagExpr.name)
                         lastValue = value
@@ -294,12 +294,13 @@ class ParseRootNode(
                 is DefKeysExpr -> {
                     var lastKey: BridjeKey? = null
                     for (name in expr.names) {
-                        val key = BridjeKey(name)
+                        val key = BridjeKey(name.name)
                         val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                         val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
+                        val optName = Symbol.intern("?${name.name}")
                         nsEnv = nsEnv.defKey(name, key, type = keyType)
-                        nsEnv = nsEnv.defKey("?$name", BridjeOptionalKey(name), type = optKeyType)
-                        nsEnv = nsEnv.def("?$name", BridjeOptionalKey(name), type = optKeyType)
+                        nsEnv = nsEnv.defKey(optName, BridjeOptionalKey(name.name), type = optKeyType)
+                        nsEnv = nsEnv.def(optName, BridjeOptionalKey(name.name), type = optKeyType)
                         lastKey = key
                     }
                     lastKey

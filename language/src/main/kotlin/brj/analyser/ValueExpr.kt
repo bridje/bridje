@@ -1,6 +1,7 @@
 package brj.analyser
 
 import brj.*
+import brj.runtime.Symbol
 
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
@@ -119,7 +120,7 @@ class GlobalVarExpr(
     val globalVar: GlobalVar,
     override val loc: SourceSection? = null
 ) : ValueExpr {
-    override fun toString(): String = globalVar.name
+    override fun toString(): String = globalVar.name.name
 }
 
 class TruffleObjectExpr(
@@ -207,11 +208,11 @@ class RecordSetExpr(
 }
 
 class EffectVarExpr(
-    val name: String,
+    val name: Symbol,
     val effectVar: GlobalVar,
     override val loc: SourceSection? = null
 ) : ValueExpr {
-    override fun toString(): String = name
+    override fun toString(): String = name.name
 }
 
 class WithFxExpr(
@@ -220,7 +221,7 @@ class WithFxExpr(
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String {
-        val bindingsStr = bindings.joinToString(" ") { (gv, expr) -> "${gv.name} $expr" }
+        val bindingsStr = bindings.joinToString(" ") { (gv, expr) -> "${gv.name.name} $expr" }
         return "(withFx [$bindingsStr] $bodyExpr)"
     }
 }

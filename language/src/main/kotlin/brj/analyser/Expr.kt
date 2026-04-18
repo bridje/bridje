@@ -2,6 +2,7 @@ package brj.analyser
 
 import brj.Form
 import brj.GlobalVar
+import brj.runtime.Symbol
 import brj.types.Type
 import com.oracle.truffle.api.source.SourceSection
 
@@ -11,7 +12,7 @@ sealed interface Expr {
 }
 
 class DefExpr(
-    val name: String,
+    val name: Symbol,
     val valueExpr: ValueExpr,
     val metaExpr: ValueExpr? = null,
     override val loc: SourceSection? = null
@@ -20,7 +21,7 @@ class DefExpr(
 }
 
 class DefTagExpr(
-    val name: String,
+    val name: Symbol,
     val fieldNames: List<String>,
     val typeVarNames: List<String> = emptyList(),
     override val loc: SourceSection? = null
@@ -31,7 +32,7 @@ class DefTagExpr(
 }
 
 class DefEnumExpr(
-    val name: String,
+    val name: Symbol,
     val typeVarNames: List<String>,
     val variants: List<DefTagExpr>,
     override val loc: SourceSection? = null
@@ -41,7 +42,7 @@ class DefEnumExpr(
 }
 
 class DefMacroExpr(
-    val name: String,
+    val name: Symbol,
     val fn: FnExpr,
     override val loc: SourceSection? = null
 ) : Expr {
@@ -49,14 +50,14 @@ class DefMacroExpr(
 }
 
 class DefKeysExpr(
-    val names: List<String>,
+    val names: List<Symbol>,
     override val loc: SourceSection? = null
 ) : Expr {
-    override fun toString(): String = "(decl ${names.joinToString(" ") { ".$it" }})"
+    override fun toString(): String = "(decl ${names.joinToString(" ") { ".${it.name}" }})"
 }
 
 class DeclExpr(
-    val name: String,
+    val name: Symbol,
     val declaredType: Type,
     override val loc: SourceSection? = null
 ) : Expr {
@@ -64,7 +65,7 @@ class DeclExpr(
 }
 
 class DefxExpr(
-    val name: String,
+    val name: Symbol,
     val declaredType: Type,
     val defaultExpr: ValueExpr?,
     override val loc: SourceSection? = null

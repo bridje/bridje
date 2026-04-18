@@ -3,12 +3,13 @@ package brj.builtins
 import brj.BridjeLanguage
 import brj.GlobalVar
 import brj.runtime.BridjeFunction
+import brj.runtime.Symbol
 import brj.types.*
 import brj.types.Type
 import com.oracle.truffle.api.nodes.RootNode
 
 object Builtins {
-    fun createBuiltinFunctions(language: BridjeLanguage): Map<String, GlobalVar> {
+    fun createBuiltinFunctions(language: BridjeLanguage): Map<Symbol, GlobalVar> {
         fun numericBinOp(name: String, node: RootNode): GlobalVar {
             val t = freshType()
             return createBuiltinFunction(name, node, FnType(listOf(t, t), t).notNull())
@@ -57,5 +58,5 @@ object Builtins {
     }
 
     private fun createBuiltinFunction(name: String, node: RootNode, type: Type) =
-        GlobalVar(name, BridjeFunction(node.callTarget), type = type)
+        GlobalVar(Symbol.intern(name), BridjeFunction(node.callTarget), type = type)
 }

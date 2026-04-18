@@ -1,6 +1,7 @@
 package brj
 
 import brj.Reader.Companion.readForms
+import brj.runtime.Symbol
 import com.oracle.truffle.api.source.Source
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -14,10 +15,10 @@ private fun Form.contentEquals(other: Form): Boolean = when {
     this is BigIntForm && other is BigIntForm -> value == other.value
     this is BigDecForm && other is BigDecForm -> value == other.value
     this is StringForm && other is StringForm -> value == other.value
-    this is SymbolForm && other is SymbolForm -> name == other.name
-    this is KeywordForm && other is KeywordForm -> name == other.name
-    this is QKeywordForm && other is QKeywordForm -> namespace == other.namespace && member == other.member
-    this is QSymbolForm && other is QSymbolForm -> namespace == other.namespace && member == other.member
+    this is SymbolForm && other is SymbolForm -> sym == other.sym
+    this is KeywordForm && other is KeywordForm -> sym == other.sym
+    this is QKeywordForm && other is QKeywordForm -> ns == other.ns && member == other.member
+    this is QSymbolForm && other is QSymbolForm -> ns == other.ns && member == other.member
     this is ListForm && other is ListForm ->
         els.size == other.els.size && els.zip(other.els).all { (a, b) -> a.contentEquals(b) }
     this is VectorForm && other is VectorForm ->
@@ -29,9 +30,9 @@ private fun Form.contentEquals(other: Form): Boolean = when {
     else -> false
 }
 
-private fun sym(name: String) = SymbolForm(name)
-private fun kw(name: String) = KeywordForm(name)
-private fun qsym(ns: String, member: String) = QSymbolForm(ns, member)
+private fun sym(name: String) = SymbolForm(Symbol.intern(name))
+private fun kw(name: String) = KeywordForm(Symbol.intern(name))
+private fun qsym(ns: String, member: String) = QSymbolForm(Symbol.intern(ns), Symbol.intern(member))
 private fun int(value: Long) = IntForm(value)
 private fun list(vararg els: Form) = ListForm(els.toList())
 private fun vec(vararg els: Form) = VectorForm(els.toList())

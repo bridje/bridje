@@ -8,9 +8,9 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.strings.TruffleString
 
 @ExportLibrary(InteropLibrary::class)
-abstract class BuiltinMetaObj(val tagName: String, val ns: String) : TruffleObject {
-    private val fqName: String = "$ns/$tagName"
-    private val tagString: TruffleString = TruffleString.fromConstant(tagName, TruffleString.Encoding.UTF_8)
+abstract class BuiltinMetaObj(val tagName: Symbol, val ns: Symbol) : TruffleObject {
+    private val fqName: String = "${ns.name}/${tagName.name}"
+    private val tagString: TruffleString = TruffleString.fromConstant(tagName.name, TruffleString.Encoding.UTF_8)
     private val fqTagString: TruffleString = TruffleString.fromConstant(fqName, TruffleString.Encoding.UTF_8)
 
     @ExportMessage fun isMetaObject() = true

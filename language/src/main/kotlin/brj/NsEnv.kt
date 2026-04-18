@@ -17,6 +17,9 @@ import brj.runtime.Anomaly
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeRecord
 import brj.runtime.FileMeta
+import brj.runtime.Symbol
+import brj.runtime.SymbolMeta
+import brj.runtime.sym
 import brj.types.BoolType
 import brj.types.FnType
 import brj.types.RecordType
@@ -42,38 +45,39 @@ typealias Imports = Map<String, String>
 data class NsEnv(
     val requires: Requires = emptyMap(),
     val imports: Imports = emptyMap(),
-    val vars: Map<String, GlobalVar> = emptyMap(),
-    val keys: Map<String, GlobalVar> = emptyMap(),
-    val effectVars: Map<String, GlobalVar> = emptyMap(),
+    val vars: Map<Symbol, GlobalVar> = emptyMap(),
+    val keys: Map<Symbol, GlobalVar> = emptyMap(),
+    val effectVars: Map<Symbol, GlobalVar> = emptyMap(),
     val interopVars: Map<String, GlobalVar> = emptyMap(),
-    val pendingDecls: Map<String, Type> = emptyMap(),
-    val enums: Map<String, Set<String>> = emptyMap(),
+    val pendingDecls: Map<Symbol, Type> = emptyMap(),
+    val enums: Map<Symbol, Set<Symbol>> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
 ) : TruffleObject {
     companion object {
         private val builtinFormMetas = mapOf(
-            "Symbol" to GlobalVar("Symbol", SymbolMeta),
-            "QSymbol" to GlobalVar("QSymbol", QSymbolMeta),
-            "List" to GlobalVar("List", ListMeta),
-            "Vector" to GlobalVar("Vector", VectorMeta),
-            "Record" to GlobalVar("Record", RecordMeta),
-            "Set" to GlobalVar("Set", SetMeta),
-            "Int" to GlobalVar("Int", IntMeta),
-            "Double" to GlobalVar("Double", DoubleMeta),
-            "String" to GlobalVar("String", StringMeta),
-            "BigInt" to GlobalVar("BigInt", BigIntMeta),
-            "BigDec" to GlobalVar("BigDec", BigDecMeta),
-            "Keyword" to GlobalVar("Keyword", KeywordMeta),
-            "QKeyword" to GlobalVar("QKeyword", QKeywordMeta),
-            "DotSymbol" to GlobalVar("DotSymbol", DotSymbolMeta),
-            "QDotSymbol" to GlobalVar("QDotSymbol", QDotSymbolMeta),
+            "Symbol".sym to GlobalVar("Symbol".sym, SymbolMeta),
+            "SymbolForm".sym to GlobalVar("SymbolForm".sym, SymbolFormMeta),
+            "QSymbolForm".sym to GlobalVar("QSymbolForm".sym, QSymbolFormMeta),
+            "KeywordForm".sym to GlobalVar("KeywordForm".sym, KeywordFormMeta),
+            "QKeywordForm".sym to GlobalVar("QKeywordForm".sym, QKeywordFormMeta),
+            "DotSymbolForm".sym to GlobalVar("DotSymbolForm".sym, DotSymbolFormMeta),
+            "QDotSymbolForm".sym to GlobalVar("QDotSymbolForm".sym, QDotSymbolFormMeta),
+            "List".sym to GlobalVar("List".sym, ListMeta),
+            "Vector".sym to GlobalVar("Vector".sym, VectorMeta),
+            "Record".sym to GlobalVar("Record".sym, RecordMeta),
+            "Set".sym to GlobalVar("Set".sym, SetMeta),
+            "Int".sym to GlobalVar("Int".sym, IntMeta),
+            "Double".sym to GlobalVar("Double".sym, DoubleMeta),
+            "String".sym to GlobalVar("String".sym, StringMeta),
+            "BigInt".sym to GlobalVar("BigInt".sym, BigIntMeta),
+            "BigDec".sym to GlobalVar("BigDec".sym, BigDecMeta),
         )
 
         private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->
             val tagType = TagType("brj.core", meta.tag)
             val type = FnType(listOf(RecordType.notNull()), tagType.notNull()).notNull()
-            meta.tag to GlobalVar(meta.tag, meta, type = type)
+            Symbol.intern(meta.tag) to GlobalVar(Symbol.intern(meta.tag), meta, type = type)
         }
 
         fun withBuiltins(language: BridjeLanguage): NsEnv {
@@ -85,8 +89,8 @@ data class NsEnv(
             val spawnFn = BridjeFunction(SpawnNode(language).callTarget)
             val awaitFn = BridjeFunction(AwaitNode(language).callTarget)
             return NsEnv(vars = mapOf(
-                "spawn" to GlobalVar("spawn", spawnFn),
-                "await" to GlobalVar("await", awaitFn),
+                "spawn".sym to GlobalVar("spawn".sym, spawnFn),
+                "await".sym to GlobalVar("await".sym, awaitFn),
             ))
         }
 
@@ -95,39 +99,39 @@ data class NsEnv(
             val str = StringType.notNull()
             val bool = BoolType.notNull()
 
-            fun gv(name: String, node: RootNode, params: List<Type>, ret: Type): Pair<String, GlobalVar> =
+            fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
                 name to GlobalVar(name, BridjeFunction(node.callTarget),
                     type = FnType(params, ret).notNull())
 
             val fileCtorType = FnType(listOf(freshType()), fileTagType).notNull()
             return NsEnv(vars = mapOf(
-                gv("file", FileNode(language), listOf(str), fileTagType),
-                gv("exists?", FsExistsNode(language), listOf(fileTagType), bool),
-                gv("isFile?", FsIsFileNode(language), listOf(fileTagType), bool),
-                gv("isDir?", FsIsDirNode(language), listOf(fileTagType), bool),
-                gv("readString", FsReadStringNode(language), listOf(fileTagType), str),
-                gv("list", FsListNode(language), listOf(fileTagType), VectorType(fileTagType).notNull()),
-                gv("resolve", FsResolveNode(language), listOf(fileTagType, str), fileTagType),
-                gv("name", FsNameNode(language), listOf(fileTagType), str),
-                gv("path", FsPathNode(language), listOf(fileTagType), str),
-                "File" to GlobalVar("File", FileMeta, type = fileCtorType),
+                gv("file".sym, FileNode(language), listOf(str), fileTagType),
+                gv("exists?".sym, FsExistsNode(language), listOf(fileTagType), bool),
+                gv("isFile?".sym, FsIsFileNode(language), listOf(fileTagType), bool),
+                gv("isDir?".sym, FsIsDirNode(language), listOf(fileTagType), bool),
+                gv("readString".sym, FsReadStringNode(language), listOf(fileTagType), str),
+                gv("list".sym, FsListNode(language), listOf(fileTagType), VectorType(fileTagType).notNull()),
+                gv("resolve".sym, FsResolveNode(language), listOf(fileTagType, str), fileTagType),
+                gv("name".sym, FsNameNode(language), listOf(fileTagType), str),
+                gv("path".sym, FsPathNode(language), listOf(fileTagType), str),
+                "File".sym to GlobalVar("File".sym, FileMeta, type = fileCtorType),
             ))
         }
     }
 
-    operator fun get(name: String): GlobalVar? = vars[name]
+    operator fun get(name: Symbol): GlobalVar? = vars[name]
 
-    fun key(name: String): GlobalVar? = keys[name]
+    fun key(name: Symbol): GlobalVar? = keys[name]
 
-    fun effectVar(name: String): GlobalVar? = effectVars[name]
+    fun effectVar(name: Symbol): GlobalVar? = effectVars[name]
 
-    fun defx(name: String, value: Any?, type: Type, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
+    fun defx(name: Symbol, value: Any?, type: Type, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
         copy(effectVars = effectVars + (name to GlobalVar(name, value, meta, type)))
 
-    fun decl(name: String, declaredType: Type): NsEnv =
+    fun decl(name: Symbol, declaredType: Type): NsEnv =
         copy(pendingDecls = pendingDecls + (name to declaredType))
 
-    fun def(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv {
+    fun def(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv {
         val declaredType = pendingDecls[name]
         val finalMeta = if (declaredType != null) meta.put("declaredType", declaredType) else meta
         return copy(
@@ -136,23 +140,23 @@ data class NsEnv(
         )
     }
 
-    fun withEffects(name: String, effects: List<GlobalVar>): NsEnv {
+    fun withEffects(name: Symbol, effects: List<GlobalVar>): NsEnv {
         val existing = vars[name] ?: return this
         return copy(vars = vars + (name to GlobalVar(existing.name, existing.value, existing.meta, existing.type, effects)))
     }
 
     fun defInterop(qualifiedName: String, value: Any?, type: Type): NsEnv =
-        copy(interopVars = interopVars + (qualifiedName to GlobalVar(qualifiedName, value, type = type)))
+        copy(interopVars = interopVars + (qualifiedName to GlobalVar(Symbol.intern(qualifiedName), value, type = type)))
 
     fun interopVar(qualifiedName: String): GlobalVar? = interopVars[qualifiedName]
 
-    fun defKey(name: String, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
+    fun defKey(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
         copy(keys = keys + (name to GlobalVar(name, value, meta, type)))
 
-    fun defEnum(enumName: String, variantNames: Set<String>): NsEnv =
+    fun defEnum(enumName: Symbol, variantNames: Set<Symbol>): NsEnv =
         copy(enums = enums + (enumName to variantNames))
 
-    fun enumForTag(tagName: String): String? = enums.entries.firstOrNull { tagName in it.value }?.key
+    fun enumForTag(tagName: Symbol): Symbol? = enums.entries.firstOrNull { tagName in it.value }?.key
 
     @ExportMessage
     fun hasLanguage() = true
@@ -168,12 +172,12 @@ data class NsEnv(
 
     @ExportMessage
     @TruffleBoundary
-    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys((vars.keys + keys.keys + effectVars.keys).toTypedArray())
+    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys((vars.keys + keys.keys + effectVars.keys).map { it.name }.toTypedArray())
 
     @ExportMessage
     @TruffleBoundary
     fun isMemberReadable(member: String) =
-        vars.containsKey(member) || keys.containsKey(member) || effectVars.containsKey(member)
+        vars.containsKey(Symbol.intern(member)) || keys.containsKey(Symbol.intern(member)) || effectVars.containsKey(Symbol.intern(member))
             || member == "__test_var_names__"
             || member.startsWith("__var_meta__:")
 
@@ -186,10 +190,10 @@ data class NsEnv(
         }
         if (member.startsWith("__var_meta__:")) {
             val varName = member.removePrefix("__var_meta__:")
-            val gv = vars[varName] ?: throw UnknownIdentifierException.create(member)
+            val gv = vars[Symbol.intern(varName)] ?: throw UnknownIdentifierException.create(member)
             return gv.meta
         }
-        val v = vars[member] ?: keys[member] ?: effectVars[member] ?: throw UnknownIdentifierException.create(member)
+        val v = vars[Symbol.intern(member)] ?: keys[Symbol.intern(member)] ?: effectVars[Symbol.intern(member)] ?: throw UnknownIdentifierException.create(member)
         return v.value ?: throw UnknownIdentifierException.create(member)
     }
 
@@ -199,7 +203,7 @@ data class NsEnv(
             try {
                 val interop = InteropLibrary.getUncached()
                 if (interop.isMemberReadable(gv.meta, "test") && interop.readMember(gv.meta, "test") == true)
-                    gv.name
+                    gv.name.name
                 else null
             } catch (_: Exception) { null }
         }

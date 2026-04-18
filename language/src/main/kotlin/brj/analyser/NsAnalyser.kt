@@ -5,16 +5,16 @@ import brj.*
 private fun analyseSpec(prefix: String, spec: Form): Pair<String, String> =
     when (spec) {
         is SymbolForm -> {
-            val name = spec.name
+            val name = spec.sym.name
             name to "$prefix.$name"
         }
         is ListForm -> {
-            if ((spec.els.firstOrNull() as? SymbolForm)?.name != "as") {
+            if ((spec.els.firstOrNull() as? SymbolForm)?.sym?.name != "as") {
                 error("spec list must be an 'as' form: $spec")
             }
-            val name = (spec.els.getOrNull(1) as? SymbolForm)?.name
+            val name = (spec.els.getOrNull(1) as? SymbolForm)?.sym?.name
                 ?: error("as requires name: $spec")
-            val alias = (spec.els.getOrNull(2) as? SymbolForm)?.name
+            val alias = (spec.els.getOrNull(2) as? SymbolForm)?.sym?.name
                 ?: error("as requires alias: $spec")
             alias to "$prefix.$name"
         }
@@ -27,7 +27,7 @@ private fun analysePackagedClause(clauseForm: ListForm): Map<String, String> {
     for (packageForm in clauseForm.els.drop(1)) {
         if (packageForm !is ListForm) error("package group must be a list: $packageForm")
 
-        val prefix = (packageForm.els.firstOrNull() as? SymbolForm)?.name
+        val prefix = (packageForm.els.firstOrNull() as? SymbolForm)?.sym?.name
             ?: error("package group must start with package name: $packageForm")
 
         for (spec in packageForm.els.drop(1)) {
@@ -44,11 +44,11 @@ fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
     if (first !is ListForm) return Pair(null, this)
 
     val els = first.els
-    if ((els.firstOrNull() as? SymbolForm)?.name != "ns") return Pair(null, this)
+    if ((els.firstOrNull() as? SymbolForm)?.sym?.name != "ns") return Pair(null, this)
 
     val nsName = when (val nameForm = els.getOrNull(1)) {
-        is SymbolForm -> nameForm.name
-        is QSymbolForm -> "${nameForm.namespace}.${nameForm.member}"
+        is SymbolForm -> nameForm.sym.name
+        is QSymbolForm -> "${nameForm.ns.name}.${nameForm.member.name}"
         else -> error("ns requires a name")
     }
 
@@ -57,7 +57,7 @@ fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
 
     for (clause in els.drop(2)) {
         if (clause !is ListForm) error("ns clause must be a list: $clause")
-        val clauseName = (clause.els.firstOrNull() as? SymbolForm)?.name
+        val clauseName = (clause.els.firstOrNull() as? SymbolForm)?.sym?.name
             ?: error("ns clause must start with a symbol: $clause")
 
         when (clauseName) {

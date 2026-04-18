@@ -31,7 +31,7 @@ class BridjeFile(@JvmField val truffleFile: TruffleFile) : TruffleObject {
     fun toDisplayString(allowSideEffects: Boolean): String = "File(${truffleFile.path})"
 }
 
-object FileMeta : BuiltinMetaObj("File", "brj.fs") {
+object FileMeta : BuiltinMetaObj("File".sym, "brj.fs".sym) {
     override fun isMetaInstance(instance: Any?) = instance is BridjeFile
 
     override fun execute(arguments: Array<Any?>): Any {

@@ -8,7 +8,7 @@ class QuoteTest {
     @Test
     fun `quote symbol returns SymbolForm`() = withContext { ctx ->
         val result = ctx.evalBridje("'foo")
-        assertEquals("Symbol", result.metaObject.metaSimpleName)
+        assertEquals("SymbolForm", result.metaObject.metaSimpleName)
         assertEquals("foo", result.toString())
     }
 
@@ -51,7 +51,7 @@ class QuoteTest {
     fun `case on quoted symbol`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             case: 'foo
-              Symbol 1
+              SymbolForm 1
               List 2
               3
         """.trimIndent())
@@ -62,7 +62,7 @@ class QuoteTest {
     fun `case on quoted list`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             case: '(a b c)
-              Symbol 1
+              SymbolForm 1
               List 2
               3
         """.trimIndent())
@@ -84,7 +84,7 @@ class QuoteTest {
     fun `case with default on quoted form`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             case: '42
-              Symbol 1
+              SymbolForm 1
               List 2
               99
         """.trimIndent())
@@ -99,7 +99,7 @@ class QuoteTest {
         val forms = result.getArrayElement(0)
         assertTrue(forms.hasArrayElements())
         assertEquals(3L, forms.arraySize)
-        assertEquals("Symbol", forms.getArrayElement(0).metaObject.metaSimpleName)
+        assertEquals("SymbolForm", forms.getArrayElement(0).metaObject.metaSimpleName)
         assertEquals("a", forms.getArrayElement(0).toString())
     }
 
@@ -129,7 +129,7 @@ class QuoteTest {
     @Test
     fun `syntax-quote resolves brj core builtin`() = withContext { ctx ->
         val result = ctx.evalBridje("`count")
-        assertEquals("QSymbol", result.metaObject.metaSimpleName)
+        assertEquals("QSymbolForm",result.metaObject.metaSimpleName)
         assertEquals("brj.core/count", result.toString())
     }
 
@@ -154,7 +154,7 @@ class QuoteTest {
     @Test
     fun `syntax-quote on fully qualified symbol`() = withContext { ctx ->
         val result = ctx.evalBridje("`brj.core/count")
-        assertEquals("QSymbol", result.metaObject.metaSimpleName)
+        assertEquals("QSymbolForm",result.metaObject.metaSimpleName)
         assertEquals("brj.core/count", result.toString())
     }
 
@@ -181,7 +181,7 @@ class QuoteTest {
         """.trimIndent())
 
         val resolved = result.getMember("result")
-        assertEquals("QSymbol", resolved.metaObject.metaSimpleName)
+        assertEquals("QSymbolForm",resolved.metaObject.metaSimpleName)
         assertEquals("foo.lib/bar", resolved.toString())
     }
 }

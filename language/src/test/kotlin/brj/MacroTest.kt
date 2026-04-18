@@ -11,7 +11,7 @@ class MacroTest {
         val result = ctx.evalBridje("""
             do:
               defmacro: unless(cond, body)
-                List([Symbol("if") cond 'nil body])
+                List([SymbolForm(Symbol("if")) cond 'nil body])
               unless: false
                 42
         """)
@@ -23,7 +23,7 @@ class MacroTest {
         val result = ctx.evalBridje("""
             do:
               defmacro: when(cond, body)
-                List([Symbol("if") cond body 'nil])
+                List([SymbolForm(Symbol("if")) cond body 'nil])
               when: true
                 1
         """)
@@ -35,7 +35,7 @@ class MacroTest {
         val result = ctx.evalBridje("""
             do:
               defmacro: when(cond, body)
-                List([Symbol("if") cond body 'nil])
+                List([SymbolForm(Symbol("if")) cond body 'nil])
               when: false
                 1
         """)
@@ -47,7 +47,7 @@ class MacroTest {
         val result1 = ctx.evalBridje("""
             do:
               defmacro: if-not(cond, then, else)
-                List([Symbol("if") cond else then])
+                List([SymbolForm(Symbol("if")) cond else then])
               if-not: false
                 1
                 2

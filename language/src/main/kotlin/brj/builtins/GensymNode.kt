@@ -3,6 +3,7 @@ package brj.builtins
 import brj.BridjeLanguage
 import brj.SymbolForm
 import brj.runtime.BridjeContext
+import brj.runtime.Symbol
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
 
@@ -21,6 +22,6 @@ class GensymNode(language: BridjeLanguage) : RootNode(language) {
             "G"
         }
 
-        return SymbolForm("${prefix}__${id}")
+        return SymbolForm(Symbol.intern("${prefix}__${id}"))
     }
 }
