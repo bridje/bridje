@@ -55,29 +55,33 @@ data class NsEnv(
     val source: Source? = null,
 ) : TruffleObject {
     companion object {
-        private val builtinFormMetas = mapOf(
-            "Symbol".sym to GlobalVar("Symbol".sym, SymbolMeta),
-            "SymbolForm".sym to GlobalVar("SymbolForm".sym, SymbolFormMeta),
-            "QSymbolForm".sym to GlobalVar("QSymbolForm".sym, QSymbolFormMeta),
-            "KeywordForm".sym to GlobalVar("KeywordForm".sym, KeywordFormMeta),
-            "QKeywordForm".sym to GlobalVar("QKeywordForm".sym, QKeywordFormMeta),
-            "DotSymbolForm".sym to GlobalVar("DotSymbolForm".sym, DotSymbolFormMeta),
-            "QDotSymbolForm".sym to GlobalVar("QDotSymbolForm".sym, QDotSymbolFormMeta),
-            "List".sym to GlobalVar("List".sym, ListMeta),
-            "Vector".sym to GlobalVar("Vector".sym, VectorMeta),
-            "Record".sym to GlobalVar("Record".sym, RecordMeta),
-            "Set".sym to GlobalVar("Set".sym, SetMeta),
-            "Int".sym to GlobalVar("Int".sym, IntMeta),
-            "Double".sym to GlobalVar("Double".sym, DoubleMeta),
-            "String".sym to GlobalVar("String".sym, StringMeta),
-            "BigInt".sym to GlobalVar("BigInt".sym, BigIntMeta),
-            "BigDec".sym to GlobalVar("BigDec".sym, BigDecMeta),
-        )
+        private val builtinFormMetas = run {
+            val coreNs = "brj.core".sym
+            mapOf(
+                "Symbol".sym to GlobalVar(coreNs, "Symbol".sym, SymbolMeta),
+                "Var".sym to GlobalVar(coreNs, "Var".sym, VarMeta),
+                "SymbolForm".sym to GlobalVar(coreNs, "SymbolForm".sym, SymbolFormMeta),
+                "QSymbolForm".sym to GlobalVar(coreNs, "QSymbolForm".sym, QSymbolFormMeta),
+                "KeywordForm".sym to GlobalVar(coreNs, "KeywordForm".sym, KeywordFormMeta),
+                "QKeywordForm".sym to GlobalVar(coreNs, "QKeywordForm".sym, QKeywordFormMeta),
+                "DotSymbolForm".sym to GlobalVar(coreNs, "DotSymbolForm".sym, DotSymbolFormMeta),
+                "QDotSymbolForm".sym to GlobalVar(coreNs, "QDotSymbolForm".sym, QDotSymbolFormMeta),
+                "List".sym to GlobalVar(coreNs, "List".sym, ListMeta),
+                "Vector".sym to GlobalVar(coreNs, "Vector".sym, VectorMeta),
+                "Record".sym to GlobalVar(coreNs, "Record".sym, RecordMeta),
+                "Set".sym to GlobalVar(coreNs, "Set".sym, SetMeta),
+                "Int".sym to GlobalVar(coreNs, "Int".sym, IntMeta),
+                "Double".sym to GlobalVar(coreNs, "Double".sym, DoubleMeta),
+                "String".sym to GlobalVar(coreNs, "String".sym, StringMeta),
+                "BigInt".sym to GlobalVar(coreNs, "BigInt".sym, BigIntMeta),
+                "BigDec".sym to GlobalVar(coreNs, "BigDec".sym, BigDecMeta),
+            )
+        }
 
         private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->
             val tagType = TagType("brj.core", meta.tag)
             val type = FnType(listOf(RecordType.notNull()), tagType.notNull()).notNull()
-            Symbol.intern(meta.tag) to GlobalVar(Symbol.intern(meta.tag), meta, type = type)
+            Symbol.intern(meta.tag) to GlobalVar("brj.core".sym, Symbol.intern(meta.tag), meta, type = type)
         }
 
         fun withBuiltins(language: BridjeLanguage): NsEnv {
@@ -88,19 +92,21 @@ data class NsEnv(
         fun withConcurrentBuiltins(language: BridjeLanguage): NsEnv {
             val spawnFn = BridjeFunction(SpawnNode(language).callTarget)
             val awaitFn = BridjeFunction(AwaitNode(language).callTarget)
+            val concurrentNs = "brj.concurrent".sym
             return NsEnv(vars = mapOf(
-                "spawn".sym to GlobalVar("spawn".sym, spawnFn),
-                "await".sym to GlobalVar("await".sym, awaitFn),
+                "spawn".sym to GlobalVar(concurrentNs, "spawn".sym, spawnFn),
+                "await".sym to GlobalVar(concurrentNs, "await".sym, awaitFn),
             ))
         }
 
         fun withFsBuiltins(language: BridjeLanguage): NsEnv {
+            val fsNs = "brj.fs".sym
             val fileTagType = TagType("brj.fs", "File").notNull()
             val str = StringType.notNull()
             val bool = BoolType.notNull()
 
             fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
-                name to GlobalVar(name, BridjeFunction(node.callTarget),
+                name to GlobalVar(fsNs, name, BridjeFunction(node.callTarget),
                     type = FnType(params, ret).notNull())
 
             val fileCtorType = FnType(listOf(freshType()), fileTagType).notNull()
@@ -114,10 +120,12 @@ data class NsEnv(
                 gv("resolve".sym, FsResolveNode(language), listOf(fileTagType, str), fileTagType),
                 gv("name".sym, FsNameNode(language), listOf(fileTagType), str),
                 gv("path".sym, FsPathNode(language), listOf(fileTagType), str),
-                "File".sym to GlobalVar("File".sym, FileMeta, type = fileCtorType),
+                "File".sym to GlobalVar(fsNs, "File".sym, FileMeta, type = fileCtorType),
             ))
         }
     }
+
+    private val nsSymbol: Symbol get() = (nsDecl?.name ?: "<anonymous>").sym
 
     operator fun get(name: Symbol): GlobalVar? = vars[name]
 
@@ -126,7 +134,7 @@ data class NsEnv(
     fun effectVar(name: Symbol): GlobalVar? = effectVars[name]
 
     fun defx(name: Symbol, value: Any?, type: Type, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
-        copy(effectVars = effectVars + (name to GlobalVar(name, value, meta, type)))
+        copy(effectVars = effectVars + (name to GlobalVar(nsSymbol, name, value, meta, type)))
 
     fun decl(name: Symbol, declaredType: Type): NsEnv =
         copy(pendingDecls = pendingDecls + (name to declaredType))
@@ -135,23 +143,23 @@ data class NsEnv(
         val declaredType = pendingDecls[name]
         val finalMeta = if (declaredType != null) meta.put("declaredType", declaredType) else meta
         return copy(
-            vars = vars + (name to GlobalVar(name, value, finalMeta, type)),
+            vars = vars + (name to GlobalVar(nsSymbol, name, value, finalMeta, type)),
             pendingDecls = pendingDecls - name
         )
     }
 
     fun withEffects(name: Symbol, effects: List<GlobalVar>): NsEnv {
         val existing = vars[name] ?: return this
-        return copy(vars = vars + (name to GlobalVar(existing.name, existing.value, existing.meta, existing.type, effects)))
+        return copy(vars = vars + (name to GlobalVar(existing.ns, existing.name, existing.value, existing.meta, existing.type, effects)))
     }
 
     fun defInterop(qualifiedName: String, value: Any?, type: Type): NsEnv =
-        copy(interopVars = interopVars + (qualifiedName to GlobalVar(Symbol.intern(qualifiedName), value, type = type)))
+        copy(interopVars = interopVars + (qualifiedName to GlobalVar(nsSymbol, Symbol.intern(qualifiedName), value, type = type)))
 
     fun interopVar(qualifiedName: String): GlobalVar? = interopVars[qualifiedName]
 
     fun defKey(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
-        copy(keys = keys + (name to GlobalVar(name, value, meta, type)))
+        copy(keys = keys + (name to GlobalVar(nsSymbol, name, value, meta, type)))
 
     fun defEnum(enumName: Symbol, variantNames: Set<Symbol>): NsEnv =
         copy(enums = enums + (enumName to variantNames))

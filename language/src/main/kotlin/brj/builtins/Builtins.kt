@@ -4,6 +4,7 @@ import brj.BridjeLanguage
 import brj.GlobalVar
 import brj.runtime.BridjeFunction
 import brj.runtime.Symbol
+import brj.runtime.sym
 import brj.types.*
 import brj.types.Type
 import com.oracle.truffle.api.nodes.RootNode
@@ -41,8 +42,6 @@ object Builtins {
                 FnType(listOf(freshType()), RecordType.notNull()).notNull()),
             createBuiltinFunction("withMeta", WithMetaNode(language),
                 run { val t = freshType(); FnType(listOf(t, RecordType.notNull()), t).notNull() }),
-            createBuiltinFunction("varMeta", VarMetaNode(language),
-                FnType(listOf(FormType.notNull()), RecordType.notNull()).notNull()),
             createBuiltinFunction("throw", ThrowNode(language),
                 FnType(listOf(freshType()), nothingType()).notNull()),
             createBuiltinFunction("not", NotNode(language),
@@ -58,5 +57,5 @@ object Builtins {
     }
 
     private fun createBuiltinFunction(name: String, node: RootNode, type: Type) =
-        GlobalVar(Symbol.intern(name), BridjeFunction(node.callTarget), type = type)
+        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget), type = type)
 }
