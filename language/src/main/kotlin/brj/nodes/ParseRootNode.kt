@@ -129,6 +129,9 @@ class ParseRootNode(
         return BridjeFunction(outerRoot.callTarget)
     }
 
+    private fun locMeta(expr: Expr): BridjeRecord =
+        expr.loc?.let { BridjeRecord.EMPTY.put("loc", Loc(it)) } ?: BridjeRecord.EMPTY
+
     private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: String? = null): Pair<Any, NsEnv> {
         val value: Any =
             if (expr.fieldNames.isEmpty()) {
@@ -166,7 +169,7 @@ class ParseRootNode(
             FnType(fieldTypes, returnType.notNull()).notNull()
         }
 
-        return value to nsEnv.def(expr.name, value, type = type)
+        return value to nsEnv.def(expr.name, value, meta = locMeta(expr), type = type)
     }
 
     @TruffleBoundary
@@ -187,7 +190,8 @@ class ParseRootNode(
                 is DefExpr -> {
                     val type = expr.valueExpr.checkType()
                     val effects = expr.valueExpr.inferEffects().toList()
-                    val meta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
+                    val userMeta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
+                    val meta = expr.loc?.let { userMeta.put("loc", Loc(it)) } ?: userMeta
 
                     if (effects.isNotEmpty()) {
                         if (expr.valueExpr !is FnExpr) {
@@ -237,7 +241,7 @@ class ParseRootNode(
                     val fn = evalExpr(expr.fn, analyser.slotCount)
                     val fixedArity = if (expr.fn.isVariadic) expr.fn.params.size - 1 else expr.fn.params.size
                     val macro = BridjeMacro(fn!!, fixedArity, expr.fn.isVariadic)
-                    nsEnv = nsEnv.def(expr.name, macro, type = type)
+                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr), type = type)
                     macro
                 }
 
@@ -283,7 +287,7 @@ class ParseRootNode(
 
                 is DefxExpr -> {
                     val defaultValue = expr.defaultExpr?.let { evalExpr(it, analyser.slotCount) }
-                    nsEnv = nsEnv.defx(expr.name, defaultValue, expr.declaredType)
+                    nsEnv = nsEnv.defx(expr.name, defaultValue, expr.declaredType, meta = locMeta(expr))
                     defaultValue
                 }
 

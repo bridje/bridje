@@ -40,6 +40,8 @@ object Builtins {
                 FnType(listOf(freshType()), RecordType.notNull()).notNull()),
             createBuiltinFunction("withMeta", WithMetaNode(language),
                 run { val t = freshType(); FnType(listOf(t, RecordType.notNull()), t).notNull() }),
+            createBuiltinFunction("varMeta", VarMetaNode(language),
+                FnType(listOf(FormType.notNull()), RecordType.notNull()).notNull()),
             createBuiltinFunction("throw", ThrowNode(language),
                 FnType(listOf(freshType()), nothingType()).notNull()),
             createBuiltinFunction("not", NotNode(language),
