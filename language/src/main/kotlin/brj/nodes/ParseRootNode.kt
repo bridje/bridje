@@ -361,6 +361,15 @@ class ParseRootNode(
                     source = source
                 )
             }
+            // brj:fs starts with file as a Kotlin builtin and File as the tag
+            nsDecl?.name == "brj.fs" -> NsEnv.withFsBuiltins(lang).let { base ->
+                base.copy(
+                    requires = resolveRequires(frame),
+                    imports = nsDecl.imports,
+                    nsDecl = nsDecl,
+                    source = source
+                )
+            }
             nsDecl != null -> nsDecl.resolve(frame)
             else -> NsEnv()
         }

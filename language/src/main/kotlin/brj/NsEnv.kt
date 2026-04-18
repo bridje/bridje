@@ -3,14 +3,28 @@ package brj
 import brj.analyser.NsDecl
 import brj.builtins.Builtins
 import brj.builtins.AwaitNode
+import brj.builtins.FileNode
+import brj.builtins.FsExistsNode
+import brj.builtins.FsIsDirNode
+import brj.builtins.FsIsFileNode
+import brj.builtins.FsListNode
+import brj.builtins.FsNameNode
+import brj.builtins.FsPathNode
+import brj.builtins.FsReadStringNode
+import brj.builtins.FsResolveNode
 import brj.builtins.SpawnNode
 import brj.runtime.Anomaly
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeRecord
+import brj.runtime.FileMeta
+import brj.types.BoolType
 import brj.types.FnType
 import brj.types.RecordType
+import brj.types.StringType
 import brj.types.TagType
 import brj.types.Type
+import brj.types.VectorType
+import brj.types.freshType
 import brj.types.notNull
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -18,6 +32,7 @@ import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.interop.UnknownIdentifierException
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
+import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.Source
 
 typealias Requires = Map<String, NsEnv>
@@ -72,6 +87,30 @@ data class NsEnv(
             return NsEnv(vars = mapOf(
                 "spawn" to GlobalVar("spawn", spawnFn),
                 "await" to GlobalVar("await", awaitFn),
+            ))
+        }
+
+        fun withFsBuiltins(language: BridjeLanguage): NsEnv {
+            val fileTagType = TagType("brj.fs", "File").notNull()
+            val str = StringType.notNull()
+            val bool = BoolType.notNull()
+
+            fun gv(name: String, node: RootNode, params: List<Type>, ret: Type): Pair<String, GlobalVar> =
+                name to GlobalVar(name, BridjeFunction(node.callTarget),
+                    type = FnType(params, ret).notNull())
+
+            val fileCtorType = FnType(listOf(freshType()), fileTagType).notNull()
+            return NsEnv(vars = mapOf(
+                gv("file", FileNode(language), listOf(str), fileTagType),
+                gv("exists?", FsExistsNode(language), listOf(fileTagType), bool),
+                gv("isFile?", FsIsFileNode(language), listOf(fileTagType), bool),
+                gv("isDir?", FsIsDirNode(language), listOf(fileTagType), bool),
+                gv("readString", FsReadStringNode(language), listOf(fileTagType), str),
+                gv("list", FsListNode(language), listOf(fileTagType), VectorType(fileTagType).notNull()),
+                gv("resolve", FsResolveNode(language), listOf(fileTagType, str), fileTagType),
+                gv("name", FsNameNode(language), listOf(fileTagType), str),
+                gv("path", FsPathNode(language), listOf(fileTagType), str),
+                "File" to GlobalVar("File", FileMeta, type = fileCtorType),
             ))
         }
     }
