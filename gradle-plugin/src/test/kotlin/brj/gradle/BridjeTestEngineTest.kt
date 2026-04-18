@@ -15,6 +15,7 @@ class BridjeTestEngineTest {
     lateinit var projectDir: File
 
     private val worktreeRoot: String = System.getProperty("worktreeRoot")
+    private val testKitDir = File(worktreeRoot, ".gradle/test-kit")
 
     @BeforeEach
     fun setUp() {
@@ -71,6 +72,7 @@ class BridjeTestEngineTest {
     private fun runner(): GradleRunner =
         GradleRunner.create()
             .withProjectDir(projectDir)
+            .withTestKitDir(testKitDir)
             .withArguments("test", "--stacktrace")
             .forwardOutput()
 
