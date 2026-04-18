@@ -258,6 +258,112 @@ class BuiltinsTest {
         assertEquals(0L, result.arraySize)
     }
 
+    // reduce / mapv / mapcatv / filterv
+
+    @Test
+    fun `reduce folds elements with init`() = withContext { ctx ->
+        val result = ctx.evalBridje("reduce([1, 2, 3, 4], 0, add)")
+        assertEquals(10L, result.asLong())
+    }
+
+    @Test
+    fun `reduce over empty vector returns init`() = withContext { ctx ->
+        val result = ctx.evalBridje("reduce([], 42, add)")
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `reduce can change accumulator type`() = withContext { ctx ->
+        // build a vector by reducing — acc type ([Int]) differs from element type (Int)
+        val result = ctx.evalBridje("reduce([1, 2, 3], [], fn: snoc(acc, x) concat(acc, [x]))")
+        assertTrue(result.hasArrayElements())
+        assertEquals(3L, result.arraySize)
+        assertEquals(1L, result.getArrayElement(0).asLong())
+    }
+
+    @Test
+    fun `mapv applies fn to each element`() = withContext { ctx ->
+        val result = ctx.evalBridje("mapv([1, 2, 3], fn: inc(x) add(x, 1))")
+        assertTrue(result.hasArrayElements())
+        assertEquals(3L, result.arraySize)
+        assertEquals(2L, result.getArrayElement(0).asLong())
+        assertEquals(3L, result.getArrayElement(1).asLong())
+        assertEquals(4L, result.getArrayElement(2).asLong())
+    }
+
+    @Test
+    fun `mapv over empty vector returns empty`() = withContext { ctx ->
+        val result = ctx.evalBridje("mapv([], fn: inc(x) add(x, 1))")
+        assertTrue(result.hasArrayElements())
+        assertEquals(0L, result.arraySize)
+    }
+
+    @Test
+    fun `mapv can change element type`() = withContext { ctx ->
+        val result = ctx.evalBridje("mapv([1, 2], fn: pair(x) [x, x])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(2L, result.arraySize)
+        assertEquals(1L, result.getArrayElement(0).getArrayElement(0).asLong())
+        assertEquals(2L, result.getArrayElement(1).getArrayElement(1).asLong())
+    }
+
+    @Test
+    fun `mapcatv concatenates fn results`() = withContext { ctx ->
+        val result = ctx.evalBridje("mapcatv([1, 2, 3], fn: dup(x) [x, x])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(6L, result.arraySize)
+        assertEquals(1L, result.getArrayElement(0).asLong())
+        assertEquals(1L, result.getArrayElement(1).asLong())
+        assertEquals(2L, result.getArrayElement(2).asLong())
+        assertEquals(2L, result.getArrayElement(3).asLong())
+        assertEquals(3L, result.getArrayElement(4).asLong())
+        assertEquals(3L, result.getArrayElement(5).asLong())
+    }
+
+    @Test
+    fun `mapcatv with empty result vectors`() = withContext { ctx ->
+        val result = ctx.evalBridje("mapcatv([1, 2, 3], fn: none(x) [])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(0L, result.arraySize)
+    }
+
+    @Test
+    fun `mapcatv over empty vector returns empty`() = withContext { ctx ->
+        val result = ctx.evalBridje("mapcatv([], fn: dup(x) [x, x])")
+        assertTrue(result.hasArrayElements())
+        assertEquals(0L, result.arraySize)
+    }
+
+    @Test
+    fun `filterv keeps elements satisfying pred`() = withContext { ctx ->
+        val result = ctx.evalBridje("filterv([1, 2, 3, 4], fn: even(x) eq(0, sub(x, mul(div(x, 2), 2))))")
+        assertTrue(result.hasArrayElements())
+        assertEquals(2L, result.arraySize)
+        assertEquals(2L, result.getArrayElement(0).asLong())
+        assertEquals(4L, result.getArrayElement(1).asLong())
+    }
+
+    @Test
+    fun `filterv with always-true pred preserves all`() = withContext { ctx ->
+        val result = ctx.evalBridje("filterv([1, 2, 3], fn: yes(x) true)")
+        assertTrue(result.hasArrayElements())
+        assertEquals(3L, result.arraySize)
+    }
+
+    @Test
+    fun `filterv with always-false pred returns empty`() = withContext { ctx ->
+        val result = ctx.evalBridje("filterv([1, 2, 3], fn: no(x) false)")
+        assertTrue(result.hasArrayElements())
+        assertEquals(0L, result.arraySize)
+    }
+
+    @Test
+    fun `filterv over empty vector returns empty`() = withContext { ctx ->
+        val result = ctx.evalBridje("filterv([], fn: yes(x) true)")
+        assertTrue(result.hasArrayElements())
+        assertEquals(0L, result.arraySize)
+    }
+
     // Identity comparison
 
     @Test

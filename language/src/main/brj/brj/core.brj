@@ -19,6 +19,27 @@ def: cons(x, xs) Vec/cons(x, xs)
 def: empty?(xs) Vec/isEmpty(xs)
 def: concat(xs, ys) Vec/concat(xs, ys)
 
+decl: [a, b] reduce(Iterable(a), b, Fn([b, a] b)) b
+def: reduce(xs, init, f)
+  let: [it itr(xs)]
+    loop: [acc init]
+      if: itrHasNext?(it)
+        recur: f(acc, itrNext(it))
+        acc
+
+decl: [a, b] mapv(Iterable(a), Fn([a] b)) [b]
+def: mapv(xs, f)
+  reduce(xs, [], fn: step(acc, x) concat(acc, [f(x)]))
+
+decl: [a, b] mapcatv(Iterable(a), Fn([a] [b])) [b]
+def: mapcatv(xs, f)
+  reduce(xs, [], fn: step(acc, x) concat(acc, f(x)))
+
+decl: [a] filterv(Iterable(a), Fn([a] Bool)) [a]
+def: filterv(xs, pred)
+  reduce: xs, []
+    fn: step(acc, x) if: pred(x) concat(acc, [x]) acc
+
 defmacro: cond(& clauses)
   if: empty?(clauses)
     'nil
