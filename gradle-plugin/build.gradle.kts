@@ -19,7 +19,6 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
     implementation(project(":language"))
-    implementation(libs.junit.platform.engine)
     implementation(libs.graal.sdk)
     implementation(libs.truffle.api)
 

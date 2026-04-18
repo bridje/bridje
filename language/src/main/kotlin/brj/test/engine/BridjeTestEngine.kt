@@ -1,4 +1,4 @@
-package brj.gradle
+package brj.test.engine
 
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Source

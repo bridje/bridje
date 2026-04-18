@@ -48,7 +48,6 @@ class GradlePlugin : Plugin<Project> {
         project.dependencies.addProvider(lspConfig.name, extension.version.map { "dev.bridje:lsp:$it" })
         project.dependencies.addProvider(replConfig.name, extension.version.map { "dev.bridje:repl:$it" })
         project.dependencies.addProvider(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, extension.version.map { "dev.bridje:language:$it" })
-        project.dependencies.addProvider(JavaPlugin.TEST_RUNTIME_ONLY_CONFIGURATION_NAME, extension.version.map { "dev.bridje:gradle-plugin:$it" })
         project.dependencies.add(JavaPlugin.TEST_RUNTIME_ONLY_CONFIGURATION_NAME, "org.junit.platform:junit-platform-launcher:1.9.0")
 
         val writeBridjeTestMarker = project.tasks.register("writeBridjeTestMarker") {

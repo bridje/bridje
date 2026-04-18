@@ -30,6 +30,8 @@ dependencies {
 
     implementation(libs.truffle.runtime)
 
+    implementation(libs.junit.platform.engine)
+
     testImplementation(libs.clikt.testing)
 
     testImplementation(kotlin("test-junit"))
