@@ -14,22 +14,22 @@ class MetaTest {
     }
 
     @Test
-    fun `withMeta adds meta to vector`() = withContext { ctx ->
+    fun `with-meta adds meta to vector`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: :foo Str
-              meta(withMeta([1 2 3], {:foo "bar"}))
+              meta(with-meta([1 2 3], {:foo "bar"}))
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals("bar", result.getMember("foo").asString())
     }
 
     @Test
-    fun `withMeta preserves vector contents`() = withContext { ctx ->
+    fun `with-meta preserves vector contents`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: :foo Str
-              withMeta([1 2 3], {:foo "bar"})
+              with-meta([1 2 3], {:foo "bar"})
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(3, result.arraySize)
@@ -50,22 +50,22 @@ class MetaTest {
     }
 
     @Test
-    fun `withMeta adds meta to record`() = withContext { ctx ->
+    fun `with-meta adds meta to record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: {:x Int, :tag Str}
-              meta(withMeta({:x 42}, {:tag "special"}))
+              meta(with-meta({:x 42}, {:tag "special"}))
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals("special", result.getMember("tag").asString())
     }
 
     @Test
-    fun `withMeta preserves record contents`() = withContext { ctx ->
+    fun `with-meta preserves record contents`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: {:x Int, :tag Str}
-              withMeta({:x 42}, {:tag "special"})
+              with-meta({:x 42}, {:tag "special"})
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals(42L, result.getMember("x").asLong())
@@ -76,19 +76,19 @@ class MetaTest {
         val result = ctx.evalBridje("""
             do:
               decl: {:x Int, :tag Str}
-              withMeta({:x 42}, {:tag "special"})
+              with-meta({:x 42}, {:tag "special"})
         """.trimIndent())
         assertFalse(result.hasMember("tag"))
     }
 
     @Test
-    fun `withMeta nil is a type error`() = withContext { ctx ->
+    fun `with-meta nil is a type error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
                   decl: :foo Str
-                  let: [v withMeta([1 2], {:foo "bar"})]
-                    meta(withMeta(v, nil))
+                  let: [v with-meta([1 2], {:foo "bar"})]
+                    meta(with-meta(v, nil))
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("nullable") == true, "Expected nullable type error, got: ${ex.message}")

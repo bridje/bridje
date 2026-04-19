@@ -14,7 +14,7 @@ decl: [a] Vec/concat([a], [a]) [a]
 
 def: count(xs) Vec/count(xs)
 def: first(xs) Vec/first(xs)
-def: firstOrNull(xs) Vec/firstOrNull(xs)
+def: first-or-null(xs) Vec/firstOrNull(xs)
 def: rest(xs) Vec/rest(xs)
 def: cons(x, xs) Vec/cons(x, xs)
 def: empty?(xs) Vec/isEmpty(xs)
@@ -24,8 +24,8 @@ decl: [a, b] reduce(Iterable(a), b, Fn([b, a] b)) b
 def: reduce(xs, init, f)
   let: [it itr(xs)]
     loop: [acc init]
-      if: itrHasNext?(it)
-        recur: f(acc, itrNext(it))
+      if: itr-has-next?(it)
+        recur: f(acc, itr-next(it))
         acc
 
 decl: [a, b] mapv(Iterable(a), Fn([a] b)) [b]
@@ -48,7 +48,7 @@ defmacro: cond(& clauses)
       first(clauses)
       '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
 
-defmacro: ifLet(bindings, then, else)
+defmacro: if-let(bindings, then, else)
   case: bindings
     f/Vector(els)
       '(let [v# ~nth(els, 1)]
@@ -56,7 +56,7 @@ defmacro: ifLet(bindings, then, else)
            nil ~else
            ~first(els) ~then))
 
-defmacro: unlessLet(bindings, else, then)
+defmacro: unless-let(bindings, else, then)
   case: bindings
     f/Vector(els)
       '(let [v# ~nth(els, 1)]
@@ -66,11 +66,11 @@ defmacro: unlessLet(bindings, else, then)
 
 decl: {:test Bool, :exnMessage Str}
 
-defmacro: orElse(value, & defaults)
+defmacro: or-else(value, & defaults)
   if: empty?(defaults)
     value
     '(case ~value
-       nil (orElse ~@defaults)
+       nil (or-else ~@defaults)
        x# x#)
 
 defmacro: and(& forms)

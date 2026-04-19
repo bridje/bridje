@@ -169,8 +169,8 @@ They exist in the Bridje type system only — no Java class backs them.
 
 ```bridje
 decl: [a] itr(Iterable(a)) Iterator(a)
-decl: [a] itrHasNext?(Iterator(a)) Bool
-decl: [a] itrNext(Iterator(a)) a
+decl: [a] itr-has-next?(Iterator(a)) Bool
+decl: [a] itr-next(Iterator(a)) a
 ```
 
 At runtime, `itr` dispatches via Truffle's `InteropLibrary.getIterator()`.

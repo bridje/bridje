@@ -174,13 +174,13 @@ class BuiltinsTest {
     }
 
     @Test
-    fun `firstOrNull of vector`() = withContext { ctx ->
-        assertEquals(1L, ctx.evalBridje("firstOrNull([1, 2, 3])").asLong())
+    fun `first-or-null of vector`() = withContext { ctx ->
+        assertEquals(1L, ctx.evalBridje("first-or-null([1, 2, 3])").asLong())
     }
 
     @Test
-    fun `firstOrNull of empty vector returns nil`() = withContext { ctx ->
-        assertTrue(ctx.evalBridje("firstOrNull([])").isNull)
+    fun `first-or-null of empty vector returns nil`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("first-or-null([])").isNull)
     }
 
     @Test

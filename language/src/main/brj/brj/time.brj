@@ -22,5 +22,5 @@ decl: Inst/.isBefore(Inst) Bool
 def: dur(s) Dur/parse(s)
 def: inst(s) Inst/parse(s)
 def: now() Inst/now()
-def: durMs(ms) Dur/ofMillis(ms)
-def: durSec(s) Dur/ofSeconds(s)
+def: dur-ms(ms) Dur/ofMillis(ms)
+def: dur-sec(s) Dur/ofSeconds(s)

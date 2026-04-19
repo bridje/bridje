@@ -175,7 +175,7 @@ The rules follow Clojure's `->`:
 // macro-expands to:
 :toUpperCase(:name(person))
 
-// Mixing members and static functions:
+// Mixing members and functions:
 ->: state :log count() div(2) inc()
 ```
 
@@ -434,20 +434,20 @@ Construction uses dot-prefixed members:
 Member access uses the accessor function:
 
 ```bridje
-:currentTerm(state)            // access :currentTerm on state
+:current-term(state)           // access :current-term on state
 :from(req)                     // access :from on req
 
 // With threading:
-->: state :currentTerm
+->: state :current-term
 ```
 
 Update with `with` — returns a new record, does not mutate:
 
 ```bridje
-->: state with(:currentTerm newTerm, :votedFor nil)
+->: state with(:current-term new-term, :voted-for nil)
 
 // or without threading:
-with(state, :currentTerm newTerm, :votedFor nil)
+with(state, :current-term new-term, :voted-for nil)
 ```
 
 Destructuring in function parameters and `let` bindings.
@@ -595,7 +595,7 @@ defmacro: when(cond, & body)
   '(if ~cond (do ~@body) nil)
 
 // Macro that manipulates Form objects directly:
-defmacro: ifLet(bindings, then, else)
+defmacro: if-let(bindings, then, else)
   let: [bvec first(bindings)]
     '(let [v# ~nth(bvec, 1)]
        (case v#
@@ -670,34 +670,34 @@ def: main()                     // inferred effects: {stdio}
 
 Defined in `brj.core`.
 
-### ifLet
+### if-let
 
 Conditional binding — binds the expression result, takes the then-branch if non-nil, else-branch if nil:
 
 ```bridje
-ifLet: [leader :knownLeader(f)]
+if-let: [leader :known-leader(f)]
   redirect(leader)        // then — leader is bound and non-nil
-  retryLater()            // else — expression was nil
+  retry-later()           // else — expression was nil
 ```
 
-### unlessLet
+### unless-let
 
-Inverse of ifLet — takes the first branch if nil:
+Inverse of if-let — takes the first branch if nil:
 
 ```bridje
-unlessLet: [config loadConfig()]
-  useDefaults()           // nil case — config not found
-  useConfig(config)       // non-nil case — config is bound
+unless-let: [config load-config()]
+  use-defaults()          // nil case — config not found
+  use-config(config)      // non-nil case — config is bound
 ```
 
-### orElse
+### or-else
 
 Default for a nullable value — variadic, for chained fallbacks.
 Default expressions are lazy — not evaluated if value is non-nil:
 
 ```bridje
-orElse(name, "anonymous")
-orElse(:timeout(config), :timeout(defaults), t/dur("PT30S"))
+or-else(name, "anonymous")
+or-else(:timeout(config), :timeout(defaults), t/dur("PT30S"))
 ```
 
 ### when / unless
@@ -707,7 +707,7 @@ Returns nil otherwise.
 
 ```bridje
 when: neq(peer, :id(state))
-  sendAppendEntries(peer, state)
+  send-append-entries(peer, state)
 
 unless: empty?(items)
   processAll(items)
@@ -804,7 +804,7 @@ Binding form is like `let` — a vector of name-expression pairs:
 ```bridje
 doseq: [peer :cluster(state)]
   when: neq(peer, :id(state))
-    sendAppendEntries(peer, state)
+    send-append-entries(peer, state)
 ```
 
 ## Namespaces
@@ -959,9 +959,10 @@ Tightly-grouped series of one-liners (a run of `decl:` or delegating `def:` form
 
 ### Naming conventions
 
-- `camelCase` for functions and values: `handleVoteRequest`, `startElection`
+- `kebab-case` for functions and values: `handle-vote-request`, `start-election`
 - `PascalCase` for tags and types: `ServerState`, `VoteRequest`, `Result`
-- `:camelCase` for instance members: `:name`, `:currentTerm`, `:toEpochMilli`
+- `:kebab-case` for instance members: `:name`, `:current-term`, `:known-leader`
+- Java interop members mirror Java's camelCase: `:toEpochMilli`, `:isBefore`
 - Predicates and boolean values end in `?`: `nil?`, `pos?`, `some?`, `empty?`
 - Effects optionally end in `!` by convention: `log!`, `send!`
 - Private by convention with `_` prefix: `_helper`, `_internal`
@@ -985,11 +986,11 @@ For variadic operations, colon block syntax avoids deep nesting:
 
 ```bridje
 and:
-  gte(:term(req), :currentTerm(state))
+  gte(:term(req), :current-term(state))
   or:
-    nil?(:votedFor(state))
-    eq(:from(req), :votedFor(state))
-  candidateLogUpToDate(state, req)
+    nil?(:voted-for(state))
+    eq(:from(req), :voted-for(state))
+  candidate-log-up-to-date(state, req)
 ```
 
 The block form is preferred when the expression has more than two arguments or when arguments are themselves complex expressions.

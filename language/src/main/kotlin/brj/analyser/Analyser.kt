@@ -963,8 +963,8 @@ data class Analyser(
         val inner = analyseValueExprInner(form)
         val meta = form.meta ?: return inner
 
-        val withMetaVar = ctx.brjCore["withMeta".sym]
-            ?: return errorExpr("withMeta not found in brj.core", form.loc)
+        val withMetaVar = ctx.brjCore["with-meta".sym]
+            ?: return errorExpr("with-meta not found in brj.core", form.loc)
 
         return CallExpr(
             GlobalVarExpr(withMetaVar, form.loc),

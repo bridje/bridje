@@ -21,7 +21,7 @@ class WithMetaNode(language: BridjeLanguage) : RootNode(language) {
         val newMeta = frame.arguments.getOrNull(1) as? BridjeRecord
         return when (obj) {
             is Meta<*> -> obj.withMeta(newMeta)
-            else -> throw incorrect("withMeta: object does not support metadata", this)
+            else -> throw incorrect("with-meta: object does not support metadata", this)
         }
     }
 }
