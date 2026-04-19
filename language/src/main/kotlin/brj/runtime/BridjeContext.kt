@@ -22,7 +22,7 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
 
     var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf(
         "brj.core" to brjCore,
-        "brj.forms" to NsEnv.withFormsBuiltins(),
+        "brj.forms" to NsEnv.withFormsBuiltins(lang),
     ))
         private set
 

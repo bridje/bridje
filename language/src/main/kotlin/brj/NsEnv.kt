@@ -4,6 +4,8 @@ import brj.analyser.NsDecl
 import brj.builtins.Builtins
 import brj.builtins.AwaitNode
 import brj.builtins.FileNode
+import brj.builtins.FormsFromFileNode
+import brj.builtins.FormsFromStringNode
 import brj.builtins.FsExistsNode
 import brj.builtins.FsIsDirNode
 import brj.builtins.FsIsFileNode
@@ -22,6 +24,7 @@ import brj.runtime.SymbolMeta
 import brj.runtime.sym
 import brj.types.BoolType
 import brj.types.FnType
+import brj.types.FormType
 import brj.types.RecordType
 import brj.types.StringType
 import brj.types.TagType
@@ -74,8 +77,18 @@ data class NsEnv(
             return NsEnv(vars = builtinDataMetas + builtinFunctions + anomalyTags)
         }
 
-        fun withFormsBuiltins(): NsEnv {
+        fun withFormsBuiltins(language: BridjeLanguage): NsEnv {
             val formsNs = "brj.forms".sym
+            val formVec = VectorType(FormType.notNull()).notNull()
+            val fileType = TagType("brj.fs", "File").notNull()
+            val str = StringType.notNull()
+
+            fun readerFn(name: String, node: RootNode, paramType: Type): Pair<Symbol, GlobalVar> {
+                val sym = name.sym
+                return sym to GlobalVar(formsNs, sym, BridjeFunction(node.callTarget),
+                    type = FnType(listOf(paramType), formVec).notNull())
+            }
+
             return NsEnv(vars = mapOf(
                 "SymbolForm".sym to GlobalVar(formsNs, "SymbolForm".sym, SymbolFormMeta),
                 "QSymbolForm".sym to GlobalVar(formsNs, "QSymbolForm".sym, QSymbolFormMeta),
@@ -95,6 +108,8 @@ data class NsEnv(
                 "Unquote".sym to GlobalVar(formsNs, "Unquote".sym, UnquoteMeta),
                 "UnquoteSplice".sym to GlobalVar(formsNs, "UnquoteSplice".sym, UnquoteSpliceMeta),
                 "SyntaxQuote".sym to GlobalVar(formsNs, "SyntaxQuote".sym, SyntaxQuoteMeta),
+                readerFn("<-file", FormsFromFileNode(language), fileType),
+                readerFn("<-str", FormsFromStringNode(language), str),
             ))
         }
 
