@@ -2,6 +2,7 @@ package brj.analyser
 
 import brj.*
 import brj.runtime.Symbol
+import brj.types.Type
 
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.source.SourceSection
@@ -263,4 +264,13 @@ class ErrorValueExpr(
     override val loc: SourceSection? = null,
 ) : ValueExpr {
     override fun toString(): String = "<error: $message>"
+}
+
+class LangExpr(
+    val language: String,
+    val declaredType: Type,
+    val code: String,
+    override val loc: SourceSection? = null,
+) : ValueExpr {
+    override fun toString(): String = "(lang \"$language\" $declaredType)"
 }

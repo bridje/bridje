@@ -80,6 +80,11 @@ The rule: `symbol:` opens a block.
 The block contains everything on the same line after the colon, plus any indented lines below.
 Nested colon blocks nest naturally via indentation.
 
+**The colon *is* the opening paren.**
+`foo: a b c` is exactly `(foo a b c)` — pick one or the other, never both.
+Writing `(foo: a b c)` double-wraps, producing `((foo a b c))`, and is almost never what you want.
+When a special form needs to appear mid-expression (e.g. as the callee in an immediate call), drop the colon and use the bare list form: `(fn [x] x)(7)`, `(lang "js" Int "42")`.
+
 ```bridje
 // Bridje:
 if: gt(a, b)

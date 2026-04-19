@@ -62,7 +62,7 @@ class ParseRootNode(
 
     @TruffleBoundary
     private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
-        val emitter = Emitter(lang)
+        val emitter = Emitter(lang, BridjeContext.get(this))
         emitter.nextSlot = slotCount
         val node = emitter.emitExpr(expr)
         val frameDescriptor = buildFrameDescriptor(emitter.nextSlot)
@@ -81,7 +81,7 @@ class ParseRootNode(
         // The inner fn captures the fx map and pre-applied callees.
 
         val fxSlot = 0
-        val emitter = Emitter(lang)
+        val emitter = Emitter(lang, BridjeContext.get(this))
 
         // Find effectful callees in the body to pre-apply.
         val callees = fnExpr.bodyExpr.collectEffectfulCallees().toList()

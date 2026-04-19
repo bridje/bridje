@@ -45,7 +45,7 @@ fun ValueExpr.inferEffects(): Set<GlobalVar> = when (this) {
     is StringExpr, is BoolExpr, is NilExpr,
     is LocalVarExpr, is CapturedVarExpr, is GlobalVarExpr,
     is TruffleObjectExpr, is HostStaticMethodExpr, is HostConstructorExpr,
-    is QuoteExpr, is ErrorValueExpr -> emptySet()
+    is QuoteExpr, is ErrorValueExpr, is LangExpr -> emptySet()
 }
 
 /**
@@ -81,5 +81,5 @@ fun ValueExpr.collectEffectfulCallees(): Set<GlobalVar> = when (this) {
     is StringExpr, is BoolExpr, is NilExpr,
     is LocalVarExpr, is CapturedVarExpr, is GlobalVarExpr,
     is TruffleObjectExpr, is HostStaticMethodExpr, is HostConstructorExpr,
-    is QuoteExpr, is EffectVarExpr, is ErrorValueExpr -> emptySet()
+    is QuoteExpr, is EffectVarExpr, is ErrorValueExpr, is LangExpr -> emptySet()
 }

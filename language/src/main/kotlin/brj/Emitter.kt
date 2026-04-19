@@ -4,10 +4,12 @@ import brj.analyser.*
 import brj.effects.collectEffectfulCallees
 import brj.effects.inferEffects
 import brj.nodes.*
+import brj.runtime.BridjeContext
 import brj.runtime.BridjeFxMap
 import brj.runtime.BridjeFunction
 import brj.runtime.HostClass
 import brj.runtime.BridjeNull
+import com.oracle.truffle.api.source.Source
 import com.oracle.truffle.api.Truffle
 import com.oracle.truffle.api.dsl.TypeSystemReference
 import com.oracle.truffle.api.frame.FrameDescriptor
@@ -96,7 +98,7 @@ data class CapturedNodeSource(val captureIndex: Int) : NodeSource {
     override fun captureSource() = TransitiveCapture(captureIndex)
 }
 
-class Emitter(private val language: BridjeLanguage) {
+class Emitter(private val language: BridjeLanguage, private val ctx: BridjeContext) {
     var nextSlot: Int = 0
 
     fun allocSlot(): Int = nextSlot++
@@ -146,8 +148,15 @@ class Emitter(private val language: BridjeLanguage) {
         is WithFxExpr -> emitWithFx(expr, fxSource, preApplied)
         is LoopExpr -> emitLoop(expr, fxSource, preApplied)
         is RecurExpr -> RecurNode(expr.argExprs.map { emitExpr(it, fxSource, preApplied) }.toTypedArray(), expr.loc)
+        is LangExpr -> emitLang(expr)
 
         is ErrorValueExpr -> error("analyser error: ${expr.message}")
+    }
+
+    private fun emitLang(expr: LangExpr): BridjeNode {
+        val source = Source.newBuilder(expr.language, expr.code, "lang-${expr.language}").build()
+        val value = ctx.truffleEnv.parsePublic(source).call()
+        return LangNode(value, expr.loc)
     }
 
     private fun emitCall(expr: CallExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
@@ -303,7 +312,7 @@ class Emitter(private val language: BridjeLanguage) {
         val allCaptureSources = (analyserCaptures + extraCaptures).toTypedArray()
         val hasCapturedValues = allCaptureSources.isNotEmpty()
 
-        val innerEmitter = Emitter(language)
+        val innerEmitter = Emitter(language, ctx)
         innerEmitter.nextSlot = expr.slotCount
         val rawBodyNode = innerEmitter.emitExpr(expr.bodyExpr, innerFxSource, innerPreApplied)
 

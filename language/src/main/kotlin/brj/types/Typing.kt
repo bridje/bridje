@@ -291,4 +291,5 @@ internal fun ValueExpr.typing(): Typing =
         is LoopExpr -> typing()
         is RecurExpr -> typing()
         is ErrorValueExpr -> Typing(freshType())
+        is LangExpr -> Typing(declaredType)
     }

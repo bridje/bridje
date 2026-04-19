@@ -267,6 +267,7 @@ data class Analyser(
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
                 "defkeys" -> errorExpr("defkeys has been replaced: use decl: :name Str", form.loc)
                 "defx" -> errorExpr("defx not allowed in value position", form.loc)
+                "lang" -> analyseLang(form)
                 else -> analyseCall(form)
             }
             else -> analyseCall(form)
@@ -1421,6 +1422,26 @@ data class Analyser(
         val type = analyseTypeForm(typeForm)
         val defaultExpr = els.getOrNull(3)?.let { analyseValueExpr(it) }
         return DefxExpr(nameForm.sym, type, defaultExpr, form.loc)
+    }
+
+    private fun analyseLang(form: ListForm): ValueExpr {
+        val els = form.els
+        val langForm = els.getOrNull(1) as? StringForm
+            ?: return errorExpr("lang requires a language name as a string literal", form.loc)
+        val typeForm = els.getOrNull(2)
+            ?: return errorExpr("lang requires a declared type", form.loc)
+        val codeForm = els.getOrNull(3) as? StringForm
+            ?: return errorExpr("lang requires a code string", form.loc)
+
+        val available = ctx.truffleEnv.publicLanguages.keys
+        if (langForm.value !in available) {
+            return errorExpr(
+                "Language '${langForm.value}' is not available. Available: ${available.sorted()}",
+                langForm.loc,
+            )
+        }
+
+        return LangExpr(langForm.value, analyseTypeForm(typeForm), codeForm.value, form.loc)
     }
 
     private fun analyseWithFx(form: ListForm): ValueExpr {
