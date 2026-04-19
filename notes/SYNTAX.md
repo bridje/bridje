@@ -325,6 +325,12 @@ set!(record, :key, value)
 Code as data — but unlike Clojure, Bridje's quote returns **typed Form ADT objects**, not raw data structures.
 This is because Bridje is fully type-checked: the quoted representation must be statically typed.
 
+Bridje is *sort-of* homoiconic, but not quite in the Clojure sense.
+Clojure's quoted code *is* the same data structures its runtime uses — a quoted list is a `clojure.lang.PersistentList`.
+In Bridje, forms are a closed enum type (`SymbolForm`, `ListForm`, `IntForm`, …) that mirrors the reader's output but is separate from the runtime's collection types.
+A quoted list is a `ListForm`, not a `Vec`.
+This is expressively equivalent — anything Clojure does with code-as-data, Bridje does with Form-as-data — but the types are distinct so the whole pipeline can be statically type-checked.
+
 `'form` returns a Form object.
 `~form` inside a quote evaluates that sub-expression and splices the result in.
 `~@form` inside a quote evaluates a list and splices its elements in (unquote-splice).
@@ -945,6 +951,11 @@ def: _helperB(...) ...
 def: handleRequest(...) ...
 def: startServer(...) ...
 ```
+
+### Blank lines between top-level forms
+
+A blank line between top-level forms (`def`, `defmacro`, `decl`, `tag`, `enum`, …) is the default.
+Tightly-grouped series of one-liners (a run of `decl:` or delegating `def:` forms that belong together) can sit without blank lines; the convention is per-group, not per-line.
 
 ### Naming conventions
 

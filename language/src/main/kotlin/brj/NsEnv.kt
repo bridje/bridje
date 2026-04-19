@@ -55,26 +55,11 @@ data class NsEnv(
     val source: Source? = null,
 ) : TruffleObject {
     companion object {
-        private val builtinFormMetas = run {
+        private val builtinDataMetas = run {
             val coreNs = "brj.core".sym
             mapOf(
                 "Symbol".sym to GlobalVar(coreNs, "Symbol".sym, SymbolMeta),
                 "Var".sym to GlobalVar(coreNs, "Var".sym, VarMeta),
-                "SymbolForm".sym to GlobalVar(coreNs, "SymbolForm".sym, SymbolFormMeta),
-                "QSymbolForm".sym to GlobalVar(coreNs, "QSymbolForm".sym, QSymbolFormMeta),
-                "KeywordForm".sym to GlobalVar(coreNs, "KeywordForm".sym, KeywordFormMeta),
-                "QKeywordForm".sym to GlobalVar(coreNs, "QKeywordForm".sym, QKeywordFormMeta),
-                "DotSymbolForm".sym to GlobalVar(coreNs, "DotSymbolForm".sym, DotSymbolFormMeta),
-                "QDotSymbolForm".sym to GlobalVar(coreNs, "QDotSymbolForm".sym, QDotSymbolFormMeta),
-                "List".sym to GlobalVar(coreNs, "List".sym, ListMeta),
-                "Vector".sym to GlobalVar(coreNs, "Vector".sym, VectorMeta),
-                "Record".sym to GlobalVar(coreNs, "Record".sym, RecordMeta),
-                "Set".sym to GlobalVar(coreNs, "Set".sym, SetMeta),
-                "Int".sym to GlobalVar(coreNs, "Int".sym, IntMeta),
-                "Double".sym to GlobalVar(coreNs, "Double".sym, DoubleMeta),
-                "String".sym to GlobalVar(coreNs, "String".sym, StringMeta),
-                "BigInt".sym to GlobalVar(coreNs, "BigInt".sym, BigIntMeta),
-                "BigDec".sym to GlobalVar(coreNs, "BigDec".sym, BigDecMeta),
             )
         }
 
@@ -86,7 +71,31 @@ data class NsEnv(
 
         fun withBuiltins(language: BridjeLanguage): NsEnv {
             val builtinFunctions = Builtins.createBuiltinFunctions(language)
-            return NsEnv(vars = builtinFormMetas + builtinFunctions + anomalyTags)
+            return NsEnv(vars = builtinDataMetas + builtinFunctions + anomalyTags)
+        }
+
+        fun withFormsBuiltins(): NsEnv {
+            val formsNs = "brj.forms".sym
+            return NsEnv(vars = mapOf(
+                "SymbolForm".sym to GlobalVar(formsNs, "SymbolForm".sym, SymbolFormMeta),
+                "QSymbolForm".sym to GlobalVar(formsNs, "QSymbolForm".sym, QSymbolFormMeta),
+                "KeywordForm".sym to GlobalVar(formsNs, "KeywordForm".sym, KeywordFormMeta),
+                "QKeywordForm".sym to GlobalVar(formsNs, "QKeywordForm".sym, QKeywordFormMeta),
+                "DotSymbolForm".sym to GlobalVar(formsNs, "DotSymbolForm".sym, DotSymbolFormMeta),
+                "QDotSymbolForm".sym to GlobalVar(formsNs, "QDotSymbolForm".sym, QDotSymbolFormMeta),
+                "List".sym to GlobalVar(formsNs, "List".sym, ListMeta),
+                "Vector".sym to GlobalVar(formsNs, "Vector".sym, VectorMeta),
+                "Record".sym to GlobalVar(formsNs, "Record".sym, RecordMeta),
+                "Set".sym to GlobalVar(formsNs, "Set".sym, SetMeta),
+                "Int".sym to GlobalVar(formsNs, "Int".sym, IntMeta),
+                "Double".sym to GlobalVar(formsNs, "Double".sym, DoubleMeta),
+                "String".sym to GlobalVar(formsNs, "String".sym, StringMeta),
+                "BigInt".sym to GlobalVar(formsNs, "BigInt".sym, BigIntMeta),
+                "BigDec".sym to GlobalVar(formsNs, "BigDec".sym, BigDecMeta),
+                "Unquote".sym to GlobalVar(formsNs, "Unquote".sym, UnquoteMeta),
+                "UnquoteSplice".sym to GlobalVar(formsNs, "UnquoteSplice".sym, UnquoteSpliceMeta),
+                "SyntaxQuote".sym to GlobalVar(formsNs, "SyntaxQuote".sym, SyntaxQuoteMeta),
+            ))
         }
 
         fun withConcurrentBuiltins(language: BridjeLanguage): NsEnv {

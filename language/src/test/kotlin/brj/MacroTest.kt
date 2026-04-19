@@ -9,49 +9,60 @@ class MacroTest {
     @Test
     fun `simple macro expansion`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              defmacro: unless(cond, body)
-                List([SymbolForm(Symbol("if")) cond 'nil body])
-              unless: false
-                42
-        """)
+            ns: test.macros
+              require:
+                brj: as(forms, f)
+
+            defmacro: unless(cond, body)
+              f/List([f/SymbolForm(Symbol("if")) cond 'nil body])
+
+            def: __result unless(false, 42)
+        """.trimIndent()).getMember("__result")
         assertEquals(42L, result.asLong())
     }
 
     @Test
     fun `macro receives unevaluated forms`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              defmacro: when(cond, body)
-                List([SymbolForm(Symbol("if")) cond body 'nil])
-              when: true
-                1
-        """)
+            ns: test.macros
+              require:
+                brj: as(forms, f)
+
+            defmacro: when(cond, body)
+              f/List([f/SymbolForm(Symbol("if")) cond body 'nil])
+
+            def: __result when(true, 1)
+        """.trimIndent()).getMember("__result")
         assertEquals(1L, result.asLong())
     }
 
     @Test
     fun `when macro returns nil for false condition`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              defmacro: when(cond, body)
-                List([SymbolForm(Symbol("if")) cond body 'nil])
-              when: false
-                1
-        """)
+            ns: test.macros
+              require:
+                brj: as(forms, f)
+
+            defmacro: when(cond, body)
+              f/List([f/SymbolForm(Symbol("if")) cond body 'nil])
+
+            def: __result when(false, 1)
+        """.trimIndent()).getMember("__result")
         assertTrue(result.isNull)
     }
 
     @Test
     fun `macro with multiple arguments`() = withContext { ctx ->
         val result1 = ctx.evalBridje("""
-            do:
-              defmacro: if-not(cond, then, else)
-                List([SymbolForm(Symbol("if")) cond else then])
-              if-not: false
-                1
-                2
-        """)
+            ns: test.macros
+              require:
+                brj: as(forms, f)
+
+            defmacro: if-not(cond, then, else)
+              f/List([f/SymbolForm(Symbol("if")) cond else then])
+
+            def: __result if-not(false, 1, 2)
+        """.trimIndent()).getMember("__result")
         assertEquals(1L, result1.asLong())
     }
 
@@ -344,22 +355,30 @@ class MacroTest {
     @Test
     fun `variadic macro can count rest elements`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              defmacro: countRest(& rest)
-                Int(count(rest))
-              countRest(1, 2, 3)
-        """)
+            ns: test.macros
+              require:
+                brj: as(forms, f)
+
+            defmacro: countRest(& rest)
+              f/Int(count(rest))
+
+            def: __result countRest(1, 2, 3)
+        """.trimIndent()).getMember("__result")
         assertEquals(3L, result.asLong())
     }
 
     @Test
     fun `variadic macro empty rest has zero count`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            do:
-              defmacro: countRest(& rest)
-                Int(count(rest))
-              countRest()
-        """)
+            ns: test.macros
+              require:
+                brj: as(forms, f)
+
+            defmacro: countRest(& rest)
+              f/Int(count(rest))
+
+            def: __result countRest()
+        """.trimIndent()).getMember("__result")
         assertEquals(0L, result.asLong())
     }
 

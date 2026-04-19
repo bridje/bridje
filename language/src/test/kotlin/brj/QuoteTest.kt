@@ -49,10 +49,10 @@ class QuoteTest {
 
     @Test
     fun `case on quoted symbol`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
+        val result = ctx.evalBridjeForms("""
             case: 'foo
-              SymbolForm 1
-              List 2
+              f/SymbolForm 1
+              f/List 2
               3
         """.trimIndent())
         assertEquals(1L, result.asLong())
@@ -60,10 +60,10 @@ class QuoteTest {
 
     @Test
     fun `case on quoted list`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
+        val result = ctx.evalBridjeForms("""
             case: '(a b c)
-              SymbolForm 1
-              List 2
+              f/SymbolForm 1
+              f/List 2
               3
         """.trimIndent())
         assertEquals(2L, result.asLong())
@@ -71,10 +71,10 @@ class QuoteTest {
 
     @Test
     fun `case on quoted vector`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
+        val result = ctx.evalBridjeForms("""
             case: '[1 2]
-              List 1
-              Vector 2
+              f/List 1
+              f/Vector 2
               3
         """.trimIndent())
         assertEquals(2L, result.asLong())
@@ -82,10 +82,10 @@ class QuoteTest {
 
     @Test
     fun `case with default on quoted form`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
+        val result = ctx.evalBridjeForms("""
             case: '42
-              SymbolForm 1
-              List 2
+              f/SymbolForm 1
+              f/List 2
               99
         """.trimIndent())
         assertEquals(99L, result.asLong())
@@ -116,9 +116,9 @@ class QuoteTest {
 
     @Test
     fun `case can bind forms from quoted list`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
+        val result = ctx.evalBridjeForms("""
             case: '(foo bar)
-              List(forms) forms
+              f/List(forms) forms
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(2L, result.arraySize)

@@ -349,6 +349,7 @@ class ParseRootNode(
         val initialNsEnv = when {
             // brj:core starts with Kotlin builtins
             nsDecl?.name == "brj.core" -> NsEnv.withBuiltins(lang).copy(
+                requires = resolveRequires(frame),
                 imports = nsDecl.imports,
                 nsDecl = nsDecl,
                 source = source

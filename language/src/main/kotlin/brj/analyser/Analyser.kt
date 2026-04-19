@@ -281,7 +281,8 @@ data class Analyser(
 
     private fun callFormConstructor(name: String, args: List<ValueExpr>, loc: SourceSection?): ValueExpr {
         val sym = Symbol.intern(name)
-        val constructor = nsEnv[sym] ?: ctx.brjCore[sym]
+        // Quoting machinery: form constructors and Symbol/Var must be reachable regardless of the user's ns/requires.
+        val constructor = ctx.namespaces["brj.forms"]?.get(sym) ?: ctx.brjCore[sym]
             ?: return errorExpr("$name constructor not found", loc)
         return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
     }
@@ -491,13 +492,12 @@ data class Analyser(
         while (i < branchForms.size) {
             val patternForm = branchForms[i]
 
-            // Check if this looks like a pattern (capitalized symbol, nil, lowercase symbol followed by body, or call with capitalized symbol)
             val isPattern = when (patternForm) {
-                is SymbolForm -> patternForm.sym.name[0].isUpperCase() || patternForm.sym.name == "nil" ||
-                    (patternForm.sym.name[0].isLowerCase() && i + 1 < branchForms.size)
+                is SymbolForm -> patternForm.sym.name == "nil" || i + 1 < branchForms.size
+                is QSymbolForm -> i + 1 < branchForms.size
                 is ListForm -> {
                     val first = patternForm.els.firstOrNull()
-                    first is SymbolForm && first.sym.name[0].isUpperCase()
+                    first is SymbolForm || first is QSymbolForm
                 }
                 else -> false
             }
@@ -575,6 +575,16 @@ data class Analyser(
         return Result.Ok(value)
     }
 
+    private fun resolveQualifiedTag(nsAlias: String, member: Symbol, loc: SourceSection?): Result<Error, Any> {
+        val ns = ctx.namespaces[nsAlias] ?: nsEnv.requires[nsAlias]
+            ?: return Result.Err(Error("Unknown namespace: $nsAlias", loc))
+        val globalVar = ns[member]
+            ?: return Result.Err(Error("Unknown tag: $nsAlias/${member.name}", loc))
+        val value = globalVar.value
+            ?: return Result.Err(Error("Tag $nsAlias/${member.name} has no value", loc))
+        return Result.Ok(value)
+    }
+
     private fun analyseBindingNames(els: List<Form>): Result<Error, List<String>> {
         val names = mutableListOf<String>()
         for (el in els) {
@@ -609,30 +619,41 @@ data class Analyser(
                 }
             }
 
+            is QSymbolForm -> {
+                resolveQualifiedTag(patternForm.ns.name, patternForm.member, patternForm.loc).map { tagValue ->
+                    val bodyExpr = analyseValueExpr(bodyForm)
+                    CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
+                }
+            }
+
             is ListForm -> {
-                val tagForm = patternForm.els.firstOrNull() as? SymbolForm
-                if (tagForm == null) {
-                    Result.Err(Error("case pattern must start with a tag name", patternForm.loc))
-                } else {
-                    val tagName = tagForm.sym.name
-                    if (!tagName[0].isUpperCase()) {
-                        Result.Err(Error("case pattern tag must be capitalized: $tagName", tagForm.loc))
-                    } else {
-                        resolveTag(tagName, tagForm.loc).flatMap { tagValue ->
-                            analyseBindingNames(patternForm.els.drop(1)).map { bindingNames ->
-                                var branchAnalyser = this
-                                val bindings = mutableListOf<LocalVar>()
-
-                                for (bindingName in bindingNames) {
-                                    val (newAnalyser, localVar) = branchAnalyser.withLocal(bindingName)
-                                    branchAnalyser = newAnalyser
-                                    bindings.add(localVar)
-                                }
-
-                                val bodyExpr = branchAnalyser.analyseValueExpr(bodyForm)
-                                CaseBranch(TagPattern(tagValue, bindings, patternForm.loc), bodyExpr, patternForm.loc)
-                            }
+                val tagResult: Result<Error, Pair<Any, SourceSection?>> = when (val head = patternForm.els.firstOrNull()) {
+                    is SymbolForm -> {
+                        val tagName = head.sym.name
+                        if (!tagName[0].isUpperCase()) {
+                            Result.Err(Error("case pattern tag must be capitalized: $tagName", head.loc))
+                        } else {
+                            resolveTag(tagName, head.loc).map { it to head.loc }
                         }
+                    }
+                    is QSymbolForm -> resolveQualifiedTag(head.ns.name, head.member, head.loc).map { it to head.loc }
+                    null -> Result.Err(Error("case pattern must start with a tag name", patternForm.loc))
+                    else -> Result.Err(Error("case pattern must start with a tag name", patternForm.loc))
+                }
+
+                tagResult.flatMap { (tagValue, tagLoc) ->
+                    analyseBindingNames(patternForm.els.drop(1)).map { bindingNames ->
+                        var branchAnalyser = this
+                        val bindings = mutableListOf<LocalVar>()
+
+                        for (bindingName in bindingNames) {
+                            val (newAnalyser, localVar) = branchAnalyser.withLocal(bindingName)
+                            branchAnalyser = newAnalyser
+                            bindings.add(localVar)
+                        }
+
+                        val bodyExpr = branchAnalyser.analyseValueExpr(bodyForm)
+                        CaseBranch(TagPattern(tagValue, bindings, patternForm.loc), bodyExpr, patternForm.loc)
                     }
                 }
             }

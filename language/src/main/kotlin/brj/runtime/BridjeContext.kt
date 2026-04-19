@@ -20,7 +20,10 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
     var brjCore: NsEnv = NsEnv.withBuiltins(lang)
         internal set
 
-    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf("brj.core" to brjCore))
+    var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf(
+        "brj.core" to brjCore,
+        "brj.forms" to NsEnv.withFormsBuiltins(),
+    ))
         private set
 
     val loadingInProgress: MutableSet<String> = mutableSetOf()

@@ -1,7 +1,8 @@
 ns: brj.core
   import:
-    brj.runtime:
-      as(BridjeVector, Vec)
+    brj.runtime: as(BridjeVector, Vec)
+  require:
+    brj: as(forms, f)
 
 decl: [a] Vec/count([a]) Int
 decl: [a] Vec/first([a]) a
@@ -49,7 +50,7 @@ defmacro: cond(& clauses)
 
 defmacro: ifLet(bindings, then, else)
   case: bindings
-    Vector(els)
+    f/Vector(els)
       '(let [v# ~nth(els, 1)]
          (case v#
            nil ~else
@@ -57,7 +58,7 @@ defmacro: ifLet(bindings, then, else)
 
 defmacro: unlessLet(bindings, else, then)
   case: bindings
-    Vector(els)
+    f/Vector(els)
       '(let [v# ~nth(els, 1)]
          (case v#
            nil ~else
@@ -96,7 +97,7 @@ defmacro: cond->(seed, & clauses)
   if: empty?(clauses)
     seed
     let: [applied case: nth(clauses, 1)
-                    List(els) '(~first(els) v# ~@rest(els))
+                    f/List(els) '(~first(els) v# ~@rest(els))
                     bare '(~bare v#)]
       '(let [v# ~seed
              v# (if ~first(clauses) ~applied v#)]
@@ -106,7 +107,7 @@ defmacro: doto(val, & forms)
   if: empty?(forms)
     val
     let: [applied case: first(forms)
-                    List(els) '(~first(els) v# ~@rest(els))
+                    f/List(els) '(~first(els) v# ~@rest(els))
                     bare '(~bare v#)]
       '(let [v# ~val]
          (do ~applied (doto v# ~@rest(forms))))
@@ -124,7 +125,7 @@ defmacro: ?>(seed, & steps)
   if: empty?(steps)
     seed
     let: [applied case: first(steps)
-                    List(els) '(~first(els) v# ~@rest(els))
+                    f/List(els) '(~first(els) v# ~@rest(els))
                     bare '(~bare v#)]
       '(case ~seed
          nil nil
@@ -135,6 +136,6 @@ defmacro: ->(seed, & steps)
     seed
     let: [step first(steps)
           applied case: step
-                    List(els) '(~first(els) ~seed ~@rest(els))
+                    f/List(els) '(~first(els) ~seed ~@rest(els))
                     bare '(~bare ~seed)]
       '(-> ~applied ~@rest(steps))
