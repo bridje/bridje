@@ -159,6 +159,21 @@ data class IteratorType(val el: Type): BaseType {
     override fun toString() = "Iterator(${el})"
 }
 
+// Virtual type — no dedicated runtime class.
+// At runtime a Bytes value is a Truffle HostObject wrapping a Java `byte[]`
+// (produced via `env.asGuestValue(byte[])`).
+// Builtins that consume Bytes unwrap via `env.asHostObject` back to `byte[]`;
+// this fast path is valid because v1 only produces Bytes through our own
+// builtins (`by/<-str`, `fs/<-bytes`).
+// Reads through Bytes/nth return the unsigned byte value widened to Int
+// (0..255); there is no Byte scalar type in Bridje.
+@ExportLibrary(InteropLibrary::class)
+data object BytesType: BaseType {
+    @Suppress("UNUSED_PARAMETER")
+    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
+    override fun toString() = "Bytes"
+}
+
 @ExportLibrary(InteropLibrary::class)
 data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType {
     @Suppress("UNUSED_PARAMETER")

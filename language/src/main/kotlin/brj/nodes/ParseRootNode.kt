@@ -372,6 +372,24 @@ class ParseRootNode(
                     source = source
                 )
             }
+            // brj:bytes starts with Bytes interop builtins
+            nsDecl?.name == "brj.bytes" -> NsEnv.withBytesBuiltins(lang).let { base ->
+                base.copy(
+                    requires = resolveRequires(frame),
+                    imports = nsDecl.imports,
+                    nsDecl = nsDecl,
+                    source = source
+                )
+            }
+            // brj:str starts with Str interop builtins
+            nsDecl?.name == "brj.str" -> NsEnv.withStrBuiltins(lang).let { base ->
+                base.copy(
+                    requires = resolveRequires(frame),
+                    imports = nsDecl.imports,
+                    nsDecl = nsDecl,
+                    source = source
+                )
+            }
             nsDecl != null -> nsDecl.resolve(frame)
             else -> NsEnv()
         }
