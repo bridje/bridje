@@ -15,7 +15,7 @@ class FormsReadersTest {
         val result = ctx.evalBridje("""
             ns: test.forms.str1
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             def: result f/<-str("foo")
         """.trimIndent()).getMember("result")
@@ -31,7 +31,7 @@ class FormsReadersTest {
         val result = ctx.evalBridje("""
             ns: test.forms.str2
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             def: result f/<-str("1 2 3")
         """.trimIndent()).getMember("result")
@@ -47,7 +47,7 @@ class FormsReadersTest {
         val result = ctx.evalBridje("""
             ns: test.forms.str3
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             def: result f/<-str("(foo 1 2)")
         """.trimIndent()).getMember("result")
@@ -67,7 +67,7 @@ class FormsReadersTest {
             ns: test.forms.file
               require:
                 brj:
-                  as(forms, f)
+                  as(rdr, f)
                   fs
 
             def: result f/<-file(fs/file("${target.brjLit()}"))
@@ -85,7 +85,7 @@ class FormsReadersTest {
         val result = ctx.evalBridje("""
             ns: test.forms.empty
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             def: result f/<-str("")
         """.trimIndent()).getMember("result")

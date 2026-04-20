@@ -77,37 +77,37 @@ data class NsEnv(
             return NsEnv(vars = builtinDataMetas + builtinFunctions + anomalyTags)
         }
 
-        fun withFormsBuiltins(language: BridjeLanguage): NsEnv {
-            val formsNs = "brj.forms".sym
+        fun withReaderBuiltins(language: BridjeLanguage): NsEnv {
+            val readerNs = "brj.rdr".sym
             val formVec = VectorType(FormType.notNull()).notNull()
             val fileType = TagType("brj.fs", "File").notNull()
             val str = StringType.notNull()
 
             fun readerFn(name: String, node: RootNode, paramType: Type): Pair<Symbol, GlobalVar> {
                 val sym = name.sym
-                return sym to GlobalVar(formsNs, sym, BridjeFunction(node.callTarget),
+                return sym to GlobalVar(readerNs, sym, BridjeFunction(node.callTarget),
                     type = FnType(listOf(paramType), formVec).notNull())
             }
 
             return NsEnv(vars = mapOf(
-                "SymbolForm".sym to GlobalVar(formsNs, "SymbolForm".sym, SymbolFormMeta),
-                "QSymbolForm".sym to GlobalVar(formsNs, "QSymbolForm".sym, QSymbolFormMeta),
-                "KeywordForm".sym to GlobalVar(formsNs, "KeywordForm".sym, KeywordFormMeta),
-                "QKeywordForm".sym to GlobalVar(formsNs, "QKeywordForm".sym, QKeywordFormMeta),
-                "DotSymbolForm".sym to GlobalVar(formsNs, "DotSymbolForm".sym, DotSymbolFormMeta),
-                "QDotSymbolForm".sym to GlobalVar(formsNs, "QDotSymbolForm".sym, QDotSymbolFormMeta),
-                "List".sym to GlobalVar(formsNs, "List".sym, ListMeta),
-                "Vector".sym to GlobalVar(formsNs, "Vector".sym, VectorMeta),
-                "Record".sym to GlobalVar(formsNs, "Record".sym, RecordMeta),
-                "Set".sym to GlobalVar(formsNs, "Set".sym, SetMeta),
-                "Int".sym to GlobalVar(formsNs, "Int".sym, IntMeta),
-                "Double".sym to GlobalVar(formsNs, "Double".sym, DoubleMeta),
-                "String".sym to GlobalVar(formsNs, "String".sym, StringMeta),
-                "BigInt".sym to GlobalVar(formsNs, "BigInt".sym, BigIntMeta),
-                "BigDec".sym to GlobalVar(formsNs, "BigDec".sym, BigDecMeta),
-                "Unquote".sym to GlobalVar(formsNs, "Unquote".sym, UnquoteMeta),
-                "UnquoteSplice".sym to GlobalVar(formsNs, "UnquoteSplice".sym, UnquoteSpliceMeta),
-                "SyntaxQuote".sym to GlobalVar(formsNs, "SyntaxQuote".sym, SyntaxQuoteMeta),
+                "SymbolForm".sym to GlobalVar(readerNs, "SymbolForm".sym, SymbolFormMeta),
+                "QSymbolForm".sym to GlobalVar(readerNs, "QSymbolForm".sym, QSymbolFormMeta),
+                "KeywordForm".sym to GlobalVar(readerNs, "KeywordForm".sym, KeywordFormMeta),
+                "QKeywordForm".sym to GlobalVar(readerNs, "QKeywordForm".sym, QKeywordFormMeta),
+                "DotSymbolForm".sym to GlobalVar(readerNs, "DotSymbolForm".sym, DotSymbolFormMeta),
+                "QDotSymbolForm".sym to GlobalVar(readerNs, "QDotSymbolForm".sym, QDotSymbolFormMeta),
+                "List".sym to GlobalVar(readerNs, "List".sym, ListMeta),
+                "Vector".sym to GlobalVar(readerNs, "Vector".sym, VectorMeta),
+                "Record".sym to GlobalVar(readerNs, "Record".sym, RecordMeta),
+                "Set".sym to GlobalVar(readerNs, "Set".sym, SetMeta),
+                "Int".sym to GlobalVar(readerNs, "Int".sym, IntMeta),
+                "Double".sym to GlobalVar(readerNs, "Double".sym, DoubleMeta),
+                "String".sym to GlobalVar(readerNs, "String".sym, StringMeta),
+                "BigInt".sym to GlobalVar(readerNs, "BigInt".sym, BigIntMeta),
+                "BigDec".sym to GlobalVar(readerNs, "BigDec".sym, BigDecMeta),
+                "Unquote".sym to GlobalVar(readerNs, "Unquote".sym, UnquoteMeta),
+                "UnquoteSplice".sym to GlobalVar(readerNs, "UnquoteSplice".sym, UnquoteSpliceMeta),
+                "SyntaxQuote".sym to GlobalVar(readerNs, "SyntaxQuote".sym, SyntaxQuoteMeta),
                 readerFn("<-file", FormsFromFileNode(language), fileType),
                 readerFn("<-str", FormsFromStringNode(language), str),
             ))

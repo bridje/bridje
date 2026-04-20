@@ -2,7 +2,7 @@ ns: brj.core
   import:
     brj.runtime: as(BridjeVector, Vec)
   require:
-    brj: as(forms, f)
+    brj: as(rdr, f)
 
 decl: [a] Vec/count([a]) Int
 decl: [a] Vec/first([a]) a
