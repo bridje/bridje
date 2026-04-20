@@ -127,6 +127,10 @@ internal fun Collection<Constraint>.resolve(): Subst {
                     lower.base is VectorType && upper.base is IterableType ->
                         queue.add(lower.base.el subOf upper.base.el)
 
+                    // SetType <: IterableType — direct, covariant
+                    lower.base is SetType && upper.base is IterableType ->
+                        queue.add(lower.base.el subOf upper.base.el)
+
                     // HostType <: protocol type — rewrite to HostType <: HostType(java interface)
                     lower.base is HostType && upper.base is IterableType ->
                         queue.add(lower subOf HostType(J_L_ITERABLE.name, listOf(upper.base.el), listOf(Variance.OUT)).notNull())

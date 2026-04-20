@@ -60,6 +60,9 @@ internal infix fun BaseType.join(other: BaseType): BaseType = when {
     // Cross-kind: VectorType ↔ IterableType — join picks the supertype (protocol)
     this is VectorType && other is IterableType -> other
     other is VectorType && this is IterableType -> this
+    // Cross-kind: SetType ↔ IterableType — join picks the supertype (protocol)
+    this is SetType && other is IterableType -> other
+    other is SetType && this is IterableType -> this
     this is HostType && other is HostType && className == other.className && args.size == other.args.size && args.isNotEmpty() ->
         HostType(className, joinArgs(variances, args, other.args), variances)
     // Join of different HostTypes — pick the supertype (less specific)
@@ -96,6 +99,9 @@ internal infix fun BaseType.meet(other: BaseType): BaseType = when {
     // Cross-kind: VectorType ↔ IterableType — meet picks the subtype (VectorType)
     this is VectorType && other is IterableType -> this
     other is VectorType && this is IterableType -> other
+    // Cross-kind: SetType ↔ IterableType — meet picks the subtype (SetType)
+    this is SetType && other is IterableType -> this
+    other is SetType && this is IterableType -> other
     // Cross-kind: HostType ↔ IterableType — meet picks the HostType (subtype)
     this is HostType && other is IterableType -> this
     other is HostType && this is IterableType -> other
