@@ -521,4 +521,26 @@ Dur/.toMillis(d)
     (qualified_dot_symbol)
     (symbol)))
 
+==================
+Bare hash symbol
+==================
+
+#
+
+---
+
+(source_file
+  (symbol))
+
+==================
+Hash-digit symbol
+==================
+
+#0
+
+---
+
+(source_file
+  (symbol))
+
 

@@ -59,6 +59,9 @@ def: filterv(xs, pred)
   reduce: xs, []
     fn: step(acc, x) if: pred(x) concat(acc, [x]) acc
 
+defmacro: #(& body)
+  '(fn (_ it) ~@body)
+
 defmacro: cond(& clauses)
   if: empty?(clauses)
     'nil

@@ -48,6 +48,20 @@ class FnTest {
     }
 
     @Test
+    fun `anon-fn shorthand single arg`() = withContext { ctx ->
+        val fn = ctx.evalBridje("#: add(it, 1)")
+        val result = fn.execute(41L)
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `anon-fn shorthand inline body`() = withContext { ctx ->
+        val fn = ctx.evalBridje("#: it")
+        val result = fn.execute(7L)
+        assertEquals(7L, result.asLong())
+    }
+
+    @Test
     fun `trailing record param is optional`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:

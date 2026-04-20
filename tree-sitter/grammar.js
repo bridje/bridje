@@ -7,7 +7,7 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-nocheck
 
-const SYMBOL_HEAD = /[a-zA-Z*\-_+=?!<>&]/;
+const SYMBOL_HEAD = /[a-zA-Z*\-_+=?!<>&#]/;
 const SYMBOL_CHAR = /[a-zA-Z*\-_+=?!<>&0-9]/;
 const SYMBOL_BODY = seq(SYMBOL_HEAD, repeat(SYMBOL_CHAR));
 

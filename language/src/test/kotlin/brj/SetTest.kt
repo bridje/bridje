@@ -138,7 +138,7 @@ class SetTest {
 
     @Test
     fun `set flows into mapv via Iterable subtyping`() = withContext { ctx ->
-        val result = ctx.evalBridje("count(mapv(set([1, 2, 3]), fn: inc(x) add(x, 1)))")
+        val result = ctx.evalBridje("count(mapv(set([1, 2, 3]), #: add(it, 1)))")
         assertEquals(3L, result.asLong())
     }
 }

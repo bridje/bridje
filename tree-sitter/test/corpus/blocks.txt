@@ -344,6 +344,34 @@ def: foo()
         (symbol)))))
 
 ==================
+Hash block call (anonymous fn sugar)
+==================
+
+#: inc(it)
+
+---
+
+(source_file
+  (block_call
+    (symbol)
+    (call
+      (symbol)
+      (symbol))))
+
+==================
+Hash-zero block call (zero-arg anonymous fn sugar)
+==================
+
+#0: 42
+
+---
+
+(source_file
+  (block_call
+    (symbol)
+    (int)))
+
+==================
 Multiple sibling def statements
 ==================
 
