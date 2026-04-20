@@ -11,7 +11,7 @@ class MacroTest {
         val result = ctx.evalBridje("""
             ns: test.macros
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             defmacro: unless(cond, body)
               f/List([f/SymbolForm(Symbol("if")) cond 'nil body])
@@ -26,7 +26,7 @@ class MacroTest {
         val result = ctx.evalBridje("""
             ns: test.macros
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             defmacro: when(cond, body)
               f/List([f/SymbolForm(Symbol("if")) cond body 'nil])
@@ -41,7 +41,7 @@ class MacroTest {
         val result = ctx.evalBridje("""
             ns: test.macros
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             defmacro: when(cond, body)
               f/List([f/SymbolForm(Symbol("if")) cond body 'nil])
@@ -56,7 +56,7 @@ class MacroTest {
         val result1 = ctx.evalBridje("""
             ns: test.macros
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             defmacro: if-not(cond, then, else)
               f/List([f/SymbolForm(Symbol("if")) cond else then])
@@ -357,7 +357,7 @@ class MacroTest {
         val result = ctx.evalBridje("""
             ns: test.macros
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             defmacro: countRest(& rest)
               f/Int(count(rest))
@@ -372,7 +372,7 @@ class MacroTest {
         val result = ctx.evalBridje("""
             ns: test.macros
               require:
-                brj: as(forms, f)
+                brj: as(rdr, f)
 
             defmacro: countRest(& rest)
               f/Int(count(rest))

@@ -22,10 +22,10 @@ internal fun Context.evalBridje(src: String) = eval("bridje", src)
 private const val FORMS_NS_HEADER =
     "ns: test.forms\n" +
     "  require:\n" +
-    "    brj: as(forms, f)\n"
+    "    brj: as(rdr, f)\n"
 
 /**
- * Runs `expr` inside an anonymous ns that requires `brj.forms :as f`.
+ * Runs `expr` inside an anonymous ns that requires `brj.rdr :as f`.
  * Wraps `expr` in `def: __result` so the returned [Value] is the expression's value,
  * not the ns itself.
  */

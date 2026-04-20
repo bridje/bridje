@@ -16,7 +16,7 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 // Meta objects for each form type
-object SymbolFormMeta : BuiltinMetaObj("SymbolForm".sym, "brj.forms".sym) {
+object SymbolFormMeta : BuiltinMetaObj("SymbolForm".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is SymbolForm
 
     @Throws(ArityException::class)
@@ -27,7 +27,7 @@ object SymbolFormMeta : BuiltinMetaObj("SymbolForm".sym, "brj.forms".sym) {
     }
 }
 
-object QSymbolFormMeta : BuiltinMetaObj("QSymbolForm".sym, "brj.forms".sym) {
+object QSymbolFormMeta : BuiltinMetaObj("QSymbolForm".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is QSymbolForm
 
     @Throws(ArityException::class)
@@ -39,7 +39,7 @@ object QSymbolFormMeta : BuiltinMetaObj("QSymbolForm".sym, "brj.forms".sym) {
     }
 }
 
-object ListMeta : BuiltinMetaObj("List".sym, "brj.forms".sym) {
+object ListMeta : BuiltinMetaObj("List".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is ListForm
 
     @Throws(ArityException::class)
@@ -50,7 +50,7 @@ object ListMeta : BuiltinMetaObj("List".sym, "brj.forms".sym) {
     }
 }
 
-object VectorMeta : BuiltinMetaObj("Vector".sym, "brj.forms".sym) {
+object VectorMeta : BuiltinMetaObj("Vector".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is VectorForm
 
     @Throws(ArityException::class)
@@ -61,7 +61,7 @@ object VectorMeta : BuiltinMetaObj("Vector".sym, "brj.forms".sym) {
     }
 }
 
-object RecordMeta : BuiltinMetaObj("Record".sym, "brj.forms".sym) {
+object RecordMeta : BuiltinMetaObj("Record".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is RecordForm
 
     @Throws(ArityException::class)
@@ -72,7 +72,7 @@ object RecordMeta : BuiltinMetaObj("Record".sym, "brj.forms".sym) {
     }
 }
 
-object SetMeta : BuiltinMetaObj("Set".sym, "brj.forms".sym) {
+object SetMeta : BuiltinMetaObj("Set".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is SetForm
 
     @Throws(ArityException::class)
@@ -83,7 +83,7 @@ object SetMeta : BuiltinMetaObj("Set".sym, "brj.forms".sym) {
     }
 }
 
-object IntMeta : BuiltinMetaObj("Int".sym, "brj.forms".sym) {
+object IntMeta : BuiltinMetaObj("Int".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is IntForm
 
     @Throws(ArityException::class)
@@ -93,7 +93,7 @@ object IntMeta : BuiltinMetaObj("Int".sym, "brj.forms".sym) {
     }
 }
 
-object DoubleMeta : BuiltinMetaObj("Double".sym, "brj.forms".sym) {
+object DoubleMeta : BuiltinMetaObj("Double".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is DoubleForm
 
     @Throws(ArityException::class)
@@ -103,7 +103,7 @@ object DoubleMeta : BuiltinMetaObj("Double".sym, "brj.forms".sym) {
     }
 }
 
-object StringMeta : BuiltinMetaObj("String".sym, "brj.forms".sym) {
+object StringMeta : BuiltinMetaObj("String".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is StringForm
 
     @Throws(ArityException::class)
@@ -114,7 +114,7 @@ object StringMeta : BuiltinMetaObj("String".sym, "brj.forms".sym) {
     }
 }
 
-object BigIntMeta : BuiltinMetaObj("BigInt".sym, "brj.forms".sym) {
+object BigIntMeta : BuiltinMetaObj("BigInt".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is BigIntForm
 
     @Throws(ArityException::class)
@@ -124,7 +124,7 @@ object BigIntMeta : BuiltinMetaObj("BigInt".sym, "brj.forms".sym) {
     }
 }
 
-object BigDecMeta : BuiltinMetaObj("BigDec".sym, "brj.forms".sym) {
+object BigDecMeta : BuiltinMetaObj("BigDec".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is BigDecForm
 
     @Throws(ArityException::class)
@@ -134,7 +134,7 @@ object BigDecMeta : BuiltinMetaObj("BigDec".sym, "brj.forms".sym) {
     }
 }
 
-object KeywordFormMeta : BuiltinMetaObj("KeywordForm".sym, "brj.forms".sym) {
+object KeywordFormMeta : BuiltinMetaObj("KeywordForm".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is KeywordForm
 
     @Throws(ArityException::class)
@@ -145,7 +145,7 @@ object KeywordFormMeta : BuiltinMetaObj("KeywordForm".sym, "brj.forms".sym) {
     }
 }
 
-object QKeywordFormMeta : BuiltinMetaObj("QKeywordForm".sym, "brj.forms".sym) {
+object QKeywordFormMeta : BuiltinMetaObj("QKeywordForm".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is QKeywordForm
 
     @Throws(ArityException::class)
@@ -157,7 +157,7 @@ object QKeywordFormMeta : BuiltinMetaObj("QKeywordForm".sym, "brj.forms".sym) {
     }
 }
 
-object DotSymbolFormMeta : BuiltinMetaObj("DotSymbolForm".sym, "brj.forms".sym) {
+object DotSymbolFormMeta : BuiltinMetaObj("DotSymbolForm".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is DotSymbolForm
 
     @Throws(ArityException::class)
@@ -168,7 +168,7 @@ object DotSymbolFormMeta : BuiltinMetaObj("DotSymbolForm".sym, "brj.forms".sym) 
     }
 }
 
-object QDotSymbolFormMeta : BuiltinMetaObj("QDotSymbolForm".sym, "brj.forms".sym) {
+object QDotSymbolFormMeta : BuiltinMetaObj("QDotSymbolForm".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is QDotSymbolForm
 
     @Throws(ArityException::class)
@@ -180,7 +180,7 @@ object QDotSymbolFormMeta : BuiltinMetaObj("QDotSymbolForm".sym, "brj.forms".sym
     }
 }
 
-object UnquoteMeta : BuiltinMetaObj("Unquote".sym, "brj.forms".sym) {
+object UnquoteMeta : BuiltinMetaObj("Unquote".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is UnquoteForm
 
     @Throws(ArityException::class)
@@ -190,7 +190,7 @@ object UnquoteMeta : BuiltinMetaObj("Unquote".sym, "brj.forms".sym) {
     }
 }
 
-object UnquoteSpliceMeta : BuiltinMetaObj("UnquoteSplice".sym, "brj.forms".sym) {
+object UnquoteSpliceMeta : BuiltinMetaObj("UnquoteSplice".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is UnquoteSpliceForm
 
     @Throws(ArityException::class)
@@ -200,7 +200,7 @@ object UnquoteSpliceMeta : BuiltinMetaObj("UnquoteSplice".sym, "brj.forms".sym) 
     }
 }
 
-object SyntaxQuoteMeta : BuiltinMetaObj("SyntaxQuote".sym, "brj.forms".sym) {
+object SyntaxQuoteMeta : BuiltinMetaObj("SyntaxQuote".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is SyntaxQuoteForm
 
     @Throws(ArityException::class)
