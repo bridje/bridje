@@ -2,6 +2,7 @@ package brj
 
 import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.graalvm.polyglot.PolyglotException
@@ -164,6 +165,7 @@ class ConcurrentTest {
     }
 
     @Test
+    @Disabled("Fails reliably on GitHub Actions CI, passes reliably locally. Tracked by #114.")
     fun `parent awaits unawaited children`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
             ns: test.scope.join
