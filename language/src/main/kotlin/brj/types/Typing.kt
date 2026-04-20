@@ -149,6 +149,17 @@ internal fun RecordSetExpr.typing(): Typing {
     )
 }
 
+internal fun RecordUpdateExpr.typing(): Typing {
+    val recordTyping = recordExpr.typing()
+    val fieldTypings = fields.map { (_, v) -> v.typing() }
+
+    return Typing.build(
+        RecordType.notNull(),
+        childTypings = listOf(recordTyping) + fieldTypings,
+        constraints = listOf(recordTyping.type subOf RecordType.notNull()),
+    )
+}
+
 internal fun SetExpr.typing(): Typing {
     val elemTypings = els.map { it.typing() }
     val elemType = freshType()
@@ -278,6 +289,7 @@ internal fun ValueExpr.typing(): Typing =
         is HostStaticMethodExpr -> Typing(freshType())
         is HostConstructorExpr -> Typing(freshType())
         is RecordSetExpr -> typing()
+        is RecordUpdateExpr -> typing()
         is EffectVarExpr -> Typing(effectVar.type?.instantiate() ?: freshType())
         is WithFxExpr -> {
             val bindingTypings = bindings.map { (_, expr) -> expr.typing() }

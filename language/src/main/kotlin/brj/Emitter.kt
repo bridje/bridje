@@ -141,6 +141,12 @@ class Emitter(private val language: BridjeLanguage, private val ctx: BridjeConte
         is CaseExpr -> emitCase(expr, fxSource, preApplied)
         is TryCatchExpr -> emitTryCatch(expr, fxSource, preApplied)
         is RecordSetExpr -> RecordSetNode(expr.key, emitExpr(expr.recordExpr, fxSource, preApplied), emitExpr(expr.valueExpr, fxSource, preApplied), expr.loc)
+        is RecordUpdateExpr -> RecordUpdateNode(
+            expr.fields.map { it.first }.toTypedArray(),
+            emitExpr(expr.recordExpr, fxSource, preApplied),
+            expr.fields.map { emitExpr(it.second, fxSource, preApplied) }.toTypedArray(),
+            expr.loc
+        )
         is EffectVarExpr -> {
             if (fxSource != null) ReadFxMapEntryNode(fxSource.create(), expr.effectVar, expr.loc)
             else GlobalVarNode(expr.effectVar, expr.loc)

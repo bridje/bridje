@@ -258,6 +258,7 @@ data class Analyser(
                 "quote" -> analyseQuote(form)
                 "set!" -> analyseSet(form)
                 "withFx" -> analyseWithFx(form)
+                "with" -> analyseWith(form)
                 "loop" -> analyseLoop(form)
                 "recur" -> analyseRecur(form)
                 "def" -> errorExpr("def not allowed in value position", form.loc)
@@ -786,6 +787,51 @@ data class Analyser(
         val valueExpr = analyseValueExpr(els[3])
 
         return RecordSetExpr(recordExpr, keyValue.name, valueExpr, form.loc)
+    }
+
+    private fun resolveDotSymbolKey(form: DotSymbolForm): GlobalVar? =
+        nsEnv.key(form.sym) ?: ctx.brjCore.key(form.sym)
+
+    private fun resolveQualifiedDotSymbolKey(form: QDotSymbolForm): GlobalVar? {
+        ctx.namespaces[form.ns.name]?.key(form.member)?.let { return it }
+        nsEnv.requires[form.ns.name]?.key(form.member)?.let { return it }
+        return null
+    }
+
+    private fun analyseWith(form: ListForm): ValueExpr {
+        val els = form.els
+        if (els.size < 2)
+            return errorExpr("with requires a record and at least one field/value pair", form.loc)
+
+        val updates = els.drop(2)
+        if (updates.size % 2 != 0)
+            return errorExpr("with requires an even number of field/value forms after the record", form.loc)
+
+        if (updates.isEmpty())
+            return errorExpr("with requires a record and at least one field/value pair", form.loc)
+
+        val recordExpr = analyseValueExpr(els[1])
+
+        val fields = mutableListOf<Pair<String, ValueExpr>>()
+        for (i in updates.indices step 2) {
+            val fieldForm = updates[i]
+            val keyVar = when (fieldForm) {
+                is DotSymbolForm ->
+                    resolveDotSymbolKey(fieldForm)
+                        ?: return errorExpr("Unknown field: .${fieldForm.sym.name}", fieldForm.loc)
+                is QDotSymbolForm ->
+                    resolveQualifiedDotSymbolKey(fieldForm)
+                        ?: return errorExpr("Unknown field: $fieldForm", fieldForm.loc)
+                else ->
+                    return errorExpr("with field selector must be a dot-symbol (.field)", fieldForm.loc)
+            }
+            val keyValue = keyVar.value
+            if (keyValue !is BridjeKey) return errorExpr("$fieldForm is not a key", fieldForm.loc)
+            val valueExpr = analyseValueExpr(updates[i + 1])
+            fields.add(keyValue.name to valueExpr)
+        }
+
+        return RecordUpdateExpr(recordExpr, fields, form.loc)
     }
 
     private fun analyseLet(form: ListForm): ValueExpr {

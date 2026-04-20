@@ -208,6 +208,17 @@ class RecordSetExpr(
     override fun toString(): String = "(set! $recordExpr :$key $valueExpr)"
 }
 
+class RecordUpdateExpr(
+    val recordExpr: ValueExpr,
+    val fields: List<Pair<String, ValueExpr>>,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String {
+        val fieldsStr = fields.joinToString(" ") { (k, v) -> ".$k $v" }
+        return "(with $recordExpr $fieldsStr)"
+    }
+}
+
 class EffectVarExpr(
     val name: Symbol,
     val effectVar: GlobalVar,
