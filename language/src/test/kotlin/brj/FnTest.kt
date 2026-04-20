@@ -62,6 +62,13 @@ class FnTest {
     }
 
     @Test
+    fun `anon-fn zero-arg shorthand`() = withContext { ctx ->
+        val fn = ctx.evalBridje("#0: 42")
+        val result = fn.execute()
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
     fun `trailing record param is optional`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
