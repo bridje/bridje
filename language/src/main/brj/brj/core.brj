@@ -1,6 +1,8 @@
 ns: brj.core
   import:
-    brj.runtime: as(BridjeVector, Vec)
+    brj.runtime:
+      as(BridjeVector, Vec)
+      as(BridjeSet, Set)
   require:
     brj: as(rdr, f)
 
@@ -12,6 +14,14 @@ decl: [a] Vec/cons(a, [a]) [a]
 decl: [a] Vec/isEmpty([a]) Bool
 decl: [a] Vec/concat([a], [a]) [a]
 
+decl: [a] Set/count(#{a}) Int
+decl: [a] Set/isEmpty(#{a}) Bool
+decl: [a] Set/contains(#{a}, a) Bool
+decl: [a] Set/conj(a, #{a}) #{a}
+decl: [a] Set/disj(a, #{a}) #{a}
+decl: [a] Set/union(#{a}, #{a}) #{a}
+decl: [a] Set/fromVec([a]) #{a}
+
 def: count(xs) Vec/count(xs)
 def: first(xs) Vec/first(xs)
 def: first-or-null(xs) Vec/firstOrNull(xs)
@@ -19,6 +29,14 @@ def: rest(xs) Vec/rest(xs)
 def: cons(x, xs) Vec/cons(x, xs)
 def: empty?(xs) Vec/isEmpty(xs)
 def: concat(xs, ys) Vec/concat(xs, ys)
+
+def: set(xs) Set/fromVec(xs)
+def: set-count(s) Set/count(s)
+def: set-empty?(s) Set/isEmpty(s)
+def: contains?(s, x) Set/contains(s, x)
+def: conj(x, s) Set/conj(x, s)
+def: disj(x, s) Set/disj(x, s)
+def: union(a, b) Set/union(a, b)
 
 decl: [a, b] reduce(Iterable(a), b, Fn([b, a] b)) b
 def: reduce(xs, init, f)
