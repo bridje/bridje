@@ -3,6 +3,9 @@ package brj
 import brj.analyser.NsDecl
 import brj.builtins.Builtins
 import brj.builtins.AwaitNode
+import brj.builtins.BytesCountNode
+import brj.builtins.BytesFromStrNode
+import brj.builtins.BytesNthNode
 import brj.builtins.FileNode
 import brj.builtins.FormsFromFileNode
 import brj.builtins.FormsFromStringNode
@@ -12,9 +15,11 @@ import brj.builtins.FsIsFileNode
 import brj.builtins.FsListNode
 import brj.builtins.FsNameNode
 import brj.builtins.FsPathNode
+import brj.builtins.FsReadBytesNode
 import brj.builtins.FsReadStringNode
 import brj.builtins.FsResolveNode
 import brj.builtins.SpawnNode
+import brj.builtins.StrFromBytesNode
 import brj.runtime.Anomaly
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeRecord
@@ -23,8 +28,10 @@ import brj.runtime.Symbol
 import brj.runtime.SymbolMeta
 import brj.runtime.sym
 import brj.types.BoolType
+import brj.types.BytesType
 import brj.types.FnType
 import brj.types.FormType
+import brj.types.IntType
 import brj.types.RecordType
 import brj.types.StringType
 import brj.types.TagType
@@ -128,6 +135,7 @@ data class NsEnv(
             val fileTagType = TagType("brj.fs", "File").notNull()
             val str = StringType.notNull()
             val bool = BoolType.notNull()
+            val bytes = BytesType.notNull()
 
             fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
                 name to GlobalVar(fsNs, name, BridjeFunction(node.callTarget),
@@ -140,11 +148,43 @@ data class NsEnv(
                 gv("isFile?".sym, FsIsFileNode(language), listOf(fileTagType), bool),
                 gv("isDir?".sym, FsIsDirNode(language), listOf(fileTagType), bool),
                 gv("readString".sym, FsReadStringNode(language), listOf(fileTagType), str),
+                gv("<-bytes".sym, FsReadBytesNode(language), listOf(fileTagType), bytes),
                 gv("list".sym, FsListNode(language), listOf(fileTagType), VectorType(fileTagType).notNull()),
                 gv("resolve".sym, FsResolveNode(language), listOf(fileTagType, str), fileTagType),
                 gv("name".sym, FsNameNode(language), listOf(fileTagType), str),
                 gv("path".sym, FsPathNode(language), listOf(fileTagType), str),
                 "File".sym to GlobalVar(fsNs, "File".sym, FileMeta, type = fileCtorType),
+            ))
+        }
+
+        fun withBytesBuiltins(language: BridjeLanguage): NsEnv {
+            val bytesNs = "brj.bytes".sym
+            val bytes = BytesType.notNull()
+            val str = StringType.notNull()
+            val int = IntType.notNull()
+
+            fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
+                name to GlobalVar(bytesNs, name, BridjeFunction(node.callTarget),
+                    type = FnType(params, ret).notNull())
+
+            return NsEnv(vars = mapOf(
+                gv("count".sym, BytesCountNode(language), listOf(bytes), int),
+                gv("nth".sym, BytesNthNode(language), listOf(bytes, int), int),
+                gv("<-str".sym, BytesFromStrNode(language), listOf(str), bytes),
+            ))
+        }
+
+        fun withStrBuiltins(language: BridjeLanguage): NsEnv {
+            val strNs = "brj.str".sym
+            val bytes = BytesType.notNull()
+            val str = StringType.notNull()
+
+            fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
+                name to GlobalVar(strNs, name, BridjeFunction(node.callTarget),
+                    type = FnType(params, ret).notNull())
+
+            return NsEnv(vars = mapOf(
+                gv("<-bytes".sym, StrFromBytesNode(language), listOf(bytes), str),
             ))
         }
     }

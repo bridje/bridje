@@ -1033,6 +1033,7 @@ data class Analyser(
             "Double" -> FloatType.notNull()
             "BigInt" -> BigIntType.notNull()
             "BigDec" -> BigDecType.notNull()
+            "Bytes" -> BytesType.notNull()
             "Nothing" -> nullType()
             else -> when {
                 name[0].isUpperCase() -> {

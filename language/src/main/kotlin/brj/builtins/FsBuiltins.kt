@@ -51,6 +51,14 @@ class FsReadStringNode(language: BridjeLanguage) : RootNode(language) {
     }
 }
 
+class FsReadBytesNode(language: BridjeLanguage) : RootNode(language) {
+    override fun execute(frame: VirtualFrame): Any = doReadBytes(frame.arguments[0] as BridjeFile)
+
+    @TruffleBoundary
+    private fun doReadBytes(f: BridjeFile): Any =
+        BridjeContext.get(this).truffleEnv.asGuestValue(f.truffleFile.newInputStream().use { it.readAllBytes() })
+}
+
 class FsListNode(language: BridjeLanguage) : RootNode(language) {
     override fun execute(frame: VirtualFrame): Any = doList(frame.arguments[0] as BridjeFile)
 
