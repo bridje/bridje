@@ -15,9 +15,9 @@ class FormsReadersTest {
         val result = ctx.evalBridje("""
             ns: test.forms.str1
               require:
-                brj: as(forms, f)
+                brj: rdr
 
-            def: result f/<-str("foo")
+            def: result rdr/<-str("foo")
         """.trimIndent()).getMember("result")
 
         assertTrue(result.hasArrayElements())
@@ -31,9 +31,9 @@ class FormsReadersTest {
         val result = ctx.evalBridje("""
             ns: test.forms.str2
               require:
-                brj: as(forms, f)
+                brj: rdr
 
-            def: result f/<-str("1 2 3")
+            def: result rdr/<-str("1 2 3")
         """.trimIndent()).getMember("result")
 
         assertEquals(3L, result.arraySize)
@@ -47,9 +47,9 @@ class FormsReadersTest {
         val result = ctx.evalBridje("""
             ns: test.forms.str3
               require:
-                brj: as(forms, f)
+                brj: rdr
 
-            def: result f/<-str("(foo 1 2)")
+            def: result rdr/<-str("(foo 1 2)")
         """.trimIndent()).getMember("result")
 
         assertEquals(1L, result.arraySize)
@@ -67,10 +67,10 @@ class FormsReadersTest {
             ns: test.forms.file
               require:
                 brj:
-                  as(forms, f)
+                  rdr
                   fs
 
-            def: result f/<-file(fs/file("${target.brjLit()}"))
+            def: result rdr/<-file(fs/file("${target.brjLit()}"))
         """.trimIndent()).getMember("result")
 
         assertEquals(2L, result.arraySize)
@@ -85,9 +85,9 @@ class FormsReadersTest {
         val result = ctx.evalBridje("""
             ns: test.forms.empty
               require:
-                brj: as(forms, f)
+                brj: rdr
 
-            def: result f/<-str("")
+            def: result rdr/<-str("")
         """.trimIndent()).getMember("result")
 
         assertTrue(result.hasArrayElements())

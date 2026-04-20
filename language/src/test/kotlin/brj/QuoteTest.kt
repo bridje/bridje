@@ -51,8 +51,8 @@ class QuoteTest {
     fun `case on quoted symbol`() = withContext { ctx ->
         val result = ctx.evalBridjeForms("""
             case: 'foo
-              f/SymbolForm 1
-              f/List 2
+              rdr/SymbolForm 1
+              rdr/List 2
               3
         """.trimIndent())
         assertEquals(1L, result.asLong())
@@ -62,8 +62,8 @@ class QuoteTest {
     fun `case on quoted list`() = withContext { ctx ->
         val result = ctx.evalBridjeForms("""
             case: '(a b c)
-              f/SymbolForm 1
-              f/List 2
+              rdr/SymbolForm 1
+              rdr/List 2
               3
         """.trimIndent())
         assertEquals(2L, result.asLong())
@@ -73,8 +73,8 @@ class QuoteTest {
     fun `case on quoted vector`() = withContext { ctx ->
         val result = ctx.evalBridjeForms("""
             case: '[1 2]
-              f/List 1
-              f/Vector 2
+              rdr/List 1
+              rdr/Vector 2
               3
         """.trimIndent())
         assertEquals(2L, result.asLong())
@@ -84,8 +84,8 @@ class QuoteTest {
     fun `case with default on quoted form`() = withContext { ctx ->
         val result = ctx.evalBridjeForms("""
             case: '42
-              f/SymbolForm 1
-              f/List 2
+              rdr/SymbolForm 1
+              rdr/List 2
               99
         """.trimIndent())
         assertEquals(99L, result.asLong())
@@ -118,7 +118,7 @@ class QuoteTest {
     fun `case can bind forms from quoted list`() = withContext { ctx ->
         val result = ctx.evalBridjeForms("""
             case: '(foo bar)
-              f/List(forms) forms
+              rdr/List(forms) forms
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(2L, result.arraySize)

@@ -283,7 +283,7 @@ data class Analyser(
     private fun callFormConstructor(name: String, args: List<ValueExpr>, loc: SourceSection?): ValueExpr {
         val sym = Symbol.intern(name)
         // Quoting machinery: form constructors and Symbol/Var must be reachable regardless of the user's ns/requires.
-        val constructor = ctx.namespaces["brj.forms"]?.get(sym) ?: ctx.brjCore[sym]
+        val constructor = ctx.namespaces["brj.rdr"]?.get(sym) ?: ctx.brjCore[sym]
             ?: return errorExpr("$name constructor not found", loc)
         return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
     }
