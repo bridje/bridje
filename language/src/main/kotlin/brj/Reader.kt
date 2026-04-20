@@ -15,7 +15,7 @@ class Reader private constructor(private val src: Source) {
     companion object {
         private val logger = System.getLogger("brj.Reader")
 
-        private val lang: Language = 
+        private val lang: Language =
             try {
                 NativeLibraryLoader.loadLibrary("tree-sitter-bridje", Arena.global())
                     .let { Language.load(it, "tree_sitter_bridje") }
@@ -35,10 +35,38 @@ class Reader private constructor(private val src: Source) {
         }
     }
 
+    // Tree-sitter reports UTF-8 byte offsets; Truffle Source.createSection expects
+    // character offsets. Precompute a byte->char map once per source so non-ASCII
+    // input doesn't feed bogus indices into createSection.
+    private val byteToChar: IntArray = run {
+        val chars = src.characters.toString()
+        val charLen = chars.length
+        val byteLen = chars.toByteArray(Charsets.UTF_8).size
+        val map = IntArray(byteLen + 1)
+        var byteIdx = 0
+        var charIdx = 0
+        while (charIdx < charLen) {
+            val cp = chars.codePointAt(charIdx)
+            val charCount = Character.charCount(cp)
+            val utf8Bytes = when {
+                cp < 0x80 -> 1
+                cp < 0x800 -> 2
+                cp < 0x10000 -> 3
+                else -> 4
+            }
+            repeat(utf8Bytes) { map[byteIdx + it] = charIdx }
+            byteIdx += utf8Bytes
+            charIdx += charCount
+        }
+        map[byteLen] = charLen
+        map
+    }
 
     fun Node.readForm(): Form {
         if (isError) throw RuntimeException("Error reading form: $text")
-        val loc = src.createSection(range.startByte, range.endByte - range.startByte)
+        val startChar = byteToChar[range.startByte]
+        val endChar = byteToChar[range.endByte]
+        val loc = src.createSection(startChar, endChar - startChar)
 
         return when (type) {
             "int" -> IntForm(text!!.toLong(), loc)
