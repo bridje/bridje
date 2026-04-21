@@ -48,7 +48,10 @@ class VarTest {
     fun `meta preserves user meta alongside loc`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.loc.user
-            ^:test
+              require:
+                brj: as(test, t)
+
+            ^:t/test
             def: myTest nil
         """.trimIndent())
 

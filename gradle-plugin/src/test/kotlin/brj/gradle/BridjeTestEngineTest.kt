@@ -83,7 +83,7 @@ class BridjeTestEngineTest {
               require:
                 brj: as(test, t)
 
-            ^:test
+            ^:t/test
             def: twoPlusTwo()
               t/is(eq(add(2, 2), 4))
         """.trimIndent())
@@ -100,7 +100,7 @@ class BridjeTestEngineTest {
               require:
                 brj: as(test, t)
 
-            ^:test
+            ^:t/test
             def: thisOneFails()
               t/is(eq(1, 2))
         """.trimIndent())
@@ -117,15 +117,15 @@ class BridjeTestEngineTest {
               require:
                 brj: as(test, t)
 
-            ^:test
+            ^:t/test
             def: twoPlusTwo()
               t/is(eq(add(2, 2), 4))
 
-            ^:test
+            ^:t/test
             def: stringsWork()
               t/is(eq("hello", "hello"))
 
-            ^:test
+            ^:t/test
             def: thisOneFails()
               t/is(eq(add(1, 1), 3))
         """.trimIndent())

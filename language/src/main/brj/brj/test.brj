@@ -3,6 +3,8 @@ ns: brj.test
     java.util:
       as(ArrayList, AL)
 
+decl: :test Bool
+
 tag: Failure{:form, :message}
 tag: TestResult{:failures, :exn}
 

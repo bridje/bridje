@@ -88,7 +88,7 @@ defmacro: unless-let(bindings, else, then)
            nil ~else
            ~first(els) ~then))
 
-decl: {:test Bool, :exnMessage Str}
+decl: :exnMessage Str
 
 defmacro: or-else(value, & defaults)
   if: empty?(defaults)
