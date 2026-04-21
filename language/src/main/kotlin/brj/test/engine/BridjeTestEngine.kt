@@ -8,6 +8,8 @@ import org.junit.platform.engine.discovery.ClassSelector
 import org.junit.platform.engine.discovery.ClasspathRootSelector
 import org.junit.platform.engine.support.descriptor.AbstractTestDescriptor
 import org.junit.platform.engine.support.descriptor.EngineDescriptor
+import org.opentest4j.AssertionFailedError
+import org.opentest4j.MultipleFailuresError
 import java.io.File
 
 class BridjeTestEngine : TestEngine {
@@ -143,7 +145,7 @@ class BridjeTestEngine : TestEngine {
             listener.executionStarted(engineDescriptor)
 
             for (nsDescriptor in engineDescriptor.children) {
-                executeNamespace(nsDescriptor as BridjeNsDescriptor, listener)
+                executeNamespace(nsDescriptor as BridjeNsDescriptor, listener, context)
             }
 
             listener.executionFinished(engineDescriptor, TestExecutionResult.successful())
@@ -155,39 +157,72 @@ class BridjeTestEngine : TestEngine {
         }
     }
 
-    private fun executeNamespace(nsDescriptor: BridjeNsDescriptor, listener: EngineExecutionListener) {
+    private fun executeNamespace(nsDescriptor: BridjeNsDescriptor, listener: EngineExecutionListener, context: Context) {
         listener.executionStarted(nsDescriptor)
 
-        val nsValue = nsValues[nsDescriptor.displayName]
-        if (nsValue == null) {
+        val nsName = nsDescriptor.displayName
+        if (nsName !in nsValues) {
             listener.executionFinished(nsDescriptor, TestExecutionResult.failed(
-                IllegalStateException("Namespace ${nsDescriptor.displayName} not found")))
+                IllegalStateException("Namespace $nsName not found")))
             return
         }
 
         for (child in nsDescriptor.children.toList()) {
             val testDesc = child as BridjeTestDescriptor
             listener.executionStarted(testDesc)
-
-            try {
-                val fn = nsValue.getMember(testDesc.displayName)
-                val testResult = fn.execute()
-
-                if (testResult.isBoolean && testResult.asBoolean()) {
-                    listener.executionFinished(testDesc, TestExecutionResult.successful())
-                } else {
-                    listener.executionFinished(
-                        testDesc,
-                        TestExecutionResult.failed(AssertionError("Test returned: $testResult"))
-                    )
-                }
-            } catch (e: Exception) {
-                listener.executionFinished(testDesc, TestExecutionResult.failed(e))
-            }
+            listener.executionFinished(testDesc, runTest(context, nsName, testDesc.displayName))
         }
 
         listener.executionFinished(nsDescriptor, TestExecutionResult.successful())
     }
+
+    private fun runTest(context: Context, nsName: String, varName: String): TestExecutionResult {
+        val sourceText = "brj.test/run-test($nsName/$varName)"
+        val source = Source.newBuilder("bridje", sourceText, "<run-test:$nsName/$varName>")
+            .mimeType("text/brj")
+            .build()
+
+        val result = try {
+            context.parse(source).execute()
+        } catch (e: Throwable) {
+            return TestExecutionResult.failed(e)
+        }
+
+        val failures = result.getMember("failures")
+        val exn = result.getMember("exn")
+
+        val errors = buildList<Throwable> {
+            val n = failures.arraySize
+            for (i in 0 until n) add(toAssertionError(failures.getArrayElement(i)))
+            if (!exn.isNull) add(coerceThrowable(exn))
+        }
+
+        return when (errors.size) {
+            0 -> TestExecutionResult.successful()
+            1 -> TestExecutionResult.failed(errors[0])
+            else -> TestExecutionResult.failed(MultipleFailuresError("$nsName/$varName", errors))
+        }
+    }
+
+    private fun toAssertionError(failure: Value): AssertionFailedError {
+        val form = failure.getMember("form")
+        val message = failure.getMember("message")
+        val text = if (message.isNull) "Assertion failed: $form"
+        else "Assertion failed: $form — $message"
+        return AssertionFailedError(text)
+    }
+
+    private fun coerceThrowable(exnValue: Value): Throwable =
+        if (exnValue.isException) {
+            try {
+                exnValue.throwException()
+                AssertionError("polyglot reported isException but throwException returned normally")
+            } catch (t: Throwable) {
+                t
+            }
+        } else {
+            AssertionError("test threw non-exception value: $exnValue")
+        }
 }
 
 private class BridjeNsDescriptor(

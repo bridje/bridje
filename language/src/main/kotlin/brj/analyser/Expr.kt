@@ -24,6 +24,7 @@ class DefTagExpr(
     val name: Symbol,
     val fieldNames: List<String>,
     val typeVarNames: List<String> = emptyList(),
+    val recordStyle: Boolean = false,
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String =

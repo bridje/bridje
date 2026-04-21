@@ -169,7 +169,23 @@ class ParseRootNode(
             FnType(fieldTypes, returnType.notNull()).notNull()
         }
 
-        return value to nsEnv.def(expr.name, value, meta = locMeta(expr), type = type)
+        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr), type = type)
+
+        if (expr.recordStyle) {
+            // tag: Foo({:k1, :k2}) — register each field name as a key as well.
+            for (fieldName in expr.fieldNames) {
+                val fieldSym = Symbol.intern(fieldName)
+                val key = BridjeKey(fieldName)
+                val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
+                val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
+                val optName = Symbol.intern("?$fieldName")
+                updatedNs = updatedNs.defKey(fieldSym, key, type = keyType)
+                updatedNs = updatedNs.defKey(optName, BridjeOptionalKey(fieldName), type = optKeyType)
+                updatedNs = updatedNs.def(optName, BridjeOptionalKey(fieldName), type = optKeyType)
+            }
+        }
+
+        return value to updatedNs
     }
 
     @TruffleBoundary

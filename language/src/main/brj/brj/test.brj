@@ -1,0 +1,34 @@
+ns: brj.test
+  import:
+    java.util:
+      as(ArrayList, AL)
+
+tag: Failure{:form, :message}
+tag: TestResult{:failures, :exn}
+
+decl: [a] AL/new() AL(a)
+decl: [a] AL/.add(a) Bool
+
+def: _make-collector() AL/new()
+
+def: _collector-add!(c, x)
+  AL/.add(c, x)
+  nil
+
+defx: _record-failure! Fn([Form, Str?] Nothing)
+
+defmacro: is(form)
+  '(unless ~form
+     (~`_record-failure! (quote ~form) nil))
+
+defmacro: run-test(test-qsym)
+  '(let [cell# (~`_make-collector)
+         exn# try:
+                withFx: [~`_record-failure!
+                         fn: h#(f# m#)
+                           (~`_collector-add! cell# (~`Failure f# m#))]
+                  (~test-qsym)
+                nil
+                catch:
+                  a# a#]
+     (~`TestResult cell# exn#))

@@ -80,10 +80,12 @@ class BridjeTestEngineTest {
     fun `passing tests succeed`() {
         writeBrjFile("my/tests.brj", """
             ns: my.tests
+              require:
+                brj: as(test, t)
 
             ^:test
             def: twoPlusTwo()
-              eq(add(2, 2), 4)
+              t/is(eq(add(2, 2), 4))
         """.trimIndent())
 
         val result = runner().build()
@@ -95,10 +97,12 @@ class BridjeTestEngineTest {
     fun `failing test fails the build`() {
         writeBrjFile("my/tests.brj", """
             ns: my.tests
+              require:
+                brj: as(test, t)
 
             ^:test
             def: thisOneFails()
-              eq(1, 2)
+              t/is(eq(1, 2))
         """.trimIndent())
 
         val result = runner().buildAndFail()
@@ -110,18 +114,20 @@ class BridjeTestEngineTest {
     fun `mixed pass and fail`() {
         writeBrjFile("my/tests.brj", """
             ns: my.tests
+              require:
+                brj: as(test, t)
 
             ^:test
             def: twoPlusTwo()
-              eq(add(2, 2), 4)
+              t/is(eq(add(2, 2), 4))
 
             ^:test
             def: stringsWork()
-              eq("hello", "hello")
+              t/is(eq("hello", "hello"))
 
             ^:test
             def: thisOneFails()
-              eq(add(1, 1), 3)
+              t/is(eq(add(1, 1), 3))
         """.trimIndent())
 
         val result = runner().buildAndFail()

@@ -1036,6 +1036,7 @@ data class Analyser(
             "BigInt" -> BigIntType.notNull()
             "BigDec" -> BigDecType.notNull()
             "Bytes" -> BytesType.notNull()
+            "Form" -> FormType.notNull()
             "Nothing" -> nullType()
             else -> when {
                 name[0].isUpperCase() -> {
@@ -1350,21 +1351,35 @@ data class Analyser(
                 // tag: Nothing (nullary)
                 val name = sigForm.sym
                 if (!name.name[0].isUpperCase()) return errorExpr("tag names must be capitalized: ${name.name}", sigForm.loc)
-                DefTagExpr(name, emptyList(), typeVarNames, loc)
+                DefTagExpr(name, emptyList(), typeVarNames, loc = loc)
             }
             is ListForm -> {
-                // tag: Just(t) or tag: [t] Just(t)
+                // tag: Just(t) or tag: [t] Just(t) or tag: Foo({:k1, :k2})
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
                     ?: return errorExpr("tag signature must start with a name", sigForm.loc)
                 val name = nameForm.sym
                 if (!name.name[0].isUpperCase()) return errorExpr("tag names must be capitalized: ${name.name}", nameForm.loc)
+
+                val remainingEls = sigForm.els.drop(1)
+                val singleRecord = remainingEls.singleOrNull() as? RecordForm
+                if (singleRecord != null) {
+                    // tag: Foo({:key1, :key2}) — each key becomes a field name and is registered as a key
+                    val fieldNames = mutableListOf<String>()
+                    for (recEl in singleRecord.els) {
+                        val kw = recEl as? KeywordForm
+                            ?: return errorExpr("record field entries must be keywords", recEl.loc)
+                        fieldNames.add(kw.sym.name)
+                    }
+                    return DefTagExpr(name, fieldNames, typeVarNames, recordStyle = true, loc = loc)
+                }
+
                 val fieldNames = mutableListOf<String>()
-                for (el in sigForm.els.drop(1)) {
+                for (el in remainingEls) {
                     val sym = el as? SymbolForm
                         ?: return errorExpr("field names must be symbols", el.loc)
                     fieldNames.add(sym.sym.name)
                 }
-                DefTagExpr(name, fieldNames, typeVarNames, loc)
+                DefTagExpr(name, fieldNames, typeVarNames, loc = loc)
             }
             else -> errorExpr("tag requires a tag name or signature", loc)
         }
