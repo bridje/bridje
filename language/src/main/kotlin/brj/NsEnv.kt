@@ -98,7 +98,19 @@ data class NsEnv(
                     type = FnType(listOf(paramType), formVec).notNull())
             }
 
-            val locKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
+            fun keyType() = FnType(listOf(RecordType.notNull()), freshType()).notNull()
+
+            val locKeyNames = listOf("loc", "source", "path", "start-line", "start-column", "end-line", "end-column")
+
+            val locKeyVars = mutableMapOf<Symbol, GlobalVar>()
+            val locOptVars = mutableMapOf<Symbol, GlobalVar>()
+            for (name in locKeyNames) {
+                val sym = name.sym
+                val optSym = "?$name".sym
+                locKeyVars[sym] = GlobalVar(readerNs, sym, BridjeKey(name), type = keyType())
+                locKeyVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(name), type = keyType())
+                locOptVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(name), type = keyType())
+            }
 
             return NsEnv(
                 vars = mapOf(
@@ -120,14 +132,10 @@ data class NsEnv(
                     "Unquote".sym to GlobalVar(readerNs, "Unquote".sym, UnquoteMeta),
                     "UnquoteSplice".sym to GlobalVar(readerNs, "UnquoteSplice".sym, UnquoteSpliceMeta),
                     "SyntaxQuote".sym to GlobalVar(readerNs, "SyntaxQuote".sym, SyntaxQuoteMeta),
-                    "?loc".sym to GlobalVar(readerNs, "?loc".sym, BridjeOptionalKey("loc"), type = locKeyType),
                     readerFn("<-file", FormsFromFileNode(language), fileType),
                     readerFn("<-str", FormsFromStringNode(language), str),
-                ),
-                keys = mapOf(
-                    "loc".sym to GlobalVar(readerNs, "loc".sym, BridjeKey("loc"), type = locKeyType),
-                    "?loc".sym to GlobalVar(readerNs, "?loc".sym, BridjeOptionalKey("loc"), type = locKeyType),
-                ),
+                ) + locOptVars,
+                keys = locKeyVars,
             )
         }
 

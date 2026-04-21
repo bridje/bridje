@@ -31,6 +31,9 @@ class Loc(val section: SourceSection) : TruffleObject {
     private val sourceName: TruffleString =
         TruffleString.fromConstant(section.source.name ?: "<unknown>", TruffleString.Encoding.UTF_8)
 
+    private val sourcePath: TruffleString? =
+        section.source.path?.let { TruffleString.fromConstant(it, TruffleString.Encoding.UTF_8) }
+
     @ExportMessage fun hasMetaObject() = true
     @ExportMessage fun getMetaObject(): Any = LocMeta
 
@@ -48,10 +51,11 @@ class Loc(val section: SourceSection) : TruffleObject {
     @Throws(UnknownIdentifierException::class)
     fun readMember(member: String): Any = when (member) {
         "source" -> sourceName
-        "startLine" -> section.startLine.toLong()
-        "startColumn" -> section.startColumn.toLong()
-        "endLine" -> section.endLine.toLong()
-        "endColumn" -> section.endColumn.toLong()
+        "path" -> sourcePath ?: BridjeNull
+        "start-line" -> section.startLine.toLong()
+        "start-column" -> section.startColumn.toLong()
+        "end-line" -> section.endLine.toLong()
+        "end-column" -> section.endColumn.toLong()
         else -> throw UnknownIdentifierException.create(member)
     }
 
@@ -63,6 +67,6 @@ class Loc(val section: SourceSection) : TruffleObject {
 
     companion object {
         private val MEMBERS: Array<Any> =
-            arrayOf("source", "startLine", "startColumn", "endLine", "endColumn")
+            arrayOf("source", "path", "start-line", "start-column", "end-line", "end-column")
     }
 }

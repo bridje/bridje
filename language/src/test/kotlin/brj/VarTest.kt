@@ -41,7 +41,7 @@ class VarTest {
 
         val loc = meta.getMember("loc")
         assertEquals("Loc", loc.metaObject.metaSimpleName)
-        assertTrue(loc.getMember("startLine").asLong() > 0)
+        assertTrue(loc.getMember("start-line").asLong() > 0)
     }
 
     @Test
