@@ -8,6 +8,8 @@ import org.junit.platform.engine.discovery.ClassSelector
 import org.junit.platform.engine.discovery.ClasspathRootSelector
 import org.junit.platform.engine.support.descriptor.AbstractTestDescriptor
 import org.junit.platform.engine.support.descriptor.EngineDescriptor
+import org.junit.platform.engine.support.descriptor.FilePosition
+import org.junit.platform.engine.support.descriptor.FileSource
 import org.opentest4j.AssertionFailedError
 import org.opentest4j.MultipleFailuresError
 import java.io.File
@@ -16,6 +18,7 @@ class BridjeTestEngine : TestEngine {
 
     private var ctx: Context? = null
     private val nsValues = mutableMapOf<String, Value>()
+    private val nsFiles = mutableMapOf<String, File>()
 
     override fun getId(): String = "bridje"
 
@@ -29,7 +32,7 @@ class BridjeTestEngine : TestEngine {
 
         if (classSelectors.isEmpty() && roots.isEmpty()) return engineDescriptor
 
-        val brjFiles = mutableMapOf<String, Pair<String, String>>()
+        val brjFiles = mutableMapOf<String, File>()
         collectBrjFiles(brjFiles)
 
         if (brjFiles.isEmpty()) return engineDescriptor
@@ -42,14 +45,14 @@ class BridjeTestEngine : TestEngine {
         context.enter()
 
         try {
-            for ((nsName, pathAndContent) in brjFiles) {
-                val (relativePath, content) = pathAndContent
-                val source = Source.newBuilder("bridje", content, relativePath)
+            for ((nsName, file) in brjFiles) {
+                val source = Source.newBuilder("bridje", file)
                     .mimeType("text/brj")
                     .build()
 
                 try {
                     nsValues[nsName] = context.eval(source)
+                    nsFiles[nsName] = file
                 } catch (_: Exception) {
                     // Skip namespaces that fail to eval
                 }
@@ -81,29 +84,44 @@ class BridjeTestEngine : TestEngine {
             if (nsName !in nsValues) continue
 
             val vars = entry.getArrayElement(1)
-            val testVarNames = mutableListOf<String>()
+            val testVars = mutableListOf<Pair<String, FileSource?>>()
             for (j in 0 until vars.arraySize) {
                 val pair = vars.getArrayElement(j)
                 val meta = pair.getArrayElement(1)
                 if (meta.hasMember("test") && meta.getMember("test").asBoolean()) {
-                    testVarNames.add(pair.getArrayElement(0).toString())
+                    val varName = pair.getArrayElement(0).toString()
+                    testVars.add(varName to fileSource(meta))
                 }
             }
 
-            if (testVarNames.isEmpty()) continue
+            if (testVars.isEmpty()) continue
 
             val nsId = engineDescriptor.uniqueId.append("ns", nsName)
-            val nsDescriptor = BridjeNsDescriptor(nsId, nsName)
+            val nsDescriptor = BridjeNsDescriptor(nsId, nsName, nsFileSource(nsName))
             engineDescriptor.addChild(nsDescriptor)
 
-            for (varName in testVarNames) {
+            for ((varName, src) in testVars) {
                 val testId = nsId.append("test", varName)
-                nsDescriptor.addChild(BridjeTestDescriptor(testId, varName))
+                nsDescriptor.addChild(BridjeTestDescriptor(testId, varName, src))
             }
         }
     }
 
-    private fun collectBrjFiles(brjFiles: MutableMap<String, Pair<String, String>>) {
+    private fun nsFileSource(nsName: String): FileSource? =
+        nsFiles[nsName]?.let(FileSource::from)
+
+    private fun fileSource(meta: Value): FileSource? {
+        if (!meta.hasMember("loc")) return null
+        val loc = meta.getMember("loc")
+        val path = loc.getMember("path")
+        if (path.isNull) return null
+        val file = File(path.asString())
+        val line = loc.getMember("start-line").asInt()
+        val col = loc.getMember("start-column").asInt()
+        return FileSource.from(file, FilePosition.from(line, col))
+    }
+
+    private fun collectBrjFiles(brjFiles: MutableMap<String, File>) {
         val classLoader = Thread.currentThread().contextClassLoader ?: return
 
         val roots = classLoader.getResources("").toList()
@@ -122,7 +140,7 @@ class BridjeTestEngine : TestEngine {
         }
     }
 
-    private fun collectFromDirectory(brjFiles: MutableMap<String, Pair<String, String>>, dir: File) {
+    private fun collectFromDirectory(brjFiles: MutableMap<String, File>, dir: File) {
         if (!dir.isDirectory) return
         dir.walkTopDown()
             .filter { it.extension == "brj" }
@@ -130,7 +148,7 @@ class BridjeTestEngine : TestEngine {
                 val relativePath = file.relativeTo(dir).path
                 val nsName = relativePath.removeSuffix(".brj").replace('/', '.')
                 if (nsName !in brjFiles) {
-                    brjFiles[nsName] = relativePath to file.readText()
+                    brjFiles[nsName] = file
                 }
             }
     }
@@ -154,6 +172,7 @@ class BridjeTestEngine : TestEngine {
             context.close()
             ctx = null
             nsValues.clear()
+            nsFiles.clear()
         }
     }
 
@@ -228,13 +247,15 @@ class BridjeTestEngine : TestEngine {
 private class BridjeNsDescriptor(
     uniqueId: UniqueId,
     displayName: String,
-) : AbstractTestDescriptor(uniqueId, displayName) {
+    source: TestSource?,
+) : AbstractTestDescriptor(uniqueId, displayName, source) {
     override fun getType(): TestDescriptor.Type = TestDescriptor.Type.CONTAINER
 }
 
 private class BridjeTestDescriptor(
     uniqueId: UniqueId,
     displayName: String,
-) : AbstractTestDescriptor(uniqueId, displayName) {
+    source: TestSource?,
+) : AbstractTestDescriptor(uniqueId, displayName, source) {
     override fun getType(): TestDescriptor.Type = TestDescriptor.Type.TEST
 }
