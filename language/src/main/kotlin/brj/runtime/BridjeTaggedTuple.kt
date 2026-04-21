@@ -4,6 +4,7 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.InvalidArrayIndexException
 import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.interop.UnknownIdentifierException
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
@@ -27,6 +28,27 @@ class BridjeTaggedTuple(
     fun readArrayElement(idx: Long): Any {
         if (!isArrayElementReadable(idx)) throw InvalidArrayIndexException.create(idx)
         return values[idx.toInt()]
+    }
+
+    @ExportMessage
+    fun hasMembers() = constructor.fieldNames.isNotEmpty()
+
+    @ExportMessage
+    @TruffleBoundary
+    fun getMembers(includeInternal: Boolean): Any =
+        BridjeRecord.Keys(Array(constructor.fieldNames.size) { constructor.fieldNames[it] as Any })
+
+    @ExportMessage
+    @TruffleBoundary
+    fun isMemberReadable(member: String) = constructor.fieldNames.contains(member)
+
+    @ExportMessage
+    @TruffleBoundary
+    @Throws(UnknownIdentifierException::class)
+    fun readMember(member: String): Any {
+        val idx = constructor.fieldNames.indexOf(member)
+        if (idx < 0) throw UnknownIdentifierException.create(member)
+        return values[idx]
     }
 
     @ExportMessage

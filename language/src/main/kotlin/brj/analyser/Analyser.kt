@@ -8,6 +8,7 @@ import brj.runtime.BridjeMacro
 import brj.runtime.BridjeVector
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
+import brj.runtime.Loc
 import brj.runtime.Symbol
 import brj.runtime.sym
 import brj.types.*
@@ -330,9 +331,21 @@ data class Analyser(
         return callFormConstructor(name, listOf(concatenated), loc)
     }
 
-    private fun analyseQuotedForm(form: Form): ValueExpr =
+    private fun withLocMeta(expr: ValueExpr, loc: SourceSection?): ValueExpr {
+        if (loc == null) return expr
+        val withMetaVar = ctx.brjCore["with-meta".sym] ?: return expr
+        val meta = RecordExpr(listOf("loc" to TruffleObjectExpr(Loc(loc), loc)), loc)
+        return CallExpr(GlobalVarExpr(withMetaVar, loc), listOf(expr, meta), loc)
+    }
+
+    private fun analyseQuotedForm(form: Form): ValueExpr {
+        if (form is UnquoteForm) return analyseValueExpr(form.form)
+        return withLocMeta(analyseQuotedFormInner(form), form.loc)
+    }
+
+    private fun analyseQuotedFormInner(form: Form): ValueExpr =
         when (form) {
-            is UnquoteForm -> analyseValueExpr(form.form)
+            is UnquoteForm -> error("unreachable: UnquoteForm handled in analyseQuotedForm")
             is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) not valid outside collection", form.loc)
             is SyntaxQuoteForm -> analyseSyntaxQuote(form)
 
@@ -1004,13 +1017,13 @@ data class Analyser(
             is RecordForm -> analyseRecord(form)
             is UnquoteForm -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
             is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) can only be used inside a quote", form.loc)
-            is SyntaxQuoteForm -> analyseSyntaxQuote(form)
+            is SyntaxQuoteForm -> withLocMeta(analyseSyntaxQuote(form), form.loc)
         }
     }
 
     fun analyseValueExpr(form: Form): ValueExpr {
         val inner = analyseValueExprInner(form)
-        val meta = form.meta ?: return inner
+        val meta = form.staticMeta ?: return inner
 
         val withMetaVar = ctx.brjCore["with-meta".sym]
             ?: return errorExpr("with-meta not found in brj.core", form.loc)
@@ -1036,6 +1049,7 @@ data class Analyser(
             "BigInt" -> BigIntType.notNull()
             "BigDec" -> BigDecType.notNull()
             "Bytes" -> BytesType.notNull()
+            "Form" -> FormType.notNull()
             "Nothing" -> nullType()
             else -> when {
                 name[0].isUpperCase() -> {
@@ -1301,7 +1315,7 @@ data class Analyser(
         val sigForm = els.getOrNull(1)
             ?: return errorExpr("def requires a name", form.loc)
 
-        val metaExpr = form.meta?.let { analyseValueExpr(it) }
+        val metaExpr = form.staticMeta?.let { analyseValueExpr(it) }
 
         return when (sigForm) {
             is ListForm -> {
@@ -1350,21 +1364,35 @@ data class Analyser(
                 // tag: Nothing (nullary)
                 val name = sigForm.sym
                 if (!name.name[0].isUpperCase()) return errorExpr("tag names must be capitalized: ${name.name}", sigForm.loc)
-                DefTagExpr(name, emptyList(), typeVarNames, loc)
+                DefTagExpr(name, emptyList(), typeVarNames, loc = loc)
             }
             is ListForm -> {
-                // tag: Just(t) or tag: [t] Just(t)
+                // tag: Just(t) or tag: [t] Just(t) or tag: Foo({:k1, :k2})
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
                     ?: return errorExpr("tag signature must start with a name", sigForm.loc)
                 val name = nameForm.sym
                 if (!name.name[0].isUpperCase()) return errorExpr("tag names must be capitalized: ${name.name}", nameForm.loc)
+
+                val remainingEls = sigForm.els.drop(1)
+                val singleRecord = remainingEls.singleOrNull() as? RecordForm
+                if (singleRecord != null) {
+                    // tag: Foo({:key1, :key2}) — each key becomes a field name and is registered as a key
+                    val fieldNames = mutableListOf<String>()
+                    for (recEl in singleRecord.els) {
+                        val kw = recEl as? KeywordForm
+                            ?: return errorExpr("record field entries must be keywords", recEl.loc)
+                        fieldNames.add(kw.sym.name)
+                    }
+                    return DefTagExpr(name, fieldNames, typeVarNames, recordStyle = true, loc = loc)
+                }
+
                 val fieldNames = mutableListOf<String>()
-                for (el in sigForm.els.drop(1)) {
+                for (el in remainingEls) {
                     val sym = el as? SymbolForm
                         ?: return errorExpr("field names must be symbols", el.loc)
                     fieldNames.add(sym.sym.name)
                 }
-                DefTagExpr(name, fieldNames, typeVarNames, loc)
+                DefTagExpr(name, fieldNames, typeVarNames, loc = loc)
             }
             else -> errorExpr("tag requires a tag name or signature", loc)
         }

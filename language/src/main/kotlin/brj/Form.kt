@@ -1,7 +1,10 @@
 package brj
 
+import brj.runtime.BridjeRecord
 import brj.runtime.BridjeVector
 import brj.runtime.BuiltinMetaObj
+import brj.runtime.Loc
+import brj.runtime.Meta
 import brj.runtime.Symbol
 import brj.runtime.sym
 import com.oracle.truffle.api.interop.ArityException
@@ -211,23 +214,34 @@ object SyntaxQuoteMeta : BuiltinMetaObj("SyntaxQuote".sym, "brj.rdr".sym) {
 }
 
 @ExportLibrary(InteropLibrary::class)
-sealed class Form : TruffleObject {
+sealed class Form : TruffleObject, Meta<Form> {
     abstract val loc: SourceSection?
     abstract val metaObj: BuiltinMetaObj
 
-    var meta: RecordForm? = null
+    var staticMeta: RecordForm? = null
         protected set
+
+    private var _meta: BridjeRecord? = null
+
+    override val meta: BridjeRecord
+        get() = _meta ?: loc?.let { BridjeRecord.EMPTY.put("loc", Loc(it)) } ?: BridjeRecord.EMPTY
 
     abstract fun copy(): Form
 
-    fun withMeta(keyword: KeywordForm): Form =
-        withMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
+    fun withStaticMeta(keyword: KeywordForm): Form =
+        withStaticMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
 
-    fun withMeta(keyword: QKeywordForm): Form =
-        withMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
+    fun withStaticMeta(keyword: QKeywordForm): Form =
+        withStaticMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
 
-    fun withMeta(record: RecordForm): Form = copy().also {
-        it.meta = if (meta == null) record else RecordForm(meta!!.els + record.els, record.loc)
+    fun withStaticMeta(record: RecordForm): Form = copy().also {
+        it.staticMeta = if (staticMeta == null) record else RecordForm(staticMeta!!.els + record.els, record.loc)
+        it._meta = this._meta
+    }
+
+    override fun withMeta(newMeta: BridjeRecord?): Form = copy().also {
+        it._meta = newMeta
+        it.staticMeta = this.staticMeta
     }
 
     abstract override fun toString(): String

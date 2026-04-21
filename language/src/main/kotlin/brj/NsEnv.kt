@@ -22,6 +22,8 @@ import brj.builtins.SpawnNode
 import brj.builtins.StrFromBytesNode
 import brj.runtime.Anomaly
 import brj.runtime.BridjeFunction
+import brj.runtime.BridjeKey
+import brj.runtime.BridjeOptionalKey
 import brj.runtime.BridjeRecord
 import brj.runtime.FileMeta
 import brj.runtime.Symbol
@@ -96,28 +98,45 @@ data class NsEnv(
                     type = FnType(listOf(paramType), formVec).notNull())
             }
 
-            return NsEnv(vars = mapOf(
-                "SymbolForm".sym to GlobalVar(readerNs, "SymbolForm".sym, SymbolFormMeta),
-                "QSymbolForm".sym to GlobalVar(readerNs, "QSymbolForm".sym, QSymbolFormMeta),
-                "KeywordForm".sym to GlobalVar(readerNs, "KeywordForm".sym, KeywordFormMeta),
-                "QKeywordForm".sym to GlobalVar(readerNs, "QKeywordForm".sym, QKeywordFormMeta),
-                "DotSymbolForm".sym to GlobalVar(readerNs, "DotSymbolForm".sym, DotSymbolFormMeta),
-                "QDotSymbolForm".sym to GlobalVar(readerNs, "QDotSymbolForm".sym, QDotSymbolFormMeta),
-                "List".sym to GlobalVar(readerNs, "List".sym, ListMeta),
-                "Vector".sym to GlobalVar(readerNs, "Vector".sym, VectorMeta),
-                "Record".sym to GlobalVar(readerNs, "Record".sym, RecordMeta),
-                "Set".sym to GlobalVar(readerNs, "Set".sym, SetMeta),
-                "Int".sym to GlobalVar(readerNs, "Int".sym, IntMeta),
-                "Double".sym to GlobalVar(readerNs, "Double".sym, DoubleMeta),
-                "String".sym to GlobalVar(readerNs, "String".sym, StringMeta),
-                "BigInt".sym to GlobalVar(readerNs, "BigInt".sym, BigIntMeta),
-                "BigDec".sym to GlobalVar(readerNs, "BigDec".sym, BigDecMeta),
-                "Unquote".sym to GlobalVar(readerNs, "Unquote".sym, UnquoteMeta),
-                "UnquoteSplice".sym to GlobalVar(readerNs, "UnquoteSplice".sym, UnquoteSpliceMeta),
-                "SyntaxQuote".sym to GlobalVar(readerNs, "SyntaxQuote".sym, SyntaxQuoteMeta),
-                readerFn("<-file", FormsFromFileNode(language), fileType),
-                readerFn("<-str", FormsFromStringNode(language), str),
-            ))
+            fun keyType() = FnType(listOf(RecordType.notNull()), freshType()).notNull()
+
+            val locKeyNames = listOf("loc", "source", "path", "start-line", "start-column", "end-line", "end-column")
+
+            val locKeyVars = mutableMapOf<Symbol, GlobalVar>()
+            val locOptVars = mutableMapOf<Symbol, GlobalVar>()
+            for (name in locKeyNames) {
+                val sym = name.sym
+                val optSym = "?$name".sym
+                locKeyVars[sym] = GlobalVar(readerNs, sym, BridjeKey(name), type = keyType())
+                locKeyVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(name), type = keyType())
+                locOptVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(name), type = keyType())
+            }
+
+            return NsEnv(
+                vars = mapOf(
+                    "SymbolForm".sym to GlobalVar(readerNs, "SymbolForm".sym, SymbolFormMeta),
+                    "QSymbolForm".sym to GlobalVar(readerNs, "QSymbolForm".sym, QSymbolFormMeta),
+                    "KeywordForm".sym to GlobalVar(readerNs, "KeywordForm".sym, KeywordFormMeta),
+                    "QKeywordForm".sym to GlobalVar(readerNs, "QKeywordForm".sym, QKeywordFormMeta),
+                    "DotSymbolForm".sym to GlobalVar(readerNs, "DotSymbolForm".sym, DotSymbolFormMeta),
+                    "QDotSymbolForm".sym to GlobalVar(readerNs, "QDotSymbolForm".sym, QDotSymbolFormMeta),
+                    "List".sym to GlobalVar(readerNs, "List".sym, ListMeta),
+                    "Vector".sym to GlobalVar(readerNs, "Vector".sym, VectorMeta),
+                    "Record".sym to GlobalVar(readerNs, "Record".sym, RecordMeta),
+                    "Set".sym to GlobalVar(readerNs, "Set".sym, SetMeta),
+                    "Int".sym to GlobalVar(readerNs, "Int".sym, IntMeta),
+                    "Double".sym to GlobalVar(readerNs, "Double".sym, DoubleMeta),
+                    "String".sym to GlobalVar(readerNs, "String".sym, StringMeta),
+                    "BigInt".sym to GlobalVar(readerNs, "BigInt".sym, BigIntMeta),
+                    "BigDec".sym to GlobalVar(readerNs, "BigDec".sym, BigDecMeta),
+                    "Unquote".sym to GlobalVar(readerNs, "Unquote".sym, UnquoteMeta),
+                    "UnquoteSplice".sym to GlobalVar(readerNs, "UnquoteSplice".sym, UnquoteSpliceMeta),
+                    "SyntaxQuote".sym to GlobalVar(readerNs, "SyntaxQuote".sym, SyntaxQuoteMeta),
+                    readerFn("<-file", FormsFromFileNode(language), fileType),
+                    readerFn("<-str", FormsFromStringNode(language), str),
+                ) + locOptVars,
+                keys = locKeyVars,
+            )
         }
 
         fun withConcurrentBuiltins(language: BridjeLanguage): NsEnv {

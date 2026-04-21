@@ -41,14 +41,17 @@ class VarTest {
 
         val loc = meta.getMember("loc")
         assertEquals("Loc", loc.metaObject.metaSimpleName)
-        assertTrue(loc.getMember("startLine").asLong() > 0)
+        assertTrue(loc.getMember("start-line").asLong() > 0)
     }
 
     @Test
     fun `meta preserves user meta alongside loc`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.loc.user
-            ^:test
+              require:
+                brj: as(test, t)
+
+            ^:t/test
             def: myTest nil
         """.trimIndent())
 

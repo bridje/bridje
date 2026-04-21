@@ -141,9 +141,9 @@ class Reader private constructor(private val src: Source) {
                 val metaValue = namedChildren[0].readForm()
                 val innerForm = namedChildren[1].readForm()
                 when (metaValue) {
-                    is KeywordForm -> innerForm.withMeta(metaValue)
-                    is QKeywordForm -> innerForm.withMeta(metaValue)
-                    is RecordForm -> innerForm.withMeta(metaValue)
+                    is KeywordForm -> innerForm.withStaticMeta(metaValue)
+                    is QKeywordForm -> innerForm.withStaticMeta(metaValue)
+                    is RecordForm -> innerForm.withStaticMeta(metaValue)
                     else -> error("metadata must be keyword or map")
                 }
             }
