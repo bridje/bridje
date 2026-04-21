@@ -19,6 +19,7 @@ class BridjeTestEngine : TestEngine {
     private var ctx: Context? = null
     private val nsValues = mutableMapOf<String, Value>()
     private val nsFiles = mutableMapOf<String, File>()
+    private val evalFailures = mutableMapOf<String, Pair<File, Throwable>>()
 
     override fun getId(): String = "bridje"
 
@@ -63,8 +64,13 @@ class BridjeTestEngine : TestEngine {
                 try {
                     nsValues[nsName] = context.eval(source)
                     nsFiles[nsName] = file
-                } catch (_: Exception) {
-                    // Skip namespaces that fail to eval
+                } catch (e: Throwable) {
+                    // Ns failed to eval (parse / type / analysis error). For files that look
+                    // like tests, surface a synthetic failing descriptor — otherwise a single
+                    // broken test file silently hides every test it contained. For arbitrary
+                    // .brj files on the classpath (e.g. test fixtures, intentionally-broken
+                    // files), stay quiet to avoid flooding the report.
+                    if (looksLikeTestFile(file)) evalFailures[nsName] = file to e
                 }
             }
 
@@ -78,6 +84,7 @@ class BridjeTestEngine : TestEngine {
             }
 
             if (nsValues.isNotEmpty()) discoverTests(context, engineDescriptor)
+            registerLoadFailures(engineDescriptor)
         } catch (e: Exception) {
             context.close()
             ctx = null
@@ -123,6 +130,21 @@ class BridjeTestEngine : TestEngine {
                 val testId = nsId.append("test", varName)
                 nsDescriptor.addChild(BridjeTestDescriptor(testId, varName, src))
             }
+        }
+    }
+
+    private fun looksLikeTestFile(file: File): Boolean =
+        file.name.endsWith("-test.brj") || file.name.endsWith("_test.brj")
+
+    private fun registerLoadFailures(engineDescriptor: EngineDescriptor) {
+        for ((nsName, pair) in evalFailures) {
+            val (file, err) = pair
+            val nsId = engineDescriptor.uniqueId.append("ns", nsName)
+            val nsDescriptor = BridjeNsDescriptor(nsId, nsName, FileSource.from(file))
+            engineDescriptor.addChild(nsDescriptor)
+
+            val loadId = nsId.append("test", "<load>")
+            nsDescriptor.addChild(BridjeTestDescriptor(loadId, "<load>", FileSource.from(file), err))
         }
     }
 
@@ -192,6 +214,7 @@ class BridjeTestEngine : TestEngine {
             ctx = null
             nsValues.clear()
             nsFiles.clear()
+            evalFailures.clear()
         }
     }
 
@@ -199,16 +222,16 @@ class BridjeTestEngine : TestEngine {
         listener.executionStarted(nsDescriptor)
 
         val nsName = nsDescriptor.displayName
-        if (nsName !in nsValues) {
-            listener.executionFinished(nsDescriptor, TestExecutionResult.failed(
-                IllegalStateException("Namespace $nsName not found")))
-            return
-        }
 
         for (child in nsDescriptor.children.toList()) {
             val testDesc = child as BridjeTestDescriptor
             listener.executionStarted(testDesc)
-            listener.executionFinished(testDesc, runTest(context, nsName, testDesc.displayName))
+            val result = if (testDesc.preBakedError != null) {
+                TestExecutionResult.failed(testDesc.preBakedError)
+            } else {
+                runTest(context, nsName, testDesc.displayName)
+            }
+            listener.executionFinished(testDesc, result)
         }
 
         listener.executionFinished(nsDescriptor, TestExecutionResult.successful())
@@ -275,6 +298,7 @@ private class BridjeTestDescriptor(
     uniqueId: UniqueId,
     displayName: String,
     source: TestSource?,
+    val preBakedError: Throwable? = null,
 ) : AbstractTestDescriptor(uniqueId, displayName, source) {
     override fun getType(): TestDescriptor.Type = TestDescriptor.Type.TEST
 }
