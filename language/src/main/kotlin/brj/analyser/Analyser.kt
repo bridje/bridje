@@ -1010,7 +1010,7 @@ data class Analyser(
 
     fun analyseValueExpr(form: Form): ValueExpr {
         val inner = analyseValueExprInner(form)
-        val meta = form.meta ?: return inner
+        val meta = form.staticMeta ?: return inner
 
         val withMetaVar = ctx.brjCore["with-meta".sym]
             ?: return errorExpr("with-meta not found in brj.core", form.loc)
@@ -1302,7 +1302,7 @@ data class Analyser(
         val sigForm = els.getOrNull(1)
             ?: return errorExpr("def requires a name", form.loc)
 
-        val metaExpr = form.meta?.let { analyseValueExpr(it) }
+        val metaExpr = form.staticMeta?.let { analyseValueExpr(it) }
 
         return when (sigForm) {
             is ListForm -> {

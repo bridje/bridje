@@ -215,19 +215,19 @@ sealed class Form : TruffleObject {
     abstract val loc: SourceSection?
     abstract val metaObj: BuiltinMetaObj
 
-    var meta: RecordForm? = null
+    var staticMeta: RecordForm? = null
         protected set
 
     abstract fun copy(): Form
 
-    fun withMeta(keyword: KeywordForm): Form =
-        withMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
+    fun withStaticMeta(keyword: KeywordForm): Form =
+        withStaticMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
 
-    fun withMeta(keyword: QKeywordForm): Form =
-        withMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
+    fun withStaticMeta(keyword: QKeywordForm): Form =
+        withStaticMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
 
-    fun withMeta(record: RecordForm): Form = copy().also {
-        it.meta = if (meta == null) record else RecordForm(meta!!.els + record.els, record.loc)
+    fun withStaticMeta(record: RecordForm): Form = copy().also {
+        it.staticMeta = if (staticMeta == null) record else RecordForm(staticMeta!!.els + record.els, record.loc)
     }
 
     abstract override fun toString(): String
