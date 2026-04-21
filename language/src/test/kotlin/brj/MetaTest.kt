@@ -93,4 +93,44 @@ class MetaTest {
         }
         assertTrue(ex.message?.contains("nullable") == true, "Expected nullable type error, got: ${ex.message}")
     }
+
+    @Test
+    fun `form default meta carries rdr-loc`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test.form.meta.default
+              require:
+                brj: rdr
+
+            def: loc :rdr/loc(meta('foo))
+        """.trimIndent())
+
+        val loc = ns.getMember("loc")
+        assertEquals("Loc", loc.metaObject.metaSimpleName)
+        assertTrue(loc.getMember("startLine").asLong() > 0)
+    }
+
+    @Test
+    fun `with-meta on form overrides default meta`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              decl: :tag Str
+              meta(with-meta('foo, {:tag "marked"}))
+        """.trimIndent())
+
+        assertTrue(result.hasMember("tag"))
+        assertEquals("marked", result.getMember("tag").asString())
+        assertFalse(result.hasMember("loc"), ":loc must not leak through when meta is overridden")
+    }
+
+    @Test
+    fun `with-meta on form preserves form identity`() = withContext { ctx ->
+        val form = ctx.evalBridje("""
+            do:
+              decl: :tag Str
+              with-meta('foo, {:tag "x"})
+        """.trimIndent())
+
+        assertEquals("SymbolForm", form.metaObject.metaSimpleName)
+        assertEquals("foo", form.toString())
+    }
 }

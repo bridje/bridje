@@ -8,6 +8,7 @@ import brj.runtime.BridjeMacro
 import brj.runtime.BridjeVector
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
+import brj.runtime.Loc
 import brj.runtime.Symbol
 import brj.runtime.sym
 import brj.types.*
@@ -330,9 +331,21 @@ data class Analyser(
         return callFormConstructor(name, listOf(concatenated), loc)
     }
 
-    private fun analyseQuotedForm(form: Form): ValueExpr =
+    private fun withLocMeta(expr: ValueExpr, loc: SourceSection?): ValueExpr {
+        if (loc == null) return expr
+        val withMetaVar = ctx.brjCore["with-meta".sym] ?: return expr
+        val meta = RecordExpr(listOf("loc" to TruffleObjectExpr(Loc(loc), loc)), loc)
+        return CallExpr(GlobalVarExpr(withMetaVar, loc), listOf(expr, meta), loc)
+    }
+
+    private fun analyseQuotedForm(form: Form): ValueExpr {
+        if (form is UnquoteForm) return analyseValueExpr(form.form)
+        return withLocMeta(analyseQuotedFormInner(form), form.loc)
+    }
+
+    private fun analyseQuotedFormInner(form: Form): ValueExpr =
         when (form) {
-            is UnquoteForm -> analyseValueExpr(form.form)
+            is UnquoteForm -> error("unreachable: UnquoteForm handled in analyseQuotedForm")
             is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) not valid outside collection", form.loc)
             is SyntaxQuoteForm -> analyseSyntaxQuote(form)
 
@@ -1004,7 +1017,7 @@ data class Analyser(
             is RecordForm -> analyseRecord(form)
             is UnquoteForm -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
             is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) can only be used inside a quote", form.loc)
-            is SyntaxQuoteForm -> analyseSyntaxQuote(form)
+            is SyntaxQuoteForm -> withLocMeta(analyseSyntaxQuote(form), form.loc)
         }
     }
 
