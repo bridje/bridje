@@ -250,35 +250,14 @@ data class NsEnv(
     @TruffleBoundary
     fun isMemberReadable(member: String) =
         vars.containsKey(Symbol.intern(member)) || keys.containsKey(Symbol.intern(member)) || effectVars.containsKey(Symbol.intern(member))
-            || member == "__test_var_names__"
-            || member.startsWith("__var_meta__:")
 
     @ExportMessage
     @TruffleBoundary
     @Throws(UnknownIdentifierException::class)
     fun readMember(member: String): Any {
-        if (member == "__test_var_names__") {
-            return BridjeRecord.Keys(testVarNames().toTypedArray())
-        }
-        if (member.startsWith("__var_meta__:")) {
-            val varName = member.removePrefix("__var_meta__:")
-            val gv = vars[Symbol.intern(varName)] ?: throw UnknownIdentifierException.create(member)
-            return gv.meta
-        }
         val v = vars[Symbol.intern(member)] ?: keys[Symbol.intern(member)] ?: effectVars[Symbol.intern(member)] ?: throw UnknownIdentifierException.create(member)
         return v.value ?: throw UnknownIdentifierException.create(member)
     }
-
-    @TruffleBoundary
-    fun testVarNames(): List<String> =
-        vars.values.filter { it.meta !== BridjeRecord.EMPTY }.mapNotNull { gv ->
-            try {
-                val interop = InteropLibrary.getUncached()
-                if (interop.isMemberReadable(gv.meta, "test") && interop.readMember(gv.meta, "test") == true)
-                    gv.name.name
-                else null
-            } catch (_: Exception) { null }
-        }
 
     @ExportMessage
     @TruffleBoundary

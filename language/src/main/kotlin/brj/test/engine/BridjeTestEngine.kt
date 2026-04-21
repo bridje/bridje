@@ -47,30 +47,13 @@ class BridjeTestEngine : TestEngine {
                     .build()
 
                 try {
-                    val result = context.eval(source)
-                    val testNamesValue = result.getMember("__test_var_names__")
-                    val testVarNames = mutableListOf<String>()
-                    if (testNamesValue != null && testNamesValue.hasArrayElements()) {
-                        for (i in 0 until testNamesValue.arraySize) {
-                            testVarNames.add(testNamesValue.getArrayElement(i).asString())
-                        }
-                    }
-
-                    if (testVarNames.isNotEmpty()) {
-                        nsValues[nsName] = result
-                        val nsId = engineDescriptor.uniqueId.append("ns", nsName)
-                        val nsDescriptor = BridjeNsDescriptor(nsId, nsName)
-                        engineDescriptor.addChild(nsDescriptor)
-
-                        for (varName in testVarNames) {
-                            val testId = nsId.append("test", varName)
-                            nsDescriptor.addChild(BridjeTestDescriptor(testId, varName))
-                        }
-                    }
+                    nsValues[nsName] = context.eval(source)
                 } catch (_: Exception) {
                     // Skip namespaces that fail to eval
                 }
             }
+
+            if (nsValues.isNotEmpty()) discoverTests(context, engineDescriptor)
         } catch (e: Exception) {
             context.close()
             ctx = null
@@ -80,6 +63,42 @@ class BridjeTestEngine : TestEngine {
         }
 
         return engineDescriptor
+    }
+
+    private fun discoverTests(context: Context, engineDescriptor: EngineDescriptor) {
+        val discoverSrc = Source.newBuilder(
+            "bridje",
+            "mapv(all-nses(), fn: nsL(ns) [ns, mapv(ns-vars(ns), fn: varL(v) [nth(v, 1), meta(v)])])",
+            "<test-discovery>"
+        ).mimeType("text/brj").build()
+        val discovered = context.eval(discoverSrc)
+
+        for (i in 0 until discovered.arraySize) {
+            val entry = discovered.getArrayElement(i)
+            val nsName = entry.getArrayElement(0).toString()
+            if (nsName !in nsValues) continue
+
+            val vars = entry.getArrayElement(1)
+            val testVarNames = mutableListOf<String>()
+            for (j in 0 until vars.arraySize) {
+                val pair = vars.getArrayElement(j)
+                val meta = pair.getArrayElement(1)
+                if (meta.hasMember("test") && meta.getMember("test").asBoolean()) {
+                    testVarNames.add(pair.getArrayElement(0).toString())
+                }
+            }
+
+            if (testVarNames.isEmpty()) continue
+
+            val nsId = engineDescriptor.uniqueId.append("ns", nsName)
+            val nsDescriptor = BridjeNsDescriptor(nsId, nsName)
+            engineDescriptor.addChild(nsDescriptor)
+
+            for (varName in testVarNames) {
+                val testId = nsId.append("test", varName)
+                nsDescriptor.addChild(BridjeTestDescriptor(testId, varName))
+            }
+        }
     }
 
     private fun collectBrjFiles(brjFiles: MutableMap<String, Pair<String, String>>) {
