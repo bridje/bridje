@@ -187,4 +187,24 @@ class EffectTest {
         """.trimIndent())
         assertEquals(20L, result.asLong())
     }
+
+    @Test
+    fun `effect var across namespaces`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.fx.lib
+            (defx bump (Fn [Int] Int) (fn (default n) n))
+            (def (apply n) (bump n))
+        """.trimIndent())
+
+        val ns = ctx.evalBridje("""
+            ns: test.fx.consumer
+              require:
+                test.fx: lib
+            (def (use n)
+              (withFx [lib/bump (fn (plus10 x) (add x 10))]
+                (lib/apply n)))
+        """.trimIndent())
+
+        assertEquals(15L, ns.getMember("use").execute(5L).asLong())
+    }
 }

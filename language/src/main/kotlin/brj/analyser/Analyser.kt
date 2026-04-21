@@ -212,6 +212,7 @@ data class Analyser(
     private fun analyseQualifiedSymbol(form: QSymbolForm): ValueExpr {
         // Try Bridje namespace first (fully qualified)
         ctx.namespaces[form.ns.name]?.let { ns ->
+            ns.effectVar(form.member)?.let { return EffectVarExpr(form.member, it, form.loc) }
             val globalVar = ns[form.member]
                 ?: return errorExpr("Unknown symbol: ${form.member.name} in namespace ${form.ns.name}", form.loc)
             return GlobalVarExpr(globalVar, form.loc)
@@ -219,6 +220,7 @@ data class Analyser(
 
         // Check if namespace is a require alias
         nsEnv.requires[form.ns.name]?.let { ns ->
+            ns.effectVar(form.member)?.let { return EffectVarExpr(form.member, it, form.loc) }
             val globalVar = ns[form.member]
                 ?: return errorExpr("Unknown symbol: ${form.member.name} in required namespace ${form.ns.name}", form.loc)
             return GlobalVarExpr(globalVar, form.loc)
@@ -1501,11 +1503,13 @@ data class Analyser(
 
         val bindings = mutableListOf<Pair<GlobalVar, ValueExpr>>()
         for (i in bindingEls.indices step 2) {
-            val nameForm = bindingEls[i] as? SymbolForm
-                ?: return errorExpr("withFx binding name must be a symbol", bindingEls[i].loc)
-            val effectVar = nsEnv.effectVar(nameForm.sym)
-                ?: ctx.brjCore.effectVar(nameForm.sym)
-                ?: return errorExpr("Unknown effect: ${nameForm.sym.name}", nameForm.loc)
+            val nameForm = bindingEls[i]
+            val effectVar = when (nameForm) {
+                is SymbolForm -> nsEnv.effectVar(nameForm.sym) ?: ctx.brjCore.effectVar(nameForm.sym)
+                is QSymbolForm -> ctx.namespaces[nameForm.ns.name]?.effectVar(nameForm.member)
+                    ?: nsEnv.requires[nameForm.ns.name]?.effectVar(nameForm.member)
+                else -> return errorExpr("withFx binding name must be a symbol", nameForm.loc)
+            } ?: return errorExpr("Unknown effect: $nameForm", nameForm.loc)
             bindings.add(effectVar to analyseValueExpr(bindingEls[i + 1]))
         }
 
