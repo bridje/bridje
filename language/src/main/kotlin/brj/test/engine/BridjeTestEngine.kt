@@ -45,7 +45,17 @@ class BridjeTestEngine : TestEngine {
         context.enter()
 
         try {
+            val bindings = context.getBindings("bridje")
+
             for ((nsName, file) in brjFiles) {
+                // HACK: skip ns's already loaded (stdlib preload, or pulled in by another ns's
+                // `require`). Re-eval'ing a loaded ns correctly cascades invalidation through
+                // its dependents — that's a feature for REPL/LSP reloads — but here we're only
+                // enumerating classpath files, not intentionally reloading. A proper fix would
+                // eval in dependency order (topological sort on the `require` graph), but that
+                // needs parsing each file first.
+                if (bindings.hasMember(nsName)) continue
+
                 val source = Source.newBuilder("bridje", file)
                     .mimeType("text/brj")
                     .build()
@@ -55,6 +65,15 @@ class BridjeTestEngine : TestEngine {
                     nsFiles[nsName] = file
                 } catch (_: Exception) {
                     // Skip namespaces that fail to eval
+                }
+            }
+
+            // Pick up ns's that were loaded transitively via requires but aren't in nsValues yet
+            // (so discovery sees them and we can wire FileSource for their test fns too).
+            for ((nsName, file) in brjFiles) {
+                if (nsName !in nsValues && bindings.hasMember(nsName)) {
+                    nsValues[nsName] = bindings.getMember(nsName)
+                    nsFiles[nsName] = file
                 }
             }
 

@@ -1,0 +1,52 @@
+ns: brj.core-test
+  require:
+    brj: as(test, t)
+
+^:t/test
+def: arithmetic()
+  t/is(eq(4, add(2, 2)))
+  t/is(eq(7, sub(10, 3)))
+  t/is(eq(20, mul(4, 5)))
+  t/is(eq(5, div(20, 4)))
+
+^:t/test
+def: comparisons()
+  t/is(lt(1, 2))
+  t/is(gt(3, 2))
+  t/is(lte(2, 2))
+  t/is(gte(2, 2))
+  t/is(eq(1, 1))
+  t/is(neq(1, 2))
+
+^:t/test
+def: boolean-ops()
+  t/is(and(true, true))
+  t/is(not(and(true, false)))
+  t/is(or(false, true))
+  t/is(not(or(false, false)))
+  t/is(not(false))
+
+^:t/test
+def: vector-ops()
+  t/is(eq(3, count([1 2 3])))
+  t/is(eq(1, first([1 2 3])))
+  t/is(eq(2, nth([1 2 3], 1)))
+  t/is(empty?([]))
+  t/is(not(empty?([1])))
+  let: [joined concat([1 2], [3 4])]
+    t/is(eq(4, count(joined)))
+    t/is(eq(1, nth(joined, 0)))
+    t/is(eq(4, nth(joined, 3)))
+
+^:t/test
+def: set-ops()
+  t/is(eq(3, set-count(set([1 2 3]))))
+  t/is(contains?(set([1 2 3]), 2))
+  t/is(not(contains?(set([1 2]), 3)))
+  t/is(set-empty?(set([])))
+
+^:t/test
+def: cond-macro()
+  t/is(eq(1, cond(true 1 true 2)))
+  t/is(eq(2, cond(false 1 true 2)))
+  t/is(eq(nil, cond(false 1 false 2)))
