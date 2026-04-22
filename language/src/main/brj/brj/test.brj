@@ -17,20 +17,19 @@ def: _collector-add!(c, x)
   AL/.add(c, x)
   nil
 
-defx: _record-failure! Fn([Form, Str?] Nothing)
+defx: _record-failure!(Form, Str?) Nothing?
 
 defmacro: is(form)
-  '(unless ~form
-     (~`_record-failure! (quote ~form) nil))
+  `(unless ~form
+     _record-failure!('~form, nil))
 
 defmacro: run-test(test-qsym)
-  '(let [cell# (~`_make-collector)
+  `(let [cell# _make-collector()
          exn# try:
-                withFx: [~`_record-failure!
-                         fn: h#(f# m#)
-                           (~`_collector-add! cell# (~`Failure f# m#))]
+                withFx: [_record-failure! fn: h#(f#, m#)
+                                            _collector-add!(cell#, Failure(f#, m#))]
                   (~test-qsym)
                 nil
                 catch:
                   a# a#]
-     (~`TestResult cell# exn#))
+     TestResult(cell# exn#))

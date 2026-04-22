@@ -106,7 +106,7 @@ module.exports = grammar({
     comment: _ => token(/\/\/[^\n]*/),
     discard: $ => seq('#_', $._form),
     quote: $ => seq("'", $._form),
-    syntax_quote: $ => seq("`", choice($.symbol, $.qualified_symbol)),
+    syntax_quote: $ => seq("`", $._form),
     unquote: $ => seq("~", $._form),
     unquote_splice: $ => seq("~@", $._form),
   },

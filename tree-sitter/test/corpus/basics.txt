@@ -376,6 +376,21 @@ Syntax quote qualified symbol
     (qualified_symbol)))
 
 ==================
+Syntax quote of a list
+==================
+
+`(foo ~x)
+
+---
+
+(source_file
+  (syntax_quote
+    (list
+      (symbol)
+      (unquote
+        (symbol)))))
+
+==================
 Metadata with keyword
 ==================
 

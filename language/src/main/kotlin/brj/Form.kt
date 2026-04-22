@@ -183,36 +183,6 @@ object QDotSymbolFormMeta : BuiltinMetaObj("QDotSymbolForm".sym, "brj.rdr".sym) 
     }
 }
 
-object UnquoteMeta : BuiltinMetaObj("Unquote".sym, "brj.rdr".sym) {
-    override fun isMetaInstance(instance: Any?) = instance is UnquoteForm
-
-    @Throws(ArityException::class)
-    override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        return UnquoteForm(arguments[0] as Form)
-    }
-}
-
-object UnquoteSpliceMeta : BuiltinMetaObj("UnquoteSplice".sym, "brj.rdr".sym) {
-    override fun isMetaInstance(instance: Any?) = instance is UnquoteSpliceForm
-
-    @Throws(ArityException::class)
-    override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        return UnquoteSpliceForm(arguments[0] as Form)
-    }
-}
-
-object SyntaxQuoteMeta : BuiltinMetaObj("SyntaxQuote".sym, "brj.rdr".sym) {
-    override fun isMetaInstance(instance: Any?) = instance is SyntaxQuoteForm
-
-    @Throws(ArityException::class)
-    override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        return SyntaxQuoteForm(arguments[0] as Form)
-    }
-}
-
 @ExportLibrary(InteropLibrary::class)
 sealed class Form : TruffleObject, Meta<Form> {
     abstract val loc: SourceSection?
@@ -397,20 +367,3 @@ class RecordForm(val els: List<Form>, override val loc: SourceSection? = null) :
     }
 }
 
-class UnquoteForm(val form: Form, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = UnquoteMeta
-    override fun copy() = UnquoteForm(form, loc)
-    override fun toString(): String = "~$form"
-}
-
-class SyntaxQuoteForm(val form: Form, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = SyntaxQuoteMeta
-    override fun copy() = SyntaxQuoteForm(form, loc)
-    override fun toString(): String = "`$form"
-}
-
-class UnquoteSpliceForm(val form: Form, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = UnquoteSpliceMeta
-    override fun copy() = UnquoteSpliceForm(form, loc)
-    override fun toString(): String = "~@$form"
-}

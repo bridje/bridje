@@ -259,6 +259,9 @@ data class Analyser(
                 "case" -> analyseCase(form)
                 "try" -> analyseTry(form)
                 "quote" -> analyseQuote(form)
+                "squote" -> analyseSquote(form)
+                "unquote" -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
+                "unquote-splicing" -> errorExpr("unquote-splicing (~@) can only be used inside a quote", form.loc)
                 "set!" -> analyseSet(form)
                 "withFx" -> analyseWithFx(form)
                 "with" -> analyseWith(form)
@@ -292,11 +295,26 @@ data class Analyser(
         return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
     }
 
-    private fun collFormConstructor(name: String, els: List<Form>, loc: SourceSection?): ValueExpr {
-        val hasSplice = els.any { it is UnquoteSpliceForm }
+    private fun isUnquote(form: Form): Form? =
+        (form as? ListForm)
+            ?.takeIf { (it.els.firstOrNull() as? SymbolForm)?.sym?.name == "unquote" && it.els.size == 2 }
+            ?.els?.get(1)
+
+    private fun isUnquoteSplicing(form: Form): Form? =
+        (form as? ListForm)
+            ?.takeIf { (it.els.firstOrNull() as? SymbolForm)?.sym?.name == "unquote-splicing" && it.els.size == 2 }
+            ?.els?.get(1)
+
+    private fun collFormConstructor(
+        name: String,
+        els: List<Form>,
+        loc: SourceSection?,
+        resolveSymbols: Boolean
+    ): ValueExpr {
+        val hasSplice = els.any { isUnquoteSplicing(it) != null }
 
         if (!hasSplice) {
-            val elements = els.map { analyseQuotedForm(it) }
+            val elements = els.map { analyseQuotedForm(it, resolveSymbols) }
             return callFormConstructor(name, listOf(VectorExpr(elements, loc)), loc)
         }
 
@@ -311,11 +329,12 @@ data class Analyser(
         }
 
         for (el in els) {
-            if (el is UnquoteSpliceForm) {
+            val spliceInner = isUnquoteSplicing(el)
+            if (spliceInner != null) {
                 flushGroup()
-                chunks.add(analyseValueExpr(el.form))
+                chunks.add(analyseValueExpr(spliceInner))
             } else {
-                currentGroup.add(analyseQuotedForm(el))
+                currentGroup.add(analyseQuotedForm(el, resolveSymbols))
             }
         }
         flushGroup()
@@ -338,44 +357,81 @@ data class Analyser(
         return CallExpr(GlobalVarExpr(withMetaVar, loc), listOf(expr, meta), loc)
     }
 
-    private fun analyseQuotedForm(form: Form): ValueExpr {
-        if (form is UnquoteForm) return analyseValueExpr(form.form)
-        return withLocMeta(analyseQuotedFormInner(form), form.loc)
+    private fun analyseQuotedForm(form: Form, resolveSymbols: Boolean): ValueExpr {
+        isUnquote(form)?.let { return analyseValueExpr(it) }
+        return withLocMeta(analyseQuotedFormInner(form, resolveSymbols), form.loc)
     }
 
-    private fun analyseQuotedFormInner(form: Form): ValueExpr =
-        when (form) {
-            is UnquoteForm -> error("unreachable: UnquoteForm handled in analyseQuotedForm")
-            is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) not valid outside collection", form.loc)
-            is SyntaxQuoteForm -> analyseSyntaxQuote(form)
+    private fun gensymOrName(name: String): String =
+        if (name.endsWith("#")) {
+            val baseName = name.dropLast(1)
+            gensymScope.getOrPut(baseName) { "${baseName}__${ctx.nextGensymId()}" }
+        } else name
 
-            is IntForm -> 
+    // Names that, as the head of a list, are analyser-level syntax rather than var references.
+    // Symbols that resolve to these stay bare inside a squote walk; the expanded form's analyser
+    // will pick them up in its own dispatch table.
+    private val specialFormNames = setOf(
+        "if", "let", "fn", "case", "try", "catch", "finally", "do", "recur", "loop",
+        "quote", "squote", "unquote", "unquote-splicing",
+        "withFx", "with", "lang", "set!",
+        "ns", "require", "import",
+        "def", "decl", "defx", "defmacro", "defkeys", "tag", "enum",
+        "nil", "true", "false",
+        "&"
+    )
+
+    private fun resolveSquoteSymbol(sym: Symbol, loc: SourceSection?): ValueExpr {
+        // Caller has already confirmed sym isn't a special form or gensym.
+        val (ns, member) = when (val res = resolveSymbol(sym, loc)) {
+            is SymbolResolution.Effect -> (res.ns ?: return errorExpr("Cannot squote: ${sym.name} has no namespace", loc)) to sym.name
+            is SymbolResolution.Global -> (res.ns ?: return errorExpr("Cannot squote: ${sym.name} has no namespace", loc)) to sym.name
+            is SymbolResolution.Captured, is SymbolResolution.Local ->
+                return errorExpr("Cannot resolve local in squote: ${sym.name} (did you mean ~${sym.name}?)", loc)
+            is SymbolResolution.Import, is SymbolResolution.Host ->
+                return errorExpr("Cannot squote host class: ${sym.name}", loc)
+            SymbolResolution.NotFound ->
+                return errorExpr("Unknown symbol: ${sym.name}", loc)
+        }
+        return callFormConstructor(
+            "QSymbolForm",
+            listOf(
+                callFormConstructor("Symbol", listOf(StringExpr(ns, loc)), loc),
+                callFormConstructor("Symbol", listOf(StringExpr(member, loc)), loc)
+            ),
+            loc
+        )
+    }
+
+    private fun analyseQuotedFormInner(form: Form, resolveSymbols: Boolean): ValueExpr =
+        when (form) {
+            is IntForm ->
                 callFormConstructor("Int", listOf(IntExpr(form.value, form.loc)), form.loc)
 
-            is DoubleForm -> 
+            is DoubleForm ->
                 callFormConstructor("Double", listOf(DoubleExpr(form.value, form.loc)), form.loc)
 
-            is BigIntForm -> 
+            is BigIntForm ->
                 callFormConstructor("BigInt", listOf(BigIntExpr(form.value, form.loc)), form.loc)
 
-            is BigDecForm -> 
+            is BigDecForm ->
                 callFormConstructor("BigDec", listOf(BigDecExpr(form.value, form.loc)), form.loc)
 
-            is StringForm -> 
+            is StringForm ->
                 callFormConstructor("String", listOf(StringExpr(form.value, form.loc)), form.loc)
 
             is SymbolForm -> {
-                val name = if (form.sym.name.endsWith("#")) {
-                    val baseName = form.sym.name.dropLast(1)
-                    gensymScope.getOrPut(baseName) { "${baseName}__${ctx.nextGensymId()}" }
+                val name = gensymOrName(form.sym.name)
+                val isGensymmed = name != form.sym.name
+                if (resolveSymbols && !isGensymmed && name !in specialFormNames) {
+                    resolveSquoteSymbol(Symbol.intern(name), form.loc)
                 } else {
-                    form.sym.name
+                    callFormConstructor(
+                        "SymbolForm",
+                        listOf(callFormConstructor("Symbol", listOf(StringExpr(name, form.loc)), form.loc)),
+                        form.loc
+                    )
                 }
-                callFormConstructor(
-                    "SymbolForm",
-                    listOf(callFormConstructor("Symbol", listOf(StringExpr(name, form.loc)), form.loc)),
-                    form.loc
-                )
             }
 
             is KeywordForm ->
@@ -413,70 +469,39 @@ data class Analyser(
                 )
 
             is QSymbolForm -> {
-                val member = if (form.member.name.endsWith("#")) {
-                    val baseName = form.member.name.dropLast(1)
-                    gensymScope.getOrPut(baseName) { "${baseName}__${ctx.nextGensymId()}" }
-                } else {
-                    form.member.name
-                }
+                val member = gensymOrName(form.member.name)
+                val nsName = if (resolveSymbols && member == form.member.name) {
+                    // Follow require aliases to the real ns name. Error if unknown.
+                    ctx.namespaces[form.ns.name]?.takeIf { it[form.member] != null }?.let { form.ns.name }
+                        ?: nsEnv.requires[form.ns.name]?.let { req ->
+                            if (req[form.member] != null) req.nsDecl?.name else null
+                        }
+                        ?: return errorExpr("Unknown symbol: ${form.ns.name}/${form.member.name}", form.loc)
+                } else form.ns.name
                 callFormConstructor(
                     "QSymbolForm",
                     listOf(
-                        callFormConstructor("Symbol", listOf(StringExpr(form.ns.name, form.loc)), form.loc),
+                        callFormConstructor("Symbol", listOf(StringExpr(nsName, form.loc)), form.loc),
                         callFormConstructor("Symbol", listOf(StringExpr(member, form.loc)), form.loc)
                     ),
                     form.loc
                 )
             }
 
-            is ListForm -> collFormConstructor("List", form.els, form.loc)
-            is VectorForm -> collFormConstructor("Vector", form.els, form.loc)
-            is SetForm -> collFormConstructor("Set", form.els, form.loc)
-            is RecordForm -> collFormConstructor("Record", form.els, form.loc)
+            is ListForm -> collFormConstructor("List", form.els, form.loc, resolveSymbols)
+            is VectorForm -> collFormConstructor("Vector", form.els, form.loc, resolveSymbols)
+            is SetForm -> collFormConstructor("Set", form.els, form.loc, resolveSymbols)
+            is RecordForm -> collFormConstructor("Record", form.els, form.loc, resolveSymbols)
         }
 
     private fun analyseQuote(form: ListForm): ValueExpr {
         if (form.els.size != 2) return errorExpr("quote requires exactly one argument", form.loc)
-        return analyseQuotedForm(form.els[1])
+        return analyseQuotedForm(form.els[1], resolveSymbols = false)
     }
 
-    private fun analyseSyntaxQuote(form: SyntaxQuoteForm): ValueExpr {
-        val (ns, member, innerLoc) = when (val inner = form.form) {
-            is SymbolForm -> {
-                val resolvedNs = when (val res = resolveSymbol(inner.sym, inner.loc)) {
-                    is SymbolResolution.Effect -> res.ns
-                    is SymbolResolution.Global -> res.ns
-                    is SymbolResolution.Captured, is SymbolResolution.Local ->
-                        return errorExpr("Cannot syntax-quote local: ${inner.sym.name}", form.loc)
-                    is SymbolResolution.Import, is SymbolResolution.Host ->
-                        return errorExpr("Cannot syntax-quote host class: ${inner.sym.name}", form.loc)
-                    SymbolResolution.NotFound ->
-                        return errorExpr("Unknown symbol: ${inner.sym.name}", form.loc)
-                } ?: return errorExpr("Cannot syntax-quote: ${inner.sym.name} has no namespace", form.loc)
-                Triple(resolvedNs, inner.sym.name, inner.loc)
-            }
-
-            is QSymbolForm -> {
-                val resolvedNs =
-                    ctx.namespaces[inner.ns.name]?.takeIf { it[inner.member] != null }?.let { inner.ns.name }
-                        ?: nsEnv.requires[inner.ns.name]?.let { req ->
-                            if (req[inner.member] != null) req.nsDecl?.name else null
-                        }
-                        ?: return errorExpr("Unknown symbol: ${inner.ns.name}/${inner.member.name}", form.loc)
-                Triple(resolvedNs, inner.member.name, inner.loc)
-            }
-
-            else -> return errorExpr("syntax-quote requires a symbol", form.loc)
-        }
-
-        return callFormConstructor(
-            "QSymbolForm",
-            listOf(
-                callFormConstructor("Symbol", listOf(StringExpr(ns, innerLoc)), innerLoc),
-                callFormConstructor("Symbol", listOf(StringExpr(member, innerLoc)), innerLoc)
-            ),
-            form.loc
-        )
+    private fun analyseSquote(form: ListForm): ValueExpr {
+        if (form.els.size != 2) return errorExpr("squote requires exactly one argument", form.loc)
+        return analyseQuotedForm(form.els[1], resolveSymbols = true)
     }
 
     private fun analyseIf(form: ListForm): ValueExpr {
@@ -1015,9 +1040,6 @@ data class Analyser(
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is SetForm -> SetExpr(form.els.map { analyseValueExpr(it) }, form.loc)
             is RecordForm -> analyseRecord(form)
-            is UnquoteForm -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
-            is UnquoteSpliceForm -> errorExpr("unquote-splice (~@) can only be used inside a quote", form.loc)
-            is SyntaxQuoteForm -> withLocMeta(analyseSyntaxQuote(form), form.loc)
         }
     }
 

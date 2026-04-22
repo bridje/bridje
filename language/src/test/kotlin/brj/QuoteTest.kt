@@ -184,4 +184,50 @@ class QuoteTest {
         assertEquals("QSymbolForm",resolved.metaObject.metaSimpleName)
         assertEquals("foo.lib/bar", resolved.toString())
     }
+
+    @Test
+    fun `syntax-quote recursive walk resolves globals in a list`() = withContext { ctx ->
+        val result = ctx.evalBridje("`(count [1 2 3])")
+        assertEquals("(brj.core/count [1 2 3])", result.toString())
+    }
+
+    @Test
+    fun `syntax-quote leaves special forms bare`() = withContext { ctx ->
+        val result = ctx.evalBridje("`(if true 1 2)")
+        assertEquals("(if true 1 2)", result.toString())
+    }
+
+    @Test
+    fun `syntax-quote supports unquote inside recursive walk`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defmacro: inc-it(x) `(add ~x 1)
+              inc-it(5)
+        """.trimIndent())
+        assertEquals(6L, result.asLong())
+    }
+
+    @Test
+    fun `syntax-quote errors at macro-def time on unresolvable symbol`() = withContext { ctx ->
+        val ex = assertThrows<RuntimeException> {
+            ctx.evalBridje("""
+                do:
+                  defmacro: broken(x) `(no-such-fn ~x)
+                  1
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("no-such-fn") == true,
+            "Expected error to name 'no-such-fn', got: ${ex.message}")
+    }
+
+    @Test
+    fun `syntax-quote preserves gensym suffix`() = withContext { ctx ->
+        val result = ctx.evalBridje("`(let [x# 1] x#)")
+        val str = result.toString()
+        // Both x#'s should expand to the same gensym'd name
+        val inner = str.substringAfter("[").substringBefore(" ")
+        val body = str.substringAfterLast(" ").removeSuffix(")")
+        assertEquals(inner, body, "gensym'd names should match")
+        assertTrue(inner.startsWith("x__"), "expected gensym prefix, got $inner")
+    }
 }
