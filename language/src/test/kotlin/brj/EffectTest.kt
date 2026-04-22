@@ -19,6 +19,42 @@ class EffectTest {
     }
 
     @Test
+    fun `defx accepts call-shape signature`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test.fx.callshape
+            defx: myId(Int) Int
+              fn: default(x) x
+        """.trimIndent())
+        val myId = ns.getMember("myId")
+        assertNotNull(myId)
+        assertTrue(myId.canExecute())
+        assertEquals(42L, myId.execute(42L).asLong())
+    }
+
+    @Test
+    fun `defx call-shape signature with withFx override`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              defx: bump(Int) Int
+                fn: default(x) x
+              def: apply(n) bump(n)
+              withFx: [bump #: add(it, 1)]
+                apply(5)
+        """.trimIndent())
+        assertEquals(6L, result.asLong())
+    }
+
+    @Test
+    fun `defx call-shape signature without default`() = withContext { ctx ->
+        val ns = ctx.evalBridje("""
+            ns: test.fx.nodefault
+            defx: noDefault(Int) Int
+            def: usesIt(n) noDefault(n)
+        """.trimIndent())
+        assertNotNull(ns.getMember("usesIt"))
+    }
+
+    @Test
     fun `effect var callable at top level`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             (do

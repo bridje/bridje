@@ -1492,13 +1492,35 @@ data class Analyser(
 
     private fun analyseDefx(form: ListForm): Expr {
         val els = form.els
-        val nameForm = els.getOrNull(1) as? SymbolForm
+        val sigForm = els.getOrNull(1)
             ?: return errorExpr("defx requires a name", form.loc)
-        val typeForm = els.getOrNull(2)
-            ?: return errorExpr("defx requires a type", form.loc)
-        val type = analyseTypeForm(typeForm)
-        val defaultExpr = els.getOrNull(3)?.let { analyseValueExpr(it) }
-        return DefxExpr(nameForm.sym, type, defaultExpr, form.loc)
+
+        // Two accepted signature shapes:
+        //   defx: foo (Fn [Int] Int) default?            — original: name + full Fn type
+        //   defx: foo(Int, Str?) Ret default?            — decl-style: call-shape + return type
+        return when (sigForm) {
+            is SymbolForm -> {
+                val typeForm = els.getOrNull(2)
+                    ?: return errorExpr("defx requires a type", form.loc)
+                val type = analyseTypeForm(typeForm)
+                val defaultExpr = els.getOrNull(3)?.let { analyseValueExpr(it) }
+                DefxExpr(sigForm.sym, type, defaultExpr, form.loc)
+            }
+
+            is ListForm -> {
+                val nameForm = sigForm.els.firstOrNull() as? SymbolForm
+                    ?: return errorExpr("defx signature must start with a name", sigForm.loc)
+                val retForm = els.getOrNull(2)
+                    ?: return errorExpr("defx requires a return type", form.loc)
+                val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it) }
+                val returnType = analyseTypeForm(retForm)
+                val type = FnType(paramTypes, returnType).notNull()
+                val defaultExpr = els.getOrNull(3)?.let { analyseValueExpr(it) }
+                DefxExpr(nameForm.sym, type, defaultExpr, form.loc)
+            }
+
+            else -> errorExpr("defx requires a name or call-shaped signature", sigForm.loc)
+        }
     }
 
     private fun analyseLang(form: ListForm): ValueExpr {
