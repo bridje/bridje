@@ -147,6 +147,9 @@ data class Analyser(
             "true" -> BoolExpr(true, form.loc)
             "false" -> BoolExpr(false, form.loc)
 
+            "unquote" -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
+            "unquote-splicing" -> errorExpr("unquote-splicing (~@) can only be used inside a quote", form.loc)
+
             else -> when (val res = resolveSymbol(form.sym, form.loc)) {
                 is SymbolResolution.Captured -> CapturedVarExpr(res.cv.captureIndex, res.cv.outerLocalVar, form.loc)
                 is SymbolResolution.Local -> LocalVarExpr(res.lv, form.loc)

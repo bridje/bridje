@@ -230,4 +230,39 @@ class QuoteTest {
         assertEquals(inner, body, "gensym'd names should match")
         assertTrue(inner.startsWith("x__"), "expected gensym prefix, got $inner")
     }
+
+    @Test
+    fun `unquote outside a quote errors at analysis time`() = withContext { ctx ->
+        val ex = assertThrows<RuntimeException> { ctx.evalBridje("~foo") }
+        assertTrue(ex.message?.contains("unquote") == true,
+            "expected error to mention unquote, got: ${ex.message}")
+    }
+
+    @Test
+    fun `unquote-splicing outside a quote errors at analysis time`() = withContext { ctx ->
+        val ex = assertThrows<RuntimeException> { ctx.evalBridje("~@foo") }
+        assertTrue(
+            ex.message?.contains("unquote-splicing") == true
+                || ex.message?.contains("unquote-splice") == true,
+            "expected error to mention unquote-splicing, got: ${ex.message}"
+        )
+    }
+
+    @Test
+    fun `bare unquote symbol errors with specific message`() = withContext { ctx ->
+        val ex = assertThrows<RuntimeException> { ctx.evalBridje("unquote") }
+        assertTrue(ex.message?.contains("unquote") == true,
+            "expected error to mention unquote, got: ${ex.message}")
+        assertFalse(ex.message?.contains("Unknown symbol") == true,
+            "expected targeted message, got generic: ${ex.message}")
+    }
+
+    @Test
+    fun `bare unquote-splicing symbol errors with specific message`() = withContext { ctx ->
+        val ex = assertThrows<RuntimeException> { ctx.evalBridje("unquote-splicing") }
+        assertTrue(ex.message?.contains("unquote-splicing") == true,
+            "expected error to mention unquote-splicing, got: ${ex.message}")
+        assertFalse(ex.message?.contains("Unknown symbol") == true,
+            "expected targeted message, got generic: ${ex.message}")
+    }
 }
