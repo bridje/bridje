@@ -81,6 +81,26 @@ class RecordTest {
     }
 
     @Test
+    fun `record display shows qualified keys for real namespaces`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: display.test
+            decl: :name Str
+        """.trimIndent())
+
+        val ns = ctx.evalBridje("""
+            ns: usage
+              require:
+                display:
+                  test
+            def: rec {:display.test/name "Alice"}
+        """.trimIndent())
+
+        // Real namespaces keep the qualified form in the display; only `<anonymous>`
+        // gets stripped.
+        assertEquals("{:display.test/name Alice}", ns.getMember("rec").toString())
+    }
+
+    @Test
     fun `optional key returns nil when missing`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
