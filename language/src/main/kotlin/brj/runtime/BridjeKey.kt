@@ -8,7 +8,7 @@ import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeKey(val name: String) : TruffleObject {
+class BridjeKey(val ns: Symbol, val name: Symbol) : TruffleObject {
 
     companion object {
         private val INTEROP = InteropLibrary.getUncached()
@@ -24,17 +24,17 @@ class BridjeKey(val name: String) : TruffleObject {
             throw ArityException.create(1, 1, arguments.size)
         }
         val record = arguments[0]
-        return INTEROP.readMember(record, name)
+        return INTEROP.readMember(record, name.name)
     }
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     @TruffleBoundary
-    fun toDisplayString(allowSideEffects: Boolean): String = name
+    fun toDisplayString(allowSideEffects: Boolean): String = "$name"
 }
 
 @ExportLibrary(InteropLibrary::class)
-class BridjeOptionalKey(val name: String) : TruffleObject {
+class BridjeOptionalKey(val ns: Symbol, val name: Symbol) : TruffleObject {
 
     companion object {
         private val INTEROP = InteropLibrary.getUncached()
@@ -48,8 +48,8 @@ class BridjeOptionalKey(val name: String) : TruffleObject {
     fun execute(arguments: Array<Any?>): Any? {
         if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
         val record = arguments[0]
-        return if (INTEROP.isMemberReadable(record, name))
-            INTEROP.readMember(record, name)
+        return if (INTEROP.isMemberReadable(record, name.name))
+            INTEROP.readMember(record, name.name)
         else BridjeNull
     }
 

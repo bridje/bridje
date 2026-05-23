@@ -107,9 +107,9 @@ data class NsEnv(
             for (name in locKeyNames) {
                 val sym = name.sym
                 val optSym = "?$name".sym
-                locKeyVars[sym] = GlobalVar(readerNs, sym, BridjeKey(name), type = keyType())
-                locKeyVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(name), type = keyType())
-                locOptVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(name), type = keyType())
+                locKeyVars[sym] = GlobalVar(readerNs, sym, BridjeKey(readerNs, sym), type = keyType())
+                locKeyVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(readerNs, sym), type = keyType())
+                locOptVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(readerNs, sym), type = keyType())
             }
 
             return NsEnv(
@@ -205,7 +205,7 @@ data class NsEnv(
         }
     }
 
-    private val nsSymbol: Symbol get() = (nsDecl?.name ?: "<anonymous>").sym
+    val nsSymbol: Symbol get() = (nsDecl?.name ?: "<anonymous>").sym
 
     operator fun get(name: Symbol): GlobalVar? = vars[name]
 

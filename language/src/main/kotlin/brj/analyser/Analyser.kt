@@ -207,7 +207,7 @@ data class Analyser(
                 return errorExpr("$keyForm is not a key", keyForm.loc)
             }
             val valueExpr = analyseValueExpr(els[i + 1])
-            fields.add(keyValue.name to valueExpr)
+            fields.add(keyValue.name.name to valueExpr)
         }
 
         return RecordExpr(fields, form.loc)
@@ -829,7 +829,7 @@ data class Analyser(
         val recordExpr = analyseValueExpr(els[1])
         val valueExpr = analyseValueExpr(els[3])
 
-        return RecordSetExpr(recordExpr, keyValue.name, valueExpr, form.loc)
+        return RecordSetExpr(recordExpr, keyValue.name.name, valueExpr, form.loc)
     }
 
     private fun resolveDotSymbolKey(form: DotSymbolForm): GlobalVar? =
@@ -871,7 +871,7 @@ data class Analyser(
             val keyValue = keyVar.value
             if (keyValue !is BridjeKey) return errorExpr("$fieldForm is not a key", fieldForm.loc)
             val valueExpr = analyseValueExpr(updates[i + 1])
-            fields.add(keyValue.name to valueExpr)
+            fields.add(keyValue.name.name to valueExpr)
         }
 
         return RecordUpdateExpr(recordExpr, fields, form.loc)

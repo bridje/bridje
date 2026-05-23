@@ -173,15 +173,16 @@ class ParseRootNode(
 
         if (expr.recordStyle) {
             // tag: Foo({:k1, :k2}) — register each field name as a key as well.
+            val nsSym = nsEnv.nsSymbol
             for (fieldName in expr.fieldNames) {
                 val fieldSym = Symbol.intern(fieldName)
-                val key = BridjeKey(fieldName)
+                val key = BridjeKey(nsSym, fieldSym)
                 val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optName = Symbol.intern("?$fieldName")
                 updatedNs = updatedNs.defKey(fieldSym, key, type = keyType)
-                updatedNs = updatedNs.defKey(optName, BridjeOptionalKey(fieldName), type = optKeyType)
-                updatedNs = updatedNs.def(optName, BridjeOptionalKey(fieldName), type = optKeyType)
+                updatedNs = updatedNs.defKey(optName, BridjeOptionalKey(nsSym, fieldSym), type = optKeyType)
+                updatedNs = updatedNs.def(optName, BridjeOptionalKey(nsSym, fieldSym), type = optKeyType)
             }
         }
 
@@ -309,15 +310,16 @@ class ParseRootNode(
                 }
 
                 is DefKeysExpr -> {
+                    val nsSym = nsEnv.nsSymbol
                     var lastKey: BridjeKey? = null
                     for (name in expr.names) {
-                        val key = BridjeKey(name.name)
+                        val key = BridjeKey(nsSym, name)
                         val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                         val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
-                        val optName = Symbol.intern("?${name.name}")
+                        val optName = Symbol.intern("?$name")
                         nsEnv = nsEnv.defKey(name, key, type = keyType)
-                        nsEnv = nsEnv.defKey(optName, BridjeOptionalKey(name.name), type = optKeyType)
-                        nsEnv = nsEnv.def(optName, BridjeOptionalKey(name.name), type = optKeyType)
+                        nsEnv = nsEnv.defKey(optName, BridjeOptionalKey(nsSym, name), type = optKeyType)
+                        nsEnv = nsEnv.def(optName, BridjeOptionalKey(nsSym, name), type = optKeyType)
                         lastKey = key
                     }
                     lastKey
