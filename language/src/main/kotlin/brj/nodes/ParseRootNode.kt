@@ -130,17 +130,19 @@ class ParseRootNode(
     }
 
     private fun locMeta(expr: Expr): BridjeRecord =
-        expr.loc?.let { BridjeRecord.EMPTY.put("loc", Loc(it)) } ?: BridjeRecord.EMPTY
+        expr.loc?.let { BridjeRecord.EMPTY.put(LOC_KEY, Loc(it)) } ?: BridjeRecord.EMPTY
 
     private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: Symbol? = null): Pair<Any, NsEnv> {
+        val ns = nsEnv.nsSymbol
+        val qFieldNames = expr.fieldNames.map { QSymbol(ns, it) }
+
         val value: Any =
             if (expr.fieldNames.isEmpty()) {
                 BridjeTaggedSingleton(expr.name.name)
             } else {
-                BridjeTagConstructor(expr.name.name, expr.fieldNames.size, expr.fieldNames)
+                BridjeTagConstructor(expr.name.name, expr.fieldNames.size, qFieldNames)
             }
 
-        val ns = nsEnv.nsSymbol
         val type = if (expr.fieldNames.isEmpty()) {
             if (enumName != null && expr.typeVarNames.isNotEmpty()) {
                 // Nullary variant of a parameterised enum (e.g., Nothing in Maybe(a))
@@ -173,15 +175,15 @@ class ParseRootNode(
 
         if (expr.recordStyle) {
             // tag: Foo({:k1, :k2}) — register each field name as a key as well.
-            val nsSym = nsEnv.nsSymbol
             for (fieldSym in expr.fieldNames) {
-                val key = BridjeKey(nsSym, fieldSym)
+                val key = BridjeKey(ns, fieldSym)
+                val optKey = BridjeOptionalKey(key)
                 val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optName = Symbol.intern("?$fieldSym")
                 updatedNs = updatedNs.defKey(fieldSym, key, type = keyType)
-                updatedNs = updatedNs.defKey(optName, BridjeOptionalKey(nsSym, fieldSym), type = optKeyType)
-                updatedNs = updatedNs.def(optName, BridjeOptionalKey(nsSym, fieldSym), type = optKeyType)
+                updatedNs = updatedNs.defKey(optName, optKey, type = optKeyType)
+                updatedNs = updatedNs.def(optName, optKey, type = optKeyType)
             }
         }
 
@@ -207,7 +209,7 @@ class ParseRootNode(
                     val type = expr.valueExpr.checkType()
                     val effects = expr.valueExpr.inferEffects().toList()
                     val userMeta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
-                    val meta = expr.loc?.let { userMeta.put("loc", Loc(it)) } ?: userMeta
+                    val meta = expr.loc?.let { userMeta.put(LOC_KEY, Loc(it)) } ?: userMeta
 
                     if (effects.isNotEmpty()) {
                         if (expr.valueExpr !is FnExpr) {
@@ -313,12 +315,13 @@ class ParseRootNode(
                     var lastKey: BridjeKey? = null
                     for (name in expr.names) {
                         val key = BridjeKey(nsSym, name)
+                        val optKey = BridjeOptionalKey(key)
                         val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                         val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                         val optName = Symbol.intern("?$name")
                         nsEnv = nsEnv.defKey(name, key, type = keyType)
-                        nsEnv = nsEnv.defKey(optName, BridjeOptionalKey(nsSym, name), type = optKeyType)
-                        nsEnv = nsEnv.def(optName, BridjeOptionalKey(nsSym, name), type = optKeyType)
+                        nsEnv = nsEnv.defKey(optName, optKey, type = optKeyType)
+                        nsEnv = nsEnv.def(optName, optKey, type = optKeyType)
                         lastKey = key
                     }
                     lastKey

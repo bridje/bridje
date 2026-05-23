@@ -9,6 +9,13 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.source.SourceSection
 import com.oracle.truffle.api.strings.TruffleString
 
+/**
+ * Canonical [QSymbol] for `:loc` source-location metadata — declared in
+ * `brj.rdr`, written into the meta records produced by the analyser and the
+ * reader. A single shared instance avoids per-form allocation on `form.meta`.
+ */
+val LOC_KEY: QSymbol = QSymbol("brj.rdr".sym, "loc".sym)
+
 @ExportLibrary(InteropLibrary::class)
 object LocMeta : TruffleObject {
     private val name = TruffleString.fromConstant("Loc", TruffleString.Encoding.UTF_8)
@@ -26,7 +33,7 @@ object LocMeta : TruffleObject {
 }
 
 @ExportLibrary(InteropLibrary::class)
-class Loc(val section: SourceSection) : TruffleObject {
+class Loc(val section: SourceSection) : TruffleObject, BridjeObject {
 
     private val sourceName: TruffleString =
         TruffleString.fromConstant(section.source.name ?: "<unknown>", TruffleString.Encoding.UTF_8)
@@ -41,7 +48,7 @@ class Loc(val section: SourceSection) : TruffleObject {
 
     @ExportMessage
     fun getMembers(@Suppress("UNUSED_PARAMETER") includeInternal: Boolean): Any =
-        BridjeRecord.Keys(MEMBER_SYMS)
+        BridjeRecord.Keys(MEMBERS)
 
     @ExportMessage
     fun isMemberReadable(member: String): Boolean = member in MEMBERS
@@ -49,7 +56,18 @@ class Loc(val section: SourceSection) : TruffleObject {
     @ExportMessage
     @TruffleBoundary
     @Throws(UnknownIdentifierException::class)
-    fun readMember(member: String): Any = when (member) {
+    fun readMember(member: String): Any = readByName(member)
+
+    override fun hasKey(key: BridjeKey): Boolean =
+        key.ns === READER_NS && key.name.name in MEMBERS
+
+    @TruffleBoundary
+    override fun readKey(key: BridjeKey): Any {
+        if (key.ns !== READER_NS) throw UnknownIdentifierException.create(key.sym.toString())
+        return readByName(key.name.name)
+    }
+
+    private fun readByName(member: String): Any = when (member) {
         "source" -> sourceName
         "path" -> sourcePath ?: BridjeNull
         "start-line" -> section.startLine.toLong()
@@ -66,9 +84,8 @@ class Loc(val section: SourceSection) : TruffleObject {
         "Loc(${section.source.name ?: "<unknown>"}:${section.startLine}:${section.startColumn})"
 
     companion object {
-        private val MEMBERS: Array<Any> =
+        private val READER_NS = "brj.rdr".sym
+        private val MEMBERS: Array<String> =
             arrayOf("source", "path", "start-line", "start-column", "end-line", "end-column")
-        private val MEMBER_SYMS: Array<Symbol> =
-            MEMBERS.map { Symbol.intern(it as String) }.toTypedArray()
     }
 }

@@ -24,6 +24,7 @@ import brj.runtime.Anomaly
 import brj.runtime.BridjeFunction
 import brj.runtime.BridjeKey
 import brj.runtime.BridjeOptionalKey
+import brj.runtime.QSymbol
 import brj.runtime.BridjeRecord
 import brj.runtime.FileMeta
 import brj.runtime.Symbol
@@ -52,6 +53,8 @@ import com.oracle.truffle.api.source.Source
 
 typealias Requires = Map<Symbol, NsEnv>
 typealias Imports = Map<Symbol, String>
+
+private val DECLARED_TYPE_KEY = QSymbol("brj.core".sym, "declaredType".sym)
 
 @ExportLibrary(InteropLibrary::class)
 data class NsEnv(
@@ -107,9 +110,11 @@ data class NsEnv(
             for (name in locKeyNames) {
                 val sym = name.sym
                 val optSym = "?$name".sym
-                locKeyVars[sym] = GlobalVar(readerNs, sym, BridjeKey(readerNs, sym), type = keyType())
-                locKeyVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(readerNs, sym), type = keyType())
-                locOptVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(readerNs, sym), type = keyType())
+                val key = BridjeKey(readerNs, sym)
+                val optKey = BridjeOptionalKey(key)
+                locKeyVars[sym] = GlobalVar(readerNs, sym, key, type = keyType())
+                locKeyVars[optSym] = GlobalVar(readerNs, optSym, optKey, type = keyType())
+                locOptVars[optSym] = GlobalVar(readerNs, optSym, optKey, type = keyType())
             }
 
             return NsEnv(
@@ -221,7 +226,7 @@ data class NsEnv(
 
     fun def(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv {
         val declaredType = pendingDecls[name]
-        val finalMeta = if (declaredType != null) meta.put("declaredType", declaredType) else meta
+        val finalMeta = if (declaredType != null) meta.put(DECLARED_TYPE_KEY, declaredType) else meta
         return copy(
             vars = vars + (name to GlobalVar(nsSymbol, name, value, finalMeta, type)),
             pendingDecls = pendingDecls - name
@@ -260,7 +265,8 @@ data class NsEnv(
 
     @ExportMessage
     @TruffleBoundary
-    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys((vars.keys + keys.keys + effectVars.keys).toTypedArray())
+    fun getMembers(includeInternal: Boolean): Any =
+        BridjeRecord.Keys((vars.keys + keys.keys + effectVars.keys).map { it.name }.toTypedArray())
 
     @ExportMessage
     @TruffleBoundary

@@ -94,19 +94,18 @@ class Anomaly(
 
     @ExportMessage
     fun getExceptionMessage(@CachedLibrary("this.data") interop: InteropLibrary): String =
-        if (interop.isMemberReadable(data, "exnMessage"))
-            interop.readMember(data, "exnMessage").toString()
+        if (data.hasKey(EXN_MESSAGE_KEY)) data.readKey(EXN_MESSAGE_KEY).toString()
         else toDisplayString(false, interop)
 
     @ExportMessage
-    fun hasExceptionCause(@CachedLibrary("this.data") interop: InteropLibrary): Boolean {
-        if (!interop.isMemberReadable(data, "exnCause")) return false
-        return interop.readMember(data, "exnCause") is Throwable
+    fun hasExceptionCause(): Boolean {
+        if (!data.hasKey(EXN_CAUSE_KEY)) return false
+        return data.readKey(EXN_CAUSE_KEY) is Throwable
     }
 
     @ExportMessage
-    fun getExceptionCause(@CachedLibrary("this.data") interop: InteropLibrary): AbstractTruffleException {
-        val cause = interop.readMember(data, "exnCause")
+    fun getExceptionCause(): AbstractTruffleException {
+        val cause = data.readKey(EXN_CAUSE_KEY)
         return cause as? AbstractTruffleException
             ?: throw UnsupportedOperationException("Cause is not a guest exception")
     }
@@ -140,16 +139,19 @@ class Anomaly(
         "${meta.tag}(${interop.toDisplayString(data)})"
 
     companion object {
+        private val EXN_MESSAGE_KEY = BridjeKey("brj.core".sym, "exnMessage".sym)
+        private val EXN_CAUSE_KEY = BridjeKey("brj.core".sym, "exnCause".sym)
+
         fun incorrect(message: String, node: Node? = null) =
-            Anomaly(INCORRECT, BridjeRecord.EMPTY.put("exnMessage", message), node = node)
+            Anomaly(INCORRECT, BridjeRecord.EMPTY.put(EXN_MESSAGE_KEY, message), node = node)
 
         fun interrupted(message: String, cause: Throwable? = null) =
-            Anomaly(INTERRUPTED, BridjeRecord.EMPTY.put("exnMessage", message), cause = cause)
+            Anomaly(INTERRUPTED, BridjeRecord.EMPTY.put(EXN_MESSAGE_KEY, message), cause = cause)
 
         fun fault(message: String, cause: Throwable? = null) =
-            Anomaly(FAULT, BridjeRecord.EMPTY.put("exnMessage", message), cause = cause)
+            Anomaly(FAULT, BridjeRecord.EMPTY.put(EXN_MESSAGE_KEY, message), cause = cause)
 
         fun host(message: String, cause: Throwable? = null) =
-            Anomaly(HOST, BridjeRecord.EMPTY.put("exnMessage", message), cause = cause)
+            Anomaly(HOST, BridjeRecord.EMPTY.put(EXN_MESSAGE_KEY, message), cause = cause)
     }
 }

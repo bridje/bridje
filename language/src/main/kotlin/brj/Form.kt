@@ -3,6 +3,7 @@ package brj
 import brj.runtime.BridjeRecord
 import brj.runtime.BridjeVector
 import brj.runtime.BuiltinMetaObj
+import brj.runtime.LOC_KEY
 import brj.runtime.Loc
 import brj.runtime.Meta
 import brj.runtime.Symbol
@@ -194,7 +195,7 @@ sealed class Form : TruffleObject, Meta<Form> {
     private var _meta: BridjeRecord? = null
 
     override val meta: BridjeRecord
-        get() = _meta ?: loc?.let { BridjeRecord.EMPTY.put("loc", Loc(it)) } ?: BridjeRecord.EMPTY
+        get() = _meta ?: loc?.let { BridjeRecord.EMPTY.put(LOC_KEY, Loc(it)) } ?: BridjeRecord.EMPTY
 
     abstract fun copy(): Form
 

@@ -1,6 +1,7 @@
 package brj.analyser
 
 import brj.*
+import brj.runtime.QSymbol
 import brj.runtime.Symbol
 import brj.types.Type
 
@@ -40,7 +41,7 @@ class SetExpr(val els: List<ValueExpr>, override val loc: SourceSection? = null)
 }
 
 class RecordExpr(
-    val fields: List<Pair<Symbol, ValueExpr>>,
+    val fields: List<Pair<QSymbol, ValueExpr>>,
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String =
@@ -201,7 +202,7 @@ class CaseExpr(
 
 class RecordSetExpr(
     val recordExpr: ValueExpr,
-    val key: Symbol,
+    val key: QSymbol,
     val valueExpr: ValueExpr,
     override val loc: SourceSection? = null
 ) : ValueExpr {
@@ -210,7 +211,7 @@ class RecordSetExpr(
 
 class RecordUpdateExpr(
     val recordExpr: ValueExpr,
-    val fields: List<Pair<Symbol, ValueExpr>>,
+    val fields: List<Pair<QSymbol, ValueExpr>>,
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String {
