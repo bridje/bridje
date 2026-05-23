@@ -1,6 +1,7 @@
 package brj.types
 
 import brj.analyser.*
+import brj.runtime.Symbol
 import brj.types.Nullability.*
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
@@ -85,21 +86,21 @@ data object RecordType: BaseType {
 }
 
 @ExportLibrary(InteropLibrary::class)
-data class TagType(val ns: String, val name: String, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
+data class TagType(val ns: Symbol, val name: Symbol, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
     override fun toString(): String {
-        val base = if (ns.isEmpty()) name else "$ns.$name"
+        val base = "$ns.$name"
         return if (args.isEmpty()) base else "$base(${args.joinToString(", ")})"
     }
 }
 
 @ExportLibrary(InteropLibrary::class)
-data class EnumType(val name: String, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
+data class EnumType(val name: Symbol, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
     override fun toString(): String =
-        if (args.isEmpty()) name else "$name(${args.joinToString(", ")})"
+        if (args.isEmpty()) "$name" else "$name(${args.joinToString(", ")})"
 }
 
 enum class Variance { IN, OUT, INVARIANT }

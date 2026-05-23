@@ -50,8 +50,8 @@ import com.oracle.truffle.api.library.ExportMessage
 import com.oracle.truffle.api.nodes.RootNode
 import com.oracle.truffle.api.source.Source
 
-typealias Requires = Map<String, NsEnv>
-typealias Imports = Map<String, String>
+typealias Requires = Map<Symbol, NsEnv>
+typealias Imports = Map<Symbol, String>
 
 @ExportLibrary(InteropLibrary::class)
 data class NsEnv(
@@ -76,7 +76,7 @@ data class NsEnv(
         }
 
         private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->
-            val tagType = TagType("brj.core", meta.tag)
+            val tagType = TagType("brj.core".sym, meta.tag.sym)
             val type = FnType(listOf(RecordType.notNull()), tagType.notNull()).notNull()
             Symbol.intern(meta.tag) to GlobalVar("brj.core".sym, Symbol.intern(meta.tag), meta, type = type)
         }
@@ -89,7 +89,7 @@ data class NsEnv(
         fun withReaderBuiltins(language: BridjeLanguage): NsEnv {
             val readerNs = "brj.rdr".sym
             val formVec = VectorType(FormType.notNull()).notNull()
-            val fileType = TagType("brj.fs", "File").notNull()
+            val fileType = TagType("brj.fs".sym, "File".sym).notNull()
             val str = StringType.notNull()
 
             fun readerFn(name: String, node: RootNode, paramType: Type): Pair<Symbol, GlobalVar> {
@@ -148,7 +148,7 @@ data class NsEnv(
 
         fun withFsBuiltins(language: BridjeLanguage): NsEnv {
             val fsNs = "brj.fs".sym
-            val fileTagType = TagType("brj.fs", "File").notNull()
+            val fileTagType = TagType("brj.fs".sym, "File".sym).notNull()
             val str = StringType.notNull()
             val bool = BoolType.notNull()
             val bytes = BytesType.notNull()
@@ -205,7 +205,7 @@ data class NsEnv(
         }
     }
 
-    val nsSymbol: Symbol get() = (nsDecl?.name ?: "<anonymous>").sym
+    val nsSymbol: Symbol get() = nsDecl?.name ?: "<anonymous>".sym
 
     operator fun get(name: Symbol): GlobalVar? = vars[name]
 
@@ -260,18 +260,21 @@ data class NsEnv(
 
     @ExportMessage
     @TruffleBoundary
-    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys((vars.keys + keys.keys + effectVars.keys).map { it.name }.toTypedArray())
+    fun getMembers(includeInternal: Boolean): Any = BridjeRecord.Keys((vars.keys + keys.keys + effectVars.keys).toTypedArray())
 
     @ExportMessage
     @TruffleBoundary
-    fun isMemberReadable(member: String) =
-        vars.containsKey(Symbol.intern(member)) || keys.containsKey(Symbol.intern(member)) || effectVars.containsKey(Symbol.intern(member))
+    fun isMemberReadable(member: String): Boolean {
+        val sym = Symbol.intern(member)
+        return vars.containsKey(sym) || keys.containsKey(sym) || effectVars.containsKey(sym)
+    }
 
     @ExportMessage
     @TruffleBoundary
     @Throws(UnknownIdentifierException::class)
     fun readMember(member: String): Any {
-        val v = vars[Symbol.intern(member)] ?: keys[Symbol.intern(member)] ?: effectVars[Symbol.intern(member)] ?: throw UnknownIdentifierException.create(member)
+        val sym = Symbol.intern(member)
+        val v = vars[sym] ?: keys[sym] ?: effectVars[sym] ?: throw UnknownIdentifierException.create(member)
         return v.value ?: throw UnknownIdentifierException.create(member)
     }
 

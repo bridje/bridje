@@ -40,7 +40,7 @@ class SetExpr(val els: List<ValueExpr>, override val loc: SourceSection? = null)
 }
 
 class RecordExpr(
-    val fields: List<Pair<String, ValueExpr>>,
+    val fields: List<Pair<Symbol, ValueExpr>>,
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String =
@@ -48,11 +48,11 @@ class RecordExpr(
 }
 
 class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection? = null) : ValueExpr {
-    override fun toString(): String = localVar.name
+    override fun toString(): String = "${localVar.name}"
 }
 
 class CapturedVarExpr(val captureIndex: Int, val outerLocalVar: LocalVar, override val loc: SourceSection? = null) : ValueExpr {
-    override fun toString(): String = outerLocalVar.name
+    override fun toString(): String = "${outerLocalVar.name}"
 }
 
 class LetExpr(
@@ -65,7 +65,7 @@ class LetExpr(
 }
 
 class FnExpr(
-    val fnName: String,
+    val fnName: Symbol,
     val params: List<LocalVar>,
     val bodyExpr: ValueExpr,
     val slotCount: Int,
@@ -75,7 +75,7 @@ class FnExpr(
 ) : ValueExpr {
     override fun toString(): String {
         val paramStrs = params.mapIndexed { i, lv ->
-            if (isVariadic && i == params.lastIndex) "& ${lv.name}" else lv.name
+            if (isVariadic && i == params.lastIndex) "& ${lv.name}" else "${lv.name}"
         }
         return "(fn ($fnName ${paramStrs.joinToString(" ")}) $bodyExpr)"
     }
@@ -164,7 +164,7 @@ class TagPattern(
 ) : CasePattern() {
     override fun toString(): String =
         if (bindings.isEmpty()) "$tagValue"
-        else "$tagValue(${bindings.joinToString(", ") { it.name }})"
+        else "$tagValue(${bindings.joinToString(", ") { "${it.name}" }})"
 }
 
 class DefaultPattern(override val loc: SourceSection? = null) : CasePattern() {
@@ -179,7 +179,7 @@ class CatchAllBindingPattern(
     val binding: LocalVar,
     override val loc: SourceSection? = null
 ) : CasePattern() {
-    override fun toString(): String = binding.name
+    override fun toString(): String = "${binding.name}"
 }
 
 class CaseBranch(
@@ -201,7 +201,7 @@ class CaseExpr(
 
 class RecordSetExpr(
     val recordExpr: ValueExpr,
-    val key: String,
+    val key: Symbol,
     val valueExpr: ValueExpr,
     override val loc: SourceSection? = null
 ) : ValueExpr {
@@ -210,7 +210,7 @@ class RecordSetExpr(
 
 class RecordUpdateExpr(
     val recordExpr: ValueExpr,
-    val fields: List<Pair<String, ValueExpr>>,
+    val fields: List<Pair<Symbol, ValueExpr>>,
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String {

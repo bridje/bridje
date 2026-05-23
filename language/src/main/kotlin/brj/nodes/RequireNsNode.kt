@@ -2,19 +2,20 @@ package brj.nodes
 
 import brj.NsEnv
 import brj.runtime.BridjeContext
+import brj.runtime.Symbol
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node
 import com.oracle.truffle.api.source.Source
 
 class RequireNsNode(
-    val alias: String,
-    private val fqNs: String
+    val alias: Symbol,
+    private val fqNs: Symbol
 ) : Node() {
 
     companion object {
-        private fun nsNameToResourcePath(nsName: String): String =
-            nsName.replace('.', '/') + ".brj"
+        private fun nsNameToResourcePath(nsName: Symbol): String =
+            nsName.name.replace('.', '/') + ".brj"
     }
 
     @TruffleBoundary

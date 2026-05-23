@@ -19,7 +19,7 @@ class BridjeRecord internal constructor(
 
     override val meta: BridjeRecord get() = _meta ?: EMPTY
 
-    internal constructor(keys: Array<String>, values: List<Any>) : this(
+    internal constructor(keys: Array<Symbol>, values: List<Any>) : this(
         Storage(SHAPE).also { storage ->
             for (i in keys.indices) {
                 OBJECT_LIBRARY.put(storage, keys[i], values[i])
@@ -31,18 +31,26 @@ class BridjeRecord internal constructor(
         BridjeRecord(storage, newMeta)
 
     internal fun put(key: Any, value: Any?): BridjeRecord {
+        val symKey = symbolKey(key)
         val newStorage = Storage(SHAPE)
         for (k in OBJECT_LIBRARY.getKeyArray(storage)) {
             OBJECT_LIBRARY.put(newStorage, k, OBJECT_LIBRARY.getOrDefault(storage, k, null))
         }
-        OBJECT_LIBRARY.put(newStorage, key, value)
+        OBJECT_LIBRARY.put(newStorage, symKey, value)
         return BridjeRecord(newStorage, meta)
     }
 
     internal fun set(key: Any, value: Any?): Any? {
-        val old = OBJECT_LIBRARY.getOrDefault(storage, key, null)
-        OBJECT_LIBRARY.put(storage, key, value)
+        val symKey = symbolKey(key)
+        val old = OBJECT_LIBRARY.getOrDefault(storage, symKey, null)
+        OBJECT_LIBRARY.put(storage, symKey, value)
         return old
+    }
+
+    private fun symbolKey(key: Any): Symbol = when (key) {
+        is Symbol -> key
+        is String -> Symbol.intern(key)
+        else -> error("BridjeRecord key must be Symbol or String, got ${key::class}")
     }
 
     private class Storage(shape: Shape) : DynamicObject(shape)
@@ -62,20 +70,21 @@ class BridjeRecord internal constructor(
     @ExportMessage
     fun getMembers(includeInternal: Boolean,
                    @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Any {
-        return Keys(objectLibrary.getKeyArray(storage))
+        val keys = objectLibrary.getKeyArray(storage)
+        return Keys(Array(keys.size) { keys[it] as Symbol })
     }
 
     @ExportMessage
     fun isMemberReadable(name: String,
                          @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Boolean {
-        return objectLibrary.containsKey(storage, name)
+        return objectLibrary.containsKey(storage, Symbol.intern(name))
     }
 
     @ExportMessage
     @Throws(UnknownIdentifierException::class)
     fun readMember(name: String,
                    @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Any? {
-        val value = objectLibrary.getOrDefault(storage, name, null)
+        val value = objectLibrary.getOrDefault(storage, Symbol.intern(name), null)
             ?: throw UnknownIdentifierException.create(name)
         return value
     }
@@ -92,7 +101,7 @@ class BridjeRecord internal constructor(
     }
 
     @ExportLibrary(InteropLibrary::class)
-    class Keys(private val keys: Array<Any>) : TruffleObject {
+    class Keys(private val keys: Array<Symbol>) : TruffleObject {
         @ExportMessage
         fun hasArrayElements() = true
 
@@ -103,6 +112,6 @@ class BridjeRecord internal constructor(
         fun isArrayElementReadable(idx: Long) = idx >= 0 && idx < keys.size
 
         @ExportMessage
-        fun readArrayElement(idx: Long): Any = keys[idx.toInt()]
+        fun readArrayElement(idx: Long): Any = keys[idx.toInt()].name
     }
 }

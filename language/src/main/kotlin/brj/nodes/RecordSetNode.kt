@@ -3,12 +3,13 @@ package brj.nodes
 import brj.BridjeNode
 import brj.runtime.BridjeNull
 import brj.runtime.BridjeRecord
+import brj.runtime.Symbol
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node.Child
 import com.oracle.truffle.api.source.SourceSection
 
 class RecordSetNode(
-    private val key: String,
+    private val key: Symbol,
     @field:Child private var recordNode: BridjeNode,
     @field:Child private var valueNode: BridjeNode,
     loc: SourceSection? = null

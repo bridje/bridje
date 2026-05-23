@@ -29,7 +29,7 @@ class ParseRootNode(
 
     @ExplodeLoop
     private fun resolveRequires(frame: VirtualFrame): Requires {
-        val result = mutableMapOf<String, NsEnv>()
+        val result = mutableMapOf<Symbol, NsEnv>()
         for (node in requires) {
             result[node.alias] = node.execute(frame)
         }
@@ -132,7 +132,7 @@ class ParseRootNode(
     private fun locMeta(expr: Expr): BridjeRecord =
         expr.loc?.let { BridjeRecord.EMPTY.put("loc", Loc(it)) } ?: BridjeRecord.EMPTY
 
-    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: String? = null): Pair<Any, NsEnv> {
+    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: Symbol? = null): Pair<Any, NsEnv> {
         val value: Any =
             if (expr.fieldNames.isEmpty()) {
                 BridjeTaggedSingleton(expr.name.name)
@@ -140,7 +140,7 @@ class ParseRootNode(
                 BridjeTagConstructor(expr.name.name, expr.fieldNames.size, expr.fieldNames)
             }
 
-        val ns = nsEnv.nsDecl?.name ?: ""
+        val ns = nsEnv.nsSymbol
         val type = if (expr.fieldNames.isEmpty()) {
             if (enumName != null && expr.typeVarNames.isNotEmpty()) {
                 // Nullary variant of a parameterised enum (e.g., Nothing in Maybe(a))
@@ -151,20 +151,20 @@ class ParseRootNode(
             } else if (enumName != null) {
                 EnumType(enumName).notNull()
             } else {
-                TagType(ns, expr.name.name).notNull()
+                TagType(ns, expr.name).notNull()
             }
         } else {
             val typeVars = expr.typeVarNames.associateWith { TypeVar() }
             val variances = expr.typeVarNames.map { Variance.INVARIANT }
             val fieldTypes = expr.fieldNames.map { fieldName ->
-                if (fieldName in typeVars) Type(NOT_NULL, typeVars[fieldName]!!, null)
+                if (fieldName.name in typeVars) Type(NOT_NULL, typeVars[fieldName.name]!!, null)
                 else freshType()
             }
             val tagArgs = typeVars.values.map { Type(NOT_NULL, it, null) }
             val returnType = if (enumName != null) {
                 EnumType(enumName, tagArgs, variances)
             } else {
-                TagType(ns, expr.name.name, tagArgs, variances)
+                TagType(ns, expr.name, tagArgs, variances)
             }
             FnType(fieldTypes, returnType.notNull()).notNull()
         }
@@ -174,12 +174,11 @@ class ParseRootNode(
         if (expr.recordStyle) {
             // tag: Foo({:k1, :k2}) — register each field name as a key as well.
             val nsSym = nsEnv.nsSymbol
-            for (fieldName in expr.fieldNames) {
-                val fieldSym = Symbol.intern(fieldName)
+            for (fieldSym in expr.fieldNames) {
                 val key = BridjeKey(nsSym, fieldSym)
                 val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
-                val optName = Symbol.intern("?$fieldName")
+                val optName = Symbol.intern("?$fieldSym")
                 updatedNs = updatedNs.defKey(fieldSym, key, type = keyType)
                 updatedNs = updatedNs.defKey(optName, BridjeOptionalKey(nsSym, fieldSym), type = optKeyType)
                 updatedNs = updatedNs.def(optName, BridjeOptionalKey(nsSym, fieldSym), type = optKeyType)
@@ -234,7 +233,7 @@ class ParseRootNode(
                     val variantNames = mutableSetOf<Symbol>()
                     var lastValue: Any? = null
                     for (tagExpr in expr.variants) {
-                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv, enumName = expr.name.name)
+                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv, enumName = expr.name)
                         nsEnv = updatedNsEnv
                         variantNames.add(tagExpr.name)
                         lastValue = value
@@ -270,7 +269,7 @@ class ParseRootNode(
                 is InteropDeclExpr -> {
                     val interopLib = InteropLibrary.getUncached()
                     for (member in expr.members) {
-                        val fqClass = nsEnv.imports[member.importAlias.name]
+                        val fqClass = nsEnv.imports[member.importAlias]
                             ?: throw Analyser.Error("Unknown import alias: ${member.importAlias}", expr.loc)
                         val hostClass = ctx.truffleEnv.lookupHostSymbol(fqClass) as TruffleObject
                         val memberName = member.memberName.name
@@ -357,7 +356,7 @@ class ParseRootNode(
         }
 
         // Update brjCore if this is brj:core namespace
-        if (nsDecl.name == "brj.core") {
+        if (nsDecl.name == "brj.core".sym) {
             ctx.brjCore = nsEnv
         }
 
@@ -367,14 +366,14 @@ class ParseRootNode(
     override fun execute(frame: VirtualFrame): Any? {
         val initialNsEnv = when {
             // brj:core starts with Kotlin builtins
-            nsDecl?.name == "brj.core" -> NsEnv.withBuiltins(lang).copy(
+            nsDecl?.name == "brj.core".sym -> NsEnv.withBuiltins(lang).copy(
                 requires = resolveRequires(frame),
                 imports = nsDecl.imports,
                 nsDecl = nsDecl,
                 source = source
             )
             // brj:concurrent starts with spawn as a Kotlin builtin
-            nsDecl?.name == "brj.concurrent" -> NsEnv.withConcurrentBuiltins(lang).let { base ->
+            nsDecl?.name == "brj.concurrent".sym -> NsEnv.withConcurrentBuiltins(lang).let { base ->
                 base.copy(
                     requires = resolveRequires(frame),
                     imports = nsDecl.imports,
@@ -383,7 +382,7 @@ class ParseRootNode(
                 )
             }
             // brj:fs starts with file as a Kotlin builtin and File as the tag
-            nsDecl?.name == "brj.fs" -> NsEnv.withFsBuiltins(lang).let { base ->
+            nsDecl?.name == "brj.fs".sym -> NsEnv.withFsBuiltins(lang).let { base ->
                 base.copy(
                     requires = resolveRequires(frame),
                     imports = nsDecl.imports,
@@ -392,7 +391,7 @@ class ParseRootNode(
                 )
             }
             // brj:bytes starts with Bytes interop builtins
-            nsDecl?.name == "brj.bytes" -> NsEnv.withBytesBuiltins(lang).let { base ->
+            nsDecl?.name == "brj.bytes".sym -> NsEnv.withBytesBuiltins(lang).let { base ->
                 base.copy(
                     requires = resolveRequires(frame),
                     imports = nsDecl.imports,
@@ -401,7 +400,7 @@ class ParseRootNode(
                 )
             }
             // brj:str starts with Str interop builtins
-            nsDecl?.name == "brj.str" -> NsEnv.withStrBuiltins(lang).let { base ->
+            nsDecl?.name == "brj.str".sym -> NsEnv.withStrBuiltins(lang).let { base ->
                 base.copy(
                     requires = resolveRequires(frame),
                     imports = nsDecl.imports,

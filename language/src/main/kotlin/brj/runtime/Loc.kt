@@ -41,7 +41,7 @@ class Loc(val section: SourceSection) : TruffleObject {
 
     @ExportMessage
     fun getMembers(@Suppress("UNUSED_PARAMETER") includeInternal: Boolean): Any =
-        BridjeRecord.Keys(MEMBERS)
+        BridjeRecord.Keys(MEMBER_SYMS)
 
     @ExportMessage
     fun isMemberReadable(member: String): Boolean = member in MEMBERS
@@ -68,5 +68,7 @@ class Loc(val section: SourceSection) : TruffleObject {
     companion object {
         private val MEMBERS: Array<Any> =
             arrayOf("source", "path", "start-line", "start-column", "end-line", "end-column")
+        private val MEMBER_SYMS: Array<Symbol> =
+            MEMBERS.map { Symbol.intern(it as String) }.toTypedArray()
     }
 }

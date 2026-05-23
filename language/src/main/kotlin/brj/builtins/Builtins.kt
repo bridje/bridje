@@ -54,11 +54,11 @@ object Builtins {
             createBuiltinFunction("itr-next", ItrNextNode(language),
                 run { val a = freshType(); FnType(listOf(IteratorType(a).notNull()), a).notNull() }),
             createBuiltinFunction("all-nses", AllNsesNode(language),
-                FnType(emptyList(), VectorType(TagType("brj.core", "Symbol").notNull()).notNull()).notNull()),
+                FnType(emptyList(), VectorType(TagType("brj.core".sym, "Symbol".sym).notNull()).notNull()).notNull()),
             createBuiltinFunction("ns-vars", NsVarsNode(language),
                 FnType(
-                    listOf(TagType("brj.core", "Symbol").notNull()),
-                    VectorType(TagType("brj.core", "Var").notNull()).notNull()
+                    listOf(TagType("brj.core".sym, "Symbol".sym).notNull()),
+                    VectorType(TagType("brj.core".sym, "Var".sym).notNull()).notNull()
                 ).notNull()),
         ).associateBy { it.name }
     }

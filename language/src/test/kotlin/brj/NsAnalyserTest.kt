@@ -2,6 +2,7 @@ package brj
 
 import brj.Reader.Companion.readForms
 import brj.analyser.analyseNs
+import brj.runtime.sym
 import com.oracle.truffle.api.source.Source
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -23,14 +24,14 @@ class NsAnalyserTest {
                   Map List Set
         """.trimIndent().parseNs()
 
-        assertEquals("foo.bar", nsDecl?.name)
+        assertEquals("foo.bar".sym, nsDecl?.name)
         assertEquals(
             mapOf(
-                "Inst" to "java.time.Instant",
-                "Dur" to "java.time.Duration",
-                "Map" to "java.util.Map",
-                "List" to "java.util.List",
-                "Set" to "java.util.Set"
+                "Inst".sym to "java.time.Instant",
+                "Dur".sym to "java.time.Duration",
+                "Map".sym to "java.util.Map",
+                "List".sym to "java.util.List",
+                "Set".sym to "java.util.Set"
             ),
             nsDecl?.imports
         )
@@ -46,11 +47,11 @@ class NsAnalyserTest {
                   util
         """.trimIndent().parseNs()
 
-        assertEquals("foo.bar", nsDecl?.name)
+        assertEquals("foo.bar".sym, nsDecl?.name)
         assertEquals(
             mapOf(
-                "lib" to "other.lib",
-                "util" to "other.util"
+                "lib".sym to "other.lib".sym,
+                "util".sym to "other.util".sym
             ),
             nsDecl?.requires
         )

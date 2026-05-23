@@ -63,7 +63,7 @@ object VarMeta : BuiltinMetaObj("Var".sym, "brj.core".sym) {
             ?: throw incorrect("Var: expected a qualified symbol, got ${arguments[0]?.let { it::class.simpleName }}")
 
         val ctx = BridjeContext.current()
-        val nsEnv = ctx.namespaces[qsym.ns.name]
+        val nsEnv = ctx.namespaces[qsym.ns]
             ?: throw incorrect("Var: namespace not found: $qsym")
         return nsEnv[qsym.member] ?: nsEnv.effectVar(qsym.member)
             ?: throw incorrect("Var: var not found: $qsym")

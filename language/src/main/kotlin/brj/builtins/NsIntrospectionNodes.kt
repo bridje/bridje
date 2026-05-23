@@ -14,7 +14,7 @@ class AllNsesNode(language: BridjeLanguage) : RootNode(language) {
 
     @TruffleBoundary
     private fun doAllNses(): BridjeVector =
-        BridjeVector(BridjeContext.get(this).namespaces.keys.map { Symbol.intern(it) })
+        BridjeVector(BridjeContext.get(this).namespaces.keys.toList())
 }
 
 class NsVarsNode(language: BridjeLanguage) : RootNode(language) {
@@ -25,7 +25,7 @@ class NsVarsNode(language: BridjeLanguage) : RootNode(language) {
         val ns = arg as? Symbol
             ?: throw incorrect("ns-vars: expected a Symbol, got ${arg?.let { it::class.simpleName }}", this)
 
-        val nsEnv = BridjeContext.get(this).namespaces[ns.name]
+        val nsEnv = BridjeContext.get(this).namespaces[ns]
             ?: throw incorrect("ns-vars: namespace not found: ${ns.name}", this)
 
         return BridjeVector(nsEnv.vars.values.toList())

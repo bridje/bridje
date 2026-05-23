@@ -30,8 +30,8 @@ data class RecurTarget(val arity: Int, val bindings: List<LocalVar>)
 data class Analyser(
     private val ctx: BridjeContext,
     private val nsEnv: NsEnv = NsEnv(),
-    private val locals: Map<String, LocalVar> = emptyMap(),
-    private val capturedVars: Map<String, CapturedVar> = emptyMap(),
+    private val locals: Map<Symbol, LocalVar> = emptyMap(),
+    private val capturedVars: Map<Symbol, CapturedVar> = emptyMap(),
     private val nextSlot: AtomicInteger = AtomicInteger(0),
     private val expansionDepth: Int = 0,
     private val errors: MutableList<Error> = mutableListOf(),
@@ -121,8 +121,8 @@ data class Analyser(
     private sealed interface SymbolResolution {
         data class Captured(val cv: CapturedVar) : SymbolResolution
         data class Local(val lv: LocalVar) : SymbolResolution
-        data class Effect(val ns: String?, val gv: GlobalVar) : SymbolResolution
-        data class Global(val ns: String?, val gv: GlobalVar) : SymbolResolution
+        data class Effect(val ns: Symbol?, val gv: GlobalVar) : SymbolResolution
+        data class Global(val ns: Symbol?, val gv: GlobalVar) : SymbolResolution
         data class Import(val fqClass: String) : SymbolResolution
         data class Host(val obj: TruffleObject) : SymbolResolution
         object NotFound : SymbolResolution
@@ -130,13 +130,13 @@ data class Analyser(
 
     private fun resolveSymbol(sym: Symbol, loc: SourceSection?): SymbolResolution {
         val name = sym.name
-        capturedVars[name]?.let { return SymbolResolution.Captured(it) }
-        locals[name]?.let { return SymbolResolution.Local(it) }
+        capturedVars[sym]?.let { return SymbolResolution.Captured(it) }
+        locals[sym]?.let { return SymbolResolution.Local(it) }
         nsEnv.effectVar(sym)?.let { return SymbolResolution.Effect(nsEnv.nsDecl?.name, it) }
-        ctx.brjCore.effectVar(sym)?.let { return SymbolResolution.Effect("brj.core", it) }
+        ctx.brjCore.effectVar(sym)?.let { return SymbolResolution.Effect("brj.core".sym, it) }
         nsEnv[sym]?.let { return SymbolResolution.Global(nsEnv.nsDecl?.name, it) }
-        ctx.brjCore[sym]?.let { return SymbolResolution.Global("brj.core", it) }
-        nsEnv.imports[name]?.let { return SymbolResolution.Import(it) }
+        ctx.brjCore[sym]?.let { return SymbolResolution.Global("brj.core".sym, it) }
+        nsEnv.imports[sym]?.let { return SymbolResolution.Import(it) }
         tryHostLookup(name, loc)?.let { return SymbolResolution.Host(it) }
         return SymbolResolution.NotFound
     }
@@ -166,7 +166,7 @@ data class Analyser(
     private fun resolveKey(name: Symbol): GlobalVar? =
         nsEnv.key(name) ?: ctx.brjCore.key(name)
 
-    private fun resolveQualifiedKey(nsAlias: String, member: Symbol): GlobalVar? {
+    private fun resolveQualifiedKey(nsAlias: Symbol, member: Symbol): GlobalVar? {
         ctx.namespaces[nsAlias]?.key(member)?.let { return it }
         nsEnv.requires[nsAlias]?.key(member)?.let { return it }
         return null
@@ -177,7 +177,7 @@ data class Analyser(
             ?: errorExpr("Unknown key: :${form.sym.name}", form.loc)
 
     private fun analyseQualifiedKeyword(form: QKeywordForm): ValueExpr =
-        resolveQualifiedKey(form.ns.name, form.member)?.let { GlobalVarExpr(it, form.loc) }
+        resolveQualifiedKey(form.ns, form.member)?.let { GlobalVarExpr(it, form.loc) }
             ?: errorExpr("Unknown key: $form", form.loc)
 
     private fun analyseQualifiedDotSymbol(form: QDotSymbolForm): ValueExpr =
@@ -187,7 +187,7 @@ data class Analyser(
 
     private fun resolveKeyForm(form: Form): GlobalVar? = when (form) {
         is KeywordForm -> resolveKey(form.sym)
-        is QKeywordForm -> resolveQualifiedKey(form.ns.name, form.member)
+        is QKeywordForm -> resolveQualifiedKey(form.ns, form.member)
         else -> null
     }
 
@@ -196,7 +196,7 @@ data class Analyser(
 
         if (els.size % 2 != 0) return errorExpr("record literal must have even number of forms", form.loc)
 
-        val fields = mutableListOf<Pair<String, ValueExpr>>()
+        val fields = mutableListOf<Pair<Symbol, ValueExpr>>()
 
         for (i in els.indices step 2) {
             val keyForm = els[i]
@@ -207,7 +207,7 @@ data class Analyser(
                 return errorExpr("$keyForm is not a key", keyForm.loc)
             }
             val valueExpr = analyseValueExpr(els[i + 1])
-            fields.add(keyValue.name.name to valueExpr)
+            fields.add(keyValue.name to valueExpr)
         }
 
         return RecordExpr(fields, form.loc)
@@ -215,7 +215,7 @@ data class Analyser(
 
     private fun analyseQualifiedSymbol(form: QSymbolForm): ValueExpr {
         // Try Bridje namespace first (fully qualified)
-        ctx.namespaces[form.ns.name]?.let { ns ->
+        ctx.namespaces[form.ns]?.let { ns ->
             ns.effectVar(form.member)?.let { return EffectVarExpr(form.member, it, form.loc) }
             val globalVar = ns[form.member]
                 ?: return errorExpr("Unknown symbol: ${form.member.name} in namespace ${form.ns.name}", form.loc)
@@ -223,7 +223,7 @@ data class Analyser(
         }
 
         // Check if namespace is a require alias
-        nsEnv.requires[form.ns.name]?.let { ns ->
+        nsEnv.requires[form.ns]?.let { ns ->
             ns.effectVar(form.member)?.let { return EffectVarExpr(form.member, it, form.loc) }
             val globalVar = ns[form.member]
                 ?: return errorExpr("Unknown symbol: ${form.member.name} in required namespace ${form.ns.name}", form.loc)
@@ -233,7 +233,7 @@ data class Analyser(
         // Check for typed interop declarations
         nsEnv.interopVar(form.ns, form.member)?.let { return GlobalVarExpr(it, form.loc) }
 
-        val fqClass = nsEnv.imports[form.ns.name] ?: form.ns.name
+        val fqClass = nsEnv.imports[form.ns] ?: form.ns.name
 
         val hostClass =
             try {
@@ -293,7 +293,7 @@ data class Analyser(
     private fun callFormConstructor(name: String, args: List<ValueExpr>, loc: SourceSection?): ValueExpr {
         val sym = Symbol.intern(name)
         // Quoting machinery: form constructors and Symbol/Var must be reachable regardless of the user's ns/requires.
-        val constructor = ctx.namespaces["brj.rdr"]?.get(sym) ?: ctx.brjCore[sym]
+        val constructor = ctx.namespaces["brj.rdr".sym]?.get(sym) ?: ctx.brjCore[sym]
             ?: return errorExpr("$name constructor not found", loc)
         return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
     }
@@ -356,7 +356,7 @@ data class Analyser(
     private fun withLocMeta(expr: ValueExpr, loc: SourceSection?): ValueExpr {
         if (loc == null) return expr
         val withMetaVar = ctx.brjCore["with-meta".sym] ?: return expr
-        val meta = RecordExpr(listOf("loc" to TruffleObjectExpr(Loc(loc), loc)), loc)
+        val meta = RecordExpr(listOf("loc".sym to TruffleObjectExpr(Loc(loc), loc)), loc)
         return CallExpr(GlobalVarExpr(withMetaVar, loc), listOf(expr, meta), loc)
     }
 
@@ -399,7 +399,7 @@ data class Analyser(
         return callFormConstructor(
             "QSymbolForm",
             listOf(
-                callFormConstructor("Symbol", listOf(StringExpr(ns, loc)), loc),
+                callFormConstructor("Symbol", listOf(StringExpr(ns.name, loc)), loc),
                 callFormConstructor("Symbol", listOf(StringExpr(member, loc)), loc)
             ),
             loc
@@ -475,9 +475,9 @@ data class Analyser(
                 val member = gensymOrName(form.member.name)
                 val nsName = if (resolveSymbols && member == form.member.name) {
                     // Follow require aliases to the real ns name. Error if unknown.
-                    ctx.namespaces[form.ns.name]?.takeIf { it[form.member] != null }?.let { form.ns.name }
-                        ?: nsEnv.requires[form.ns.name]?.let { req ->
-                            if (req[form.member] != null) req.nsDecl?.name else null
+                    ctx.namespaces[form.ns]?.takeIf { it[form.member] != null }?.let { form.ns.name }
+                        ?: nsEnv.requires[form.ns]?.let { req ->
+                            if (req[form.member] != null) req.nsDecl?.name?.name else null
                         }
                         ?: return errorExpr("Unknown symbol: ${form.ns.name}/${form.member.name}", form.loc)
                 } else form.ns.name
@@ -520,7 +520,7 @@ data class Analyser(
         )
     }
 
-    internal fun withLocal(name: String): Pair<Analyser, LocalVar> {
+    internal fun withLocal(name: Symbol): Pair<Analyser, LocalVar> {
         val lv = LocalVar(name, nextSlot.getAndIncrement())
         return Pair(copy(locals = locals + (name to lv)), lv)
     }
@@ -611,16 +611,15 @@ data class Analyser(
         return CaseExpr(scrutinee, branches, form.loc)
     }
 
-    private fun resolveTag(name: String, loc: SourceSection?): Result<Error, Any> {
-        val sym = Symbol.intern(name)
-        val globalVar = nsEnv[sym] ?: ctx.brjCore[sym]
+    private fun resolveTag(name: Symbol, loc: SourceSection?): Result<Error, Any> {
+        val globalVar = nsEnv[name] ?: ctx.brjCore[name]
             ?: return Result.Err(Error("Unknown tag: $name", loc))
         val value = globalVar.value
             ?: return Result.Err(Error("Tag $name has no value", loc))
         return Result.Ok(value)
     }
 
-    private fun resolveQualifiedTag(nsAlias: String, member: Symbol, loc: SourceSection?): Result<Error, Any> {
+    private fun resolveQualifiedTag(nsAlias: Symbol, member: Symbol, loc: SourceSection?): Result<Error, Any> {
         val ns = ctx.namespaces[nsAlias] ?: nsEnv.requires[nsAlias]
             ?: return Result.Err(Error("Unknown namespace: $nsAlias", loc))
         val globalVar = ns[member]
@@ -630,12 +629,12 @@ data class Analyser(
         return Result.Ok(value)
     }
 
-    private fun analyseBindingNames(els: List<Form>): Result<Error, List<String>> {
-        val names = mutableListOf<String>()
+    private fun analyseBindingNames(els: List<Form>): Result<Error, List<Symbol>> {
+        val names = mutableListOf<Symbol>()
         for (el in els) {
             val sym = el as? SymbolForm
                 ?: return Result.Err(Error("case pattern bindings must be symbols", el.loc))
-            names.add(sym.sym.name)
+            names.add(sym.sym)
         }
         return Result.Ok(names)
     }
@@ -650,14 +649,14 @@ data class Analyser(
                         Result.Ok(CaseBranch(NilPattern(patternForm.loc), bodyExpr, patternForm.loc))
                     }
                     name[0].isUpperCase() -> {
-                        resolveTag(name, patternForm.loc).map { tagValue ->
+                        resolveTag(patternForm.sym, patternForm.loc).map { tagValue ->
                             val bodyExpr = analyseValueExpr(bodyForm)
                             CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
                         }
                     }
                     else -> {
                         // catchall binding pattern: lowercase symbol binds scrutinee
-                        val (newAnalyser, localVar) = withLocal(name)
+                        val (newAnalyser, localVar) = withLocal(patternForm.sym)
                         val bodyExpr = newAnalyser.analyseValueExpr(bodyForm)
                         Result.Ok(CaseBranch(CatchAllBindingPattern(localVar, patternForm.loc), bodyExpr, patternForm.loc))
                     }
@@ -665,7 +664,7 @@ data class Analyser(
             }
 
             is QSymbolForm -> {
-                resolveQualifiedTag(patternForm.ns.name, patternForm.member, patternForm.loc).map { tagValue ->
+                resolveQualifiedTag(patternForm.ns, patternForm.member, patternForm.loc).map { tagValue ->
                     val bodyExpr = analyseValueExpr(bodyForm)
                     CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
                 }
@@ -678,10 +677,10 @@ data class Analyser(
                         if (!tagName[0].isUpperCase()) {
                             Result.Err(Error("case pattern tag must be capitalized: $tagName", head.loc))
                         } else {
-                            resolveTag(tagName, head.loc).map { it to head.loc }
+                            resolveTag(head.sym, head.loc).map { it to head.loc }
                         }
                     }
-                    is QSymbolForm -> resolveQualifiedTag(head.ns.name, head.member, head.loc).map { it to head.loc }
+                    is QSymbolForm -> resolveQualifiedTag(head.ns, head.member, head.loc).map { it to head.loc }
                     null -> Result.Err(Error("case pattern must start with a tag name", patternForm.loc))
                     else -> Result.Err(Error("case pattern must start with a tag name", patternForm.loc))
                 }
@@ -806,7 +805,7 @@ data class Analyser(
         val valueForm = bindingEls[1]
 
         val bindingExpr = copy(recurTarget = null).analyseValueExpr(valueForm)
-        val (newAnalyser, localVar) = withLocal(nameForm.sym.name)
+        val (newAnalyser, localVar) = withLocal(nameForm.sym)
 
         val bodyExpr = newAnalyser.analyseBindings(bindingEls.drop(2), bodyForms, loc)
 
@@ -829,15 +828,15 @@ data class Analyser(
         val recordExpr = analyseValueExpr(els[1])
         val valueExpr = analyseValueExpr(els[3])
 
-        return RecordSetExpr(recordExpr, keyValue.name.name, valueExpr, form.loc)
+        return RecordSetExpr(recordExpr, keyValue.name, valueExpr, form.loc)
     }
 
     private fun resolveDotSymbolKey(form: DotSymbolForm): GlobalVar? =
         nsEnv.key(form.sym) ?: ctx.brjCore.key(form.sym)
 
     private fun resolveQualifiedDotSymbolKey(form: QDotSymbolForm): GlobalVar? {
-        ctx.namespaces[form.ns.name]?.key(form.member)?.let { return it }
-        nsEnv.requires[form.ns.name]?.key(form.member)?.let { return it }
+        ctx.namespaces[form.ns]?.key(form.member)?.let { return it }
+        nsEnv.requires[form.ns]?.key(form.member)?.let { return it }
         return null
     }
 
@@ -855,7 +854,7 @@ data class Analyser(
 
         val recordExpr = analyseValueExpr(els[1])
 
-        val fields = mutableListOf<Pair<String, ValueExpr>>()
+        val fields = mutableListOf<Pair<Symbol, ValueExpr>>()
         for (i in updates.indices step 2) {
             val fieldForm = updates[i]
             val keyVar = when (fieldForm) {
@@ -871,7 +870,7 @@ data class Analyser(
             val keyValue = keyVar.value
             if (keyValue !is BridjeKey) return errorExpr("$fieldForm is not a key", fieldForm.loc)
             val valueExpr = analyseValueExpr(updates[i + 1])
-            fields.add(keyValue.name.name to valueExpr)
+            fields.add(keyValue.name to valueExpr)
         }
 
         return RecordUpdateExpr(recordExpr, fields, form.loc)
@@ -917,7 +916,7 @@ data class Analyser(
             val nameForm = bindingEls[i] as? SymbolForm
                 ?: return errorExpr("loop binding name must be a symbol", bindingEls[i].loc)
             val bindingExpr = nonTail.analyseValueExpr(bindingEls[i + 1])
-            val (newAnalyser, localVar) = analyser.withLocal(nameForm.sym.name)
+            val (newAnalyser, localVar) = analyser.withLocal(nameForm.sym)
             analyser = newAnalyser
             bindings.add(localVar to bindingExpr)
         }
@@ -948,14 +947,14 @@ data class Analyser(
             ?: return errorExpr("fn requires a signature list (fn-name & params)", form.loc)
 
         val sigEls = sigForm.els
-        val fnName = (sigEls.firstOrNull() as? SymbolForm)?.sym?.name
+        val fnName = (sigEls.firstOrNull() as? SymbolForm)?.sym
             ?: return errorExpr("fn signature must start with a name", sigForm.loc)
 
-        val params = mutableListOf<String>()
+        val params = mutableListOf<Symbol>()
         for (el in sigEls.drop(1)) {
             val sym = el as? SymbolForm
                 ?: return errorExpr("fn parameter must be a symbol", el.loc)
-            params.add(sym.sym.name)
+            params.add(sym.sym)
         }
 
         val bodyForms = els.drop(2)
@@ -963,7 +962,7 @@ data class Analyser(
 
         val paramSet = params.toSet()
         val captures = mutableListOf<CapturedVar>()
-        val innerCapturedVars = mutableMapOf<String, CapturedVar>()
+        val innerCapturedVars = mutableMapOf<Symbol, CapturedVar>()
         var nextCaptureIndex = 0
 
         for ((name, outerLv) in locals) {
@@ -1082,14 +1081,14 @@ data class Analyser(
                     val sym = Symbol.intern(name)
                     val enumVariants = nsEnv.enums[sym] ?: ctx.brjCore.enums[sym]
                     if (enumVariants != null) {
-                        EnumType(name).notNull()
+                        EnumType(sym).notNull()
                     } else {
-                        val ns = nsEnv[sym]?.let { nsEnv.nsDecl?.name ?: "" }
-                            ?: ctx.brjCore[sym]?.let { "brj.core" }
+                        val ns = nsEnv[sym]?.let { nsEnv.nsSymbol }
+                            ?: ctx.brjCore[sym]?.let { "brj.core".sym }
                         if (ns != null) {
-                            TagType(ns, name).notNull()
+                            TagType(ns, sym).notNull()
                         } else {
-                            val importFqClass = nsEnv.imports[name]
+                            val importFqClass = nsEnv.imports[sym]
                             if (importFqClass != null) {
                                 HostType(importFqClass).notNull()
                             } else {
@@ -1157,18 +1156,18 @@ data class Analyser(
                         // Check if it's an enum type
                         val enumVariants = nsEnv.enums[first.sym] ?: ctx.brjCore.enums[first.sym]
                         if (enumVariants != null) {
-                            return EnumType(first.sym.name, args, invariantVariances).notNull()
+                            return EnumType(first.sym, args, invariantVariances).notNull()
                         }
 
                         // Check if it's a tag name
-                        val tagNs = nsEnv[first.sym]?.let { nsEnv.nsDecl?.name ?: "" }
-                            ?: ctx.brjCore[first.sym]?.let { "brj.core" }
+                        val tagNs = nsEnv[first.sym]?.let { nsEnv.nsSymbol }
+                            ?: ctx.brjCore[first.sym]?.let { "brj.core".sym }
                         if (tagNs != null) {
-                            return TagType(tagNs, first.sym.name, args, invariantVariances).notNull()
+                            return TagType(tagNs, first.sym, args, invariantVariances).notNull()
                         }
 
                         // Check if it's an import alias
-                        val fqClass = nsEnv.imports[first.sym.name]
+                        val fqClass = nsEnv.imports[first.sym]
                         if (fqClass != null) {
                             return HostType(fqClass, args, invariantVariances).notNull()
                         }
@@ -1204,7 +1203,7 @@ data class Analyser(
 
             specForm is QDotSymbolForm -> {
                 // Alias/.someField Int — instance field
-                val fqClass = nsEnv.imports[specForm.ns.name]
+                val fqClass = nsEnv.imports[specForm.ns]
                     ?: return errorExpr("Unknown import alias: ${specForm.ns.name}", specForm.loc)
                 val receiverType = HostType(fqClass).notNull()
                 val returnType = analyseTypeForm(retForm, typeVars)
@@ -1235,7 +1234,7 @@ data class Analyser(
 
                     callee is QDotSymbolForm -> {
                         // Alias/.toEpochMilli() Int — instance method
-                        val fqClass = nsEnv.imports[callee.ns.name]
+                        val fqClass = nsEnv.imports[callee.ns]
                             ?: return errorExpr("Unknown import alias: ${callee.ns.name}", callee.loc)
                         val receiverType = HostType(fqClass).notNull()
                         InteropMember(
@@ -1398,20 +1397,20 @@ data class Analyser(
                 val singleRecord = remainingEls.singleOrNull() as? RecordForm
                 if (singleRecord != null) {
                     // tag: Foo({:key1, :key2}) — each key becomes a field name and is registered as a key
-                    val fieldNames = mutableListOf<String>()
+                    val fieldNames = mutableListOf<Symbol>()
                     for (recEl in singleRecord.els) {
                         val kw = recEl as? KeywordForm
                             ?: return errorExpr("record field entries must be keywords", recEl.loc)
-                        fieldNames.add(kw.sym.name)
+                        fieldNames.add(kw.sym)
                     }
                     return DefTagExpr(name, fieldNames, typeVarNames, recordStyle = true, loc = loc)
                 }
 
-                val fieldNames = mutableListOf<String>()
+                val fieldNames = mutableListOf<Symbol>()
                 for (el in remainingEls) {
                     val sym = el as? SymbolForm
                         ?: return errorExpr("field names must be symbols", el.loc)
-                    fieldNames.add(sym.sym.name)
+                    fieldNames.add(sym.sym)
                 }
                 DefTagExpr(name, fieldNames, typeVarNames, loc = loc)
             }
@@ -1477,7 +1476,7 @@ data class Analyser(
         val name = (sigEls.firstOrNull() as? SymbolForm)?.sym
             ?: return errorExpr("defmacro signature must start with a name", sigForm.loc)
 
-        val params = mutableListOf<String>()
+        val params = mutableListOf<Symbol>()
         var isVariadic = false
         val paramForms = sigEls.drop(1)
         for ((i, el) in paramForms.withIndex()) {
@@ -1488,11 +1487,11 @@ data class Analyser(
                     ?: return errorExpr("& must be followed by a rest parameter name", el.loc)
                 if (i + 2 < paramForms.size)
                     return errorExpr("& rest parameter must be the last parameter", paramForms[i + 2].loc)
-                params.add(restSym.sym.name)
+                params.add(restSym.sym)
                 isVariadic = true
                 break
             }
-            params.add(sym.sym.name)
+            params.add(sym.sym)
         }
 
         val bodyForms = els.drop(2)
@@ -1508,7 +1507,7 @@ data class Analyser(
 
         val bodyExpr = macroAnalyser.analyseBody(bodyForms, form.loc)
 
-        return DefMacroExpr(name, FnExpr(name.name, paramLvs, bodyExpr, macroAnalyser.slotCount, emptyList(), isVariadic, form.loc), form.loc)
+        return DefMacroExpr(name, FnExpr(name, paramLvs, bodyExpr, macroAnalyser.slotCount, emptyList(), isVariadic, form.loc), form.loc)
     }
 
     private fun analyseDefx(form: ListForm): Expr {
@@ -1577,8 +1576,8 @@ data class Analyser(
             val nameForm = bindingEls[i]
             val effectVar = when (nameForm) {
                 is SymbolForm -> nsEnv.effectVar(nameForm.sym) ?: ctx.brjCore.effectVar(nameForm.sym)
-                is QSymbolForm -> ctx.namespaces[nameForm.ns.name]?.effectVar(nameForm.member)
-                    ?: nsEnv.requires[nameForm.ns.name]?.effectVar(nameForm.member)
+                is QSymbolForm -> ctx.namespaces[nameForm.ns]?.effectVar(nameForm.member)
+                    ?: nsEnv.requires[nameForm.ns]?.effectVar(nameForm.member)
                 else -> return errorExpr("withFx binding name must be a symbol", nameForm.loc)
             } ?: return errorExpr("Unknown effect: $nameForm", nameForm.loc)
             bindings.add(effectVar to analyseValueExpr(bindingEls[i + 1]))

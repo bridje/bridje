@@ -21,19 +21,19 @@ class BridjeContext(val truffleEnv: Env, val lang: BridjeLanguage) {
         internal set
 
     var globalEnv: GlobalEnv = GlobalEnv(namespaces = mapOf(
-        "brj.core" to brjCore,
-        "brj.rdr" to NsEnv.withReaderBuiltins(lang),
+        "brj.core".sym to brjCore,
+        "brj.rdr".sym to NsEnv.withReaderBuiltins(lang),
     ))
         private set
 
-    val loadingInProgress: MutableSet<String> = mutableSetOf()
+    val loadingInProgress: MutableSet<Symbol> = mutableSetOf()
 
     private val gensymCounter = AtomicLong(0)
 
     fun nextGensymId(): Long = gensymCounter.incrementAndGet()
 
     // Convenience accessor for backwards compatibility
-    val namespaces: Map<String, NsEnv>
+    val namespaces: Map<Symbol, NsEnv>
         get() = globalEnv.namespaces
 
     fun updateGlobalEnv(update: (GlobalEnv) -> GlobalEnv) {

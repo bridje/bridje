@@ -36,18 +36,18 @@ class BridjeTaggedTuple(
     @ExportMessage
     @TruffleBoundary
     fun getMembers(includeInternal: Boolean): Any =
-        BridjeRecord.Keys(Array(constructor.fieldNames.size) { constructor.fieldNames[it] as Any })
+        BridjeRecord.Keys(constructor.fieldNames.toTypedArray())
 
     @ExportMessage
     @TruffleBoundary
-    fun isMemberReadable(member: String) = constructor.fieldNames.contains(member)
+    fun isMemberReadable(member: String) = Symbol.intern(member) in constructor.fieldIndices
 
     @ExportMessage
     @TruffleBoundary
     @Throws(UnknownIdentifierException::class)
     fun readMember(member: String): Any {
-        val idx = constructor.fieldNames.indexOf(member)
-        if (idx < 0) throw UnknownIdentifierException.create(member)
+        val idx = constructor.fieldIndices[Symbol.intern(member)]
+            ?: throw UnknownIdentifierException.create(member)
         return values[idx]
     }
 

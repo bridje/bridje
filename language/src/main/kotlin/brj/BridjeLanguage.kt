@@ -63,6 +63,7 @@ class BridjeLanguage : TruffleLanguage<BridjeContext>() {
             RequireNsNode(alias, fqNs)
         }.toTypedArray()
 
+
         return ParseRootNode(this, nsDecl, forms, source, requireNodes).callTarget
     }
 }

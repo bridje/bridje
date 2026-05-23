@@ -22,7 +22,7 @@ class DefExpr(
 
 class DefTagExpr(
     val name: Symbol,
-    val fieldNames: List<String>,
+    val fieldNames: List<Symbol>,
     val typeVarNames: List<String> = emptyList(),
     val recordStyle: Boolean = false,
     override val loc: SourceSection? = null
@@ -47,7 +47,7 @@ class DefMacroExpr(
     val fn: FnExpr,
     override val loc: SourceSection? = null
 ) : Expr {
-    override fun toString(): String = "(defmacro $name ${fn.params.joinToString(" ") { it.name }} ${fn.bodyExpr})"
+    override fun toString(): String = "(defmacro $name ${fn.params.joinToString(" ") { "${it.name}" }} ${fn.bodyExpr})"
 }
 
 class DefKeysExpr(

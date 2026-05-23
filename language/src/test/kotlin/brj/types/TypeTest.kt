@@ -67,7 +67,7 @@ class TypeTest {
 
     @Test
     fun `let binding infers type from value`() {
-        val x = LocalVar("x", 0)
+        val x = LocalVar("x".sym, 0)
         val type = LetExpr(x, IntExpr(1), LocalVarExpr(x)).checkType()
         assertEquals(IntType, type.base)
         assertEquals(NOT_NULL, type.nullability)
@@ -75,15 +75,15 @@ class TypeTest {
 
     @Test
     fun `let with unused binding`() {
-        val x = LocalVar("x", 0)
+        val x = LocalVar("x".sym, 0)
         val type = LetExpr(x, IntExpr(1), StringExpr("hello")).checkType()
         assertEquals(StringType, type.base)
     }
 
     @Test
     fun `fn literal has FnType`() {
-        val x = LocalVar("x", 0)
-        val type = FnExpr("f", listOf(x), LocalVarExpr(x), 1, emptyList(), isVariadic = false).checkType()
+        val x = LocalVar("x".sym, 0)
+        val type = FnExpr("f".sym, listOf(x), LocalVarExpr(x), 1, emptyList(), isVariadic = false).checkType()
         val fnBase = type.base as FnType
         assertEquals(1, fnBase.paramTypes.size)
         assertNotNull(fnBase.returnType)
@@ -91,8 +91,8 @@ class TypeTest {
 
     @Test
     fun `call infers return type from fn`() {
-        val x = LocalVar("x", 0)
-        val fn = FnExpr("f", listOf(x), IntExpr(42), 1, emptyList(), isVariadic = false)
+        val x = LocalVar("x".sym, 0)
+        val fn = FnExpr("f".sym, listOf(x), IntExpr(42), 1, emptyList(), isVariadic = false)
         val type = CallExpr(fn, listOf(StringExpr("hello"))).checkType()
         assertEquals(IntType, type.base)
         assertEquals(NOT_NULL, type.nullability)
@@ -100,8 +100,8 @@ class TypeTest {
 
     @Test
     fun `identity fn called with int`() {
-        val x = LocalVar("x", 0)
-        val identity = FnExpr("id", listOf(x), LocalVarExpr(x), 1, emptyList(), isVariadic = false)
+        val x = LocalVar("x".sym, 0)
+        val identity = FnExpr("id".sym, listOf(x), LocalVarExpr(x), 1, emptyList(), isVariadic = false)
         val type = CallExpr(identity, listOf(IntExpr(1))).checkType()
         assertEquals(IntType, type.base)
         assertEquals(NOT_NULL, type.nullability)
@@ -109,10 +109,10 @@ class TypeTest {
 
     @Test
     fun `higher-order fn returning fn`() {
-        val x = LocalVar("x", 0)
-        val y = LocalVar("y", 0)
-        val inner = FnExpr("inner", listOf(y), CapturedVarExpr(0, x), 1, listOf(CapturedVar("x", x, 0, FrameSlotCapture(0))), isVariadic = false)
-        val outer = FnExpr("outer", listOf(x), inner, 1, emptyList(), isVariadic = false)
+        val x = LocalVar("x".sym, 0)
+        val y = LocalVar("y".sym, 0)
+        val inner = FnExpr("inner".sym, listOf(y), CapturedVarExpr(0, x), 1, listOf(CapturedVar("x".sym, x, 0, FrameSlotCapture(0))), isVariadic = false)
+        val outer = FnExpr("outer".sym, listOf(x), inner, 1, emptyList(), isVariadic = false)
         val type = outer.checkType()
         val outerFn = type.base as FnType
         val innerFn = outerFn.returnType.base as FnType
@@ -135,7 +135,7 @@ class TypeTest {
 
     @Test
     fun `record literal has record type`() {
-        val type = RecordExpr(listOf("name" to StringExpr("Alice"), "age" to IntExpr(30))).checkType()
+        val type = RecordExpr(listOf("name".sym to StringExpr("Alice"), "age".sym to IntExpr(30))).checkType()
         assertEquals(RecordType, type.base)
         assertEquals(NOT_NULL, type.nullability)
     }
@@ -149,8 +149,8 @@ class TypeTest {
 
     @Test
     fun `record set has record type`() {
-        val x = LocalVar("x", 0)
-        val type = RecordSetExpr(LocalVarExpr(x), "name", StringExpr("Alice")).checkType()
+        val x = LocalVar("x".sym, 0)
+        val type = RecordSetExpr(LocalVarExpr(x), "name".sym, StringExpr("Alice")).checkType()
         assertEquals(RecordType, type.base)
         assertEquals(NOT_NULL, type.nullability)
     }
@@ -183,7 +183,7 @@ class TypeTest {
 
     @Test
     fun `case with catchall binding`() {
-        val x = LocalVar("x", 0)
+        val x = LocalVar("x".sym, 0)
         val type = CaseExpr(
             IntExpr(1),
             listOf(CaseBranch(CatchAllBindingPattern(x), LocalVarExpr(x)))
@@ -205,8 +205,8 @@ class TypeTest {
 
     @Test
     fun `case with tag pattern bindings`() {
-        val x = LocalVar("x", 0)
-        val scrutinee = LocalVar("s", 1)
+        val x = LocalVar("x".sym, 0)
+        val scrutinee = LocalVar("s".sym, 1)
         val type = CaseExpr(
             LocalVarExpr(scrutinee),
             listOf(CaseBranch(TagPattern("Just", listOf(x)), LocalVarExpr(x)))
@@ -240,9 +240,9 @@ class TypeTest {
 
     @Test
     fun `call fn with trailing Record param without passing record`() {
-        val x = LocalVar("x", 0)
-        val opts = LocalVar("opts", 1)
-        val fn = FnExpr("f", listOf(x, opts), LocalVarExpr(x), 2, emptyList(), isVariadic = false)
+        val x = LocalVar("x".sym, 0)
+        val opts = LocalVar("opts".sym, 1)
+        val fn = FnExpr("f".sym, listOf(x, opts), LocalVarExpr(x), 2, emptyList(), isVariadic = false)
         // fn is Fn([?, Record] ?) — give opts a Record type by using it in a record position
         // Simpler: just use a GlobalVar with a known FnType
         val fnType = FnType(listOf(StringType.notNull(), RecordType.notNull()), IntType.notNull()).notNull()

@@ -1,9 +1,11 @@
 package brj.analyser
 
-class LocalVar(val name: String, val slot: Int)
+import brj.runtime.Symbol
+
+class LocalVar(val name: Symbol, val slot: Int)
 
 sealed interface CaptureSource
 data class FrameSlotCapture(val slot: Int) : CaptureSource
 data class TransitiveCapture(val captureIndex: Int) : CaptureSource
 
-data class CapturedVar(val name: String, val outerLocalVar: LocalVar, val captureIndex: Int, val source: CaptureSource)
+data class CapturedVar(val name: Symbol, val outerLocalVar: LocalVar, val captureIndex: Int, val source: CaptureSource)
