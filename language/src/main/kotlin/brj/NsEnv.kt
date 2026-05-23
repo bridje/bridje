@@ -107,9 +107,11 @@ data class NsEnv(
             for (name in locKeyNames) {
                 val sym = name.sym
                 val optSym = "?$name".sym
-                locKeyVars[sym] = GlobalVar(readerNs, sym, BridjeKey(readerNs, sym), type = keyType())
-                locKeyVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(readerNs, sym), type = keyType())
-                locOptVars[optSym] = GlobalVar(readerNs, optSym, BridjeOptionalKey(readerNs, sym), type = keyType())
+                val key = BridjeKey(readerNs, sym)
+                val optKey = BridjeOptionalKey(key)
+                locKeyVars[sym] = GlobalVar(readerNs, sym, key, type = keyType())
+                locKeyVars[optSym] = GlobalVar(readerNs, optSym, optKey, type = keyType())
+                locOptVars[optSym] = GlobalVar(readerNs, optSym, optKey, type = keyType())
             }
 
             return NsEnv(

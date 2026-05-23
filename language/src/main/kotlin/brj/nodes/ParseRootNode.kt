@@ -176,12 +176,13 @@ class ParseRootNode(
             val nsSym = nsEnv.nsSymbol
             for (fieldSym in expr.fieldNames) {
                 val key = BridjeKey(nsSym, fieldSym)
+                val optKey = BridjeOptionalKey(key)
                 val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optName = Symbol.intern("?$fieldSym")
                 updatedNs = updatedNs.defKey(fieldSym, key, type = keyType)
-                updatedNs = updatedNs.defKey(optName, BridjeOptionalKey(nsSym, fieldSym), type = optKeyType)
-                updatedNs = updatedNs.def(optName, BridjeOptionalKey(nsSym, fieldSym), type = optKeyType)
+                updatedNs = updatedNs.defKey(optName, optKey, type = optKeyType)
+                updatedNs = updatedNs.def(optName, optKey, type = optKeyType)
             }
         }
 
@@ -313,12 +314,13 @@ class ParseRootNode(
                     var lastKey: BridjeKey? = null
                     for (name in expr.names) {
                         val key = BridjeKey(nsSym, name)
+                        val optKey = BridjeOptionalKey(key)
                         val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                         val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                         val optName = Symbol.intern("?$name")
                         nsEnv = nsEnv.defKey(name, key, type = keyType)
-                        nsEnv = nsEnv.defKey(optName, BridjeOptionalKey(nsSym, name), type = optKeyType)
-                        nsEnv = nsEnv.def(optName, BridjeOptionalKey(nsSym, name), type = optKeyType)
+                        nsEnv = nsEnv.defKey(optName, optKey, type = optKeyType)
+                        nsEnv = nsEnv.def(optName, optKey, type = optKeyType)
                         lastKey = key
                     }
                     lastKey
