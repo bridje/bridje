@@ -64,7 +64,7 @@ class RecordTest {
               decl: :foo Str
               {:foo 42}
         """.trimIndent())
-        assertEquals("{foo 42}", result.toString())
+        assertEquals("{:foo 42}", result.toString())
     }
 
     @Test
@@ -76,8 +76,8 @@ class RecordTest {
         """.trimIndent())
         val str = result.toString()
         assertTrue(str.startsWith("{") && str.endsWith("}"))
-        assertTrue(str.contains("a 1"))
-        assertTrue(str.contains("b 2"))
+        assertTrue(str.contains(":a 1"))
+        assertTrue(str.contains(":b 2"))
     }
 
     @Test
