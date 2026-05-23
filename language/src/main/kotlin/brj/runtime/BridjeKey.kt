@@ -23,8 +23,9 @@ class BridjeKey(val ns: Symbol, val name: Symbol) : TruffleObject {
         if (arguments.size != 1) {
             throw ArityException.create(1, 1, arguments.size)
         }
-        val record = arguments[0]
-        return INTEROP.readMember(record, name.name)
+        val target = arguments[0]
+        return if (target is BridjeObject) target.readKey(this)
+        else INTEROP.readMember(target, name.name)
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -47,10 +48,13 @@ class BridjeOptionalKey(val key: BridjeKey) : TruffleObject {
     @Throws(ArityException::class)
     fun execute(arguments: Array<Any?>): Any? {
         if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val record = arguments[0]
+        val target = arguments[0]
+        if (target is BridjeObject) {
+            return if (target.hasKey(key)) target.readKey(key) else BridjeNull
+        }
         val memberName = key.name.name
-        return if (INTEROP.isMemberReadable(record, memberName))
-            INTEROP.readMember(record, memberName)
+        return if (INTEROP.isMemberReadable(target, memberName))
+            INTEROP.readMember(target, memberName)
         else BridjeNull
     }
 

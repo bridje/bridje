@@ -12,7 +12,7 @@ import com.oracle.truffle.api.library.ExportMessage
 class BridjeTaggedTuple(
     val constructor: BridjeTagConstructor,
     val values: Array<Any>
-) : TruffleObject {
+) : TruffleObject, BridjeObject {
 
     @ExportMessage
     fun hasArrayElements() = true
@@ -48,6 +48,15 @@ class BridjeTaggedTuple(
     fun readMember(member: String): Any {
         val idx = constructor.fieldIndices[Symbol.intern(member)]
             ?: throw UnknownIdentifierException.create(member)
+        return values[idx]
+    }
+
+    override fun hasKey(key: BridjeKey): Boolean = key.name in constructor.fieldIndices
+
+    @TruffleBoundary
+    override fun readKey(key: BridjeKey): Any {
+        val idx = constructor.fieldIndices[key.name]
+            ?: throw UnknownIdentifierException.create(key.name.name)
         return values[idx]
     }
 

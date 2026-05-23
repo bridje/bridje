@@ -15,7 +15,7 @@ import com.oracle.truffle.api.`object`.Shape
 class BridjeRecord internal constructor(
     @JvmField internal val storage: DynamicObject = Storage(SHAPE),
     private val _meta: BridjeRecord? = null // nullable to avoid circular initialization with EMPTY
-) : TruffleObject, Meta<BridjeRecord> {
+) : TruffleObject, Meta<BridjeRecord>, BridjeObject {
 
     override val meta: BridjeRecord get() = _meta ?: EMPTY
 
@@ -88,6 +88,14 @@ class BridjeRecord internal constructor(
             ?: throw UnknownIdentifierException.create(name)
         return value
     }
+
+    @TruffleBoundary
+    override fun hasKey(key: BridjeKey): Boolean = OBJECT_LIBRARY.containsKey(storage, key.name)
+
+    @TruffleBoundary
+    override fun readKey(key: BridjeKey): Any =
+        OBJECT_LIBRARY.getOrDefault(storage, key.name, null)
+            ?: throw UnknownIdentifierException.create(key.name.name)
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage

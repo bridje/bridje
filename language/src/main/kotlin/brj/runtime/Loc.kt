@@ -26,7 +26,7 @@ object LocMeta : TruffleObject {
 }
 
 @ExportLibrary(InteropLibrary::class)
-class Loc(val section: SourceSection) : TruffleObject {
+class Loc(val section: SourceSection) : TruffleObject, BridjeObject {
 
     private val sourceName: TruffleString =
         TruffleString.fromConstant(section.source.name ?: "<unknown>", TruffleString.Encoding.UTF_8)
@@ -49,7 +49,14 @@ class Loc(val section: SourceSection) : TruffleObject {
     @ExportMessage
     @TruffleBoundary
     @Throws(UnknownIdentifierException::class)
-    fun readMember(member: String): Any = when (member) {
+    fun readMember(member: String): Any = readByName(member)
+
+    override fun hasKey(key: BridjeKey): Boolean = key.name in MEMBER_SYMS
+
+    @TruffleBoundary
+    override fun readKey(key: BridjeKey): Any = readByName(key.name.name)
+
+    private fun readByName(member: String): Any = when (member) {
         "source" -> sourceName
         "path" -> sourcePath ?: BridjeNull
         "start-line" -> section.startLine.toLong()
