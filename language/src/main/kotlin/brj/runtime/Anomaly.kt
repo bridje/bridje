@@ -143,15 +143,15 @@ class Anomaly(
         private val EXN_CAUSE_KEY = BridjeKey("brj.core".sym, "exnCause".sym)
 
         fun incorrect(message: String, node: Node? = null) =
-            Anomaly(INCORRECT, BridjeRecord.EMPTY.put("exnMessage", message), node = node)
+            Anomaly(INCORRECT, BridjeRecord.EMPTY.put(EXN_MESSAGE_KEY, message), node = node)
 
         fun interrupted(message: String, cause: Throwable? = null) =
-            Anomaly(INTERRUPTED, BridjeRecord.EMPTY.put("exnMessage", message), cause = cause)
+            Anomaly(INTERRUPTED, BridjeRecord.EMPTY.put(EXN_MESSAGE_KEY, message), cause = cause)
 
         fun fault(message: String, cause: Throwable? = null) =
-            Anomaly(FAULT, BridjeRecord.EMPTY.put("exnMessage", message), cause = cause)
+            Anomaly(FAULT, BridjeRecord.EMPTY.put(EXN_MESSAGE_KEY, message), cause = cause)
 
         fun host(message: String, cause: Throwable? = null) =
-            Anomaly(HOST, BridjeRecord.EMPTY.put("exnMessage", message), cause = cause)
+            Anomaly(HOST, BridjeRecord.EMPTY.put(EXN_MESSAGE_KEY, message), cause = cause)
     }
 }

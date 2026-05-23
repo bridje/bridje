@@ -29,7 +29,7 @@ class BridjeScope(private val context: BridjeContext) : TruffleObject {
     @ExportMessage
     @TruffleBoundary
     fun getMembers(includeInternal: Boolean) =
-        BridjeRecord.Keys(namespaces.keys.toTypedArray())
+        BridjeRecord.Keys(namespaces.keys.map { it.name }.toTypedArray())
 
     @ExportMessage
     @TruffleBoundary

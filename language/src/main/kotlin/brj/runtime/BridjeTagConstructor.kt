@@ -12,10 +12,10 @@ import com.oracle.truffle.api.strings.TruffleString
 class BridjeTagConstructor(
     val tag: String,
     val arity: Int,
-    val fieldNames: List<Symbol>
+    val fieldNames: List<QSymbol>
 ) : TruffleObject {
 
-    internal val fieldIndices: Map<Symbol, Int> =
+    internal val fieldIndices: Map<QSymbol, Int> =
         fieldNames.withIndex().associate { (i, name) -> name to i }
 
     private val tagString: TruffleString = TruffleString.fromConstant(tag, TruffleString.Encoding.UTF_8)

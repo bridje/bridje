@@ -2,13 +2,13 @@ package brj.nodes
 
 import brj.BridjeNode
 import brj.runtime.BridjeRecord
-import brj.runtime.Symbol
+import brj.runtime.QSymbol
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.Node.Child
 import com.oracle.truffle.api.source.SourceSection
 
 class RecordNode(
-    private val fieldNames: Array<Symbol>,
+    private val fieldNames: Array<QSymbol>,
     @field:Child private var values: ExecuteCollNode,
     loc: SourceSection? = null
 ) : BridjeNode(loc) {

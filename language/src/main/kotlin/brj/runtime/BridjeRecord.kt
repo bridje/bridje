@@ -19,7 +19,7 @@ class BridjeRecord internal constructor(
 
     override val meta: BridjeRecord get() = _meta ?: EMPTY
 
-    internal constructor(keys: Array<Symbol>, values: List<Any>) : this(
+    internal constructor(keys: Array<QSymbol>, values: List<Any>) : this(
         Storage(SHAPE).also { storage ->
             for (i in keys.indices) {
                 OBJECT_LIBRARY.put(storage, keys[i], values[i])
@@ -30,27 +30,21 @@ class BridjeRecord internal constructor(
     override fun withMeta(newMeta: BridjeRecord?): BridjeRecord =
         BridjeRecord(storage, newMeta)
 
-    internal fun put(key: Any, value: Any?): BridjeRecord {
-        val symKey = symbolKey(key)
+    internal fun put(key: QSymbol, value: Any?): BridjeRecord {
         val newStorage = Storage(SHAPE)
         for (k in OBJECT_LIBRARY.getKeyArray(storage)) {
             OBJECT_LIBRARY.put(newStorage, k, OBJECT_LIBRARY.getOrDefault(storage, k, null))
         }
-        OBJECT_LIBRARY.put(newStorage, symKey, value)
+        OBJECT_LIBRARY.put(newStorage, key, value)
         return BridjeRecord(newStorage, meta)
     }
 
-    internal fun set(key: Any, value: Any?): Any? {
-        val symKey = symbolKey(key)
-        val old = OBJECT_LIBRARY.getOrDefault(storage, symKey, null)
-        OBJECT_LIBRARY.put(storage, symKey, value)
-        return old
-    }
+    internal fun put(key: BridjeKey, value: Any?): BridjeRecord = put(key.sym, value)
 
-    private fun symbolKey(key: Any): Symbol = when (key) {
-        is Symbol -> key
-        is String -> Symbol.intern(key)
-        else -> error("BridjeRecord key must be Symbol or String, got ${key::class}")
+    internal fun set(key: QSymbol, value: Any?): Any? {
+        val old = OBJECT_LIBRARY.getOrDefault(storage, key, null)
+        OBJECT_LIBRARY.put(storage, key, value)
+        return old
     }
 
     private class Storage(shape: Shape) : DynamicObject(shape)
@@ -71,31 +65,63 @@ class BridjeRecord internal constructor(
     fun getMembers(includeInternal: Boolean,
                    @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Any {
         val keys = objectLibrary.getKeyArray(storage)
-        return Keys(Array(keys.size) { keys[it] as Symbol })
+        return Keys(Array(keys.size) { keys[it].toString() })
     }
 
     @ExportMessage
+    @TruffleBoundary
     fun isMemberReadable(name: String,
                          @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Boolean {
-        return objectLibrary.containsKey(storage, Symbol.intern(name))
+        val parsed = QSymbol.parse(name)
+        if (parsed != null) return objectLibrary.containsKey(storage, parsed)
+        // Unqualified — return true iff exactly one stored field's local name matches.
+        return countUnqualifiedMatches(name, objectLibrary) == 1
     }
 
     @ExportMessage
+    @TruffleBoundary
     @Throws(UnknownIdentifierException::class)
     fun readMember(name: String,
                    @CachedLibrary("this.storage") objectLibrary: DynamicObjectLibrary): Any? {
-        val value = objectLibrary.getOrDefault(storage, Symbol.intern(name), null)
-            ?: throw UnknownIdentifierException.create(name)
-        return value
+        val parsed = QSymbol.parse(name)
+        if (parsed != null) {
+            return objectLibrary.getOrDefault(storage, parsed, null)
+                ?: throw UnknownIdentifierException.create(name)
+        }
+        // Unqualified — single match required, otherwise refuse the read.
+        val unq = Symbol.intern(name)
+        var found: Any? = null
+        var foundCount = 0
+        for (k in objectLibrary.getKeyArray(storage)) {
+            if (k is QSymbol && k.name === unq) {
+                found = objectLibrary.getOrDefault(storage, k, null)
+                foundCount++
+            }
+        }
+        return when (foundCount) {
+            0 -> throw UnknownIdentifierException.create(name)
+            1 -> found
+            else -> throw Anomaly.incorrect("ambiguous polyglot member '$name' — multiple namespaces define this key on this record")
+        }
     }
 
     @TruffleBoundary
-    override fun hasKey(key: BridjeKey): Boolean = OBJECT_LIBRARY.containsKey(storage, key.name)
+    private fun countUnqualifiedMatches(name: String, objectLibrary: DynamicObjectLibrary): Int {
+        val unq = Symbol.intern(name)
+        var count = 0
+        for (k in objectLibrary.getKeyArray(storage)) {
+            if (k is QSymbol && k.name === unq) count++
+        }
+        return count
+    }
+
+    @TruffleBoundary
+    override fun hasKey(key: BridjeKey): Boolean = OBJECT_LIBRARY.containsKey(storage, key.sym)
 
     @TruffleBoundary
     override fun readKey(key: BridjeKey): Any =
-        OBJECT_LIBRARY.getOrDefault(storage, key.name, null)
-            ?: throw UnknownIdentifierException.create(key.name.name)
+        OBJECT_LIBRARY.getOrDefault(storage, key.sym, null)
+            ?: throw UnknownIdentifierException.create(key.sym.toString())
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage
@@ -109,7 +135,7 @@ class BridjeRecord internal constructor(
     }
 
     @ExportLibrary(InteropLibrary::class)
-    class Keys(private val keys: Array<Symbol>) : TruffleObject {
+    class Keys(private val keys: Array<String>) : TruffleObject {
         @ExportMessage
         fun hasArrayElements() = true
 
@@ -120,6 +146,6 @@ class BridjeRecord internal constructor(
         fun isArrayElementReadable(idx: Long) = idx >= 0 && idx < keys.size
 
         @ExportMessage
-        fun readArrayElement(idx: Long): Any = keys[idx.toInt()].name
+        fun readArrayElement(idx: Long): Any = keys[idx.toInt()]
     }
 }

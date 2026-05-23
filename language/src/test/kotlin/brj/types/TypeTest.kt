@@ -2,6 +2,7 @@ package brj.types
 
 import brj.*
 import brj.analyser.*
+import brj.runtime.QSymbol
 import brj.runtime.sym
 import brj.types.Nullability.*
 import org.junit.jupiter.api.Assertions.*
@@ -135,7 +136,8 @@ class TypeTest {
 
     @Test
     fun `record literal has record type`() {
-        val type = RecordExpr(listOf("name".sym to StringExpr("Alice"), "age".sym to IntExpr(30))).checkType()
+        val ns = "user".sym
+        val type = RecordExpr(listOf(QSymbol(ns, "name".sym) to StringExpr("Alice"), QSymbol(ns, "age".sym) to IntExpr(30))).checkType()
         assertEquals(RecordType, type.base)
         assertEquals(NOT_NULL, type.nullability)
     }
@@ -150,7 +152,7 @@ class TypeTest {
     @Test
     fun `record set has record type`() {
         val x = LocalVar("x".sym, 0)
-        val type = RecordSetExpr(LocalVarExpr(x), "name".sym, StringExpr("Alice")).checkType()
+        val type = RecordSetExpr(LocalVarExpr(x), QSymbol("user".sym, "name".sym), StringExpr("Alice")).checkType()
         assertEquals(RecordType, type.base)
         assertEquals(NOT_NULL, type.nullability)
     }

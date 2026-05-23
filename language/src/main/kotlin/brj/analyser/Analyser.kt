@@ -8,7 +8,9 @@ import brj.runtime.BridjeMacro
 import brj.runtime.BridjeVector
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
+import brj.runtime.LOC_KEY
 import brj.runtime.Loc
+import brj.runtime.QSymbol
 import brj.runtime.Symbol
 import brj.runtime.sym
 import brj.types.*
@@ -196,7 +198,7 @@ data class Analyser(
 
         if (els.size % 2 != 0) return errorExpr("record literal must have even number of forms", form.loc)
 
-        val fields = mutableListOf<Pair<Symbol, ValueExpr>>()
+        val fields = mutableListOf<Pair<QSymbol, ValueExpr>>()
 
         for (i in els.indices step 2) {
             val keyForm = els[i]
@@ -207,7 +209,7 @@ data class Analyser(
                 return errorExpr("$keyForm is not a key", keyForm.loc)
             }
             val valueExpr = analyseValueExpr(els[i + 1])
-            fields.add(keyValue.name to valueExpr)
+            fields.add(keyValue.sym to valueExpr)
         }
 
         return RecordExpr(fields, form.loc)
@@ -356,7 +358,7 @@ data class Analyser(
     private fun withLocMeta(expr: ValueExpr, loc: SourceSection?): ValueExpr {
         if (loc == null) return expr
         val withMetaVar = ctx.brjCore["with-meta".sym] ?: return expr
-        val meta = RecordExpr(listOf("loc".sym to TruffleObjectExpr(Loc(loc), loc)), loc)
+        val meta = RecordExpr(listOf(LOC_KEY to TruffleObjectExpr(Loc(loc), loc)), loc)
         return CallExpr(GlobalVarExpr(withMetaVar, loc), listOf(expr, meta), loc)
     }
 
@@ -828,7 +830,7 @@ data class Analyser(
         val recordExpr = analyseValueExpr(els[1])
         val valueExpr = analyseValueExpr(els[3])
 
-        return RecordSetExpr(recordExpr, keyValue.name, valueExpr, form.loc)
+        return RecordSetExpr(recordExpr, keyValue.sym, valueExpr, form.loc)
     }
 
     private fun resolveDotSymbolKey(form: DotSymbolForm): GlobalVar? =
@@ -854,7 +856,7 @@ data class Analyser(
 
         val recordExpr = analyseValueExpr(els[1])
 
-        val fields = mutableListOf<Pair<Symbol, ValueExpr>>()
+        val fields = mutableListOf<Pair<QSymbol, ValueExpr>>()
         for (i in updates.indices step 2) {
             val fieldForm = updates[i]
             val keyVar = when (fieldForm) {
@@ -870,7 +872,7 @@ data class Analyser(
             val keyValue = keyVar.value
             if (keyValue !is BridjeKey) return errorExpr("$fieldForm is not a key", fieldForm.loc)
             val valueExpr = analyseValueExpr(updates[i + 1])
-            fields.add(keyValue.name to valueExpr)
+            fields.add(keyValue.sym to valueExpr)
         }
 
         return RecordUpdateExpr(recordExpr, fields, form.loc)

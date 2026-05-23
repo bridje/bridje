@@ -10,6 +10,8 @@ import com.oracle.truffle.api.library.ExportMessage
 @ExportLibrary(InteropLibrary::class)
 class BridjeKey(val ns: Symbol, val name: Symbol) : TruffleObject {
 
+    val sym: QSymbol = QSymbol(ns, name)
+
     companion object {
         private val INTEROP = InteropLibrary.getUncached()
     }

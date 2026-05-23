@@ -64,7 +64,7 @@ class RecordTest {
               decl: :foo Str
               {:foo 42}
         """.trimIndent())
-        assertEquals("{foo 42}", result.toString())
+        assertEquals("{<anonymous>/foo 42}", result.toString())
     }
 
     @Test
@@ -76,8 +76,8 @@ class RecordTest {
         """.trimIndent())
         val str = result.toString()
         assertTrue(str.startsWith("{") && str.endsWith("}"))
-        assertTrue(str.contains("a 1"))
-        assertTrue(str.contains("b 2"))
+        assertTrue(str.contains("<anonymous>/a 1"))
+        assertTrue(str.contains("<anonymous>/b 2"))
     }
 
     @Test
@@ -135,6 +135,40 @@ class RecordTest {
         }
         assertTrue(ex.message?.contains("Arity") == true || ex.message?.contains("arity") == true,
             "Expected arity error, got: ${ex.message}")
+    }
+
+    @Test
+    fun `two namespaces with same local key name coexist`() = withContext { ctx ->
+        // Each namespace owns its own :foo. Before #118 they collided at the record-field level
+        // — both stored under "foo". Now they live under their qualified names "test.a/foo"
+        // and "test.b/foo".
+        ctx.evalBridje("""
+            ns: test.a
+            decl: :foo Str
+        """.trimIndent())
+
+        ctx.evalBridje("""
+            ns: test.b
+            decl: :foo Str
+        """.trimIndent())
+
+        val ns = ctx.evalBridje("""
+            ns: usage
+              require:
+                test:
+                  a
+                  b
+            def: rec {:test.a/foo "one", :test.b/foo "two"}
+        """.trimIndent())
+
+        val rec = ns.getMember("rec")
+        assertEquals("one", rec.getMember("test.a/foo").asString())
+        assertEquals("two", rec.getMember("test.b/foo").asString())
+
+        // Unqualified polyglot lookup is ambiguous now that both namespaces own :foo.
+        val ex = assertThrows(PolyglotException::class.java) { rec.getMember("foo") }
+        assertTrue(ex.message?.contains("ambiguous") == true,
+            "Expected ambiguity error, got: ${ex.message}")
     }
 
     @Test
