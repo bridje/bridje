@@ -181,7 +181,7 @@ data class Analyser(
             ?: errorExpr("Unknown key: $form", form.loc)
 
     private fun analyseQualifiedDotSymbol(form: QDotSymbolForm): ValueExpr =
-        nsEnv.interopVar("${form.ns.name}/${form.member.name}")
+        nsEnv.interopVar(form.ns, form.member)
             ?.let { GlobalVarExpr(it, form.loc) }
             ?: errorExpr("Unknown host member: $form", form.loc)
 
@@ -231,7 +231,7 @@ data class Analyser(
         }
 
         // Check for typed interop declarations
-        nsEnv.interopVar("${form.ns.name}/${form.member.name}")?.let { return GlobalVarExpr(it, form.loc) }
+        nsEnv.interopVar(form.ns, form.member)?.let { return GlobalVarExpr(it, form.loc) }
 
         val fqClass = nsEnv.imports[form.ns.name] ?: form.ns.name
 
@@ -1195,9 +1195,8 @@ data class Analyser(
                 // I/EPOCH I — static field
                 val returnType = analyseTypeForm(retForm, typeVars)
                 InteropMember(
-                    qualifiedName = "${specForm.ns.name}/${specForm.member.name}",
-                    importAlias = specForm.ns.name,
-                    memberName = specForm.member.name,
+                    importAlias = specForm.ns,
+                    memberName = specForm.member,
                     kind = InteropMemberKind.STATIC_FIELD,
                     declaredType = returnType,
                 )
@@ -1210,9 +1209,8 @@ data class Analyser(
                 val receiverType = HostType(fqClass).notNull()
                 val returnType = analyseTypeForm(retForm, typeVars)
                 InteropMember(
-                    qualifiedName = "${specForm.ns.name}/${specForm.member.name}",
-                    importAlias = specForm.ns.name,
-                    memberName = specForm.member.name,
+                    importAlias = specForm.ns,
+                    memberName = specForm.member,
                     kind = InteropMemberKind.INSTANCE_FIELD,
                     declaredType = FnType(listOf(receiverType), returnType).notNull(),
                 )
@@ -1228,9 +1226,8 @@ data class Analyser(
                     callee is QSymbolForm -> {
                         // I/now() I or I/parse(Str) I — static method
                         InteropMember(
-                            qualifiedName = "${callee.ns.name}/${callee.member.name}",
-                            importAlias = callee.ns.name,
-                            memberName = callee.member.name,
+                            importAlias = callee.ns,
+                            memberName = callee.member,
                             kind = InteropMemberKind.STATIC_METHOD,
                             declaredType = FnType(paramTypes, returnType).notNull(),
                         )
@@ -1242,9 +1239,8 @@ data class Analyser(
                             ?: return errorExpr("Unknown import alias: ${callee.ns.name}", callee.loc)
                         val receiverType = HostType(fqClass).notNull()
                         InteropMember(
-                            qualifiedName = "${callee.ns.name}/${callee.member.name}",
-                            importAlias = callee.ns.name,
-                            memberName = callee.member.name,
+                            importAlias = callee.ns,
+                            memberName = callee.member,
                             kind = InteropMemberKind.INSTANCE_METHOD,
                             declaredType = FnType(listOf(receiverType) + paramTypes, returnType).notNull(),
                         )

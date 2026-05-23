@@ -60,7 +60,7 @@ data class NsEnv(
     val vars: Map<Symbol, GlobalVar> = emptyMap(),
     val keys: Map<Symbol, GlobalVar> = emptyMap(),
     val effectVars: Map<Symbol, GlobalVar> = emptyMap(),
-    val interopVars: Map<String, GlobalVar> = emptyMap(),
+    val interopVars: Map<Pair<Symbol, Symbol>, GlobalVar> = emptyMap(),
     val pendingDecls: Map<Symbol, Type> = emptyMap(),
     val enums: Map<Symbol, Set<Symbol>> = emptyMap(),
     val nsDecl: NsDecl? = null,
@@ -233,10 +233,10 @@ data class NsEnv(
         return copy(vars = vars + (name to GlobalVar(existing.ns, existing.name, existing.value, existing.meta, existing.type, effects)))
     }
 
-    fun defInterop(qualifiedName: String, value: Any?, type: Type): NsEnv =
-        copy(interopVars = interopVars + (qualifiedName to GlobalVar(nsSymbol, Symbol.intern(qualifiedName), value, type = type)))
+    fun defInterop(ns: Symbol, member: Symbol, value: Any?, type: Type): NsEnv =
+        copy(interopVars = interopVars + ((ns to member) to GlobalVar(ns, member, value, type = type)))
 
-    fun interopVar(qualifiedName: String): GlobalVar? = interopVars[qualifiedName]
+    fun interopVar(ns: Symbol, member: Symbol): GlobalVar? = interopVars[ns to member]
 
     fun defKey(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, type: Type? = null): NsEnv =
         copy(keys = keys + (name to GlobalVar(nsSymbol, name, value, meta, type)))

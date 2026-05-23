@@ -77,9 +77,8 @@ class DefxExpr(
 enum class InteropMemberKind { STATIC_FIELD, STATIC_METHOD, INSTANCE_METHOD, INSTANCE_FIELD }
 
 data class InteropMember(
-    val qualifiedName: String,
-    val importAlias: String,
-    val memberName: String,
+    val importAlias: Symbol,
+    val memberName: Symbol,
     val kind: InteropMemberKind,
     val declaredType: Type,
 )
@@ -88,7 +87,7 @@ class InteropDeclExpr(
     val members: List<InteropMember>,
     override val loc: SourceSection? = null
 ) : Expr {
-    override fun toString(): String = "(interop-decl ${members.joinToString(" ") { it.qualifiedName }})"
+    override fun toString(): String = "(interop-decl ${members.joinToString(" ") { "${it.importAlias}/${it.memberName}" }})"
 }
 
 class TopLevelDo(val forms: List<Form>, override val loc: SourceSection?) : Expr {
