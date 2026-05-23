@@ -13,6 +13,15 @@ package brj.runtime
 data class QSymbol(val ns: Symbol, val name: Symbol) {
     override fun toString(): String = "${ns.name}/${name.name}"
 
+    /**
+     * Human-friendly form for display strings. Drops the namespace prefix
+     * for the REPL/anonymous case — `<anonymous>/foo` reads as `foo` — but
+     * keeps the qualified form everywhere else, since a real namespace
+     * carries information a user wants to see.
+     */
+    fun toDisplayString(): String =
+        if (ns.name == "<anonymous>") name.name else toString()
+
     companion object {
         /**
          * Split a polyglot member name like `"brj.test/test"` into a [QSymbol].
