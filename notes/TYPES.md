@@ -43,10 +43,12 @@ decl: lookup Map(Str, Int)            // Map — no literal type syntax
 
 ### Records
 
-Record types list their required and optional keys:
+Record types list their required and optional keys.
+Required keys use `:name`; optional keys use `:?name`:
 
 ```bridje
-decl: person {.name, .age}            // record with at least .name and .age
+decl: person {:name, :age}            // record with at least :name and :age
+decl: user {:name, :?email}           // record with :name; :email may be present
 ```
 
 ### Tags
@@ -55,7 +57,7 @@ A tag name alone, or with a record shape constraint:
 
 ```bridje
 decl: user User                       // any User
-decl: user User({.fn, .ln})           // a User, only requiring .fn and .ln
+decl: user User({:fn, :ln})           // a User, only requiring :fn and :ln
 ```
 
 ### Nullable
@@ -127,12 +129,39 @@ def: pair(a, b)         // inferred: (a, b) -> Pair(a, b)
   Pair(a, b)
 ```
 
+## Variance
+
+Variance is mostly invisible to users.
+Type constructors don't carry declared variance annotations — variance falls out of how their type parameters are used in method signatures.
+
+Function-arrow variance is the only intrinsic rule:
+
+- Function parameters are contravariant.
+- Function returns are covariant.
+
+For a parametric type like `Map(k, v)`, each method gives `k` and `v` a specific variance via where they sit in its signature.
+A method that returns `v` uses `v` covariantly; a method that takes `k` as an argument uses `k` contravariantly.
+Across the full method set, the net effective variance is whatever the combined uses imply.
+
+```bridje
+decl: get(Map(k, v), k) v   // k contravariant for this method; v covariant
+decl: keys(Map(k, v)) [k]   // k covariant for this method
+```
+
+Combined: `k` ends up effectively invariant on `Map` (used both contravariantly in `get` and covariantly in `keys`); `v` ends up covariant (only ever produced).
+
+Users may opt in to declaring variance on user-defined parametric types where stricter or looser semantics matter.
+Most code doesn't need to.
+Syntax for explicit variance annotations is TBC.
+
 ## Primitive Types
 
 ### Numeric
 
-`Int` (32-bit), `Long` (64-bit), and `Double` (64-bit float) are the main numeric types.
-`Byte`, `Short`, and `Float` exist for JVM interop but are not promoted.
+`Int` (32-bit), `Long` (64-bit), and `Double` (64-bit float) are the user-facing numeric types.
+`Byte`, `Short`, and `Float` exist for JVM interop but aren't part of the standard numeric set.
+
+Widening between `Int`, `Long`, and `Double` is TBC — current gut: widen implicitly across the three.
 
 ### Other primitives
 
@@ -219,8 +248,8 @@ It is the type of expressions that never return: `throw(...)`, infinite loops, p
 
 ```bridje
 let: [config
-      if: exists?(configFile)
-        loadConfig(configFile)
+      if: exists?(config-file)
+        load-config(config-file)
         throw(ConfigError("not found"))]  // Nothing < Config, so this typechecks
 ```
 
@@ -232,10 +261,10 @@ Keys are the atoms of the record system.
 A key has a globally fixed value type, declared once.
 
 ```bridje
-decl: .name Str, .age Int, .email Str
+decl: :name Str, :age Int, :email Str
 ```
 
-`.name` means `Str` everywhere.
+`:name` means `Str` everywhere.
 If you need a different type, use a different key.
 This follows the clojure.spec school of thought: a fully-qualified key has one meaning.
 
@@ -247,16 +276,16 @@ Record types track which keys are present; the value types come from the key dec
 Records are **structural** — any record with at least the required keys is accepted:
 
 ```bridje
-def: displayName({fn, ln})
+def: display-name({fn, ln})
   "${fn} ${ln}"
 
-// Accepts any record with .fn and .ln, regardless of other keys
-displayName({.fn "James", .ln "Henderson"})
-displayName({.fn "James", .ln "Henderson", .email "j@h.com"})
+// Accepts any record with :fn and :ln, regardless of other keys
+display-name({:fn "James", :ln "Henderson"})
+display-name({:fn "James", :ln "Henderson", :email "j@h.com"})
 ```
 
 More keys = more specific = subtype.
-`{.name, .age, .email}` is a subtype of `{.name, .age}`.
+`{:name, :age, :email}` is a subtype of `{:name, :age}`.
 
 ## Tags
 
@@ -264,8 +293,8 @@ Tags are nominal wrappers around records.
 A tag is distinct from any other tag, even with identical keys.
 
 ```bridje
-tag: User({.fn, .ln, .email, .role})
-tag: Customer({.fn, .ln, .email, .since})
+tag: User({:fn, :ln, :email, :role})
+tag: Customer({:fn, :ln, :email, :since})
 ```
 
 `User` is not `Customer`, even though they share keys.
@@ -274,22 +303,22 @@ The tag carries domain identity.
 ### Tags are subtypes of their underlying record shape
 
 A tagged record is more specific than its untagged equivalent.
-`User({.fn, .ln})` is a subtype of `{.fn, .ln}`.
+`User({:fn, :ln})` is a subtype of `{:fn, :ln}`.
 
 This means functions can choose their level of specificity:
 
 ```bridje
-// Structural — accepts any record with .fn and .ln
-def: displayName({fn, ln})
+// Structural — accepts any record with :fn and :ln
+def: display-name({fn, ln})
   "${fn} ${ln}"
 
-// Nominal — must be a User, only needs .fn and .ln
-def: userDisplayName(User({fn, ln}))
+// Nominal — must be a User, only needs :fn and :ln
+def: user-display-name(User({fn, ln}))
   "${fn} ${ln}"
 
-// Both of these work with displayName:
-displayName({.fn "James", .ln "Henderson"})
-displayName(User({.fn "James", .ln "Henderson", .email "j@h.com"}))
+// Both of these work with display-name:
+display-name({:fn "James", :ln "Henderson"})
+display-name(User({:fn "James", :ln "Henderson", :email "j@h.com"}))
 ```
 
 The tag asserts domain identity.
@@ -306,12 +335,15 @@ A function that only returns `Ok` is typed as returning `Ok`, not `Result`.
 def: lookup(m, k)
   Ok(get(m, k))
 
-// Inferred return type: Ok(a) | Err(Str)
-def: safeLookup(m, k)
-  if: hasKey(m, k)
+// Inferred return type: Result(a, Str)
+def: safe-lookup(m, k)
+  if: has-key(m, k)
     Ok(get(m, k))
     Err("key not found")
 ```
+
+When a function returns a single tag, its inferred type is the tag itself.
+When it returns multiple tags from the same enum, the inferred type widens to the enum (here `Result(a, e)` with `a` and `e` inferred).
 
 ## Enums (Closed Sum Types)
 
@@ -321,9 +353,9 @@ Each tag belongs to exactly one enum (1:N).
 
 ```bridje
 enum: ServerRole
-  tag: Follower({.knownLeader})
-  tag: Candidate({.votesReceived})
-  tag: Leader({.nextIndex, .matchIdx})
+  tag: Follower({:known-leader})
+  tag: Candidate({:votes-received})
+  tag: Leader({:next-index, :match-idx})
 
 enum: Maybe(a)
   tag: Just(a)
@@ -348,7 +380,7 @@ trait: Show
   decl: show() Str
 
 impl: Show(Int)
-  def: show(it) intToStr(it)
+  def: show(it) int-to-str(it)
 
 impl: Show(User)
   def: show(User({fn, ln})) "${fn} ${ln}"
@@ -364,6 +396,24 @@ This contrasts with enums (1:N).
 
 Trait impls live on the type's meta-object — fixed, one per type, not overridable.
 
+## Java Interop
+
+Java classes can be imported and used as types in Bridje.
+The user obligation is small: import the class, then declare any methods Bridje code will call, in Bridje syntax.
+
+Reflection provides the class identity and hierarchy.
+Per-method signatures are user-declared because:
+
+- Java erases generics at runtime, so reflected generic signatures aren't reliably typed.
+- Bridje wants nullability annotations Java's signatures don't carry.
+
+Variance per method is read off the function-arrow positions in the user's Bridje signature (see the Variance section).
+There's no separate variance declaration for the imported class itself.
+
+If a user declares a Java method's signature incorrectly, that's on them — Bridje trusts the declarations and ensures consistency from that point forward.
+
+Exact import syntax is TBC.
+
 
 ## Subtyping
 
@@ -377,8 +427,11 @@ nil       <  T?                    for any T
 T         <  T?
 Tag({k})  <  {k}                   tagged record < underlying record shape
 {k}       <  {k2}                  iff k2 ⊆ k (more keys = more specific)
-Ok        <  Ok | Err              fewer variants = more specific
+Tag       <  Enum                  tag-level type is subtype of its containing enum
 ```
+
+Polymorphic variants (anonymous unions like `Ok | Err`) are deliberately not in the lattice — Bridje uses named enums for sums.
+A function returning both `Ok` and `Err` is typed at the enclosing enum (`Result(a, e)`) rather than as an ad-hoc union.
 
 ## Records and Tags: The Duality
 
@@ -407,32 +460,32 @@ defx: stdio Fn(Str) println             // has a default
 defx: net RaftNetwork                   // can be any type — a trait, a function, a record
 ```
 
-If a `defx` has no default, it must be provided by an enclosing `withFx` or the compiler reports an error.
+If a `defx` has no default, it must be provided by an enclosing `with-fx` or the compiler reports an error.
 
 ### Using effects
 
 Effect variables are used like any other value:
 
 ```bridje
-def: doWork()
+def: do-work()
   log("starting")
   // ...
 ```
 
 ### Providing effects
 
-`withFx` binds effect values into lexical scope:
+`with-fx` binds effect values into lexical scope:
 
 ```bridje
-withFx: [log fn: [msg] stdio("LOG: ${msg}")]
-  doWork()
+with-fx: [log fn: [msg] stdio("LOG: ${msg}")]
+  do-work()
 ```
 
 Effect impls can use other (typically lower-level) effects.
 This replaces a higher-level effect with a lower-level one in the inferred effect set.
 
-In this example, `doWork` uses `{log}`.
-The `withFx` satisfies `log` but its impl uses `stdio`, so the effect set of the whole expression is `{stdio}`.
+In this example, `do-work` uses `{log}`.
+The `with-fx` satisfies `log` but its impl uses `stdio`, so the effect set of the whole expression is `{stdio}`.
 
 ### Effect inference
 
@@ -440,11 +493,11 @@ The compiler fully infers the effect set of every expression.
 Users do not annotate effects — the compiler calculates them.
 
 ```bridje
-def: doWork()                   // inferred effects: {log}
+def: do-work()                   // inferred effects: {log}
   log("starting")
 
 def: main()                     // inferred effects: {stdio}
-  withFx: [log fn: [msg] stdio("LOG: ${msg}")]
-    doWork()
+  with-fx: [log fn: [msg] stdio("LOG: ${msg}")]
+    do-work()
 ```
 
