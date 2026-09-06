@@ -8,8 +8,7 @@ import brj.runtime.*
 import brj.types.*
 import brj.types.Nullability.NOT_NULL
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
-import com.oracle.truffle.api.frame.FrameDescriptor
-import com.oracle.truffle.api.frame.FrameSlotKind
+import com.oracle.truffle.api.bytecode.BytecodeConfig
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
@@ -44,89 +43,39 @@ class ParseRootNode(
             source = source
         )
 
-    private fun buildFrameDescriptor(slotCount: Int): FrameDescriptor {
-        val builder = FrameDescriptor.newBuilder()
-        repeat(slotCount) {
-            builder.addSlot(FrameSlotKind.Illegal, null, null)
+    /**
+     * Builds one bytecode unit, wrapped in this namespace's [Source] so that every root emitted
+     * inside it can record source sections.
+     */
+    private fun buildRoot(emit: (Builder) -> BridjeRootNode): BridjeRootNode {
+        lateinit var root: BridjeRootNode
+        BridjeRootNodeGen.create(lang, BytecodeConfig.WITH_SOURCE) { b ->
+            b.beginSource(source)
+            root = emit(b)
+            b.endSource()
         }
-        return builder.build()
-    }
-
-    private class EvalNode(
-        lang: BridjeLanguage,
-        frameDescriptor: FrameDescriptor,
-        @field:Child private var node: BridjeNode
-    ) : RootNode(lang, frameDescriptor) {
-        override fun execute(frame: VirtualFrame) = node.execute(frame)
+        return root
     }
 
     @TruffleBoundary
     private fun evalExpr(expr: ValueExpr, slotCount: Int): Any? {
-        val emitter = Emitter(lang, BridjeContext.get(this))
-        emitter.nextSlot = slotCount
-        val node = emitter.emitExpr(expr)
-        val frameDescriptor = buildFrameDescriptor(emitter.nextSlot)
-        return EvalNode(lang, frameDescriptor, node).callTarget.call(this)
+        val ctx = BridjeContext.get(this)
+        val root = buildRoot { b ->
+            b.beginRoot()
+            val emitter = Emitter(lang, ctx, b, source, slotCount)
+            b.beginReturn()
+            emitter.emitExpr(expr)
+            b.endReturn()
+            b.endRoot()
+        }
+        return root.callTarget.call()
     }
 
     @TruffleBoundary
-    private fun evalEffectfulDef(fnExpr: FnExpr, effects: List<GlobalVar>, slotCount: Int): Any? {
-        // Two-stage function: outer fn takes fx map, returns inner fn.
-        //
-        // Outer fn frame layout:
-        //   slot 0          — fx map (the single argument)
-        //   slot 1..N       — pre-applied effectful callees
-        //
-        // The outer fn body: pre-applies callees from the fx map, then creates the inner fn.
-        // The inner fn captures the fx map and pre-applied callees.
-
-        val fxSlot = 0
-        val emitter = Emitter(lang, BridjeContext.get(this))
-
-        // Find effectful callees in the body to pre-apply.
-        val callees = fnExpr.bodyExpr.collectEffectfulCallees().toList()
-
-        // Allocate outer frame slots for pre-applied callees starting at slot 1.
-        val calleeSlots = callees.mapIndexed { idx, gv -> gv to (1 + idx) }
-        val outerSlotCount = 1 + callees.size
-
-        // Inner fn captures: [0] = fx map, [1..N] = pre-applied callees.
-        val innerFxSource: NodeSource = CapturedNodeSource(0)
-        val preApplied = callees.mapIndexed { idx, gv ->
-            gv to CapturedNodeSource(1 + idx) as NodeSource
-        }.toMap()
-
-        // Emit inner fn body with fx map and pre-applied callees available via captures.
-        emitter.nextSlot = fnExpr.slotCount
-        val innerBodyNode = emitter.emitExpr(fnExpr.bodyExpr, innerFxSource, preApplied)
-
-        val innerFdBuilder = FrameDescriptor.newBuilder()
-        repeat(emitter.nextSlot) { innerFdBuilder.addSlot(FrameSlotKind.Illegal, null, null) }
-        val innerRoot = FnRootNode(lang, innerFdBuilder.build(), fnExpr.params.size, true, innerBodyNode)
-
-        // Capture fx map + pre-applied callees from outer frame.
-        val captureSources = (0 until outerSlotCount).map {
-            FrameSlotCapture(it) as CaptureSource
-        }.toTypedArray()
-        val innerFnNode = ClosureFnNode(innerRoot.callTarget, captureSources, fnExpr.loc)
-
-        // Outer fn body: pre-apply each callee, then create the inner fn.
-        var outerBodyNode: BridjeNode = innerFnNode
-        for ((callee, slot) in calleeSlots.reversed()) {
-            val preApplyNode = InvokeNode(
-                GlobalVarNode(callee, fnExpr.loc),
-                arrayOf(ReadLocalNode(fxSlot, fnExpr.loc) as BridjeNode),
-                fnExpr.loc
-            )
-            outerBodyNode = LetNode(slot, preApplyNode, outerBodyNode, fnExpr.loc)
-        }
-
-        // Outer fn: takes 1 param (the fx map), returns the inner fn closure.
-        val outerFdBuilder = FrameDescriptor.newBuilder()
-        repeat(outerSlotCount) { outerFdBuilder.addSlot(FrameSlotKind.Illegal, null, null) }
-        val outerRoot = FnRootNode(lang, outerFdBuilder.build(), 1, false, outerBodyNode)
-
-        return BridjeFunction(outerRoot.callTarget)
+    private fun evalEffectfulDef(fnExpr: FnExpr): Any {
+        val ctx = BridjeContext.get(this)
+        val root = buildRoot { b -> Emitter(lang, ctx, b, source, 0).emitEffectfulDefRoot(fnExpr) }
+        return BridjeFunction(root.callTarget)
     }
 
     private fun locMeta(expr: Expr): BridjeRecord =
@@ -215,7 +164,7 @@ class ParseRootNode(
                         if (expr.valueExpr !is FnExpr) {
                             throw Analyser.Error("effects can only be used within a function body: ${expr.name}", expr.loc)
                         }
-                        val value = evalEffectfulDef(expr.valueExpr, effects, analyser.slotCount)
+                        val value = evalEffectfulDef(expr.valueExpr)
                         nsEnv = nsEnv.def(expr.name, value, meta, type).withEffects(expr.name, effects)
                         value
                     } else {

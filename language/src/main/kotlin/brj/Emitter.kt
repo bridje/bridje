@@ -3,341 +3,571 @@ package brj
 import brj.analyser.*
 import brj.effects.collectEffectfulCallees
 import brj.effects.inferEffects
-import brj.nodes.*
+import brj.nodes.BridjeRootNode
+import brj.nodes.BridjeRootNodeGen
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeFxMap
-import brj.runtime.BridjeFunction
-import brj.runtime.HostClass
 import brj.runtime.BridjeNull
+import brj.runtime.HostClass
+import com.oracle.truffle.api.bytecode.BytecodeLocal
 import com.oracle.truffle.api.source.Source
-import com.oracle.truffle.api.Truffle
-import com.oracle.truffle.api.dsl.TypeSystemReference
-import com.oracle.truffle.api.frame.FrameDescriptor
-import com.oracle.truffle.api.frame.FrameSlotKind
-import com.oracle.truffle.api.frame.VirtualFrame
-import com.oracle.truffle.api.interop.InteropLibrary
-import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.nodes.Node
-import com.oracle.truffle.api.nodes.UnexpectedResultException
 import com.oracle.truffle.api.source.SourceSection
 import com.oracle.truffle.api.strings.TruffleString
-import java.math.BigDecimal
-import java.math.BigInteger
 
-@TypeSystemReference(BridjeTypes::class)
-abstract class BridjeNode(
-    private val loc: SourceSection? = null
-) : Node() {
+typealias Builder = BridjeRootNodeGen.Builder
 
-    override fun getSourceSection() = loc
-
-    abstract fun execute(frame: VirtualFrame): Any?
-
-    @Throws(UnexpectedResultException::class)
-    open fun executeBoolean(frame: VirtualFrame): Boolean = BridjeTypesGen.expectBoolean(execute(frame))
+/**
+ * Where a value that outlives the expression producing it is read from, in the root currently
+ * being emitted.
+ *
+ * The fx map and pre-applied effectful callees are held in locals within the function that
+ * introduced them, and in the captures array of every function nested inside it.
+ */
+sealed interface ValueSource {
+    fun emit(b: Builder)
 }
 
-class IntNode(private val value: Long, loc: SourceSection? = null) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame) = value
+data class LocalSource(val local: BytecodeLocal) : ValueSource {
+    override fun emit(b: Builder) = b.emitLoadLocal(local)
 }
 
-class DoubleNode(private val value: Double, loc: SourceSection? = null) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame) = value
+data class CapturedSource(val index: Int) : ValueSource {
+    override fun emit(b: Builder) = b.emitLoadCaptured(index)
 }
 
-class BigIntNode(private val value: BigInteger, loc: SourceSection? = null) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame) = TODO("BigInt interop")
-}
+/**
+ * Emits one bytecode root — a top-level form, or a single function body.
+ *
+ * One instance corresponds to one root, holding that root's locals; nested functions get a
+ * fresh instance sharing the same [Builder].
+ *
+ * @param source the root's source, or null where locations should not be recorded. Expressions
+ *   introduced by macro expansion carry locations into a different source, and are skipped.
+ */
+class Emitter(
+    private val lang: BridjeLanguage,
+    private val ctx: BridjeContext,
+    private val b: Builder,
+    private val source: Source?,
+    slotCount: Int,
+) {
+    private val locals: List<BytecodeLocal> = List(slotCount) { b.createLocal() }
 
-class BigDecNode(private val value: BigDecimal, loc: SourceSection? = null) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame) = TODO("BigDec interop")
-}
+    /** The flag local of the innermost enclosing `loop` (or function body), set by `recur`. */
+    private var loopFlag: BytecodeLocal? = null
 
-class StringNode(value: String, loc: SourceSection? = null) : BridjeNode(loc) {
-    private val string: TruffleString = TruffleString.fromConstant(value, TruffleString.Encoding.UTF_8)
+    private fun local(slot: Int) = locals[slot]
 
-    override fun execute(frame: VirtualFrame) = string
-}
+    private inline fun withLoc(loc: SourceSection?, body: () -> Unit) {
+        val recordLoc = loc != null && source != null && loc.source == source
+        if (recordLoc) b.beginSourceSection(loc!!.charIndex, loc.charLength)
+        body()
+        if (recordLoc) b.endSourceSection()
+    }
 
-class NilNode(loc: SourceSection? = null) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame): Any = BridjeNull
-}
-
-class BoolNode(private val value: Boolean, loc: SourceSection? = null) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame) = value
-}
-
-class TruffleObjectNode(private val value: Any, loc: SourceSection? = null) : BridjeNode(loc) {
-    override fun execute(frame: VirtualFrame) = value
-}
-
-class HostStaticMethodNode(
-    private val hostClass: TruffleObject,
-    private val methodName: String,
-    loc: SourceSection? = null
-) : BridjeNode(loc) {
-    @Child
-    private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
-
-    override fun execute(frame: VirtualFrame): Any? = interop.readMember(hostClass, methodName)
-}
-
-/** Factory that produces a fresh BridjeNode each time — avoids Truffle's one-parent rule. */
-sealed interface NodeSource {
-    fun create(): BridjeNode
-    fun captureSource(): CaptureSource
-}
-
-data class LocalNodeSource(val slot: Int) : NodeSource {
-    override fun create(): BridjeNode = ReadLocalNode(slot)
-    override fun captureSource() = FrameSlotCapture(slot)
-}
-
-data class CapturedNodeSource(val captureIndex: Int) : NodeSource {
-    override fun create(): BridjeNode = ReadCapturedVarNode(captureIndex)
-    override fun captureSource() = TransitiveCapture(captureIndex)
-}
-
-class Emitter(private val language: BridjeLanguage, private val ctx: BridjeContext) {
-    var nextSlot: Int = 0
-
-    fun allocSlot(): Int = nextSlot++
-
-    /**
-     * @param fxSource How to read the fx map in the current scope (null = no effects in scope).
-     * @param preApplied Map of effectful callees to sources that read their pre-applied closures.
-     */
     fun emitExpr(
         expr: ValueExpr,
-        fxSource: NodeSource? = null,
-        preApplied: Map<GlobalVar, NodeSource> = emptyMap()
-    ): BridjeNode = when (expr) {
-        is NilExpr -> NilNode(expr.loc)
-        is BoolExpr -> BoolNode(expr.value, expr.loc)
-        is IntExpr -> IntNode(expr.value, expr.loc)
-        is DoubleExpr -> DoubleNode(expr.value, expr.loc)
-        is BigIntExpr -> BigIntNode(expr.value, expr.loc)
-        is BigDecExpr -> BigDecNode(expr.value, expr.loc)
-        is StringExpr -> StringNode(expr.value, expr.loc)
-        is VectorExpr -> VectorNode(ExecuteCollNode(expr.els.map { emitExpr(it, fxSource, preApplied) }.toTypedArray(), expr.loc), expr.loc)
-        is SetExpr -> TODO()
-        is RecordExpr -> RecordNode(
-            expr.fields.map { it.first }.toTypedArray(),
-            ExecuteCollNode(expr.fields.map { emitExpr(it.second, fxSource, preApplied) }.toTypedArray(), expr.loc),
-            expr.loc
-        )
-        is LocalVarExpr -> ReadLocalNode(expr.localVar.slot, expr.loc)
-        is CapturedVarExpr -> ReadCapturedVarNode(expr.captureIndex, expr.loc)
-        is GlobalVarExpr -> GlobalVarNode(expr.globalVar, expr.loc)
-        is TruffleObjectExpr -> TruffleObjectNode(expr.value, expr.loc)
-        is HostStaticMethodExpr -> HostStaticMethodNode(expr.hostClass, expr.methodName, expr.loc)
-        is HostConstructorExpr -> TruffleObjectNode(HostClass(expr.hostClass), expr.loc)
-        is QuoteExpr -> TruffleObjectNode(expr.form, expr.loc)
-        is LetExpr -> LetNode(expr.localVar.slot, emitExpr(expr.bindingExpr, fxSource, preApplied), emitExpr(expr.bodyExpr, fxSource, preApplied), expr.loc)
-        is FnExpr -> emitFn(expr, fxSource, preApplied)
-        is CallExpr -> emitCall(expr, fxSource, preApplied)
-        is DoExpr -> DoNode(expr.sideEffects.map { emitExpr(it, fxSource, preApplied) }.toTypedArray(), emitExpr(expr.result, fxSource, preApplied), expr.loc)
-        is IfExpr -> IfNode(emitExpr(expr.predExpr, fxSource, preApplied), emitExpr(expr.thenExpr, fxSource, preApplied), emitExpr(expr.elseExpr, fxSource, preApplied), expr.loc)
-        is CaseExpr -> emitCase(expr, fxSource, preApplied)
-        is TryCatchExpr -> emitTryCatch(expr, fxSource, preApplied)
-        is RecordSetExpr -> RecordSetNode(expr.key, emitExpr(expr.recordExpr, fxSource, preApplied), emitExpr(expr.valueExpr, fxSource, preApplied), expr.loc)
-        is RecordUpdateExpr -> RecordUpdateNode(
-            expr.fields.map { it.first }.toTypedArray(),
-            emitExpr(expr.recordExpr, fxSource, preApplied),
-            expr.fields.map { emitExpr(it.second, fxSource, preApplied) }.toTypedArray(),
-            expr.loc
-        )
-        is EffectVarExpr -> {
-            if (fxSource != null) ReadFxMapEntryNode(fxSource.create(), expr.effectVar, expr.loc)
-            else GlobalVarNode(expr.effectVar, expr.loc)
+        fxSource: ValueSource? = null,
+        preApplied: Map<GlobalVar, ValueSource> = emptyMap(),
+    ): Unit = withLoc(expr.loc) {
+        when (expr) {
+            is NilExpr -> b.emitLoadConstant(BridjeNull)
+            is BoolExpr -> b.emitLoadConstant(expr.value)
+            is IntExpr -> b.emitLoadConstant(expr.value)
+            is DoubleExpr -> b.emitLoadConstant(expr.value)
+            is BigIntExpr -> b.emitUnsupported("BigInt interop")
+            is BigDecExpr -> b.emitUnsupported("BigDec interop")
+            is StringExpr -> b.emitLoadConstant(TruffleString.fromConstant(expr.value, TruffleString.Encoding.UTF_8))
+
+            is VectorExpr -> {
+                b.beginMakeVector()
+                expr.els.forEach { emitExpr(it, fxSource, preApplied) }
+                b.endMakeVector()
+            }
+
+            is SetExpr -> TODO()
+
+            is RecordExpr -> {
+                b.beginMakeRecord(expr.fields.map { it.first }.toTypedArray())
+                expr.fields.forEach { emitExpr(it.second, fxSource, preApplied) }
+                b.endMakeRecord()
+            }
+
+            is LocalVarExpr -> b.emitLoadLocal(local(expr.localVar.slot))
+            is CapturedVarExpr -> b.emitLoadCaptured(expr.captureIndex)
+            is GlobalVarExpr -> b.emitLoadGlobalVar(expr.globalVar)
+            is TruffleObjectExpr -> b.emitLoadConstant(expr.value)
+            is HostStaticMethodExpr -> b.emitReadHostMember(expr.hostClass, expr.methodName)
+            is HostConstructorExpr -> b.emitLoadConstant(HostClass(expr.hostClass))
+            is QuoteExpr -> b.emitLoadConstant(expr.form)
+
+            is LetExpr -> {
+                b.beginBlock()
+                b.beginStoreLocal(local(expr.localVar.slot))
+                emitExpr(expr.bindingExpr, fxSource, preApplied)
+                b.endStoreLocal()
+                emitExpr(expr.bodyExpr, fxSource, preApplied)
+                b.endBlock()
+            }
+
+            is FnExpr -> emitFn(expr, fxSource, preApplied)
+            is CallExpr -> emitCall(expr, fxSource, preApplied)
+
+            is DoExpr -> {
+                b.beginBlock()
+                expr.sideEffects.forEach { emitExpr(it, fxSource, preApplied) }
+                emitExpr(expr.result, fxSource, preApplied)
+                b.endBlock()
+            }
+
+            is IfExpr -> {
+                b.beginConditional()
+                b.beginAsBoolean()
+                emitExpr(expr.predExpr, fxSource, preApplied)
+                b.endAsBoolean()
+                emitExpr(expr.thenExpr, fxSource, preApplied)
+                emitExpr(expr.elseExpr, fxSource, preApplied)
+                b.endConditional()
+            }
+
+            is CaseExpr -> emitCase(expr, fxSource, preApplied)
+            is TryCatchExpr -> emitTryCatch(expr, fxSource, preApplied)
+
+            is RecordSetExpr -> {
+                b.beginSetRecordKey(expr.key)
+                emitExpr(expr.recordExpr, fxSource, preApplied)
+                emitExpr(expr.valueExpr, fxSource, preApplied)
+                b.endSetRecordKey()
+            }
+
+            is RecordUpdateExpr -> {
+                b.beginUpdateRecord(expr.fields.map { it.first }.toTypedArray())
+                emitExpr(expr.recordExpr, fxSource, preApplied)
+                expr.fields.forEach { emitExpr(it.second, fxSource, preApplied) }
+                b.endUpdateRecord()
+            }
+
+            is EffectVarExpr ->
+                if (fxSource != null) {
+                    b.beginReadFxEntry(expr.effectVar)
+                    fxSource.emit(b)
+                    b.endReadFxEntry()
+                } else {
+                    b.emitLoadGlobalVar(expr.effectVar)
+                }
+
+            is WithFxExpr -> emitWithFx(expr, fxSource, preApplied)
+
+            is LoopExpr -> {
+                b.beginBlock()
+                expr.bindings.forEach { (lv, init) ->
+                    b.beginStoreLocal(local(lv.slot))
+                    emitExpr(init, fxSource, preApplied)
+                    b.endStoreLocal()
+                }
+                emitLoopBody(expr.bodyExpr, fxSource, preApplied)
+                b.endBlock()
+            }
+
+            is RecurExpr -> emitRecur(expr, fxSource, preApplied)
+            is LangExpr -> emitLang(expr)
+
+            is ErrorValueExpr -> error("analyser error: ${expr.message}")
         }
-        is WithFxExpr -> emitWithFx(expr, fxSource, preApplied)
-        is LoopExpr -> emitLoop(expr, fxSource, preApplied)
-        is RecurExpr -> RecurNode(expr.argExprs.map { emitExpr(it, fxSource, preApplied) }.toTypedArray(), expr.loc)
-        is LangExpr -> emitLang(expr)
-
-        is ErrorValueExpr -> error("analyser error: ${expr.message}")
     }
 
-    private fun emitLang(expr: LangExpr): BridjeNode {
-        val source = Source.newBuilder(expr.language, expr.code, "lang-${expr.language}").build()
-        val value = ctx.truffleEnv.parsePublic(source).call()
-        return LangNode(value, expr.loc)
+    private fun emitLang(expr: LangExpr) {
+        val langSource = Source.newBuilder(expr.language, expr.code, "lang-${expr.language}").build()
+        b.emitLoadConstant(ctx.truffleEnv.parsePublic(langSource).call())
     }
 
-    private fun emitCall(expr: CallExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
-        val argNodes = expr.argExprs.map { emitExpr(it, fxSource, preApplied) }.toTypedArray()
+    private fun emitFxOr(fxSource: ValueSource?) {
+        if (fxSource != null) fxSource.emit(b) else b.emitLoadConstant(BridjeFxMap.EMPTY)
+    }
 
+    private fun emitCall(expr: CallExpr, fxSource: ValueSource?, preApplied: Map<GlobalVar, ValueSource>) {
         val callee = (expr.fnExpr as? GlobalVarExpr)?.globalVar
+        val preAppliedCallee = callee?.let { preApplied[it] }
 
-        // Use pre-applied closure if available (single invoke).
-        if (callee != null && callee in preApplied) {
-            return InvokeNode(preApplied[callee]!!.create(), argNodes, expr.loc)
-        }
+        b.beginInvoke()
 
-        val fnNode = emitExpr(expr.fnExpr, fxSource, preApplied)
+        when {
+            preAppliedCallee != null -> preAppliedCallee.emit(b)
 
-        // Two-stage fallback: callee(fx)(args).
-        if (callee != null && callee.effects.isNotEmpty()) {
-            val fx = fxSource?.create() ?: TruffleObjectNode(BridjeFxMap.EMPTY, expr.loc)
-            val stage1 = InvokeNode(fnNode, arrayOf(fx), expr.loc)
-            return InvokeNode(stage1, argNodes, expr.loc)
-        }
-
-        return InvokeNode(fnNode, argNodes, expr.loc)
-    }
-
-    private fun emitWithFx(expr: WithFxExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
-        // Build new fx map: base + overrides.
-        val baseFx = fxSource?.create() ?: TruffleObjectNode(BridjeFxMap.EMPTY, expr.loc)
-        val keys = expr.bindings.map { it.first }.toTypedArray()
-        val valueNodes = expr.bindings.map { emitExpr(it.second, fxSource, preApplied) }.toTypedArray()
-        val newFxMapNode = BuildFxMapNode(baseFx, keys, valueNodes, expr.loc)
-
-        // Let-bind the new fx map into a slot.
-        val fxSlot = allocSlot()
-        val newFxSource = LocalNodeSource(fxSlot)
-
-        // Pre-apply effectful callees from the new fx map.
-        val callees = expr.bodyExpr.collectEffectfulCallees().toList()
-        val calleeSlots = callees.map { it to allocSlot() }
-        val newPreApplied = if (calleeSlots.isNotEmpty()) {
-            preApplied + calleeSlots.associate { (gv, slot) -> gv to LocalNodeSource(slot) as NodeSource }
-        } else {
-            preApplied
-        }
-
-        val bodyNode = emitExpr(expr.bodyExpr, newFxSource, newPreApplied)
-
-        // Wrap body in LetNodes for pre-applied callees (innermost), then fx map (outermost).
-        var result = bodyNode
-        for ((callee, slot) in calleeSlots.reversed()) {
-            val preApplyNode = InvokeNode(
-                GlobalVarNode(callee, expr.loc),
-                arrayOf(ReadLocalNode(fxSlot, expr.loc) as BridjeNode),
-                expr.loc
-            )
-            result = LetNode(slot, preApplyNode, result, expr.loc)
-        }
-        result = LetNode(fxSlot, newFxMapNode, result, expr.loc)
-
-        return result
-    }
-
-    private fun emitCase(expr: CaseExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): CaseNode {
-        val scrutineeNode = emitExpr(expr.scrutinee, fxSource, preApplied)
-        val branchNodes = expr.branches.map { branch ->
-            when (val pattern = branch.pattern) {
-                is TagPattern -> TagBranchNode(
-                    pattern.tagValue,
-                    pattern.bindings.map { it.slot }.toIntArray(),
-                    emitExpr(branch.bodyExpr, fxSource, preApplied),
-                    branch.loc
-                )
-                is DefaultPattern -> DefaultBranchNode(
-                    emitExpr(branch.bodyExpr, fxSource, preApplied),
-                    branch.loc
-                )
-                is NilPattern -> NilBranchNode(
-                    emitExpr(branch.bodyExpr, fxSource, preApplied),
-                    branch.loc
-                )
-                is CatchAllBindingPattern -> CatchAllBindingBranchNode(
-                    pattern.binding.slot,
-                    emitExpr(branch.bodyExpr, fxSource, preApplied),
-                    branch.loc
-                )
+            // No pre-applied closure to hand, so apply the fx map here: callee(fx)(args).
+            callee != null && callee.effects.isNotEmpty() -> {
+                b.beginInvoke()
+                emitExpr(expr.fnExpr, fxSource, preApplied)
+                emitFxOr(fxSource)
+                b.endInvoke()
             }
-        }.toTypedArray()
-        return CaseNode(scrutineeNode, branchNodes, expr.loc)
+
+            else -> emitExpr(expr.fnExpr, fxSource, preApplied)
+        }
+
+        expr.argExprs.forEach { emitExpr(it, fxSource, preApplied) }
+        b.endInvoke()
     }
 
-    private fun emitTryCatch(expr: TryCatchExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
-        val bodyNode = emitExpr(expr.bodyExpr, fxSource, preApplied)
-        val branchNodes = expr.catchBranches.map { branch ->
-            when (val pattern = branch.pattern) {
-                is TagPattern -> TagBranchNode(
-                    pattern.tagValue,
-                    pattern.bindings.map { it.slot }.toIntArray(),
-                    emitExpr(branch.bodyExpr, fxSource, preApplied),
-                    branch.loc
-                )
-                is DefaultPattern -> DefaultBranchNode(
-                    emitExpr(branch.bodyExpr, fxSource, preApplied),
-                    branch.loc
-                )
-                is NilPattern -> NilBranchNode(
-                    emitExpr(branch.bodyExpr, fxSource, preApplied),
-                    branch.loc
-                )
-                is CatchAllBindingPattern -> CatchAllBindingBranchNode(
-                    pattern.binding.slot,
-                    emitExpr(branch.bodyExpr, fxSource, preApplied),
-                    branch.loc
-                )
+    private fun emitWithFx(expr: WithFxExpr, fxSource: ValueSource?, preApplied: Map<GlobalVar, ValueSource>) {
+        b.beginBlock()
+
+        val fxLocal = b.createLocal()
+        b.beginStoreLocal(fxLocal)
+        b.beginBuildFxMap(expr.bindings.map { it.first }.toTypedArray())
+        emitFxOr(fxSource)
+        expr.bindings.forEach { emitExpr(it.second, fxSource, preApplied) }
+        b.endBuildFxMap()
+        b.endStoreLocal()
+
+        val newPreApplied = preApplied + expr.bodyExpr.collectEffectfulCallees().toList().associateWith { callee ->
+            val calleeLocal = b.createLocal()
+            b.beginStoreLocal(calleeLocal)
+            b.beginInvoke()
+            b.emitLoadGlobalVar(callee)
+            b.emitLoadLocal(fxLocal)
+            b.endInvoke()
+            b.endStoreLocal()
+            LocalSource(calleeLocal)
+        }
+
+        emitExpr(expr.bodyExpr, LocalSource(fxLocal), newPreApplied)
+        b.endBlock()
+    }
+
+    private fun emitCase(expr: CaseExpr, fxSource: ValueSource?, preApplied: Map<GlobalVar, ValueSource>) {
+        b.beginBlock()
+
+        val scrutinee = b.createLocal()
+        val result = b.createLocal()
+
+        b.beginStoreLocal(scrutinee)
+        b.beginOrNil()
+        emitExpr(expr.scrutinee, fxSource, preApplied)
+        b.endOrNil()
+        b.endStoreLocal()
+
+        emitBranches(expr.branches, scrutinee, result, fxSource, preApplied) {
+            b.beginStoreLocal(result)
+            b.beginNoMatch()
+            b.emitLoadLocal(scrutinee)
+            b.endNoMatch()
+            b.endStoreLocal()
+        }
+
+        b.emitLoadLocal(result)
+        b.endBlock()
+    }
+
+    /**
+     * Emits [branches] as a chain of `IfThenElse`, each storing its body's value into [result].
+     *
+     * [onNoMatch] closes the chain where no branch matched; a default branch ends it earlier,
+     * making any branch after it unreachable.
+     */
+    private fun emitBranches(
+        branches: List<CaseBranch>,
+        scrutinee: BytecodeLocal,
+        result: BytecodeLocal,
+        fxSource: ValueSource?,
+        preApplied: Map<GlobalVar, ValueSource>,
+        onNoMatch: () -> Unit,
+    ) {
+        val branch = branches.firstOrNull() ?: return onNoMatch()
+
+        fun emitBody(bindings: () -> Unit = {}) {
+            b.beginBlock()
+            bindings()
+            b.beginStoreLocal(result)
+            emitExpr(branch.bodyExpr, fxSource, preApplied)
+            b.endStoreLocal()
+            b.endBlock()
+        }
+
+        fun emitRest() = emitBranches(branches.drop(1), scrutinee, result, fxSource, preApplied, onNoMatch)
+
+        when (val pattern = branch.pattern) {
+            is DefaultPattern -> emitBody()
+
+            is NilPattern -> {
+                b.beginIfThenElse()
+                b.beginIsNil()
+                b.emitLoadLocal(scrutinee)
+                b.endIsNil()
+                emitBody()
+                emitRest()
+                b.endIfThenElse()
             }
-        }.toTypedArray()
-        val finallyNode = expr.finallyExpr?.let { emitExpr(it, fxSource, preApplied) }
-        return TryCatchNode(bodyNode, branchNodes, finallyNode, expr.loc)
+
+            is CatchAllBindingPattern -> {
+                b.beginIfThenElse()
+                b.beginIsNotNil()
+                b.emitLoadLocal(scrutinee)
+                b.endIsNotNil()
+                emitBody {
+                    b.beginStoreLocal(local(pattern.binding.slot))
+                    b.emitLoadLocal(scrutinee)
+                    b.endStoreLocal()
+                }
+                emitRest()
+                b.endIfThenElse()
+            }
+
+            is TagPattern -> {
+                b.beginIfThenElse()
+                b.beginMatchesTag(pattern.tagValue, pattern.bindings.size)
+                b.emitLoadLocal(scrutinee)
+                b.endMatchesTag()
+                emitBody {
+                    pattern.bindings.forEachIndexed { i, binding ->
+                        b.beginStoreLocal(local(binding.slot))
+                        b.beginTagField(i)
+                        b.emitLoadLocal(scrutinee)
+                        b.endTagField()
+                        b.endStoreLocal()
+                    }
+                }
+                emitRest()
+                b.endIfThenElse()
+            }
+        }
     }
 
-    private fun emitLoop(expr: LoopExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
-        val slots = expr.bindings.map { it.first.slot }.toIntArray()
-        val initNodes = expr.bindings.map { emitExpr(it.second, fxSource, preApplied) }.toTypedArray()
-        val resultSlot = allocSlot()
-        val bodyNode = emitExpr(expr.bodyExpr, fxSource, preApplied)
-        val repeatingNode = LoopRepeatingNode(slots, resultSlot, bodyNode)
-        val loopNode = Truffle.getRuntime().createLoopNode(repeatingNode)
-        return LoopBridjeNode(slots, resultSlot, initNodes, loopNode, expr.loc)
-    }
+    private fun emitTryCatch(expr: TryCatchExpr, fxSource: ValueSource?, preApplied: Map<GlobalVar, ValueSource>) {
+        b.beginBlock()
 
-    private fun emitFn(expr: FnExpr, fxSource: NodeSource?, preApplied: Map<GlobalVar, NodeSource>): BridjeNode {
-        // Inner fns capture the fx map and any pre-applied callees they need.
-        val analyserCaptures = expr.captures.map { it.source }
-        val extraCaptures = mutableListOf<CaptureSource>()
+        val result = b.createLocal()
+        val anomaly = b.createLocal()
+        val discard = b.createLocal()
 
-        // Capture the fx map if the inner fn or anything inside it uses effects.
-        val bodyUsesEffects = expr.bodyExpr.inferEffects().isNotEmpty()
-        var innerFxSource: NodeSource? = null
-        if (fxSource != null && bodyUsesEffects) {
-            val captureIdx = analyserCaptures.size + extraCaptures.size
-            extraCaptures.add(fxSource.captureSource())
-            innerFxSource = CapturedNodeSource(captureIdx)
+        fun emitTryCatchBody() {
+            b.beginTryCatch()
+
+            b.beginStoreLocal(result)
+            emitExpr(expr.bodyExpr, fxSource, preApplied)
+            b.endStoreLocal()
+
+            b.beginBlock()
+            b.beginStoreLocal(anomaly)
+            b.beginToAnomaly()
+            b.emitLoadException()
+            b.endToAnomaly()
+            b.endStoreLocal()
+            emitBranches(expr.catchBranches, anomaly, result, fxSource, preApplied) {
+                b.beginStoreLocal(result)
+                b.beginRethrow()
+                b.emitLoadLocal(anomaly)
+                b.endRethrow()
+                b.endStoreLocal()
+            }
+            b.endBlock()
+
+            b.endTryCatch()
         }
 
-        // Capture pre-applied callees that the inner fn body needs.
-        val neededCallees = expr.bodyExpr.collectEffectfulCallees()
-        val innerPreApplied = mutableMapOf<GlobalVar, NodeSource>()
-        for (callee in neededCallees) {
-            val source = preApplied[callee] ?: continue
-            val captureIdx = analyserCaptures.size + extraCaptures.size
-            extraCaptures.add(source.captureSource())
-            innerPreApplied[callee] = CapturedNodeSource(captureIdx)
-        }
-
-        val allCaptureSources = (analyserCaptures + extraCaptures).toTypedArray()
-        val hasCapturedValues = allCaptureSources.isNotEmpty()
-
-        val innerEmitter = Emitter(language, ctx)
-        innerEmitter.nextSlot = expr.slotCount
-        val rawBodyNode = innerEmitter.emitExpr(expr.bodyExpr, innerFxSource, innerPreApplied)
-
-        val paramSlots = expr.params.map { it.slot }.toIntArray()
-        val resultSlot = innerEmitter.allocSlot()
-        val repeatingNode = LoopRepeatingNode(paramSlots, resultSlot, rawBodyNode)
-        val loopNode = Truffle.getRuntime().createLoopNode(repeatingNode)
-        val bodyNode = LoopBridjeNode(paramSlots, resultSlot, emptyArray(), loopNode, expr.loc)
-
-        val fdBuilder = FrameDescriptor.newBuilder()
-        repeat(innerEmitter.nextSlot) {
-            fdBuilder.addSlot(FrameSlotKind.Illegal, null, null)
-        }
-        val rootNode = FnRootNode(language, fdBuilder.build(), expr.params.size, hasCapturedValues, bodyNode)
-
-        return if (!hasCapturedValues) {
-            FnNode(BridjeFunction(rootNode.callTarget), expr.loc)
+        if (expr.finallyExpr != null) {
+            b.beginTryFinally {
+                b.beginStoreLocal(discard)
+                emitExpr(expr.finallyExpr, fxSource, preApplied)
+                b.endStoreLocal()
+            }
+            emitTryCatchBody()
+            b.endTryFinally()
         } else {
-            ClosureFnNode(rootNode.callTarget, allCaptureSources, expr.loc)
+            emitTryCatchBody()
         }
+
+        b.emitLoadLocal(result)
+        b.endBlock()
+    }
+
+    /**
+     * Emits [body] as the body of a `recur` target, producing its value.
+     *
+     * `recur` writes the new binding values and raises the loop's flag, and the body then runs to
+     * completion before the loop re-tests it. That is only equivalent to jumping to the loop head
+     * because the analyser admits `recur` in tail position alone, where the body has nothing left
+     * to evaluate.
+     */
+    private fun emitLoopBody(
+        body: ValueExpr,
+        fxSource: ValueSource?,
+        preApplied: Map<GlobalVar, ValueSource>,
+    ) {
+        b.beginBlock()
+
+        val flag = b.createLocal()
+        val result = b.createLocal()
+
+        b.beginStoreLocal(flag)
+        b.emitLoadConstant(true)
+        b.endStoreLocal()
+
+        val enclosingFlag = loopFlag
+        loopFlag = flag
+
+        b.beginWhile()
+        b.beginAsBoolean()
+        b.emitLoadLocal(flag)
+        b.endAsBoolean()
+
+        b.beginBlock()
+        b.beginStoreLocal(flag)
+        b.emitLoadConstant(false)
+        b.endStoreLocal()
+        b.beginStoreLocal(result)
+        emitExpr(body, fxSource, preApplied)
+        b.endStoreLocal()
+        b.endBlock()
+
+        b.endWhile()
+
+        loopFlag = enclosingFlag
+
+        b.emitLoadLocal(result)
+        b.endBlock()
+    }
+
+    private fun emitRecur(expr: RecurExpr, fxSource: ValueSource?, preApplied: Map<GlobalVar, ValueSource>) {
+        val flag = loopFlag ?: error("recur outside a loop")
+
+        b.beginBlock()
+
+        // Every argument is evaluated before any binding is written, so a `recur` can permute
+        // its own bindings.
+        val temps = expr.argExprs.map { arg ->
+            val temp = b.createLocal()
+            b.beginStoreLocal(temp)
+            emitExpr(arg, fxSource, preApplied)
+            b.endStoreLocal()
+            temp
+        }
+
+        expr.bindings.forEachIndexed { i, binding ->
+            b.beginStoreLocal(local(binding.slot))
+            b.emitLoadLocal(temps[i])
+            b.endStoreLocal()
+        }
+
+        b.beginStoreLocal(flag)
+        b.emitLoadConstant(true)
+        b.endStoreLocal()
+
+        b.emitLoadNull()
+        b.endBlock()
+    }
+
+    private fun emitFn(expr: FnExpr, fxSource: ValueSource?, preApplied: Map<GlobalVar, ValueSource>) {
+        val captures = expr.captures.map { captured ->
+            when (val captureSource = captured.source) {
+                is FrameSlotCapture -> LocalSource(local(captureSource.slot))
+                is TransitiveCapture -> CapturedSource(captureSource.captureIndex)
+            }
+        }.toMutableList()
+
+        // An inner fn reaches the fx map and any pre-applied callees through its own captures.
+        val innerFxSource =
+            if (fxSource != null && expr.bodyExpr.inferEffects().isNotEmpty()) {
+                CapturedSource(captures.size).also { captures.add(fxSource) }
+            } else null
+
+        val innerPreApplied = expr.bodyExpr.collectEffectfulCallees().toList()
+            .mapNotNull { callee -> preApplied[callee]?.let { callee to it } }
+            .associate { (callee, source) ->
+                callee to (CapturedSource(captures.size).also { captures.add(source) } as ValueSource)
+            }
+
+        val innerRoot = emitFnRoot(
+            expr.params, expr.bodyExpr, expr.slotCount,
+            hasCaptures = captures.isNotEmpty(),
+            innerFxSource, innerPreApplied,
+        )
+
+        if (captures.isEmpty()) {
+            b.emitLoadFunction(innerRoot)
+        } else {
+            b.beginMakeClosure(innerRoot)
+            captures.forEach { it.emit(b) }
+            b.endMakeClosure()
+        }
+    }
+
+    /**
+     * Emits a nested root for a function body, and returns it.
+     *
+     * A function with captures takes them as argument 0, so its parameters start at argument 1.
+     */
+    private fun emitFnRoot(
+        params: List<LocalVar>,
+        bodyExpr: ValueExpr,
+        slotCount: Int,
+        hasCaptures: Boolean,
+        fxSource: ValueSource?,
+        preApplied: Map<GlobalVar, ValueSource>,
+    ): BridjeRootNode {
+        b.beginRoot()
+        val inner = Emitter(lang, ctx, b, source, slotCount)
+        val argOffset = if (hasCaptures) 1 else 0
+
+        b.beginBlock()
+        params.forEachIndexed { i, param ->
+            b.beginStoreLocal(inner.local(param.slot))
+            b.emitLoadParam(argOffset + i)
+            b.endStoreLocal()
+        }
+
+        b.beginReturn()
+        inner.emitLoopBody(bodyExpr, fxSource, preApplied)
+        b.endReturn()
+        b.endBlock()
+
+        return b.endRoot()
+    }
+
+    /**
+     * Emits the two-stage root a `def` with effects compiles to: an outer function taking the fx
+     * map, returning a closure over that map and over each effectful callee already applied to it.
+     */
+    fun emitEffectfulDefRoot(fnExpr: FnExpr): BridjeRootNode {
+        b.beginRoot()
+        b.beginBlock()
+
+        val fxLocal = b.createLocal()
+        b.beginStoreLocal(fxLocal)
+        b.emitLoadParam(0)
+        b.endStoreLocal()
+
+        val callees = fnExpr.bodyExpr.collectEffectfulCallees().toList()
+
+        val calleeLocals = callees.map { callee ->
+            val calleeLocal = b.createLocal()
+            b.beginStoreLocal(calleeLocal)
+            b.beginInvoke()
+            b.emitLoadGlobalVar(callee)
+            b.emitLoadLocal(fxLocal)
+            b.endInvoke()
+            b.endStoreLocal()
+            calleeLocal
+        }
+
+        val preApplied = callees
+            .mapIndexed { i, callee -> callee to (CapturedSource(1 + i) as ValueSource) }
+            .toMap()
+
+        val innerRoot = emitFnRoot(
+            fnExpr.params, fnExpr.bodyExpr, fnExpr.slotCount,
+            hasCaptures = true,
+            CapturedSource(0), preApplied,
+        )
+
+        b.beginReturn()
+        b.beginMakeClosure(innerRoot)
+        b.emitLoadLocal(fxLocal)
+        calleeLocals.forEach { b.emitLoadLocal(it) }
+        b.endMakeClosure()
+        b.endReturn()
+
+        b.endBlock()
+        return b.endRoot()
     }
 }

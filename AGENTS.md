@@ -6,7 +6,7 @@ This document provides guidance for AI coding agents working on the Bridje codeb
 
 Bridje is a statically-typed programming language that runs on GraalVM/Truffle, inspired by Clojure, Kotlin, Haskell, and Erlang. It features LISP-like semantics with a C-style syntax.
 
-**Tech Stack**: Kotlin 2.3.0, JVM 22, GraalVM Truffle, Gradle (Kotlin DSL)
+**Tech Stack**: Kotlin 2.3.20, JVM 25, GraalVM Truffle 25.3 (Bytecode DSL), Gradle (Kotlin DSL)
 
 ## Project Structure
 
@@ -15,7 +15,7 @@ bridje/
 ├── language/          # Core Truffle-based language implementation
 │   └── src/main/kotlin/brj/
 │       ├── analyser/  # Semantic analysis (Analyser, Expr types)
-│       ├── nodes/     # Truffle AST nodes (InvokeNode, LetNode, etc.)
+│       ├── nodes/     # BridjeRootNode (the Bytecode DSL operations), ParseRootNode
 │       ├── runtime/   # Runtime objects (BridjeFunction, BridjeRecord)
 │       ├── builtins/  # Built-in functions
 │       ├── Reader.kt, Emitter.kt, Form.kt
@@ -57,7 +57,7 @@ bridje/
 |---------|------------|---------|
 | Classes/Interfaces | PascalCase | `BridjeContext`, `NsEnv` |
 | Core runtime types | `Bridje` prefix | `BridjeFunction`, `BridjeRecord` |
-| AST nodes | `Node` suffix | `InvokeNode`, `LetNode` |
+| Bytecode operations | verb or noun phrase | `Invoke`, `MakeClosure`, `MatchesTag` |
 | Expression types | `Expr` suffix | `CallExpr`, `LetExpr` |
 | Form types | `Form` suffix | `ListForm`, `SymbolForm` |
 | Functions | camelCase verbs | `analyseValueExpr`, `emitExpr` |
@@ -115,11 +115,18 @@ class BridjeFunction(private val callTarget: RootCallTarget) : TruffleObject {
 }
 ```
 
-**Node pattern** - Base class for AST nodes:
+**Operation pattern** - `Emitter` compiles each `ValueExpr` into operations on `BridjeRootNode`.
+An operation MUST be a class with a `@JvmStatic` companion, not an `object` — kapt gives an
+`object` a private constructor, which the Bytecode DSL processor rejects.
 ```kotlin
-@TypeSystemReference(BridjeTypes::class)
-abstract class BridjeNode(private val loc: SourceSection? = null) : Node() {
-    abstract fun execute(frame: VirtualFrame): Any?
+@Operation
+@ConstantOperand(type = GlobalVar::class)
+class LoadGlobalVar {
+    companion object {
+        @JvmStatic
+        @Specialization
+        fun read(globalVar: GlobalVar): Any? = globalVar.value
+    }
 }
 ```
 
