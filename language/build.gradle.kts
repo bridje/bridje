@@ -1,7 +1,12 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 plugins {
     kotlin("jvm")
     kotlin("kapt")
     id("com.vanniktech.maven.publish")
+
+    // not applied: we only want the ShadowJar task type, for `relocatedTruffleProcessor` below
+    alias(libs.plugins.shadow) apply false
 }
 
 mavenPublishing {
@@ -16,11 +21,25 @@ java.toolchain {
     vendor.set(JvmVendorSpec.GRAAL_VM)
 }
 
+// Gradle's worker classpath carries antlr4-runtime 4.7.2 and sits above kapt's processor path,
+// so the 4.13.2 runtime bundled in truffle-dsl-processor never loads
+// and the DSL expression parser's serialised ATN fails to deserialise.
+// Renaming ANTLR's package inside the processor jar takes it out of the collision.
+val truffleProcessor: Configuration by configurations.creating
+
+val relocatedTruffleProcessor by tasks.registering(ShadowJar::class) {
+    configurations.set(listOf(truffleProcessor))
+    archiveClassifier.set("relocated")
+    relocate("org.antlr", "brj.shaded.org.antlr")
+}
+
 dependencies {
+    truffleProcessor(libs.truffle.dsl.processor)
+
     implementation(kotlin("stdlib-jdk8"))
     implementation(libs.kotlin.coroutines.core)
 
-    kapt(libs.truffle.dsl.processor)
+    kapt(files(relocatedTruffleProcessor))
     implementation(libs.truffle.api)
     implementation(libs.graal.sdk)
 
