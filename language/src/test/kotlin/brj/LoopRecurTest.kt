@@ -102,6 +102,28 @@ class LoopRecurTest {
     }
 
     @Test
+    fun `recur in call argument - not tail position`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                (loop [x 0]
+                  (brj.core/add 1 (recur 1)))
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("recur outside of loop or fn") == true, "Expected recur-outside error, got: ${ex.message}")
+    }
+
+    @Test
+    fun `recur in vector element - not tail position`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                (loop [x 0]
+                  [(recur 1)])
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("recur outside of loop or fn") == true, "Expected recur-outside error, got: ${ex.message}")
+    }
+
+    @Test
     fun `fn-targeting recur - countdown`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             (let [countdown (fn (countdown n)

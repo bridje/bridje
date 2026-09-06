@@ -513,11 +513,10 @@ data class Analyser(
         val els = form.els
         if (els.size != 4) return errorExpr("if requires exactly 3 arguments: predicate, then, else", form.loc)
 
-        val nonTail = copy(recurTarget = null)
         return IfExpr(
-            nonTail.analyseValueExpr(els[1]),
-            analyseValueExpr(els[2]),
-            analyseValueExpr(els[3]),
+            analyseValueExpr(els[1]),
+            analyseTailExpr(els[2]),
+            analyseTailExpr(els[3]),
             form.loc
         )
     }
@@ -531,7 +530,7 @@ data class Analyser(
         val els = form.els
         if (els.size < 3) return errorExpr("case requires a scrutinee and at least one branch", form.loc)
 
-        val scrutinee = copy(recurTarget = null).analyseValueExpr(els[1])
+        val scrutinee = analyseValueExpr(els[1])
         val branchForms = els.drop(2)
 
         val branches = mutableListOf<CaseBranch>()
@@ -566,7 +565,7 @@ data class Analyser(
                 if (i != branchForms.size - 1) {
                     errorExpr("default expression must be last in case", patternForm.loc)
                 }
-                val bodyExpr = analyseValueExpr(patternForm)
+                val bodyExpr = analyseTailExpr(patternForm)
                 branches.add(CaseBranch(DefaultPattern(patternForm.loc), bodyExpr, patternForm.loc))
                 i += 1
             }
@@ -647,19 +646,19 @@ data class Analyser(
                 val name = patternForm.sym.name
                 when {
                     name == "nil" -> {
-                        val bodyExpr = analyseValueExpr(bodyForm)
+                        val bodyExpr = analyseTailExpr(bodyForm)
                         Result.Ok(CaseBranch(NilPattern(patternForm.loc), bodyExpr, patternForm.loc))
                     }
                     name[0].isUpperCase() -> {
                         resolveTag(patternForm.sym, patternForm.loc).map { tagValue ->
-                            val bodyExpr = analyseValueExpr(bodyForm)
+                            val bodyExpr = analyseTailExpr(bodyForm)
                             CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
                         }
                     }
                     else -> {
                         // catchall binding pattern: lowercase symbol binds scrutinee
                         val (newAnalyser, localVar) = withLocal(patternForm.sym)
-                        val bodyExpr = newAnalyser.analyseValueExpr(bodyForm)
+                        val bodyExpr = newAnalyser.analyseTailExpr(bodyForm)
                         Result.Ok(CaseBranch(CatchAllBindingPattern(localVar, patternForm.loc), bodyExpr, patternForm.loc))
                     }
                 }
@@ -667,7 +666,7 @@ data class Analyser(
 
             is QSymbolForm -> {
                 resolveQualifiedTag(patternForm.ns, patternForm.member, patternForm.loc).map { tagValue ->
-                    val bodyExpr = analyseValueExpr(bodyForm)
+                    val bodyExpr = analyseTailExpr(bodyForm)
                     CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
                 }
             }
@@ -698,7 +697,7 @@ data class Analyser(
                             bindings.add(localVar)
                         }
 
-                        val bodyExpr = branchAnalyser.analyseValueExpr(bodyForm)
+                        val bodyExpr = branchAnalyser.analyseTailExpr(bodyForm)
                         CaseBranch(TagPattern(tagValue, bindings, patternForm.loc), bodyExpr, patternForm.loc)
                     }
                 }
@@ -762,7 +761,7 @@ data class Analyser(
                 if (i != catchEls.size - 1) {
                     errorExpr("default expression must be last in catch", patternForm.loc)
                 }
-                val catchBodyExpr = analyseValueExpr(patternForm)
+                val catchBodyExpr = analyseTailExpr(patternForm)
                 catchBranches.add(CaseBranch(DefaultPattern(patternForm.loc), catchBodyExpr, patternForm.loc))
                 i += 1
             }
@@ -785,11 +784,10 @@ data class Analyser(
     private fun analyseBody(forms: List<Form>, loc: SourceSection?): ValueExpr =
         when {
             forms.isEmpty() -> errorExpr("body requires at least one expression", loc)
-            forms.size == 1 -> analyseValueExpr(forms[0])
+            forms.size == 1 -> analyseTailExpr(forms[0])
             else -> {
-                val nonTail = copy(recurTarget = null)
-                val sideEffects = forms.dropLast(1).map { nonTail.analyseValueExpr(it) }
-                val result = analyseValueExpr(forms.last())
+                val sideEffects = forms.dropLast(1).map { analyseValueExpr(it) }
+                val result = analyseTailExpr(forms.last())
                 DoExpr(sideEffects, result, loc)
             }
         }
@@ -806,7 +804,7 @@ data class Analyser(
 
         val valueForm = bindingEls[1]
 
-        val bindingExpr = copy(recurTarget = null).analyseValueExpr(valueForm)
+        val bindingExpr = analyseValueExpr(valueForm)
         val (newAnalyser, localVar) = withLocal(nameForm.sym)
 
         val bodyExpr = newAnalyser.analyseBindings(bindingEls.drop(2), bodyForms, loc)
@@ -911,13 +909,12 @@ data class Analyser(
             return errorExpr("loop requires a body", form.loc)
         }
 
-        val nonTail = copy(recurTarget = null)
         val bindings = mutableListOf<Pair<LocalVar, ValueExpr>>()
         var analyser = this
         for (i in bindingEls.indices step 2) {
             val nameForm = bindingEls[i] as? SymbolForm
                 ?: return errorExpr("loop binding name must be a symbol", bindingEls[i].loc)
-            val bindingExpr = nonTail.analyseValueExpr(bindingEls[i + 1])
+            val bindingExpr = analyseValueExpr(bindingEls[i + 1])
             val (newAnalyser, localVar) = analyser.withLocal(nameForm.sym)
             analyser = newAnalyser
             bindings.add(localVar to bindingExpr)
@@ -938,8 +935,7 @@ data class Analyser(
             return errorExpr("recur expects ${target.arity} arguments, got ${argForms.size}", form.loc)
         }
 
-        val nonTail = copy(recurTarget = null)
-        val argExprs = argForms.map { nonTail.analyseValueExpr(it) }
+        val argExprs = argForms.map { analyseValueExpr(it) }
         return RecurExpr(target.bindings, argExprs, form.loc)
     }
 
@@ -1047,7 +1043,17 @@ data class Analyser(
         }
     }
 
-    fun analyseValueExpr(form: Form): ValueExpr {
+    /**
+     * Analyses [form] in operand position — its value is consumed by the expression around it.
+     *
+     * This is the default, and it clears the `recur` target: `recur` re-binds the loop and starts
+     * the next iteration, so any expression still owing work with the value would have that work
+     * silently dropped. [analyseTailExpr] is the counterpart for the positions where nothing is owed.
+     */
+    fun analyseValueExpr(form: Form): ValueExpr =
+        if (recurTarget == null) analyseOperandExpr(form) else copy(recurTarget = null).analyseOperandExpr(form)
+
+    private fun analyseOperandExpr(form: Form): ValueExpr {
         val inner = analyseValueExprInner(form)
         val meta = form.staticMeta ?: return inner
 
@@ -1060,6 +1066,15 @@ data class Analyser(
             form.loc
         )
     }
+
+    /**
+     * Analyses [form] in tail position: its value is the value of the enclosing `loop` or function
+     * body, so a `recur` within it discards nothing.
+     *
+     * Static metadata takes the form out of tail position, because the value flows into `with-meta`.
+     */
+    private fun analyseTailExpr(form: Form): ValueExpr =
+        if (form.staticMeta == null) analyseValueExprInner(form) else analyseValueExpr(form)
 
     private fun errorType(message: String, loc: SourceSection?): Type {
         addError(message, loc)
