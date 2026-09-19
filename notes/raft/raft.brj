@@ -284,7 +284,7 @@ def: handle-append-response(state, resp)
 def: advance-commit-index(state)
   case: :role(state)
     Leader(l)
-      let: [new-commit highest(fn: [n]
+      let: [new-commit highest(fn: committable?(n)
                                 and:
                                   gt(n, :commit-index(state))
                                   eq(:term(nth(:log(state), n)), :current-term(state))
@@ -340,7 +340,7 @@ def: handle-rpc(state, msg)
 
 // Ch(RpcMsg) -> Fn([ServerState] Select(ServerState))
 def: server-proc(rpc-ch)
-  fn: [state]
+  fn: select(state)
     let: [rpc proc/Recv(rpc-ch, handle-rpc)
           el proc/Timeout(t/dur("PT0.15S"), start-election)]
       case: :role(state)

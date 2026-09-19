@@ -135,7 +135,7 @@ def: _truncate-log(state, from-index)
 
 def: _append-entries(state, prev-log-index, entries)
   let: [truncated _truncate-log(state, inc(prev-log-index))]
-    foldl(entries, truncated, fn: [s, entry] with(s, :log append(:log(s), entry)))
+    foldl(entries, truncated, fn: append-entry(s, entry) with(s, :log append(:log(s), entry)))
 
 def: _log-consistent(state, prev-log-index, prev-log-term)
   cond:
@@ -352,7 +352,7 @@ def: on-heartbeat-timeout(state)
 //// ---- Server Lifecycle ----
 
 def: server-proc(rpc-ch)
-  fn: [state]
+  fn: select(state)
     let: [rpc proc/Recv(rpc-ch, handle-rpc)
           election-timeout proc/Timeout(t/dur("PT0.15S"), on-election-timeout)]
       case: :role(state)
