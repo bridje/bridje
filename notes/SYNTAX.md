@@ -83,7 +83,7 @@ Nested colon blocks nest naturally via indentation.
 **The colon *is* the opening paren.**
 `foo: a b c` is exactly `(foo a b c)` — pick one or the other, never both.
 Writing `(foo: a b c)` double-wraps, producing `((foo a b c))`, and is almost never what you want.
-When a special form needs to appear mid-expression (e.g. as the callee in an immediate call), drop the colon and use the bare list form: `(fn [x] x)(7)`, `(lang "js" Int "42")`.
+When a special form needs to appear mid-expression (e.g. as the callee in an immediate call), drop the colon and use the bare list form: `(fn (id x) x)(7)`, `(lang "js" Int "42")`.
 
 ```bridje
 // Bridje:
@@ -247,9 +247,9 @@ let: [{name, age} getUser()]
 Anonymous function.
 
 ```bridje
-fn: [a, b] add(a, b)
+fn: sum(a, b) add(a, b)
 
-fn: [a, b]
+fn: double-sum(a, b)
   let: [c add(a, b)]
     mul(c, 2)
 ```
@@ -650,7 +650,7 @@ Effect impls can use other (typically lower-level) effects.
 This replaces a higher-level effect with a lower-level one in the inferred effect set:
 
 ```bridje
-withFx: [log fn: [msg] stdio("LOG: ${msg}")]
+withFx: [log fn: log-via-stdio(msg) stdio("LOG: ${msg}")]
   doWork()
 ```
 
@@ -667,7 +667,7 @@ def: doWork()                   // inferred effects: {log}
   log("starting")
 
 def: main()                     // inferred effects: {stdio}
-  withFx: [log fn: [msg] stdio("LOG: ${msg}")]
+  withFx: [log fn: log-via-stdio(msg) stdio("LOG: ${msg}")]
     doWork()
 ```
 
@@ -833,7 +833,7 @@ ns: raft.server
 Qualified symbols:
 
 ```bridje
-c/spawn(fn: () 42)
+c/spawn(fn: _() 42)
 I/now()
 brj.core/map(:name, people)
 ```
@@ -900,8 +900,8 @@ ns: my.app
       as(concurrent, c)
 
 def: fetchBoth()
-  let: [a c/spawn(fn: () fetchA())
-        b c/spawn(fn: () fetchB())]
+  let: [a c/spawn(fn: _() fetchA())
+        b c/spawn(fn: _() fetchB())]
     [c/await(a), c/await(b)]
 ```
 
