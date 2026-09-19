@@ -6,7 +6,7 @@
 (symbol) @sexp
 (list) @sexp
 (vector) @sexp
-(map) @sexp
+(record) @sexp
 (set) @sexp
 (call) @sexp
 (record_sugar) @sexp

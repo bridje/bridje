@@ -34,7 +34,7 @@
     (treesit-parser-create 'bridje)
     (setq-local treesit-thing-settings
                 '((bridje (sexp (or "nil" "boolean" "int" "string" "symbol" "keyword"
-                                    "list" "map" "set" "vector")))))
+                                    "list" "record" "set" "vector")))))
 
     (setq-local treesit-font-lock-feature-list '(( default )))
 
@@ -61,7 +61,7 @@
                 '((bridje
                    ((parent-is "list") parent 2)
                    ((parent-is "vector") parent 1)
-                   ((parent-is "map") parent 1)
+                   ((parent-is "record") parent 1)
                    ((parent-is "set") parent 1))))
 
     (treesit-major-mode-setup)))

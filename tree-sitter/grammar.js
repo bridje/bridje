@@ -29,7 +29,7 @@ module.exports = grammar({
       $.string, $.symbol, $.qualified_symbol,
       $.keyword, $.qualified_keyword,
       $.dot_symbol, $.qualified_dot_symbol,
-      $.list, $.vector, $.map, $.set,
+      $.list, $.vector, $.record, $.set,
       $.call,
       $.record_sugar,
       $.block_call,
@@ -40,8 +40,8 @@ module.exports = grammar({
       $.metadata,
     ),
 
-    // ^keyword or ^{map} attached to following form
-    metadata: $ => seq('^', choice($.keyword, $.qualified_keyword, $.map), $._form),
+    // ^keyword or ^{record} attached to following form
+    metadata: $ => seq('^', choice($.keyword, $.qualified_keyword, $.record), $._form),
 
     string: _ => token(/"([^"]|\\")*"/),
 
@@ -100,7 +100,7 @@ module.exports = grammar({
 
     list: $ => seq('(', repeat($._form), ')'),
     vector: $ => seq('[', repeat($._form), ']'),
-    map: $ => seq('{', repeat(seq($._form)), '}'),
+    record: $ => seq('{', repeat(seq($._form)), '}'),
     set: $ => seq('#{', repeat($._form), '}'),
 
     comment: _ => token(/\/\/[^\n]*/),

@@ -4,9 +4,9 @@
 (block_call) @indent.begin
 (block_body) @indent.begin
 
-; vectors/maps/sets align after the bracket (1 space)
+; vectors/records/sets align after the bracket (1 space)
 (vector) @indent.align
-(map) @indent.align
+(record) @indent.align
 (set) @indent.align
 
 ")" @indent.end

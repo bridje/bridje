@@ -104,7 +104,7 @@ class Reader private constructor(private val src: Source) {
             "list" -> ListForm(namedChildren.map { it.readForm() }, loc)
             "vector" -> VectorForm(namedChildren.map { it.readForm() }, loc)
             "set" -> SetForm(namedChildren.map { it.readForm() }, loc)
-            "map" -> RecordForm(namedChildren.map { it.readForm() }, loc)
+            "record" -> RecordForm(namedChildren.map { it.readForm() }, loc)
 
             "call" -> {
                 val fn = namedChildren[0].readForm()

@@ -92,7 +92,7 @@ Simple vector
     (int)))
 
 ==================
-Simple map with keyword keys
+Simple record with keyword keys
 ==================
 
 {:a 1}
@@ -100,7 +100,7 @@ Simple map with keyword keys
 ---
 
 (source_file
-  (map
+  (record
     (keyword)
     (int)))
 
@@ -404,7 +404,7 @@ Metadata with keyword
     (symbol)))
 
 ==================
-Metadata with map
+Metadata with record
 ==================
 
 ^{:a 1} foo
@@ -413,7 +413,7 @@ Metadata with map
 
 (source_file
   (metadata
-    (map
+    (record
       (keyword)
       (int))
     (symbol)))
