@@ -38,6 +38,8 @@ bridje/
 
 ## Test Commands
 
+Read the `bridje-testing` skill before running any of these — the run is redirected to a log and read by the `gradle-test-results` agent, and there is an edit freeze over the compile phase.
+
 ```bash
 ./gradlew test                                              # Run all tests
 ./gradlew :language:test                                    # Run module tests
