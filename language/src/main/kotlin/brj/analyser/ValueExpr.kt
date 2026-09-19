@@ -45,7 +45,7 @@ class RecordExpr(
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String =
-        fields.joinToString(prefix = "{", separator = ", ", postfix = "}") { (k, v) -> ":${k.toDisplayString()} $v" }
+        fields.joinToString(prefix = "{", separator = ", ", postfix = "}") { (k, v) -> "${k.toDisplayString()} $v" }
 }
 
 class LocalVarExpr(val localVar: LocalVar, override val loc: SourceSection? = null) : ValueExpr {
@@ -206,7 +206,7 @@ class RecordSetExpr(
     val valueExpr: ValueExpr,
     override val loc: SourceSection? = null
 ) : ValueExpr {
-    override fun toString(): String = "(set $recordExpr :${key.toDisplayString()} $valueExpr)"
+    override fun toString(): String = "(set $recordExpr ${key.toDisplayString()} $valueExpr)"
 }
 
 class RecordUpdateExpr(
@@ -215,7 +215,7 @@ class RecordUpdateExpr(
     override val loc: SourceSection? = null
 ) : ValueExpr {
     override fun toString(): String {
-        val fieldsStr = fields.joinToString(" ") { (k, v) -> ".${k.toDisplayString()} $v" }
+        val fieldsStr = fields.joinToString(" ") { (k, v) -> "${k.toDisplayString()} $v" }
         return "(with $recordExpr $fieldsStr)"
     }
 }

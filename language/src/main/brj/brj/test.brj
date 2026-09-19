@@ -3,10 +3,10 @@ ns: brj.test
     java.util:
       as(ArrayList, AL)
 
-decl: :test Bool
+decl: .test Bool
 
-tag: Failure{:form, :message}
-tag: TestResult{:failures, :exn}
+tag: Failure{.form, .message}
+tag: TestResult{.failures, .exn}
 
 decl: [a] AL/new() AL(a)
 decl: [a] AL/.add(a) Bool

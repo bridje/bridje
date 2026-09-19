@@ -2,14 +2,14 @@ ns: brj.core-test
   require:
     brj: as(test, t)
 
-^:t/test
+^t/.test
 def: arithmetic()
   t/is(eq(4, add(2, 2)))
   t/is(eq(7, sub(10, 3)))
   t/is(eq(20, mul(4, 5)))
   t/is(eq(5, div(20, 4)))
 
-^:t/test
+^t/.test
 def: comparisons()
   t/is(lt(1, 2))
   t/is(gt(3, 2))
@@ -18,7 +18,7 @@ def: comparisons()
   t/is(eq(1, 1))
   t/is(neq(1, 2))
 
-^:t/test
+^t/.test
 def: booleanOps()
   t/is(and(true, true))
   t/is(not(and(true, false)))
@@ -26,7 +26,7 @@ def: booleanOps()
   t/is(not(or(false, false)))
   t/is(not(false))
 
-^:t/test
+^t/.test
 def: vectorOps()
   t/is(eq(3, count([1 2 3])))
   t/is(eq(1, first([1 2 3])))
@@ -38,14 +38,14 @@ def: vectorOps()
     t/is(eq(1, nth(joined, 0)))
     t/is(eq(4, nth(joined, 3)))
 
-^:t/test
+^t/.test
 def: setOps()
   t/is(eq(3, setCount(toSet([1 2 3]))))
   t/is(contains(toSet([1 2 3]), 2))
   t/is(not(contains(toSet([1 2]), 3)))
   t/is(isSetEmpty(toSet([])))
 
-^:t/test
+^t/.test
 def: condMacro()
   t/is(eq(1, cond(true 1 true 2)))
   t/is(eq(2, cond(false 1 true 2)))

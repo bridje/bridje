@@ -123,7 +123,7 @@ class ParseRootNode(
         var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr), type = type)
 
         if (expr.recordStyle) {
-            // tag: Foo({:k1, :k2}) — register each field name as a key as well.
+            // tag: Foo({.k1, .k2}) — register each field name as a key as well.
             for (fieldSym in expr.fieldNames) {
                 val key = BridjeKey(ns, fieldSym)
                 val optKey = BridjeOptionalKey(key)

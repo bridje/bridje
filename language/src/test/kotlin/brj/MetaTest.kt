@@ -17,8 +17,8 @@ class MetaTest {
     fun `withMeta adds meta to vector`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: :foo Str
-              meta(withMeta([1 2 3], {:foo "bar"}))
+              decl: .foo Str
+              meta(withMeta([1 2 3], {.foo "bar"}))
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals("bar", result.getMember("foo").asString())
@@ -28,8 +28,8 @@ class MetaTest {
     fun `withMeta preserves vector contents`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: :foo Str
-              withMeta([1 2 3], {:foo "bar"})
+              decl: .foo Str
+              withMeta([1 2 3], {.foo "bar"})
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(3, result.arraySize)
@@ -42,8 +42,8 @@ class MetaTest {
     fun `record has empty meta by default`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: :x Int
-              meta({:x 42})
+              decl: .x Int
+              meta({.x 42})
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals(0, result.memberKeys.size)
@@ -53,8 +53,8 @@ class MetaTest {
     fun `withMeta adds meta to record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {:x Int, :tag Str}
-              meta(withMeta({:x 42}, {:tag "special"}))
+              decl: {.x Int, .tag Str}
+              meta(withMeta({.x 42}, {.tag "special"}))
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals("special", result.getMember("tag").asString())
@@ -64,8 +64,8 @@ class MetaTest {
     fun `withMeta preserves record contents`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {:x Int, :tag Str}
-              withMeta({:x 42}, {:tag "special"})
+              decl: {.x Int, .tag Str}
+              withMeta({.x 42}, {.tag "special"})
         """.trimIndent())
         assertTrue(result.hasMembers())
         assertEquals(42L, result.getMember("x").asLong())
@@ -75,8 +75,8 @@ class MetaTest {
     fun `meta does not leak into record members`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {:x Int, :tag Str}
-              withMeta({:x 42}, {:tag "special"})
+              decl: {.x Int, .tag Str}
+              withMeta({.x 42}, {.tag "special"})
         """.trimIndent())
         assertFalse(result.hasMember("tag"))
     }
@@ -86,8 +86,8 @@ class MetaTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  decl: :foo Str
-                  let: [v withMeta([1 2], {:foo "bar"})]
+                  decl: .foo Str
+                  let: [v withMeta([1 2], {.foo "bar"})]
                     meta(withMeta(v, nil))
             """.trimIndent())
         }
@@ -101,7 +101,7 @@ class MetaTest {
               require:
                 brj: rdr
 
-            def: loc :rdr/loc(meta('foo))
+            def: loc rdr/.loc(meta('foo))
         """.trimIndent())
 
         val loc = ns.getMember("loc")
@@ -113,21 +113,21 @@ class MetaTest {
     fun `withMeta on form overrides default meta`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: :tag Str
-              meta(withMeta('foo, {:tag "marked"}))
+              decl: .tag Str
+              meta(withMeta('foo, {.tag "marked"}))
         """.trimIndent())
 
         assertTrue(result.hasMember("tag"))
         assertEquals("marked", result.getMember("tag").asString())
-        assertFalse(result.hasMember("loc"), ":loc must not leak through when meta is overridden")
+        assertFalse(result.hasMember("loc"), ".loc must not leak through when meta is overridden")
     }
 
     @Test
     fun `withMeta on form preserves form identity`() = withContext { ctx ->
         val form = ctx.evalBridje("""
             do:
-              decl: :tag Str
-              withMeta('foo, {:tag "x"})
+              decl: .tag Str
+              withMeta('foo, {.tag "x"})
         """.trimIndent())
 
         assertEquals("SymbolForm", form.metaObject.metaSimpleName)

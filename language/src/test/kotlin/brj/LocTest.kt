@@ -12,7 +12,7 @@ class LocTest {
 
     @Test
     fun `Loc exposes source name`() = withContext { ctx ->
-        val loc = ctx.evalBridjeForms(":rdr/loc(meta('foo))")
+        val loc = ctx.evalBridjeForms("rdr/.loc(meta('foo))")
 
         assertEquals("Loc", loc.metaObject.metaSimpleName)
         assertFalse(loc.getMember("source").isNull)
@@ -20,7 +20,7 @@ class LocTest {
 
     @Test
     fun `Loc path is null for string-based source`() = withContext { ctx ->
-        val loc = ctx.evalBridjeForms(":rdr/loc(meta('foo))")
+        val loc = ctx.evalBridjeForms("rdr/.loc(meta('foo))")
 
         assertTrue(loc.getMember("path").isNull, "string-based source must not have a path")
     }
@@ -38,7 +38,7 @@ class LocTest {
                   rdr
                   fs
 
-            def: result :rdr/loc(meta(first(rdr/fromFile(fs/file("${target.brjLit()}")))))
+            def: result rdr/.loc(meta(first(rdr/fromFile(fs/file("${target.brjLit()}")))))
             """.trimIndent()
         ).getMember("result")
 
@@ -49,7 +49,7 @@ class LocTest {
 
     @Test
     fun `Loc fields accessible via rdr keys`() = withContext { ctx ->
-        val line = ctx.evalBridjeForms("->: meta('foo) :rdr/loc :rdr/startLine")
+        val line = ctx.evalBridjeForms("->: meta('foo) rdr/.loc rdr/.startLine")
 
         assertTrue(line.asLong() > 0)
     }

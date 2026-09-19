@@ -10,7 +10,7 @@ import com.oracle.truffle.api.source.SourceSection
 import com.oracle.truffle.api.strings.TruffleString
 
 /**
- * Canonical [QSymbol] for `:loc` source-location metadata — declared in
+ * Canonical [QSymbol] for `.loc` source-location metadata — declared in
  * `brj.rdr`, written into the meta records produced by the analyser and the
  * reader. A single shared instance avoids per-form allocation on `form.meta`.
  */

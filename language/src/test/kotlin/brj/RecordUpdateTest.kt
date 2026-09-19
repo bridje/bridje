@@ -10,8 +10,8 @@ class RecordUpdateTest {
     fun `with updates a single field`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: :foo Str
-              let: [r {:foo 1}]
+              decl: .foo Str
+              let: [r {.foo 1}]
                 with(r, .foo 99)
         """.trimIndent())
         assertEquals(99L, result.getMember("foo").asLong())
@@ -21,10 +21,10 @@ class RecordUpdateTest {
     fun `with returns a new record without mutating the original`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: :foo Str
-              let: [r {:foo 1}
+              decl: .foo Str
+              let: [r {.foo 1}
                     updated with(r, .foo 99)]
-                [(:foo r), (:foo updated)]
+                [(.foo r), (.foo updated)]
         """.trimIndent())
         assertEquals(1L, result.getArrayElement(0).asLong())
         assertEquals(99L, result.getArrayElement(1).asLong())
@@ -34,8 +34,8 @@ class RecordUpdateTest {
     fun `with updates multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {:a Str, :b Str, :c Str}
-              let: [r {:a 1, :b 2, :c 3}]
+              decl: {.a Str, .b Str, .c Str}
+              let: [r {.a 1, .b 2, .c 3}]
                 with(r, .a 10, .b 20)
         """.trimIndent())
         assertEquals(10L, result.getMember("a").asLong())
@@ -47,8 +47,8 @@ class RecordUpdateTest {
     fun `with preserves unupdated fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {:a Str, :b Str}
-              with({:a 1, :b 2}, .a 99)
+              decl: {.a Str, .b Str}
+              with({.a 1, .b 2}, .a 99)
         """.trimIndent())
         assertEquals(99L, result.getMember("a").asLong())
         assertEquals(2L, result.getMember("b").asLong())
@@ -58,8 +58,8 @@ class RecordUpdateTest {
     fun `with via list syntax`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: :foo Str
-              (with {:foo 1} .foo 99)
+              decl: .foo Str
+              (with {.foo 1} .foo 99)
         """.trimIndent())
         assertEquals(99L, result.getMember("foo").asLong())
     }
@@ -69,8 +69,8 @@ class RecordUpdateTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  decl: :foo Str
-                  with({:foo 1}, .bar 99)
+                  decl: .foo Str
+                  with({.foo 1}, .bar 99)
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("Unknown field") == true,
@@ -84,8 +84,8 @@ class RecordUpdateTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  decl: :foo Str
-                  with({:foo 1}, .foo)
+                  decl: .foo Str
+                  with({.foo 1}, .foo)
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("even number of field") == true,
@@ -97,8 +97,8 @@ class RecordUpdateTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  decl: :foo Str
-                  with({:foo 1}, :foo 99)
+                  decl: .foo Str
+                  with({.foo 1}, foo 99)
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("dot-symbol") == true,
@@ -110,8 +110,8 @@ class RecordUpdateTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  decl: :foo Str
-                  with({:foo 1})
+                  decl: .foo Str
+                  with({.foo 1})
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("at least one field") == true,
@@ -122,7 +122,7 @@ class RecordUpdateTest {
     fun `with on qualified key`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my.keys
-            decl: :foo Str
+            decl: .foo Str
         """.trimIndent())
 
         val ns = ctx.evalBridje("""
@@ -131,7 +131,7 @@ class RecordUpdateTest {
                 my:
                   as(keys, k)
             def: result
-              with({:k/foo 1}, k/.foo 99)
+              with({k/.foo 1}, k/.foo 99)
         """.trimIndent())
 
         assertEquals(99L, ns.getMember("result").getMember("foo").asLong())
@@ -141,8 +141,8 @@ class RecordUpdateTest {
     fun `with composes cleanly`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {:x Int, :y Int, :z Int}
-              let: [r {:x 1, :y 2, :z 3}
+              decl: {.x Int, .y Int, .z Int}
+              let: [r {.x 1, .y 2, .z 3}
                     r2 with(r, .x 10)
                     r3 with(r2, .y 20, .z 30)]
                 r3
@@ -156,8 +156,8 @@ class RecordUpdateTest {
     fun `with value expressions are evaluated`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {:a Int, :b Int}
-              let: [r {:a 1, :b 2}]
+              decl: {.a Int, .b Int}
+              let: [r {.a 1, .b 2}]
                 with(r, .a add(10, 20), .b mul(3, 4))
         """.trimIndent())
         assertEquals(30L, result.getMember("a").asLong())

@@ -92,40 +92,40 @@ Simple vector
     (int)))
 
 ==================
-Simple record with keyword keys
+Simple record with member keys
 ==================
 
-{:a 1}
+{.a 1}
 
 ---
 
 (source_file
   (record
-    (keyword)
+    (dot_symbol)
     (int)))
 
 ==================
-Standalone keyword
+Standalone member
 ==================
 
-:foo
+.foo
 
 ---
 
 (source_file
-  (keyword))
+  (dot_symbol))
 
 ==================
-Keyword call
+Member call
 ==================
 
-:foo(x)
+.foo(x)
 
 ---
 
 (source_file
   (call
-    (keyword)
+    (dot_symbol)
     (symbol)))
 
 ==================
@@ -391,30 +391,30 @@ Syntax quote of a list
         (symbol)))))
 
 ==================
-Metadata with keyword
+Metadata with member
 ==================
 
-^:test foo
+^.test foo
 
 ---
 
 (source_file
   (metadata
-    (keyword)
+    (dot_symbol)
     (symbol)))
 
 ==================
 Metadata with record
 ==================
 
-^{:a 1} foo
+^{.a 1} foo
 
 ---
 
 (source_file
   (metadata
     (record
-      (keyword)
+      (dot_symbol)
       (int))
     (symbol)))
 
@@ -422,28 +422,28 @@ Metadata with record
 Stacked metadata
 ==================
 
-^:a ^:b foo
+^.a ^.b foo
 
 ---
 
 (source_file
   (metadata
-    (keyword)
+    (dot_symbol)
     (metadata
-      (keyword)
+      (dot_symbol)
       (symbol))))
 
 ==================
 Metadata on vector
 ==================
 
-^:test [1 2 3]
+^.test [1 2 3]
 
 ---
 
 (source_file
   (metadata
-    (keyword)
+    (dot_symbol)
     (vector
       (int)
       (int)
@@ -453,53 +453,53 @@ Metadata on vector
 Record sugar
 ==================
 
-Foo{:name "James", :age 42}
+Foo{.name "James", .age 42}
 
 ---
 
 (source_file
   (record_sugar
     (symbol)
-    (keyword)
+    (dot_symbol)
     (string)
-    (keyword)
+    (dot_symbol)
     (int)))
 
 ==================
 Record sugar with qualified symbol
 ==================
 
-ns/Foo{:name "James"}
+ns/Foo{.name "James"}
 
 ---
 
 (source_file
   (record_sugar
     (qualified_symbol)
-    (keyword)
+    (dot_symbol)
     (string)))
 
 ==================
-Optional keyword
+Optional member access
 ==================
 
-:?foo
+.?foo
 
 ---
 
 (source_file
-  (keyword))
+  (dot_symbol))
 
 ==================
-Qualified keyword
+Qualified member
 ==================
 
-:ns/member
+ns/.member
 
 ---
 
 (source_file
-  (qualified_keyword))
+  (qualified_dot_symbol))
 
 ==================
 Bare dot symbol

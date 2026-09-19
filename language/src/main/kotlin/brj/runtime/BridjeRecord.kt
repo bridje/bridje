@@ -130,8 +130,8 @@ class BridjeRecord internal constructor(
         val keys = OBJECT_LIBRARY.getKeyArray(storage)
         return keys.joinToString(prefix = "{", separator = ", ", postfix = "}") { key ->
             val value = OBJECT_LIBRARY.getOrDefault(storage, key, null)
-            val name = if (key is QSymbol) key.toDisplayString() else key.toString()
-            ":$name ${INTEROP.toDisplayString(value)}"
+            val name = if (key is QSymbol) key.toDisplayString() else ".$key"
+            "$name ${INTEROP.toDisplayString(value)}"
         }
     }
 

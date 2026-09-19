@@ -174,22 +174,19 @@ data class Analyser(
         return null
     }
 
-    private fun analyseKeyword(form: KeywordForm): ValueExpr =
+    private fun analyseDotSymbol(form: DotSymbolForm): ValueExpr =
         resolveKey(form.sym)?.let { GlobalVarExpr(it, form.loc) }
-            ?: errorExpr("Unknown key: :${form.sym.name}", form.loc)
+            ?: errorExpr("Unknown member: $form", form.loc)
 
-    private fun analyseQualifiedKeyword(form: QKeywordForm): ValueExpr =
-        resolveQualifiedKey(form.ns, form.member)?.let { GlobalVarExpr(it, form.loc) }
-            ?: errorExpr("Unknown key: $form", form.loc)
-
-    private fun analyseQualifiedDotSymbol(form: QDotSymbolForm): ValueExpr =
-        nsEnv.interopVar(form.ns, form.member)
-            ?.let { GlobalVarExpr(it, form.loc) }
-            ?: errorExpr("Unknown host member: $form", form.loc)
+    private fun analyseQualifiedDotSymbol(form: QDotSymbolForm): ValueExpr {
+        val gv = resolveQualifiedKey(form.ns, form.member) ?: nsEnv.interopVar(form.ns, form.member)
+        return gv?.let { GlobalVarExpr(it, form.loc) }
+            ?: errorExpr("Unknown member: $form", form.loc)
+    }
 
     private fun resolveKeyForm(form: Form): GlobalVar? = when (form) {
-        is KeywordForm -> resolveKey(form.sym)
-        is QKeywordForm -> resolveQualifiedKey(form.ns, form.member)
+        is DotSymbolForm -> resolveKey(form.sym)
+        is QDotSymbolForm -> resolveQualifiedKey(form.ns, form.member)
         else -> null
     }
 
@@ -202,8 +199,8 @@ data class Analyser(
 
         for (i in els.indices step 2) {
             val keyForm = els[i]
-            if (keyForm !is KeywordForm && keyForm !is QKeywordForm)
-                return errorExpr("record keys must be keywords", keyForm.loc)
+            if (keyForm !is DotSymbolForm && keyForm !is QDotSymbolForm)
+                return errorExpr("record keys must be members", keyForm.loc)
             val keyValue = resolveKeyForm(keyForm)?.value
             if (keyValue !is BridjeKey) {
                 return errorExpr("$keyForm is not a key", keyForm.loc)
@@ -269,7 +266,7 @@ data class Analyser(
                 "tag" -> errorExpr("tag not allowed in value position", form.loc)
                 "enum" -> errorExpr("enum not allowed in value position", form.loc)
                 "defmacro" -> errorExpr("defmacro not allowed in value position", form.loc)
-                "defkeys" -> errorExpr("defkeys has been replaced: use decl: :name Str", form.loc)
+                "defkeys" -> errorExpr("defkeys has been replaced: use decl: .name Str", form.loc)
                 "defx" -> errorExpr("defx not allowed in value position", form.loc)
                 "lang" -> analyseLang(form)
                 else -> analyseCall(form)
@@ -430,23 +427,6 @@ data class Analyser(
                     )
                 }
             }
-
-            is KeywordForm ->
-                callFormConstructor(
-                    "KeywordForm",
-                    listOf(callFormConstructor("Symbol", listOf(StringExpr(form.sym.name, form.loc)), form.loc)),
-                    form.loc
-                )
-
-            is QKeywordForm ->
-                callFormConstructor(
-                    "QKeywordForm",
-                    listOf(
-                        callFormConstructor("Symbol", listOf(StringExpr(form.ns.name, form.loc)), form.loc),
-                        callFormConstructor("Symbol", listOf(StringExpr(form.member.name, form.loc)), form.loc)
-                    ),
-                    form.loc
-                )
 
             is DotSymbolForm ->
                 callFormConstructor(
@@ -809,8 +789,8 @@ data class Analyser(
         if (els.size != 4) return errorExpr("set requires exactly 3 arguments: record, key, value", form.loc)
 
         val keyForm = els[2]
-        if (keyForm !is KeywordForm && keyForm !is QKeywordForm)
-            return errorExpr("set second argument must be a keyword", keyForm.loc)
+        if (keyForm !is DotSymbolForm && keyForm !is QDotSymbolForm)
+            return errorExpr("set second argument must be a member", keyForm.loc)
 
         val keyVar = resolveKeyForm(keyForm)
             ?: return errorExpr("Unknown key: $keyForm", keyForm.loc)
@@ -1023,10 +1003,8 @@ data class Analyser(
             is BigDecForm -> BigDecExpr(form.value, form.loc)
             is StringForm -> StringExpr(form.value, form.loc)
             is SymbolForm -> analyseSymbol(form)
-            is KeywordForm -> analyseKeyword(form)
-            is QKeywordForm -> analyseQualifiedKeyword(form)
             is QSymbolForm -> analyseQualifiedSymbol(form)
-            is DotSymbolForm -> errorExpr("bare instance-member references are not supported yet: $form", form.loc)
+            is DotSymbolForm -> analyseDotSymbol(form)
             is QDotSymbolForm -> analyseQualifiedDotSymbol(form)
             is ListForm -> analyseListValueExpr(form)
             is VectorForm -> VectorExpr(form.els.map { analyseValueExpr(it) }, form.loc)
@@ -1273,15 +1251,15 @@ data class Analyser(
             // batch keys — record sugar: decl: {.name Str, .age Int}
             sigForm is RecordForm -> {
                 val names = (0 until sigForm.els.size step 2).map { i ->
-                    val kw = sigForm.els[i] as? KeywordForm
-                        ?: return errorExpr("record key decl entries must alternate keyword and type", sigForm.els[i].loc)
-                    kw.sym
+                    val key = sigForm.els[i] as? DotSymbolForm
+                        ?: return errorExpr("record key decl entries must alternate member and type", sigForm.els[i].loc)
+                    key.sym
                 }
                 DefKeysExpr(names, form.loc)
             }
 
-            // single key: decl: :name Str
-            sigForm is KeywordForm -> {
+            // single key: decl: .name Str
+            sigForm is DotSymbolForm -> {
                 DefKeysExpr(listOf(sigForm.sym), form.loc)
             }
 
@@ -1396,7 +1374,7 @@ data class Analyser(
                 DefTagExpr(name, emptyList(), typeVarNames, loc = loc)
             }
             is ListForm -> {
-                // tag: Just(t) or tag: [t] Just(t) or tag: Foo({:k1, :k2})
+                // tag: Just(t) or tag: [t] Just(t) or tag: Foo({.k1, .k2})
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
                     ?: return errorExpr("tag signature must start with a name", sigForm.loc)
                 val name = nameForm.sym
@@ -1405,12 +1383,12 @@ data class Analyser(
                 val remainingEls = sigForm.els.drop(1)
                 val singleRecord = remainingEls.singleOrNull() as? RecordForm
                 if (singleRecord != null) {
-                    // tag: Foo({:key1, :key2}) — each key becomes a field name and is registered as a key
+                    // tag: Foo({.key1, .key2}) — each key becomes a field name and is registered as a key
                     val fieldNames = mutableListOf<Symbol>()
                     for (recEl in singleRecord.els) {
-                        val kw = recEl as? KeywordForm
-                            ?: return errorExpr("record field entries must be keywords", recEl.loc)
-                        fieldNames.add(kw.sym)
+                        val key = recEl as? DotSymbolForm
+                            ?: return errorExpr("record field entries must be members", recEl.loc)
+                        fieldNames.add(key.sym)
                     }
                     return DefTagExpr(name, fieldNames, typeVarNames, recordStyle = true, loc = loc)
                 }

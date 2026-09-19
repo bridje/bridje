@@ -2,8 +2,8 @@ package brj.runtime
 
 /**
  * A qualified identifier — `ns/name`. The runtime layer's analogue of the
- * reader's `QSymbolForm` / `QKeywordForm`. Used for record field identity:
- * `{:foo 1}` declared in `brj.test` and `{:bar/foo 1}` declared in `bar`
+ * reader's `QSymbolForm` / `QDotSymbolForm`. Used for record field identity:
+ * `{.foo 1}` declared in `brj.test` and `{bar/.foo 1}` declared in `bar`
  * coexist in one record because their `QSymbol` keys are distinct.
  *
  * Data-class equality on `(ns, name)` is what makes this work as a
@@ -14,13 +14,14 @@ data class QSymbol(val ns: Symbol, val name: Symbol) {
     override fun toString(): String = "${ns.name}/${name.name}"
 
     /**
-     * Human-friendly form for display strings. Drops the namespace prefix
-     * for the REPL/anonymous case — `<anonymous>/foo` reads as `foo` — but
-     * keeps the qualified form everywhere else, since a real namespace
-     * carries information a user wants to see.
+     * Human-friendly form for display strings, carrying the member sigil.
+     * Drops the namespace prefix for the REPL/anonymous case — `<anonymous>/foo`
+     * reads as `.foo` — but keeps the qualified form everywhere else, since a
+     * real namespace carries information a user wants to see. The sigil sits
+     * against the member rather than the whole name: `ns/.foo`, not `.ns/foo`.
      */
     fun toDisplayString(): String =
-        if (ns.name == "<anonymous>") name.name else toString()
+        if (ns.name == "<anonymous>") ".${name.name}" else "${ns.name}/.${name.name}"
 
     companion object {
         /**

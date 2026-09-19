@@ -10,8 +10,9 @@
 ; comment
 (comment) @comment
 
-; keywords
-(keyword) @string.special.symbol
+; member keys and host members
+(dot_symbol) @string.special.symbol
+(qualified_dot_symbol) @string.special.symbol
 
 ; symbols - general fallback
 (symbol) @variable
@@ -49,7 +50,7 @@
 (syntax_quote "`" @keyword)
 
 ; metadata
-(metadata (keyword) @attribute)
+(metadata (dot_symbol) @attribute)
 
 ; punctuation
 ":" @punctuation.delimiter

@@ -138,29 +138,6 @@ object BigDecMeta : BuiltinMetaObj("BigDec".sym, "brj.rdr".sym) {
     }
 }
 
-object KeywordFormMeta : BuiltinMetaObj("KeywordForm".sym, "brj.rdr".sym) {
-    override fun isMetaInstance(instance: Any?) = instance is KeywordForm
-
-    @Throws(ArityException::class)
-    override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val sym = arguments[0] as Symbol
-        return KeywordForm(sym)
-    }
-}
-
-object QKeywordFormMeta : BuiltinMetaObj("QKeywordForm".sym, "brj.rdr".sym) {
-    override fun isMetaInstance(instance: Any?) = instance is QKeywordForm
-
-    @Throws(ArityException::class)
-    override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 2) throw ArityException.create(2, 2, arguments.size)
-        val ns = arguments[0] as Symbol
-        val member = arguments[1] as Symbol
-        return QKeywordForm(ns, member)
-    }
-}
-
 object DotSymbolFormMeta : BuiltinMetaObj("DotSymbolForm".sym, "brj.rdr".sym) {
     override fun isMetaInstance(instance: Any?) = instance is DotSymbolForm
 
@@ -199,11 +176,11 @@ sealed class Form : TruffleObject, Meta<Form> {
 
     abstract fun copy(): Form
 
-    fun withStaticMeta(keyword: KeywordForm): Form =
-        withStaticMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
+    fun withStaticMeta(member: DotSymbolForm): Form =
+        withStaticMeta(RecordForm(listOf(member, SymbolForm("true".sym)), member.loc))
 
-    fun withStaticMeta(keyword: QKeywordForm): Form =
-        withStaticMeta(RecordForm(listOf(keyword, SymbolForm("true".sym)), keyword.loc))
+    fun withStaticMeta(member: QDotSymbolForm): Form =
+        withStaticMeta(RecordForm(listOf(member, SymbolForm("true".sym)), member.loc))
 
     fun withStaticMeta(record: RecordForm): Form = copy().also {
         it.staticMeta = if (staticMeta == null) record else RecordForm(staticMeta!!.els + record.els, record.loc)
@@ -270,18 +247,6 @@ class QSymbolForm(val ns: Symbol, val member: Symbol, override val loc: SourceSe
     override val metaObj = QSymbolFormMeta
     override fun copy() = QSymbolForm(ns, member, loc)
     override fun toString(): String = "${ns.name}/${member.name}"
-}
-
-class KeywordForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = KeywordFormMeta
-    override fun copy() = KeywordForm(sym, loc)
-    override fun toString(): String = ":${sym.name}"
-}
-
-class QKeywordForm(val ns: Symbol, val member: Symbol, override val loc: SourceSection? = null) : Form() {
-    override val metaObj = QKeywordFormMeta
-    override fun copy() = QKeywordForm(ns, member, loc)
-    override fun toString(): String = ":${ns.name}/${member.name}"
 }
 
 class DotSymbolForm(val sym: Symbol, override val loc: SourceSection? = null) : Form() {

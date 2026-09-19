@@ -27,7 +27,6 @@ module.exports = grammar({
     _form: $ => choice(
       $.int, $.float, $.bigint, $.bigdec,
       $.string, $.symbol, $.qualified_symbol,
-      $.keyword, $.qualified_keyword,
       $.dot_symbol, $.qualified_dot_symbol,
       $.list, $.vector, $.record, $.set,
       $.call,
@@ -40,8 +39,8 @@ module.exports = grammar({
       $.metadata,
     ),
 
-    // ^keyword or ^{record} attached to following form
-    metadata: $ => seq('^', choice($.keyword, $.qualified_keyword, $.record), $._form),
+    // ^.member or ^{record} attached to following form
+    metadata: $ => seq('^', choice($.dot_symbol, $.qualified_dot_symbol, $.record), $._form),
 
     string: _ => token(/"([^"]|\\")*"/),
 
@@ -53,18 +52,12 @@ module.exports = grammar({
       seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', SYMBOL_BODY, optional('#')),
     ),
 
-    // :member — unqualified keyword
-    keyword: _ => token(seq(':', SYMBOL_BODY)),
-
-    // :ns/member or :ns.seg/member — qualified keyword (colon first)
-    qualified_keyword: _ => token(
-      seq(':', SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', SYMBOL_BODY),
-    ),
-
-    // .member — bare host-member reference
+    // .member — a record key or a host member. '?' is a SYMBOL_HEAD character,
+    // so optional access (.?member) needs no rule of its own.
     dot_symbol: _ => token(seq('.', SYMBOL_BODY)),
 
-    // Alias/.member or pkg.Alias/.member — qualified host-member reference
+    // ns/.member — qualified by a require alias for a record key, by an import
+    // alias for a host member. The alias table tells them apart.
     qualified_dot_symbol: _ => token(
       seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', '.', SYMBOL_BODY),
     ),
@@ -75,7 +68,7 @@ module.exports = grammar({
     bigdec: _ => token(seq(/[0-9]+/, optional(seq('.', /[0-9]+/)), /[mM]/)),
 
     call: $ => seq(
-      choice($.symbol, $.qualified_symbol, $.keyword, $.qualified_keyword, $.dot_symbol, $.qualified_dot_symbol),
+      choice($.symbol, $.qualified_symbol, $.dot_symbol, $.qualified_dot_symbol),
       token.immediate('('), repeat($._form), ')'
     ),
 

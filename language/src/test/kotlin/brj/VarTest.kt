@@ -37,7 +37,7 @@ class VarTest {
         """.trimIndent())
 
         val meta = ctx.evalBridje("meta(Var(`test.loc/foo))")
-        assertTrue(meta.hasMember("loc"), "meta should carry :loc")
+        assertTrue(meta.hasMember("loc"), "meta should carry .loc")
 
         val loc = meta.getMember("loc")
         assertEquals("Loc", loc.metaObject.metaSimpleName)
@@ -51,13 +51,13 @@ class VarTest {
               require:
                 brj: as(test, t)
 
-            ^:t/test
+            ^t/.test
             def: myTest nil
         """.trimIndent())
 
         val meta = ctx.evalBridje("meta(Var(`test.loc.user/myTest))")
-        assertTrue(meta.hasMember("test"), "user meta :test must be preserved")
-        assertTrue(meta.hasMember("loc"), ":loc must be added")
+        assertTrue(meta.hasMember("test"), "user meta .test must be preserved")
+        assertTrue(meta.hasMember("loc"), ".loc must be added")
         assertTrue(meta.getMember("test").asBoolean())
     }
 

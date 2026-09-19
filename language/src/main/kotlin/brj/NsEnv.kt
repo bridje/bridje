@@ -121,8 +121,6 @@ data class NsEnv(
                 vars = mapOf(
                     "SymbolForm".sym to GlobalVar(readerNs, "SymbolForm".sym, SymbolFormMeta),
                     "QSymbolForm".sym to GlobalVar(readerNs, "QSymbolForm".sym, QSymbolFormMeta),
-                    "KeywordForm".sym to GlobalVar(readerNs, "KeywordForm".sym, KeywordFormMeta),
-                    "QKeywordForm".sym to GlobalVar(readerNs, "QKeywordForm".sym, QKeywordFormMeta),
                     "DotSymbolForm".sym to GlobalVar(readerNs, "DotSymbolForm".sym, DotSymbolFormMeta),
                     "QDotSymbolForm".sym to GlobalVar(readerNs, "QDotSymbolForm".sym, QDotSymbolFormMeta),
                     "List".sym to GlobalVar(readerNs, "List".sym, ListMeta),

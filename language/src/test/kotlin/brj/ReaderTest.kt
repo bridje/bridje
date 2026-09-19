@@ -16,8 +16,6 @@ private fun Form.contentEquals(other: Form): Boolean = when {
     this is BigDecForm && other is BigDecForm -> value == other.value
     this is StringForm && other is StringForm -> value == other.value
     this is SymbolForm && other is SymbolForm -> sym == other.sym
-    this is KeywordForm && other is KeywordForm -> sym == other.sym
-    this is QKeywordForm && other is QKeywordForm -> ns == other.ns && member == other.member
     this is QSymbolForm && other is QSymbolForm -> ns == other.ns && member == other.member
     this is ListForm && other is ListForm ->
         els.size == other.els.size && els.zip(other.els).all { (a, b) -> a.contentEquals(b) }
@@ -31,7 +29,7 @@ private fun Form.contentEquals(other: Form): Boolean = when {
 }
 
 private fun sym(name: String) = SymbolForm(Symbol.intern(name))
-private fun kw(name: String) = KeywordForm(Symbol.intern(name))
+private fun dot(name: String) = DotSymbolForm(Symbol.intern(name))
 private fun qsym(ns: String, member: String) = QSymbolForm(Symbol.intern(ns), Symbol.intern(member))
 private fun int(value: Long) = IntForm(value)
 private fun list(vararg els: Form) = ListForm(els.toList())

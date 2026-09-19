@@ -65,7 +65,7 @@ class TestHarnessTest {
               require:
                 brj: as(test, t)
 
-            def: myTest() throw(Fault({:exnMessage "boom"}))
+            def: myTest() throw(Fault({.exnMessage "boom"}))
 
             def: runIt() t/runTest(myTest)
         """.trimIndent())
@@ -83,7 +83,7 @@ class TestHarnessTest {
 
             def: myTest()
               t/is(eq(1, 2))
-              throw(Fault({:exnMessage "boom"}))
+              throw(Fault({.exnMessage "boom"}))
 
             def: runIt() t/runTest(myTest)
         """.trimIndent())

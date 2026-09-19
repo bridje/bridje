@@ -140,9 +140,9 @@ class DeclTest {
     fun `decl preserves existing meta`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.decl.meta
-            decl: :test Bool
+            decl: .test Bool
             decl: x Int
-            ^:test
+            ^.test
             def: x 42
         """.trimIndent())
         val meta = ctx.varMeta("test.decl.meta", "x")

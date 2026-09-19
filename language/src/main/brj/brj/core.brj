@@ -88,7 +88,7 @@ defmacro: unlessLet(bindings, else, then)
            nil ~else
            ~first(els) ~then))
 
-decl: :exnMessage Str
+decl: .exnMessage Str
 
 defmacro: orElse(value, & defaults)
   if: isEmpty(defaults)

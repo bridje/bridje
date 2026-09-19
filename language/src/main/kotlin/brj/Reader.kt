@@ -75,13 +75,6 @@ class Reader private constructor(private val src: Source) {
             "bigdec" -> BigDecForm(BigDecimal(text!!.dropLast(1)), loc)
             "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
             "symbol" -> SymbolForm(Symbol.intern(text!!), loc)
-            "keyword" -> KeywordForm(Symbol.intern(text!!.drop(1)), loc)
-            "qualified_keyword" -> {
-                // :ns/member — drop leading ':', split on '/'
-                val t = text!!.drop(1)
-                val slash = t.indexOf('/')
-                QKeywordForm(Symbol.intern(t.substring(0, slash)), Symbol.intern(t.substring(slash + 1)), loc)
-            }
             "dot_symbol" -> DotSymbolForm(Symbol.intern(text!!.drop(1)), loc)
             "qualified_dot_symbol" -> {
                 // Alias/.member — split on '/.'
@@ -130,10 +123,10 @@ class Reader private constructor(private val src: Source) {
                 val metaValue = namedChildren[0].readForm()
                 val innerForm = namedChildren[1].readForm()
                 when (metaValue) {
-                    is KeywordForm -> innerForm.withStaticMeta(metaValue)
-                    is QKeywordForm -> innerForm.withStaticMeta(metaValue)
+                    is DotSymbolForm -> innerForm.withStaticMeta(metaValue)
+                    is QDotSymbolForm -> innerForm.withStaticMeta(metaValue)
                     is RecordForm -> innerForm.withStaticMeta(metaValue)
-                    else -> error("metadata must be keyword or map")
+                    else -> error("metadata must be a member or a record")
                 }
             }
 
