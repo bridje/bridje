@@ -66,11 +66,7 @@ fun List<Form>.analyseNs(): Pair<NsDecl?, List<Form>> {
     val els = first.els
     if ((els.firstOrNull() as? SymbolForm)?.sym?.name != "ns") return Pair(null, this)
 
-    val nsName = when (val nameForm = els.getOrNull(1)) {
-        is SymbolForm -> nameForm.sym
-        is QSymbolForm -> "${nameForm.ns.name}.${nameForm.member.name}".sym
-        else -> error("ns requires a name")
-    }
+    val nsName = (els.getOrNull(1) as? SymbolForm)?.sym ?: error("ns requires a name")
 
     var requires = emptyMap<Symbol, Symbol>()
     var imports = emptyMap<Symbol, String>()

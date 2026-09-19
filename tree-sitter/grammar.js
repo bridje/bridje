@@ -45,14 +45,13 @@ module.exports = grammar({
 
     string: _ => token(/"([^"]|\\")*"/),
 
-    symbol: _ => token(seq(SYMBOL_BODY, optional('#'))),
+    // foo, or a dotted namespace/class name: brj.core, java.time.Instant
+    symbol: _ => token(seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), optional('#'))),
 
-    qualified_symbol: _ => token(choice(
-      // ns/member or ns.seg/member
+    // ns/member or ns.seg/member
+    qualified_symbol: _ => token(
       seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', SYMBOL_BODY, optional('#')),
-      // dotted namespace name (no /member)
-      seq(SYMBOL_BODY, repeat1(seq('.', SYMBOL_BODY)), optional('#')),
-    )),
+    ),
 
     // :member — unqualified keyword
     keyword: _ => token(seq(':', SYMBOL_BODY)),

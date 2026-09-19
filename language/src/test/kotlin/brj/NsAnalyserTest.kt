@@ -38,6 +38,14 @@ class NsAnalyserTest {
     }
 
     @Test
+    fun `parses s-expression ns form`() {
+        val (nsDecl, _) = "(ns foo.bar (require (java.time (as Instant Inst))))".parseNs()
+
+        assertEquals("foo.bar".sym, nsDecl?.name)
+        assertEquals(mapOf("Inst".sym to "java.time.Instant".sym), nsDecl?.requires)
+    }
+
+    @Test
     fun `parses requires`() {
         val (nsDecl, _) = """
             ns: foo.bar

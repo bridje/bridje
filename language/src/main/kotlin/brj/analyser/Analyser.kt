@@ -237,16 +237,8 @@ data class Analyser(
 
         val fqClass = nsEnv.imports[form.ns] ?: form.ns.name
 
-        val hostClass =
-            try {
-                ctx.truffleEnv.lookupHostSymbol(fqClass) as TruffleObject
-            } catch (_: Exception) {
-                // Namespace lookup failed - try the full qualified name as a Java class
-                // (e.g., java.lang.String where namespace=java.lang, member=String)
-                val fullName = "${form.ns.name}.${form.member.name}"
-                tryHostLookup(fullName, form.loc)?.let { return HostConstructorExpr(it, form.loc) }
-                return errorExpr("Unknown namespace: ${form.ns.name}", form.loc)
-            }
+        val hostClass = tryHostLookup(fqClass, form.loc)
+            ?: return errorExpr("Unknown namespace: ${form.ns.name}", form.loc)
 
         return HostStaticMethodExpr(hostClass, form.member.name, form.loc)
     }

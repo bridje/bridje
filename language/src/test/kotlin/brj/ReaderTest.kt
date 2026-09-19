@@ -123,6 +123,10 @@ class ReaderTest {
         )
 
     @Test
+    fun `reads dotted name as a symbol`() =
+        assertReads(sym("java.time.Instant"), "java.time.Instant".readSingle())
+
+    @Test
     fun `reads qualified symbol`() =
         assertReads(qsym("java.time.Instant", "now"), "java.time.Instant/now".readSingle())
 

@@ -171,7 +171,7 @@ foo(a, b)
     (symbol)))
 
 ==================
-Java class reference (parses as qualified symbol)
+Dotted name (namespace or class) is a symbol
 ==================
 
 java.time.Instant
@@ -179,7 +179,7 @@ java.time.Instant
 ---
 
 (source_file
-  (qualified_symbol))
+  (symbol))
 
 ==================
 Qualified symbol (ns/member)

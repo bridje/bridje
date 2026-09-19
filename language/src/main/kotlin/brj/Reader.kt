@@ -92,13 +92,7 @@ class Reader private constructor(private val src: Source) {
             "qualified_symbol" -> {
                 val t = text!!
                 val slash = t.indexOf('/')
-                if (slash >= 0) {
-                    QSymbolForm(Symbol.intern(t.substring(0, slash)), Symbol.intern(t.substring(slash + 1)), loc)
-                } else {
-                    // Dotted namespace name: split on last dot
-                    val lastDot = t.lastIndexOf('.')
-                    QSymbolForm(Symbol.intern(t.substring(0, lastDot)), Symbol.intern(t.substring(lastDot + 1)), loc)
-                }
+                QSymbolForm(Symbol.intern(t.substring(0, slash)), Symbol.intern(t.substring(slash + 1)), loc)
             }
 
             "list" -> ListForm(namedChildren.map { it.readForm() }, loc)

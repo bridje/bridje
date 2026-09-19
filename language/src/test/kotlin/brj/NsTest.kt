@@ -21,8 +21,8 @@ class NsTest {
             def: a 1
             def: b 2
         """.trimIndent())
-        assertEquals(1L, ctx.evalBridje("foo.a").asLong())
-        assertEquals(2L, ctx.evalBridje("foo.b").asLong())
+        assertEquals(1L, ctx.evalBridje("foo/a").asLong())
+        assertEquals(2L, ctx.evalBridje("foo/b").asLong())
     }
 
     @Test
