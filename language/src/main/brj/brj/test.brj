@@ -11,24 +11,24 @@ tag: TestResult{:failures, :exn}
 decl: [a] AL/new() AL(a)
 decl: [a] AL/.add(a) Bool
 
-def: _make-collector() AL/new()
+def: _makeCollector() AL/new()
 
-def: _collector-add!(c, x)
+def: _collectorAdd(c, x)
   AL/.add(c, x)
   nil
 
-defx: _record-failure!(Form, Str?) Nothing?
+defx: _recordFailure(Form, Str?) Nothing?
 
 defmacro: is(form)
   `(unless ~form
-     _record-failure!('~form, nil))
+     _recordFailure('~form, nil))
 
-defmacro: run-test(test-qsym)
-  `(let [cell# _make-collector()
+defmacro: runTest(testQsym)
+  `(let [cell# _makeCollector()
          exn# try:
-                withFx: [_record-failure! fn: h#(f#, m#)
-                                            _collector-add!(cell#, Failure(f#, m#))]
-                  (~test-qsym)
+                withFx: [_recordFailure fn: h#(f#, m#)
+                                          _collectorAdd(cell#, Failure(f#, m#))]
+                  (~testQsym)
                 nil
                 catch:
                   a# a#]

@@ -98,7 +98,7 @@ class ConsNode(language: BridjeLanguage) : RootNode(language) {
     }
 }
 
-// TODO: replace with interop (:empty? member) when available
+// TODO: replace with interop (:isEmpty member) when available
 class EmptyNode(language: BridjeLanguage) : RootNode(language) {
     @Child
     private var interop: InteropLibrary = InteropLibrary.getFactory().createDispatched(3)
@@ -108,7 +108,7 @@ class EmptyNode(language: BridjeLanguage) : RootNode(language) {
         return try {
             interop.getArraySize(collection) == 0L
         } catch (e: UnsupportedMessageException) {
-            throw incorrect("empty?: not a collection")
+            throw incorrect("isEmpty: not a collection")
         }
     }
 }

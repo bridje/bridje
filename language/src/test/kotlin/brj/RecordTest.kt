@@ -327,46 +327,46 @@ class RecordTest {
     }
 
     @Test
-    fun `set! mutates a field`() = withContext { ctx ->
+    fun `set mutates a field`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: :foo Str
               let: [r {:foo 1}]
                 do:
-                  (set! r :foo 99)
+                  (set r :foo 99)
                   r
         """.trimIndent())
         assertEquals(99L, result.getMember("foo").asLong())
     }
 
     @Test
-    fun `set! returns old value`() = withContext { ctx ->
+    fun `set returns old value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: :foo Str
-              (set! {:foo 1} :foo 99)
+              (set {:foo 1} :foo 99)
         """.trimIndent())
         assertEquals(1L, result.asLong())
     }
 
     @Test
-    fun `set! returns nil for missing key`() = withContext { ctx ->
+    fun `set returns nil for missing key`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: :foo Str
-              (set! {} :foo 99)
+              (set {} :foo 99)
         """.trimIndent())
         assertTrue(result.isNull)
     }
 
     @Test
-    fun `set! preserves other fields`() = withContext { ctx ->
+    fun `set preserves other fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: {:a Str, :b Str}
               let: [r {:a 1, :b 2}]
                 do:
-                  (set! r :a 99)
+                  (set r :a 99)
                   r
         """.trimIndent())
         assertEquals(99L, result.getMember("a").asLong())
@@ -374,20 +374,20 @@ class RecordTest {
     }
 
     @Test
-    fun `set! via method call syntax`() = withContext { ctx ->
+    fun `set via method call syntax`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               decl: :foo Str
               let: [r {:foo 1}]
                 do:
-                  set!(r, :foo, 99)
+                  set(r, :foo, 99)
                   r
         """.trimIndent())
         assertEquals(99L, result.getMember("foo").asLong())
     }
 
     @Test
-    fun `set! with qualified key`() = withContext { ctx ->
+    fun `set with qualified key`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my.keys
             decl: :foo Str
@@ -401,7 +401,7 @@ class RecordTest {
             def: result
               let: [r {:k/foo 1}]
                 do:
-                  (set! r :k/foo 42)
+                  (set r :k/foo 42)
                   r
         """.trimIndent())
 

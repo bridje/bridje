@@ -14,7 +14,7 @@ class TestHarnessTest {
 
             def: myTest() t/is(eq(1, 1))
 
-            def: runIt() t/run-test(myTest)
+            def: runIt() t/runTest(myTest)
         """.trimIndent())
 
         val result = ns.getMember("runIt").execute()
@@ -31,7 +31,7 @@ class TestHarnessTest {
 
             def: myTest() t/is(eq(1, 2))
 
-            def: runIt() t/run-test(myTest)
+            def: runIt() t/runTest(myTest)
         """.trimIndent())
 
         val result = ns.getMember("runIt").execute()
@@ -51,7 +51,7 @@ class TestHarnessTest {
               t/is(eq(1, 2))
               t/is(eq(2, 3))
 
-            def: runIt() t/run-test(myTest)
+            def: runIt() t/runTest(myTest)
         """.trimIndent())
 
         val result = ns.getMember("runIt").execute()
@@ -67,7 +67,7 @@ class TestHarnessTest {
 
             def: myTest() throw(Fault({:exnMessage "boom"}))
 
-            def: runIt() t/run-test(myTest)
+            def: runIt() t/runTest(myTest)
         """.trimIndent())
 
         val result = ns.getMember("runIt").execute()
@@ -85,7 +85,7 @@ class TestHarnessTest {
               t/is(eq(1, 2))
               throw(Fault({:exnMessage "boom"}))
 
-            def: runIt() t/run-test(myTest)
+            def: runIt() t/runTest(myTest)
         """.trimIndent())
 
         val result = ns.getMember("runIt").execute()
@@ -102,7 +102,7 @@ class TestHarnessTest {
 
             def: myTest() t/is(eq(1, 2))
 
-            def: runIt() t/run-test(myTest)
+            def: runIt() t/runTest(myTest)
         """.trimIndent())
 
         val result = ns.getMember("runIt").execute()

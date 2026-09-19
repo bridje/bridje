@@ -103,7 +103,7 @@ data class NsEnv(
 
             fun keyType() = FnType(listOf(RecordType.notNull()), freshType()).notNull()
 
-            val locKeyNames = listOf("loc", "source", "path", "start-line", "start-column", "end-line", "end-column")
+            val locKeyNames = listOf("loc", "source", "path", "startLine", "startColumn", "endLine", "endColumn")
 
             val locKeyVars = mutableMapOf<Symbol, GlobalVar>()
             val locOptVars = mutableMapOf<Symbol, GlobalVar>()
@@ -134,8 +134,8 @@ data class NsEnv(
                     "String".sym to GlobalVar(readerNs, "String".sym, StringMeta),
                     "BigInt".sym to GlobalVar(readerNs, "BigInt".sym, BigIntMeta),
                     "BigDec".sym to GlobalVar(readerNs, "BigDec".sym, BigDecMeta),
-                    readerFn("<-file", FormsFromFileNode(language), fileType),
-                    readerFn("<-str", FormsFromStringNode(language), str),
+                    readerFn("fromFile", FormsFromFileNode(language), fileType),
+                    readerFn("fromStr", FormsFromStringNode(language), str),
                 ) + locOptVars,
                 keys = locKeyVars,
             )
@@ -165,11 +165,11 @@ data class NsEnv(
             val fileCtorType = FnType(listOf(freshType()), fileTagType).notNull()
             return NsEnv(vars = mapOf(
                 gv("file".sym, FileNode(language), listOf(str), fileTagType),
-                gv("exists?".sym, FsExistsNode(language), listOf(fileTagType), bool),
-                gv("isFile?".sym, FsIsFileNode(language), listOf(fileTagType), bool),
-                gv("isDir?".sym, FsIsDirNode(language), listOf(fileTagType), bool),
+                gv("exists".sym, FsExistsNode(language), listOf(fileTagType), bool),
+                gv("isFile".sym, FsIsFileNode(language), listOf(fileTagType), bool),
+                gv("isDir".sym, FsIsDirNode(language), listOf(fileTagType), bool),
                 gv("readString".sym, FsReadStringNode(language), listOf(fileTagType), str),
-                gv("<-bytes".sym, FsReadBytesNode(language), listOf(fileTagType), bytes),
+                gv("fromBytes".sym, FsReadBytesNode(language), listOf(fileTagType), bytes),
                 gv("list".sym, FsListNode(language), listOf(fileTagType), VectorType(fileTagType).notNull()),
                 gv("resolve".sym, FsResolveNode(language), listOf(fileTagType, str), fileTagType),
                 gv("name".sym, FsNameNode(language), listOf(fileTagType), str),
@@ -191,7 +191,7 @@ data class NsEnv(
             return NsEnv(vars = mapOf(
                 gv("count".sym, BytesCountNode(language), listOf(bytes), int),
                 gv("nth".sym, BytesNthNode(language), listOf(bytes, int), int),
-                gv("<-str".sym, BytesFromStrNode(language), listOf(str), bytes),
+                gv("fromStr".sym, BytesFromStrNode(language), listOf(str), bytes),
             ))
         }
 
@@ -205,7 +205,7 @@ data class NsEnv(
                     type = FnType(params, ret).notNull())
 
             return NsEnv(vars = mapOf(
-                gv("<-bytes".sym, StrFromBytesNode(language), listOf(bytes), str),
+                gv("fromBytes".sym, StrFromBytesNode(language), listOf(bytes), str),
             ))
         }
     }

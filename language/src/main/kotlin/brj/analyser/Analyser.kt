@@ -150,7 +150,7 @@ data class Analyser(
             "false" -> BoolExpr(false, form.loc)
 
             "unquote" -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
-            "unquote-splicing" -> errorExpr("unquote-splicing (~@) can only be used inside a quote", form.loc)
+            "unquoteSplicing" -> errorExpr("unquoteSplicing (~@) can only be used inside a quote", form.loc)
 
             else -> when (val res = resolveSymbol(form.sym, form.loc)) {
                 is SymbolResolution.Captured -> CapturedVarExpr(res.cv.captureIndex, res.cv.outerLocalVar, form.loc)
@@ -258,8 +258,8 @@ data class Analyser(
                 "quote" -> analyseQuote(form)
                 "squote" -> analyseSquote(form)
                 "unquote" -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
-                "unquote-splicing" -> errorExpr("unquote-splicing (~@) can only be used inside a quote", form.loc)
-                "set!" -> analyseSet(form)
+                "unquoteSplicing" -> errorExpr("unquoteSplicing (~@) can only be used inside a quote", form.loc)
+                "set" -> analyseSet(form)
                 "withFx" -> analyseWithFx(form)
                 "with" -> analyseWith(form)
                 "loop" -> analyseLoop(form)
@@ -299,7 +299,7 @@ data class Analyser(
 
     private fun isUnquoteSplicing(form: Form): Form? =
         (form as? ListForm)
-            ?.takeIf { (it.els.firstOrNull() as? SymbolForm)?.sym?.name == "unquote-splicing" && it.els.size == 2 }
+            ?.takeIf { (it.els.firstOrNull() as? SymbolForm)?.sym?.name == "unquoteSplicing" && it.els.size == 2 }
             ?.els?.get(1)
 
     private fun collFormConstructor(
@@ -349,7 +349,7 @@ data class Analyser(
 
     private fun withLocMeta(expr: ValueExpr, loc: SourceSection?): ValueExpr {
         if (loc == null) return expr
-        val withMetaVar = ctx.brjCore["with-meta".sym] ?: return expr
+        val withMetaVar = ctx.brjCore["withMeta".sym] ?: return expr
         val meta = RecordExpr(listOf(LOC_KEY to TruffleObjectExpr(Loc(loc), loc)), loc)
         return CallExpr(GlobalVarExpr(withMetaVar, loc), listOf(expr, meta), loc)
     }
@@ -370,8 +370,8 @@ data class Analyser(
     // will pick them up in its own dispatch table.
     private val specialFormNames = setOf(
         "if", "let", "fn", "case", "try", "catch", "finally", "do", "recur", "loop",
-        "quote", "squote", "unquote", "unquote-splicing",
-        "withFx", "with", "lang", "set!",
+        "quote", "squote", "unquote", "unquoteSplicing",
+        "withFx", "with", "lang", "set",
         "ns", "require", "import",
         "def", "decl", "defx", "defmacro", "defkeys", "tag", "enum",
         "nil", "true", "false",
@@ -806,11 +806,11 @@ data class Analyser(
 
     private fun analyseSet(form: ListForm): ValueExpr {
         val els = form.els
-        if (els.size != 4) return errorExpr("set! requires exactly 3 arguments: record, key, value", form.loc)
+        if (els.size != 4) return errorExpr("set requires exactly 3 arguments: record, key, value", form.loc)
 
         val keyForm = els[2]
         if (keyForm !is KeywordForm && keyForm !is QKeywordForm)
-            return errorExpr("set! second argument must be a keyword", keyForm.loc)
+            return errorExpr("set second argument must be a keyword", keyForm.loc)
 
         val keyVar = resolveKeyForm(keyForm)
             ?: return errorExpr("Unknown key: $keyForm", keyForm.loc)
@@ -1049,8 +1049,8 @@ data class Analyser(
         val inner = analyseValueExprInner(form)
         val meta = form.staticMeta ?: return inner
 
-        val withMetaVar = ctx.brjCore["with-meta".sym]
-            ?: return errorExpr("with-meta not found in brj.core", form.loc)
+        val withMetaVar = ctx.brjCore["withMeta".sym]
+            ?: return errorExpr("withMeta not found in brj.core", form.loc)
 
         return CallExpr(
             GlobalVarExpr(withMetaVar, form.loc),
@@ -1063,7 +1063,7 @@ data class Analyser(
      * Analyses [form] in tail position: its value is the value of the enclosing `loop` or function
      * body, so a `recur` within it discards nothing.
      *
-     * Static metadata takes the form out of tail position, because the value flows into `with-meta`.
+     * Static metadata takes the form out of tail position, because the value flows into `withMeta`.
      */
     private fun analyseTailExpr(form: Form): ValueExpr =
         if (form.staticMeta == null) analyseValueExprInner(form) else analyseValueExpr(form)

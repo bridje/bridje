@@ -11,19 +11,19 @@ class IteratorTest {
     fun `itr on vector returns iterator`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             let: [it itr([1, 2, 3])]
-              itr-has-next?(it)
+              itrHasNext(it)
         """.trimIndent())
         assertTrue(result.asBoolean())
     }
 
     @Test
-    fun `itr-next returns elements in order`() = withContext { ctx ->
+    fun `itrNext returns elements in order`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             def: result
               let: [it itr([10, 20, 30])]
                 loop: [acc 0]
-                  if: itr-has-next?(it)
-                    recur: add(acc, itr-next(it))
+                  if: itrHasNext(it)
+                    recur: add(acc, itrNext(it))
                     acc
         """.trimIndent())
         assertEquals(60L, result.asLong())
@@ -45,8 +45,8 @@ class IteratorTest {
                   AL/.add(xs, 20)
                   let: [it itr(xs)]
                     loop: [acc 0]
-                      if: itr-has-next?(it)
-                        recur: add(acc, itr-next(it))
+                      if: itrHasNext(it)
+                        recur: add(acc, itrNext(it))
                         acc
         """.trimIndent())
         val result = ctx.evalBridje("test.iter.java/result")
@@ -83,12 +83,12 @@ class IteratorTest {
 
     @Test
     fun `element type propagates through itr`() = withContext { ctx ->
-        // itr([Int]) should give Iterator(Int), itr-next should return Int
+        // itr([Int]) should give Iterator(Int), itrNext should return Int
         // add requires matching types, so this verifies propagation
         val result = ctx.evalBridje("""
             def: result
               let: [it itr([10, 20])]
-                add(itr-next(it), itr-next(it))
+                add(itrNext(it), itrNext(it))
         """.trimIndent())
         assertEquals(30L, result.asLong())
     }

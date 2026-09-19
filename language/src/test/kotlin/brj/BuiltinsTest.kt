@@ -174,13 +174,13 @@ class BuiltinsTest {
     }
 
     @Test
-    fun `first-or-null of vector`() = withContext { ctx ->
-        assertEquals(1L, ctx.evalBridje("first-or-null([1, 2, 3])").asLong())
+    fun `firstOrNull of vector`() = withContext { ctx ->
+        assertEquals(1L, ctx.evalBridje("firstOrNull([1, 2, 3])").asLong())
     }
 
     @Test
-    fun `first-or-null of empty vector returns nil`() = withContext { ctx ->
-        assertTrue(ctx.evalBridje("first-or-null([])").isNull)
+    fun `firstOrNull of empty vector returns nil`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("firstOrNull([])").isNull)
     }
 
     @Test
@@ -198,13 +198,13 @@ class BuiltinsTest {
     }
 
     @Test
-    fun `empty? of empty vector`() = withContext { ctx ->
-        assertTrue(ctx.evalBridje("empty?([])").asBoolean())
+    fun `isEmpty of empty vector`() = withContext { ctx ->
+        assertTrue(ctx.evalBridje("isEmpty([])").asBoolean())
     }
 
     @Test
-    fun `empty? of non-empty vector`() = withContext { ctx ->
-        assertFalse(ctx.evalBridje("empty?([1])").asBoolean())
+    fun `isEmpty of non-empty vector`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("isEmpty([1])").asBoolean())
     }
 
     @Test
@@ -367,21 +367,21 @@ class BuiltinsTest {
     // Identity comparison
 
     @Test
-    fun `same? with identical values`() = withContext { ctx ->
+    fun `isSame with identical values`() = withContext { ctx ->
         assertTrue(ctx.evalBridje("""
             let: [x [1, 2, 3]]
-              same?(x, x)
+              isSame(x, x)
         """).asBoolean())
     }
 
     @Test
-    fun `same? with equal but distinct values`() = withContext { ctx ->
-        assertFalse(ctx.evalBridje("same?([1, 2], [1, 2])").asBoolean())
+    fun `isSame with equal but distinct values`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("isSame([1, 2], [1, 2])").asBoolean())
     }
 
     @Test
-    fun `same? with different values`() = withContext { ctx ->
-        assertFalse(ctx.evalBridje("same?(1, 2)").asBoolean())
+    fun `isSame with different values`() = withContext { ctx ->
+        assertFalse(ctx.evalBridje("isSame(1, 2)").asBoolean())
     }
 
     @Test

@@ -70,10 +70,10 @@ class Loc(val section: SourceSection) : TruffleObject, BridjeObject {
     private fun readByName(member: String): Any = when (member) {
         "source" -> sourceName
         "path" -> sourcePath ?: BridjeNull
-        "start-line" -> section.startLine.toLong()
-        "start-column" -> section.startColumn.toLong()
-        "end-line" -> section.endLine.toLong()
-        "end-column" -> section.endColumn.toLong()
+        "startLine" -> section.startLine.toLong()
+        "startColumn" -> section.startColumn.toLong()
+        "endLine" -> section.endLine.toLong()
+        "endColumn" -> section.endColumn.toLong()
         else -> throw UnknownIdentifierException.create(member)
     }
 
@@ -86,6 +86,6 @@ class Loc(val section: SourceSection) : TruffleObject, BridjeObject {
     companion object {
         private val READER_NS = "brj.rdr".sym
         private val MEMBERS: Array<String> =
-            arrayOf("source", "path", "start-line", "start-column", "end-line", "end-column")
+            arrayOf("source", "path", "startLine", "startColumn", "endLine", "endColumn")
     }
 }

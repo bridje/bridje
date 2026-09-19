@@ -53,20 +53,20 @@ class ConcurrentTest {
     }
 
     @Test
-    fun `ensure-active throws when interrupted`() = withContext { ctx ->
+    fun `ensureActive throws when interrupted`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
             ns: test.concurrent.ensure
               require:
                 brj:
                   as(concurrent, c)
-            def: check() c/ensure-active()
+            def: check() c/ensureActive()
         """.trimIndent())
 
         val check = ns.getMember("check")
         Thread.currentThread().interrupt()
         val ex = assertThrows<PolyglotException> { check.execute() }
         assertTrue(ex.isGuestException || ex.message?.contains("interrupted", ignoreCase = true) == true)
-        // interrupted flag was cleared by ensure-active
+        // interrupted flag was cleared by ensureActive
         assertFalse(Thread.currentThread().isInterrupted)
     }
 
@@ -77,7 +77,7 @@ class ConcurrentTest {
               require:
                 brj:
                   as(concurrent, c)
-            def: spawnSleeper() c/spawn(fn: sleeper() c/sleep-ms(10000))
+            def: spawnSleeper() c/spawn(fn: sleeper() c/sleepMs(10000))
             def: doInterrupt(d) c/interrupt(d)
             def: doAwait(d)
               try: c/await(d)
@@ -100,7 +100,7 @@ class ConcurrentTest {
               require:
                 brj:
                   as(concurrent, c)
-            def: spawnSleeper() c/spawn(fn: sleeper() c/sleep-ms(10000))
+            def: spawnSleeper() c/spawn(fn: sleeper() c/sleepMs(10000))
             def: doInterrupt(d) c/interrupt(d)
             def: doAwait(d) c/await(d)
         """.trimIndent())
@@ -179,7 +179,7 @@ class ConcurrentTest {
             def: go(flag)
               c/spawn(fn: outer()
                 c/spawn(fn: inner()
-                  c/sleep-ms(50)
+                  c/sleepMs(50)
                   AB/.set(flag, true)
                   nil)
                 "outer-done")
@@ -203,8 +203,8 @@ class ConcurrentTest {
             def: go()
               c/spawn(fn: outer()
                 do:
-                  c/spawn(fn: inner() c/sleep-ms(10000))
-                  c/sleep-ms(10000))
+                  c/spawn(fn: inner() c/sleepMs(10000))
+                  c/sleepMs(10000))
             def: doInterrupt(d) c/interrupt(d)
             def: doAwait(d)
               try: c/await(d)
@@ -234,9 +234,9 @@ class ConcurrentTest {
             def: go()
               c/spawn(fn: outer()
                 do:
-                  c/spawn(fn: slow() c/sleep-ms(10000))
-                  c/spawn(fn: failing() do: c/sleep-ms(50) throw(Fault({:exnMessage "boom"})))
-                  c/sleep-ms(10000))
+                  c/spawn(fn: slow() c/sleepMs(10000))
+                  c/spawn(fn: failing() do: c/sleepMs(50) throw(Fault({:exnMessage "boom"})))
+                  c/sleepMs(10000))
             def: doAwait(d)
               try: c/await(d)
                 catch:
@@ -265,9 +265,9 @@ class ConcurrentTest {
                 do:
                   c/spawn(fn: l2()
                     do:
-                      c/spawn(fn: l3() do: c/sleep-ms(50) throw(Fault({:exnMessage "deep"})))
-                      c/sleep-ms(10000))
-                  c/sleep-ms(10000))
+                      c/spawn(fn: l3() do: c/sleepMs(50) throw(Fault({:exnMessage "deep"})))
+                      c/sleepMs(10000))
+                  c/sleepMs(10000))
             def: doAwait(d)
               try: c/await(d)
                 catch:

@@ -59,7 +59,7 @@ class CallTest {
     fun `closure over let binding`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             let: [x 10]
-              let: [f fn: add-x(y) [x y]]
+              let: [f fn: addX(y) [x y]]
                 f(5)
         """.trimIndent())
         assertTrue(result.hasArrayElements())

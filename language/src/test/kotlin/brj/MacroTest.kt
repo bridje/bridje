@@ -58,10 +58,10 @@ class MacroTest {
               require:
                 brj: rdr
 
-            defmacro: if-not(cond, then, else)
+            defmacro: ifNot(cond, then, else)
               rdr/List([rdr/SymbolForm(Symbol("if")) cond else then])
 
-            def: __result if-not(false, 1, 2)
+            def: __result ifNot(false, 1, 2)
         """.trimIndent()).getMember("__result")
         assertEquals(1L, result1.asLong())
     }
@@ -70,9 +70,9 @@ class MacroTest {
     fun `macro can return argument form`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defmacro: identity-macro(x)
+              defmacro: identityMacro(x)
                 x
-              identity-macro(42)
+              identityMacro(42)
         """)
         assertEquals(42L, result.asLong())
     }
@@ -83,9 +83,9 @@ class MacroTest {
         val result = ctx.evalBridje("""
             do:
               def: x 10
-              defmacro: get-form(f)
+              defmacro: getForm(f)
                 f
-              get-form(x)
+              getForm(x)
         """)
         // The macro returns the form 'x, which then evaluates to 10
         assertEquals(10L, result.asLong())
@@ -131,9 +131,9 @@ class MacroTest {
     fun `macro with multiple unquotes`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defmacro: if-not(cond, then, else)
+              defmacro: ifNot(cond, then, else)
                 '(if ~cond ~else ~then)
-              if-not: false
+              ifNot: false
                 1
                 2
         """)
@@ -203,17 +203,17 @@ class MacroTest {
     fun `different foo# names get different gensyms`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defmacro: swap-add(x, y)
+              defmacro: swapAdd(x, y)
                 '(let [a# ~x b# ~y] (add b# a#))
-              swap-add(10, 32)
+              swapAdd(10, 32)
         """)
         assertEquals(42L, result.asLong())
     }
 
     @Test
-    fun `if-let with non-nil value`() = withContext { ctx ->
+    fun `ifLet with non-nil value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            if-let: [x 42]
+            ifLet: [x 42]
               x
               0
         """.trimIndent())
@@ -221,9 +221,9 @@ class MacroTest {
     }
 
     @Test
-    fun `if-let with nil value`() = withContext { ctx ->
+    fun `ifLet with nil value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            if-let: [x nil]
+            ifLet: [x nil]
               x
               99
         """.trimIndent())
@@ -231,9 +231,9 @@ class MacroTest {
     }
 
     @Test
-    fun `unless-let with nil value`() = withContext { ctx ->
+    fun `unlessLet with nil value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            unless-let: [x nil]
+            unlessLet: [x nil]
               99
               x
         """.trimIndent())
@@ -241,9 +241,9 @@ class MacroTest {
     }
 
     @Test
-    fun `unless-let with non-nil value`() = withContext { ctx ->
+    fun `unlessLet with non-nil value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            unless-let: [x 42]
+            unlessLet: [x 42]
               0
               x
         """.trimIndent())
@@ -251,9 +251,9 @@ class MacroTest {
     }
 
     @Test
-    fun `if-let binds value in then branch`() = withContext { ctx ->
+    fun `ifLet binds value in then branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            if-let: [x 21]
+            ifLet: [x 21]
               add(x, x)
               0
         """.trimIndent())
@@ -261,39 +261,39 @@ class MacroTest {
     }
 
     @Test
-    fun `or-else returns value when non-nil`() = withContext { ctx ->
+    fun `orElse returns value when non-nil`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            or-else(42, 99)
+            orElse(42, 99)
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
 
     @Test
-    fun `or-else returns default when nil`() = withContext { ctx ->
+    fun `orElse returns default when nil`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            or-else(nil, 99)
+            orElse(nil, 99)
         """.trimIndent())
         assertEquals(99L, result.asLong())
     }
 
     @Test
-    fun `or-else does not evaluate default when value is non-nil`() = withContext { ctx ->
+    fun `orElse does not evaluate default when value is non-nil`() = withContext { ctx ->
         // If default were evaluated, this would cause a division by zero
         val result = ctx.evalBridje("""
-            or-else(42, div(1, 0))
+            orElse(42, div(1, 0))
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
 
     @Test
-    fun `or-else chains multiple defaults`() = withContext { ctx ->
-        val result = ctx.evalBridje("or-else(nil, nil, 42)")
+    fun `orElse chains multiple defaults`() = withContext { ctx ->
+        val result = ctx.evalBridje("orElse(nil, nil, 42)")
         assertEquals(42L, result.asLong())
     }
 
     @Test
-    fun `or-else chain short-circuits`() = withContext { ctx ->
-        val result = ctx.evalBridje("or-else(nil, 42, div(1, 0))")
+    fun `orElse chain short-circuits`() = withContext { ctx ->
+        val result = ctx.evalBridje("orElse(nil, 42, div(1, 0))")
         assertEquals(42L, result.asLong())
     }
 

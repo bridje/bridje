@@ -24,16 +24,16 @@ decl: [a] Set/fromVec([a]) #{a}
 
 def: count(xs) Vec/count(xs)
 def: first(xs) Vec/first(xs)
-def: first-or-null(xs) Vec/firstOrNull(xs)
+def: firstOrNull(xs) Vec/firstOrNull(xs)
 def: rest(xs) Vec/rest(xs)
 def: cons(x, xs) Vec/cons(x, xs)
-def: empty?(xs) Vec/isEmpty(xs)
+def: isEmpty(xs) Vec/isEmpty(xs)
 def: concat(xs, ys) Vec/concat(xs, ys)
 
-def: set(xs) Set/fromVec(xs)
-def: set-count(s) Set/count(s)
-def: set-empty?(s) Set/isEmpty(s)
-def: contains?(s, x) Set/contains(s, x)
+def: toSet(xs) Set/fromVec(xs)
+def: setCount(s) Set/count(s)
+def: isSetEmpty(s) Set/isEmpty(s)
+def: contains(s, x) Set/contains(s, x)
 def: conj(x, s) Set/conj(x, s)
 def: disj(x, s) Set/disj(x, s)
 def: union(a, b) Set/union(a, b)
@@ -42,8 +42,8 @@ decl: [a, b] reduce(Iterable(a), b, Fn([b, a] b)) b
 def: reduce(xs, init, f)
   let: [it itr(xs)]
     loop: [acc init]
-      if: itr-has-next?(it)
-        recur: f(acc, itr-next(it))
+      if: itrHasNext(it)
+        recur: f(acc, itrNext(it))
         acc
 
 decl: [a, b] mapv(Iterable(a), Fn([a] b)) [b]
@@ -66,13 +66,13 @@ defmacro: #0(& body)
   '(fn (_) ~@body)
 
 defmacro: cond(& clauses)
-  if: empty?(clauses)
+  if: isEmpty(clauses)
     'nil
     if: eq(count(clauses), 1)
       first(clauses)
       '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
 
-defmacro: if-let(bindings, then, else)
+defmacro: ifLet(bindings, then, else)
   case: bindings
     rdr/Vector(els)
       '(let [v# ~nth(els, 1)]
@@ -80,7 +80,7 @@ defmacro: if-let(bindings, then, else)
            nil ~else
            ~first(els) ~then))
 
-defmacro: unless-let(bindings, else, then)
+defmacro: unlessLet(bindings, else, then)
   case: bindings
     rdr/Vector(els)
       '(let [v# ~nth(els, 1)]
@@ -90,22 +90,22 @@ defmacro: unless-let(bindings, else, then)
 
 decl: :exnMessage Str
 
-defmacro: or-else(value, & defaults)
-  if: empty?(defaults)
+defmacro: orElse(value, & defaults)
+  if: isEmpty(defaults)
     value
     '(case ~value
-       nil (or-else ~@defaults)
+       nil (orElse ~@defaults)
        x# x#)
 
 defmacro: and(& forms)
-  cond: empty?(forms)
+  cond: isEmpty(forms)
     'true
     eq(count(forms), 1)
     first(forms)
     '(if ~first(forms) (and ~@rest(forms)) false)
 
 defmacro: or(& forms)
-  cond: empty?(forms)
+  cond: isEmpty(forms)
     'false
     eq(count(forms), 1)
     first(forms)
@@ -118,7 +118,7 @@ defmacro: unless(cond, & body)
   '(if ~cond nil (do ~@body))
 
 defmacro: cond->(seed, & clauses)
-  if: empty?(clauses)
+  if: isEmpty(clauses)
     seed
     let: [applied case: nth(clauses, 1)
                     rdr/List(els) '(~first(els) v# ~@rest(els))
@@ -128,7 +128,7 @@ defmacro: cond->(seed, & clauses)
          (cond-> v# ~@rest(rest(clauses))))
 
 defmacro: doto(val, & forms)
-  if: empty?(forms)
+  if: isEmpty(forms)
     val
     let: [applied case: first(forms)
                     rdr/List(els) '(~first(els) v# ~@rest(els))
@@ -137,7 +137,7 @@ defmacro: doto(val, & forms)
          (do ~applied (doto v# ~@rest(forms))))
 
 defmacro: as->(seed, name, & steps)
-  if: empty?(steps)
+  if: isEmpty(steps)
     seed
     '(let [~name ~seed]
        (as-> ~first(steps) ~name ~@rest(steps)))
@@ -146,7 +146,7 @@ defmacro: comment(& forms)
   'nil
 
 defmacro: ?>(seed, & steps)
-  if: empty?(steps)
+  if: isEmpty(steps)
     seed
     let: [applied case: first(steps)
                     rdr/List(els) '(~first(els) v# ~@rest(els))
@@ -156,7 +156,7 @@ defmacro: ?>(seed, & steps)
          v# (?> ~applied ~@rest(steps)))
 
 defmacro: ->(seed, & steps)
-  if: empty?(steps)
+  if: isEmpty(steps)
     seed
     let: [step first(steps)
           applied case: step

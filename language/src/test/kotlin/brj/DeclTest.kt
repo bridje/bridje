@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
 class DeclTest {
 
     private fun Context.varMeta(nsName: String, varName: String): Value = evalBridje(
-        """meta(first(filterv(ns-vars(Symbol("$nsName")), fn: p(v) eq(nth(v, 1), Symbol("$varName")))))"""
+        """meta(first(filterv(nsVars(Symbol("$nsName")), fn: p(v) eq(nth(v, 1), Symbol("$varName")))))"""
     )
 
     private fun Value.displayString(): String = toString()

@@ -198,8 +198,8 @@ They exist in the Bridje type system only — no Java class backs them.
 
 ```bridje
 decl: [a] itr(Iterable(a)) Iterator(a)
-decl: [a] itr-has-next?(Iterator(a)) Bool
-decl: [a] itr-next(Iterator(a)) a
+decl: [a] itrHasNext(Iterator(a)) Bool
+decl: [a] itrNext(Iterator(a)) a
 ```
 
 At runtime, `itr` dispatches via Truffle's `InteropLibrary.getIterator()`.
@@ -248,8 +248,8 @@ It is the type of expressions that never return: `throw(...)`, infinite loops, p
 
 ```bridje
 let: [config
-      if: exists?(config-file)
-        load-config(config-file)
+      if: exists(configFile)
+        loadConfig(configFile)
         throw(ConfigError("not found"))]  // Nothing < Config, so this typechecks
 ```
 
@@ -276,12 +276,12 @@ Record types track which keys are present; the value types come from the key dec
 Records are **structural** — any record with at least the required keys is accepted:
 
 ```bridje
-def: display-name({fn, ln})
+def: displayName({fn, ln})
   "${fn} ${ln}"
 
 // Accepts any record with :fn and :ln, regardless of other keys
-display-name({:fn "James", :ln "Henderson"})
-display-name({:fn "James", :ln "Henderson", :email "j@h.com"})
+displayName({:fn "James", :ln "Henderson"})
+displayName({:fn "James", :ln "Henderson", :email "j@h.com"})
 ```
 
 More keys = more specific = subtype.
@@ -309,16 +309,16 @@ This means functions can choose their level of specificity:
 
 ```bridje
 // Structural — accepts any record with :fn and :ln
-def: display-name({fn, ln})
+def: displayName({fn, ln})
   "${fn} ${ln}"
 
 // Nominal — must be a User, only needs :fn and :ln
-def: user-display-name(User({fn, ln}))
+def: userDisplayName(User({fn, ln}))
   "${fn} ${ln}"
 
-// Both of these work with display-name:
-display-name({:fn "James", :ln "Henderson"})
-display-name(User({:fn "James", :ln "Henderson", :email "j@h.com"}))
+// Both of these work with displayName:
+displayName({:fn "James", :ln "Henderson"})
+displayName(User({:fn "James", :ln "Henderson", :email "j@h.com"}))
 ```
 
 The tag asserts domain identity.
@@ -336,8 +336,8 @@ def: lookup(m, k)
   Ok(get(m, k))
 
 // Inferred return type: Result(a, Str)
-def: safe-lookup(m, k)
-  if: has-key(m, k)
+def: safeLookup(m, k)
+  if: hasKey(m, k)
     Ok(get(m, k))
     Err("key not found")
 ```
@@ -353,9 +353,9 @@ Each tag belongs to exactly one enum (1:N).
 
 ```bridje
 enum: ServerRole
-  tag: Follower({:known-leader})
-  tag: Candidate({:votes-received})
-  tag: Leader({:next-index, :match-idx})
+  tag: Follower({:knownLeader})
+  tag: Candidate({:votesReceived})
+  tag: Leader({:nextIndex, :matchIdx})
 
 enum: Maybe(a)
   tag: Just(a)
@@ -380,7 +380,7 @@ trait: Show
   decl: show() Str
 
 impl: Show(Int)
-  def: show(it) int-to-str(it)
+  def: show(it) intToStr(it)
 
 impl: Show(User)
   def: show(User({fn, ln})) "${fn} ${ln}"
@@ -439,7 +439,7 @@ Records and tags are duals in the subtyping lattice:
 
 - Records grow more specific by **adding keys**.
 - Tags grow more specific by **removing variants**.
-- `set!` mutates a record field in place, adding a key to its type (more specific).
+- `set` mutates a record field in place, adding a key to its type (more specific).
 - `case` removes a variant from a tag type (more specific).
 
 Keys are structural and shared across record shapes (M:N).
@@ -460,32 +460,32 @@ defx: stdio Fn(Str) println             // has a default
 defx: net RaftNetwork                   // can be any type — a trait, a function, a record
 ```
 
-If a `defx` has no default, it must be provided by an enclosing `with-fx` or the compiler reports an error.
+If a `defx` has no default, it must be provided by an enclosing `withFx` or the compiler reports an error.
 
 ### Using effects
 
 Effect variables are used like any other value:
 
 ```bridje
-def: do-work()
+def: doWork()
   log("starting")
   // ...
 ```
 
 ### Providing effects
 
-`with-fx` binds effect values into lexical scope:
+`withFx` binds effect values into lexical scope:
 
 ```bridje
-with-fx: [log fn: [msg] stdio("LOG: ${msg}")]
-  do-work()
+withFx: [log fn: [msg] stdio("LOG: ${msg}")]
+  doWork()
 ```
 
 Effect impls can use other (typically lower-level) effects.
 This replaces a higher-level effect with a lower-level one in the inferred effect set.
 
-In this example, `do-work` uses `{log}`.
-The `with-fx` satisfies `log` but its impl uses `stdio`, so the effect set of the whole expression is `{stdio}`.
+In this example, `doWork` uses `{log}`.
+The `withFx` satisfies `log` but its impl uses `stdio`, so the effect set of the whole expression is `{stdio}`.
 
 ### Effect inference
 
@@ -493,11 +493,11 @@ The compiler fully infers the effect set of every expression.
 Users do not annotate effects — the compiler calculates them.
 
 ```bridje
-def: do-work()                   // inferred effects: {log}
+def: doWork()                   // inferred effects: {log}
   log("starting")
 
 def: main()                     // inferred effects: {stdio}
-  with-fx: [log fn: [msg] stdio("LOG: ${msg}")]
-    do-work()
+  withFx: [log fn: [msg] stdio("LOG: ${msg}")]
+    doWork()
 ```
 

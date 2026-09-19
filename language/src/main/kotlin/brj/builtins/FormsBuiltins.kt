@@ -30,7 +30,7 @@ class FormsFromStringNode(language: BridjeLanguage) : RootNode(language) {
 
     @TruffleBoundary
     private fun doRead(str: String): BridjeVector {
-        val source = Source.newBuilder("bridje", str, "<forms/<-str>").build()
+        val source = Source.newBuilder("bridje", str, "<forms/fromStr>").build()
         val forms: List<Form> = source.readForms().toList()
         return BridjeVector(forms)
     }

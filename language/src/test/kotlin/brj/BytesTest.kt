@@ -17,7 +17,7 @@ class BytesTest {
               require:
                 brj:
                   as(bytes, by)
-            def: result by/count(by/<-str("hello"))
+            def: result by/count(by/fromStr("hello"))
         """.trimIndent()).getMember("result")
         assertEquals(5L, result.asLong())
     }
@@ -30,7 +30,7 @@ class BytesTest {
               require:
                 brj:
                   as(bytes, by)
-            def: bs by/<-str("ABC")
+            def: bs by/fromStr("ABC")
             def: b0 by/nth(bs, 0)
             def: b1 by/nth(bs, 1)
             def: b2 by/nth(bs, 2)
@@ -49,7 +49,7 @@ class BytesTest {
               require:
                 brj:
                   as(bytes, by)
-            def: bs by/<-str("é")
+            def: bs by/fromStr("é")
             def: b0 by/nth(bs, 0)
             def: b1 by/nth(bs, 1)
         """.trimIndent())
@@ -65,7 +65,7 @@ class BytesTest {
                 brj:
                   as(bytes, by)
                   as(str, s)
-            def: result s/<-bytes(by/<-str("hello, world"))
+            def: result s/fromBytes(by/fromStr("hello, world"))
         """.trimIndent()).getMember("result")
         assertEquals("hello, world", result.asString())
     }
@@ -78,7 +78,7 @@ class BytesTest {
                 brj:
                   as(bytes, by)
                   as(str, s)
-            def: result s/<-bytes(by/<-str("héllo"))
+            def: result s/fromBytes(by/fromStr("héllo"))
         """.trimIndent()).getMember("result")
         assertEquals("héllo", result.asString())
     }
@@ -91,7 +91,7 @@ class BytesTest {
               require:
                 brj:
                   as(bytes, by)
-            def: result by/count(by/<-str("é"))
+            def: result by/count(by/fromStr("é"))
         """.trimIndent()).getMember("result")
         assertEquals(2L, result.asLong())
     }
@@ -108,10 +108,10 @@ class BytesTest {
                   fs
                   as(bytes, by)
                   as(str, s)
-            def: bs fs/<-bytes(fs/file("${target.brjLit()}"))
+            def: bs fs/fromBytes(fs/file("${target.brjLit()}"))
             def: size by/count(bs)
             def: first by/nth(bs, 0)
-            def: text s/<-bytes(bs)
+            def: text s/fromBytes(bs)
         """.trimIndent())
 
         assertEquals(5L, ns.getMember("size").asLong())

@@ -217,9 +217,9 @@ class EffectTest {
         val result = ctx.evalBridje("""
             (do
               (defx e1 (Fn [Int] Int) (fn (id x) x))
-              (def (use-e1 x) (e1 x))
+              (def (useE1 x) (e1 x))
               (withFx [e1 (fn (mul2 x) (add x x))]
-                (add (use-e1 3) (use-e1 7))))
+                (add (useE1 3) (useE1 7))))
         """.trimIndent())
         assertEquals(20L, result.asLong())
     }

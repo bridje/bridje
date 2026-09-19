@@ -28,7 +28,7 @@ class FsTest {
     }
 
     @Test
-    fun `exists? reflects filesystem state`(@TempDir dir: Path) = withContext { ctx ->
+    fun `exists reflects filesystem state`(@TempDir dir: Path) = withContext { ctx ->
         val present = dir.resolve("present.txt").also { Files.writeString(it, "") }
         val absent = dir.resolve("absent.txt")
 
@@ -37,7 +37,7 @@ class FsTest {
               require:
                 brj:
                   fs
-            def: result fs/exists?(fs/file("${present.brjLit()}"))
+            def: result fs/exists(fs/file("${present.brjLit()}"))
         """.trimIndent()).getMember("result")
         assertTrue(yes.asBoolean())
 
@@ -46,7 +46,7 @@ class FsTest {
               require:
                 brj:
                   fs
-            def: result fs/exists?(fs/file("${absent.brjLit()}"))
+            def: result fs/exists(fs/file("${absent.brjLit()}"))
         """.trimIndent()).getMember("result")
         assertFalse(no.asBoolean())
     }
@@ -76,7 +76,7 @@ class FsTest {
               require:
                 brj:
                   fs
-            def: result fs/isFile?(fs/file("${file.brjLit()}"))
+            def: result fs/isFile(fs/file("${file.brjLit()}"))
         """.trimIndent()).getMember("result")
         assertTrue(isFile.asBoolean())
 
@@ -85,7 +85,7 @@ class FsTest {
               require:
                 brj:
                   fs
-            def: result fs/isDir?(fs/file("${dir.brjLit()}"))
+            def: result fs/isDir(fs/file("${dir.brjLit()}"))
         """.trimIndent()).getMember("result")
         assertTrue(isDir.asBoolean())
     }

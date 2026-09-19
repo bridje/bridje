@@ -99,7 +99,7 @@ class BridjeTestEngine : TestEngine {
     private fun discoverTests(context: Context, engineDescriptor: EngineDescriptor) {
         val discoverSrc = Source.newBuilder(
             "bridje",
-            "mapv(all-nses(), fn: nsL(ns) [ns, mapv(ns-vars(ns), fn: varL(v) [nth(v, 1), meta(v)])])",
+            "mapv(allNses(), fn: nsL(ns) [ns, mapv(nsVars(ns), fn: varL(v) [nth(v, 1), meta(v)])])",
             "<test-discovery>"
         ).mimeType("text/brj").build()
         val discovered = context.eval(discoverSrc)
@@ -157,8 +157,8 @@ class BridjeTestEngine : TestEngine {
         val path = loc.getMember("path")
         if (path.isNull) return null
         val file = File(path.asString())
-        val line = loc.getMember("start-line").asInt()
-        val col = loc.getMember("start-column").asInt()
+        val line = loc.getMember("startLine").asInt()
+        val col = loc.getMember("startColumn").asInt()
         return FileSource.from(file, FilePosition.from(line, col))
     }
 
@@ -238,8 +238,8 @@ class BridjeTestEngine : TestEngine {
     }
 
     private fun runTest(context: Context, nsName: String, varName: String): TestExecutionResult {
-        val sourceText = "brj.test/run-test($nsName/$varName)"
-        val source = Source.newBuilder("bridje", sourceText, "<run-test:$nsName/$varName>")
+        val sourceText = "brj.test/runTest($nsName/$varName)"
+        val source = Source.newBuilder("bridje", sourceText, "<runTest:$nsName/$varName>")
             .mimeType("text/brj")
             .build()
 

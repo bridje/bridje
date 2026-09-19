@@ -206,7 +206,7 @@ class RecordSetExpr(
     val valueExpr: ValueExpr,
     override val loc: SourceSection? = null
 ) : ValueExpr {
-    override fun toString(): String = "(set! $recordExpr :${key.toDisplayString()} $valueExpr)"
+    override fun toString(): String = "(set $recordExpr :${key.toDisplayString()} $valueExpr)"
 }
 
 class RecordUpdateExpr(

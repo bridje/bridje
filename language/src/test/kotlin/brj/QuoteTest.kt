@@ -201,8 +201,8 @@ class QuoteTest {
     fun `syntax-quote supports unquote inside recursive walk`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              defmacro: inc-it(x) `(add ~x 1)
-              inc-it(5)
+              defmacro: incIt(x) `(add ~x 1)
+              incIt(5)
         """.trimIndent())
         assertEquals(6L, result.asLong())
     }
@@ -212,12 +212,12 @@ class QuoteTest {
         val ex = assertThrows<RuntimeException> {
             ctx.evalBridje("""
                 do:
-                  defmacro: broken(x) `(no-such-fn ~x)
+                  defmacro: broken(x) `(noSuchFn ~x)
                   1
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("no-such-fn") == true,
-            "Expected error to name 'no-such-fn', got: ${ex.message}")
+        assertTrue(ex.message?.contains("noSuchFn") == true,
+            "Expected error to name 'noSuchFn', got: ${ex.message}")
     }
 
     @Test
@@ -239,12 +239,12 @@ class QuoteTest {
     }
 
     @Test
-    fun `unquote-splicing outside a quote errors at analysis time`() = withContext { ctx ->
+    fun `unquoteSplicing outside a quote errors at analysis time`() = withContext { ctx ->
         val ex = assertThrows<RuntimeException> { ctx.evalBridje("~@foo") }
         assertTrue(
-            ex.message?.contains("unquote-splicing") == true
+            ex.message?.contains("unquoteSplicing") == true
                 || ex.message?.contains("unquote-splice") == true,
-            "expected error to mention unquote-splicing, got: ${ex.message}"
+            "expected error to mention unquoteSplicing, got: ${ex.message}"
         )
     }
 
@@ -258,10 +258,10 @@ class QuoteTest {
     }
 
     @Test
-    fun `bare unquote-splicing symbol errors with specific message`() = withContext { ctx ->
-        val ex = assertThrows<RuntimeException> { ctx.evalBridje("unquote-splicing") }
-        assertTrue(ex.message?.contains("unquote-splicing") == true,
-            "expected error to mention unquote-splicing, got: ${ex.message}")
+    fun `bare unquoteSplicing symbol errors with specific message`() = withContext { ctx ->
+        val ex = assertThrows<RuntimeException> { ctx.evalBridje("unquoteSplicing") }
+        assertTrue(ex.message?.contains("unquoteSplicing") == true,
+            "expected error to mention unquoteSplicing, got: ${ex.message}")
         assertFalse(ex.message?.contains("Unknown symbol") == true,
             "expected targeted message, got generic: ${ex.message}")
     }

@@ -10,36 +10,36 @@ decl: {:from ServerId, :to ServerId}
 decl: {:term Int, :index Int, :command Str}
 tag: LogEntry({:term, :index, :command})
 
-decl: {:last-log-index Int, :last-log-term Int, :granted Bool}
-decl: {:prev-log-index Int, :prev-log-term Int, :entries Vec, :leader-commit Int}
-decl: {:success Bool, :match-index Int}
+decl: {:lastLogIndex Int, :lastLogTerm Int, :granted Bool}
+decl: {:prevLogIndex Int, :prevLogTerm Int, :entries Vec, :leaderCommit Int}
+decl: {:success Bool, :matchIndex Int}
 
 enum: RpcMsg
-  tag: VoteRequest({:from, :to, :term, :last-log-index, :last-log-term})
+  tag: VoteRequest({:from, :to, :term, :lastLogIndex, :lastLogTerm})
   tag: VoteResponse({:from, :to, :term, :granted})
-  tag: AppendRequest({:from, :to, :term, :prev-log-index, :prev-log-term, :entries, :leader-commit})
-  tag: AppendResponse({:from, :to, :term, :success, :match-index})
+  tag: AppendRequest({:from, :to, :term, :prevLogIndex, :prevLogTerm, :entries, :leaderCommit})
+  tag: AppendResponse({:from, :to, :term, :success, :matchIndex})
 
 decl:
   {:cluster Set
-   :current-term Int
-   :voted-for ServerId
+   :currentTerm Int
+   :votedFor ServerId
    :log Vec
-   :commit-index Int
-   :last-applied Int
+   :commitIndex Int
+   :lastApplied Int
    :role ServerRole
    :id ServerId}
 
-tag: ServerState({:id, :cluster, :current-term, :voted-for, :log, :commit-index, :last-applied, :role})
+tag: ServerState({:id, :cluster, :currentTerm, :votedFor, :log, :commitIndex, :lastApplied, :role})
 
 //// Server Role
 
-decl: {:known-leader ServerId, :votes-received Set, :next-index Map, :match-idx Map}
+decl: {:knownLeader ServerId, :votesReceived Set, :nextIndex Map, :matchIdx Map}
 
 enum: ServerRole
-  tag: Follower({:known-leader})
-  tag: Candidate({:votes-received})
-  tag: Leader({:next-index, :match-idx})
+  tag: Follower({:knownLeader})
+  tag: Candidate({:votesReceived})
+  tag: Leader({:nextIndex, :matchIdx})
 
 //// Derived
 
@@ -48,22 +48,22 @@ def: majority(ServerState({cluster}))
   ->: cluster count() div(2) inc()
 
 // ServerState -> Int
-def: last-log-index(ServerState({log}))
+def: lastLogIndex(ServerState({log}))
   count(log)
 
 // ServerState -> Int
-def: last-log-term(ServerState({log}))
-  if: pos?(count(log))
+def: lastLogTerm(ServerState({log}))
+  if: isPos(count(log))
     :term(last(log))
     0
 
 //// Traits
 
 trait: RaftNetwork
-  decl: send-vote-request(to, req)
-  decl: send-vote-response(to, resp)
-  decl: send-append-request(to, req)
-  decl: send-append-response(to, resp)
+  decl: sendVoteRequest(to, req)
+  decl: sendVoteResponse(to, resp)
+  decl: sendAppendRequest(to, req)
+  decl: sendAppendResponse(to, resp)
 
 trait: StateMachine
   decl: apply(command)
@@ -74,252 +74,252 @@ defx: sm StateMachine
 //// Pure Helpers
 
 // ServerState, Int -> ServerState
-def: step-up-term(state, new-term)
+def: stepUpTerm(state, newTerm)
   cond->: state
-    gt(new-term, :current-term(state))
-      with(:current-term new-term,
-           :voted-for nil,
-           :role Follower{:known-leader nil})
+    gt(newTerm, :currentTerm(state))
+      with(:currentTerm newTerm,
+           :votedFor nil,
+           :role Follower{:knownLeader nil})
 
 // ServerState, VoteRequest -> Bool
-def: candidate-log-up-to-date(state, req)
+def: candidateLogUpToDate(state, req)
   or:
-    gt(:last-log-term(req), last-log-term(state))
+    gt(:lastLogTerm(req), lastLogTerm(state))
     and:
-      eq(:last-log-term(req), last-log-term(state))
-      gte(:last-log-index(req), last-log-index(state))
+      eq(:lastLogTerm(req), lastLogTerm(state))
+      gte(:lastLogIndex(req), lastLogIndex(state))
 
 // ServerState, VoteRequest -> Bool
-def: can-grant-vote(state, req)
+def: canGrantVote(state, req)
   and:
-    gte(:term(req), :current-term(state))
+    gte(:term(req), :currentTerm(state))
     or:
-      nil?(:voted-for(state))
-      eq(:from(req), :voted-for(state))
-    candidate-log-up-to-date(state, req)
+      isNil(:votedFor(state))
+      eq(:from(req), :votedFor(state))
+    candidateLogUpToDate(state, req)
 
 // ServerState, AppendRequest -> Bool
-def: log-consistent(state, AppendRequest({prev-log-index, prev-log-term}))
+def: logConsistent(state, AppendRequest({prevLogIndex, prevLogTerm}))
   or:
-    zero?(prev-log-index)
+    isZero(prevLogIndex)
     and:
-      gte(count(:log(state)), prev-log-index)
-      eq(:term(nth(:log(state), prev-log-index)), prev-log-term)
+      gte(count(:log(state)), prevLogIndex)
+      eq(:term(nth(:log(state), prevLogIndex)), prevLogTerm)
 
 //// Leader Election
 
 // ServerState -> ServerState ! net
-def: start-election(state)
+def: startElection(state)
   let: [state
         with(state,
-          :current-term inc(:current-term(state)),
-          :role Candidate{:votes-received #{:id(state)}},
-          :voted-for :id(state))]
+          :currentTerm inc(:currentTerm(state)),
+          :role Candidate{:votesReceived #{:id(state)}},
+          :votedFor :id(state))]
     doseq: [peer :cluster(state)]
       when: neq(peer, :id(state))
-        :send-vote-request(net, peer,
+        :sendVoteRequest(net, peer,
           VoteRequest:
             {:from :id(state)
              :to peer
-             :term :current-term(state)
-             :last-log-index last-log-index(state)
-             :last-log-term last-log-term(state)})
+             :term :currentTerm(state)
+             :lastLogIndex lastLogIndex(state)
+             :lastLogTerm lastLogTerm(state)})
     state
 
 // ServerState, VoteRequest -> ServerState ! net
-def: handle-vote-request(state, req)
-  let: [state step-up-term(state, :term(req))]
-    if: can-grant-vote(state, req)
+def: handleVoteRequest(state, req)
+  let: [state stepUpTerm(state, :term(req))]
+    if: canGrantVote(state, req)
       do:
-        :send-vote-response(net, :from(req),
+        :sendVoteResponse(net, :from(req),
           VoteResponse:
             {:from :id(state)
              :to :from(req)
-             :term :current-term(state)
+             :term :currentTerm(state)
              :granted true})
-        with(state, :voted-for :from(req))
+        with(state, :votedFor :from(req))
 
       do:
-        :send-vote-response(net, :from(req),
+        :sendVoteResponse(net, :from(req),
           VoteResponse:
             {:from :id(state)
              :to :from(req)
-             :term :current-term(state)
+             :term :currentTerm(state)
              :granted false})
         state
 
 // ServerState, VoteResponse -> ServerState ! net
-def: handle-vote-response(state, resp)
-  if: gt(:term(resp), :current-term(state))
-    step-up-term(state, :term(resp))
+def: handleVoteResponse(state, resp)
+  if: gt(:term(resp), :currentTerm(state))
+    stepUpTerm(state, :term(resp))
     case: :role(state)
       Candidate(c)
-        if: and(:granted(resp), eq(:term(resp), :current-term(state)))
-          let: [votes add(:votes-received(c), :from(resp))
-                state with(state, :role Candidate{:votes-received votes})]
+        if: and(:granted(resp), eq(:term(resp), :currentTerm(state)))
+          let: [votes add(:votesReceived(c), :from(resp))
+                state with(state, :role Candidate{:votesReceived votes})]
             if: gte(count(votes), majority(state))
-              win-election(state)
+              winElection(state)
               state
           state
       state
 
 // ServerState -> ServerState ! net
-def: win-election(state)
+def: winElection(state)
   let: [peers remove(:cluster(state), :id(state))
         state with(state, :role
           Leader:
-            {:next-index associate-with(peers, #: inc(last-log-index(state)))
-             :match-idx associate-with(peers, #: 0)})]
+            {:nextIndex associateWith(peers, #: inc(lastLogIndex(state)))
+             :matchIdx associateWith(peers, #: 0)})]
     doseq: [peer peers]
-      send-append-entries(peer, state)
+      sendAppendEntries(peer, state)
 
     state
 
 //// Log Replication
 
 // ServerState, ServerId -> ServerState ! net
-def: send-append-entries(peer, state)
+def: sendAppendEntries(peer, state)
   case: :role(state)
     Leader(l)
-      let: [next get(:next-index(l), peer)
-            prev-idx dec(next)
-            prev-tm if: pos?(prev-idx)
-                       :term(nth(:log(state), prev-idx))
+      let: [next get(:nextIndex(l), peer)
+            prevIdx dec(next)
+            prevTm if: isPos(prevIdx)
+                       :term(nth(:log(state), prevIdx))
                        0
             ents from(:log(state), next)]
-        :send-append-request(net, peer,
+        :sendAppendRequest(net, peer,
           AppendRequest:
             {:from :id(state)
              :to peer
-             :term :current-term(state)
-             :prev-log-index prev-idx
-             :prev-log-term prev-tm
+             :term :currentTerm(state)
+             :prevLogIndex prevIdx
+             :prevLogTerm prevTm
              :entries ents
-             :leader-commit :commit-index(state)})
+             :leaderCommit :commitIndex(state)})
     state
 
 // ServerState -> ServerState ! net
-def: send-heartbeats(state)
+def: sendHeartbeats(state)
   case: :role(state)
     Leader(_)
       doseq: [peer :cluster(state)]
         when: neq(peer, :id(state))
-          send-append-entries(peer, state)
+          sendAppendEntries(peer, state)
       state
     state
 
 // ServerState, AppendRequest -> ServerState ! net
-def: handle-append-request(state, req)
+def: handleAppendRequest(state, req)
   cond:
-    lt(:term(req), :current-term(state))
+    lt(:term(req), :currentTerm(state))
       do:
-        :send-append-response(net, :from(req),
+        :sendAppendResponse(net, :from(req),
           AppendResponse:
             {:from :id(state)
              :to :from(req)
-             :term :current-term(state)
+             :term :currentTerm(state)
              :success false
-             :match-index 0})
+             :matchIndex 0})
         state
 
-    not(log-consistent(state, req))
+    not(logConsistent(state, req))
       let: [state ->: state
-              step-up-term(:term(req))
-              with(:role Follower{:known-leader :from(req)})]
-        :send-append-response(net, :from(req),
+              stepUpTerm(:term(req))
+              with(:role Follower{:knownLeader :from(req)})]
+        :sendAppendResponse(net, :from(req),
           AppendResponse:
             {:from :id(state)
              :to :from(req)
-             :term :current-term(state)
+             :term :currentTerm(state)
              :success false
-             :match-index 0})
+             :matchIndex 0})
         state
 
     do:
       let: [state ->: state
-              step-up-term(:term(req))
-              with(:role Follower{:known-leader :from(req)},
-                   :log ->: :log(state) take(:prev-log-index(req)) append(:entries(req)))
-            state if: gt(:leader-commit(req), :commit-index(state))
-                    with(state, :commit-index min(:leader-commit(req), count(:log(state))))
+              stepUpTerm(:term(req))
+              with(:role Follower{:knownLeader :from(req)},
+                   :log ->: :log(state) take(:prevLogIndex(req)) append(:entries(req)))
+            state if: gt(:leaderCommit(req), :commitIndex(state))
+                    with(state, :commitIndex min(:leaderCommit(req), count(:log(state))))
                     state]
-        :send-append-response(net, :from(req),
+        :sendAppendResponse(net, :from(req),
           AppendResponse:
             {:from :id(state)
              :to :from(req)
-             :term :current-term(state)
+             :term :currentTerm(state)
              :success true
-             :match-index add(:prev-log-index(req), count(:entries(req)))})
+             :matchIndex add(:prevLogIndex(req), count(:entries(req)))})
         state
 
 // ServerState, AppendResponse -> ServerState ! net
-def: handle-append-response(state, resp)
-  if: gt(:term(resp), :current-term(state))
-    step-up-term(state, :term(resp))
+def: handleAppendResponse(state, resp)
+  if: gt(:term(resp), :currentTerm(state))
+    stepUpTerm(state, :term(resp))
 
     case: :role(state)
       Leader(l)
         cond:
-          neq(:term(resp), :current-term(state)) state
+          neq(:term(resp), :currentTerm(state)) state
 
           :success(resp)
             ->: state
               with(:role Leader:
-                    {:next-index assoc(:next-index(l), :from(resp), inc(:match-index(resp)))
-                     :match-idx assoc(:match-idx(l), :from(resp), :match-index(resp))})
-              advance-commit-index()
+                    {:nextIndex assoc(:nextIndex(l), :from(resp), inc(:matchIndex(resp)))
+                     :matchIdx assoc(:matchIdx(l), :from(resp), :matchIndex(resp))})
+              advanceCommitIndex()
 
-          let: [new-role
+          let: [newRole
                   Leader:
-                    {:next-index assoc(:next-index(l), :from(resp), max(1, dec(get(:next-index(l), :from(resp)))))
-                     :match-idx :match-idx(l)}
-                state with(state, :role new-role)]
-            send-append-entries(:from(resp), state)
+                    {:nextIndex assoc(:nextIndex(l), :from(resp), max(1, dec(get(:nextIndex(l), :from(resp)))))
+                     :matchIdx :matchIdx(l)}
+                state with(state, :role newRole)]
+            sendAppendEntries(:from(resp), state)
             state
       state
 
 //// Commitment
 
 // ServerState -> ServerState
-def: advance-commit-index(state)
+def: advanceCommitIndex(state)
   case: :role(state)
     Leader(l)
-      let: [new-commit highest(fn: committable?(n)
+      let: [newCommit highest(fn: isCommittable(n)
                                 and:
-                                  gt(n, :commit-index(state))
-                                  eq(:term(nth(:log(state), n)), :current-term(state))
-                                  ->: :match-idx(l) values()
+                                  gt(n, :commitIndex(state))
+                                  eq(:term(nth(:log(state), n)), :currentTerm(state))
+                                  ->: :matchIdx(l) values()
                                     count(#: gte(it, n)) inc() gte(majority(state)))]
         cond->: state
-          some?(new-commit) with(:commit-index new-commit)
+          isSome(newCommit) with(:commitIndex newCommit)
     state
 
 // ServerState -> ServerState ! sm
-def: apply-committed-entries(state)
-  doseq: [idx range(inc(:last-applied(state)), inc(:commit-index(state)))]
+def: applyCommittedEntries(state)
+  doseq: [idx range(inc(:lastApplied(state)), inc(:commitIndex(state)))]
     :apply(sm, :command(nth(:log(state), idx)))
 
-  with(state, :last-applied :commit-index(state))
+  with(state, :lastApplied :commitIndex(state))
 
 //// Client Interface
 
 // ServerState, Str -> ServerState ! net
-def: handle-client-command(state, cmd)
+def: handleClientCommand(state, cmd)
   case: :role(state)
     Leader(_)
       let: [entry
             LogEntry:
-              {:term :current-term(state)
-               :index inc(last-log-index(state))
+              {:term :currentTerm(state)
+               :index inc(lastLogIndex(state))
                :command cmd}
             state with(state, :log append(:log(state), entry))]
         doseq: [peer :cluster(state)]
           when: neq(peer, :id(state))
-            send-append-entries(peer, state)
+            sendAppendEntries(peer, state)
         state
 
     Follower(f)
-      if-let: [leader :known-leader(f)]
+      ifLet: [leader :knownLeader(f)]
         ClientRedirected(leader)
         ClientRetryLater()
       state
@@ -329,36 +329,36 @@ def: handle-client-command(state, cmd)
 //// RPC Dispatch
 
 // ServerState, RpcMsg -> ServerState ! net
-def: handle-rpc(state, msg)
+def: handleRpc(state, msg)
   case: msg
-    VoteRequest(req) handle-vote-request(state, req)
-    VoteResponse(resp) handle-vote-response(state, resp)
-    AppendRequest(req) handle-append-request(state, req)
-    AppendResponse(resp) handle-append-response(state, resp)
+    VoteRequest(req) handleVoteRequest(state, req)
+    VoteResponse(resp) handleVoteResponse(state, resp)
+    AppendRequest(req) handleAppendRequest(state, req)
+    AppendResponse(resp) handleAppendResponse(state, resp)
 
 //// Server Lifecycle
 
 // Ch(RpcMsg) -> Fn([ServerState] Select(ServerState))
-def: server-proc(rpc-ch)
+def: serverProc(rpcCh)
   fn: select(state)
-    let: [rpc proc/Recv(rpc-ch, handle-rpc)
-          el proc/Timeout(t/dur("PT0.15S"), start-election)]
+    let: [rpc proc/Recv(rpcCh, handleRpc)
+          el proc/Timeout(t/dur("PT0.15S"), startElection)]
       case: :role(state)
-        Leader(_) [rpc, proc/Timeout(t/dur("PT0.02S"), send-heartbeats)]
+        Leader(_) [rpc, proc/Timeout(t/dur("PT0.02S"), sendHeartbeats)]
         Candidate(_) [rpc, el]
         Follower(_) [rpc, el]
 
 // ServerId, Set, Ch(RpcMsg) -> Proc(ServerState)
-def: create-server(server-id, cluster, rpc-ch)
+def: createServer(serverId, cluster, rpcCh)
   proc/spawn:
     ServerState:
-      {:id server-id
+      {:id serverId
        :cluster cluster
-       :current-term 0
-       :voted-for nil
+       :currentTerm 0
+       :votedFor nil
        :log []
-       :commit-index 0
-       :last-applied 0
-       :role Follower{:known-leader nil}}
+       :commitIndex 0
+       :lastApplied 0
+       :role Follower{:knownLeader nil}}
 
-    server-proc(rpc-ch)
+    serverProc(rpcCh)

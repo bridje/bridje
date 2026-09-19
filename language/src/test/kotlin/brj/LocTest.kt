@@ -38,18 +38,18 @@ class LocTest {
                   rdr
                   fs
 
-            def: result :rdr/loc(meta(first(rdr/<-file(fs/file("${target.brjLit()}")))))
+            def: result :rdr/loc(meta(first(rdr/fromFile(fs/file("${target.brjLit()}")))))
             """.trimIndent()
         ).getMember("result")
 
         assertEquals("Loc", loc.metaObject.metaSimpleName)
         assertEquals(target.toAbsolutePath().toString(), loc.getMember("path").asString())
-        assertTrue(loc.getMember("start-line").asLong() > 0)
+        assertTrue(loc.getMember("startLine").asLong() > 0)
     }
 
     @Test
     fun `Loc fields accessible via rdr keys`() = withContext { ctx ->
-        val line = ctx.evalBridjeForms("->: meta('foo) :rdr/loc :rdr/start-line")
+        val line = ctx.evalBridjeForms("->: meta('foo) :rdr/loc :rdr/startLine")
 
         assertTrue(line.asLong() > 0)
     }

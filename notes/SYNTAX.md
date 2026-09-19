@@ -249,7 +249,7 @@ Anonymous function.
 ```bridje
 fn: sum(a, b) add(a, b)
 
-fn: double-sum(a, b)
+fn: doubleSum(a, b)
   let: [c add(a, b)]
     mul(c, 2)
 ```
@@ -315,14 +315,14 @@ case: result
   Err({message, code}) log("Error ${code}: ${message}")
 ```
 
-### set!
+### set
 
 Mutate a record field in place.
 Returns the old value (or `nil` if the member was not previously set).
 Bridje is immutable by default, but mutation is available when performance requires it (consenting adults).
 
 ```bridje
-set!(record, :key, value)
+set(record, :key, value)
 ```
 
 ### quote, unquote, unquote-splice, and syntax-quote
@@ -439,20 +439,20 @@ Construction uses dot-prefixed members:
 Member access uses the accessor function:
 
 ```bridje
-:current-term(state)           // access :current-term on state
+:currentTerm(state)           // access :currentTerm on state
 :from(req)                     // access :from on req
 
 // With threading:
-->: state :current-term
+->: state :currentTerm
 ```
 
 Update with `with` — returns a new record, does not mutate:
 
 ```bridje
-->: state with(:current-term new-term, :voted-for nil)
+->: state with(:currentTerm newTerm, :votedFor nil)
 
 // or without threading:
-with(state, :current-term new-term, :voted-for nil)
+with(state, :currentTerm newTerm, :votedFor nil)
 ```
 
 Destructuring in function parameters and `let` bindings.
@@ -600,7 +600,7 @@ defmacro: when(cond, & body)
   '(if ~cond (do ~@body) nil)
 
 // Macro that manipulates Form objects directly:
-defmacro: if-let(bindings, then, else)
+defmacro: ifLet(bindings, then, else)
   let: [bvec first(bindings)]
     '(let [v# ~nth(bvec, 1)]
        (case v#
@@ -650,7 +650,7 @@ Effect impls can use other (typically lower-level) effects.
 This replaces a higher-level effect with a lower-level one in the inferred effect set:
 
 ```bridje
-withFx: [log fn: log-via-stdio(msg) stdio("LOG: ${msg}")]
+withFx: [log fn: logViaStdio(msg) stdio("LOG: ${msg}")]
   doWork()
 ```
 
@@ -667,7 +667,7 @@ def: doWork()                   // inferred effects: {log}
   log("starting")
 
 def: main()                     // inferred effects: {stdio}
-  withFx: [log fn: log-via-stdio(msg) stdio("LOG: ${msg}")]
+  withFx: [log fn: logViaStdio(msg) stdio("LOG: ${msg}")]
     doWork()
 ```
 
@@ -675,34 +675,34 @@ def: main()                     // inferred effects: {stdio}
 
 Defined in `brj.core`.
 
-### if-let
+### ifLet
 
 Conditional binding — binds the expression result, takes the then-branch if non-nil, else-branch if nil:
 
 ```bridje
-if-let: [leader :known-leader(f)]
+ifLet: [leader :knownLeader(f)]
   redirect(leader)        // then — leader is bound and non-nil
-  retry-later()           // else — expression was nil
+  retryLater()           // else — expression was nil
 ```
 
-### unless-let
+### unlessLet
 
-Inverse of if-let — takes the first branch if nil:
+Inverse of ifLet — takes the first branch if nil:
 
 ```bridje
-unless-let: [config load-config()]
-  use-defaults()          // nil case — config not found
-  use-config(config)      // non-nil case — config is bound
+unlessLet: [config loadConfig()]
+  useDefaults()          // nil case — config not found
+  useConfig(config)      // non-nil case — config is bound
 ```
 
-### or-else
+### orElse
 
 Default for a nullable value — variadic, for chained fallbacks.
 Default expressions are lazy — not evaluated if value is non-nil:
 
 ```bridje
-or-else(name, "anonymous")
-or-else(:timeout(config), :timeout(defaults), t/dur("PT30S"))
+orElse(name, "anonymous")
+orElse(:timeout(config), :timeout(defaults), t/dur("PT30S"))
 ```
 
 ### when / unless
@@ -712,9 +712,9 @@ Returns nil otherwise.
 
 ```bridje
 when: neq(peer, :id(state))
-  send-append-entries(peer, state)
+  sendAppendEntries(peer, state)
 
-unless: empty?(items)
+unless: isEmpty(items)
   processAll(items)
 ```
 
@@ -725,7 +725,7 @@ Short-circuiting boolean macros — variadic.
 
 ```bridje
 and: gt(x, 0) lt(x, 100)       // true if 0 < x < 100
-or: nil?(x) empty?(x)          // true if x is nil or empty
+or: isNil(x) isEmpty(x)          // true if x is nil or empty
 ```
 
 ### cond
@@ -764,8 +764,8 @@ If the predicate is false, the step is skipped and the value passes through unch
 
 ```bridje
 cond->: state
-  dirty?(state) flush()
-  stale?(state) refresh()
+  isDirty(state) flush()
+  isStale(state) refresh()
 ```
 
 ### doto
@@ -785,8 +785,8 @@ Thread a value through forms with an explicit binding name, allowing it in any a
 Unlike `->` which always inserts as the first argument.
 
 ```bridje
-as->: initial-value name
-  transform(name, extra-arg)
+as->: initialValue name
+  transform(name, extraArg)
   otherFn(something, name)
 ```
 
@@ -797,8 +797,8 @@ Used to keep code around for development without executing it:
 
 ```bridje
 comment:
-  experimental-feature()
-  debug-output()
+  experimentalFeature()
+  debugOutput()
 ```
 
 ### doseq
@@ -809,7 +809,7 @@ Binding form is like `let` — a vector of name-expression pairs:
 ```bridje
 doseq: [peer :cluster(state)]
   when: neq(peer, :id(state))
-    send-append-entries(peer, state)
+    sendAppendEntries(peer, state)
 ```
 
 ## Namespaces
@@ -930,7 +930,7 @@ Values are immutable.
 Records, vectors, sets, and maps are persistent data structures.
 `with` returns a new record; it does not mutate the original.
 
-Mutation is available when performance requires it (`set!`), but the default is immutable.
+Mutation is available when performance requires it (`set`), but the default is immutable.
 Bridje takes the "consenting adults" principle — mutability is a tool, not forbidden.
 
 ### Single-pass, bottom-up file structure
@@ -964,13 +964,21 @@ Tightly-grouped series of one-liners (a run of `decl:` or delegating `def:` form
 
 ### Naming conventions
 
-- `kebab-case` for functions and values: `handle-vote-request`, `start-election`
+- `camelCase` for functions and values: `handleVoteRequest`, `startElection`
 - `PascalCase` for tags and types: `ServerState`, `VoteRequest`, `Result`
-- `:kebab-case` for instance members: `:name`, `:current-term`, `:known-leader`
-- Java interop members mirror Java's camelCase: `:toEpochMilli`, `:isBefore`
-- Predicates and boolean values end in `?`: `nil?`, `pos?`, `some?`, `empty?`
-- Effects optionally end in `!` by convention: `log!`, `send!`
+- `:camelCase` for instance members: `:name`, `:currentTerm`, `:knownLeader`
+- `lowercase.dotted` for namespaces: `brj.core`, `raft.server`
+- Acronyms are words like any other: `handleRpc`, not `handleRPC`
 - Private by convention with `_` prefix: `_helper`, `_internal`
+
+A host member is spelled exactly as the host spells it, because it *is* the host's name and reflection looks it up by that string.
+These conventions stop at the boundary: `:toURI` keeps Java's acronym, where a Bridje-native name would be `toUri`.
+
+Predicates carry no suffix, and take an `is` prefix only where the name is not already a verb: `isEmpty` and `isNil`, but `contains`, `exists`, `hasNext`.
+Effects carry no suffix either — `log`, `send`. What a function does to the world belongs in its type.
+
+The threading macros are the only names holding a non-word character: `->`, `?>`, `as->`, `cond->`.
+The hyphen there is half an arrow glyph rather than a word separator.
 
 ### No infix operators
 
@@ -991,11 +999,11 @@ For variadic operations, colon block syntax avoids deep nesting:
 
 ```bridje
 and:
-  gte(:term(req), :current-term(state))
+  gte(:term(req), :currentTerm(state))
   or:
-    nil?(:voted-for(state))
-    eq(:from(req), :voted-for(state))
-  candidate-log-up-to-date(state, req)
+    isNil(:votedFor(state))
+    eq(:from(req), :votedFor(state))
+  candidateLogUpToDate(state, req)
 ```
 
 The block form is preferred when the expression has more than two arguments or when arguments are themselves complex expressions.

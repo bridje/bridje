@@ -165,7 +165,7 @@ data class IteratorType(val el: Type): BaseType {
 // (produced via `env.asGuestValue(byte[])`).
 // Builtins that consume Bytes unwrap via `env.asHostObject` back to `byte[]`;
 // this fast path is valid because v1 only produces Bytes through our own
-// builtins (`by/<-str`, `fs/<-bytes`).
+// builtins (`by/fromStr`, `fs/fromBytes`).
 // Reads through Bytes/nth return the unsigned byte value widened to Int
 // (0..255); there is no Byte scalar type in Bridje.
 @ExportLibrary(InteropLibrary::class)

@@ -15,12 +15,12 @@ def: interrupt(f)
     Fut/cancelChildren(f)
     Fut/cancel(f, true)
 
-def: ensure-active()
+def: ensureActive()
   if: T/interrupted()
     throw(Interrupted({:exnMessage "Task was interrupted"}))
     nil
 
-def: sleep-ms(ms)
+def: sleepMs(ms)
   try: T/sleep(ms)
     catch:
       (Interrupted data) throw(Interrupted({:exnMessage "Sleep was interrupted"}))
