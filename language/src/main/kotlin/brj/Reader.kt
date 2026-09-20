@@ -1,6 +1,7 @@
 package brj
 
 import com.oracle.truffle.api.source.Source
+import brj.analyser.Analyser
 import brj.reader.NativeLibraryLoader
 import io.github.treesitter.jtreesitter.Language
 import io.github.treesitter.jtreesitter.Node
@@ -10,6 +11,52 @@ import brj.runtime.sym
 import java.lang.foreign.Arena
 import java.math.BigDecimal
 import java.math.BigInteger
+
+private val STRING_ESCAPES = mapOf(
+    'n' to '\n',
+    't' to '\t',
+    'r' to '\r',
+    '\\' to '\\',
+    '"' to '"',
+    'b' to '\b',
+    'f' to '',
+)
+
+private fun unescapeString(raw: String, src: Source, contentStart: Int): String {
+    if ('\\' !in raw) return raw
+
+    val sb = StringBuilder(raw.length)
+    var i = 0
+    while (i < raw.length) {
+        val c = raw[i]
+        if (c != '\\') {
+            sb.append(c)
+            i++
+            continue
+        }
+
+        if (raw.getOrNull(i + 1) == 'u') {
+            val hex = raw.substring(i + 2, minOf(i + 6, raw.length))
+            if (hex.length != 4 || !hex.all { it.digitToIntOrNull(16) != null })
+                throw Analyser.Error(
+                    "Malformed \\u escape in string literal, expected four hex digits",
+                    src.createSection(contentStart + i, minOf(6, raw.length - i)),
+                )
+            sb.append(hex.toInt(16).toChar())
+            i += 6
+        } else {
+            val escaped = raw.getOrNull(i + 1)
+            val unescaped = escaped?.let { STRING_ESCAPES[it] }
+                ?: throw Analyser.Error(
+                    "Unrecognised escape sequence '\\${escaped ?: ""}' in string literal",
+                    src.createSection(contentStart + i, minOf(2, raw.length - i)),
+                )
+            sb.append(unescaped)
+            i += 2
+        }
+    }
+    return sb.toString()
+}
 
 class Reader private constructor(private val src: Source) {
     companion object {
@@ -73,7 +120,7 @@ class Reader private constructor(private val src: Source) {
             "float" -> DoubleForm(text!!.toDouble(), loc)
             "bigint" -> BigIntForm(BigInteger(text!!.dropLast(1)), loc)
             "bigdec" -> BigDecForm(BigDecimal(text!!.dropLast(1)), loc)
-            "string" -> StringForm(text!!.drop(1).dropLast(1), loc)
+            "string" -> StringForm(unescapeString(text!!.drop(1).dropLast(1), src, startChar + 1), loc)
             "symbol" -> SymbolForm(Symbol.intern(text!!), loc)
             "dot_symbol" -> DotSymbolForm(Symbol.intern(text!!.drop(1)), loc)
             "qualified_dot_symbol" -> {

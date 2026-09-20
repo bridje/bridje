@@ -1,9 +1,11 @@
 package brj
 
 import brj.Reader.Companion.readForms
+import brj.analyser.Analyser
 import brj.runtime.Symbol
 import com.oracle.truffle.api.source.Source
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
@@ -85,6 +87,52 @@ class ReaderTest {
 
     @Test
     fun `reads string`() = assertReads(StringForm("hello"), "\"hello\"".readSingle())
+
+    @Test
+    fun `reads string with no escapes unchanged`() = assertReads(StringForm("hello world"), "\"hello world\"".readSingle())
+
+    @Test
+    fun `reads newline escape`() = assertReads(StringForm("a\nb"), "\"a\\nb\"".readSingle())
+
+    @Test
+    fun `reads tab escape`() = assertReads(StringForm("a\tb"), "\"a\\tb\"".readSingle())
+
+    @Test
+    fun `reads carriage return escape`() = assertReads(StringForm("a\rb"), "\"a\\rb\"".readSingle())
+
+    @Test
+    fun `reads backslash escape`() = assertReads(StringForm("a\\b"), "\"a\\\\b\"".readSingle())
+
+    @Test
+    fun `reads backspace escape`() = assertReads(StringForm("a\bb"), "\"a\\bb\"".readSingle())
+
+    @Test
+    fun `reads form feed escape`() = assertReads(StringForm("a\u000Cb"), "\"a\\fb\"".readSingle())
+
+    @Test
+    fun `reads unicode escape`() = assertReads(StringForm("a\u00E9b"), "\"a\\u00e9b\"".readSingle())
+
+    @Test
+    fun `reads quotes round-tripping with backslashes gone`() =
+        assertReads(StringForm("say \"hi\""), "\"say \\\"hi\\\"\"".readSingle())
+
+    @Test
+    fun `reads string ending in escaped backslash`() = assertReads(StringForm("a\\"), "\"a\\\\\"".readSingle())
+
+    @Test
+    fun `errors on unrecognised escape`() {
+        assertThrows(Analyser.Error::class.java) { "\"C:\\path\"".readSingle() }
+    }
+
+    @Test
+    fun `errors on malformed unicode escape with too few digits`() {
+        assertThrows(Analyser.Error::class.java) { "\"a\\u12\"".readSingle() }
+    }
+
+    @Test
+    fun `errors on malformed unicode escape with non-hex digits`() {
+        assertThrows(Analyser.Error::class.java) { "\"a\\u12zz\"".readSingle() }
+    }
 
     @Test
     fun `reads list`() = assertReads(list(sym("foo"), sym("bar")), "(foo bar)".readSingle())

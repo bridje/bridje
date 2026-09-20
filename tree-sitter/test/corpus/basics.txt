@@ -65,6 +65,28 @@ Simple string
   (string))
 
 ==================
+String with escaped quote
+==================
+
+"say \"hi\""
+
+---
+
+(source_file
+  (string))
+
+==================
+String ending in escaped backslash
+==================
+
+"a\\"
+
+---
+
+(source_file
+  (string))
+
+==================
 Simple list
 ==================
 

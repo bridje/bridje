@@ -47,7 +47,7 @@ module.exports = grammar({
     // ^.member or ^{record} attached to following form
     metadata: $ => seq('^', choice($.dot_symbol, $.qualified_dot_symbol, $.record), $._form),
 
-    string: _ => token(/"([^"]|\\")*"/),
+    string: _ => token(/"([^"\\]|\\.)*"/),
 
     // foo, or a dotted namespace/class name: brj.core, java.time.Instant
     symbol: _ => token(seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), optional('#'))),
