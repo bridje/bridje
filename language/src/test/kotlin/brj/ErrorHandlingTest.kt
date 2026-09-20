@@ -123,6 +123,59 @@ class ErrorHandlingTest {
         assertEquals(42, result.asInt())
     }
 
+    @Test
+    fun `two catch clauses, first clause matches`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            try: throw(NotFound({}))
+              catch:
+                (NotFound d) 1
+              catch:
+                (Forbidden d) 2
+        """.trimIndent())
+        assertEquals(1, result.asInt())
+    }
+
+    @Test
+    fun `two catch clauses, second clause matches`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            try: throw(Forbidden({}))
+              catch:
+                (NotFound d) 1
+              catch:
+                (Forbidden d) 2
+        """.trimIndent())
+        assertEquals(2, result.asInt())
+    }
+
+    @Test
+    fun `default branch in the final catch clause`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            try: throw(Conflict({}))
+              catch:
+                (NotFound d) 1
+              catch:
+                (Forbidden d) 2
+                99
+        """.trimIndent())
+        assertEquals(99, result.asInt())
+    }
+
+    @Test
+    fun `default branch in a non-final catch clause is an error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                try: throw(Conflict({}))
+                  catch:
+                    (NotFound d) 1
+                    42
+                  catch:
+                    (Forbidden d) 2
+            """.trimIndent())
+        }
+        assertTrue(ex.isGuestException)
+        assertTrue(ex.message!!.contains("default expression must be last in catch"))
+    }
+
     // Anomaly tags
 
     @Test

@@ -682,13 +682,13 @@ data class Analyser(
         if (els.size < 3) return errorExpr("try requires a body and at least a catch clause", form.loc)
 
         // Find catch and finally clauses
-        var catchForm: ListForm? = null
+        var catchEls: MutableList<Form>? = null
         var finallyForm: ListForm? = null
         val bodyForms = mutableListOf<Form>()
 
         for (el in els.drop(1)) {
             if (el is ListForm && el.els.firstOrNull().let { it is SymbolForm && it.sym.name == "catch" }) {
-                catchForm = el
+                (catchEls ?: mutableListOf<Form>().also { catchEls = it }).addAll(el.els.drop(1))
             } else if (el is ListForm && el.els.firstOrNull().let { it is SymbolForm && it.sym.name == "finally" }) {
                 finallyForm = el
             } else {
@@ -696,20 +696,19 @@ data class Analyser(
             }
         }
 
-        if (catchForm == null) return errorExpr("try requires a catch clause", form.loc)
+        val combinedCatchEls = catchEls ?: return errorExpr("try requires a catch clause", form.loc)
 
         val bodyExpr = analyseBody(bodyForms, form.loc)
 
         // Parse catch branches — same as case branches, pattern-matching on the anomaly value
-        val catchEls = catchForm.els.drop(1)
         val catchBranches = mutableListOf<CaseBranch>()
         var i = 0
-        while (i < catchEls.size) {
-            val patternForm = catchEls[i]
+        while (i < combinedCatchEls.size) {
+            val patternForm = combinedCatchEls[i]
 
             val isPattern = when (patternForm) {
                 is SymbolForm -> patternForm.sym.name[0].isUpperCase() || patternForm.sym.name == "nil" ||
-                    (patternForm.sym.name[0].isLowerCase() && i + 1 < catchEls.size)
+                    (patternForm.sym.name[0].isLowerCase() && i + 1 < combinedCatchEls.size)
                 is ListForm -> {
                     val first = patternForm.els.firstOrNull()
                     first is SymbolForm && first.sym.name[0].isUpperCase()
@@ -718,7 +717,7 @@ data class Analyser(
             }
 
             if (isPattern) {
-                val bodyForm = catchEls.getOrNull(i + 1)
+                val bodyForm = combinedCatchEls.getOrNull(i + 1)
                 if (bodyForm == null) {
                     errorExpr("catch branch missing body expression", patternForm.loc)
                     i += 1
@@ -730,7 +729,7 @@ data class Analyser(
                 }
                 i += 2
             } else {
-                if (i != catchEls.size - 1) {
+                if (i != combinedCatchEls.size - 1) {
                     errorExpr("default expression must be last in catch", patternForm.loc)
                 }
                 val catchBodyExpr = analyseTailExpr(patternForm)
@@ -739,7 +738,9 @@ data class Analyser(
             }
         }
 
-        if (catchBranches.isEmpty()) return errorExpr("catch requires at least one branch", catchForm.loc)
+        if (catchBranches.isEmpty()) {
+            return errorExpr("catch requires at least one branch", combinedCatchEls.firstOrNull()?.loc ?: form.loc)
+        }
 
         val finallyExpr = if (finallyForm != null) {
             val finallyBodyForms = finallyForm.els.drop(1)
