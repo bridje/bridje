@@ -59,6 +59,31 @@ class ReaderTest {
     fun `reads bigdec`() = assertReads(BigDecForm(BigDecimal("3.14159265358979323846")), "3.14159265358979323846M".readSingle())
 
     @Test
+    fun `reads negative int`() = assertReads(int(-1), "-1".readSingle())
+
+    @Test
+    fun `reads negative float`() = assertReads(DoubleForm(-3.14), "-3.14".readSingle())
+
+    @Test
+    fun `reads negative bigint`() = assertReads(BigIntForm(BigInteger("-42")), "-42N".readSingle())
+
+    @Test
+    fun `reads negative bigdec`() = assertReads(BigDecForm(BigDecimal("-3.14")), "-3.14M".readSingle())
+
+    @Test
+    fun `reads bare dash as a symbol`() = assertReads(sym("-"), "-".readSingle())
+
+    @Test
+    fun `reads dash-prefixed symbol`() = assertReads(sym("-foo"), "-foo".readSingle())
+
+    @Test
+    fun `negative literal immediately followed by a symbol reads as two forms`() =
+        assertReads(
+            list(int(-1), sym("foo")),
+            "(-1foo)".readSingle()
+        )
+
+    @Test
     fun `reads string`() = assertReads(StringForm("hello"), "\"hello\"".readSingle())
 
     @Test

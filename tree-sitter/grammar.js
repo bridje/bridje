@@ -7,9 +7,14 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-nocheck
 
-const SYMBOL_HEAD = /[a-zA-Z*\-_+=?!<>&#]/;
+const SYMBOL_HEAD = /[a-zA-Z*_+=?!<>&#]/;
 const SYMBOL_CHAR = /[a-zA-Z*\-_+=?!<>&0-9]/;
-const SYMBOL_BODY = seq(SYMBOL_HEAD, repeat(SYMBOL_CHAR));
+const SYMBOL_CHAR_NON_DIGIT = /[a-zA-Z*\-_+=?!<>&]/;
+const SYMBOL_BODY = choice(
+  seq(SYMBOL_HEAD, repeat(SYMBOL_CHAR)),
+  seq('-', SYMBOL_CHAR_NON_DIGIT, repeat(SYMBOL_CHAR)),
+  '-',
+);
 
 module.exports = grammar({
   name: "bridje",
@@ -62,10 +67,10 @@ module.exports = grammar({
       seq(SYMBOL_BODY, repeat(seq('.', SYMBOL_BODY)), '/', '.', SYMBOL_BODY),
     ),
 
-    int: _ => token(/[0-9]+/),
-    float: _ => token(/[0-9]+\.[0-9]+/),
-    bigint: _ => token(seq(/[0-9]+/, /[nN]/)),
-    bigdec: _ => token(seq(/[0-9]+/, optional(seq('.', /[0-9]+/)), /[mM]/)),
+    int: _ => token(/-?[0-9]+/),
+    float: _ => token(/-?[0-9]+\.[0-9]+/),
+    bigint: _ => token(seq(/-?[0-9]+/, /[nN]/)),
+    bigdec: _ => token(seq(/-?[0-9]+/, optional(seq('.', /[0-9]+/)), /[mM]/)),
 
     call: $ => seq(
       choice($.symbol, $.qualified_symbol, $.dot_symbol, $.qualified_dot_symbol),

@@ -558,4 +558,105 @@ Hash-digit symbol
 (source_file
   (symbol))
 
+==================
+Negative integer literal
+==================
+
+-1
+
+---
+
+(source_file
+  (int))
+
+==================
+Negative float literal
+==================
+
+-3.14
+
+---
+
+(source_file
+  (float))
+
+==================
+Negative bigint literal
+==================
+
+-42N
+
+---
+
+(source_file
+  (bigint))
+
+==================
+Negative bigdec literal
+==================
+
+-3.14M
+
+---
+
+(source_file
+  (bigdec))
+
+==================
+Bare dash symbol
+==================
+
+-
+
+---
+
+(source_file
+  (symbol))
+
+==================
+Dash-prefixed symbol
+==================
+
+-foo
+
+---
+
+(source_file
+  (symbol))
+
+==================
+Dash-prefixed symbol with a digit later on
+==================
+
+--1
+
+---
+
+(source_file
+  (symbol))
+
+==================
+Negative literal immediately followed by a symbol
+==================
+
+-1foo
+
+---
+
+(source_file
+  (int)
+  (symbol))
+
+==================
+Dash keyword immediately followed by a digit
+==================
+
+:-1
+
+---
+
+(source_file
+  (keyword)
+  (int))
+
 
