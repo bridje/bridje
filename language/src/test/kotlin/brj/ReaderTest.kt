@@ -86,6 +86,67 @@ class ReaderTest {
         )
 
     @Test
+    fun `discard drops the following form at the top level`() =
+        assertReads(sym("bar"), "#_ foo bar".readSingle())
+
+    @Test
+    fun `discard immediately followed by a symbol still discards`() =
+        assertReads(sym("bar"), "#_foo bar".readSingle())
+
+    @Test
+    fun `discard of a compound form drops the whole form`() =
+        assertReads(sym("d"), "#_ (a b c) d".readSingle())
+
+    @Test
+    fun `nested discards drop both layers`() {
+        val forms = "#_ #_ a b c".readAllWithLocation()
+        assertEquals(2, forms.size)
+        assertReads(sym("b"), forms[0])
+        assertReads(sym("c"), forms[1])
+    }
+
+    @Test
+    fun `discard inside a list is dropped`() =
+        assertReads(list(sym("a"), sym("c")), "(a #_ b c)".readSingle())
+
+    @Test
+    fun `discard inside a vector is dropped`() =
+        assertReads(vec(sym("a"), sym("c")), "[a #_ b c]".readSingle())
+
+    @Test
+    fun `discard inside a set is dropped`() =
+        assertReads(SetForm(listOf(sym("a"), sym("c"))), "#{a #_ b c}".readSingle())
+
+    @Test
+    fun `discard inside a record is dropped`() =
+        assertReads(RecordForm(listOf(dot("a"), int(1), int(2))), "{.a 1 #_ .b 2}".readSingle())
+
+    @Test
+    fun `discard as a call argument is dropped`() =
+        assertReads(list(sym("foo"), sym("a"), sym("c")), "foo(a, #_ b, c)".readSingle())
+
+    @Test
+    fun `discard inside a block_call body is dropped`() =
+        assertReads(
+            list(sym("def"), list(sym("foo")), list(sym("baz"))),
+            """
+            def: foo()
+              #_ bar()
+              baz()
+            """.trimIndent().readSingle()
+        )
+
+    @Test
+    fun `quote of a bare discard errors`() {
+        assertThrows(Analyser.Error::class.java) { "'#_ a".readSingle() }
+    }
+
+    @Test
+    fun `metadata attached to a bare discard errors`() {
+        assertThrows(Analyser.Error::class.java) { "^.test #_ foo".readSingle() }
+    }
+
+    @Test
     fun `reads string`() = assertReads(StringForm("hello"), "\"hello\"".readSingle())
 
     @Test

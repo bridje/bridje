@@ -1,6 +1,7 @@
 package brj
 
 import com.oracle.truffle.api.source.Source
+import com.oracle.truffle.api.source.SourceSection
 import brj.analyser.Analyser
 import brj.reader.NativeLibraryLoader
 import io.github.treesitter.jtreesitter.Language
@@ -58,6 +59,11 @@ private fun unescapeString(raw: String, src: Source, contentStart: Int): String 
     return sb.toString()
 }
 
+private val Node.formChildren: List<Node> get() = namedChildren.filter { it.type != "discard" }
+
+private fun List<Node>.formOrThrow(action: String, loc: SourceSection?): Node =
+    firstOrNull() ?: throw Analyser.Error("Nothing to $action, its form was discarded", loc)
+
 class Reader private constructor(private val src: Source) {
     companion object {
         private val logger = System.getLogger("brj.Reader")
@@ -75,7 +81,7 @@ class Reader private constructor(private val src: Source) {
             val tree = Parser(lang).parse(characters.toString()).orElseThrow()
 
             return Reader(this).run {
-                tree.rootNode.children.asSequence()
+                tree.rootNode.formChildren.asSequence()
                     .filter { it.type != "comment" }
                     .map { it.readForm() }
             }
@@ -135,40 +141,41 @@ class Reader private constructor(private val src: Source) {
                 QSymbolForm(Symbol.intern(t.substring(0, slash)), Symbol.intern(t.substring(slash + 1)), loc)
             }
 
-            "list" -> ListForm(namedChildren.map { it.readForm() }, loc)
-            "vector" -> VectorForm(namedChildren.map { it.readForm() }, loc)
-            "set" -> SetForm(namedChildren.map { it.readForm() }, loc)
-            "record" -> RecordForm(namedChildren.map { it.readForm() }, loc)
+            "list" -> ListForm(formChildren.map { it.readForm() }, loc)
+            "vector" -> VectorForm(formChildren.map { it.readForm() }, loc)
+            "set" -> SetForm(formChildren.map { it.readForm() }, loc)
+            "record" -> RecordForm(formChildren.map { it.readForm() }, loc)
 
             "call" -> {
-                val fn = namedChildren[0].readForm()
-                val args = namedChildren.drop(1).map { it.readForm() }
+                val fn = formChildren[0].readForm()
+                val args = formChildren.drop(1).map { it.readForm() }
                 ListForm(listOf(fn) + args, loc)
             }
 
             "record_sugar" -> {
-                val fn = namedChildren[0].readForm()
-                val recordFields = namedChildren.drop(1).map { it.readForm() }
+                val fn = formChildren[0].readForm()
+                val recordFields = formChildren.drop(1).map { it.readForm() }
                 ListForm(listOf(fn, RecordForm(recordFields, loc)), loc)
             }
 
             "block_call" -> {
-                val blockName = namedChildren[0].text!!
-                val args = namedChildren.drop(1).flatMap { child ->
-                    if (child.type == "block_body") child.namedChildren.map { it.readForm() }
+                val blockName = formChildren[0].text!!
+                val args = formChildren.drop(1).flatMap { child ->
+                    if (child.type == "block_body") child.formChildren.map { it.readForm() }
                     else listOf(child.readForm())
                 }
                 ListForm(listOf(SymbolForm(Symbol.intern(blockName), loc)) + args, loc)
             }
 
-            "quote" -> ListForm(listOf(SymbolForm("quote".sym, loc), namedChildren[0].readForm()), loc)
-            "syntax_quote" -> ListForm(listOf(SymbolForm("squote".sym, loc), namedChildren[0].readForm()), loc)
-            "unquote" -> ListForm(listOf(SymbolForm("unquote".sym, loc), namedChildren[0].readForm()), loc)
-            "unquote_splice" -> ListForm(listOf(SymbolForm("unquoteSplicing".sym, loc), namedChildren[0].readForm()), loc)
+            "quote" -> ListForm(listOf(SymbolForm("quote".sym, loc), formChildren.formOrThrow("quote", loc).readForm()), loc)
+            "syntax_quote" -> ListForm(listOf(SymbolForm("squote".sym, loc), formChildren.formOrThrow("syntax-quote", loc).readForm()), loc)
+            "unquote" -> ListForm(listOf(SymbolForm("unquote".sym, loc), formChildren.formOrThrow("unquote", loc).readForm()), loc)
+            "unquote_splice" -> ListForm(listOf(SymbolForm("unquoteSplicing".sym, loc), formChildren.formOrThrow("unquote-splice", loc).readForm()), loc)
 
             "metadata" -> {
-                val metaValue = namedChildren[0].readForm()
-                val innerForm = namedChildren[1].readForm()
+                val metaValue = formChildren[0].readForm()
+                val innerForm = formChildren.getOrNull(1)?.readForm()
+                    ?: throw Analyser.Error("Nothing to attach metadata to, its form was discarded", loc)
                 when (metaValue) {
                     is DotSymbolForm -> innerForm.withStaticMeta(metaValue)
                     is QDotSymbolForm -> innerForm.withStaticMeta(metaValue)

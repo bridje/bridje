@@ -681,4 +681,160 @@ Dash keyword immediately followed by a digit
   (keyword)
   (int))
 
+==================
+Discard at top level
+==================
+
+#_ foo bar
+
+---
+
+(source_file
+  (discard
+    (symbol))
+  (symbol))
+
+==================
+Discard immediately followed by a form, no space
+==================
+
+#_foo bar
+
+---
+
+(source_file
+  (discard
+    (symbol))
+  (symbol))
+
+==================
+Discard of a compound form
+==================
+
+#_ (a b c) d
+
+---
+
+(source_file
+  (discard
+    (list
+      (symbol)
+      (symbol)
+      (symbol)))
+  (symbol))
+
+==================
+Nested discards
+==================
+
+#_ #_ a b c
+
+---
+
+(source_file
+  (discard
+    (discard
+      (symbol)))
+  (symbol)
+  (symbol))
+
+==================
+Discard inside a list
+==================
+
+(a #_ b c)
+
+---
+
+(source_file
+  (list
+    (symbol)
+    (discard
+      (symbol))
+    (symbol)))
+
+==================
+Discard inside a vector
+==================
+
+[a #_ b c]
+
+---
+
+(source_file
+  (vector
+    (symbol)
+    (discard
+      (symbol))
+    (symbol)))
+
+==================
+Discard inside a set
+==================
+
+#{a #_ b c}
+
+---
+
+(source_file
+  (set
+    (symbol)
+    (discard
+      (symbol))
+    (symbol)))
+
+==================
+Discard inside a record
+==================
+
+{.a 1 #_ .b 2}
+
+---
+
+(source_file
+  (record
+    (dot_symbol)
+    (int)
+    (discard
+      (dot_symbol))
+    (int)))
+
+==================
+Discard as a call argument
+==================
+
+foo(a, #_ b, c)
+
+---
+
+(source_file
+  (call
+    (symbol)
+    (symbol)
+    (discard
+      (symbol))
+    (symbol)))
+
+==================
+Discard inside a block_call body
+==================
+
+def: foo()
+  #_ bar()
+  baz()
+
+---
+
+(source_file
+  (block_call
+    (symbol)
+    (call
+      (symbol))
+    (block_body
+      (discard
+        (call
+          (symbol)))
+      (call
+        (symbol)))))
+
 

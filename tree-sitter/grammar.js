@@ -7,11 +7,14 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-nocheck
 
-const SYMBOL_HEAD = /[a-zA-Z*_+=?!<>&#]/;
+const SYMBOL_HEAD = /[a-zA-Z*_+=?!<>&]/;
 const SYMBOL_CHAR = /[a-zA-Z*\-_+=?!<>&0-9]/;
 const SYMBOL_CHAR_NON_DIGIT = /[a-zA-Z*\-_+=?!<>&]/;
+const SYMBOL_CHAR_NON_UNDERSCORE = /[a-zA-Z*\-+=?!<>&0-9]/;
 const SYMBOL_BODY = choice(
   seq(SYMBOL_HEAD, repeat(SYMBOL_CHAR)),
+  seq('#', SYMBOL_CHAR_NON_UNDERSCORE, repeat(SYMBOL_CHAR)),
+  '#',
   seq('-', SYMBOL_CHAR_NON_DIGIT, repeat(SYMBOL_CHAR)),
   '-',
 );
@@ -42,6 +45,7 @@ module.exports = grammar({
       $.unquote_splice,
       $.unquote,
       $.metadata,
+      $.discard,
     ),
 
     // ^.member or ^{record} attached to following form
