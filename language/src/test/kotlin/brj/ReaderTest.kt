@@ -19,6 +19,7 @@ private fun Form.contentEquals(other: Form): Boolean = when {
     this is StringForm && other is StringForm -> value == other.value
     this is SymbolForm && other is SymbolForm -> sym == other.sym
     this is QSymbolForm && other is QSymbolForm -> ns == other.ns && member == other.member
+    this is DotSymbolForm && other is DotSymbolForm -> sym == other.sym
     this is ListForm && other is ListForm ->
         els.size == other.els.size && els.zip(other.els).all { (a, b) -> a.contentEquals(b) }
     this is VectorForm && other is VectorForm ->

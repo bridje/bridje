@@ -670,15 +670,15 @@ Negative literal immediately followed by a symbol
   (symbol))
 
 ==================
-Dash keyword immediately followed by a digit
+Dash member immediately followed by a digit
 ==================
 
-:-1
+.-1
 
 ---
 
 (source_file
-  (keyword)
+  (dot_symbol)
   (int))
 
 ==================
