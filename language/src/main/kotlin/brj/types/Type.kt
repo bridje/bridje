@@ -89,12 +89,51 @@ data class EnumType(val enum: EnumRef, val args: List<Type>) : Type {
     override fun toString() = if (args.isEmpty()) "$enum" else "$enum(${args.joinToString(", ")})"
 }
 
+// What `with` and nil-narrowing know about a value beyond its base type. `record` implies `notNil`.
+data class Filter(val record: Boolean = false, val keys: Set<QSymbol> = emptySet(), val notNil: Boolean = false) {
+    val isIdentity get() = !record && !notNil
+
+    // Satisfied by a value passing either filter.
+    infix fun or(o: Filter) = Filter(
+        record = record && o.record,
+        keys = if (record && o.record) keys intersect o.keys else emptySet(),
+        notNil = notNil && o.notNil,
+    )
+
+    infix fun and(o: Filter) = Filter(
+        record = record || o.record,
+        keys = keys + o.keys,
+        notNil = notNil || o.notNil || record || o.record,
+    )
+
+    override fun toString() = when {
+        record -> RecordType(keys).toString()
+        notNil -> "¬nil"
+        else -> "⊤"
+    }
+
+    companion object {
+        val NOT_NIL = Filter(notNil = true)
+        fun keys(keys: Set<QSymbol>) = Filter(record = true, keys = keys, notNil = true)
+    }
+}
+
+// base ∧ filter: whatever the base is, narrowed by the filter. The type of `with` on a variable or a
+// nominal, and of a nil-checked variable. The base is a variable, a tag or an enum; on anything else
+// the meet normalises away. It appears in positive position and as a lower bound; as an upper bound it
+// decomposes.
+data class Meet(val base: Type, val filter: Filter) : Type {
+    override fun toString() = "$base ∧ $filter"
+}
+
 fun Type.nullable(): Type = when (this) {
     NilType, is NullableType -> this
     BottomType -> NilType
     else -> NullableType(this)
 }
 
+// A type variable is an identity. What has flowed into it and what has been demanded of it live in a
+// BoundEnv, so a typing scheme is a value and two branches can extend the same scheme independently.
 class TypeVar : Type {
     val id = nextId.getAndIncrement()
 
@@ -119,9 +158,67 @@ internal fun Type.typeVars(): Set<TypeVar> {
             is HostType -> t.args.forEach(::go)
             is TagType -> t.args.forEach(::go)
             is EnumType -> t.args.forEach(::go)
+            is Meet -> go(t.base)
             is PrimType, is RecordType, BottomType, NilType -> {}
         }
     }
     go(this)
     return out
 }
+
+// The lower bound of a variable is a set of disjuncts, kept in normal form: at most one concrete type
+// (same-kind concretes merge by the kind's join), a nullability flag, bare variables, and at most one
+// `α ∧ F` per variable α. `(α ∧ F1) ∨ (α ∧ F2)` is `α ∧ (F1 or F2)`, and `(α ∧ F) ∨ α` is `α`.
+data class LowerBound(
+    // Never nil, nullable, Nothing, a type variable or a meet on a variable.
+    val concrete: Type? = null,
+    val nullable: Boolean = false,
+    val tvs: Set<TypeVar> = emptySet(),
+    val meets: Map<TypeVar, Filter> = emptyMap(),
+) {
+    val isEmpty get() = concrete == null && !nullable && tvs.isEmpty() && meets.isEmpty()
+
+    fun concreteType(): Type? = when {
+        concrete != null -> if (nullable) NullableType(concrete) else concrete
+        nullable -> NilType
+        else -> null
+    }
+
+    fun disjuncts(): List<Type> = listOfNotNull(concreteType()) + meets.map { (tv, f) -> Meet(tv, f) }
+
+    fun asTypes(): List<Type> = disjuncts() + tvs
+}
+
+// The upper bound holds at most one concrete type (same-kind concretes merge by the kind's meet, and
+// across kinds the meet is Nothing), whether nil is admitted, and bare variables.
+data class UpperBound(
+    // Never nil, nullable or a type variable. May be Nothing.
+    val concrete: Type? = null,
+    val nilOk: Boolean = true,
+    val tvs: Set<TypeVar> = emptySet(),
+) {
+    val isEmpty get() = concrete == null && tvs.isEmpty()
+
+    fun concreteType(): Type? = when {
+        concrete == null -> null
+        concrete == BottomType -> if (nilOk) NilType else BottomType
+        nilOk -> NullableType(concrete)
+        else -> concrete
+    }
+
+    fun asTypes(): List<Type> = listOfNotNull(concreteType()) + tvs
+}
+
+data class Bounds(val lower: LowerBound = LowerBound(), val upper: UpperBound = UpperBound())
+
+// A variable absent from the map is unconstrained.
+typealias BoundEnv = Map<TypeVar, Bounds>
+
+val BoundEnv.lower: (TypeVar) -> LowerBound get() = { this[it]?.lower ?: LowerBound() }
+val BoundEnv.upper: (TypeVar) -> UpperBound get() = { this[it]?.upper ?: UpperBound() }
+
+// [provenance] is the constraint being checked when the failure arose, where the failing pair is a
+// fragment of it: `Int is not a Str` alone does not say which call put an Int where a Str was wanted.
+class TypeCheckException(message: String, val provenance: Pair<Type, Type>? = null) : RuntimeException(
+    provenance?.let { (l, u) -> "$message\n  while checking $l ≤ $u" } ?: message
+)

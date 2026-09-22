@@ -38,7 +38,7 @@ class ErrorHandlingTest {
         val result = ctx.evalBridje("""
             try: throw(Fault({.exnMessage "oops"}))
               catch:
-                (Fault d) .exnMessage(d)
+                (Fault d) .?exnMessage(d)
         """.trimIndent())
         assertEquals("oops", result.asString())
     }
@@ -285,7 +285,7 @@ class ErrorHandlingTest {
             def: result
               try: (do (Int/parseInt "not a number") "parsed")
                 catch:
-                  Host(d) .exnMessage(d)
+                  Host(d) .?exnMessage(d)
         """.trimIndent())
         val msg = ctx.evalBridje("test.hostex/result").asString()
         assertTrue(msg.contains("not a number"), "Expected message about bad input, got: $msg")

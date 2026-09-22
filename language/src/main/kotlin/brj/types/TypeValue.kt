@@ -11,5 +11,5 @@ class TypeValue(val type: Type) : TruffleObject {
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
 
-    override fun toString(): String = Rendered(type).toString()
+    override fun toString(): String = Scheme(type).simplify().toString()
 }

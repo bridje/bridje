@@ -1,5 +1,6 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -78,6 +79,19 @@ class MetaTest {
               withMeta({.x 42}, {.tag "special"})
         """.trimIndent())
         assertFalse(result.hasMember("tag"))
+    }
+
+    @Test
+    fun `withMeta nil is a type error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  decl: .foo Str
+                  let: [v withMeta([1 2], {.foo "bar"})]
+                    meta(withMeta(v, nil))
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("nullable") == true, "Expected nullable type error, got: ${ex.message}")
     }
 
     @Test
