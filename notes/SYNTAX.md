@@ -424,9 +424,14 @@ A symbol or call form declares a type signature for a value or function.
 decl: x Int
 decl: foo(Int, Str) Bool
 decl: callback Fn([Int, Str] Bool)
-decl: identity(a) a
-decl: map([a], Fn([a] b)) [b]
+decl: [a] identity(a) a
+decl: [a, b] map([a], Fn([a] b)) [b]
+decl: greet({.name, .?title}) Str
 ```
+
+Type variables are named in a leading vector.
+A record type names the keys a value must carry; `.?title` documents a key it may carry.
+The type each key holds comes from the key's own declaration.
 
 ### Records
 
@@ -502,8 +507,8 @@ Nothing                        // singleton, no parens needed
 ### enum
 
 Closed sum type — a fixed set of variants.
-Variants are constructors owned by the enum, not standalone types.
-`Just(x)` has type `Maybe(a)`, not type `Just`.
+A variant's constructor is typed as its tag, and the tag is a subtype of the enum: `Just(x)` has type `Just`, and a value that is `Just(x)` or `Nothing` has type `Maybe(a)`.
+Two tags of different enums do not join.
 
 ```bridje
 enum: ServerRole
