@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "juxt-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "juxt/claude-plugins"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "chalk@juxt-plugins": true
+  }
+}
