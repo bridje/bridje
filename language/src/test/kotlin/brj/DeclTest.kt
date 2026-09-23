@@ -90,7 +90,7 @@ class DeclTest {
         val meta = ctx.varMeta("test.decl.tag", "user")
         assertTrue(meta.hasMember("declaredType"))
         val declType = meta.getMember("declaredType")
-        assertEquals("test.decl.tag.User", declType.displayString())
+        assertEquals("User", declType.displayString())
     }
 
     @Test
@@ -120,7 +120,19 @@ class DeclTest {
             def: identity(x) x
         """.trimIndent())
         val declType = ctx.varMeta("test.decl.poly", "identity").getMember("declaredType")
-        assertEquals("Fn([?] ?)", declType.displayString())
+        assertEquals("[a] Fn([a] a)", declType.displayString())
+    }
+
+    @Test
+    fun `decl record type is its key set`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.rec
+            decl: .name Str
+            decl: user {.name}
+            def: user {.name "James"}
+        """.trimIndent())
+        val declType = ctx.varMeta("test.decl.rec", "user").getMember("declaredType")
+        assertEquals("{test.decl.rec/.name}", declType.displayString())
     }
 
     @Test
