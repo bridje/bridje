@@ -119,6 +119,7 @@ class QuoteTest {
         val result = ctx.evalBridjeForms("""
             case: '(foo bar)
               rdr/List(forms) forms
+              _ []
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(2L, result.arraySize)

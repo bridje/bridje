@@ -85,7 +85,10 @@ class BridjeTestEngine : TestEngine {
 
             if (nsValues.isNotEmpty()) discoverTests(context, engineDescriptor)
             registerLoadFailures(engineDescriptor)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // JUnit reports only that discovery failed; say why.
+            System.err.println("bridje test engine: discovery failed: $e")
+            e.printStackTrace()
             context.close()
             ctx = null
             throw e
@@ -97,9 +100,15 @@ class BridjeTestEngine : TestEngine {
     }
 
     private fun discoverTests(context: Context, engineDescriptor: EngineDescriptor) {
+        // Tags rather than vectors: a namespace's name and its vars are of different types.
         val discoverSrc = Source.newBuilder(
             "bridje",
-            "mapv(allNses(), fn: nsL(ns) [ns, mapv(nsVars(ns), fn: varL(v) [nth(v, 1), meta(v)])])",
+            """
+            do:
+              tag: NsInfo(ns, vars)
+              tag: VarInfo(v, m)
+              mapv(allNses(), fn: nsL(ns) NsInfo(ns, mapv(nsVars(ns), fn: varL(v) VarInfo(v, meta(v)))))
+            """.trimIndent(),
             "<test-discovery>"
         ).mimeType("text/brj").build()
         val discovered = context.eval(discoverSrc)
@@ -115,7 +124,8 @@ class BridjeTestEngine : TestEngine {
                 val pair = vars.getArrayElement(j)
                 val meta = pair.getArrayElement(1)
                 if (meta.hasMember("test") && meta.getMember("test").asBoolean()) {
-                    val varName = pair.getArrayElement(0).toString()
+                    // A var reads as (ns, name).
+                    val varName = pair.getArrayElement(0).getArrayElement(1).toString()
                     testVars.add(varName to fileSource(meta))
                 }
             }

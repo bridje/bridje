@@ -44,8 +44,9 @@ class CaseTest {
     fun `case selects correct branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Nothing
-              tag: Just(value)
+              enum: Maybe
+                tag: Nothing
+                tag: Just(value)
               case: Just(42)
                 Nothing 0
                 Just(x) x
@@ -57,8 +58,9 @@ class CaseTest {
     fun `case selects nothing branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Nothing
-              tag: Just(value)
+              enum: Maybe
+                tag: Nothing
+                tag: Just(value)
               case: Nothing
                 Nothing 0
                 Just(x) x

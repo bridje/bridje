@@ -17,7 +17,7 @@ class RecordTest {
     fun `key is callable as getter`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               .foo({.foo 42})
         """.trimIndent())
         assertEquals(42L, result.asLong())
@@ -27,7 +27,7 @@ class RecordTest {
     fun `record literal creates record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               {.foo 42}
         """.trimIndent())
         assertTrue(result.hasMembers())
@@ -61,7 +61,7 @@ class RecordTest {
     fun `record display string`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               {.foo 42}
         """.trimIndent())
         assertEquals("{.foo 42}", result.toString())
@@ -71,7 +71,7 @@ class RecordTest {
     fun `record display string with multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {.a Str, .b Str}
+              decl: {.a Int, .b Int}
               {.a 1, .b 2}
         """.trimIndent())
         val str = result.toString()
@@ -149,7 +149,7 @@ class RecordTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  decl: .foo Str
+                  decl: .foo Int
                   .foo({.foo 1}, {.foo 2})
             """.trimIndent())
         }
@@ -195,7 +195,7 @@ class RecordTest {
     fun `nested records`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {.inner Str, .outer Str}
+              decl: {.inner Int, .outer {}}
               {.outer {.inner 42}}
         """.trimIndent())
         assertTrue(result.hasMembers())
@@ -206,10 +206,12 @@ class RecordTest {
 
     @Test
     fun `key on nested record`() = withContext { ctx ->
+        // .outer is declared a bare record, so .inner cannot be read off it; .?inner can.
+        // Declaring `.outer {.inner Int}` waits on the analyser producing the new types.
         val result = ctx.evalBridje("""
             do:
-              decl: {.inner Str, .outer Str}
-              .inner(.outer({.outer {.inner 42}}))
+              decl: {.inner Int, .outer {}}
+              .?inner(.outer({.outer {.inner 42}}))
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -284,7 +286,7 @@ class RecordTest {
     fun `qualified keyword across namespaces`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my.keys
-            decl: .foo Str
+            decl: .foo Int
         """.trimIndent())
 
         val ns = ctx.evalBridje("""
@@ -302,7 +304,7 @@ class RecordTest {
     fun `qualified keyword in record literal`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my.keys
-            decl: .foo Str
+            decl: .foo Int
         """.trimIndent())
 
         val ns = ctx.evalBridje("""
@@ -330,7 +332,7 @@ class RecordTest {
     fun `set mutates a field`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               let: [r {.foo 1}]
                 do:
                   (set r .foo 99)
@@ -343,7 +345,7 @@ class RecordTest {
     fun `set returns old value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               (set {.foo 1} .foo 99)
         """.trimIndent())
         assertEquals(1L, result.asLong())
@@ -353,7 +355,7 @@ class RecordTest {
     fun `set returns nil for missing key`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               (set {} .foo 99)
         """.trimIndent())
         assertTrue(result.isNull)
@@ -363,7 +365,7 @@ class RecordTest {
     fun `set preserves other fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {.a Str, .b Str}
+              decl: {.a Int, .b Int}
               let: [r {.a 1, .b 2}]
                 do:
                   (set r .a 99)
@@ -377,7 +379,7 @@ class RecordTest {
     fun `set via method call syntax`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               let: [r {.foo 1}]
                 do:
                   set(r, .foo, 99)
@@ -390,7 +392,7 @@ class RecordTest {
     fun `set with qualified key`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my.keys
-            decl: .foo Str
+            decl: .foo Int
         """.trimIndent())
 
         val ns = ctx.evalBridje("""
@@ -426,7 +428,7 @@ class RecordTest {
     fun `qualified field access across namespaces`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my.keys
-            decl: .bar Str
+            decl: .bar Int
         """.trimIndent())
 
         val ns = ctx.evalBridje("""

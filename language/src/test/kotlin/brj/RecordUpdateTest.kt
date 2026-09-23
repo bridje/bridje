@@ -10,7 +10,7 @@ class RecordUpdateTest {
     fun `with updates a single field`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               let: [r {.foo 1}]
                 with(r, .foo 99)
         """.trimIndent())
@@ -21,7 +21,7 @@ class RecordUpdateTest {
     fun `with returns a new record without mutating the original`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               let: [r {.foo 1}
                     updated with(r, .foo 99)]
                 [(.foo r), (.foo updated)]
@@ -34,7 +34,7 @@ class RecordUpdateTest {
     fun `with updates multiple fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {.a Str, .b Str, .c Str}
+              decl: {.a Int, .b Int, .c Int}
               let: [r {.a 1, .b 2, .c 3}]
                 with(r, .a 10, .b 20)
         """.trimIndent())
@@ -47,7 +47,7 @@ class RecordUpdateTest {
     fun `with preserves unupdated fields`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: {.a Str, .b Str}
+              decl: {.a Int, .b Int}
               with({.a 1, .b 2}, .a 99)
         """.trimIndent())
         assertEquals(99L, result.getMember("a").asLong())
@@ -58,7 +58,7 @@ class RecordUpdateTest {
     fun `with via list syntax`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .foo Str
+              decl: .foo Int
               (with {.foo 1} .foo 99)
         """.trimIndent())
         assertEquals(99L, result.getMember("foo").asLong())
@@ -122,7 +122,7 @@ class RecordUpdateTest {
     fun `with on qualified key`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: my.keys
-            decl: .foo Str
+            decl: .foo Int
         """.trimIndent())
 
         val ns = ctx.evalBridje("""

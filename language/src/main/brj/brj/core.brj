@@ -72,6 +72,8 @@ defmacro: cond(& clauses)
       first(clauses)
       '(if ~first(clauses) ~nth(clauses, 1) (cond ~@rest(rest(clauses))))
 
+decl: .exnMessage Str
+
 defmacro: ifLet(bindings, then, else)
   case: bindings
     rdr/Vector(els)
@@ -79,6 +81,7 @@ defmacro: ifLet(bindings, then, else)
          (case v#
            nil ~else
            ~first(els) ~then))
+    _ throw(Incorrect({.exnMessage "ifLet expects a binding vector"}))
 
 defmacro: unlessLet(bindings, else, then)
   case: bindings
@@ -87,8 +90,8 @@ defmacro: unlessLet(bindings, else, then)
          (case v#
            nil ~else
            ~first(els) ~then))
+    _ throw(Incorrect({.exnMessage "unlessLet expects a binding vector"}))
 
-decl: .exnMessage Str
 
 defmacro: orElse(value, & defaults)
   if: isEmpty(defaults)

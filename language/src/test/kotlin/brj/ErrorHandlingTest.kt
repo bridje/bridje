@@ -283,7 +283,7 @@ class ErrorHandlingTest {
                   as(Integer, Int)
             decl: Int/parseInt(Str) Int
             def: result
-              try: Int/parseInt("not a number")
+              try: (do (Int/parseInt "not a number") "parsed")
                 catch:
                   Host(d) .exnMessage(d)
         """.trimIndent())
