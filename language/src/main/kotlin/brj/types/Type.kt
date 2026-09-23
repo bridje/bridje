@@ -1,6 +1,5 @@
 package brj.types
 
-import brj.analyser.*
 import brj.runtime.Symbol
 import brj.types.Nullability.*
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -191,40 +190,3 @@ fun freshType(tv: TypeVar = TypeVar()) = Type(MAYBE_NULL, tv, null)
 fun nullType(tv: TypeVar = TypeVar()) = Type(NULLABLE, tv, null)
 fun nothingType(tv: TypeVar = TypeVar()) = Type(NOT_NULL, tv, null)
 fun errorType() = ErrorType.notNull()
-
-private val Type.tvs0: List<TypeVar> get() =
-    when (val base = this.base) {
-        is VectorType -> base.el.tvs0
-        is SetType -> base.el.tvs0
-        is HostType -> base.args.flatMap { it.tvs0 }
-        is TagType -> base.args.flatMap { it.tvs0 }
-        is EnumType -> base.args.flatMap { it.tvs0 }
-        is FnType -> base.paramTypes.flatMap { it.tvs0 } + base.returnType.tvs0
-        is IterableType -> base.el.tvs0
-        is IteratorType -> base.el.tvs0
-        else -> emptyList()
-    }.plus(tv)
-
-val Type.tvs: List<TypeVar> get() = tvs0.distinct()
-
-private fun instantiateType(type: Type, mapping: MutableMap<TypeVar, TypeVar>): Type {
-    fun TypeVar.fresh(): TypeVar = mapping.getOrPut(this) { TypeVar() }
-
-    fun instBase(base: BaseType): BaseType = when (base) {
-        is VectorType -> VectorType(instantiateType(base.el, mapping))
-        is SetType -> SetType(instantiateType(base.el, mapping))
-        is HostType -> if (base.args.isEmpty()) base else HostType(base.className, base.args.map { instantiateType(it, mapping) }, base.variances)
-        is TagType -> if (base.args.isEmpty()) base else TagType(base.ns, base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
-        is EnumType -> if (base.args.isEmpty()) base else EnumType(base.name, base.args.map { instantiateType(it, mapping) }, base.variances)
-        is FnType -> FnType(base.paramTypes.map { instantiateType(it, mapping) }, instantiateType(base.returnType, mapping))
-        is IterableType -> IterableType(instantiateType(base.el, mapping))
-        is IteratorType -> IteratorType(instantiateType(base.el, mapping))
-        else -> base
-    }
-
-    return Type(type.nullability, type.tv.fresh(), type.base?.let { instBase(it) })
-}
-
-fun Type.instantiate(): Type = instantiateType(this, mutableMapOf())
-
-fun ValueExpr.checkType(): Type = typing().type
