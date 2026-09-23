@@ -5,8 +5,6 @@ import brj.analyser.*
 import brj.effects.collectEffectfulCallees
 import brj.effects.inferEffects
 import brj.runtime.*
-import brj.types.*
-import brj.types.Nullability.NOT_NULL
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.bytecode.BytecodeConfig
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -81,7 +79,7 @@ class ParseRootNode(
     private fun locMeta(expr: Expr): BridjeRecord =
         expr.loc?.let { BridjeRecord.EMPTY.put(LOC_KEY, Loc(it)) } ?: BridjeRecord.EMPTY
 
-    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: Symbol? = null): Pair<Any, NsEnv> {
+    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv): Pair<Any, NsEnv> {
         val ns = nsEnv.nsSymbol
         val qFieldNames = expr.fieldNames.map { QSymbol(ns, it) }
 
@@ -92,47 +90,17 @@ class ParseRootNode(
                 BridjeTagConstructor(expr.name.name, expr.fieldNames.size, qFieldNames)
             }
 
-        val type = if (expr.fieldNames.isEmpty()) {
-            if (enumName != null && expr.typeVarNames.isNotEmpty()) {
-                // Nullary variant of a parameterised enum (e.g., Nothing in Maybe(a))
-                // needs fresh type vars so it can unify with any instantiation.
-                val variances = expr.typeVarNames.map { Variance.INVARIANT }
-                val freshArgs = expr.typeVarNames.map { freshType() }
-                EnumType(enumName, freshArgs, variances).notNull()
-            } else if (enumName != null) {
-                EnumType(enumName).notNull()
-            } else {
-                TagType(ns, expr.name).notNull()
-            }
-        } else {
-            val typeVars = expr.typeVarNames.associateWith { TypeVar() }
-            val variances = expr.typeVarNames.map { Variance.INVARIANT }
-            val fieldTypes = expr.fieldNames.map { fieldName ->
-                if (fieldName.name in typeVars) Type(NOT_NULL, typeVars[fieldName.name]!!, null)
-                else freshType()
-            }
-            val tagArgs = typeVars.values.map { Type(NOT_NULL, it, null) }
-            val returnType = if (enumName != null) {
-                EnumType(enumName, tagArgs, variances)
-            } else {
-                TagType(ns, expr.name, tagArgs, variances)
-            }
-            FnType(fieldTypes, returnType.notNull()).notNull()
-        }
-
-        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr), type = type)
+        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr))
 
         if (expr.recordStyle) {
             // tag: Foo({.k1, .k2}) — register each field name as a key as well.
             for (fieldSym in expr.fieldNames) {
                 val key = BridjeKey(ns, fieldSym)
                 val optKey = BridjeOptionalKey(key)
-                val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
-                val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optName = Symbol.intern("?$fieldSym")
-                updatedNs = updatedNs.defKey(fieldSym, key, type = keyType)
-                updatedNs = updatedNs.defKey(optName, optKey, type = optKeyType)
-                updatedNs = updatedNs.def(optName, optKey, type = optKeyType)
+                updatedNs = updatedNs.defKey(fieldSym, key)
+                updatedNs = updatedNs.defKey(optName, optKey)
+                updatedNs = updatedNs.def(optName, optKey)
             }
         }
 
@@ -155,7 +123,6 @@ class ParseRootNode(
                 }
 
                 is DefExpr -> {
-                    val type = expr.valueExpr.checkType()
                     val effects = expr.valueExpr.inferEffects().toList()
                     val userMeta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
                     val meta = expr.loc?.let { userMeta.put(LOC_KEY, Loc(it)) } ?: userMeta
@@ -165,11 +132,11 @@ class ParseRootNode(
                             throw Analyser.Error("effects can only be used within a function body: ${expr.name}", expr.loc)
                         }
                         val value = evalEffectfulDef(expr.valueExpr)
-                        nsEnv = nsEnv.def(expr.name, value, meta, type).withEffects(expr.name, effects)
+                        nsEnv = nsEnv.def(expr.name, value, meta).withEffects(expr.name, effects)
                         value
                     } else {
                         val value = evalExpr(expr.valueExpr, analyser.slotCount)
-                        nsEnv = nsEnv.def(expr.name, value, meta, type)
+                        nsEnv = nsEnv.def(expr.name, value, meta)
                         value
                     }
                 }
@@ -184,7 +151,7 @@ class ParseRootNode(
                     val variantNames = mutableSetOf<Symbol>()
                     var lastValue: Any? = null
                     for (tagExpr in expr.variants) {
-                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv, enumName = expr.name)
+                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv)
                         nsEnv = updatedNsEnv
                         variantNames.add(tagExpr.name)
                         lastValue = value
@@ -194,21 +161,10 @@ class ParseRootNode(
                 }
 
                 is DefMacroExpr -> {
-                    val type = expr.fn.checkType()
-                    val fnType = type.base as? FnType
-                        ?: throw TypeErrorException("defmacro body did not produce a function type: $type")
-                    val formType = FormType.notNull()
-                    val formConstraints = fnType.paramTypes.mapIndexed { i, paramType ->
-                        val isRest = expr.fn.isVariadic && i == fnType.paramTypes.lastIndex
-                        val expected = if (isRest) VectorType(formType).notNull() else formType
-                        expected subOf paramType
-                    } + (fnType.returnType subOf formType)
-                    formConstraints.resolve()
-
                     val fn = evalExpr(expr.fn, analyser.slotCount)
                     val fixedArity = if (expr.fn.isVariadic) expr.fn.params.size - 1 else expr.fn.params.size
                     val macro = BridjeMacro(fn!!, fixedArity, expr.fn.isVariadic)
-                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr), type = type)
+                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr))
                     macro
                 }
 
@@ -265,19 +221,16 @@ class ParseRootNode(
                     for (name in expr.names) {
                         val key = BridjeKey(nsSym, name)
                         val optKey = BridjeOptionalKey(key)
-                        val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
-                        val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                         val optName = Symbol.intern("?$name")
-                        nsEnv = nsEnv.defKey(name, key, type = keyType)
-                        nsEnv = nsEnv.defKey(optName, optKey, type = optKeyType)
-                        nsEnv = nsEnv.def(optName, optKey, type = optKeyType)
+                        nsEnv = nsEnv.defKey(name, key)
+                        nsEnv = nsEnv.defKey(optName, optKey)
+                        nsEnv = nsEnv.def(optName, optKey)
                         lastKey = key
                     }
                     lastKey
                 }
 
                 is ValueExpr -> {
-                    expr.checkType()
                     evalExpr(expr, analyser.slotCount)
                 }
 

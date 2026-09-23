@@ -1,9 +1,7 @@
 package brj
 
-import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 
 class HostTypeSubtypingTest {
 
@@ -48,24 +46,6 @@ class HostTypeSubtypingTest {
         """.trimIndent())
         val result = ctx.evalBridje("test.subtype.propagation/result")
         assertEquals(42L, result.asLong())
-    }
-
-    @Test
-    fun `unrelated classes are rejected`() = withContext { ctx ->
-        val ex = assertThrows<PolyglotException> {
-            ctx.evalBridje("""
-                ns: test.subtype.reject
-                  import:
-                    java.lang:
-                      as(StringBuilder, SB)
-                      as(Iterable, Itr)
-                decl: SB/new() SB
-                decl: [a] Itr/.iterator() Itr(a)
-                def: result Itr/.iterator(SB/new())
-            """.trimIndent())
-        }
-        assertTrue(ex.message?.contains("not a subtype") == true || ex.message?.contains("Incompatible") == true,
-            "Expected subtype error, got: ${ex.message}")
     }
 
     @Test

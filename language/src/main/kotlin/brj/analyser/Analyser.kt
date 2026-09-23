@@ -1049,7 +1049,7 @@ data class Analyser(
 
     private fun errorType(message: String, loc: SourceSection?): Type {
         addError(message, loc)
-        return errorType()
+        return nothingType()
     }
 
     private fun analyseTypeSymbol(name: String, loc: SourceSection?, typeVars: Map<String, TypeVar>): Type =
