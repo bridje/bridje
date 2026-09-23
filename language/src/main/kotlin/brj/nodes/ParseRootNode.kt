@@ -227,6 +227,7 @@ class ParseRootNode(
                         nsEnv = nsEnv.def(optName, optKey)
                         lastKey = key
                     }
+                    nsEnv = nsEnv.declKeyTypes(expr.types)
                     lastKey
                 }
 

@@ -54,6 +54,7 @@ data class NsEnv(
     val effectVars: Map<Symbol, GlobalVar> = emptyMap(),
     val interopVars: Map<Pair<Symbol, Symbol>, GlobalVar> = emptyMap(),
     val pendingDecls: Map<Symbol, Type> = emptyMap(),
+    val keyTypes: Map<Symbol, Type> = emptyMap(),
     val enums: Map<Symbol, Set<Symbol>> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
@@ -88,6 +89,11 @@ data class NsEnv(
             }
 
             val locKeyNames = listOf("loc", "source", "path", "startLine", "startColumn", "endLine", "endColumn")
+            // What a Loc's keys hold. `loc` itself is left undeclared: its value is a Loc, read by these keys.
+            val locKeyTypes = mapOf(
+                "source".sym to StrType, "path".sym to StrType.nullable(),
+                "startLine".sym to IntType, "startColumn".sym to IntType, "endLine".sym to IntType, "endColumn".sym to IntType,
+            )
 
             val locKeyVars = mutableMapOf<Symbol, GlobalVar>()
             val locOptVars = mutableMapOf<Symbol, GlobalVar>()
@@ -120,6 +126,7 @@ data class NsEnv(
                     readerFn("fromStr", FormsFromStringNode(language), StrType),
                 ) + locOptVars,
                 keys = locKeyVars,
+                keyTypes = locKeyTypes,
             )
         }
 
@@ -207,6 +214,8 @@ data class NsEnv(
 
     fun defKey(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
         copy(keys = keys + (name to GlobalVar(nsSymbol, name, value, meta)))
+
+    fun declKeyTypes(types: Map<Symbol, Type>): NsEnv = copy(keyTypes = keyTypes + types)
 
     fun defEnum(enumName: Symbol, variantNames: Set<Symbol>): NsEnv =
         copy(enums = enums + (enumName to variantNames))

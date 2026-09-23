@@ -1237,12 +1237,16 @@ data class Analyser(
                         ?: return errorExpr("record key decl entries must alternate member and type", sigForm.els[i].loc)
                     key.sym
                 }
-                DefKeysExpr(names, form.loc)
+                val types = (0 until sigForm.els.size step 2).mapNotNull { i ->
+                    sigForm.els.getOrNull(i + 1)?.let { (sigForm.els[i] as DotSymbolForm).sym to analyseTypeForm(it) }
+                }.toMap()
+                DefKeysExpr(names, types, form.loc)
             }
 
             // single key: decl: .name Str
             sigForm is DotSymbolForm -> {
-                DefKeysExpr(listOf(sigForm.sym), form.loc)
+                val types = els.getOrNull(2)?.let { mapOf(sigForm.sym to analyseTypeForm(it)) } ?: emptyMap()
+                DefKeysExpr(listOf(sigForm.sym), types, form.loc)
             }
 
             // type variables: decl: [a] identity(a) a
