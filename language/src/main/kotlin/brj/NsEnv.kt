@@ -55,6 +55,8 @@ data class NsEnv(
     val interopVars: Map<Pair<Symbol, Symbol>, GlobalVar> = emptyMap(),
     val pendingDecls: Map<Symbol, Type> = emptyMap(),
     val keyTypes: Map<Symbol, Type> = emptyMap(),
+    // The tags this namespace declares, by name; the checker looks them up by their runtime values.
+    val tags: Map<Symbol, TagInfo> = emptyMap(),
     val enums: Map<Symbol, Set<Symbol>> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
@@ -68,13 +70,18 @@ data class NsEnv(
             )
         }
 
+        // An anomaly is a tag over a record of details; its keys, .exnMessage among them, are optional.
         private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->
             Symbol.intern(meta.tag) to GlobalVar("brj.core".sym, Symbol.intern(meta.tag), meta)
+        }
+        private val anomalyTagInfos = Anomaly.AnomalyMeta.entries.associate { meta ->
+            val name = Symbol.intern(meta.tag)
+            name to TagInfo(TagRef("brj.core".sym, name), null, 0, Payload.Positional(listOf(FieldType.Fixed(RecordType(emptySet())))))
         }
 
         fun withBuiltins(language: BridjeLanguage): NsEnv {
             val builtinFunctions = Builtins.createBuiltinFunctions(language)
-            return NsEnv(vars = builtinDataMetas + builtinFunctions + anomalyTags)
+            return NsEnv(vars = builtinDataMetas + builtinFunctions + anomalyTags, tags = anomalyTagInfos)
         }
 
         fun withReaderBuiltins(language: BridjeLanguage): NsEnv {
@@ -85,7 +92,7 @@ data class NsEnv(
             fun readerFn(name: String, node: RootNode, paramType: Type): Pair<Symbol, GlobalVar> {
                 val sym = name.sym
                 return sym to GlobalVar(readerNs, sym, BridjeFunction(node.callTarget),
-                    type = FnType(listOf(paramType), formVec))
+                    scheme = Scheme(FnType(listOf(paramType), formVec)))
             }
 
             val locKeyNames = listOf("loc", "source", "path", "startLine", "startColumn", "endLine", "endColumn")
@@ -141,7 +148,7 @@ data class NsEnv(
         }
 
         private fun builtin(ns: Symbol, name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
-            name to GlobalVar(ns, name, BridjeFunction(node.callTarget), type = FnType(params, ret))
+            name to GlobalVar(ns, name, BridjeFunction(node.callTarget), scheme = Scheme(FnType(params, ret)))
 
         fun withFsBuiltins(language: BridjeLanguage): NsEnv {
             val fsNs = "brj.fs".sym
@@ -187,28 +194,28 @@ data class NsEnv(
 
     fun effectVar(name: Symbol): GlobalVar? = effectVars[name]
 
-    fun defx(name: Symbol, value: Any?, type: Type, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
-        copy(effectVars = effectVars + (name to GlobalVar(nsSymbol, name, value, meta, type)))
+    fun defx(name: Symbol, value: Any?, scheme: Scheme, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
+        copy(effectVars = effectVars + (name to GlobalVar(nsSymbol, name, value, meta, scheme)))
 
     fun decl(name: Symbol, declaredType: Type): NsEnv =
         copy(pendingDecls = pendingDecls + (name to declaredType))
 
-    fun def(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv {
+    fun def(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, scheme: Scheme? = null): NsEnv {
         val declaredType = pendingDecls[name]
         val finalMeta = if (declaredType != null) meta.put(DECLARED_TYPE_KEY, TypeValue(declaredType)) else meta
         return copy(
-            vars = vars + (name to GlobalVar(nsSymbol, name, value, finalMeta)),
+            vars = vars + (name to GlobalVar(nsSymbol, name, value, finalMeta, scheme)),
             pendingDecls = pendingDecls - name
         )
     }
 
     fun withEffects(name: Symbol, effects: List<GlobalVar>): NsEnv {
         val existing = vars[name] ?: return this
-        return copy(vars = vars + (name to GlobalVar(existing.ns, existing.name, existing.value, existing.meta, existing.type, effects)))
+        return copy(vars = vars + (name to GlobalVar(existing.ns, existing.name, existing.value, existing.meta, existing.scheme, effects)))
     }
 
-    fun defInterop(ns: Symbol, member: Symbol, value: Any?, type: Type): NsEnv =
-        copy(interopVars = interopVars + ((ns to member) to GlobalVar(ns, member, value, type = type)))
+    fun defInterop(ns: Symbol, member: Symbol, value: Any?, scheme: Scheme): NsEnv =
+        copy(interopVars = interopVars + ((ns to member) to GlobalVar(ns, member, value, scheme = scheme)))
 
     fun interopVar(ns: Symbol, member: Symbol): GlobalVar? = interopVars[ns to member]
 
@@ -216,6 +223,8 @@ data class NsEnv(
         copy(keys = keys + (name to GlobalVar(nsSymbol, name, value, meta)))
 
     fun declKeyTypes(types: Map<Symbol, Type>): NsEnv = copy(keyTypes = keyTypes + types)
+
+    fun defTag(name: Symbol, info: TagInfo): NsEnv = copy(tags = tags + (name to info))
 
     fun defEnum(enumName: Symbol, variantNames: Set<Symbol>): NsEnv =
         copy(enums = enums + (enumName to variantNames))

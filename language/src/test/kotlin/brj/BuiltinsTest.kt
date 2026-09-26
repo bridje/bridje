@@ -14,6 +14,14 @@ class BuiltinsTest {
     }
 
     @Test
+    fun `add integer and double is a type error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("(add 2 3.5)")
+        }
+        assertTrue(ex.message?.contains("Cannot join") == true, "Expected type error, got: ${ex.message}")
+    }
+
+    @Test
     fun `subtract two integers`() = withContext { ctx ->
         val result = ctx.evalBridje("(sub 10 3)")
         assertEquals(7L, result.asLong())

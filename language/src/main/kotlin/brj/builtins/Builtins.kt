@@ -39,7 +39,8 @@ object Builtins {
             createBuiltinFunction("gensym", GensymNode(language), TypeVar()),
             createBuiltinFunction("nth", NthNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1)),
                 run { val el = TypeVar(); FnType(listOf(VectorType(el), IntType), el) }),
-            createBuiltinFunction("meta", MetaNode(language), FnType(listOf(TypeVar()), RecordType(emptySet()))),
+            // meta yields whatever record its argument carries; nothing is known of its keys here.
+            createBuiltinFunction("meta", MetaNode(language), FnType(listOf(TypeVar()), TypeVar())),
             createBuiltinFunction("withMeta", WithMetaNode(language),
                 run { val t = TypeVar(); FnType(listOf(t, RecordType(emptySet())), t) }),
             createBuiltinFunction("throw", ThrowNode(language), FnType(listOf(TypeVar()), NothingType)),
@@ -57,5 +58,5 @@ object Builtins {
     }
 
     private fun createBuiltinFunction(name: String, node: RootNode, type: Type) =
-        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget), type = type)
+        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget), scheme = Scheme(type))
 }

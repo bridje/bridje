@@ -121,7 +121,7 @@ class CaseTest {
     }
 
     @Test
-    fun `case throws when no branch matches`() = withContext { ctx ->
+    fun `case that cannot match is a type error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
@@ -131,7 +131,7 @@ class CaseTest {
                     A 1
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("No matching") == true)
+        assertTrue(ex.message?.contains("not a subtype") == true, "Expected type error, got: ${ex.message}")
     }
 
     @Test
