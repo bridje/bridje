@@ -52,6 +52,7 @@ class DefMacroExpr(
 
 class DefKeysExpr(
     val names: List<Symbol>,
+    val types: Map<Symbol, Type> = emptyMap(),
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String = "(decl ${names.joinToString(" ") { ".${it.name}" }})"

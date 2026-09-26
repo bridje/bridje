@@ -101,7 +101,7 @@ class IteratorTest {
                 def: result itr(42)
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("not Iterable") == true || ex.message?.contains("Incompatible") == true,
+        assertTrue(ex.message?.contains("not a subtype of Iterable") == true || ex.message?.contains("Incompatible") == true,
             "Expected type error for non-iterable, got: ${ex.message}")
     }
 }

@@ -6,7 +6,6 @@ import brj.effects.collectEffectfulCallees
 import brj.effects.inferEffects
 import brj.runtime.*
 import brj.types.*
-import brj.types.Nullability.NOT_NULL
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.bytecode.BytecodeConfig
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -92,47 +91,32 @@ class ParseRootNode(
                 BridjeTagConstructor(expr.name.name, expr.fieldNames.size, qFieldNames)
             }
 
-        val type = if (expr.fieldNames.isEmpty()) {
-            if (enumName != null && expr.typeVarNames.isNotEmpty()) {
-                // Nullary variant of a parameterised enum (e.g., Nothing in Maybe(a))
-                // needs fresh type vars so it can unify with any instantiation.
-                val variances = expr.typeVarNames.map { Variance.INVARIANT }
-                val freshArgs = expr.typeVarNames.map { freshType() }
-                EnumType(enumName, freshArgs, variances).notNull()
-            } else if (enumName != null) {
-                EnumType(enumName).notNull()
-            } else {
-                TagType(ns, expr.name).notNull()
+        val fields = expr.fieldNames.map { field ->
+            val param = expr.typeVarNames.indexOf(field.name)
+            when {
+                expr.recordStyle -> FieldType.Key(QSymbol(ns, field))
+                param >= 0 -> FieldType.Param(param)
+                else -> FieldType.Untracked
             }
-        } else {
-            val typeVars = expr.typeVarNames.associateWith { TypeVar() }
-            val variances = expr.typeVarNames.map { Variance.INVARIANT }
-            val fieldTypes = expr.fieldNames.map { fieldName ->
-                if (fieldName.name in typeVars) Type(NOT_NULL, typeVars[fieldName.name]!!, null)
-                else freshType()
-            }
-            val tagArgs = typeVars.values.map { Type(NOT_NULL, it, null) }
-            val returnType = if (enumName != null) {
-                EnumType(enumName, tagArgs, variances)
-            } else {
-                TagType(ns, expr.name, tagArgs, variances)
-            }
-            FnType(fieldTypes, returnType.notNull()).notNull()
         }
+        val info = TagInfo(
+            TagRef(ns, expr.name),
+            enumName?.let { EnumRef(ns, it) },
+            expr.typeVarNames.size,
+            if (fields.isEmpty()) Payload.None else Payload.Positional(fields),
+        )
 
-        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr), type = type)
+        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr)).defTag(expr.name, info)
 
         if (expr.recordStyle) {
             // tag: Foo({.k1, .k2}) — register each field name as a key as well.
             for (fieldSym in expr.fieldNames) {
                 val key = BridjeKey(ns, fieldSym)
                 val optKey = BridjeOptionalKey(key)
-                val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
-                val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                 val optName = Symbol.intern("?$fieldSym")
-                updatedNs = updatedNs.defKey(fieldSym, key, type = keyType)
-                updatedNs = updatedNs.defKey(optName, optKey, type = optKeyType)
-                updatedNs = updatedNs.def(optName, optKey, type = optKeyType)
+                updatedNs = updatedNs.defKey(fieldSym, key)
+                updatedNs = updatedNs.defKey(optName, optKey)
+                updatedNs = updatedNs.def(optName, optKey)
             }
         }
 
@@ -155,23 +139,24 @@ class ParseRootNode(
                 }
 
                 is DefExpr -> {
-                    val type = expr.valueExpr.checkType()
+                    val scheme = Types.inferDef(ctx, nsEnv, expr.valueExpr, nsEnv.pendingDecls[expr.name])
                     val effects = expr.valueExpr.inferEffects().toList()
                     val userMeta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
                     val meta = expr.loc?.let { userMeta.put(LOC_KEY, Loc(it)) } ?: userMeta
 
-                    if (effects.isNotEmpty()) {
+                    val value = if (effects.isNotEmpty()) {
                         if (expr.valueExpr !is FnExpr) {
                             throw Analyser.Error("effects can only be used within a function body: ${expr.name}", expr.loc)
                         }
                         val value = evalEffectfulDef(expr.valueExpr)
-                        nsEnv = nsEnv.def(expr.name, value, meta, type).withEffects(expr.name, effects)
+                        nsEnv = nsEnv.def(expr.name, value, meta, scheme = scheme).withEffects(expr.name, effects)
                         value
                     } else {
                         val value = evalExpr(expr.valueExpr, analyser.slotCount)
-                        nsEnv = nsEnv.def(expr.name, value, meta, type)
+                        nsEnv = nsEnv.def(expr.name, value, meta, scheme = scheme)
                         value
                     }
+                    value
                 }
 
                 is DefTagExpr -> {
@@ -194,21 +179,11 @@ class ParseRootNode(
                 }
 
                 is DefMacroExpr -> {
-                    val type = expr.fn.checkType()
-                    val fnType = type.base as? FnType
-                        ?: throw TypeErrorException("defmacro body did not produce a function type: $type")
-                    val formType = FormType.notNull()
-                    val formConstraints = fnType.paramTypes.mapIndexed { i, paramType ->
-                        val isRest = expr.fn.isVariadic && i == fnType.paramTypes.lastIndex
-                        val expected = if (isRest) VectorType(formType).notNull() else formType
-                        expected subOf paramType
-                    } + (fnType.returnType subOf formType)
-                    formConstraints.resolve()
-
+                    val scheme = Types.inferMacro(ctx, nsEnv, expr.fn)
                     val fn = evalExpr(expr.fn, analyser.slotCount)
                     val fixedArity = if (expr.fn.isVariadic) expr.fn.params.size - 1 else expr.fn.params.size
                     val macro = BridjeMacro(fn!!, fixedArity, expr.fn.isVariadic)
-                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr), type = type)
+                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr), scheme = scheme)
                     macro
                 }
 
@@ -231,22 +206,22 @@ class ParseRootNode(
                                     throw Analyser.Error("$memberName is not a readable field on ${member.importAlias} — did you mean $memberName()?", expr.loc)
                                 }
                                 val value = interopLib.readMember(hostClass, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, value, member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, value, Scheme(member.declaredType))
                             }
                             InteropMemberKind.STATIC_METHOD -> {
                                 val rootNode = if (memberName == "new")
                                     HostConstructorNode(lang, hostClass)
                                 else
                                     HostStaticMethodInvokeNode(lang, hostClass, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), Scheme(member.declaredType))
                             }
                             InteropMemberKind.INSTANCE_METHOD -> {
                                 val rootNode = HostInstanceMethodInvokeNode(lang, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), Scheme(member.declaredType))
                             }
                             InteropMemberKind.INSTANCE_FIELD -> {
                                 val rootNode = HostInstanceFieldReadNode(lang, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), Scheme(member.declaredType))
                             }
                         }
                     }
@@ -255,7 +230,7 @@ class ParseRootNode(
 
                 is DefxExpr -> {
                     val defaultValue = expr.defaultExpr?.let { evalExpr(it, analyser.slotCount) }
-                    nsEnv = nsEnv.defx(expr.name, defaultValue, expr.declaredType, meta = locMeta(expr))
+                    nsEnv = nsEnv.defx(expr.name, defaultValue, Scheme(expr.declaredType), meta = locMeta(expr))
                     defaultValue
                 }
 
@@ -265,19 +240,18 @@ class ParseRootNode(
                     for (name in expr.names) {
                         val key = BridjeKey(nsSym, name)
                         val optKey = BridjeOptionalKey(key)
-                        val keyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
-                        val optKeyType = FnType(listOf(RecordType.notNull()), freshType()).notNull()
                         val optName = Symbol.intern("?$name")
-                        nsEnv = nsEnv.defKey(name, key, type = keyType)
-                        nsEnv = nsEnv.defKey(optName, optKey, type = optKeyType)
-                        nsEnv = nsEnv.def(optName, optKey, type = optKeyType)
+                        nsEnv = nsEnv.defKey(name, key)
+                        nsEnv = nsEnv.defKey(optName, optKey)
+                        nsEnv = nsEnv.def(optName, optKey)
                         lastKey = key
                     }
+                    nsEnv = nsEnv.declKeyTypes(expr.types)
                     lastKey
                 }
 
                 is ValueExpr -> {
-                    expr.checkType()
+                    Types.check(ctx, nsEnv, expr)
                     evalExpr(expr, analyser.slotCount)
                 }
 

@@ -175,7 +175,7 @@ class ConcurrentTest {
               import:
                 java.util.concurrent.atomic:
                   as(AtomicBoolean, AB)
-            decl: AB/.set(Bool) Nothing
+            decl: AB/.set(Bool) Nothing?
             def: go(flag)
               c/spawn(fn: outer()
                 c/spawn(fn: inner()

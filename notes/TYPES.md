@@ -1,12 +1,63 @@
 # Bridje Type System
 
 Bridje is a statically typed Lisp on the JVM (Truffle/GraalVM).
-Types are inferred by default; annotations are available at boundaries when they help.
-The type system is built around **structural records, nominal tags, open traits, and enums (closed sums)**.
+Types are inferred; a `decl` at a definition is checked against what was inferred and becomes the exported type.
+The system is built around **keys with global types, structural records, nominal tags, and enums as the sum type**, over an algebraic-subtyping core.
+Traits are not built yet; where this document names them it says so.
+
+The checker lives in `language/src/main/kotlin/brj/types`.
+The design decisions behind it are recorded on [#129](https://github.com/bridje/bridje/issues/129).
+
+## How inference works
+
+**Every expression gets a typing: a result type, a demand on each free local, and the bounds of the variables it mentions.**
+This is Dolan's algebraic subtyping (MLsub), restricted as the sections below say.
+
+- **A type variable carries a lower bound and an upper bound**, not a single solution.
+  What flows into it (a literal, a constructor call, another variable) is a lower bound; what is asked of it (a key read, a call, a declared parameter) is an upper bound.
+  Every constraint is `lower ≤ upper`, decomposed structurally until it reaches a variable or fails.
+
+- **Typings compose from their children alone.**
+  Each occurrence of a local is its own variable and each sub-expression its own bound graph; two uses of one local meet in a fresh variable, the graphs union, and only the construct's own constraints are solved.
+  Nothing is threaded through a definition, so the typing of an expression follows from its children's.
+
+- **Generalisation happens at the top level only.**
+  A `def` produces a scheme: the type plus the bounds of every variable it mentions.
+  A use of the global instantiates the scheme with fresh variables, copying the bounds in.
+
+- **There are no union or intersection types, and no top type.**
+  A variable's lower bounds must join; two of different kinds do not, so `if: p 1 "s"` is an error (`Cannot join Int with Str`).
+  Joins are per kind: records intersect their keys, two tags of one enum join to the enum, vectors join elementwise, host classes join along the class chain.
+  The one intersection form is a variable met with a record shape or with non-nil, which is what `with` and nil narrowing produce.
+
+- **`Nothing` is the bottom type and `Nothing?` is nil.**
+  `throw` returns `Nothing`, so it fits anywhere; `nil` fits anywhere nullable.
+
+### How types render
+
+A scheme renders as a leading vector of its quantified variables and constraints, then the type:
+
+```
+[a] Fn([[a]] a)                       // first
+[a, b] Fn([Iterable(a), Fn([a] b)] [b])  // mapv
+[a, ^(a, {})] Fn([Bool, a] a)         // fn: (p r) if: p with(r, .dirty true) r
+[a, ^(Int, a)] Fn([Bool, a] a)        // fn: (p x) if: p x 1
+Fn([Form, [Form]] List)               // the when macro
+```
+
+- **`^(lower, upper)` is a bound that could not be folded into the type.**
+  `^(a, {})` says `a` is a record; `^(Int, a)` says an `Int` flows into `a`.
+  The spelling is a placeholder (Q8 on #129).
+
+- **A variable that only ever flows out shows as what flows in**, and `Nothing` when nothing does.
+  One that only ever flows in shows as its one demand.
+  Nil in a variable's lower bound shows as `a?` where the variable appears positively.
+
+- **Two uses of one local that always travel together are one variable**, which is how `(r ∧ {dirty}) ∨ r` above reads as `a`.
 
 ## Type Syntax
 
-Types appear in `decl` forms (top-level and within traits) and optional annotations.
+Types appear in `decl` forms.
 
 ### Primitives and named types
 
@@ -15,6 +66,8 @@ decl: x Int
 decl: name Str
 decl: role ServerRole
 ```
+
+`Int`, `Double`, `BigInt`, `BigDec`, `Str`, `Bool`, `Bytes`, `Form`.
 
 ### Functions
 
@@ -31,6 +84,18 @@ Anonymous function types use `Fn`:
 decl: callback Fn([Int, Str] Bool)    // a function value, not a named function
 ```
 
+### Type variables
+
+Type variables are named in a leading vector:
+
+```bridje
+decl: [a] identity(a) a
+decl: [a, b] mapv(Iterable(a), Fn([a] b)) [b]
+```
+
+A declared variable is rigid: the definition must be at least as general as the declaration, and the declaration is what callers see (D29 on #129).
+An annotation can narrow a type but never widen it.
+
 ### Collections
 
 Literal syntax mirrors value literals:
@@ -38,35 +103,40 @@ Literal syntax mirrors value literals:
 ```bridje
 decl: nums [Int]
 decl: ids #{Str}
-decl: lookup Map(Str, Int)            // Map — no literal type syntax
 ```
+
+`Map(k, v)` is not built yet.
 
 ### Records
 
-Record types list their required and optional keys.
-Required keys use `.name`; optional keys use `.?name`:
+A record type names the keys a value must carry:
 
 ```bridje
-decl: person {.name, .age}            // record with at least .name and .age
-decl: user {.name, .?email}           // record with .name; .email may be present
+decl: person {.name, .age}            // a record with at least .name and .age
+decl: user {.name, .?email}           // .email may be present; the type does not demand it
 ```
 
-### Tags
+Each key must already be declared; the type it holds comes from that declaration.
+`.?email` is documentation: the checker neither demands the key nor lints its absence (D22 on #129).
 
-A tag name alone, or with a record shape constraint:
+### Tags and enums
+
+A tag or enum name, with type arguments where it has parameters:
 
 ```bridje
-decl: user User                       // any User
-decl: user User({.fn, .ln})           // a User, only requiring .fn and .ln
+decl: user User
+decl: unwrap(Maybe(Int)) Int
 ```
+
+`User({.fn, .ln})`, a tag with a required shape, is not built yet.
 
 ### Nullable
 
 `?` suffix makes a type nullable:
 
 ```bridje
-decl: name Str?                       // Str or null
-decl: user User?                      // User or null
+decl: name Str?                       // Str or nil
+decl: user User?                      // User or nil
 ```
 
 ### Nothing
@@ -75,185 +145,22 @@ decl: user User?                      // User or null
 decl: throw(Str) Nothing              // never returns
 ```
 
-`Nothing?` is the type of `null` itself.
-
-### Enums
-
-Enum types are referenced by name:
-
-```bridje
-decl: role ServerRole                 // Follower | Candidate | Leader
-decl: role ServerRole                 // Follower | Candidate | Leader
-```
-
-### Type variables
-
-Lowercase names are type variables:
-
-```bridje
-decl: identity(a) a
-decl: map([a], Fn([a] b)) [b]
-```
-
-### Trait constraints
-
-Trait constraints are inferred — the compiler calculates them from usage.
-Users rarely need to write them explicitly.
-Exact syntax for explicit trait constraints on type variables is TBC.
-
-## Generics
-
-Types can be parameterised by type variables.
-Lowercase names in type positions are type variables; uppercase names are concrete types.
-
-```bridje
-tag: Ok(a)
-tag: Err(e)
-
-enum: Result(a, e)
-  tag: Ok(a)
-  tag: Err(e)
-
-tag: Pair(a, b)
-```
-
-Collection types are generic: `[a]`, `#{a}`, `Map(k, v)`.
-
-Generic functions are inferred — the compiler determines type variables from usage:
-
-```bridje
-def: first(xs)          // inferred: [a] -> a
-  nth(xs, 0)
-
-def: pair(a, b)         // inferred: (a, b) -> Pair(a, b)
-  Pair(a, b)
-```
-
-## Variance
-
-Variance is mostly invisible to users.
-Type constructors don't carry declared variance annotations — variance falls out of how their type parameters are used in method signatures.
-
-Function-arrow variance is the only intrinsic rule:
-
-- Function parameters are contravariant.
-- Function returns are covariant.
-
-For a parametric type like `Map(k, v)`, each method gives `k` and `v` a specific variance via where they sit in its signature.
-A method that returns `v` uses `v` covariantly; a method that takes `k` as an argument uses `k` contravariantly.
-Across the full method set, the net effective variance is whatever the combined uses imply.
-
-```bridje
-decl: get(Map(k, v), k) v   // k contravariant for this method; v covariant
-decl: keys(Map(k, v)) [k]   // k covariant for this method
-```
-
-Combined: `k` ends up effectively invariant on `Map` (used both contravariantly in `get` and covariantly in `keys`); `v` ends up covariant (only ever produced).
-
-Users may opt in to declaring variance on user-defined parametric types where stricter or looser semantics matter.
-Most code doesn't need to.
-Syntax for explicit variance annotations is TBC.
-
-## Primitive Types
-
-### Numeric
-
-`Int` (32-bit), `Long` (64-bit), and `Double` (64-bit float) are the user-facing numeric types.
-`Byte`, `Short`, and `Float` exist for JVM interop but aren't part of the standard numeric set.
-
-Widening between `Int`, `Long`, and `Double` is TBC — current gut: widen implicitly across the three.
-
-### Other primitives
-
-- `Bool`
-- `Str`
-
-### Core value types
-
-These are immutable, identity-free types in `brj.core`, treated as effectively primitive:
-
-- Java 8 time types: `Instant`, `Duration`, `LocalDate`, `LocalDateTime`, etc.
-- `UUID`
-
-## Collection Types
-
-Homogeneous, immutable, parameterised by element type:
-
-- `[a]` (Vec) — ordered sequence. Literal syntax: `[1, 2, 3]`
-- `#{a}` — unordered, unique elements. Literal syntax: `#{1, 2, 3}`
-- `Map(k, v)` — key-value mapping. No literal syntax (records use `{}`); constructed via API.
-
-Element types are inferred from literals.
-Empty literals (`[]`, `#{}`) infer the element type from usage context.
-
-## Protocol Types
-
-Protocol types represent Truffle interop protocol capabilities rather than Java classes.
-They exist in the Bridje type system only — no Java class backs them.
-
-### Iterable and Iterator
-
-`Iterable(a)` is the type of anything that can produce an iterator over `a`.
-`Iterator(a)` is the type of a stateful cursor yielding values of type `a`.
-
-```bridje
-decl: [a] itr(Iterable(a)) Iterator(a)
-decl: [a] itrHasNext(Iterator(a)) Bool
-decl: [a] itrNext(Iterator(a)) a
-```
-
-At runtime, `itr` dispatches via Truffle's `InteropLibrary.getIterator()`.
-This works for BridjeVector (via `hasArrayElements` auto-iteration), Java Iterables, and any polyglot object that exports the Truffle iterator protocol.
-
-Subtype relationships:
-
-```
-[a]                    <: Iterable(a)    // BridjeVector
-java.lang.Iterable(a)  <: Iterable(a)
-java.util.Iterator(a)   <: Iterator(a)
-```
-
-These are virtual — BridjeVector does not implement `java.lang.Iterable` at the Java level.
-Truffle intercepts that interface on TruffleObjects, so the relationship is modelled in the constraint solver instead.
-When traits land, the virtual relationships become trait impls.
-
-**Note**: `Iterable` is deliberately separate from a future `brj.List` type.
-Iteration is O(n) sequential access; List implies O(1) indexed access (`count`, `first`, `nth`).
-Conflating them would bake in wrong performance contracts.
-
-## Function Types
-
-`Fn([a, b] c)` — a function taking `a` and `b`, returning `c`.
-Functions are first-class values.
-
-Named function declarations use `()`: `decl: foo(Int, Str) Bool`.
-Anonymous function types use `Fn` with `[]`: `Fn([Int, Str] Bool)`.
-The `[]` mirrors the `fn` value syntax: `fn: [a, b] ...`.
+`Nothing?` is the type of `nil` itself.
 
 ## Nullability
 
-Any type can be made nullable with `?`: `Int?`, `Str?`, `User?`.
-Non-nullable types are the default.
+Any type can be made nullable with `?`.
+Non-nullable is the default.
 
-`nil` is the null literal. Its type is `Nothing?` — it is a subtype of any nullable type.
-(Bridje uses `nil` where other languages write `null`.)
+`nil` is a subtype of every nullable type and of nothing else, so passing a `Str?` where a `Str` is demanded is an error (`Str? is nullable, but must not be`).
 
-## Nothing
-
-`Nothing` is the bottom type.
-No value has this type.
-It is the type of expressions that never return: `throw(...)`, infinite loops, process exit.
-
-`Nothing` is a subtype of every type, which allows non-returning expressions in any position:
+A `case` with a `nil` branch narrows a catch-all binding past nil:
 
 ```bridje
-let: [config
-      if: exists(configFile)
-        loadConfig(configFile)
-        throw(ConfigError("not found"))]  // Nothing < Config, so this typechecks
+case: name
+  nil "anonymous"
+  n n                                  // n : Str, given name : Str?
 ```
-
-`Nothing?` is the type of `null` itself — the nullable bottom type.
 
 ## Keys
 
@@ -268,236 +175,166 @@ decl: .name Str, .age Int, .email Str
 If you need a different type, use a different key.
 This follows the clojure.spec school of thought: a fully-qualified key has one meaning.
 
+- **`.name` demands a record carrying `.name` and yields a `Str`.**
+  Reading a key a record may not carry is an error (`{} lacks {.name}`).
+
+- **`.?name` accepts any record and yields a `Str?`.**
+
+- **A record literal checks each value against its key's type**, so `{.name 42}` is an error.
+
 ## Records
 
-A record is a set of key-value pairs.
-Record types track which keys are present; the value types come from the key declarations.
+A record type is the set of keys a value is known to carry; the value types come from the key declarations.
 
-Records are **structural** — any record with at least the required keys is accepted:
+Records are **structural**: a function that reads `.fn` and `.ln` accepts any record carrying them, whatever else it carries.
+More keys is more specific: `{.name, .age, .email}` is a subtype of `{.name, .age}`.
 
-```bridje
-def: displayName({fn, ln})
-  "${fn} ${ln}"
+- **A join keeps the shared keys.**
+  `if: p {.a 1, .b 2} {.a 1, .c 3}` is a `{.a}`; reading `.b` off it is an error and `.?b` is fine.
 
-// Accepts any record with .fn and .ln, regardless of other keys
-displayName({.fn "James", .ln "Henderson"})
-displayName({.fn "James", .ln "Henderson", .email "j@h.com"})
-```
+- **`with` adds keys to whatever it was given.**
+  `with(r, .dirty true)` on a parameter `r` is `r ∧ {.dirty}`: still `r`, now known to carry `.dirty`.
+  This is why `if: p with(r, .dirty true) r` types as `[a, ^(a, {})] Fn([Bool, a] a)` and not as an error: one arm is a narrowing of the other, and the join absorbs it.
 
-More keys = more specific = subtype.
-`{.name, .age, .email}` is a subtype of `{.name, .age}`.
+- **`set` mutates in place and yields the old value, or nil.**
+  The record's type is unchanged: `set` on a record not known to carry the key is fine, and reading the key afterwards still needs `.?`.
+
+- **A function whose last parameter is a record may be called without it**, and the callee sees an empty record.
+  This is the trailing-options convention; `.?opt` is how such a parameter is read.
 
 ## Tags
 
-Tags are nominal wrappers around records.
-A tag is distinct from any other tag, even with identical keys.
+A tag is a nominal constructor with a payload.
+A tag is distinct from every other tag.
 
 ```bridje
-tag: User({.fn, .ln, .email, .role})
-tag: Customer({.fn, .ln, .email, .since})
+tag: Pair(first, second)              // two untracked fields
+tag: [t] Wrapper(t)                   // one field of the tag's type parameter
+tag: Failure{.form, .message}         // record-style: fields are keys, typed by their declarations
+tag: Nothing                          // nullary: a singleton value
 ```
 
-`User` is not `Customer`, even though they share keys.
-The tag carries domain identity.
+- **A field named after a type parameter has that parameter's type.**
+  `Wrapper("s")` is a `Wrapper(Str)`, and a `case` binding on it yields a `Str`.
 
-### Tags are subtypes of their underlying record shape
+- **A record-style tag's fields are typed by their keys**, and the tag registers those keys.
+  Construction is positional, `Failure(form, message)`, and a `case` binds the fields positionally.
+  Reading a record-style tag's payload as a record (D24 on #129) is not built yet.
 
-A tagged record is more specific than its untagged equivalent.
-`User({.fn, .ln})` is a subtype of `{.fn, .ln}`.
+- **A field that is neither is untracked**: any value goes in, and a `case` binding on it is unconstrained.
 
-This means functions can choose their level of specificity:
+- **A bare pattern matches the tag and ignores its payload**: `case: x Pair 1 _ 2`.
 
-```bridje
-// Structural — accepts any record with .fn and .ln
-def: displayName({fn, ln})
-  "${fn} ${ln}"
+### Enums
 
-// Nominal — must be a User, only needs .fn and .ln
-def: userDisplayName(User({fn, ln}))
-  "${fn} ${ln}"
-
-// Both of these work with displayName:
-displayName({.fn "James", .ln "Henderson"})
-displayName(User({.fn "James", .ln "Henderson", .email "j@h.com"}))
-```
-
-The tag asserts domain identity.
-The keys assert shape.
-They are independently specified at each usage site.
-
-### Tag-level type precision
-
-The compiler tracks individual tags, not just their containing enum type.
-A function that only returns `Ok` is typed as returning `Ok`, not `Result`.
-
-```bridje
-// Inferred return type: Ok(a)
-def: lookup(m, k)
-  Ok(get(m, k))
-
-// Inferred return type: Result(a, Str)
-def: safeLookup(m, k)
-  if: hasKey(m, k)
-    Ok(get(m, k))
-    Err("key not found")
-```
-
-When a function returns a single tag, its inferred type is the tag itself.
-When it returns multiple tags from the same enum, the inferred type widens to the enum (here `Result(a, e)` with `a` and `e` inferred).
-
-## Enums (Closed Sum Types)
-
-An enum declares a fixed set of tag variants.
-Variants are constructors owned by the enum, not standalone types — `Just(x)` has type `Maybe(a)`, not type `Just`.
-Each tag belongs to exactly one enum (1:N).
+An enum declares a fixed set of tags.
+It is the sum type: a join of two tags of one enum is the enum, and two tags of different enums do not join.
 
 ```bridje
 enum: ServerRole
-  tag: Follower({.knownLeader})
-  tag: Candidate({.votesReceived})
-  tag: Leader({.nextIndex, .matchIdx})
+  tag: Follower{.knownLeader}
+  tag: Candidate{.votesReceived}
+  tag: Leader{.nextIndex, .matchIndex}
 
 enum: Maybe(a)
   tag: Just(a)
   tag: Nothing
 ```
 
-The compiler infers the enum type from its members — seeing `Follower` is enough to know `ServerRole`.
-Pattern matching is exhaustive against the declared variant set.
+- **A constructor is typed as its tag**, so a function that only ever returns `Ok` is typed as returning `Ok`, and one that returns `Ok` or `Err` as returning `Result`.
+  A tag is a subtype of its enum.
 
-1:N is necessary for inference.
-If a tag could belong to multiple enums, the compiler couldn't determine which enum type to infer.
+- **A `case` over an enum must handle every variant or have a default.**
+  Missing variants are an error (`non-exhaustive case: missing Err`).
 
-This is a superset of Java enums — a Java-style enum is the degenerate case where all variants are nullary.
+- **A catch-all binding is narrowed to what remains.**
+  In `case: m Just(v) v other other`, `other` is a `Nothing`.
 
-## Traits
+- **Two standalone tags cannot be cased together without a default.**
+  `case: x A 1 B 2` asks for a value that is an `A` or a `B`, and there is no such type; declare an enum.
+  With a default the case demands nothing of `x`.
 
-Traits are interfaces — named sets of method declarations.
-At runtime, a trait impl is a record of functions on the type's meta-object.
+### Forms
 
-```bridje
-trait: Show
-  decl: show() Str
+The reader's forms are an enum, `Form`, whose variants are the `brj.rdr` tags: `SymbolForm`, `List`, `Vector`, `Int`, `String`, and so on.
+A `case` over a form therefore needs a default or all fifteen variants.
 
-impl: Show(Int)
-  def: show(it) intToStr(it)
+A macro is a function over forms: each parameter is a `Form`, a rest parameter is a `[Form]`, and the result is a `Form`.
+`when` types as `Fn([Form, [Form]] List)`.
 
-impl: Show(User)
-  def: show(User({fn, ln})) "${fn} ${ln}"
-```
+## Anomalies
 
-The `impl` names the type; the receiver is a parameter like any other.
-Destructuring works in the receiver position, same as any function parameter.
-
-Traits are open — any tag can implement any number of traits (M:N).
-This contrasts with enums (1:N).
-
-### Resolution
-
-Trait impls live on the type's meta-object — fixed, one per type, not overridable.
+An anomaly is a tag over a record of details: `Incorrect({.exnMessage "..."})`.
+Its keys are optional, so a caught anomaly's message is read with `.?exnMessage`.
 
 ## Java Interop
 
-Java classes can be imported and used as types in Bridje.
-The user obligation is small: import the class, then declare any methods Bridje code will call, in Bridje syntax.
+A host class is imported and its members declared in Bridje syntax; the checker trusts the declarations.
 
-Reflection provides the class identity and hierarchy.
-Per-method signatures are user-declared because:
+```bridje
+ns: example
+  import:
+    java.time:
+      as(Instant, Inst)
 
-- Java erases generics at runtime, so reflected generic signatures aren't reliably typed.
-- Bridje wants nullability annotations Java's signatures don't carry.
+decl: Inst/now() Inst
+decl: Inst/.toEpochMilli() Int
+decl: [a] AL/.add(a) Bool
+```
 
-Variance per method is read off the function-arrow positions in the user's Bridje signature (see the Variance section).
-There's no separate variance declaration for the imported class itself.
+- **Host type arguments are invariant.**
 
-If a user declares a Java method's signature incorrectly, that's on them — Bridje trusts the declarations and ensures consistency from that point forward.
+- **Two host types join along the class chain**, to the nearest declared common superclass; interfaces are not consulted.
 
-Exact import syntax is TBC.
+### Protocol types
 
+`Iterable(a)` and `Iterator(a)` are Truffle interop capabilities, not Java classes.
+
+```bridje
+decl: [a] itr(Iterable(a)) Iterator(a)
+decl: [a] itrHasNext(Iterator(a)) Bool
+decl: [a] itrNext(Iterator(a)) a
+```
+
+`[a]` and `#{a}` are subtypes of `Iterable(a)`, and `java.lang.Iterable` and `java.util.Iterator` of `Iterable(a)` and `Iterator(a)`.
+These relationships live in the checker, not in the class hierarchy.
 
 ## Subtyping
 
-`A < B` means A is a subtype of B — an A can be used wherever a B is expected.
-More specific = subtype.
+`A ≤ B` means an `A` can be used wherever a `B` is expected.
 
 ```
-Nothing   <  every type
-Nothing?  <  every nullable type
-nil       <  T?                    for any T
-T         <  T?
-Tag({k})  <  {k}                   tagged record < underlying record shape
-{k}       <  {k2}                  iff k2 ⊆ k (more keys = more specific)
-Tag       <  Enum                  tag-level type is subtype of its containing enum
+Nothing   ≤  every type
+nil       ≤  T?                    for any T
+T         ≤  T?
+{k}       ≤  {k2}                  iff k2 ⊆ k
+Tag       ≤  Enum                  its enum
+[a]       ≤  Iterable(a)
+a ∧ {k}   ≤  a                     a narrowing of a variable
 ```
 
-Polymorphic variants (anonymous unions like `Ok | Err`) are deliberately not in the lattice — Bridje uses named enums for sums.
-A function returning both `Ok` and `Err` is typed at the enclosing enum (`Result(a, e)`) rather than as an ad-hoc union.
-
-## Records and Tags: The Duality
-
-Records and tags are duals in the subtyping lattice:
-
-- Records grow more specific by **adding keys**.
-- Tags grow more specific by **removing variants**.
-- `set` mutates a record field in place, adding a key to its type (more specific).
-- `case` removes a variant from a tag type (more specific).
-
-Keys are structural and shared across record shapes (M:N).
-Tags are nominal and belong to one enum (1:N), but can implement multiple traits (M:N).
+Functions are contravariant in their parameters and covariant in their result.
+Vectors, sets and enum arguments are covariant; host type arguments are invariant.
 
 ## Effects
 
-Effects are orthogonal to traits.
-They are lexically scoped values — like Clojure's dynamic vars but entirely lexical.
-
-### Declaring effects
-
-An effect is declared as a global variable with a type:
+Effects are lexically scoped values, declared with `defx` and bound with `withFx`.
 
 ```bridje
-defx: log Fn(Str)                      // no default — must be provided by enclosing scope
-defx: stdio Fn(Str) println             // has a default
-defx: net RaftNetwork                   // can be any type — a trait, a function, a record
-```
+defx: log(Str) Nothing?
+defx: stdio(Str) Nothing? println
 
-If a `defx` has no default, it must be provided by an enclosing `withFx` or the compiler reports an error.
-
-### Using effects
-
-Effect variables are used like any other value:
-
-```bridje
-def: doWork()
-  log("starting")
-  // ...
-```
-
-### Providing effects
-
-`withFx` binds effect values into lexical scope:
-
-```bridje
-withFx: [log fn: [msg] stdio("LOG: ${msg}")]
+withFx: [log fn: logger(msg) stdio("LOG: ${msg}")]
   doWork()
 ```
 
-Effect impls can use other (typically lower-level) effects.
-This replaces a higher-level effect with a lower-level one in the inferred effect set.
+A `defx` declares the effect's type; `withFx` checks each bound value against it.
+Effect inference (which effects an expression uses) is a separate analysis and not part of the type checker.
 
-In this example, `doWork` uses `{log}`.
-The `withFx` satisfies `log` but its impl uses `stdio`, so the effect set of the whole expression is `{stdio}`.
+## Not built yet
 
-### Effect inference
-
-The compiler fully infers the effect set of every expression.
-Users do not annotate effects — the compiler calculates them.
-
-```bridje
-def: doWork()                   // inferred effects: {log}
-  log("starting")
-
-def: main()                     // inferred effects: {stdio}
-  withFx: [log fn: [msg] stdio("LOG: ${msg}")]
-    doWork()
-```
-
+- **Traits**, as constraints on type variables or as interfaces.
+- **Tags with a required shape** in a type form, `User({.fn, .ln})`.
+- **Record-payload transparency** for record-style tags (D24 on #129).
+- **`Map(k, v)`, `Long`, and numeric widening.**
+- **User-declared variance.**
