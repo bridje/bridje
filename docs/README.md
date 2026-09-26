@@ -6,7 +6,7 @@ Documentation site built with [Starlight](https://starlight.astro.build).
 
 | Command | Action |
 | :-- | :-- |
-| `yarn install` | Install dependencies |
-| `yarn dev` | Start dev server at `localhost:4321` |
-| `yarn build` | Build production site to `./dist/` |
-| `yarn preview` | Preview build locally |
+| `npm install` | Install dependencies |
+| `npm run dev` | Start dev server at `localhost:4321` |
+| `npm run build` | Build production site to `./dist/` |
+| `npm run preview` | Preview build locally |
