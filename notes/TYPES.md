@@ -83,7 +83,6 @@ Enum types are referenced by name:
 
 ```bridje
 decl: role ServerRole                 // Follower | Candidate | Leader
-decl: role ServerRole                 // Follower | Candidate | Leader
 ```
 
 ### Type variables
