@@ -135,31 +135,23 @@ class CaseTest {
     }
 
     @Test
-    fun `case matches nil pattern`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
-            case: nil
-              nil 42
-        """.trimIndent())
-        assertEquals(42L, result.asLong())
-    }
-
-    @Test
-    fun `case catchall binding pattern matches non-nil`() = withContext { ctx ->
+    fun `case catchall binding pattern binds the scrutinee`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             case: 10
-              nil 0
               x x
         """.trimIndent())
         assertEquals(10L, result.asLong())
     }
 
     @Test
-    fun `case nil vs catchall binding pattern`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
-            case: nil
-              nil "was nil"
-              x "was not nil"
-        """.trimIndent())
-        assertEquals("was nil", result.asString())
+    fun `case rejects a nil pattern`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                case: nil
+                  nil 42
+                  0
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("use ifLet") == true, "Expected ifLet hint, got: ${ex.message}")
     }
 }

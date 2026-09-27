@@ -118,6 +118,16 @@ class IfExpr(
     override fun toString(): String = "(if $predExpr $thenExpr $elseExpr)"
 }
 
+class IfLetExpr(
+    val localVar: LocalVar,
+    val valueExpr: ValueExpr,
+    val thenExpr: ValueExpr,
+    val elseExpr: ValueExpr,
+    override val loc: SourceSection? = null
+) : ValueExpr {
+    override fun toString(): String = "(ifLet [${localVar.name} $valueExpr] $thenExpr $elseExpr)"
+}
+
 class GlobalVarExpr(
     val globalVar: GlobalVar,
     override val loc: SourceSection? = null
@@ -170,10 +180,6 @@ class TagPattern(
 
 class DefaultPattern(override val loc: SourceSection? = null) : CasePattern() {
     override fun toString(): String = "_"
-}
-
-class NilPattern(override val loc: SourceSection? = null) : CasePattern() {
-    override fun toString(): String = "nil"
 }
 
 class CatchAllBindingPattern(

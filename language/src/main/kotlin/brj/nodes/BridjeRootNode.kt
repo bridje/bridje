@@ -252,22 +252,12 @@ abstract class BridjeRootNode protected constructor(
         }
     }
 
-    /** A `case` scrutinee of Java `null` matches the `nil` branch, so normalise before dispatching. */
     @Operation
     class OrNil {
         companion object {
             @JvmStatic
             @Specialization
             fun orNil(value: Any?): Any = value ?: BridjeNull
-        }
-    }
-
-    @Operation
-    class IsNil {
-        companion object {
-            @JvmStatic
-            @Specialization
-            fun isNil(value: Any, @CachedLibrary(limit = "3") interop: InteropLibrary): Boolean = interop.isNull(value)
         }
     }
 

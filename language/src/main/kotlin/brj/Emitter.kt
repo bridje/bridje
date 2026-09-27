@@ -130,6 +130,24 @@ class Emitter(
                 b.endConditional()
             }
 
+            is IfLetExpr -> {
+                val value = local(expr.localVar.slot)
+                b.beginBlock()
+                b.beginStoreLocal(value)
+                b.beginOrNil()
+                emitExpr(expr.valueExpr, fxSource, preApplied)
+                b.endOrNil()
+                b.endStoreLocal()
+                b.beginConditional()
+                b.beginIsNotNil()
+                b.emitLoadLocal(value)
+                b.endIsNotNil()
+                emitExpr(expr.thenExpr, fxSource, preApplied)
+                emitExpr(expr.elseExpr, fxSource, preApplied)
+                b.endConditional()
+                b.endBlock()
+            }
+
             is CaseExpr -> emitCase(expr, fxSource, preApplied)
             is TryCatchExpr -> emitTryCatch(expr, fxSource, preApplied)
 
@@ -289,28 +307,10 @@ class Emitter(
         when (val pattern = branch.pattern) {
             is DefaultPattern -> emitBody()
 
-            is NilPattern -> {
-                b.beginIfThenElse()
-                b.beginIsNil()
+            is CatchAllBindingPattern -> emitBody {
+                b.beginStoreLocal(local(pattern.binding.slot))
                 b.emitLoadLocal(scrutinee)
-                b.endIsNil()
-                emitBody()
-                emitRest()
-                b.endIfThenElse()
-            }
-
-            is CatchAllBindingPattern -> {
-                b.beginIfThenElse()
-                b.beginIsNotNil()
-                b.emitLoadLocal(scrutinee)
-                b.endIsNotNil()
-                emitBody {
-                    b.beginStoreLocal(local(pattern.binding.slot))
-                    b.emitLoadLocal(scrutinee)
-                    b.endStoreLocal()
-                }
-                emitRest()
-                b.endIfThenElse()
+                b.endStoreLocal()
             }
 
             is TagPattern -> {

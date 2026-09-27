@@ -250,6 +250,7 @@ data class Analyser(
                 "fn" -> analyseFn(form)
                 "do" -> analyseDo(form)
                 "if" -> analyseIf(form)
+                "ifLet" -> analyseIfLet(form)
                 "case" -> analyseCase(form)
                 "try" -> analyseTry(form)
                 "quote" -> analyseQuote(form)
@@ -366,7 +367,7 @@ data class Analyser(
     // Symbols that resolve to these stay bare inside a squote walk; the expanded form's analyser
     // will pick them up in its own dispatch table.
     private val specialFormNames = setOf(
-        "if", "let", "fn", "case", "try", "catch", "finally", "do", "recur", "loop",
+        "if", "ifLet", "let", "fn", "case", "try", "catch", "finally", "do", "recur", "loop",
         "quote", "squote", "unquote", "unquoteSplicing",
         "withFx", "with", "lang", "set",
         "ns", "require", "import",
@@ -493,6 +494,19 @@ data class Analyser(
         )
     }
 
+    private fun analyseIfLet(form: ListForm): ValueExpr {
+        val els = form.els
+        if (els.size != 4) return errorExpr("ifLet requires exactly 3 arguments: a binding vector, then, else", form.loc)
+        val bindingEls = (els[1] as? VectorForm)?.els
+        if (bindingEls?.size != 2) return errorExpr("ifLet requires a binding vector of a name and a value", els[1].loc)
+        val nameForm = bindingEls[0] as? SymbolForm
+            ?: return errorExpr("ifLet binding name must be a symbol", bindingEls[0].loc)
+
+        val valueExpr = analyseValueExpr(bindingEls[1])
+        val (thenAnalyser, localVar) = withLocal(nameForm.sym)
+        return IfLetExpr(localVar, valueExpr, thenAnalyser.analyseTailExpr(els[2]), analyseTailExpr(els[3]), form.loc)
+    }
+
     internal fun withLocal(name: Symbol): Pair<Analyser, LocalVar> {
         val lv = LocalVar(name, nextSlot.getAndIncrement())
         return Pair(copy(locals = locals + (name to lv)), lv)
@@ -511,7 +525,7 @@ data class Analyser(
             val patternForm = branchForms[i]
 
             val isPattern = when (patternForm) {
-                is SymbolForm -> patternForm.sym.name == "nil" || i + 1 < branchForms.size
+                is SymbolForm -> i + 1 < branchForms.size
                 is QSymbolForm -> i + 1 < branchForms.size
                 is ListForm -> {
                     val first = patternForm.els.firstOrNull()
@@ -617,10 +631,7 @@ data class Analyser(
             is SymbolForm -> {
                 val name = patternForm.sym.name
                 when {
-                    name == "nil" -> {
-                        val bodyExpr = analyseTailExpr(bodyForm)
-                        Result.Ok(CaseBranch(NilPattern(patternForm.loc), bodyExpr, patternForm.loc))
-                    }
+                    name == "nil" -> Result.Err(Error("case matches tags, not nil: use ifLet", patternForm.loc))
                     name[0].isUpperCase() -> {
                         resolveTag(patternForm.sym, patternForm.loc).map { tagValue ->
                             val bodyExpr = analyseTailExpr(bodyForm)
@@ -707,7 +718,7 @@ data class Analyser(
             val patternForm = combinedCatchEls[i]
 
             val isPattern = when (patternForm) {
-                is SymbolForm -> patternForm.sym.name[0].isUpperCase() || patternForm.sym.name == "nil" ||
+                is SymbolForm -> patternForm.sym.name[0].isUpperCase() ||
                     (patternForm.sym.name[0].isLowerCase() && i + 1 < combinedCatchEls.size)
                 is ListForm -> {
                     val first = patternForm.els.firstOrNull()

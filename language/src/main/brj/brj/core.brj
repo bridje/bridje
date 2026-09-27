@@ -74,31 +74,14 @@ defmacro: cond(& clauses)
 
 decl: .exnMessage Str
 
-defmacro: ifLet(bindings, then, else)
-  case: bindings
-    rdr/Vector(els)
-      '(let [v# ~nth(els, 1)]
-         (case v#
-           nil ~else
-           ~first(els) ~then))
-    _ throw(Incorrect({.exnMessage "ifLet expects a binding vector"}))
-
 defmacro: unlessLet(bindings, else, then)
-  case: bindings
-    rdr/Vector(els)
-      '(let [v# ~nth(els, 1)]
-         (case v#
-           nil ~else
-           ~first(els) ~then))
-    _ throw(Incorrect({.exnMessage "unlessLet expects a binding vector"}))
+  '(ifLet ~bindings ~then ~else)
 
 
 defmacro: orElse(value, & defaults)
   if: isEmpty(defaults)
     value
-    '(case ~value
-       nil (orElse ~@defaults)
-       x# x#)
+    '(ifLet [x# ~value] x# (orElse ~@defaults))
 
 defmacro: and(& forms)
   cond: isEmpty(forms)
@@ -154,9 +137,7 @@ defmacro: ?>(seed, & steps)
     let: [applied case: first(steps)
                     rdr/List(els) '(~first(els) v# ~@rest(els))
                     bare '(~bare v#)]
-      '(case ~seed
-         nil nil
-         v# (?> ~applied ~@rest(steps)))
+      '(ifLet [v# ~seed] (?> ~applied ~@rest(steps)) nil)
 
 defmacro: ->(seed, & steps)
   if: isEmpty(steps)

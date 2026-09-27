@@ -109,7 +109,7 @@ class TypedInteropTest {
     }
 
     @Test
-    fun `host method returning null works with case nil branch`() = withContext { ctx ->
+    fun `host method returning null takes ifLet's else branch`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.interop.nullable2
               import:
@@ -117,9 +117,9 @@ class TypedInteropTest {
                   as(System, Sys)
             decl: Sys/getProperty(Str) Str
             def: result
-              case: Sys/getProperty("no.such.property.exists")
-                nil "was nil"
-                s s
+              ifLet: [s Sys/getProperty("no.such.property.exists")]
+                s
+                "was nil"
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.nullable2/result")
         assertEquals("was nil", result.asString())

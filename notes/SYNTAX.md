@@ -285,8 +285,9 @@ Pattern matching on tagged values.
 Branches are pairs of forms: pattern then body expression.
 Patterns can be:
 - A tag with bindings: `Ok(v)`, `Follower({knownLeader})`
-- `nil` for the null case
 - A binding variable (lowercase): catches anything and binds it
+
+`case` matches tags only; `nil` is not a pattern. Branch on nil with `ifLet`.
 
 If the number of forms is odd, the last is the default (like Clojure's `case`).
 
@@ -314,6 +315,18 @@ case: result
   Ok({value, metadata}) process(value, metadata)
   Err({message, code}) log("Error ${code}: ${message}")
 ```
+
+### ifLet
+
+Conditional binding — binds the expression result, takes the then-branch if non-nil, else-branch if nil:
+
+```bridje
+ifLet: [leader .knownLeader(f)]
+  redirect(leader)        // then — leader is bound and non-nil
+  retryLater()           // else — expression was nil
+```
+
+The binding is in scope in the then-branch only.
 
 ### set
 
@@ -599,13 +612,9 @@ defmacro: unless(cond, body)
 defmacro: when(cond, & body)
   '(if ~cond (do ~@body) nil)
 
-// Macro that manipulates Form objects directly:
-defmacro: ifLet(bindings, then, else)
-  let: [bvec first(bindings)]
-    '(let [v# ~nth(bvec, 1)]
-       (case v#
-         nil ~else
-         ~first(bvec) ~then))
+// Macro that rearranges its arguments:
+defmacro: unlessLet(bindings, else, then)
+  '(ifLet ~bindings ~then ~else)
 ```
 
 Maximum macro expansion depth is 100 to prevent infinite expansion.
@@ -675,19 +684,9 @@ def: main()                     // inferred effects: {stdio}
 
 Defined in `brj.core`.
 
-### ifLet
-
-Conditional binding — binds the expression result, takes the then-branch if non-nil, else-branch if nil:
-
-```bridje
-ifLet: [leader .knownLeader(f)]
-  redirect(leader)        // then — leader is bound and non-nil
-  retryLater()           // else — expression was nil
-```
-
 ### unlessLet
 
-Inverse of ifLet — takes the first branch if nil:
+Inverse of `ifLet` — takes the first branch if nil:
 
 ```bridje
 unlessLet: [config loadConfig()]
