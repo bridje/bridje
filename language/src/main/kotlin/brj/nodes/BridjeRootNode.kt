@@ -272,41 +272,39 @@ abstract class BridjeRootNode protected constructor(
     }
 
     /**
-     * Whether [value] is an instance of the expected meta object carrying exactly the expected number of fields.
-     *
-     * A nullary tag is a singleton with no array elements, so the arity check is skipped for it —
-     * requiring an element count would reject every such tag.
+     * Whether [value] carries the expected tag — the payload's keys are not consulted.
      */
     @Operation
     @ConstantOperand(type = Any::class)
-    @ConstantOperand(type = Int::class)
     class MatchesTag {
         companion object {
             @JvmStatic
             @Specialization
             fun matches(
                 expectedMeta: Any,
-                arity: Int,
                 value: Any,
                 @CachedLibrary(limit = "3") interop: InteropLibrary,
-            ): Boolean {
-                if (!interop.hasMetaObject(value)) return false
-                if (interop.getMetaObject(value) !== expectedMeta) return false
-                if (arity == 0) return true
-                if (!interop.hasArrayElements(value)) return false
-                return interop.getArraySize(value) == arity.toLong()
-            }
+            ): Boolean =
+                interop.hasMetaObject(value) && interop.getMetaObject(value) === expectedMeta
         }
     }
 
     @Operation
-    @ConstantOperand(type = Int::class)
-    class TagField {
+    class TagPayload {
         companion object {
             @JvmStatic
             @Specialization
-            fun read(index: Int, value: Any, @CachedLibrary(limit = "3") interop: InteropLibrary): Any? =
-                interop.readArrayElement(value, index.toLong())
+            fun read(value: Any): Any = (value as Tagged).payload
+        }
+    }
+
+    @Operation
+    @ConstantOperand(type = BridjeKey::class)
+    class ReadKey {
+        companion object {
+            @JvmStatic
+            @Specialization
+            fun read(key: BridjeKey, record: Any): Any = (record as BridjeRecord).readKey(key)
         }
     }
 

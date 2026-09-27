@@ -14,7 +14,7 @@ class MacroTest {
                 brj: rdr
 
             defmacro: unless(cond, body)
-              rdr/List([rdr/SymbolForm(Symbol("if")) cond 'nil body])
+              rdr/List{.els [rdr/SymbolForm{.sym Symbol("if")} cond 'nil body]}
 
             def: __result unless(false, 42)
         """.trimIndent()).getMember("__result")
@@ -29,7 +29,7 @@ class MacroTest {
                 brj: rdr
 
             defmacro: when(cond, body)
-              rdr/List([rdr/SymbolForm(Symbol("if")) cond body 'nil])
+              rdr/List{.els [rdr/SymbolForm{.sym Symbol("if")} cond body 'nil]}
 
             def: __result when(true, 1)
         """.trimIndent()).getMember("__result")
@@ -44,7 +44,7 @@ class MacroTest {
                 brj: rdr
 
             defmacro: when(cond, body)
-              rdr/List([rdr/SymbolForm(Symbol("if")) cond body 'nil])
+              rdr/List{.els [rdr/SymbolForm{.sym Symbol("if")} cond body 'nil]}
 
             def: __result when(false, 1)
         """.trimIndent()).getMember("__result")
@@ -59,7 +59,7 @@ class MacroTest {
                 brj: rdr
 
             defmacro: ifNot(cond, then, else)
-              rdr/List([rdr/SymbolForm(Symbol("if")) cond else then])
+              rdr/List{.els [rdr/SymbolForm{.sym Symbol("if")} cond else then]}
 
             def: __result ifNot(false, 1, 2)
         """.trimIndent()).getMember("__result")
@@ -330,7 +330,7 @@ class MacroTest {
                 brj: rdr
 
             defmacro: countRest(& rest)
-              rdr/Int(count(rest))
+              rdr/Int{.value count(rest)}
 
             def: __result countRest(1, 2, 3)
         """.trimIndent()).getMember("__result")
@@ -345,7 +345,7 @@ class MacroTest {
                 brj: rdr
 
             defmacro: countRest(& rest)
-              rdr/Int(count(rest))
+              rdr/Int{.value count(rest)}
 
             def: __result countRest()
         """.trimIndent()).getMember("__result")

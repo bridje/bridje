@@ -8,17 +8,17 @@ ns: raft.server
 decl: {.from ServerId, .to ServerId}
 
 decl: {.term Int, .index Int, .command Str}
-tag: LogEntry({.term, .index, .command})
+tag: LogEntry{.term, .index, .command}
 
 decl: {.lastLogIndex Int, .lastLogTerm Int, .granted Bool}
 decl: {.prevLogIndex Int, .prevLogTerm Int, .entries Vec, .leaderCommit Int}
 decl: {.success Bool, .matchIndex Int}
 
 enum: RpcMsg
-  tag: VoteRequest({.from, .to, .term, .lastLogIndex, .lastLogTerm})
-  tag: VoteResponse({.from, .to, .term, .granted})
-  tag: AppendRequest({.from, .to, .term, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
-  tag: AppendResponse({.from, .to, .term, .success, .matchIndex})
+  tag: VoteRequest{.from, .to, .term, .lastLogIndex, .lastLogTerm}
+  tag: VoteResponse{.from, .to, .term, .granted}
+  tag: AppendRequest{.from, .to, .term, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit}
+  tag: AppendResponse{.from, .to, .term, .success, .matchIndex}
 
 decl:
   {.cluster Set
@@ -30,29 +30,29 @@ decl:
    .role ServerRole
    .id ServerId}
 
-tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role})
+tag: ServerState{.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role}
 
 //// Server Role
 
 decl: {.knownLeader ServerId, .votesReceived Set, .nextIndex Map, .matchIdx Map}
 
 enum: ServerRole
-  tag: Follower({.knownLeader})
-  tag: Candidate({.votesReceived})
-  tag: Leader({.nextIndex, .matchIdx})
+  tag: Follower{.knownLeader}
+  tag: Candidate{.votesReceived}
+  tag: Leader{.nextIndex, .matchIdx}
 
 //// Derived
 
 // ServerState -> Int
-def: majority(ServerState({cluster}))
+def: majority(ServerState{cluster})
   ->: cluster count() div(2) inc()
 
 // ServerState -> Int
-def: lastLogIndex(ServerState({log}))
+def: lastLogIndex(ServerState{log})
   count(log)
 
 // ServerState -> Int
-def: lastLogTerm(ServerState({log}))
+def: lastLogTerm(ServerState{log})
   if: isPos(count(log))
     .term(last(log))
     0
@@ -99,7 +99,7 @@ def: canGrantVote(state, req)
     candidateLogUpToDate(state, req)
 
 // ServerState, AppendRequest -> Bool
-def: logConsistent(state, AppendRequest({prevLogIndex, prevLogTerm}))
+def: logConsistent(state, AppendRequest{prevLogIndex, prevLogTerm})
   or:
     isZero(prevLogIndex)
     and:

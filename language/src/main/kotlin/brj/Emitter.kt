@@ -315,20 +315,45 @@ class Emitter(
 
             is TagPattern -> {
                 b.beginIfThenElse()
-                b.beginMatchesTag(pattern.tagValue, pattern.bindings.size)
+                b.beginMatchesTag(pattern.tagValue)
                 b.emitLoadLocal(scrutinee)
                 b.endMatchesTag()
-                emitBody {
-                    pattern.bindings.forEachIndexed { i, binding ->
-                        b.beginStoreLocal(local(binding.slot))
-                        b.beginTagField(i)
-                        b.emitLoadLocal(scrutinee)
-                        b.endTagField()
-                        b.endStoreLocal()
-                    }
-                }
+                emitBody { emitPayloadBinding(pattern.payload, scrutinee) }
                 emitRest()
                 b.endIfThenElse()
+            }
+        }
+    }
+
+    private fun emitPayloadBinding(payload: PayloadBinding?, scrutinee: BytecodeLocal) {
+        fun emitPayload() {
+            b.beginTagPayload()
+            b.emitLoadLocal(scrutinee)
+            b.endTagPayload()
+        }
+
+        when (payload) {
+            null -> Unit
+
+            is PayloadBinding.Whole -> {
+                b.beginStoreLocal(local(payload.binding.slot))
+                emitPayload()
+                b.endStoreLocal()
+            }
+
+            is PayloadBinding.Keys -> {
+                val record = b.createLocal()
+                b.beginStoreLocal(record)
+                emitPayload()
+                b.endStoreLocal()
+
+                for ((key, binding) in payload.bindings) {
+                    b.beginStoreLocal(local(binding.slot))
+                    b.beginReadKey(key)
+                    b.emitLoadLocal(record)
+                    b.endReadKey()
+                    b.endStoreLocal()
+                }
             }
         }
     }

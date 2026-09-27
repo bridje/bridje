@@ -9,7 +9,7 @@ class ErrorHandlingTest {
     @Test
     fun `throw produces guest exception`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("""throw(Fault({.exnMessage "something went wrong"}))""")
+            ctx.evalBridje("""throw(Fault{.exnMessage "something went wrong"})""")
         }
         assertTrue(ex.isGuestException)
         assertTrue(ex.message!!.contains("something went wrong"))
@@ -18,7 +18,7 @@ class ErrorHandlingTest {
     @Test
     fun `throw anomaly with data`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("""throw(Fault({.exnMessage "kaboom"}))""")
+            ctx.evalBridje("""throw(Fault{.exnMessage "kaboom"})""")
         }
         assertTrue(ex.isGuestException)
     }
@@ -26,7 +26,7 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch catches anomaly`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Fault({}))
+            try: throw(Fault{})
               catch:
                 (Fault d) 42
         """.trimIndent())
@@ -36,7 +36,7 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch catches anomaly with bindings`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Fault({.exnMessage "oops"}))
+            try: throw(Fault{.exnMessage "oops"})
               catch:
                 (Fault d) .exnMessage(d)
         """.trimIndent())
@@ -47,7 +47,7 @@ class ErrorHandlingTest {
     fun `try-catch rethrows on no match`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
-                try: throw(Conflict({}))
+                try: throw(Conflict{})
                   catch:
                     (NotFound d) 42
             """.trimIndent())
@@ -58,7 +58,7 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch with default branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Conflict({}))
+            try: throw(Conflict{})
               catch:
                 (NotFound d) 1
                 e 99
@@ -91,7 +91,7 @@ class ErrorHandlingTest {
     @Test
     fun `try-catch-finally runs finally on exception`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Fault({}))
+            try: throw(Fault{})
               catch:
                 (Fault d) 42
               finally:
@@ -104,9 +104,9 @@ class ErrorHandlingTest {
     fun `nested try-catch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             try:
-              try: throw(NotFound({}))
+              try: throw(NotFound{})
                 catch:
-                  (NotFound d) throw(Conflict({}))
+                  (NotFound d) throw(Conflict{})
               catch:
                 (Conflict d) 42
         """.trimIndent())
@@ -116,7 +116,7 @@ class ErrorHandlingTest {
     @Test
     fun `catch-all binding pattern`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Incorrect({.exnMessage "bad input"}))
+            try: throw(Incorrect{.exnMessage "bad input"})
               catch:
                 e 42
         """.trimIndent())
@@ -126,7 +126,7 @@ class ErrorHandlingTest {
     @Test
     fun `two catch clauses, first clause matches`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(NotFound({}))
+            try: throw(NotFound{})
               catch:
                 (NotFound d) 1
               catch:
@@ -138,7 +138,7 @@ class ErrorHandlingTest {
     @Test
     fun `two catch clauses, second clause matches`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Forbidden({}))
+            try: throw(Forbidden{})
               catch:
                 (NotFound d) 1
               catch:
@@ -150,7 +150,7 @@ class ErrorHandlingTest {
     @Test
     fun `default branch in the final catch clause`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(Conflict({}))
+            try: throw(Conflict{})
               catch:
                 (NotFound d) 1
               catch:
@@ -164,7 +164,7 @@ class ErrorHandlingTest {
     fun `default branch in a non-final catch clause is an error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
-                try: throw(Conflict({}))
+                try: throw(Conflict{})
                   catch:
                     (NotFound d) 1
                     42
@@ -181,7 +181,7 @@ class ErrorHandlingTest {
     @Test
     fun `anomaly tags are available in brj core`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            case: NotFound({})
+            case: NotFound{}
               (NotFound d) true
               x false
         """.trimIndent())
@@ -191,7 +191,7 @@ class ErrorHandlingTest {
     @Test
     fun `throw and catch anomaly tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
-            try: throw(NotFound({}))
+            try: throw(NotFound{})
               catch:
                 (NotFound d) 42
         """.trimIndent())
@@ -202,7 +202,7 @@ class ErrorHandlingTest {
     fun `all ten anomaly categories exist`() = withContext { ctx ->
         for (tag in listOf("Unavailable", "Interrupted", "Busy", "Incorrect", "Forbidden", "Unsupported", "NotFound", "Conflict", "Fault", "Host")) {
             val result = ctx.evalBridje("""
-                case: $tag({})
+                case: $tag{}
                   ($tag d) true
                   x false
             """.trimIndent())
@@ -294,7 +294,7 @@ class ErrorHandlingTest {
     @Test
     fun `exnMessage key provides exception message`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("""throw(NotFound({.exnMessage "user 123 not found"}))""")
+            ctx.evalBridje("""throw(NotFound{.exnMessage "user 123 not found"})""")
         }
         assertTrue(ex.isGuestException)
         assertEquals("user 123 not found", ex.message)

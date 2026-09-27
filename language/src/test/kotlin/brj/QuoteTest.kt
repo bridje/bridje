@@ -92,11 +92,10 @@ class QuoteTest {
     }
 
     @Test
-    fun `quoted list has array element containing forms`() = withContext { ctx ->
+    fun `quoted list reads its elements as the els member`() = withContext { ctx ->
         val result = ctx.evalBridje("'(a b c)")
-        assertTrue(result.hasArrayElements())
-        assertEquals(1L, result.arraySize)
-        val forms = result.getArrayElement(0)
+        assertFalse(result.hasArrayElements())
+        val forms = result.getMember("els")
         assertTrue(forms.hasArrayElements())
         assertEquals(3L, forms.arraySize)
         assertEquals("SymbolForm", forms.getArrayElement(0).metaObject.metaSimpleName)
@@ -104,25 +103,54 @@ class QuoteTest {
     }
 
     @Test
-    fun `quoted vector has array element containing forms`() = withContext { ctx ->
+    fun `quoted vector reads its elements as the els member`() = withContext { ctx ->
         val result = ctx.evalBridje("'[1 2]")
-        assertTrue(result.hasArrayElements())
-        assertEquals(1L, result.arraySize)
-        val forms = result.getArrayElement(0)
-        assertTrue(forms.hasArrayElements())
+        val forms = result.getMember("els")
         assertEquals(2L, forms.arraySize)
         assertEquals("Int", forms.getArrayElement(0).metaObject.metaSimpleName)
     }
 
     @Test
-    fun `case can bind forms from quoted list`() = withContext { ctx ->
+    fun `case can destructure forms from quoted list`() = withContext { ctx ->
         val result = ctx.evalBridjeForms("""
             case: '(foo bar)
-              rdr/List(forms) forms
+              rdr/List{els} els
               _ []
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(2L, result.arraySize)
+        assertEquals("foo", result.getArrayElement(0).toString())
+        assertEquals("bar", result.getArrayElement(1).toString())
+    }
+
+    @Test
+    fun `case can bind a form's record`() = withContext { ctx ->
+        val result = ctx.evalBridjeForms("""
+            case: '(foo bar)
+              rdr/List(l) count(rdr/.els(l))
+              _ 0
+        """.trimIndent())
+        assertEquals(2L, result.asLong())
+    }
+
+    @Test
+    fun `case can destructure a scalar form`() = withContext { ctx ->
+        val result = ctx.evalBridjeForms("""
+            case: 'foo
+              rdr/SymbolForm{sym} sym
+              _ nil
+        """.trimIndent())
+        assertEquals("Symbol", result.metaObject.metaSimpleName)
+        assertEquals("foo", result.toString())
+    }
+
+    @Test
+    fun `case can destructure a qualified symbol form`() = withContext { ctx ->
+        val result = ctx.evalBridjeForms("""
+            case: 'foo/bar
+              rdr/QSymbolForm{ns, member} [ns member]
+              _ nil
+        """.trimIndent())
         assertEquals("foo", result.getArrayElement(0).toString())
         assertEquals("bar", result.getArrayElement(1).toString())
     }

@@ -7,21 +7,42 @@ import org.junit.jupiter.api.Test
 class TagTest {
     @Test
     fun `tag creates constructor in scope`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("tag: Just(value)")
+        val constructor = ctx.evalBridje("tag: Just{.value}")
         assertTrue(constructor.canExecute())
         assertEquals("Just", constructor.toString())
     }
 
     @Test
-    fun `Just(42) creates tuple with value`() = withContext { ctx ->
+    fun `a tag is constructed from a record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Just(value)
-              Just(42)
+              tag: Just{.value}
+              def: r {.value 42}
+              Just(r)
         """.trimIndent())
-        assertTrue(result.hasArrayElements())
-        assertEquals(1, result.arraySize)
-        assertEquals(42L, result.getArrayElement(0).asLong())
+        assertFalse(result.hasArrayElements())
+        assertEquals(42L, result.getMember("value").asLong())
+    }
+
+    @Test
+    fun `curly-brace sugar constructs a tag`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: Just{.value}
+              .value(Just{.value 42})
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `a parenthesised record literal is the same call as the curly-brace sugar`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: Just{.value}
+              case: Just({.value 42})
+                Just({value}) value
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
     }
 
     @Test
@@ -55,102 +76,142 @@ class TagTest {
     }
 
     @Test
-    fun `unary tag display string includes value`() = withContext { ctx ->
+    fun `tag display string is the tag and its record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Just(value)
-              Just(42)
+              tag: Just{.value}
+              Just{.value 42}
         """.trimIndent())
-        assertEquals("Just(42)", result.toString())
+        assertEquals("Just{.value 42}", result.toString())
     }
 
     @Test
-    fun `multi-field tag`() = withContext { ctx ->
+    fun `multi-key tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Pair(first, second)
-              Pair(1, 2)
+              tag: Pair{.fst, .snd}
+              Pair{.fst 1, .snd 2}
         """.trimIndent())
-        assertTrue(result.hasArrayElements())
-        assertEquals(2, result.arraySize)
-        assertEquals(1L, result.getArrayElement(0).asLong())
-        assertEquals(2L, result.getArrayElement(1).asLong())
-        assertEquals("Pair(1, 2)", result.toString())
+        assertEquals(1L, result.getMember("fst").asLong())
+        assertEquals(2L, result.getMember("snd").asLong())
     }
 
     @Test
-    fun `arity mismatch - too few args`() = withContext { ctx ->
+    fun `a tag's record may carry keys beyond the tag's`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              decl: .email Str
+              tag: User{.name}
+              .email(User{.name "James", .email "j@example.com"})
+        """.trimIndent())
+        assertEquals("j@example.com", result.asString())
+    }
+
+    @Test
+    fun `a tag's record must carry the tag's keys`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  tag: Just(value)
-                  Just()
+                  tag: Pair{.fst, .snd}
+                  Pair{.fst 1}
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("Arity") == true || ex.message?.contains("arity") == true,
-            "Expected arity error, got: ${ex.message}")
+        assertTrue(ex.message?.contains("requires .snd") == true, "got: ${ex.message}")
     }
 
     @Test
-    fun `arity mismatch - too many args`() = withContext { ctx ->
+    fun `a tag is not constructed from anything but a record`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
-                  tag: Just(value)
-                  Just(1, 2)
+                  tag: Just{.value}
+                  def: x 42
+                  Just(x)
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("Arity") == true || ex.message?.contains("arity") == true,
-            "Expected arity error, got: ${ex.message}")
+        assertTrue(ex.message?.contains("expects a record") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a tag takes one argument`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  tag: Pair{.fst, .snd}
+                  Pair(1, 2)
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("rity") == true, "Expected arity error, got: ${ex.message}")
+    }
+
+    @Test
+    fun `positional tag declarations are rejected`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("tag: Pair(fst, snd)")
+        }
+        assertTrue(ex.message?.contains("a tag's payload is one record") == true, "got: ${ex.message}")
     }
 
     @Test
     fun `tag name must be capitalized`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("tag: just(value)")
+            ctx.evalBridje("tag: just{.value}")
         }
         assertTrue(ex.message?.contains("capitalized") == true,
             "Expected capitalization error, got: ${ex.message}")
     }
 
     @Test
-    fun `nested tuples`() = withContext { ctx ->
+    fun `nested tags`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Just(value)
-              tag: Nothing
-              Just(Just(42))
+              tag: Just{.value}
+              .value(.value(Just{.value Just{.value 42}}))
         """.trimIndent())
-        assertEquals(1, result.arraySize)
-        val inner = result.getArrayElement(0)
-        assertEquals(1, inner.arraySize)
-        assertEquals(42L, inner.getArrayElement(0).asLong())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `record keys resolve among the tag's own keys first`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: tag_keys_test
+            tag: User{.fn, .ln}
+        """.trimIndent())
+
+        val ns = ctx.evalBridje("""
+            ns: tag_keys_user
+            def: result tag_keys_test/User{.fn "James", .ln "Henderson"}
+        """.trimIndent())
+        assertEquals("James", ns.getMember("result").getMember("fn").asString())
     }
 
     // Interop tests
 
     @Test
     fun `constructor is executable and instantiable`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("tag: Just(value)")
+        val constructor = ctx.evalBridje("tag: Just{.value}")
         assertTrue(constructor.canExecute())
         assertTrue(constructor.canInstantiate())
     }
 
     @Test
     fun `can instantiate using constructor`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("tag: Just(value)")
-        val result = constructor.newInstance(42L)
-        assertTrue(result.hasArrayElements())
-        assertEquals(1, result.arraySize)
-        assertEquals(42L, result.getArrayElement(0).asLong())
+        ctx.evalBridje("""
+            ns: tag_interop_test
+            tag: Just{.value}
+        """.trimIndent())
+        val constructor = ctx.evalBridje("tag_interop_test/Just")
+        val result = constructor.newInstance(ctx.evalBridje("{tag_interop_test/.value 42}"))
+        assertEquals(42L, result.getMember("value").asLong())
+        assertEquals(42L, result.getMember("tag_interop_test/value").asLong())
     }
 
     @Test
-    fun `tagged tuple has meta object`() = withContext { ctx ->
+    fun `tagged record has meta object`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Just(value)
-              Just(42)
+              tag: Just{.value}
+              Just{.value 42}
         """.trimIndent())
         val meta = result.metaObject
         assertNotNull(meta)
@@ -162,14 +223,14 @@ class TagTest {
     fun `meta object isMetaInstance works`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: tag_meta_test
-            tag: Just(value)
-            tag: Other(value)
+            tag: Just{.value}
+            tag: Other{.value}
         """.trimIndent())
 
         val justConstructor = ctx.evalBridje("tag_meta_test/Just")
         val otherConstructor = ctx.evalBridje("tag_meta_test/Other")
-        val justValue = ctx.evalBridje("tag_meta_test/Just(42)")
-        val otherValue = ctx.evalBridje("tag_meta_test/Other(42)")
+        val justValue = ctx.evalBridje("tag_meta_test/Just{.value 42}")
+        val otherValue = ctx.evalBridje("tag_meta_test/Other{.value 42}")
 
         assertTrue(justConstructor.isMetaInstance(justValue))
         assertFalse(justConstructor.isMetaInstance(otherValue))
@@ -188,28 +249,26 @@ class TagTest {
     }
 
     @Test
-    fun `constructor meta object for tagged tuple`() = withContext { ctx ->
+    fun `constructor is the tagged record's meta object`() = withContext { ctx ->
         ctx.evalBridje("""
-            ns: tag_tuple_test
-            tag: Just(value)
+            ns: tag_record_test
+            tag: Just{.value}
         """.trimIndent())
 
-        val constructor = ctx.evalBridje("tag_tuple_test/Just")
-        val tuple = ctx.evalBridje("tag_tuple_test/Just(42)")
-        val meta = tuple.metaObject
+        val tagged = ctx.evalBridje("tag_record_test/Just{.value 42}")
+        val meta = tagged.metaObject
 
-        // The meta object should be the constructor
         assertTrue(meta.canExecute())
-        assertTrue(meta.isMetaInstance(tuple))
+        assertTrue(meta.isMetaInstance(tagged))
     }
 
     @Test
     fun `parameterised tag with type variable`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: [t] Box(t)
-              case: Box(42)
-                Box(x) x
+              tag: [t] Box{.value(t)}
+              case: Box{.value 42}
+                Box{value} value
         """.trimIndent())
         assertEquals(42, result.asInt())
     }
@@ -218,13 +277,35 @@ class TagTest {
     fun `parameterised tag preserves type identity`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: [t] Wrapper(t)
+              tag: [t] Wrapper{.value(t)}
               decl: [t] unwrap(Wrapper(t)) t
               def: unwrap(w) case: w
-                Wrapper(x) x
-              unwrap(Wrapper("hello"))
+                Wrapper(r) .value(r)
+              unwrap(Wrapper{.value "hello"})
         """.trimIndent())
         assertEquals("hello", result.asString())
     }
 
+    @Test
+    fun `a tag instantiates a key declared with a type variable`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              decl: [a] .value a
+              enum: Result(a, e)
+                tag: Ok{.value(a)}
+                tag: Err{.error(e)}
+              case: Ok{.value 42}
+                Ok{value} value
+                Err 0
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `a key's type argument must be the tag's type variable`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("tag: [t] Box{.value(u)}")
+        }
+        assertTrue(ex.message?.contains("u") == true, "got: ${ex.message}")
+    }
 }

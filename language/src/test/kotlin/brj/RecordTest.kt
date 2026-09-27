@@ -414,14 +414,12 @@ class RecordTest {
     fun `record sugar desugars to call with record arg`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .x Int
-              tag: Wrapper(value)
+              tag: Wrapper{.x}
               Wrapper{.x 42}
         """.trimIndent())
-        assertTrue(result.hasArrayElements())
-        assertEquals(1, result.arraySize)
-        assertTrue(result.getArrayElement(0).hasMembers())
-        assertEquals(42L, result.getArrayElement(0).getMember("x").asLong())
+        assertEquals("Wrapper", result.metaObject.metaSimpleName)
+        assertTrue(result.hasMembers())
+        assertEquals(42L, result.getMember("x").asLong())
     }
 
     @Test

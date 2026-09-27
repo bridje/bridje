@@ -27,9 +27,9 @@ defmacro: runTest(testQsym)
   `(let [cell# _makeCollector()
          exn# try:
                 withFx: [_recordFailure fn: h#(f#, m#)
-                                          _collectorAdd(cell#, Failure(f#, m#))]
+                                          _collectorAdd(cell#, Failure{.form f#, .message m#})]
                   (~testQsym)
                 nil
                 catch:
                   a# a#]
-     TestResult(cell# exn#))
+     TestResult{.failures cell#, .exn exn#})

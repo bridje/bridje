@@ -22,14 +22,13 @@ class DefExpr(
 
 class DefTagExpr(
     val name: Symbol,
-    val fieldNames: List<Symbol>,
+    val keys: List<Symbol>?,
     val typeVarNames: List<String> = emptyList(),
-    val recordStyle: Boolean = false,
     override val loc: SourceSection? = null
 ) : Expr {
     override fun toString(): String =
-        if (fieldNames.isEmpty()) "(tag $name)"
-        else "(tag ($name ${fieldNames.joinToString(" ")}))"
+        if (keys == null) "(tag $name)"
+        else "(tag $name{${keys.joinToString(", ") { ".${it.name}" }}})"
 }
 
 class DefEnumExpr(

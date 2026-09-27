@@ -107,7 +107,7 @@ defmacro: cond->(seed, & clauses)
   if: isEmpty(clauses)
     seed
     let: [applied case: nth(clauses, 1)
-                    rdr/List(els) '(~first(els) v# ~@rest(els))
+                    rdr/List{els} '(~first(els) v# ~@rest(els))
                     bare '(~bare v#)]
       '(let [v# ~seed
              v# (if ~first(clauses) ~applied v#)]
@@ -117,7 +117,7 @@ defmacro: doto(val, & forms)
   if: isEmpty(forms)
     val
     let: [applied case: first(forms)
-                    rdr/List(els) '(~first(els) v# ~@rest(els))
+                    rdr/List{els} '(~first(els) v# ~@rest(els))
                     bare '(~bare v#)]
       '(let [v# ~val]
          (do ~applied (doto v# ~@rest(forms))))
@@ -135,7 +135,7 @@ defmacro: ?>(seed, & steps)
   if: isEmpty(steps)
     seed
     let: [applied case: first(steps)
-                    rdr/List(els) '(~first(els) v# ~@rest(els))
+                    rdr/List{els} '(~first(els) v# ~@rest(els))
                     bare '(~bare v#)]
       '(ifLet [v# ~seed] (?> ~applied ~@rest(steps)) nil)
 
@@ -144,6 +144,6 @@ defmacro: ->(seed, & steps)
     seed
     let: [step first(steps)
           applied case: step
-                    rdr/List(els) '(~first(els) ~seed ~@rest(els))
+                    rdr/List{els} '(~first(els) ~seed ~@rest(els))
                     bare '(~bare ~seed)]
       '(-> ~applied ~@rest(steps))

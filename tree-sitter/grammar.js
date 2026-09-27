@@ -81,7 +81,7 @@ module.exports = grammar({
       token.immediate('('), repeat($._form), ')'
     ),
 
-    // Foo{a b} — record construction sugar, desugars to Foo({a b})
+    // Foo{a b} — tag construction sugar, desugars to (Foo {a b})
     record_sugar: $ => seq(choice($.symbol, $.qualified_symbol), token.immediate('{'), repeat($._form), '}'),
 
     // foo: args

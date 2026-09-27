@@ -6,14 +6,14 @@ import org.junit.jupiter.api.Test
 class FormConstructorTest {
     @Test
     fun `Vector creates VectorForm from quoted elements`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/Vector(['a 'b])")
+        val result = ctx.evalBridjeForms("rdr/Vector{.els ['a 'b]}")
         assertEquals("Vector", result.metaObject.metaSimpleName)
         assertEquals("[a b]", result.toString())
     }
 
     @Test
     fun `List creates ListForm from forms`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/List([rdr/SymbolForm(Symbol(\"if\")) rdr/SymbolForm(Symbol(\"true\")) rdr/Int(1) rdr/Int(2)])")
+        val result = ctx.evalBridjeForms("rdr/List{.els [rdr/SymbolForm{.sym Symbol(\"if\")} rdr/SymbolForm{.sym Symbol(\"true\")} rdr/Int{.value 1} rdr/Int{.value 2}]}")
         assertEquals("List", result.metaObject.metaSimpleName)
         assertEquals("(if true 1 2)", result.toString())
     }
@@ -27,49 +27,49 @@ class FormConstructorTest {
 
     @Test
     fun `SymbolForm wraps Symbol`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/SymbolForm(Symbol(\"foo\"))")
+        val result = ctx.evalBridjeForms("rdr/SymbolForm{.sym Symbol(\"foo\")}")
         assertEquals("SymbolForm", result.metaObject.metaSimpleName)
         assertEquals("foo", result.toString())
     }
 
     @Test
     fun `Int creates IntForm from number`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/Int(42)")
+        val result = ctx.evalBridjeForms("rdr/Int{.value 42}")
         assertEquals("Int", result.metaObject.metaSimpleName)
         assertEquals("42", result.toString())
     }
 
     @Test
     fun `String creates StringForm`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/String(\"hello\")")
+        val result = ctx.evalBridjeForms("rdr/String{.value \"hello\"}")
         assertEquals("String", result.metaObject.metaSimpleName)
         assertEquals("\"hello\"", result.toString())
     }
 
     @Test
     fun `nested form construction`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/List([rdr/SymbolForm(Symbol(\"let\")) rdr/Vector(['x rdr/Int(1)]) rdr/SymbolForm(Symbol(\"x\"))])")
+        val result = ctx.evalBridjeForms("rdr/List{.els [rdr/SymbolForm{.sym Symbol(\"let\")} rdr/Vector{.els ['x rdr/Int{.value 1}]} rdr/SymbolForm{.sym Symbol(\"x\")}]}")
         assertEquals("List", result.metaObject.metaSimpleName)
         assertEquals("(let [x 1] x)", result.toString())
     }
 
     @Test
     fun `Set creates SetForm`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/Set(['a 'b])")
+        val result = ctx.evalBridjeForms("rdr/Set{.els ['a 'b]}")
         assertEquals("Set", result.metaObject.metaSimpleName)
         assertEquals("#{a b}", result.toString())
     }
 
     @Test
     fun `Record creates RecordForm`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/Record([rdr/SymbolForm(Symbol(\"a\")) rdr/Int(1)])")
+        val result = ctx.evalBridjeForms("rdr/Record{.els [rdr/SymbolForm{.sym Symbol(\"a\")} rdr/Int{.value 1}]}")
         assertEquals("Record", result.metaObject.metaSimpleName)
         assertEquals("{a 1}", result.toString())
     }
 
     @Test
     fun `Double creates DoubleForm`() = withContext { ctx ->
-        val result = ctx.evalBridjeForms("rdr/Double(3.14)")
+        val result = ctx.evalBridjeForms("rdr/Double{.value 3.14}")
         assertEquals("Double", result.metaObject.metaSimpleName)
         assertEquals("3.14", result.toString())
     }

@@ -103,18 +103,18 @@ if: gt(a, b)
 
 ### Curly-brace construction sugar
 
-`Foo{...}` desugars to `Foo({...})`.
+`Foo{...}` constructs a tag from a record; in the list syntax it is `(Foo {...})`.
 
-When a symbol is immediately followed by curly braces, it desugars to calling that symbol with a record argument.
-This makes tagged record construction concise:
+When a capitalised symbol is immediately followed by curly braces, it calls that tag with the braces' record:
 
 ```bridje
 Person{.name "James", .age 42}
-// desugars to:
-Person({.name "James", .age 42})
 // which is:
 (Person {.name "James" .age 42})
 ```
+
+`Person({.name "James"})` is the same call, written with ordinary call syntax; `Person{…}` is the conventional spelling.
+A tag may be called with a record held elsewhere too: `Person(r)`.
 
 ## Instance Members
 
@@ -284,8 +284,12 @@ Pattern matching on tagged values.
 
 Branches are pairs of forms: pattern then body expression.
 Patterns can be:
-- A tag with bindings: `Ok(v)`, `Follower({knownLeader})`
+- A tag alone: `Nothing`, `Ok` — matches on the tag, whatever its payload
+- A tag binding its record: `Ok(r)`, then `.value(r)`
+- A tag destructuring its record: `Follower{knownLeader}` binds `knownLeader` to `.knownLeader`, looked up among the tag's keys first
 - A binding variable (lowercase): catches anything and binds it
+
+A pattern checks the tag alone; the keys a destructuring reads must be present when it matches.
 
 `case` matches tags only; `nil` is not a pattern. Branch on nil with `ifLet`.
 
@@ -293,7 +297,7 @@ If the number of forms is odd, the last is the default (like Clojure's `case`).
 
 ```bridje
 case: expr
-  Ok(v) handleOk(v)
+  Ok{value} handleOk(value)
   defaultValue              // last expression is the default
 ```
 
@@ -312,8 +316,9 @@ Destructuring inside tags:
 
 ```bridje
 case: result
-  Ok({value, metadata}) process(value, metadata)
-  Err({message, code}) log("Error ${code}: ${message}")
+  Ok{value, metadata} process(value, metadata)
+  Err{message, code} log("Error ${code}: ${message}")
+  Fault(d) log(.?exnMessage(d))
 ```
 
 ### ifLet
@@ -492,46 +497,53 @@ let: [{name, email} getUser()]
 Nominal type — a thing you can construct and pattern match on.
 A tag is distinct from any other tag, even with identical members.
 
-Positional members (tuple-style):
+A tag is a name over one record payload, or over none:
 
 ```bridje
-tag: Ok(a)
-tag: Err(e)
-tag: Pair(first, second)
+tag: User{.fn, .ln}            // each key is declared in this namespace, as with decl: .fn
+tag: Pair{.fst, .snd}
 tag: Nothing                   // nullary — a singleton value
 ```
 
-Construction uses call syntax:
+A tag is constructed from a record, which must carry the tag's keys and may carry more:
 
 ```bridje
-Ok(42)
-Pair(1, 2)
-Nothing                        // singleton, no parens needed
+User{.fn "James", .ln "Henderson"}
+User(r)                                            // r a record held elsewhere
+User{.fn "James", .ln "Henderson", .email "j@x"}  // a User that also carries .email
+Nothing                                            // singleton, no parens needed
 ```
 
-<!-- TODO: tag with named members via {} — tag: User{.name, .age} -->
-<!-- TODO: curly-brace construction sugar for named tags — User{.name "James"} -->
+In a tag's record literal, an unqualified key is first looked up among the tag's own keys, so `other/User{.fn "a", .ln "b"}` needs no `other/.fn`.
+
+A tagged value reads like its record: `.fn(u)`, `.?email(u)`, and polyglot members.
+
+A tag's type parameter reaches its payload through the key:
+
+```bridje
+decl: [a] .value a
+
+tag: [a] Box{.value(a)}        // .value instantiated at the tag's a
+```
 
 ### enum
 
 Closed sum type — a fixed set of variants.
 Variants are constructors owned by the enum, not standalone types.
-`Just(x)` has type `Maybe(a)`, not type `Just`.
+`Ok{.value x}` has type `Result(a, e)`, not type `Ok`.
 
 ```bridje
 enum: ServerRole
-  tag: Follower({.knownLeader})
-  tag: Candidate({.votesReceived})
-  tag: Leader({.nextIndex, .matchIdx})
+  tag: Follower{.knownLeader}
+  tag: Candidate{.votesReceived}
+  tag: Leader{.nextIndex, .matchIdx}
 
 enum: Result(a, e)
-  tag: Ok(a)
-  tag: Err(e)
-
-enum: Maybe(a)
-  tag: Just(a)
-  tag: Nothing
+  tag: Ok{.value(a)}
+  tag: Err{.error(e)}
 ```
+
+Bridje needs no `Maybe`: the optional value is `a?`.
 
 Variant constructors are interned into the declaring namespace.
 Pattern matching on enums is exhaustive — the compiler verifies all variants are handled.
@@ -850,7 +862,7 @@ Metadata is a member key or a record attached to the following form.
 ^.test
 def: testElection()
   let: [state createTestState()]
-    assert(eq(.role(state), Follower({.knownLeader nil})))
+    assert(eq(.role(state), Follower{.knownLeader nil}))
 
 ^{.doc "Returns the majority threshold for a cluster"}
 def: majority(state) ...
@@ -879,7 +891,7 @@ Errors are thrown as anomaly records with a category tag.
 `try`/`catch`/`finally` work like Clojure/Java but catch anomaly categories.
 
 ```bridje
-throw: NotFound({.message "user not found"})
+throw: NotFound{.message "user not found"}
 
 try:
   riskyOperation()

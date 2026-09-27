@@ -116,7 +116,13 @@ class BridjeRecord internal constructor(
     }
 
     @TruffleBoundary
-    override fun hasKey(key: BridjeKey): Boolean = OBJECT_LIBRARY.containsKey(storage, key.sym)
+    override fun hasKey(key: BridjeKey): Boolean = hasKey(key.sym)
+
+    @TruffleBoundary
+    internal fun hasKey(key: QSymbol): Boolean = OBJECT_LIBRARY.containsKey(storage, key)
+
+    @TruffleBoundary
+    internal operator fun get(key: QSymbol): Any? = OBJECT_LIBRARY.getOrDefault(storage, key, null)
 
     @TruffleBoundary
     override fun readKey(key: BridjeKey): Any =

@@ -40,32 +40,32 @@ decl:
    .nextIndex Map(Int, Int)
    .matchIndex Map(Int, Int)}
 
-tag: LogEntry({.term, .index, .command})
+tag: LogEntry{.term, .index, .command}
 
 enum: ServerRole
-  tag: Follower({.knownLeader})
-  tag: Candidate({.votesReceived})
-  tag: Leader({.nextIndex, .matchIndex})
+  tag: Follower{.knownLeader}
+  tag: Candidate{.votesReceived}
+  tag: Leader{.nextIndex, .matchIndex}
 
-tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role, .leaderId})
+tag: ServerState{.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role, .leaderId}
 
 //// RPC message types
 
-tag: VoteRequest({.term, .from, .lastLogIndex, .lastLogTerm})
-tag: VoteResponse({.term, .from, .to, .isGranted})
-tag: AppendRequest({.term, .from, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
-tag: AppendResponse({.term, .from, .to, .isSuccess, .lastLogIndex})
+tag: VoteRequest{.term, .from, .lastLogIndex, .lastLogTerm}
+tag: VoteResponse{.term, .from, .to, .isGranted}
+tag: AppendRequest{.term, .from, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit}
+tag: AppendResponse{.term, .from, .to, .isSuccess, .lastLogIndex}
 
 //// Client command wrapper
 
-tag: ClientCommand({.command, .from})
+tag: ClientCommand{.command, .from}
 
 enum: Rpc
-  tag: VoteRequest({.term, .from, .lastLogIndex, .lastLogTerm})
-  tag: VoteResponse({.term, .from, .to, .isGranted})
-  tag: AppendRequest({.term, .from, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit})
-  tag: AppendResponse({.term, .from, .to, .isSuccess, .lastLogIndex})
-  tag: ClientCommand({.command, .from})
+  tag: VoteRequest{.term, .from, .lastLogIndex, .lastLogTerm}
+  tag: VoteResponse{.term, .from, .to, .isGranted}
+  tag: AppendRequest{.term, .from, .prevLogIndex, .prevLogTerm, .entries, .leaderCommit}
+  tag: AppendResponse{.term, .from, .to, .isSuccess, .lastLogIndex}
+  tag: ClientCommand{.command, .from}
 
 //// ---- Effects ----
 
@@ -84,15 +84,15 @@ defx: sm StateMachine
 
 //// ---- Pure Helpers ----
 
-def: majority(ServerState({cluster}))
+def: majority(ServerState{cluster})
   ->: cluster count() div(2) inc()
 
-def: lastLogIndex(ServerState({log}))
+def: lastLogIndex(ServerState{log})
   if: isEmpty(log)
     0
     .index(last(log))
 
-def: lastLogTerm(ServerState({log}))
+def: lastLogTerm(ServerState{log})
   if: isEmpty(log)
     0
     .term(last(log))
@@ -149,7 +149,7 @@ def: _logConsistent(state, prevLogIndex, prevLogTerm)
 
 def: _advanceCommitIndex(state)
   case: .role(state)
-    Leader({matchIndex})
+    Leader{matchIndex}
       // matchIndex only tracks peers (not self), so we need majority-2
       // (majority minus 1 for the leader who always agrees, minus 1 for 0-based nth)
       let: [sorted ->: values(matchIndex) sort() reverse()
@@ -215,7 +215,7 @@ def: handleVoteResponse(state, {term, from, isGranted})
       state
 
     case: .role(state)
-      Candidate({votesReceived})
+      Candidate{votesReceived}
         if: isGranted
           let: [newVotes add(votesReceived, from)]
             if: gte(count(newVotes), majority(state))
@@ -228,7 +228,7 @@ def: handleVoteResponse(state, {term, from, isGranted})
 
 def: _sendAppendEntries(state, peerId)
   case: .role(state)
-    Leader({nextIndex, matchIndex})
+    Leader{nextIndex, matchIndex}
       // ni is 1-based log index; sub(1) converts to 0-based for collection access
       let: [ni get(nextIndex, peerId)
             prevIdx sub(ni, 1)
@@ -291,7 +291,7 @@ def: handleAppendResponse(state, {term, from, isSuccess, lastLogIndex})
       state
 
     case: .role(state)
-      Leader({nextIndex, matchIndex})
+      Leader{nextIndex, matchIndex}
         if: isSuccess
           let: [newNextIndex assoc(nextIndex, from, inc(lastLogIndex))
                 newMatchIndex assoc(matchIndex, from, lastLogIndex)
@@ -317,7 +317,7 @@ def: handleClientCommand(state, {command, from})
               _sendAppendEntries(withEntry, peer)
           withEntry
 
-    Follower({knownLeader})
+    Follower{knownLeader}
       do:
         ifLet: [leader knownLeader]
           .redirectClient(net, from, "REDIRECT:${leader}")

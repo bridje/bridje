@@ -81,30 +81,24 @@ class ParseRootNode(
 
     private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv): Pair<Any, NsEnv> {
         val ns = nsEnv.nsSymbol
-        val qFieldNames = expr.fieldNames.map { QSymbol(ns, it) }
+        val keys = expr.keys
 
         val value: Any =
-            if (expr.fieldNames.isEmpty()) {
-                BridjeTaggedSingleton(expr.name.name)
-            } else {
-                BridjeTagConstructor(expr.name.name, expr.fieldNames.size, qFieldNames)
-            }
+            if (keys == null) BridjeTaggedSingleton(expr.name.name)
+            else BridjeTagConstructor(expr.name.name, keys.map { QSymbol(ns, it) })
 
         var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr))
 
-        if (expr.recordStyle) {
-            // tag: Foo({.k1, .k2}) — register each field name as a key as well.
-            for (fieldSym in expr.fieldNames) {
-                val key = BridjeKey(ns, fieldSym)
-                val optKey = BridjeOptionalKey(key)
-                val optName = Symbol.intern("?$fieldSym")
-                updatedNs = updatedNs.defKey(fieldSym, key)
-                updatedNs = updatedNs.defKey(optName, optKey)
-                updatedNs = updatedNs.def(optName, optKey)
-            }
-        }
+        for (keySym in keys.orEmpty()) updatedNs = updatedNs.withKey(keySym)
 
         return value to updatedNs
+    }
+
+    private fun NsEnv.withKey(name: Symbol): NsEnv {
+        val key = BridjeKey(nsSymbol, name)
+        val optKey = BridjeOptionalKey(key)
+        val optName = Symbol.intern("?$name")
+        return defKey(name, key).defKey(optName, optKey).def(optName, optKey)
     }
 
     @TruffleBoundary
@@ -216,18 +210,8 @@ class ParseRootNode(
                 }
 
                 is DefKeysExpr -> {
-                    val nsSym = nsEnv.nsSymbol
-                    var lastKey: BridjeKey? = null
-                    for (name in expr.names) {
-                        val key = BridjeKey(nsSym, name)
-                        val optKey = BridjeOptionalKey(key)
-                        val optName = Symbol.intern("?$name")
-                        nsEnv = nsEnv.defKey(name, key)
-                        nsEnv = nsEnv.defKey(optName, optKey)
-                        nsEnv = nsEnv.def(optName, optKey)
-                        lastKey = key
-                    }
-                    lastKey
+                    for (name in expr.names) nsEnv = nsEnv.withKey(name)
+                    expr.names.lastOrNull()?.let { nsEnv.key(it)?.value }
                 }
 
                 is ValueExpr -> {

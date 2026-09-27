@@ -11,14 +11,21 @@ import com.oracle.truffle.api.strings.TruffleString
 @ExportLibrary(InteropLibrary::class)
 class BridjeTagConstructor(
     val tag: String,
-    val arity: Int,
-    val fieldNames: List<QSymbol>
-) : TruffleObject {
-
-    internal val fieldIndices: Map<QSymbol, Int> =
-        fieldNames.withIndex().associate { (i, name) -> name to i }
+    override val keys: List<QSymbol>,
+) : TruffleObject, TagConstructor {
 
     private val tagString: TruffleString = TruffleString.fromConstant(tag, TruffleString.Encoding.UTF_8)
+
+    @TruffleBoundary
+    private fun construct(arguments: Array<Any?>): Any {
+        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
+        val record = arguments[0] as? BridjeRecord
+            ?: throw Anomaly.incorrect("$tag expects a record, got ${INTEROP.toDisplayString(arguments[0])}")
+        val missing = keys.filterNot { record.hasKey(it) }
+        if (missing.isNotEmpty())
+            throw Anomaly.incorrect("$tag requires ${missing.joinToString(", ") { it.toDisplayString() }}")
+        return BridjeTaggedRecord(this, record)
+    }
 
     @ExportMessage
     fun isExecutable() = true
@@ -27,20 +34,12 @@ class BridjeTagConstructor(
     fun isInstantiable() = true
 
     @ExportMessage
-    fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != arity) {
-            throw ArityException.create(arity, arity, arguments.size)
-        }
-        return BridjeTaggedTuple(this, arguments.map { it!! }.toTypedArray())
-    }
+    @Throws(ArityException::class)
+    fun execute(arguments: Array<Any?>): Any = construct(arguments)
 
     @ExportMessage
-    fun instantiate(arguments: Array<Any?>): Any {
-        if (arguments.size != arity) {
-            throw ArityException.create(arity, arity, arguments.size)
-        }
-        return BridjeTaggedTuple(this, arguments.map { it!! }.toTypedArray())
-    }
+    @Throws(ArityException::class)
+    fun instantiate(arguments: Array<Any?>): Any = construct(arguments)
 
     @ExportMessage
     fun isMetaObject() = true
@@ -52,14 +51,15 @@ class BridjeTagConstructor(
     fun getMetaQualifiedName(): Any = tagString
 
     @ExportMessage
-    @TruffleBoundary
-    fun isMetaInstance(instance: Any?): Boolean = when (instance) {
-        is BridjeTaggedTuple -> instance.constructor === this
-        else -> false
-    }
+    fun isMetaInstance(instance: Any?): Boolean =
+        instance is BridjeTaggedRecord && instance.constructor === this
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     @TruffleBoundary
     fun toDisplayString(allowSideEffects: Boolean): String = tag
+
+    private companion object {
+        private val INTEROP = InteropLibrary.getUncached()
+    }
 }

@@ -8,6 +8,7 @@ import brj.runtime.BridjeMacro
 import brj.runtime.BridjeVector
 import brj.runtime.BridjeTagConstructor
 import brj.runtime.BridjeTaggedSingleton
+import brj.runtime.TagConstructor
 import brj.runtime.LOC_KEY
 import brj.runtime.Loc
 import brj.runtime.QSymbol
@@ -190,7 +191,7 @@ data class Analyser(
         else -> null
     }
 
-    private fun analyseRecord(form: RecordForm): ValueExpr {
+    private fun analyseRecord(form: RecordForm, tagKeys: List<QSymbol> = emptyList()): ValueExpr {
         val els = form.els
 
         if (els.size % 2 != 0) return errorExpr("record literal must have even number of forms", form.loc)
@@ -201,12 +202,11 @@ data class Analyser(
             val keyForm = els[i]
             if (keyForm !is DotSymbolForm && keyForm !is QDotSymbolForm)
                 return errorExpr("record keys must be members", keyForm.loc)
-            val keyValue = resolveKeyForm(keyForm)?.value
-            if (keyValue !is BridjeKey) {
-                return errorExpr("$keyForm is not a key", keyForm.loc)
-            }
+            val tagKey = (keyForm as? DotSymbolForm)?.let { k -> tagKeys.firstOrNull { it.name == k.sym } }
+            val keySym = tagKey ?: (resolveKeyForm(keyForm)?.value as? BridjeKey)?.sym
+                ?: return errorExpr("$keyForm is not a key", keyForm.loc)
             val valueExpr = analyseValueExpr(els[i + 1])
-            fields.add(keyValue.sym to valueExpr)
+            fields.add(keySym to valueExpr)
         }
 
         return RecordExpr(fields, form.loc)
@@ -287,7 +287,9 @@ data class Analyser(
         // Quoting machinery: form constructors and Symbol/Var must be reachable regardless of the user's ns/requires.
         val constructor = ctx.namespaces["brj.rdr".sym]?.get(sym) ?: ctx.brjCore[sym]
             ?: return errorExpr("$name constructor not found", loc)
-        return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
+        val formMeta = constructor.value as? FormMeta
+            ?: return CallExpr(GlobalVarExpr(constructor, loc), args, loc)
+        return CallExpr(GlobalVarExpr(constructor, loc), listOf(RecordExpr(formMeta.keys.zip(args), loc)), loc)
     }
 
     private fun isUnquote(form: Form): Form? =
@@ -616,14 +618,53 @@ data class Analyser(
         return Result.Ok(value)
     }
 
-    private fun analyseBindingNames(els: List<Form>): Result<Error, List<Symbol>> {
-        val names = mutableListOf<Symbol>()
-        for (el in els) {
-            val sym = el as? SymbolForm
-                ?: return Result.Err(Error("case pattern bindings must be symbols", el.loc))
-            names.add(sym.sym)
+    private fun resolvePatternKey(tagValue: Any, name: Symbol, loc: SourceSection?): Result<Error, BridjeKey> {
+        (tagValue as? TagConstructor)?.keys?.firstOrNull { it.name == name }
+            ?.let { return Result.Ok(BridjeKey(it.ns, it.name)) }
+        val key = resolveKey(name)?.value as? BridjeKey
+            ?: return Result.Err(Error("Unknown key: .${name.name}", loc))
+        return Result.Ok(key)
+    }
+
+    private fun analysePayloadPattern(
+        tagValue: Any,
+        els: List<Form>,
+        loc: SourceSection?,
+    ): Result<Error, Pair<Analyser, PayloadBinding?>> {
+        val payloadForm = when (els.size) {
+            0 -> return Result.Ok(this to null)
+            1 -> els.single()
+            else -> return Result.Err(Error("a tag pattern binds one record: Tag(r) or Tag{k1, k2}", loc))
         }
-        return Result.Ok(names)
+
+        if (tagValue !is TagConstructor)
+            return Result.Err(Error("$tagValue has no record to bind", payloadForm.loc))
+
+        return when (payloadForm) {
+            is SymbolForm -> {
+                val (analyser, localVar) = withLocal(payloadForm.sym)
+                Result.Ok(analyser to PayloadBinding.Whole(localVar))
+            }
+
+            is RecordForm -> {
+                var analyser = this
+                val keys = mutableListOf<Pair<BridjeKey, LocalVar>>()
+                for (el in payloadForm.els) {
+                    val sym = (el as? SymbolForm)?.sym
+                        ?: return Result.Err(Error("record pattern entries must be symbols", el.loc))
+                    val key = when (val res = resolvePatternKey(tagValue, sym, el.loc)) {
+                        is Result.Ok -> res.value
+                        is Result.Err -> return res
+                    }
+                    val (newAnalyser, localVar) = analyser.withLocal(sym)
+                    analyser = newAnalyser
+                    keys.add(key to localVar)
+                }
+                Result.Ok(analyser to PayloadBinding.Keys(keys))
+            }
+
+            else -> Result.Err(Error("a tag pattern binds one record: Tag(r) or Tag{k1, k2}", payloadForm.loc))
+        }
     }
 
     private fun analyseCaseBranch(patternForm: Form, bodyForm: Form): Result<Error, CaseBranch> =
@@ -635,7 +676,7 @@ data class Analyser(
                     name[0].isUpperCase() -> {
                         resolveTag(patternForm.sym, patternForm.loc).map { tagValue ->
                             val bodyExpr = analyseTailExpr(bodyForm)
-                            CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
+                            CaseBranch(TagPattern(tagValue, null, patternForm.loc), bodyExpr, patternForm.loc)
                         }
                     }
                     else -> {
@@ -650,7 +691,7 @@ data class Analyser(
             is QSymbolForm -> {
                 resolveQualifiedTag(patternForm.ns, patternForm.member, patternForm.loc).map { tagValue ->
                     val bodyExpr = analyseTailExpr(bodyForm)
-                    CaseBranch(TagPattern(tagValue, emptyList(), patternForm.loc), bodyExpr, patternForm.loc)
+                    CaseBranch(TagPattern(tagValue, null, patternForm.loc), bodyExpr, patternForm.loc)
                 }
             }
 
@@ -669,19 +710,10 @@ data class Analyser(
                     else -> Result.Err(Error("case pattern must start with a tag name", patternForm.loc))
                 }
 
-                tagResult.flatMap { (tagValue, tagLoc) ->
-                    analyseBindingNames(patternForm.els.drop(1)).map { bindingNames ->
-                        var branchAnalyser = this
-                        val bindings = mutableListOf<LocalVar>()
-
-                        for (bindingName in bindingNames) {
-                            val (newAnalyser, localVar) = branchAnalyser.withLocal(bindingName)
-                            branchAnalyser = newAnalyser
-                            bindings.add(localVar)
-                        }
-
+                tagResult.flatMap { (tagValue, _) ->
+                    analysePayloadPattern(tagValue, patternForm.els.drop(1), patternForm.loc).map { (branchAnalyser, binding) ->
                         val bodyExpr = branchAnalyser.analyseTailExpr(bodyForm)
-                        CaseBranch(TagPattern(tagValue, bindings, patternForm.loc), bodyExpr, patternForm.loc)
+                        CaseBranch(TagPattern(tagValue, binding, patternForm.loc), bodyExpr, patternForm.loc)
                     }
                 }
             }
@@ -1003,7 +1035,8 @@ data class Analyser(
             }
         }
 
-        val argExprs = els.drop(1).map { analyseValueExpr(it) }
+        val tagKeys = ((fnExpr as? GlobalVarExpr)?.globalVar?.value as? TagConstructor)?.keys.orEmpty()
+        val argExprs = els.drop(1).map { if (it is RecordForm) analyseRecord(it, tagKeys) else analyseValueExpr(it) }
         return CallExpr(fnExpr, argExprs, form.loc)
     }
 
@@ -1275,12 +1308,13 @@ data class Analyser(
                 DefKeysExpr(listOf(sigForm.sym), form.loc)
             }
 
-            // type variables: decl: [a] identity(a) a
             sigForm is VectorForm -> {
                 val typeVarNames = sigForm.els.map { tvForm ->
                     (tvForm as? SymbolForm)?.sym?.name
                         ?: return errorExpr("type variable must be a symbol", tvForm.loc)
                 }
+                val keyForm = els.getOrNull(2) as? DotSymbolForm
+                if (keyForm != null) return DefKeysExpr(listOf(keyForm.sym), form.loc)
                 val typeVars = typeVarNames.associateWith { TypeVar() }
                 analyseSingleDecl(els.drop(2), typeVars, form.loc)
             }
@@ -1378,40 +1412,36 @@ data class Analyser(
     }
 
     private fun analyseTagSig(sigForm: Form, typeVarNames: List<String>, loc: SourceSection?): Expr {
+        val payloadError = "a tag's payload is one record: tag: Name{.k1, .k2}"
         return when (sigForm) {
             is SymbolForm -> {
                 // tag: Nothing (nullary)
                 val name = sigForm.sym
                 if (!name.name[0].isUpperCase()) return errorExpr("tag names must be capitalized: ${name.name}", sigForm.loc)
-                DefTagExpr(name, emptyList(), typeVarNames, loc = loc)
+                DefTagExpr(name, null, typeVarNames, loc = loc)
             }
             is ListForm -> {
-                // tag: Just(t) or tag: [t] Just(t) or tag: Foo({.k1, .k2})
+                // tag: User{.fn, .ln}, or tag: Ok{.value(a)} to instantiate a key's type at the tag's type variables
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
                     ?: return errorExpr("tag signature must start with a name", sigForm.loc)
                 val name = nameForm.sym
                 if (!name.name[0].isUpperCase()) return errorExpr("tag names must be capitalized: ${name.name}", nameForm.loc)
 
-                val remainingEls = sigForm.els.drop(1)
-                val singleRecord = remainingEls.singleOrNull() as? RecordForm
-                if (singleRecord != null) {
-                    // tag: Foo({.key1, .key2}) — each key becomes a field name and is registered as a key
-                    val fieldNames = mutableListOf<Symbol>()
-                    for (recEl in singleRecord.els) {
-                        val key = recEl as? DotSymbolForm
-                            ?: return errorExpr("record field entries must be members", recEl.loc)
-                        fieldNames.add(key.sym)
-                    }
-                    return DefTagExpr(name, fieldNames, typeVarNames, recordStyle = true, loc = loc)
-                }
+                val record = sigForm.els.drop(1).singleOrNull() as? RecordForm
+                    ?: return errorExpr(payloadError, sigForm.loc)
 
-                val fieldNames = mutableListOf<Symbol>()
-                for (el in remainingEls) {
-                    val sym = el as? SymbolForm
-                        ?: return errorExpr("field names must be symbols", el.loc)
-                    fieldNames.add(sym.sym)
+                val typeVars = typeVarNames.associateWith { TypeVar() }
+                val keys = record.els.map { el ->
+                    when {
+                        el is DotSymbolForm -> el.sym
+                        el is ListForm && el.els.firstOrNull() is DotSymbolForm -> {
+                            el.els.drop(1).forEach { analyseTypeForm(it, typeVars) }
+                            (el.els.first() as DotSymbolForm).sym
+                        }
+                        else -> return errorExpr("tag payload entries must be members: .k or .k(a)", el.loc)
+                    }
                 }
-                DefTagExpr(name, fieldNames, typeVarNames, loc = loc)
+                DefTagExpr(name, keys, typeVarNames, loc = loc)
             }
             else -> errorExpr("tag requires a tag name or signature", loc)
         }

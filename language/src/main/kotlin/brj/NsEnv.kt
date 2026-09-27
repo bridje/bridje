@@ -97,18 +97,19 @@ data class NsEnv(
                     type = FnType(listOf(paramType), formVec).notNull())
             }
 
-            val locKeyNames = listOf("loc", "source", "path", "startLine", "startColumn", "endLine", "endColumn")
+            val keyNames = listOf("loc", "source", "path", "startLine", "startColumn", "endLine", "endColumn") +
+                FORM_KEYS.map { it.name.name }
 
-            val locKeyVars = mutableMapOf<Symbol, GlobalVar>()
-            val locOptVars = mutableMapOf<Symbol, GlobalVar>()
-            for (name in locKeyNames) {
+            val keyVars = mutableMapOf<Symbol, GlobalVar>()
+            val optVars = mutableMapOf<Symbol, GlobalVar>()
+            for (name in keyNames) {
                 val sym = name.sym
                 val optSym = "?$name".sym
                 val key = BridjeKey(readerNs, sym)
                 val optKey = BridjeOptionalKey(key)
-                locKeyVars[sym] = GlobalVar(readerNs, sym, key)
-                locKeyVars[optSym] = GlobalVar(readerNs, optSym, optKey)
-                locOptVars[optSym] = GlobalVar(readerNs, optSym, optKey)
+                keyVars[sym] = GlobalVar(readerNs, sym, key)
+                keyVars[optSym] = GlobalVar(readerNs, optSym, optKey)
+                optVars[optSym] = GlobalVar(readerNs, optSym, optKey)
             }
 
             return NsEnv(
@@ -128,8 +129,8 @@ data class NsEnv(
                     "BigDec".sym to GlobalVar(readerNs, "BigDec".sym, BigDecMeta),
                     readerFn("fromFile", FormsFromFileNode(language), fileType),
                     readerFn("fromStr", FormsFromStringNode(language), str),
-                ) + locOptVars,
-                keys = locKeyVars,
+                ) + optVars,
+                keys = keyVars,
             )
         }
 

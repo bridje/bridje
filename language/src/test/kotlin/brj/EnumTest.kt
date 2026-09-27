@@ -24,25 +24,25 @@ class EnumTest {
     fun `enum with payloads`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             enum: Result(a, e)
-              tag: Ok(a)
-              tag: Err(e)
-            Ok(42)
+              tag: Ok{.value(a)}
+              tag: Err{.error(e)}
+            Ok{.value 42}
         """.trimIndent())
-        assertTrue(result.hasArrayElements())
-        assertEquals(42L, result.getArrayElement(0).asLong())
+        assertEquals("Ok", result.metaObject.metaSimpleName)
+        assertEquals(42L, result.getMember("value").asLong())
     }
 
     @Test
     fun `case matching on enum`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             enum: Maybe(a)
-              tag: Just(a)
+              tag: Just{.value(a)}
               tag: Nothing
             def: fromMaybe(m, default)
               case: m
-                Just(v) v
+                Just{value} value
                 Nothing default
-            fromMaybe(Just(42), 0)
+            fromMaybe(Just{.value 42}, 0)
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -117,14 +117,14 @@ class EnumTest {
     fun `enum variant types as enum type`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             enum: Maybe(a)
-              tag: Just(a)
+              tag: Just{.value(a)}
               tag: Nothing
             decl: unwrap(Maybe(Int)) Int
             def: unwrap(m)
               case: m
-                Just(v) v
+                Just{value} value
                 Nothing 0
-            unwrap(Just(42))
+            unwrap(Just{.value 42})
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -133,14 +133,14 @@ class EnumTest {
     fun `enum type in function return`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             enum: Result(a, e)
-              tag: Ok(a)
-              tag: Err(e)
+              tag: Ok{.value(a)}
+              tag: Err{.error(e)}
             def: tryDiv(a, b)
               if: eq(b, 0)
-                Err("division by zero")
-                Ok(div(a, b))
+                Err{.error "division by zero"}
+                Ok{.value div(a, b)}
             case: tryDiv(10, 2)
-              Ok(v) v
+              Ok{value} value
               Err(e) 0
         """.trimIndent())
         assertEquals(5L, result.asLong())

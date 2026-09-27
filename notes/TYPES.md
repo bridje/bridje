@@ -57,7 +57,7 @@ A tag name alone, or with a record shape constraint:
 
 ```bridje
 decl: user User                       // any User
-decl: user User({.fn, .ln})           // a User, only requiring .fn and .ln
+decl: user User{.fn, .ln}             // a User, only requiring .fn and .ln
 ```
 
 ### Nullable
@@ -106,15 +106,18 @@ Exact syntax for explicit trait constraints on type variables is TBC.
 Types can be parameterised by type variables.
 Lowercase names in type positions are type variables; uppercase names are concrete types.
 
+A tag's type parameter reaches its payload through a key: `.value(a)` instantiates the key's declared type at the tag's `a`.
+A key keeps one declared type everywhere; the tag chooses the instance.
+
 ```bridje
-tag: Ok(a)
-tag: Err(e)
+decl: [a] .value a
+decl: [e] .error e
 
 enum: Result(a, e)
-  tag: Ok(a)
-  tag: Err(e)
+  tag: Ok{.value(a)}
+  tag: Err{.error(e)}
 
-tag: Pair(a, b)
+tag: [a, b] Pair{.fst(a), .snd(b)}
 ```
 
 Collection types are generic: `[a]`, `#{a}`, `Map(k, v)`.
@@ -126,7 +129,7 @@ def: first(xs)          // inferred: [a] -> a
   nth(xs, 0)
 
 def: pair(a, b)         // inferred: (a, b) -> Pair(a, b)
-  Pair(a, b)
+  Pair{.fst a, .snd b}
 ```
 
 ## Variance
@@ -289,13 +292,16 @@ More keys = more specific = subtype.
 
 ## Tags
 
-Tags are nominal wrappers around records.
+A tag is a name over one record payload, or over none (`tag: Nothing`).
 A tag is distinct from any other tag, even with identical keys.
 
 ```bridje
-tag: User({.fn, .ln, .email, .role})
-tag: Customer({.fn, .ln, .email, .since})
+tag: User{.fn, .ln, .email, .role}
+tag: Customer{.fn, .ln, .email, .since}
 ```
+
+A tagged value at runtime is its tag and its record: it is constructed from a record (`User{.fn "a", …}`), read by key (`.fn(u)`), and matched on its tag alone.
+The record may carry keys beyond the tag's.
 
 `User` is not `Customer`, even though they share keys.
 The tag carries domain identity.
@@ -303,7 +309,7 @@ The tag carries domain identity.
 ### Tags are subtypes of their underlying record shape
 
 A tagged record is more specific than its untagged equivalent.
-`User({.fn, .ln})` is a subtype of `{.fn, .ln}`.
+`User{.fn, .ln}` is a subtype of `{.fn, .ln}`.
 
 This means functions can choose their level of specificity:
 
@@ -313,12 +319,12 @@ def: displayName({fn, ln})
   "${fn} ${ln}"
 
 // Nominal — must be a User, only needs .fn and .ln
-def: userDisplayName(User({fn, ln}))
+def: userDisplayName(User{fn, ln})
   "${fn} ${ln}"
 
 // Both of these work with displayName:
 displayName({.fn "James", .ln "Henderson"})
-displayName(User({.fn "James", .ln "Henderson", .email "j@h.com"}))
+displayName(User{.fn "James", .ln "Henderson", .email "j@h.com"})
 ```
 
 The tag asserts domain identity.
@@ -348,18 +354,18 @@ When it returns multiple tags from the same enum, the inferred type widens to th
 ## Enums (Closed Sum Types)
 
 An enum declares a fixed set of tag variants.
-Variants are constructors owned by the enum, not standalone types — `Just(x)` has type `Maybe(a)`, not type `Just`.
+Variants are constructors owned by the enum, not standalone types — `Ok{.value x}` has type `Result(a, e)`, not type `Ok`.
 Each tag belongs to exactly one enum (1:N).
 
 ```bridje
 enum: ServerRole
-  tag: Follower({.knownLeader})
-  tag: Candidate({.votesReceived})
-  tag: Leader({.nextIndex, .matchIdx})
+  tag: Follower{.knownLeader}
+  tag: Candidate{.votesReceived}
+  tag: Leader{.nextIndex, .matchIdx}
 
-enum: Maybe(a)
-  tag: Just(a)
-  tag: Nothing
+enum: Result(a, e)
+  tag: Ok{.value(a)}
+  tag: Err{.error(e)}
 ```
 
 The compiler infers the enum type from its members — seeing `Follower` is enough to know `ServerRole`.
@@ -383,7 +389,7 @@ impl: Show(Int)
   def: show(it) intToStr(it)
 
 impl: Show(User)
-  def: show(User({fn, ln})) "${fn} ${ln}"
+  def: show(User{fn, ln}) "${fn} ${ln}"
 ```
 
 The `impl` names the type; the receiver is a parameter like any other.
@@ -425,7 +431,7 @@ Nothing   <  every type
 Nothing?  <  every nullable type
 nil       <  T?                    for any T
 T         <  T?
-Tag({k})  <  {k}                   tagged record < underlying record shape
+Tag{k}    <  {k}                   tagged record < underlying record shape
 {k}       <  {k2}                  iff k2 ⊆ k (more keys = more specific)
 Tag       <  Enum                  tag-level type is subtype of its containing enum
 ```

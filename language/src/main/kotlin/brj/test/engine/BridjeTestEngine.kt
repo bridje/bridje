@@ -105,9 +105,9 @@ class BridjeTestEngine : TestEngine {
             "bridje",
             """
             do:
-              tag: NsInfo(ns, vars)
-              tag: VarInfo(v, m)
-              mapv(allNses(), fn: nsL(ns) NsInfo(ns, mapv(nsVars(ns), fn: varL(v) VarInfo(v, meta(v)))))
+              tag: NsInfo{.ns, .vars}
+              tag: VarInfo{.var, .meta}
+              mapv(allNses(), fn: nsL(ns) NsInfo{.ns ns, .vars mapv(nsVars(ns), fn: varL(v) VarInfo{.var v, .meta meta(v)})})
             """.trimIndent(),
             "<test-discovery>"
         ).mimeType("text/brj").build()
@@ -115,17 +115,17 @@ class BridjeTestEngine : TestEngine {
 
         for (i in 0 until discovered.arraySize) {
             val entry = discovered.getArrayElement(i)
-            val nsName = entry.getArrayElement(0).toString()
+            val nsName = entry.getMember("ns").toString()
             if (nsName !in nsValues) continue
 
-            val vars = entry.getArrayElement(1)
+            val vars = entry.getMember("vars")
             val testVars = mutableListOf<Pair<String, FileSource?>>()
             for (j in 0 until vars.arraySize) {
-                val pair = vars.getArrayElement(j)
-                val meta = pair.getArrayElement(1)
+                val varInfo = vars.getArrayElement(j)
+                val meta = varInfo.getMember("meta")
                 if (meta.hasMember("test") && meta.getMember("test").asBoolean()) {
                     // A var reads as (ns, name).
-                    val varName = pair.getArrayElement(0).getArrayElement(1).toString()
+                    val varName = varInfo.getMember("var").getArrayElement(1).toString()
                     testVars.add(varName to fileSource(meta))
                 }
             }

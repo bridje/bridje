@@ -6,8 +6,8 @@ import com.oracle.truffle.api.exception.AbstractTruffleException
 import com.oracle.truffle.api.interop.ArityException
 import com.oracle.truffle.api.interop.ExceptionType
 import com.oracle.truffle.api.interop.InteropLibrary
-import com.oracle.truffle.api.interop.InvalidArrayIndexException
 import com.oracle.truffle.api.interop.TruffleObject
+import com.oracle.truffle.api.interop.UnknownIdentifierException
 import com.oracle.truffle.api.library.CachedLibrary
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
@@ -20,10 +20,10 @@ class Anomaly(
     @JvmField val data: BridjeRecord,
     cause: Throwable? = null,
     node: Node? = null
-) : AbstractTruffleException(null, cause, UNLIMITED_STACK_TRACE, node) {
+) : AbstractTruffleException(null, cause, UNLIMITED_STACK_TRACE, node), Tagged {
 
     @ExportLibrary(InteropLibrary::class)
-    enum class AnomalyMeta(val tag: String) : TruffleObject {
+    enum class AnomalyMeta(val tag: String) : TruffleObject, TagConstructor {
         UNAVAILABLE("Unavailable"),
         INTERRUPTED("Interrupted"),
         BUSY("Busy"),
@@ -36,6 +36,8 @@ class Anomaly(
         HOST("Host");
 
         private val tagString = TruffleString.fromConstant(tag, TruffleString.Encoding.UTF_8)
+
+        override val keys: List<QSymbol> get() = emptyList()
 
         @ExportMessage
         fun isMetaObject() = true
@@ -61,7 +63,8 @@ class Anomaly(
             if (arguments.size != 1)
                 throw ArityException.create(1, 1, arguments.size)
 
-            val data = arguments[0] as BridjeRecord
+            val data = arguments[0] as? BridjeRecord
+                ?: throw incorrect("$tag expects a record, got ${arguments[0]}")
 
             return Anomaly(this, data)
         }
@@ -110,23 +113,23 @@ class Anomaly(
             ?: throw UnsupportedOperationException("Cause is not a guest exception")
     }
 
-    // Value interop (tagged tuple shape: one element, the data record)
+    override val payload: BridjeRecord get() = data
 
     @ExportMessage
-    fun hasArrayElements() = true
+    fun hasMembers() = true
 
     @ExportMessage
-    fun getArraySize() = 1L
+    @TruffleBoundary
+    fun getMembers(includeInternal: Boolean): Any = VALUE_INTEROP.getMembers(data, includeInternal)
 
     @ExportMessage
-    fun isArrayElementReadable(idx: Long) = idx == 0L
+    @TruffleBoundary
+    fun isMemberReadable(member: String): Boolean = VALUE_INTEROP.isMemberReadable(data, member)
 
     @ExportMessage
-    @Throws(InvalidArrayIndexException::class)
-    fun readArrayElement(idx: Long): Any {
-        if (idx != 0L) throw InvalidArrayIndexException.create(idx)
-        return data
-    }
+    @TruffleBoundary
+    @Throws(UnknownIdentifierException::class)
+    fun readMember(member: String): Any = VALUE_INTEROP.readMember(data, member)
 
     @ExportMessage
     fun hasMetaObject() = true
@@ -139,6 +142,7 @@ class Anomaly(
         "${meta.tag}(${interop.toDisplayString(data)})"
 
     companion object {
+        private val VALUE_INTEROP = InteropLibrary.getUncached()
         private val EXN_MESSAGE_KEY = BridjeKey("brj.core".sym, "exnMessage".sym)
         private val EXN_CAUSE_KEY = BridjeKey("brj.core".sym, "exnCause".sym)
 

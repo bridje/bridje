@@ -83,9 +83,9 @@ class DeclTest {
     fun `decl tag type`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.decl.tag
-            tag: User(name)
+            tag: User{.name}
             decl: user User
-            def: user User("James")
+            def: user User{.name "James"}
         """.trimIndent())
         val meta = ctx.varMeta("test.decl.tag", "user")
         assertTrue(meta.hasMember("declaredType"))
@@ -121,6 +121,16 @@ class DeclTest {
         """.trimIndent())
         val declType = ctx.varMeta("test.decl.poly", "identity").getMember("declaredType")
         assertEquals("Fn([?] ?)", declType.displayString())
+    }
+
+    @Test
+    fun `decl declares a key with a type variable`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              decl: [a] .value a
+              .value({.value 42})
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
     }
 
     @Test

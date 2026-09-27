@@ -62,20 +62,20 @@ decl:
    .lastApplied Int
    .role ServerRole}
 
-tag: LogEntry({.term, .index, .command})
-tag: ServerState({.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role})
+tag: LogEntry{.term, .index, .command}
+tag: ServerState{.id, .cluster, .currentTerm, .votedFor, .log, .commitIndex, .lastApplied, .role}
 
 enum: ServerRole
-  tag: Follower({.knownLeader})
-  tag: Candidate({.votesReceived})
-  tag: Leader({.nextIndex, .matchIndex})
+  tag: Follower{.knownLeader}
+  tag: Candidate{.votesReceived}
+  tag: Leader{.nextIndex, .matchIndex}
 
-def: lastLogIndex(ServerState({log}))
+def: lastLogIndex(ServerState{log})
   if: isEmpty(log)
     0
     .index(last(log))
 
-def: lastLogTerm(ServerState({log}))
+def: lastLogTerm(ServerState{log})
   if: isEmpty(log)
     0
     .term(last(log))
@@ -322,7 +322,7 @@ But for a language aiming to be a single artifact (spec + implementation + test 
 | `defx`/`withFx` | Substitutable effects for testing |
 | `proc/Recv`/`proc/Timeout` | Declarative select-function proc model |
 | Simulation testing | Same code drives production and deterministic simulation |
-| Destructuring | `ServerState({cluster})` in function params |
+| Destructuring | `ServerState{cluster}` in function params |
 
 ## How Close Is Bridje to Being the Spec?
 

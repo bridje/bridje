@@ -1,6 +1,7 @@
 package brj.analyser
 
 import brj.*
+import brj.runtime.BridjeKey
 import brj.runtime.QSymbol
 import brj.runtime.Symbol
 import brj.types.Type
@@ -168,14 +169,25 @@ sealed class CasePattern {
     abstract val loc: SourceSection?
 }
 
+sealed class PayloadBinding {
+    class Whole(val binding: LocalVar) : PayloadBinding() {
+        override fun toString(): String = "${binding.name}"
+    }
+
+    class Keys(val bindings: List<Pair<BridjeKey, LocalVar>>) : PayloadBinding() {
+        override fun toString(): String =
+            bindings.joinToString(prefix = "{", separator = ", ", postfix = "}") { (_, local) -> "${local.name}" }
+    }
+}
+
 class TagPattern(
     val tagValue: Any,
-    val bindings: List<LocalVar>,
+    val payload: PayloadBinding?,
     override val loc: SourceSection? = null
 ) : CasePattern() {
     override fun toString(): String =
-        if (bindings.isEmpty()) "$tagValue"
-        else "$tagValue(${bindings.joinToString(", ") { "${it.name}" }})"
+        if (payload == null) "$tagValue"
+        else "$tagValue($payload)"
 }
 
 class DefaultPattern(override val loc: SourceSection? = null) : CasePattern() {

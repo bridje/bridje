@@ -20,20 +20,32 @@ class CaseTest {
     fun `case matches unary tag and binds value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Just(value)
-              case: Just(10)
-                Just(x) x
+              tag: Just{.value}
+              case: Just{.value 10}
+                Just(r) .value(r)
         """.trimIndent())
         assertEquals(10L, result.asLong())
     }
 
     @Test
-    fun `case matches multi-field tag and binds values`() = withContext { ctx ->
+    fun `case matches a tag alone, whatever its record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Pair(first, second)
-              case: Pair(3, 4)
-                Pair(a, b) [a, b]
+              tag: Just{.value}
+              case: Just{.value 10}
+                Just 1
+                2
+        """.trimIndent())
+        assertEquals(1L, result.asLong())
+    }
+
+    @Test
+    fun `case destructures a tag's record`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: Pair{.first, .second}
+              case: Pair{.first 3, .second 4}
+                Pair{first, second} [first, second]
         """.trimIndent())
         assertTrue(result.hasArrayElements())
         assertEquals(3L, result.getArrayElement(0).asLong())
@@ -46,10 +58,10 @@ class CaseTest {
             do:
               enum: Maybe
                 tag: Nothing
-                tag: Just(value)
-              case: Just(42)
+                tag: Just{.value}
+              case: Just{.value 42}
                 Nothing 0
-                Just(x) x
+                Just{value} value
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -60,10 +72,10 @@ class CaseTest {
             do:
               enum: Maybe
                 tag: Nothing
-                tag: Just(value)
+                tag: Just{.value}
               case: Nothing
                 Nothing 0
-                Just(x) x
+                Just{value} value
         """.trimIndent())
         assertEquals(0L, result.asLong())
     }
@@ -73,9 +85,9 @@ class CaseTest {
         val result = ctx.evalBridje("""
             do:
               tag: Nothing
-              tag: Just(value)
+              tag: Just{.value}
               case: Nothing
-                Just(x) x
+                Just{value} value
                 99
         """.trimIndent())
         assertEquals(99L, result.asLong())
@@ -100,10 +112,10 @@ class CaseTest {
     fun `case bindings are scoped to branch body`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Just(value)
-              let: [x 100]
-                case: Just(42)
-                  Just(x) x
+              tag: Just{.value}
+              let: [value 100]
+                case: Just{.value 42}
+                  Just{value} value
         """.trimIndent())
         assertEquals(42L, result.asLong())
     }
@@ -112,12 +124,12 @@ class CaseTest {
     fun `case branch can return tagged value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Just(value)
-              case: Just(10)
-                Just(x) Just(x)
+              tag: Just{.value}
+              case: Just{.value 10}
+                Just(r) Just(r)
         """.trimIndent())
         assertEquals("Just", result.metaObject.metaSimpleName)
-        assertEquals(10L, result.getArrayElement(0).asLong())
+        assertEquals(10L, result.getMember("value").asLong())
     }
 
     @Test
@@ -141,6 +153,55 @@ class CaseTest {
               x x
         """.trimIndent())
         assertEquals(10L, result.asLong())
+    }
+
+    @Test
+    fun `case destructures an anomaly's record`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            case: Fault{.exnMessage "boom"}
+              Fault{exnMessage} exnMessage
+              "none"
+        """.trimIndent())
+        assertEquals("boom", result.asString())
+    }
+
+    @Test
+    fun `a tag pattern binds one record`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  tag: Pair{.first, .second}
+                  case: Pair{.first 3, .second 4}
+                    Pair(a, b) a
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("a tag pattern binds one record") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a nullary tag has no record to bind`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  tag: Nothing
+                  case: Nothing
+                    Nothing(r) r
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("has no record to bind") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a destructured key must be known`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  tag: Just{.value}
+                  case: Just{.value 1}
+                    Just{nope} nope
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Unknown key: .nope") == true, "got: ${ex.message}")
     }
 
     @Test
