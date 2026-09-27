@@ -183,20 +183,6 @@ class TagTest {
     }
 
     @Test
-    fun `set on a tagged value keeps its tag`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
-            do:
-              tag: User{.name}
-              let: [u User{.name "a"}]
-                [set(u, .name, "b"), u]
-        """.trimIndent())
-        assertEquals("a", result.getArrayElement(0).asString())
-        val u = result.getArrayElement(1)
-        assertEquals("User", u.metaObject.metaSimpleName)
-        assertEquals("b", u.getMember("name").asString())
-    }
-
-    @Test
     fun `a tag pattern binds the tagged value itself`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
@@ -208,34 +194,17 @@ class TagTest {
     }
 
     @Test
-    fun `tagging a record shares its storage`() = withContext { ctx ->
-        val result = ctx.evalBridje("""
-            do:
-              tag: Just{.value}
-              let: [r {.value 1}
-                    j Just(r)]
-                do:
-                  set(r, .value, 2)
-                  .value(j)
-        """.trimIndent())
-        assertEquals(2L, result.asLong())
-    }
-
-    @Test
     fun `tagging a tagged value gives a new value, and the original keeps its tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
               tag: Leader{.term}
               tag: Follower{.term}
-              let: [l Leader{.term 1}
-                    f Follower(l)]
-                do:
-                  set(f, .term, 2)
-                  [l, f, .term(l)]
+              let: [l Leader{.term 1}]
+                [l, Follower(l)]
         """.trimIndent())
         assertEquals("Leader", result.getArrayElement(0).metaObject.metaSimpleName)
         assertEquals("Follower", result.getArrayElement(1).metaObject.metaSimpleName)
-        assertEquals(2L, result.getArrayElement(2).asLong())
+        assertEquals(1L, result.getArrayElement(1).getMember("term").asLong())
     }
 
     @Test

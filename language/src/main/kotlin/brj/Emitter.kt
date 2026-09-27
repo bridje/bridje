@@ -151,13 +151,6 @@ class Emitter(
             is CaseExpr -> emitCase(expr, fxSource, preApplied)
             is TryCatchExpr -> emitTryCatch(expr, fxSource, preApplied)
 
-            is RecordSetExpr -> {
-                b.beginSetRecordKey(expr.key)
-                emitExpr(expr.recordExpr, fxSource, preApplied)
-                emitExpr(expr.valueExpr, fxSource, preApplied)
-                b.endSetRecordKey()
-            }
-
             is RecordUpdateExpr -> {
                 b.beginUpdateRecord(expr.fields.map { it.first }.toTypedArray())
                 emitExpr(expr.recordExpr, fxSource, preApplied)

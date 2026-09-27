@@ -37,7 +37,6 @@ fun ValueExpr.inferEffects(): Set<GlobalVar> = when (this) {
         bodyEffects + catchEffects + finallyEffects
     }
     is RecordExpr -> fields.flatMap { it.second.inferEffects() }.toSet()
-    is RecordSetExpr -> recordExpr.inferEffects() + valueExpr.inferEffects()
     is RecordUpdateExpr -> recordExpr.inferEffects() + fields.flatMap { it.second.inferEffects() }.toSet()
     is VectorExpr -> els.flatMap { it.inferEffects() }.toSet()
     is SetExpr -> els.flatMap { it.inferEffects() }.toSet()
@@ -75,7 +74,6 @@ fun ValueExpr.collectEffectfulCallees(): Set<GlobalVar> = when (this) {
         catchBranches.flatMap { it.bodyExpr.collectEffectfulCallees() } +
         (finallyExpr?.collectEffectfulCallees() ?: emptySet())
     is RecordExpr -> fields.flatMap { it.second.collectEffectfulCallees() }.toSet()
-    is RecordSetExpr -> recordExpr.collectEffectfulCallees() + valueExpr.collectEffectfulCallees()
     is RecordUpdateExpr -> recordExpr.collectEffectfulCallees() + fields.flatMap { it.second.collectEffectfulCallees() }.toSet()
     is VectorExpr -> els.flatMap { it.collectEffectfulCallees() }.toSet()
     is SetExpr -> els.flatMap { it.collectEffectfulCallees() }.toSet()

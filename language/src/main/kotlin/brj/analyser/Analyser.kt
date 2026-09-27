@@ -257,7 +257,6 @@ data class Analyser(
                 "squote" -> analyseSquote(form)
                 "unquote" -> errorExpr("unquote (~) can only be used inside a quote", form.loc)
                 "unquoteSplicing" -> errorExpr("unquoteSplicing (~@) can only be used inside a quote", form.loc)
-                "set" -> analyseSet(form)
                 "withFx" -> analyseWithFx(form)
                 "with" -> analyseWith(form)
                 "loop" -> analyseLoop(form)
@@ -371,7 +370,7 @@ data class Analyser(
     private val specialFormNames = setOf(
         "if", "ifLet", "let", "fn", "case", "try", "catch", "finally", "do", "recur", "loop",
         "quote", "squote", "unquote", "unquoteSplicing",
-        "withFx", "with", "lang", "set",
+        "withFx", "with", "lang",
         "ns", "require", "import",
         "def", "decl", "defx", "defmacro", "defkeys", "tag", "enum",
         "nil", "true", "false",
@@ -826,25 +825,6 @@ data class Analyser(
         val bodyExpr = newAnalyser.analyseBindings(bindingEls.drop(2), bodyForms, loc)
 
         return LetExpr(localVar, bindingExpr, bodyExpr, loc)
-    }
-
-    private fun analyseSet(form: ListForm): ValueExpr {
-        val els = form.els
-        if (els.size != 4) return errorExpr("set requires exactly 3 arguments: record, key, value", form.loc)
-
-        val keyForm = els[2]
-        if (keyForm !is DotSymbolForm && keyForm !is QDotSymbolForm)
-            return errorExpr("set second argument must be a member", keyForm.loc)
-
-        val keyVar = resolveKeyForm(keyForm)
-            ?: return errorExpr("Unknown key: $keyForm", keyForm.loc)
-        val keyValue = keyVar.value
-        if (keyValue !is BridjeKey) return errorExpr("$keyForm is not a key", keyForm.loc)
-
-        val recordExpr = analyseValueExpr(els[1])
-        val valueExpr = analyseValueExpr(els[3])
-
-        return RecordSetExpr(recordExpr, keyValue.sym, valueExpr, form.loc)
     }
 
     private fun resolveDotSymbolKey(form: DotSymbolForm): GlobalVar? =

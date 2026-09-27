@@ -333,16 +333,6 @@ ifLet: [leader .knownLeader(f)]
 
 The binding is in scope in the then-branch only.
 
-### set
-
-Mutate a record field in place.
-Returns the old value (or `nil` if the member was not previously set).
-Bridje is immutable by default, but mutation is available when performance requires it (consenting adults).
-
-```bridje
-set(record, .key, value)
-```
-
 ### quote, unquote, unquote-splice, and syntax-quote
 
 Code as data — but unlike Clojure, Bridje's quote returns **typed Form ADT objects**, not raw data structures.
@@ -516,10 +506,9 @@ Nothing                                            // singleton, no parens neede
 
 In a tag's record literal, an unqualified key is first looked up among the tag's own keys, so `other/User{.fn "a", .ln "b"}` needs no `other/.fn`.
 
-A tagged value is its record with the tag's name, so it reads and updates like one: `.fn(u)`, `.?email(u)`, polyglot members, `with(u, .fn "b")` and `set(u, .fn, "b")`, all keeping the tag.
+A tagged value is its record with the tag's name, so it reads and updates like one: `.fn(u)`, `.?email(u)`, polyglot members and `with(u, .fn "b")`, all keeping the tag.
 A record without a tag matches no tag pattern.
 
-`User(r)` shares `r`'s storage, so a `set` on `r` shows through the `User`.
 A tag is applied only by its constructor, and a value's tag never changes: if `r` is already tagged, `User(r)` is a new value, and `r` keeps its own tag.
 
 A tag's type parameter reaches its payload through the key:
@@ -945,8 +934,9 @@ Values are immutable.
 Records, vectors, sets, and maps are persistent data structures.
 `with` returns a new record; it does not mutate the original.
 
-Mutation is available when performance requires it (`set`), but the default is immutable.
-Bridje takes the "consenting adults" principle — mutability is a tool, not forbidden.
+Bridje has no in-place mutation for now.
+`set`, which mutated a record's key in place, is removed while mutability is rethought, and is likely to return: a mutable record's slots constrain how its type may vary, which the type checker (#141) has to account for.
+Mutable state meanwhile lives in host objects, such as `java.util.concurrent.atomic.AtomicReference`.
 
 ### Single-pass, bottom-up file structure
 

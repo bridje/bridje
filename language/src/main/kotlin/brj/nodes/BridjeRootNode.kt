@@ -113,16 +113,6 @@ abstract class BridjeRootNode protected constructor(
     }
 
     @Operation
-    @ConstantOperand(type = QSymbol::class)
-    class SetRecordKey {
-        companion object {
-            @JvmStatic
-            @Specialization
-            fun set(key: QSymbol, record: BridjeRecord, value: Any?): Any = record.set(key, value) ?: BridjeNull
-        }
-    }
-
-    @Operation
     @ConstantOperand(type = Array<QSymbol>::class)
     class UpdateRecord {
         companion object {

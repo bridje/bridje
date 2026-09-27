@@ -46,12 +46,6 @@ class BridjeRecord internal constructor(
 
     internal fun put(key: BridjeKey, value: Any?): BridjeRecord = put(key.sym, value)
 
-    internal fun set(key: QSymbol, value: Any?): Any? {
-        val old = OBJECT_LIBRARY.getOrDefault(storage, key, null)
-        OBJECT_LIBRARY.put(storage, key, value)
-        return old
-    }
-
     private class Storage(shape: Shape) : DynamicObject(shape)
 
     companion object {
