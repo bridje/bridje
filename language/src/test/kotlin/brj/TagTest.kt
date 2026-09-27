@@ -172,6 +172,86 @@ class TagTest {
     }
 
     @Test
+    fun `with keeps a tagged value's tag`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: User{.name}
+              with(User{.name "a"}, .name "b")
+        """.trimIndent())
+        assertEquals("User", result.metaObject.metaSimpleName)
+        assertEquals("b", result.getMember("name").asString())
+    }
+
+    @Test
+    fun `set on a tagged value keeps its tag`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: User{.name}
+              let: [u User{.name "a"}]
+                [set(u, .name, "b"), u]
+        """.trimIndent())
+        assertEquals("a", result.getArrayElement(0).asString())
+        val u = result.getArrayElement(1)
+        assertEquals("User", u.metaObject.metaSimpleName)
+        assertEquals("b", u.getMember("name").asString())
+    }
+
+    @Test
+    fun `a tag pattern binds the tagged value itself`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: Just{.value}
+              case: Just{.value 1}
+                Just(r) with(r, .value 2)
+        """.trimIndent())
+        assertEquals("Just{.value 2}", result.toString())
+    }
+
+    @Test
+    fun `tagging a record shares its storage`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: Just{.value}
+              let: [r {.value 1}
+                    j Just(r)]
+                do:
+                  set(r, .value, 2)
+                  .value(j)
+        """.trimIndent())
+        assertEquals(2L, result.asLong())
+    }
+
+    @Test
+    fun `tagging a tagged value gives a new value, and the original keeps its tag`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              tag: Leader{.term}
+              tag: Follower{.term}
+              let: [l Leader{.term 1}
+                    f Follower(l)]
+                do:
+                  set(f, .term, 2)
+                  [l, f, .term(l)]
+        """.trimIndent())
+        assertEquals("Leader", result.getArrayElement(0).metaObject.metaSimpleName)
+        assertEquals("Follower", result.getArrayElement(1).metaObject.metaSimpleName)
+        assertEquals(2L, result.getArrayElement(2).asLong())
+    }
+
+    @Test
+    fun `an anonymous record matches no tag`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  tag: Just{.value}
+                  case: {.value 1}
+                    Just 1
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("No matching") == true, "got: ${ex.message}")
+    }
+
+    @Test
     fun `record keys resolve among the tag's own keys first`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: tag_keys_test

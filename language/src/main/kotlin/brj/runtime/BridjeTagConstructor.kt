@@ -24,7 +24,7 @@ class BridjeTagConstructor(
         val missing = keys.filterNot { record.hasKey(it) }
         if (missing.isNotEmpty())
             throw Anomaly.incorrect("$tag requires ${missing.joinToString(", ") { it.toDisplayString() }}")
-        return BridjeTaggedRecord(this, record)
+        return record.withTag(this)
     }
 
     @ExportMessage
@@ -52,7 +52,7 @@ class BridjeTagConstructor(
 
     @ExportMessage
     fun isMetaInstance(instance: Any?): Boolean =
-        instance is BridjeTaggedRecord && instance.constructor === this
+        instance is BridjeRecord && instance.tag === this
 
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage

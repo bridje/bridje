@@ -285,7 +285,7 @@ Pattern matching on tagged values.
 Branches are pairs of forms: pattern then body expression.
 Patterns can be:
 - A tag alone: `Nothing`, `Ok` — matches on the tag, whatever its payload
-- A tag binding its record: `Ok(r)`, then `.value(r)`
+- A tag binding its record: `Ok(r)`, then `.value(r)` — `r` is the tagged value itself, tag and all
 - A tag destructuring its record: `Follower{knownLeader}` binds `knownLeader` to `.knownLeader`, looked up among the tag's keys first
 - A binding variable (lowercase): catches anything and binds it
 
@@ -516,7 +516,11 @@ Nothing                                            // singleton, no parens neede
 
 In a tag's record literal, an unqualified key is first looked up among the tag's own keys, so `other/User{.fn "a", .ln "b"}` needs no `other/.fn`.
 
-A tagged value reads like its record: `.fn(u)`, `.?email(u)`, and polyglot members.
+A tagged value is its record with the tag's name, so it reads and updates like one: `.fn(u)`, `.?email(u)`, polyglot members, `with(u, .fn "b")` and `set(u, .fn, "b")`, all keeping the tag.
+A record without a tag matches no tag pattern.
+
+`User(r)` shares `r`'s storage, so a `set` on `r` shows through the `User`.
+A tag is applied only by its constructor, and a value's tag never changes: if `r` is already tagged, `User(r)` is a new value, and `r` keeps its own tag.
 
 A tag's type parameter reaches its payload through the key:
 

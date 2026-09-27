@@ -294,7 +294,11 @@ abstract class BridjeRootNode protected constructor(
         companion object {
             @JvmStatic
             @Specialization
-            fun read(value: Any): Any = (value as Tagged).payload
+            fun read(value: BridjeRecord): Any = value
+
+            @JvmStatic
+            @Specialization
+            fun read(value: Tagged): Any = value.payload
         }
     }
 
