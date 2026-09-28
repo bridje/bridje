@@ -4,6 +4,7 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
 import com.oracle.truffle.api.interop.UnknownIdentifierException
+import com.oracle.truffle.api.interop.UnsupportedMessageException
 import com.oracle.truffle.api.library.CachedLibrary
 import com.oracle.truffle.api.library.ExportLibrary
 import com.oracle.truffle.api.library.ExportMessage
@@ -14,7 +15,8 @@ import com.oracle.truffle.api.`object`.Shape
 @ExportLibrary(InteropLibrary::class)
 class BridjeRecord internal constructor(
     @JvmField internal val storage: DynamicObject = Storage(SHAPE),
-    private val _meta: BridjeRecord? = null // nullable to avoid circular initialization with EMPTY
+    private val _meta: BridjeRecord? = null, // nullable to avoid circular initialization with EMPTY
+    val tag: BridjeTagConstructor? = null,
 ) : TruffleObject, Meta<BridjeRecord>, BridjeObject {
 
     override val meta: BridjeRecord get() = _meta ?: EMPTY
@@ -28,7 +30,10 @@ class BridjeRecord internal constructor(
     )
 
     override fun withMeta(newMeta: BridjeRecord?): BridjeRecord =
-        BridjeRecord(storage, newMeta)
+        BridjeRecord(storage, newMeta, tag)
+
+    internal fun withTag(newTag: BridjeTagConstructor): BridjeRecord =
+        BridjeRecord(storage, _meta, newTag)
 
     internal fun put(key: QSymbol, value: Any?): BridjeRecord {
         val newStorage = Storage(SHAPE)
@@ -36,7 +41,7 @@ class BridjeRecord internal constructor(
             OBJECT_LIBRARY.put(newStorage, k, OBJECT_LIBRARY.getOrDefault(storage, k, null))
         }
         OBJECT_LIBRARY.put(newStorage, key, value)
-        return BridjeRecord(newStorage, meta)
+        return BridjeRecord(newStorage, meta, tag)
     }
 
     internal fun put(key: BridjeKey, value: Any?): BridjeRecord = put(key.sym, value)
@@ -129,12 +134,19 @@ class BridjeRecord internal constructor(
         OBJECT_LIBRARY.getOrDefault(storage, key.sym, null)
             ?: throw UnknownIdentifierException.create(key.sym.toString())
 
+    @ExportMessage
+    fun hasMetaObject() = tag != null
+
+    @ExportMessage
+    @Throws(UnsupportedMessageException::class)
+    fun getMetaObject(): Any = tag ?: throw UnsupportedMessageException.create()
+
     @Suppress("UNUSED_PARAMETER")
     @ExportMessage
     @TruffleBoundary
     fun toDisplayString(allowSideEffects: Boolean): String {
         val keys = OBJECT_LIBRARY.getKeyArray(storage)
-        return keys.joinToString(prefix = "{", separator = ", ", postfix = "}") { key ->
+        return keys.joinToString(prefix = "${tag?.tag.orEmpty()}{", separator = ", ", postfix = "}") { key ->
             val value = OBJECT_LIBRARY.getOrDefault(storage, key, null)
             val name = if (key is QSymbol) key.toDisplayString() else ".$key"
             "$name ${INTEROP.toDisplayString(value)}"
