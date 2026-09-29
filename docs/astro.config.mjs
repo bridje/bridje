@@ -1,6 +1,8 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
+import { remarkDefinitionList, defListHastHandlers } from 'remark-definition-list';
 import bridjeGrammar from './bridje.tmLanguage.json' with { type: 'json' };
 
 // https://astro.build/config
@@ -19,7 +21,67 @@ export default defineConfig({
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/bridje/bridje' }
 			],
-			sidebar: [],
+			sidebar: [
+				{
+					label: 'Start here',
+					items: [
+						'index',
+						'getting-started',
+						'getting-started/editors',
+					],
+				},
+				{
+					label: 'A tour of Bridje',
+					items: [
+						'tour/first-steps',
+						'tour/functions',
+						'tour/records',
+						'tour/tags-and-enums',
+						'tour/effects',
+						'tour/namespaces-and-java',
+					],
+				},
+				{
+					label: 'Coming from…',
+					items: [
+						'coming-from/clojure',
+						'coming-from/java-kotlin',
+					],
+				},
+				{
+					label: 'About Bridje',
+					items: [
+						'about/rationale',
+						'about/types',
+						'about/effects',
+						'about/idioms',
+					],
+				},
+				{
+					label: 'Reference',
+					items: [
+						'reference/syntax',
+						'reference/special-forms',
+						'reference/core',
+						'reference/records-tags-enums',
+						'reference/types',
+						'reference/effects',
+						'reference/namespaces',
+						'reference/interop',
+						'reference/macros',
+						'reference/errors',
+						'reference/stdlib',
+					],
+				},
+			],
 		}),
 	],
+	markdown: {
+		processor: unified({
+			remarkPlugins: [remarkDefinitionList],
+			remarkRehype: {
+				handlers: { ...defListHastHandlers },
+			},
+		}),
+	},
 });

@@ -1,6 +1,49 @@
 ---
-title: Bridje
-description: Documentation for Bridje
+title: Introduction
+description: Bridje is a statically typed Lisp for the JVM, with a syntax that looks like the languages you already know.
 ---
 
-Documentation coming soon.
+Bridje is a statically typed Lisp that runs on GraalVM.
+It takes its inspiration from Clojure, Kotlin, Haskell and Erlang — and its syntax, deliberately, from the C/Java family: brackets where you'd expect them.
+
+```bridje
+ns: hello.core
+
+decl: {.name Str, .email Str}
+
+tag: User{.name, .email}
+
+def: greet(user)
+  println(.name(user))
+
+def: main(args)
+  greet(User{.name "James", .email "james@example.com"})
+```
+
+Underneath, that's s-expressions all the way down — `def: greet(user) ...` is `(def (greet user) ...)` — but you'll rarely need to write them that way.
+
+:::caution[Pre-alpha]
+Bridje is nowhere near finished.
+What's documented here is what's built, and it will change — often.
+:::
+
+## Why Bridje?
+
+I've written Clojure since 2012, and (subjectively) no other language comes close for the joy of programming: the REPL's feedback loop, a simple expression-oriented Lisp where every sub-expression can be picked up and moved, and immutable data that doesn't change underneath you.
+It's a shame, then, that it's not nearly as mainstream as it should be — and I think the parentheses have a lot to answer for.
+
+Bridje is an attempt to keep what makes a Lisp a joy to use, and to help with the parts of software that still need significant thought, however much experience we have:
+
+- **A Lisp that doesn't look like one.** Three purely syntactic sugars — `foo(a, b)` calls, `Foo{…}` construction and indentation-based `foo:` blocks — mean Bridje reads like a mainstream language, while the code-as-data core stays intact.
+- **Types that fit your domain, not the other way round.** Types are inferred; records are structural; keys have one meaning everywhere. You get a compile-time checker without the up-front design and rigidity that often comes with one.
+- **Effects you can see, and swap.** Side effects are declared, tracked by the compiler, and substituted with a lexical `withFx` — no mocking frameworks, no plumbing parameters through every function.
+- **Code that reads like the spec.** The aim throughout is that domain logic sits front-and-centre, with the incidental machinery — I/O, concurrency plumbing, wiring — factored out to the edges.
+
+There's more on all of this in [the rationale](/about/rationale/).
+
+## Where next?
+
+- **Try it** — [Getting started](/getting-started/) has you running a Bridje program, a REPL and a test in about five minutes.
+- **Learn it** — [the tour](/tour/first-steps/) introduces the language a piece at a time.
+- **Coming from somewhere?** There are guides for [Clojure](/coming-from/clojure/) and [Java/Kotlin](/coming-from/java-kotlin/) developers.
+- **Look something up** — [the reference](/reference/syntax/) covers every form, type and built-in.
