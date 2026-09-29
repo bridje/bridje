@@ -1,0 +1,60 @@
+{
+  "name": "bridje",
+  "scopeName": "source.bridje",
+  "fileTypes": [
+    "brj"
+  ],
+  "patterns": [
+    {
+      "name": "comment.line.double-slash.bridje",
+      "match": "//.*$"
+    },
+    {
+      "name": "comment.block.discard.bridje",
+      "match": "#_"
+    },
+    {
+      "name": "string.quoted.double.bridje",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.bridje",
+          "match": "\\\\(u[0-9a-fA-F]{4}|.)"
+        }
+      ]
+    },
+    {
+      "name": "constant.numeric.bridje",
+      "match": "(?<![\\w.])-?[0-9]+(\\.[0-9]+)?[nNmM]?\\b"
+    },
+    {
+      "name": "constant.language.bridje",
+      "match": "\\b(nil|true|false)\\b"
+    },
+    {
+      "name": "entity.other.attribute-name.bridje",
+      "match": "\\^(?:[\\w.]+/)?\\.\\??[\\w*+=!<>&?-]+"
+    },
+    {
+      "name": "variable.other.member.bridje",
+      "match": "(?<![\\w.-])(?:[a-zA-Z_][\\w.-]*/)?\\.\\??[a-zA-Z_*+=!<>&?][\\w*+=!<>&?-]*"
+    },
+    {
+      "name": "keyword.control.bridje",
+      "match": "(?<![\\w./-])(def|defmacro|defx|decl|tag|enum|ns|require|import|let|fn|do|if|ifLet|case|loop|recur|try|catch|finally|with|set|withFx|lang|quote|squote)(?=[:(\\s]|$)"
+    },
+    {
+      "name": "entity.name.type.bridje",
+      "match": "(?<![\\w.-])(?:[a-z][\\w.-]*/)?[A-Z][\\w-]*"
+    },
+    {
+      "name": "entity.name.function.bridje",
+      "match": "(?<![\\w.-])(?:[a-zA-Z_][\\w.-]*/)?[a-zA-Z_*+=!<>&?#-][\\w*+=!<>&?#-]*(?=[(:])"
+    },
+    {
+      "name": "keyword.operator.quote.bridje",
+      "match": "~@|['`~]"
+    }
+  ]
+}
