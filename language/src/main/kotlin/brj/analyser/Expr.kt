@@ -4,6 +4,7 @@ import brj.Form
 import brj.GlobalVar
 import brj.runtime.Symbol
 import brj.types.Type
+import brj.types.TypeVar
 import com.oracle.truffle.api.source.SourceSection
 
 sealed interface Expr {
@@ -24,7 +25,10 @@ class DefTagExpr(
     val name: Symbol,
     val keys: List<Symbol>?,
     val typeVarNames: List<String> = emptyList(),
-    override val loc: SourceSection? = null
+    override val loc: SourceSection? = null,
+    val typeVars: List<TypeVar> = emptyList(),
+    // `.value(a)`: the types, in terms of [typeVars], that the key's declared type is instantiated at.
+    val keyArgs: Map<Symbol, List<Type>> = emptyMap(),
 ) : Expr {
     override fun toString(): String =
         if (keys == null) "(tag $name)"
@@ -51,7 +55,10 @@ class DefMacroExpr(
 
 class DefKeysExpr(
     val names: List<Symbol>,
-    override val loc: SourceSection? = null
+    val types: Map<Symbol, Type> = emptyMap(),
+    override val loc: SourceSection? = null,
+    // `decl: [a, b] .k T`: the key's type parameters, in the order they are declared.
+    val params: List<TypeVar> = emptyList(),
 ) : Expr {
     override fun toString(): String = "(decl ${names.joinToString(" ") { ".${it.name}" }})"
 }
