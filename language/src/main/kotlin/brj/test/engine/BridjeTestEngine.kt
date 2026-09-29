@@ -105,8 +105,12 @@ class BridjeTestEngine : TestEngine {
             "bridje",
             """
             do:
-              tag: NsInfo{.ns, .vars}
+              decl: .var Var
+              decl: .meta {}
               tag: VarInfo{.var, .meta}
+              decl: .ns Symbol
+              decl: .vars [VarInfo]
+              tag: NsInfo{.ns, .vars}
               mapv(allNses(), fn: nsL(ns) NsInfo{.ns ns, .vars mapv(nsVars(ns), fn: varL(v) VarInfo{.var v, .meta meta(v)})})
             """.trimIndent(),
             "<test-discovery>"

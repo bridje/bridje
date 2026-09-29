@@ -1,7 +1,9 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class IteratorTest {
 
@@ -89,5 +91,17 @@ class IteratorTest {
                 add(itrNext(it), itrNext(it))
         """.trimIndent())
         assertEquals(30L, result.asLong())
+    }
+
+    @Test
+    fun `non-iterable type is rejected`() = withContext { ctx ->
+        val ex = assertThrows<PolyglotException> {
+            ctx.evalBridje("""
+                ns: test.iter.type.reject
+                def: result itr(42)
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("not a subtype of Iterable") == true || ex.message?.contains("Incompatible") == true,
+            "Expected type error for non-iterable, got: ${ex.message}")
     }
 }

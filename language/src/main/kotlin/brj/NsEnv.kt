@@ -22,6 +22,7 @@ import brj.builtins.SpawnNode
 import brj.builtins.StrFromBytesNode
 import brj.runtime.Anomaly
 import brj.runtime.BridjeFunction
+import brj.runtime.BridjeFuture
 import brj.runtime.BridjeKey
 import brj.runtime.BridjeOptionalKey
 import brj.runtime.QSymbol
@@ -30,16 +31,7 @@ import brj.runtime.FileMeta
 import brj.runtime.Symbol
 import brj.runtime.SymbolMeta
 import brj.runtime.sym
-import brj.types.BoolType
-import brj.types.BytesType
-import brj.types.FnType
-import brj.types.FormType
-import brj.types.IntType
-import brj.types.StringType
-import brj.types.TagType
-import brj.types.Type
-import brj.types.VectorType
-import brj.types.notNull
+import brj.types.*
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.InteropLibrary
 import com.oracle.truffle.api.interop.TruffleObject
@@ -63,6 +55,9 @@ data class NsEnv(
     val effectVars: Map<Symbol, GlobalVar> = emptyMap(),
     val interopVars: Map<Pair<Symbol, Symbol>, GlobalVar> = emptyMap(),
     val pendingDecls: Map<Symbol, Type> = emptyMap(),
+    val keyTypes: Map<Symbol, KeyType> = emptyMap(),
+    // The tags this namespace declares, by name; the checker looks them up by their runtime values.
+    val tags: Map<Symbol, TagInfo> = emptyMap(),
     val enums: Map<Symbol, Set<Symbol>> = emptyMap(),
     val nsDecl: NsDecl? = null,
     val source: Source? = null,
@@ -76,29 +71,54 @@ data class NsEnv(
             )
         }
 
+        // An anomaly is a tag over a record of details; its keys, .exnMessage among them, are optional. The anomaly
+        // tags are the variants of `Anomaly`, which is what `throw` takes and a `catch` binds.
         private val anomalyTags = Anomaly.AnomalyMeta.entries.associate { meta ->
             Symbol.intern(meta.tag) to GlobalVar("brj.core".sym, Symbol.intern(meta.tag), meta)
+        }
+        private val anomalyTagInfos = Anomaly.AnomalyMeta.entries.associate { meta ->
+            val name = Symbol.intern(meta.tag)
+            name to TagInfo(TagRef("brj.core".sym, name), AnomalyEnum, emptyList(), Payload.Record(emptySet()))
         }
 
         fun withBuiltins(language: BridjeLanguage): NsEnv {
             val builtinFunctions = Builtins.createBuiltinFunctions(language)
-            return NsEnv(vars = builtinDataMetas + builtinFunctions + anomalyTags)
+            return NsEnv(
+                vars = builtinDataMetas + builtinFunctions + anomalyTags,
+                tags = anomalyTagInfos,
+                enums = mapOf(AnomalyEnum.name to anomalyTagInfos.keys),
+            )
         }
 
         fun withReaderBuiltins(language: BridjeLanguage): NsEnv {
             val readerNs = "brj.rdr".sym
-            val formVec = VectorType(FormType.notNull()).notNull()
-            val fileType = TagType("brj.fs".sym, "File".sym).notNull()
-            val str = StringType.notNull()
+            val formVec = VectorType(FormType)
+            val fileType = TagType(TagRef("brj.fs".sym, "File".sym), emptyList())
 
             fun readerFn(name: String, node: RootNode, paramType: Type): Pair<Symbol, GlobalVar> {
                 val sym = name.sym
                 return sym to GlobalVar(readerNs, sym, BridjeFunction(node.callTarget),
-                    type = FnType(listOf(paramType), formVec).notNull())
+                    scheme = Scheme(FnType(listOf(paramType), formVec)))
             }
 
             val keyNames = listOf("loc", "source", "path", "startLine", "startColumn", "endLine", "endColumn") +
                 FORM_KEYS.map { it.name.name }
+            // What the reader's keys hold. A form's `.loc` is a Loc, read by the location keys, which may lack a path.
+            // A form's `.value` is its literal, of whichever type the form's tag instantiates it at.
+            val symbolType = TagType(TagRef("brj.core".sym, "Symbol".sym), emptyList())
+            fun rdrKey(name: String) = QSymbol(readerNs, name.sym)
+            val locType = RecType(null, emptyList(),
+                listOf("source", "startLine", "startColumn", "endLine", "endColumn").associate { rdrKey(it) to Slot(true) } +
+                    (rdrKey("path") to Slot(false)))
+            val literal = TypeVar()
+            val keyTypes = mapOf(
+                "loc".sym to KeyType(locType),
+                "source".sym to KeyType(StrType), "path".sym to KeyType(StrType.nullable()),
+                "startLine".sym to KeyType(IntType), "startColumn".sym to KeyType(IntType),
+                "endLine".sym to KeyType(IntType), "endColumn".sym to KeyType(IntType),
+                FORM_SYM_KEY.name to KeyType(symbolType), FORM_NS_KEY.name to KeyType(symbolType), FORM_MEMBER_KEY.name to KeyType(symbolType),
+                FORM_ELS_KEY.name to KeyType(formVec), FORM_VALUE_KEY.name to KeyType(listOf(literal), literal.type()),
+            )
 
             val keyVars = mutableMapOf<Symbol, GlobalVar>()
             val optVars = mutableMapOf<Symbol, GlobalVar>()
@@ -128,9 +148,10 @@ data class NsEnv(
                     "BigInt".sym to GlobalVar(readerNs, "BigInt".sym, BigIntMeta),
                     "BigDec".sym to GlobalVar(readerNs, "BigDec".sym, BigDecMeta),
                     readerFn("fromFile", FormsFromFileNode(language), fileType),
-                    readerFn("fromStr", FormsFromStringNode(language), str),
+                    readerFn("fromStr", FormsFromStringNode(language), StrType),
                 ) + optVars,
                 keys = keyVars,
+                keyTypes = keyTypes,
             )
         }
 
@@ -138,66 +159,53 @@ data class NsEnv(
             val spawnFn = BridjeFunction(SpawnNode(language).callTarget)
             val awaitFn = BridjeFunction(AwaitNode(language).callTarget)
             val concurrentNs = "brj.concurrent".sym
+            // A future is typed by what it yields, as brj.concurrent's declarations over `Fut(x)` take it.
+            fun future(t: Type) = HostType(BridjeFuture::class.java.name, listOf(t))
+            val spawned = freshVar()
+            val awaited = freshVar()
             return NsEnv(vars = mapOf(
-                "spawn".sym to GlobalVar(concurrentNs, "spawn".sym, spawnFn),
-                "await".sym to GlobalVar(concurrentNs, "await".sym, awaitFn),
+                "spawn".sym to GlobalVar(concurrentNs, "spawn".sym, spawnFn,
+                    scheme = Scheme(FnType(listOf(FnType(emptyList(), spawned)), future(spawned)))),
+                "await".sym to GlobalVar(concurrentNs, "await".sym, awaitFn,
+                    scheme = Scheme(FnType(listOf(future(awaited)), awaited))),
             ))
         }
 
+        private fun builtin(ns: Symbol, name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
+            name to GlobalVar(ns, name, BridjeFunction(node.callTarget), scheme = Scheme(FnType(params, ret)))
+
         fun withFsBuiltins(language: BridjeLanguage): NsEnv {
             val fsNs = "brj.fs".sym
-            val fileTagType = TagType("brj.fs".sym, "File".sym).notNull()
-            val str = StringType.notNull()
-            val bool = BoolType.notNull()
-            val bytes = BytesType.notNull()
-
-            fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
-                name to GlobalVar(fsNs, name, BridjeFunction(node.callTarget),
-                    type = FnType(params, ret).notNull())
+            val file = TagType(TagRef(fsNs, "File".sym), emptyList())
 
             return NsEnv(vars = mapOf(
-                gv("file".sym, FileNode(language), listOf(str), fileTagType),
-                gv("exists".sym, FsExistsNode(language), listOf(fileTagType), bool),
-                gv("isFile".sym, FsIsFileNode(language), listOf(fileTagType), bool),
-                gv("isDir".sym, FsIsDirNode(language), listOf(fileTagType), bool),
-                gv("readString".sym, FsReadStringNode(language), listOf(fileTagType), str),
-                gv("fromBytes".sym, FsReadBytesNode(language), listOf(fileTagType), bytes),
-                gv("list".sym, FsListNode(language), listOf(fileTagType), VectorType(fileTagType).notNull()),
-                gv("resolve".sym, FsResolveNode(language), listOf(fileTagType, str), fileTagType),
-                gv("name".sym, FsNameNode(language), listOf(fileTagType), str),
-                gv("path".sym, FsPathNode(language), listOf(fileTagType), str),
+                builtin(fsNs, "file".sym, FileNode(language), listOf(StrType), file),
+                builtin(fsNs, "exists".sym, FsExistsNode(language), listOf(file), BoolType),
+                builtin(fsNs, "isFile".sym, FsIsFileNode(language), listOf(file), BoolType),
+                builtin(fsNs, "isDir".sym, FsIsDirNode(language), listOf(file), BoolType),
+                builtin(fsNs, "readString".sym, FsReadStringNode(language), listOf(file), StrType),
+                builtin(fsNs, "fromBytes".sym, FsReadBytesNode(language), listOf(file), BytesType),
+                builtin(fsNs, "list".sym, FsListNode(language), listOf(file), VectorType(file)),
+                builtin(fsNs, "resolve".sym, FsResolveNode(language), listOf(file, StrType), file),
+                builtin(fsNs, "name".sym, FsNameNode(language), listOf(file), StrType),
+                builtin(fsNs, "path".sym, FsPathNode(language), listOf(file), StrType),
                 "File".sym to GlobalVar(fsNs, "File".sym, FileMeta),
             ))
         }
 
         fun withBytesBuiltins(language: BridjeLanguage): NsEnv {
             val bytesNs = "brj.bytes".sym
-            val bytes = BytesType.notNull()
-            val str = StringType.notNull()
-            val int = IntType.notNull()
-
-            fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
-                name to GlobalVar(bytesNs, name, BridjeFunction(node.callTarget),
-                    type = FnType(params, ret).notNull())
-
             return NsEnv(vars = mapOf(
-                gv("count".sym, BytesCountNode(language), listOf(bytes), int),
-                gv("nth".sym, BytesNthNode(language), listOf(bytes, int), int),
-                gv("fromStr".sym, BytesFromStrNode(language), listOf(str), bytes),
+                builtin(bytesNs, "count".sym, BytesCountNode(language), listOf(BytesType), IntType),
+                builtin(bytesNs, "nth".sym, BytesNthNode(language), listOf(BytesType, IntType), IntType),
+                builtin(bytesNs, "fromStr".sym, BytesFromStrNode(language), listOf(StrType), BytesType),
             ))
         }
 
         fun withStrBuiltins(language: BridjeLanguage): NsEnv {
             val strNs = "brj.str".sym
-            val bytes = BytesType.notNull()
-            val str = StringType.notNull()
-
-            fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
-                name to GlobalVar(strNs, name, BridjeFunction(node.callTarget),
-                    type = FnType(params, ret).notNull())
-
             return NsEnv(vars = mapOf(
-                gv("fromBytes".sym, StrFromBytesNode(language), listOf(bytes), str),
+                builtin(strNs, "fromBytes".sym, StrFromBytesNode(language), listOf(BytesType), StrType),
             ))
         }
     }
@@ -210,33 +218,37 @@ data class NsEnv(
 
     fun effectVar(name: Symbol): GlobalVar? = effectVars[name]
 
-    fun defx(name: Symbol, value: Any?, type: Type, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
-        copy(effectVars = effectVars + (name to GlobalVar(nsSymbol, name, value, meta, type)))
+    fun defx(name: Symbol, value: Any?, scheme: Scheme, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
+        copy(effectVars = effectVars + (name to GlobalVar(nsSymbol, name, value, meta, scheme)))
 
     fun decl(name: Symbol, declaredType: Type): NsEnv =
         copy(pendingDecls = pendingDecls + (name to declaredType))
 
-    fun def(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv {
+    fun def(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY, scheme: Scheme? = null): NsEnv {
         val declaredType = pendingDecls[name]
-        val finalMeta = if (declaredType != null) meta.put(DECLARED_TYPE_KEY, declaredType) else meta
+        val finalMeta = if (declaredType != null) meta.put(DECLARED_TYPE_KEY, TypeValue(declaredType)) else meta
         return copy(
-            vars = vars + (name to GlobalVar(nsSymbol, name, value, finalMeta)),
+            vars = vars + (name to GlobalVar(nsSymbol, name, value, finalMeta, scheme)),
             pendingDecls = pendingDecls - name
         )
     }
 
     fun withEffects(name: Symbol, effects: List<GlobalVar>): NsEnv {
         val existing = vars[name] ?: return this
-        return copy(vars = vars + (name to GlobalVar(existing.ns, existing.name, existing.value, existing.meta, existing.type, effects)))
+        return copy(vars = vars + (name to GlobalVar(existing.ns, existing.name, existing.value, existing.meta, existing.scheme, effects)))
     }
 
-    fun defInterop(ns: Symbol, member: Symbol, value: Any?, type: Type): NsEnv =
-        copy(interopVars = interopVars + ((ns to member) to GlobalVar(ns, member, value, type = type)))
+    fun defInterop(ns: Symbol, member: Symbol, value: Any?, scheme: Scheme): NsEnv =
+        copy(interopVars = interopVars + ((ns to member) to GlobalVar(ns, member, value, scheme = scheme)))
 
     fun interopVar(ns: Symbol, member: Symbol): GlobalVar? = interopVars[ns to member]
 
     fun defKey(name: Symbol, value: Any?, meta: BridjeRecord = BridjeRecord.EMPTY): NsEnv =
         copy(keys = keys + (name to GlobalVar(nsSymbol, name, value, meta)))
+
+    fun declKeyTypes(types: Map<Symbol, KeyType>): NsEnv = copy(keyTypes = keyTypes + types)
+
+    fun defTag(name: Symbol, info: TagInfo): NsEnv = copy(tags = tags + (name to info))
 
     fun defEnum(enumName: Symbol, variantNames: Set<Symbol>): NsEnv =
         copy(enums = enums + (enumName to variantNames))

@@ -4,6 +4,7 @@ import brj.*
 import brj.Result
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeKey
+import brj.runtime.BridjeOptionalKey
 import brj.runtime.BridjeMacro
 import brj.runtime.BridjeVector
 import brj.runtime.BridjeTagConstructor
@@ -15,7 +16,6 @@ import brj.runtime.QSymbol
 import brj.runtime.Symbol
 import brj.runtime.sym
 import brj.types.*
-import brj.types.Nullability.*
 import com.oracle.truffle.api.exception.AbstractTruffleException
 import com.oracle.truffle.api.interop.ExceptionType
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -1073,43 +1073,39 @@ data class Analyser(
 
     private fun errorType(message: String, loc: SourceSection?): Type {
         addError(message, loc)
-        return nothingType()
+        return NothingType
     }
+
+    private fun tagNs(sym: Symbol): Symbol? = when {
+        sym in nsEnv.enums || nsEnv[sym] != null -> nsEnv.nsSymbol
+        sym in ctx.brjCore.enums || ctx.brjCore[sym] != null -> "brj.core".sym
+        else -> null
+    }
+
+    private fun isEnum(sym: Symbol) = sym in nsEnv.enums || sym in ctx.brjCore.enums
 
     private fun analyseTypeSymbol(name: String, loc: SourceSection?, typeVars: Map<String, TypeVar>): Type =
         when (name) {
-            "Int" -> IntType.notNull()
-            "Str" -> StringType.notNull()
-            "Bool" -> BoolType.notNull()
-            "Double" -> FloatType.notNull()
-            "BigInt" -> BigIntType.notNull()
-            "BigDec" -> BigDecType.notNull()
-            "Bytes" -> BytesType.notNull()
-            "Form" -> FormType.notNull()
-            "Nothing" -> nullType()
+            "Int" -> IntType
+            "Str" -> StrType
+            "Bool" -> BoolType
+            "Double" -> DoubleType
+            "BigInt" -> BigIntType
+            "BigDec" -> BigDecType
+            "Bytes" -> BytesType
+            "Form" -> FormType
+            "Nothing" -> NothingType
             else -> when {
+                name in typeVars -> typeVars.getValue(name).type()
                 name[0].isUpperCase() -> {
-                    // Check if it's an enum type first
                     val sym = Symbol.intern(name)
-                    val enumVariants = nsEnv.enums[sym] ?: ctx.brjCore.enums[sym]
-                    if (enumVariants != null) {
-                        EnumType(sym).notNull()
-                    } else {
-                        val ns = nsEnv[sym]?.let { nsEnv.nsSymbol }
-                            ?: ctx.brjCore[sym]?.let { "brj.core".sym }
-                        if (ns != null) {
-                            TagType(ns, sym).notNull()
-                        } else {
-                            val importFqClass = nsEnv.imports[sym]
-                            if (importFqClass != null) {
-                                HostType(importFqClass).notNull()
-                            } else {
-                                errorType("Unknown type: $name", loc)
-                            }
-                        }
+                    val ns = tagNs(sym)
+                    when {
+                        ns != null && isEnum(sym) -> EnumType(EnumRef(ns, sym), freshArgs(sym))
+                        ns != null -> TagType(TagRef(ns, sym), freshArgs(sym))
+                        else -> nsEnv.imports[sym]?.let { HostType(it, emptyList()) } ?: errorType("Unknown type: $name", loc)
                     }
                 }
-                name in typeVars -> Type(NOT_NULL, typeVars[name]!!, null)
                 else -> errorType("Unsupported type form: $name", loc)
             }
         }
@@ -1118,24 +1114,20 @@ data class Analyser(
         when (form) {
             is SymbolForm -> {
                 val name = form.sym.name
-                if (name.endsWith("?")) {
-                    val inner = analyseTypeSymbol(name.dropLast(1), form.loc, typeVars)
-                    Type(NULLABLE, inner.tv, inner.base)
-                } else {
-                    analyseTypeSymbol(name, form.loc, typeVars)
-                }
+                if (name.endsWith("?")) analyseTypeSymbol(name.dropLast(1), form.loc, typeVars).nullable()
+                else analyseTypeSymbol(name, form.loc, typeVars)
             }
 
             is VectorForm -> {
                 val elForm = form.els.singleOrNull()
                     ?: return errorType("Vector type must have exactly one element type", form.loc)
-                VectorType(analyseTypeForm(elForm, typeVars)).notNull()
+                VectorType(analyseTypeForm(elForm, typeVars))
             }
 
             is SetForm -> {
                 val elForm = form.els.singleOrNull()
                     ?: return errorType("Set type must have exactly one element type", form.loc)
-                SetType(analyseTypeForm(elForm, typeVars)).notNull()
+                SetType(analyseTypeForm(elForm, typeVars))
             }
 
             is ListForm -> {
@@ -1145,56 +1137,118 @@ data class Analyser(
                     "Iterable" -> {
                         val elForm = form.els.getOrNull(1)
                             ?: return errorType("Iterable type requires an element type", form.loc)
-                        IterableType(analyseTypeForm(elForm, typeVars)).notNull()
+                        IterableType(analyseTypeForm(elForm, typeVars))
                     }
                     "Iterator" -> {
                         val elForm = form.els.getOrNull(1)
                             ?: return errorType("Iterator type requires an element type", form.loc)
-                        IteratorType(analyseTypeForm(elForm, typeVars)).notNull()
+                        IteratorType(analyseTypeForm(elForm, typeVars))
                     }
                     "Fn" -> {
                         val paramVec = form.els.getOrNull(1) as? VectorForm
                             ?: return errorType("Fn type requires a vector of parameter types", form.loc)
                         val retForm = form.els.getOrNull(2)
                             ?: return errorType("Fn type requires a return type", form.loc)
-                        val paramTypes = paramVec.els.map { analyseTypeForm(it, typeVars) }
-                        val returnType = analyseTypeForm(retForm, typeVars)
-                        FnType(paramTypes, returnType).notNull()
+                        FnType(paramVec.els.map { analyseTypeForm(it, typeVars) }, analyseTypeForm(retForm, typeVars))
                     }
                     else -> {
-                        val args = form.els.drop(1).map { analyseTypeForm(it, typeVars) }
-                        val invariantVariances = args.map { Variance.INVARIANT }
-
-                        // Check if it's an enum type
-                        val enumVariants = nsEnv.enums[first.sym] ?: ctx.brjCore.enums[first.sym]
-                        if (enumVariants != null) {
-                            return EnumType(first.sym, args, invariantVariances).notNull()
+                        // User{.email}: a User whose record is known to carry .email as well.
+                        val keysForm = form.els.last() as? RecordForm
+                        val argForms = form.els.drop(1).let { if (keysForm != null) it.dropLast(1) else it }
+                        val args = argForms.map { analyseTypeForm(it, typeVars) }
+                        val keys = keysForm?.let { k ->
+                            try { recordTypeSlots(k, typeVars) } catch (e: TypeFormError) { return errorType(e.message!!, e.loc) }
+                        }.orEmpty()
+                        val sym = first.sym
+                        val ns = tagNs(sym)
+                        val name: Name? = when {
+                            ns != null && isEnum(sym) -> EnumRef(ns, sym)
+                            ns != null -> TagRef(ns, sym)
+                            else -> null
                         }
-
-                        // Check if it's a tag name
-                        val tagNs = nsEnv[first.sym]?.let { nsEnv.nsSymbol }
-                            ?: ctx.brjCore[first.sym]?.let { "brj.core".sym }
-                        if (tagNs != null) {
-                            return TagType(tagNs, first.sym, args, invariantVariances).notNull()
+                        when {
+                            name != null -> {
+                                val params = paramCount(sym)
+                                if (args.isNotEmpty() && args.size != params)
+                                    return errorType("${sym.name} takes $params type arguments, not ${args.size}", form.loc)
+                                RecType(name, args.ifEmpty { freshArgs(sym) }, keys - declaredKeys(sym))
+                            }
+                            else -> nsEnv.imports[sym]?.let { HostType(it, args) }
+                                ?: errorType("Unsupported type constructor: ${sym.name}", form.loc)
                         }
-
-                        // Check if it's an import alias
-                        val fqClass = nsEnv.imports[first.sym]
-                        if (fqClass != null) {
-                            return HostType(fqClass, args, invariantVariances).notNull()
-                        }
-
-                        errorType("Unsupported type constructor: ${first.sym.name}", form.loc)
                     }
                 }
             }
 
-            is RecordForm -> RecordType.notNull()
+            // {.a, .?b, .c(Int) & t}: an open record carrying .a, perhaps .b, and .c at Int; on the variable t, t with
+            // those keys as given.
+            is RecordForm -> {
+                val amp = form.els.indexOfFirst { it is SymbolForm && it.sym.name == "&" }
+                val keyForms = if (amp < 0) form.els else form.els.subList(0, amp)
+                val keys = try { recordTypeSlots(RecordForm(keyForms, form.loc), typeVars) } catch (e: TypeFormError) { return errorType(e.message!!, e.loc) }
+                if (amp < 0) return RecType(null, emptyList(), keys)
+                val baseForm = form.els.drop(amp + 1).singleOrNull()
+                    ?: return errorType("a record type takes one type after &", form.loc)
+                val base = analyseTypeForm(baseForm, typeVars)
+                when (val b = base.base) {
+                    is TypeVar if !base.nullable -> OnVarType(keys, b)
+                    is Base.OnVar if !base.nullable -> OnVarType(b.keys + keys, b.base)
+                    else -> errorType("a record type's base is a type variable: $baseForm", baseForm.loc)
+                }
+            }
 
             else -> errorType("Unsupported type form", form.loc)
         }
 
     internal fun analyseTypeForm(form: Form): Type = analyseTypeForm(form, emptyMap())
+
+    private class TypeFormError(message: String, val loc: SourceSection?) : Exception(message)
+
+    // A key's type, and a tag's arguments to its keys, are declarations: nothing quantifies a variable in them
+    // but the declaration's own, so a name written without its type arguments, which gets fresh ones, is an error.
+    private fun unnamedArgsError(what: String, type: Type, declared: Collection<TypeVar>): String? =
+        if ((type.typeVars() - declared.toSet()).isEmpty()) null
+        else "$what leaves type arguments unnamed: give every tag, enum and key in it its arguments, from the declaration's variables"
+
+    // A record type form's keys: `.k` present, `.?k` perhaps, and a key with type variables at the arguments
+    // given, `.k(Int)`, or at fresh ones, which a declaration quantifies.
+    private fun recordTypeSlots(form: RecordForm, typeVars: Map<String, TypeVar>): Map<QSymbol, Slot> =
+        form.els.associate { el ->
+            val keyForm = (el as? ListForm)?.els?.firstOrNull() ?: el
+            val argForms = (el as? ListForm)?.els?.drop(1).orEmpty()
+            val (key, required) = when (val v = resolveKeyForm(keyForm)?.value) {
+                is BridjeKey -> v.sym to true
+                is BridjeOptionalKey -> v.key.sym to false
+                else -> throw TypeFormError("record type entries must be declared keys: $el", el.loc)
+            }
+            val params = keyTypeOf(key)?.params?.size
+                ?: throw TypeFormError("${key.toDisplayString()} has no declared type", el.loc)
+            val args = argForms.map { analyseTypeForm(it, typeVars) }.ifEmpty { List(params) { TypeVar().type() } }
+            if (args.size != params) throw TypeFormError("${key.toDisplayString()} takes $params type arguments, not ${args.size}", el.loc)
+            key to Slot(required, args)
+        }
+
+    private fun keyTypeOf(key: QSymbol): KeyType? = when (key.ns) {
+        nsEnv.nsSymbol -> nsEnv.keyTypes[key.name]
+        else -> (ctx.namespaces[key.ns] ?: ctx.brjCore.takeIf { it.nsSymbol == key.ns })?.keyTypes?.get(key.name)
+    }
+
+    // A tag's or enum's type parameters: a variant's, for an enum, as its variants take the enum's.
+    private fun paramCount(sym: Symbol): Int {
+        val tag = (nsEnv.enums[sym] ?: ctx.brjCore.enums[sym])?.firstOrNull() ?: sym
+        return (nsEnv.tags[tag] ?: ctx.brjCore.tags[tag])?.paramCount ?: 0
+    }
+
+    // A tag or enum named without its type arguments has fresh ones, which a declaration quantifies.
+    private fun freshArgs(sym: Symbol): List<Type> = List(paramCount(sym)) { TypeVar().type() }
+
+    // What a tag declares its record carries; for an enum, what every variant's does.
+    private fun declaredKeys(sym: Symbol): Set<QSymbol> {
+        fun tagKeys(tag: Symbol): Set<QSymbol> =
+            ((nsEnv[tag] ?: ctx.brjCore[tag])?.value as? TagConstructor)?.keys?.toSet().orEmpty()
+        val variants = nsEnv.enums[sym] ?: ctx.brjCore.enums[sym] ?: return tagKeys(sym)
+        return variants.map(::tagKeys).reduceOrNull { a, b -> a intersect b }.orEmpty()
+    }
 
     private fun analyseInteropDecl(forms: List<Form>, typeVars: Map<String, TypeVar>, loc: SourceSection?): Expr {
         val specForm = forms[0]
@@ -1217,13 +1271,13 @@ data class Analyser(
                 // Alias/.someField Int — instance field
                 val fqClass = nsEnv.imports[specForm.ns]
                     ?: return errorExpr("Unknown import alias: ${specForm.ns.name}", specForm.loc)
-                val receiverType = HostType(fqClass).notNull()
+                val receiverType = HostType(fqClass, emptyList())
                 val returnType = analyseTypeForm(retForm, typeVars)
                 InteropMember(
                     importAlias = specForm.ns,
                     memberName = specForm.member,
                     kind = InteropMemberKind.INSTANCE_FIELD,
-                    declaredType = FnType(listOf(receiverType), returnType).notNull(),
+                    declaredType = FnType(listOf(receiverType), returnType),
                 )
             }
 
@@ -1240,7 +1294,7 @@ data class Analyser(
                             importAlias = callee.ns,
                             memberName = callee.member,
                             kind = InteropMemberKind.STATIC_METHOD,
-                            declaredType = FnType(paramTypes, returnType).notNull(),
+                            declaredType = FnType(paramTypes, returnType),
                         )
                     }
 
@@ -1248,12 +1302,12 @@ data class Analyser(
                         // Alias/.toEpochMilli() Int — instance method
                         val fqClass = nsEnv.imports[callee.ns]
                             ?: return errorExpr("Unknown import alias: ${callee.ns.name}", callee.loc)
-                        val receiverType = HostType(fqClass).notNull()
+                        val receiverType = HostType(fqClass, emptyList())
                         InteropMember(
                             importAlias = callee.ns,
                             memberName = callee.member,
                             kind = InteropMemberKind.INSTANCE_METHOD,
-                            declaredType = FnType(listOf(receiverType) + paramTypes, returnType).notNull(),
+                            declaredType = FnType(listOf(receiverType) + paramTypes, returnType),
                         )
                     }
 
@@ -1280,12 +1334,15 @@ data class Analyser(
                         ?: return errorExpr("record key decl entries must alternate member and type", sigForm.els[i].loc)
                     key.sym
                 }
-                DefKeysExpr(names, form.loc)
-            }
-
-            // single key: decl: .name Str
-            sigForm is DotSymbolForm -> {
-                DefKeysExpr(listOf(sigForm.sym), form.loc)
+                val types = (0 until sigForm.els.size step 2).associate { i ->
+                    val typeForm = sigForm.els.getOrNull(i + 1)
+                        ?: return errorExpr("${sigForm.els[i]} needs a type: every key is declared with one", sigForm.els[i].loc)
+                    val key = (sigForm.els[i] as DotSymbolForm).sym
+                    val type = analyseTypeForm(typeForm)
+                    unnamedArgsError(".${key.name}'s type", type, emptyList())?.let { return errorExpr(it, typeForm.loc) }
+                    key to type
+                }
+                DefKeysExpr(names, types, form.loc)
             }
 
             sigForm is VectorForm -> {
@@ -1293,8 +1350,6 @@ data class Analyser(
                     (tvForm as? SymbolForm)?.sym?.name
                         ?: return errorExpr("type variable must be a symbol", tvForm.loc)
                 }
-                val keyForm = els.getOrNull(2) as? DotSymbolForm
-                if (keyForm != null) return DefKeysExpr(listOf(keyForm.sym), form.loc)
                 val typeVars = typeVarNames.associateWith { TypeVar() }
                 analyseSingleDecl(els.drop(2), typeVars, form.loc)
             }
@@ -1321,6 +1376,15 @@ data class Analyser(
         return when {
             isInteropForm(sigForm) -> analyseInteropDecl(forms, typeVars, loc)
 
+            // single key: decl: .name Str, or decl: [a] .f Fn([{.x & a}] a), whose type is a scheme
+            sigForm is DotSymbolForm -> {
+                val typeForm = forms.getOrNull(1)
+                    ?: return errorExpr("decl: $sigForm needs a type: every key is declared with one", sigForm.loc)
+                val type = analyseTypeForm(typeForm, typeVars)
+                unnamedArgsError(".${sigForm.sym.name}'s type", type, typeVars.values)?.let { return errorExpr(it, typeForm.loc) }
+                DefKeysExpr(listOf(sigForm.sym), mapOf(sigForm.sym to type), loc, typeVars.values.toList())
+            }
+
             sigForm is ListForm -> {
                 // decl: foo(Int, Str) Bool — function type declaration
                 val nameForm = sigForm.els.firstOrNull() as? SymbolForm
@@ -1329,7 +1393,7 @@ data class Analyser(
                     ?: return errorExpr("decl function requires a return type", loc)
                 val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it, typeVars) }
                 val returnType = analyseTypeForm(retForm, typeVars)
-                DeclExpr(nameForm.sym, FnType(paramTypes, returnType).notNull(), loc)
+                DeclExpr(nameForm.sym, FnType(paramTypes, returnType), loc)
             }
 
             sigForm is SymbolForm -> {
@@ -1411,17 +1475,32 @@ data class Analyser(
                     ?: return errorExpr(payloadError, sigForm.loc)
 
                 val typeVars = typeVarNames.associateWith { TypeVar() }
+                val keyArgs = mutableMapOf<Symbol, List<Type>>()
                 val keys = record.els.map { el ->
                     when {
                         el is DotSymbolForm -> el.sym
                         el is ListForm && el.els.firstOrNull() is DotSymbolForm -> {
-                            el.els.drop(1).forEach { analyseTypeForm(it, typeVars) }
-                            (el.els.first() as DotSymbolForm).sym
+                            val key = (el.els.first() as DotSymbolForm).sym
+                            keyArgs[key] = el.els.drop(1).map { analyseTypeForm(it, typeVars) }
+                            keyArgs.getValue(key).firstNotNullOfOrNull { unnamedArgsError("$name's .${key.name}", it, typeVars.values) }
+                                ?.let { return errorExpr(it, el.loc) }
+                            key
                         }
                         else -> return errorExpr("tag payload entries must be members: .k or .k(a)", el.loc)
                     }
                 }
-                DefTagExpr(name, keys, typeVarNames, loc = loc)
+                // A tag's keys are declared beforehand, and it gives the type variables of each that has them.
+                for (key in keys) {
+                    val params = nsEnv.keyTypes[key]?.params?.size
+                        ?: return errorExpr(".${key.name} has no declared type: decl: .${key.name} <type>", sigForm.loc)
+                    val given = keyArgs[key]?.size ?: 0
+                    if (given != params) return errorExpr(
+                        if (given == 0) ".${key.name} is declared with type variables: give them, .${key.name}(a)"
+                        else ".${key.name} takes $params type arguments, not $given",
+                        sigForm.loc,
+                    )
+                }
+                DefTagExpr(name, keys, typeVarNames, loc, typeVars.values.toList(), keyArgs)
             }
             else -> errorExpr("tag requires a tag name or signature", loc)
         }
@@ -1543,7 +1622,7 @@ data class Analyser(
                     ?: return errorExpr("defx requires a return type", form.loc)
                 val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it) }
                 val returnType = analyseTypeForm(retForm)
-                val type = FnType(paramTypes, returnType).notNull()
+                val type = FnType(paramTypes, returnType)
                 val defaultExpr = els.getOrNull(3)?.let { analyseValueExpr(it) }
                 DefxExpr(nameForm.sym, type, defaultExpr, form.loc)
             }

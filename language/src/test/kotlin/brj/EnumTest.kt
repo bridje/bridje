@@ -23,6 +23,8 @@ class EnumTest {
     @Test
     fun `enum with payloads`() = withContext { ctx ->
         val result = ctx.evalBridje("""
+            decl: [a] .value a
+            decl: [a] .error a
             enum: Result(a, e)
               tag: Ok{.value(a)}
               tag: Err{.error(e)}
@@ -35,6 +37,7 @@ class EnumTest {
     @Test
     fun `case matching on enum`() = withContext { ctx ->
         val result = ctx.evalBridje("""
+            decl: [a] .value a
             enum: Maybe(a)
               tag: Just{.value(a)}
               tag: Nothing
@@ -116,6 +119,7 @@ class EnumTest {
     @Test
     fun `enum variant types as enum type`() = withContext { ctx ->
         val result = ctx.evalBridje("""
+            decl: [a] .value a
             enum: Maybe(a)
               tag: Just{.value(a)}
               tag: Nothing
@@ -132,6 +136,8 @@ class EnumTest {
     @Test
     fun `enum type in function return`() = withContext { ctx ->
         val result = ctx.evalBridje("""
+            decl: [a] .value a
+            decl: [a] .error a
             enum: Result(a, e)
               tag: Ok{.value(a)}
               tag: Err{.error(e)}
@@ -144,5 +150,79 @@ class EnumTest {
               Err(e) 0
         """.trimIndent())
         assertEquals(5L, result.asLong())
+    }
+
+    // A value both cased over Maybe and read as a record is the one variant with a record.
+    @Test
+    fun `a record demanded of an enum is its one variant with a record`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ns: test.enum.onlyRecord
+            decl: .value Int
+            enum: Maybe
+              tag: Just{.value}
+              tag: None
+            def: f(m)
+              do:
+                .?value(m)
+                case: m
+                  Just(r) .value(r)
+                  None 0
+            def: x f(Just{.value 42})
+        """.trimIndent())
+        assertEquals(42L, ctx.evalBridje("test.enum.onlyRecord/x").asLong())
+    }
+
+    // An Err may carry .value too, at any type, so Result(Int, Str) says nothing of it.
+    @Test
+    fun `a key only some variants declare may be carried by the others at any type`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [a] .value a
+                decl: [e] .error e
+                enum: Result(a, e)
+                  tag: Ok{.value(a)}
+                  tag: Err{.error(e)}
+                decl: f(Result(Int, Str)) Int?
+                def: f(r) .?value(r)
+                f(Err{.error "x", .value "s"})
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("may carry") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a join keeps the instance a variant carries beyond the enum's`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [e] .error e
+                decl: [a] .value a
+                enum: Result(a, e)
+                  tag: Ok{.value(a)}
+                  tag: Err{.error(e)}
+                def: pick(c)
+                  if: c
+                    Err{.error "x", .value 1}
+                    Ok{.value "s"}
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Cannot join Int with Str") == true, "got: ${ex.message}")
+    }
+
+    // Both variants declare .value, at the same instance, so with gives it one type.
+    @Test
+    fun `with on a key every variant declares gives it one type`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            decl: [a] .value a
+            decl: .warn Bool
+            enum: Res(a)
+              tag: Ok{.value(a)}
+              tag: Partial{.value(a), .warn}
+            def: v
+              if: true
+                Ok{.value 1}
+                Partial{.value 2, .warn true}
+            .value(with(v, .value "s"))
+        """.trimIndent())
+        assertEquals("s", result.asString())
     }
 }

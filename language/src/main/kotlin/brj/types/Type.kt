@@ -1,184 +1,253 @@
 package brj.types
 
+import brj.runtime.QSymbol
 import brj.runtime.Symbol
-import brj.types.Nullability.*
-import com.oracle.truffle.api.interop.InteropLibrary
-import com.oracle.truffle.api.interop.TruffleObject
-import com.oracle.truffle.api.library.ExportLibrary
-import com.oracle.truffle.api.library.ExportMessage
+import java.util.concurrent.atomic.AtomicInteger
 
-class TypeVar {
-    override fun toString(): String = "T${hashCode().toString(16).take(4)}"
+// τ, or τ ∨ nil. The flag adds nil to the base and never forbids it: on a variable, (α, false) is
+// whatever α's bounds admit, nil included. Nil is Nothing?.
+data class Type(val base: Base, val nullable: Boolean = false) {
+    override fun toString() = if (nullable) "$base?" else "$base"
 }
 
-enum class Nullability {
-    NOT_NULL, MAYBE_NULL, NULLABLE
-}
+fun Type.nullable(): Type = if (nullable) this else copy(nullable = true)
 
-@ExportLibrary(InteropLibrary::class)
-data class Type (
-    val nullability: Nullability,
-    val tv: TypeVar,
-    val base: BaseType?
-) : TruffleObject {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
+val Type.bareVar: TypeVar? get() = if (nullable) null else base as? TypeVar
 
-    override fun toString(): String {
-        val baseStr = base?.toString() ?: "?"
-        return when (nullability) {
-            NULLABLE -> "$baseStr?"
-            else -> baseStr
+sealed interface Base {
+    sealed class Prim : Base
+    data object Int : Prim()
+    data object Double : Prim()
+    data object BigInt : Prim()
+    data object BigDec : Prim()
+    data object Str : Prim()
+    data object Bool : Prim()
+    data object Bytes : Prim()
+
+    data object Nothing : Base {
+        override fun toString() = "Nothing"
+    }
+
+    data class Fn(val paramTypes: List<Type>, val returnType: Type) : Base {
+        override fun toString() = "Fn([${paramTypes.joinToString(", ")}] $returnType)"
+    }
+
+    data class Vector(val el: Type) : Base {
+        override fun toString() = "[$el]"
+    }
+
+    data class Set(val el: Type) : Base {
+        override fun toString() = "#{$el}"
+    }
+
+    // A JVM class. Type arguments are invariant, as Java's are; an empty argument list is the erased form.
+    data class Host(val className: String, val args: List<Type> = emptyList()) : Base {
+        override fun toString(): String {
+            val simple = className.substringAfterLast('.')
+            return if (args.isEmpty()) simple else "$simple(${args.joinToString(", ")})"
         }
     }
-}
 
-sealed interface BaseType : TruffleObject
+    data class Iterable(val el: Type) : Base {
+        override fun toString() = "Iterable($el)"
+    }
 
-@ExportLibrary(InteropLibrary::class)
-data object IntType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Int"
-}
+    data class Iterator(val el: Type) : Base {
+        override fun toString() = "Iterator($el)"
+    }
 
-@ExportLibrary(InteropLibrary::class)
-data object FloatType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Double"
-}
+    // A record: the keys it carries, under a tag's or an enum's name, or none. A record is a tag with no name.
+    // - [args] are [name]'s type arguments, which give the keys its declaration names their instances.
+    // - [keys] are the keys beyond those the name declares: for a record with no name, all of them.
+    // - [closed]: the record carries no key it does not mention, as a literal does. An open one, as a type
+    //   form is, may carry others, at any instance.
+    // A tag with no record, `Nothing`, or an opaque builtin, `Symbol`, is a Rec with a name and no keys, which
+    // the context knows is not a record.
+    data class Rec(val name: Name?, val args: List<Type>, val keys: Map<QSymbol, Slot>, val closed: Boolean) : Base {
+        init {
+            require(name != null || args.isEmpty()) { "a record with no name has no type arguments: $args" }
+        }
 
-@ExportLibrary(InteropLibrary::class)
-data object BoolType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Bool"
-}
+        override fun toString(): String {
+            val withArgs = name?.let { n -> if (args.isEmpty()) "$n" else "$n(${args.joinToString(", ")})" }
+            return when {
+                withArgs == null -> "{${slotsString(keys)}}"
+                keys.isEmpty() -> withArgs
+                else -> "$withArgs{${slotsString(keys)}}"
+            }
+        }
+    }
 
-@ExportLibrary(InteropLibrary::class)
-data object StringType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Str"
-}
-
-@ExportLibrary(InteropLibrary::class)
-data object BigIntType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "BigInt"
-}
-
-@ExportLibrary(InteropLibrary::class)
-data object BigDecType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "BigDec"
-}
-
-@ExportLibrary(InteropLibrary::class)
-data object RecordType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Record"
-}
-
-@ExportLibrary(InteropLibrary::class)
-data class TagType(val ns: Symbol, val name: Symbol, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
-    override fun toString(): String {
-        val base = "$ns.$name"
-        return if (args.isEmpty()) base else "$base(${args.joinToString(", ")})"
+    // `{K & a}`: whatever the variable a is, with the keys K as given: the type of `with` on a variable.
+    // It is never a variable's concrete bound.
+    data class OnVar(val keys: Map<QSymbol, Slot>, val base: TypeVar) : Base {
+        override fun toString(): String = if (keys.isEmpty()) "{& $base}" else "{${slotsString(keys)} & $base}"
     }
 }
 
-@ExportLibrary(InteropLibrary::class)
-data class EnumType(val name: Symbol, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean): String = toString()
-    override fun toString(): String =
-        if (args.isEmpty()) "$name" else "$name(${args.joinToString(", ")})"
+// What a record's type says of one of its keys: whether it is certainly present, and the instance its value
+// is at, the key's declared type at [args]. A key declared without type variables has no arguments.
+data class Slot(val required: Boolean, val args: List<Type> = emptyList())
+
+internal fun slotString(key: QSymbol, slot: Slot): String {
+    val k = if (slot.required) key.toDisplayString() else key.toDisplayString().replaceFirst(".", ".?")
+    return if (slot.args.isEmpty()) k else "$k(${slot.args.joinToString(", ")})"
 }
 
-enum class Variance { IN, OUT, INVARIANT }
+private fun slotsString(keys: Map<QSymbol, Slot>) = keys.entries.joinToString(", ") { (k, s) -> slotString(k, s) }
 
-@ExportLibrary(InteropLibrary::class)
-data object FormType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Form"
+// A record's name: the tag it is, or the enum whose variants it is one of.
+sealed interface Name
+
+data class TagRef(val ns: Symbol, val name: Symbol) : Name {
+    override fun toString() = name.name
 }
 
-@ExportLibrary(InteropLibrary::class)
-data class HostType(val className: String, val args: List<Type> = emptyList(), val variances: List<Variance> = emptyList()): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString(): String = when {
-        args.isEmpty() -> className.substringAfterLast('.')
-        else -> "${className.substringAfterLast('.')}(${args.joinToString(", ")})"
+data class EnumRef(val ns: Symbol, val name: Symbol) : Name {
+    override fun toString() = name.name
+}
+
+// A type variable is an identity. What has flowed into it and what has been demanded of it live in a
+// BoundEnv, so a typing scheme is a value and two branches can extend the same scheme independently.
+// A rigid variable is one a declaration holds abstract while the definition is checked against it (checkDeclared).
+class TypeVar(val rigid: Boolean = false) : Base {
+    val id = nextId.getAndIncrement()
+
+    override fun toString() = "t$id"
+
+    companion object {
+        private val nextId = AtomicInteger()
     }
 }
 
-@ExportLibrary(InteropLibrary::class)
-data class VectorType(val el: Type): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "[${el}]"
-}
-@ExportLibrary(InteropLibrary::class)
-data class SetType(val el: Type): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "#{${el}}"
+val IntType = Type(Base.Int)
+val DoubleType = Type(Base.Double)
+val BigIntType = Type(Base.BigInt)
+val BigDecType = Type(Base.BigDec)
+val StrType = Type(Base.Str)
+val BoolType = Type(Base.Bool)
+val BytesType = Type(Base.Bytes)
+val NothingType = Type(Base.Nothing)
+
+// The type of a Java class's values: a primitive where the runtime represents one by that class.
+fun hostClassType(className: String, args: List<Type>): Type = when (className) {
+    "java.lang.Long" -> IntType
+    "java.lang.Double" -> DoubleType
+    "java.lang.String" -> StrType
+    "java.lang.Boolean" -> BoolType
+    "java.math.BigInteger" -> BigIntType
+    "java.math.BigDecimal" -> BigDecType
+    else -> HostType(className, args)
 }
 
-// Virtual protocol types — no Java class backs these.
-// They represent Truffle iterator protocol capabilities.
-// See #78: Truffle intercepts java.lang.Iterable on TruffleObjects,
-// so BridjeVector can't implement it. These exist in the type system only.
-@ExportLibrary(InteropLibrary::class)
-data class IterableType(val el: Type): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Iterable(${el})"
+fun freshVar(): Type = Type(TypeVar())
+fun TypeVar.type(nullable: Boolean = false): Type = Type(this, nullable)
+fun FnType(paramTypes: List<Type>, returnType: Type): Type = Type(Base.Fn(paramTypes, returnType))
+fun VectorType(el: Type): Type = Type(Base.Vector(el))
+fun SetType(el: Type): Type = Type(Base.Set(el))
+fun HostType(className: String, args: List<Type> = emptyList()): Type = Type(Base.Host(className, args))
+fun IterableType(el: Type): Type = Type(Base.Iterable(el))
+fun IteratorType(el: Type): Type = Type(Base.Iterator(el))
+fun RecType(name: Name?, args: List<Type>, keys: Map<QSymbol, Slot>, closed: Boolean = false): Type =
+    Type(Base.Rec(name, args, keys, closed))
+fun OnVarType(keys: Map<QSymbol, Slot>, base: TypeVar): Type = Type(Base.OnVar(keys, base))
+
+private fun present(keys: Set<QSymbol>) = keys.associateWith { Slot(true) }
+
+// An open record certainly carrying [keys], each declared without type variables; on a variable where [base] is given.
+fun RecordType(keys: Set<QSymbol>, base: TypeVar? = null): Type =
+    base?.let { OnVarType(present(keys), it) } ?: RecType(null, emptyList(), present(keys))
+fun TagType(tag: TagRef, args: List<Type>, keys: Set<QSymbol> = emptySet()): Type = RecType(tag, args, present(keys))
+fun EnumType(enum: EnumRef, args: List<Type>, keys: Set<QSymbol> = emptySet()): Type = RecType(enum, args, present(keys))
+
+val FormEnum = EnumRef(Symbol.intern("brj.rdr"), Symbol.intern("Form"))
+val FormType = EnumType(FormEnum, emptyList())
+
+// What `throw` raises and a `catch` catches: one of the builtin anomaly tags, a host exception among them as `Host`.
+val AnomalyEnum = EnumRef(Symbol.intern("brj.core"), Symbol.intern("Anomaly"))
+val AnomalyType = EnumType(AnomalyEnum, emptyList())
+
+internal fun Base.mapTypes(f: (Type) -> Type): Base = when (this) {
+    is Base.Fn -> Base.Fn(paramTypes.map(f), f(returnType))
+    is Base.Vector -> Base.Vector(f(el))
+    is Base.Set -> Base.Set(f(el))
+    is Base.Iterable -> Base.Iterable(f(el))
+    is Base.Iterator -> Base.Iterator(f(el))
+    is Base.Host -> Base.Host(className, args.map(f))
+    is Base.Rec -> copy(args = args.map(f), keys = keys.mapSlotArgs(f))
+    is Base.OnVar -> copy(keys = keys.mapSlotArgs(f))
+    is Base.Prim, Base.Nothing, is TypeVar -> this
 }
 
-@ExportLibrary(InteropLibrary::class)
-data class IteratorType(val el: Type): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Iterator(${el})"
-}
+internal fun Map<QSymbol, Slot>.mapSlotArgs(f: (Type) -> Type): Map<QSymbol, Slot> =
+    mapValues { (_, s) -> if (s.args.isEmpty()) s else s.copy(args = s.args.map(f)) }
 
-// Virtual type — no dedicated runtime class.
-// At runtime a Bytes value is a Truffle HostObject wrapping a Java `byte[]`
-// (produced via `env.asGuestValue(byte[])`).
-// Builtins that consume Bytes unwrap via `env.asHostObject` back to `byte[]`;
-// this fast path is valid because v1 only produces Bytes through our own
-// builtins (`by/fromStr`, `fs/fromBytes`).
-// Reads through Bytes/nth return the unsigned byte value widened to Int
-// (0..255); there is no Byte scalar type in Bridje.
-@ExportLibrary(InteropLibrary::class)
-data object BytesType: BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString() = "Bytes"
-}
-
-@ExportLibrary(InteropLibrary::class)
-data class FnType(val paramTypes: List<Type>, val returnType: Type): BaseType {
-    @Suppress("UNUSED_PARAMETER")
-    @ExportMessage fun toDisplayString(allowSideEffects: Boolean) = toString()
-    override fun toString(): String {
-        val params = paramTypes.joinToString(", ")
-        return "Fn([$params] $returnType)"
+internal fun Type.typeVars(): LinkedHashSet<TypeVar> {
+    val out = LinkedHashSet<TypeVar>()
+    fun go(t: Type) {
+        when (val b = t.base) {
+            is TypeVar -> out += b
+            is Base.OnVar -> { b.mapTypes { go(it); it }; out += b.base }
+            else -> b.mapTypes { go(it); it }
+        }
     }
+    go(this)
+    return out
 }
 
-fun BaseType.nullable(tv: TypeVar = TypeVar()) = Type(NULLABLE, tv, this)
-fun BaseType.notNull(tv: TypeVar = TypeVar()) = Type(NOT_NULL, tv, this)
-fun freshType(tv: TypeVar = TypeVar()) = Type(MAYBE_NULL, tv, null)
-fun nullType(tv: TypeVar = TypeVar()) = Type(NULLABLE, tv, null)
-fun nothingType(tv: TypeVar = TypeVar()) = Type(NOT_NULL, tv, null)
+// The lower bound of a variable is a set of disjuncts, kept in normal form: one concrete product (same-kind
+// concretes merge by the kind's join, and nil sets its flag), bare variables, and at most one `{K & α}`
+// per variable α. `{K1 & α} ∨ {K2 & α}` keeps the keys both give, and `{K & α} ∨ α` is `α` where K's keys
+// have one type each, so giving them changes nothing α could not already hold. A lower `α?` puts its nil in
+// the concrete product and α among the variables, so variable edges here carry no flag.
+data class LowerBound(
+    // Nothing, when nothing concrete has flowed in.
+    val concrete: Type = NothingType,
+    val tvs: Set<TypeVar> = emptySet(),
+    val meets: Map<TypeVar, Map<QSymbol, Slot>> = emptyMap(),
+) {
+    init {
+        require(concrete.base !is TypeVar && concrete.base !is Base.OnVar) { "a concrete lower bound is not a variable: $concrete" }
+    }
+
+    val isEmpty get() = concrete == NothingType && tvs.isEmpty() && meets.isEmpty()
+
+    val nullable get() = concrete.nullable
+
+    fun concreteType(): Type? = concrete.takeIf { it != NothingType }
+
+    fun disjuncts(): List<Type> = listOfNotNull(concreteType()) + meets.map { (tv, keys) -> OnVarType(keys, tv) }
+
+    fun asTypes(): List<Type> = disjuncts() + tvs.map { it.type() }
+}
+
+// The upper bound holds at most one concrete product (same-kind concretes merge by the kind's meet, and
+// across kinds the meet is Nothing), and the variables it flows into, each with whether nil may go too:
+// α ≤ β? is the edge (β, true), along which what flows into α flows into β with nil stripped.
+data class UpperBound(
+    // May be Nothing.
+    val concrete: Type? = null,
+    val tvs: Map<TypeVar, Boolean> = emptyMap(),
+) {
+    init {
+        require(concrete?.base !is TypeVar && concrete?.base !is Base.OnVar) { "a concrete upper bound is not a variable: $concrete" }
+    }
+
+    val isEmpty get() = concrete == null && tvs.isEmpty()
+
+    fun asTypes(): List<Type> = listOfNotNull(concrete) + tvs.map { (tv, nilOk) -> tv.type(nilOk) }
+}
+
+data class Bounds(val lower: LowerBound = LowerBound(), val upper: UpperBound = UpperBound())
+
+// A variable absent from the map is unconstrained.
+typealias BoundEnv = Map<TypeVar, Bounds>
+
+val BoundEnv.lower: (TypeVar) -> LowerBound get() = { this[it]?.lower ?: LowerBound() }
+val BoundEnv.upper: (TypeVar) -> UpperBound get() = { this[it]?.upper ?: UpperBound() }
+
+// [provenance] is the constraint being checked when the failure arose, where the failing pair is a
+// fragment of it: `Int is not a Str` alone does not say which call put an Int where a Str was wanted.
+open class TypeCheckException(message: String, val provenance: Pair<Type, Type>? = null) : RuntimeException(
+    provenance?.let { (l, u) -> "$message\n  while checking $l ≤ $u" } ?: message
+)

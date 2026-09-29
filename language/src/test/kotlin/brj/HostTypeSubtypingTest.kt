@@ -1,7 +1,9 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class HostTypeSubtypingTest {
 
@@ -49,6 +51,24 @@ class HostTypeSubtypingTest {
     }
 
     @Test
+    fun `unrelated classes are rejected`() = withContext { ctx ->
+        val ex = assertThrows<PolyglotException> {
+            ctx.evalBridje("""
+                ns: test.subtype.reject
+                  import:
+                    java.lang:
+                      as(StringBuilder, SB)
+                      as(Iterable, Itr)
+                decl: SB/new() SB
+                decl: [a] Itr/.iterator() Itr(a)
+                def: result Itr/.iterator(SB/new())
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("not a subtype") == true || ex.message?.contains("Incompatible") == true,
+            "Expected subtype error, got: ${ex.message}")
+    }
+
+    @Test
     fun `erased HostTypes with hierarchy`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.subtype.erased
@@ -82,5 +102,22 @@ class HostTypeSubtypingTest {
         """.trimIndent())
         val result = ctx.evalBridje("test.subtype.transitive/result")
         assertEquals(1L, result.asLong())
+    }
+
+    // Path is an Iterable<Path>: its elements are Paths, not anything.
+    @Test
+    fun `a class iterable at a concrete type yields that type`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.hts.path
+                  import:
+                    java.nio.file:
+                      as(Path, P)
+                decl: P/of(Str) P
+                def: p P/of("/tmp")
+                def: result add(itrNext(itr(p)), 1)
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Cannot join") == true, "got: ${ex.message}")
     }
 }
