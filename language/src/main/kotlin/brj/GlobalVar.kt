@@ -7,7 +7,6 @@ import brj.runtime.BuiltinMetaObj
 import brj.runtime.Meta
 import brj.runtime.Symbol
 import brj.runtime.sym
-import brj.types.Type
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.interop.ArityException
 import com.oracle.truffle.api.interop.InteropLibrary
@@ -22,12 +21,14 @@ class GlobalVar(
     val name: Symbol,
     val value: Any?,
     override val meta: BridjeRecord = BridjeRecord.EMPTY,
-    val type: Type? = null,
+    // The var's type: inferred for a definition, declared for a builtin, interop member or effect.
+    // A key or a tag constructor carries none; the checker types those from the value itself.
+    val scheme: brj.types.Scheme? = null,
     val effects: List<GlobalVar> = emptyList(),
 ) : TruffleObject, Meta<GlobalVar> {
 
     override fun withMeta(newMeta: BridjeRecord?): GlobalVar =
-        GlobalVar(ns, name, value, newMeta ?: BridjeRecord.EMPTY, type, effects)
+        GlobalVar(ns, name, value, newMeta ?: BridjeRecord.EMPTY, scheme, effects)
 
     @ExportMessage fun hasMetaObject() = true
     @ExportMessage fun getMetaObject(): Any = VarMeta

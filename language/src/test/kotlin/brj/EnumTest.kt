@@ -23,6 +23,8 @@ class EnumTest {
     @Test
     fun `enum with payloads`() = withContext { ctx ->
         val result = ctx.evalBridje("""
+            decl: [a] .value a
+            decl: [a] .error a
             enum: Result(a, e)
               tag: Ok{.value(a)}
               tag: Err{.error(e)}
@@ -35,6 +37,7 @@ class EnumTest {
     @Test
     fun `case matching on enum`() = withContext { ctx ->
         val result = ctx.evalBridje("""
+            decl: [a] .value a
             enum: Maybe(a)
               tag: Just{.value(a)}
               tag: Nothing
@@ -116,6 +119,7 @@ class EnumTest {
     @Test
     fun `enum variant types as enum type`() = withContext { ctx ->
         val result = ctx.evalBridje("""
+            decl: [a] .value a
             enum: Maybe(a)
               tag: Just{.value(a)}
               tag: Nothing
@@ -132,6 +136,8 @@ class EnumTest {
     @Test
     fun `enum type in function return`() = withContext { ctx ->
         val result = ctx.evalBridje("""
+            decl: [a] .value a
+            decl: [a] .error a
             enum: Result(a, e)
               tag: Ok{.value(a)}
               tag: Err{.error(e)}

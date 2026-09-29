@@ -332,6 +332,7 @@ class RecordTest {
     fun `record sugar desugars to call with record arg`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .x Int
               tag: Wrapper{.x}
               Wrapper{.x 42}
         """.trimIndent())

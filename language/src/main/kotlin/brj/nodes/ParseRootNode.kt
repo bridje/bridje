@@ -5,6 +5,7 @@ import brj.analyser.*
 import brj.effects.collectEffectfulCallees
 import brj.effects.inferEffects
 import brj.runtime.*
+import brj.types.*
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.bytecode.BytecodeConfig
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -79,7 +80,7 @@ class ParseRootNode(
     private fun locMeta(expr: Expr): BridjeRecord =
         expr.loc?.let { BridjeRecord.EMPTY.put(LOC_KEY, Loc(it)) } ?: BridjeRecord.EMPTY
 
-    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv): Pair<Any, NsEnv> {
+    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: Symbol? = null): Pair<Any, NsEnv> {
         val ns = nsEnv.nsSymbol
         val keys = expr.keys
 
@@ -87,7 +88,17 @@ class ParseRootNode(
             if (keys == null) BridjeTaggedSingleton(expr.name.name)
             else BridjeTagConstructor(expr.name.name, keys.map { QSymbol(ns, it) })
 
-        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr))
+        val params = expr.typeVars.ifEmpty { expr.typeVarNames.map { TypeVar() } }
+        val info = TagInfo(
+            TagRef(ns, expr.name),
+            enumName?.let { EnumRef(ns, it) },
+            params,
+            keys?.let { ks ->
+                Payload.Record(ks.map { QSymbol(ns, it) }.toSet(), expr.keyArgs.mapKeys { (k, _) -> QSymbol(ns, k) })
+            } ?: Payload.None,
+        )
+
+        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr)).defTag(expr.name, info)
 
         for (keySym in keys.orEmpty()) updatedNs = updatedNs.withKey(keySym)
 
@@ -121,7 +132,7 @@ class ParseRootNode(
                     val userMeta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
                     val meta = expr.loc?.let { userMeta.put(LOC_KEY, Loc(it)) } ?: userMeta
 
-                    if (effects.isNotEmpty()) {
+                    val value = if (effects.isNotEmpty()) {
                         if (expr.valueExpr !is FnExpr) {
                             throw Analyser.Error("effects can only be used within a function body: ${expr.name}", expr.loc)
                         }
@@ -133,6 +144,7 @@ class ParseRootNode(
                         nsEnv = nsEnv.def(expr.name, value, meta)
                         value
                     }
+                    value
                 }
 
                 is DefTagExpr -> {
@@ -145,7 +157,7 @@ class ParseRootNode(
                     val variantNames = mutableSetOf<Symbol>()
                     var lastValue: Any? = null
                     for (tagExpr in expr.variants) {
-                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv)
+                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv, enumName = expr.name)
                         nsEnv = updatedNsEnv
                         variantNames.add(tagExpr.name)
                         lastValue = value
@@ -181,22 +193,22 @@ class ParseRootNode(
                                     throw Analyser.Error("$memberName is not a readable field on ${member.importAlias} — did you mean $memberName()?", expr.loc)
                                 }
                                 val value = interopLib.readMember(hostClass, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, value, member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, value, Scheme(member.declaredType))
                             }
                             InteropMemberKind.STATIC_METHOD -> {
                                 val rootNode = if (memberName == "new")
                                     HostConstructorNode(lang, hostClass)
                                 else
                                     HostStaticMethodInvokeNode(lang, hostClass, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), Scheme(member.declaredType))
                             }
                             InteropMemberKind.INSTANCE_METHOD -> {
                                 val rootNode = HostInstanceMethodInvokeNode(lang, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), Scheme(member.declaredType))
                             }
                             InteropMemberKind.INSTANCE_FIELD -> {
                                 val rootNode = HostInstanceFieldReadNode(lang, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), Scheme(member.declaredType))
                             }
                         }
                     }
@@ -205,12 +217,13 @@ class ParseRootNode(
 
                 is DefxExpr -> {
                     val defaultValue = expr.defaultExpr?.let { evalExpr(it, analyser.slotCount) }
-                    nsEnv = nsEnv.defx(expr.name, defaultValue, expr.declaredType, meta = locMeta(expr))
+                    nsEnv = nsEnv.defx(expr.name, defaultValue, Scheme(expr.declaredType), meta = locMeta(expr))
                     defaultValue
                 }
 
                 is DefKeysExpr -> {
                     for (name in expr.names) nsEnv = nsEnv.withKey(name)
+                    nsEnv = nsEnv.declKeyTypes(expr.types.mapValues { KeyType(expr.params, it.value) })
                     expr.names.lastOrNull()?.let { nsEnv.key(it)?.value }
                 }
 
