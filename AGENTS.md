@@ -16,6 +16,7 @@ bridje/
 │   └── src/main/kotlin/brj/
 │       ├── analyser/  # Semantic analysis (Analyser, Expr types)
 │       ├── nodes/     # BridjeRootNode (the Bytecode DSL operations), ParseRootNode
+│       ├── types/     # Type checker (Type, Solver, Typing, Simplify; see notes/TYPES.md)
 │       ├── runtime/   # Runtime objects (BridjeFunction, BridjeRecord)
 │       ├── builtins/  # Built-in functions
 │       ├── Reader.kt, Emitter.kt, Form.kt

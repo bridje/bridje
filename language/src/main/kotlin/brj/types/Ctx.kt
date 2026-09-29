@@ -8,6 +8,10 @@ import brj.runtime.QSymbol
 data class KeyType(val params: List<TypeVar>, val type: Type) {
     constructor(type: Type) : this(emptyList(), type)
 
+    init {
+        require(type.typeVars().all { it in params }) { "key type $type mentions variables beyond its parameters $params" }
+    }
+
     fun at(args: List<Type>): Type {
         require(args.size == params.size) { "key type $this at $args" }
         return type.substitute(params.zip(args).toMap())
@@ -30,11 +34,18 @@ sealed interface Payload {
 // What the checker knows about a declared tag. A tag inside an enum takes the enum's type parameters, in order.
 data class TagInfo(val tag: TagRef, val enum: EnumRef?, val params: List<TypeVar>, val payload: Payload) {
     val paramCount get() = params.size
+
+    init {
+        (payload as? Payload.Record)?.keyArgs?.values?.flatten()?.forEach { t ->
+            require(t.typeVars().all { it in params }) { "$tag gives a key $t, beyond its parameters $params" }
+        }
+    }
 }
 
 // What a record's type says of one key across the forms the record may take: certainly present or not, and
-// the instance its value is at in each. A tag's is one; an enum's is one per variant that carries the key.
-data class Facet(val required: Boolean, val instances: List<List<Type>>)
+// the instances its value may be at. A tag's is one; an enum's is one per variant that declares the key,
+// and variants that agree give one.
+data class Facet(val required: Boolean, val instances: Set<List<Type>>)
 
 // How a type argument's type varies with it: with it, against it, both, or not at all.
 enum class Variance { CO, CONTRA, INV, PHANTOM }
@@ -97,26 +108,38 @@ class TypeCtx(
         is EnumRef -> variants(name).all { it.payload is Payload.Record }
     }
 
+    // Whether a value of the name may carry keys at all: a tag or an enum with no record carries none, so
+    // whether its type is open says nothing.
+    fun mayCarryKeys(name: Name?): Boolean = when (name) {
+        null -> true
+        is TagRef -> tagInfo(name).payload is Payload.Record
+        is EnumRef -> variants(name).any { it.payload is Payload.Record }
+    }
+
     // An enum's one variant with a record, or null where it has none or several.
     fun onlyRecordVariant(name: Name): TagRef? = when (name) {
         is TagRef -> null
         is EnumRef -> variants(name).filter { it.payload is Payload.Record }.singleOrNull()?.tag
     }
 
-    // The name's own keys at [args]: a tag's are present, an enum's present where every variant carries them.
+    // The name's own keys at [args]: a tag's are present. An enum's are present where every variant declares
+    // them, and perhaps present where the others have no record, so cannot carry them. A variant with a record
+    // that does not declare a key may carry it anyway, at any type, so an enum declares a key with type
+    // variables only where no such variant does; a key without them has its one type wherever it is.
     fun declared(name: Name, args: List<Type>): Map<QSymbol, Facet> {
-        fun of(info: TagInfo): Map<QSymbol, List<Type>> {
-            val record = info.payload.record() ?: return emptyMap()
+        fun of(info: TagInfo): Map<QSymbol, List<Type>>? {
+            val record = info.payload.record() ?: return null
             val at = info.params.zip(args).toMap()
             return record.keys.associateWith { k -> record.template(k).map { it.substitute(at) } }
         }
         return when (name) {
-            is TagRef -> of(tagInfo(name)).mapValues { (_, inst) -> Facet(true, listOf(inst)) }
+            is TagRef -> of(tagInfo(name)).orEmpty().mapValues { (_, inst) -> Facet(true, setOf(inst)) }
             is EnumRef -> {
                 val variants = variants(name).map(::of)
-                variants.flatMap { it.keys }.distinct().associateWith { k ->
-                    Facet(variants.all { k in it }, variants.mapNotNull { it[k] })
-                }
+                val records = variants.filterNotNull()
+                records.flatMap { it.keys }.distinct()
+                    .filter { k -> isMono(k) || records.all { k in it } }
+                    .associateWith { k -> Facet(variants.all { it != null && k in it }, records.mapNotNull { it[k] }.toSet()) }
             }
         }
     }
@@ -126,7 +149,7 @@ class TypeCtx(
         val out = LinkedHashMap(rec.name?.let { declared(it, rec.args) }.orEmpty())
         for ((k, s) in rec.keys) {
             val had = out[k]
-            out[k] = Facet(s.required || had?.required == true, had?.instances.orEmpty() + listOf(s.args))
+            out[k] = Facet(s.required || had?.required == true, had?.instances.orEmpty() + setOf(s.args))
         }
         return out
     }

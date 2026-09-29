@@ -125,7 +125,7 @@ class TagTest {
                   Pair{.fst 1}
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("requires .snd") == true, "got: ${ex.message}")
+        assertTrue(ex.message?.contains("lacks {.snd}") == true, "got: ${ex.message}")
     }
 
     @Test
@@ -139,7 +139,7 @@ class TagTest {
                   Just(x)
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("expects a record") == true, "got: ${ex.message}")
+        assertTrue(ex.message?.contains("Int is not a subtype of {.value}") == true, "got: ${ex.message}")
     }
 
     @Test
@@ -234,7 +234,7 @@ class TagTest {
                     Just 1
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("No matching") == true, "got: ${ex.message}")
+        assertTrue(ex.message?.contains("{.value} is not a subtype of Just") == true, "got: ${ex.message}")
     }
 
     @Test

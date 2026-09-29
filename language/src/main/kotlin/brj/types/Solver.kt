@@ -206,7 +206,7 @@ private class Solve(start: BoundEnv, private val ctx: TypeCtx) {
             }
         }
         if (u.closed) {
-            if (!l.closed) fail("$l may carry keys $u does not")
+            if (!l.closed && ctx.mayCarryKeys(l.name)) fail("$l may carry keys $u does not")
             val beyond = lSlots.keys - ctx.slotsOf(u).keys
             if (beyond.isNotEmpty()) fail("$l carries ${RecordType(beyond)}, which $u does not")
         }
@@ -233,7 +233,14 @@ private class Solve(start: BoundEnv, private val ctx: TypeCtx) {
 
     // The subclass's arguments carried up to the superclass, or null where it is not a subclass.
     private fun Base.Host.argsAs(superClass: String): List<Type>? =
-        if (className == superClass) args else HostTypeHierarchy.mapSupertypeArgs(className, superClass, args, ::freshVar)
+        if (className == superClass) args else HostTypeHierarchy.supertypeArgs(className, superClass)?.map { it.type(args) }
+
+    // A supertype's argument as a type: the subclass's argument, a class, or anything where Java does not say.
+    private fun HostTypeHierarchy.Arg.type(subArgs: List<Type>): Type = when (this) {
+        is HostTypeHierarchy.Arg.Param -> subArgs.getOrNull(index) ?: freshVar()
+        is HostTypeHierarchy.Arg.Class -> hostClassType(name, args.map { it.type(subArgs) })
+        HostTypeHierarchy.Arg.Unknown -> freshVar()
+    }
 
     // Host arguments are invariant. Across classes the subclass's arguments are carried up the hierarchy.
     private fun constrainHost(lower: Base.Host, upper: Base.Host) {
@@ -273,7 +280,8 @@ private class Solve(start: BoundEnv, private val ctx: TypeCtx) {
                     u.keys[k]?.let { constrainInstance(k, s.args, it.args) }
                     declared[k]?.instances?.forEach { constrainInstance(k, s.args, it) }
                 }
-                val rest = u.keys - l.keys.keys
+                // A key given perhaps is certain only where the variable carries it.
+                val rest = u.keys.filter { (k, su) -> l.keys[k]?.let { su.required && !it.required } ?: true }
                 // A record on a variable is a record, so an open demand for no name and no more keys is met already.
                 if (u.name == null && !u.closed && rest.isEmpty()) return
                 val given = if (u.closed) l.keys.mapValues { (k, _) -> Slot(false, ctx.freshInstance(k)) } else emptyMap()
@@ -383,7 +391,7 @@ private class Solve(start: BoundEnv, private val ctx: TypeCtx) {
             if (k in implied) continue
             val fa = sa[k]
             val fb = sb[k]
-            val instances = fa?.instances.orEmpty() + fb?.instances.orEmpty()
+            val instances = (fa?.instances.orEmpty() + fb?.instances.orEmpty()).toList()
             when {
                 fa != null && fb != null -> keys[k] = Slot(fa.required && fb.required, joinInstances(k, instances))
                 (fa != null && b.closed) || (fb != null && a.closed) || ctx.isMono(k) -> keys[k] = Slot(false, joinInstances(k, instances))

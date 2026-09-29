@@ -1,7 +1,9 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class TypedInteropTest {
 
@@ -144,6 +146,23 @@ class TypedInteropTest {
     }
 
     @Test
+    fun `nullable interop return passed to non-null param is type error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.interop.nullable4
+                  import:
+                    java.lang:
+                      as(System, Sys)
+                decl: Sys/getProperty(Str) Str?
+                decl: Sys/getenv(Str) Str
+                def: result
+                  ->: Sys/getProperty("no.such.property") Sys/getenv()
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("nullable") == true, "Expected nullable type error, got: ${ex.message}")
+    }
+
+    @Test
     fun `non-nullable interop return passes type check`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.interop.nullable5
@@ -244,5 +263,26 @@ class TypedInteropTest {
         """.trimIndent())
         val result = ctx.evalBridje("test.interop.applied2/result")
         assertEquals("hello", result.asString())
+    }
+
+    // The checker loads a class without initialising it, so a throwing static initialiser runs when the program
+    // does, and fails it as a guest exception.
+    @Test
+    fun `a throwing static initialiser fails the program, not the checker`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.typed.staticinit
+                  import:
+                    brj:
+                      as(ThrowingStaticInit, TSI)
+                decl: TSI/new() TSI
+                decl: use(TSI) Int
+                def: use(x) 1
+                def: result use(TSI/new())
+            """.trimIndent())
+        }
+        val chain = generateSequence(ex as Throwable) { it.cause }.toList()
+        assertFalse(chain.any { it is LinkageError }, "a LinkageError escaped: $chain")
+        assertTrue(chain.any { it.message?.contains("static initialiser ran") == true }, "got: $chain")
     }
 }

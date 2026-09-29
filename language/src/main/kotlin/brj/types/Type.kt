@@ -129,6 +129,17 @@ val BoolType = Type(Base.Bool)
 val BytesType = Type(Base.Bytes)
 val NothingType = Type(Base.Nothing)
 
+// The type of a Java class's values: a primitive where the runtime represents one by that class.
+fun hostClassType(className: String, args: List<Type>): Type = when (className) {
+    "java.lang.Long" -> IntType
+    "java.lang.Double" -> DoubleType
+    "java.lang.String" -> StrType
+    "java.lang.Boolean" -> BoolType
+    "java.math.BigInteger" -> BigIntType
+    "java.math.BigDecimal" -> BigDecType
+    else -> HostType(className, args)
+}
+
 fun freshVar(): Type = Type(TypeVar())
 fun TypeVar.type(nullable: Boolean = false): Type = Type(this, nullable)
 fun FnType(paramTypes: List<Type>, returnType: Type): Type = Type(Base.Fn(paramTypes, returnType))

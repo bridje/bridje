@@ -2,131 +2,77 @@ package brj.types
 
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.TypeVariable
-import java.util.LinkedList
 import java.util.concurrent.ConcurrentHashMap
 
+// The Java class hierarchy as the checker sees it: how many type parameters a class takes, and a supertype's
+// type arguments in terms of a subclass's. Classes are loaded without being initialised, so checking a program
+// runs none of its code.
 internal object HostTypeHierarchy {
 
-    private data class ParamMapping(val indices: List<Int>)
-
-    /** Sentinel for "not a subtype" since ConcurrentHashMap cannot store null values. */
-    private val NOT_A_SUBTYPE = ParamMapping(listOf(Int.MIN_VALUE))
-
-    private val cache = ConcurrentHashMap<Pair<String, String>, ParamMapping>()
-
-    // The number of type parameters the class declares, or 0 where the class is not on the classpath.
-    fun arity(className: String): Int = arities.computeIfAbsent(className) {
-        try { Class.forName(it).typeParameters.size } catch (_: ClassNotFoundException) { 0 }
+    // A supertype's type argument, in terms of the subclass's parameters: one of them, a class at arguments of
+    // its own, as `Path` is `Iterable<Path>`, or unknown, as a wildcard is.
+    sealed interface Arg {
+        data class Param(val index: Int) : Arg
+        data class Class(val name: String, val args: List<Arg>) : Arg
+        data object Unknown : Arg
     }
+
+    private fun load(name: String): java.lang.Class<*>? =
+        try {
+            java.lang.Class.forName(name, false, HostTypeHierarchy::class.java.classLoader)
+        } catch (_: ClassNotFoundException) {
+            null
+        } catch (_: LinkageError) {
+            null
+        }
 
     private val arities = ConcurrentHashMap<String, Int>()
 
-    fun <T> mapSupertypeArgs(subClassName: String, superClassName: String, subArgs: List<T>, fresh: () -> T): List<T>? {
-        val mapping = cache.computeIfAbsent(subClassName to superClassName) { (sub, sup) ->
-            computeMapping(sub, sup) ?: NOT_A_SUBTYPE
-        }
+    // The number of type parameters the class declares, or 0 where the class is not on the classpath.
+    fun arity(className: String): Int = arities.computeIfAbsent(className) { load(it)?.typeParameters?.size ?: 0 }
 
-        if (mapping === NOT_A_SUBTYPE) return null
+    // A cache entry: the supertype's arguments, or null where the subclass is not below it.
+    private data class Supertype(val args: List<Arg>?)
 
-        return if (mapping.indices.isEmpty()) {
-            emptyList()
-        } else {
-            mapping.indices.map { idx ->
-                if (idx in subArgs.indices) subArgs[idx]
-                else fresh()
-            }
-        }
+    private val supertypes = ConcurrentHashMap<Pair<String, String>, Supertype>()
+
+    // [sup]'s type arguments in terms of [sub]'s parameters, or null where [sub] is not a [sup].
+    fun supertypeArgs(sub: String, sup: String): List<Arg>? =
+        supertypes.computeIfAbsent(sub to sup) { Supertype(compute(sub, sup)) }.args
+
+    private fun compute(subName: String, supName: String): List<Arg>? {
+        val sub = load(subName) ?: return null
+        val sup = load(supName) ?: return null
+        if (!sup.isAssignableFrom(sub)) return null
+        val params = sub.typeParameters.withIndex().associate { (i, tv) -> tv as TypeVariable<*> to Arg.Param(i) as Arg }
+        // A class reached only through a raw supertype says nothing of the supertype's arguments.
+        return walk(sub, params, sup) ?: sup.typeParameters.map { Arg.Unknown }
     }
 
-    /**
-     * Compute the mapping from subclass type params to superclass type params.
-     * Returns null if sub is not assignable to super.
-     */
-    private fun computeMapping(subClassName: String, superClassName: String): ParamMapping? {
-        val subClass = try {
-            Class.forName(subClassName)
-        } catch (_: ClassNotFoundException) {
-            return null
+    // Up the hierarchy from [c], whose parameters stand for [env], to [sup]'s arguments. Only supertypes below
+    // [sup] are followed, so the walk ends.
+    private fun walk(c: java.lang.Class<*>, env: Map<TypeVariable<*>, Arg>, sup: java.lang.Class<*>): List<Arg>? {
+        if (c == sup) return sup.typeParameters.map { env[it] ?: Arg.Unknown }
+        for (t in listOfNotNull(c.genericSuperclass) + c.genericInterfaces) {
+            val raw = rawClass(t) ?: continue
+            if (!sup.isAssignableFrom(raw)) continue
+            val args = (t as? ParameterizedType)?.actualTypeArguments?.map { resolve(it, env) }
+            val next = raw.typeParameters.withIndex().associate { (i, tv) -> tv as TypeVariable<*> to (args?.getOrNull(i) ?: Arg.Unknown) }
+            walk(raw, next, sup)?.let { return it }
         }
-        val superClass = try {
-            Class.forName(superClassName)
-        } catch (_: ClassNotFoundException) {
-            return null
-        }
-
-        if (!superClass.isAssignableFrom(subClass)) return null
-
-        val subTypeParams = subClass.typeParameters
-        val subParamIndex = subTypeParams.withIndex().associate { (i, tv) -> tv.name to i }
-
-        val queue = LinkedList<Node>()
-        val visited = mutableSetOf<Class<*>>()
-
-        queue.add(Node(subClass, subParamIndex))
-
-        while (queue.isNotEmpty()) {
-            val (currentClass, varMapping) = queue.poll()
-
-            if (currentClass == superClass) {
-                val superTypeParams = superClass.typeParameters
-                if (superTypeParams.isEmpty()) return ParamMapping(emptyList())
-
-                val indices = superTypeParams.map { tp -> varMapping[tp.name] ?: -1 }
-                return ParamMapping(indices)
-            }
-
-            if (!visited.add(currentClass)) continue
-
-            for (genIface in currentClass.genericInterfaces) {
-                processGenericType(genIface, varMapping, superClass, visited)?.let { queue.add(it) }
-            }
-
-            currentClass.genericSuperclass?.let { genSuper ->
-                processGenericType(genSuper, varMapping, superClass, visited)?.let { queue.add(it) }
-            }
-        }
-
-        // Shouldn't reach here if isAssignableFrom was true, but just in case:
-        // the class is assignable but we couldn't trace generics (e.g. raw types).
-        val superTypeParams = superClass.typeParameters
-        return if (superTypeParams.isEmpty()) ParamMapping(emptyList())
-        else ParamMapping(superTypeParams.map { -1 })
+        return null
     }
 
-    private fun processGenericType(
-        genType: java.lang.reflect.Type,
-        currentVarMapping: Map<String, Int>,
-        superClass: Class<*>,
-        visited: Set<Class<*>>
-    ): Node? {
-        return when (genType) {
-            is ParameterizedType -> {
-                val rawClass = genType.rawType as? Class<*> ?: return null
-                if (rawClass in visited) return null
-
-                val rawTypeParams = rawClass.typeParameters
-                val newMapping = mutableMapOf<String, Int>()
-                genType.actualTypeArguments.forEachIndexed { i, arg ->
-                    if (i < rawTypeParams.size) {
-                        val targetName = rawTypeParams[i].name
-                        when (arg) {
-                            is TypeVariable<*> -> {
-                                val idx = currentVarMapping[arg.name]
-                                if (idx != null) newMapping[targetName] = idx
-                            }
-                            // Concrete types don't map to any subclass param — leave unmapped (-1 later).
-                        }
-                    }
-                }
-                Node(rawClass, newMapping)
-            }
-            is Class<*> -> {
-                if (genType in visited) null
-                else Node(genType, emptyMap())
-            }
-            else -> null
-        }
+    private fun rawClass(t: java.lang.reflect.Type): java.lang.Class<*>? = when (t) {
+        is java.lang.Class<*> -> t
+        is ParameterizedType -> t.rawType as? java.lang.Class<*>
+        else -> null
     }
 
-    private data class Node(val clazz: Class<*>, val varMapping: Map<String, Int>)
+    private fun resolve(t: java.lang.reflect.Type, env: Map<TypeVariable<*>, Arg>): Arg = when (t) {
+        is TypeVariable<*> -> env[t] ?: Arg.Unknown
+        is java.lang.Class<*> -> Arg.Class(t.name, emptyList())
+        is ParameterizedType -> rawClass(t)?.let { raw -> Arg.Class(raw.name, t.actualTypeArguments.map { resolve(it, env) }) } ?: Arg.Unknown
+        else -> Arg.Unknown
+    }
 }

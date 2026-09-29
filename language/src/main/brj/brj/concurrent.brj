@@ -6,8 +6,8 @@ ns: brj.concurrent
       as(BridjeFuture, Fut)
 
 decl: [x] Fut/cancel(Fut(x), Bool) Bool
-decl: [x] Fut/cancelChildren(Fut(x)) Nothing
-decl: T/sleep(Int) Nothing
+decl: [x] Fut/cancelChildren(Fut(x)) Nothing?
+decl: T/sleep(Int) Nothing?
 decl: T/interrupted() Bool
 
 def: interrupt(f)

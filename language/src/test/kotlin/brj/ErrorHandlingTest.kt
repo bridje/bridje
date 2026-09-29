@@ -38,7 +38,7 @@ class ErrorHandlingTest {
         val result = ctx.evalBridje("""
             try: throw(Fault{.exnMessage "oops"})
               catch:
-                (Fault d) .exnMessage(d)
+                (Fault d) .?exnMessage(d)
         """.trimIndent())
         assertEquals("oops", result.asString())
     }
@@ -261,9 +261,9 @@ class ErrorHandlingTest {
               import:
                 java.lang:
                   as(Thread, T)
-            decl: T/sleep(Int) Nothing
+            decl: T/sleep(Int) Nothing?
             decl: T/currentThread() T
-            decl: T/.interrupt() Nothing
+            decl: T/.interrupt() Nothing?
             def: result
               do:
                 T/.interrupt(T/currentThread())
@@ -285,7 +285,7 @@ class ErrorHandlingTest {
             def: result
               try: (do (Int/parseInt "not a number") "parsed")
                 catch:
-                  Host(d) .exnMessage(d)
+                  Host(d) .?exnMessage(d)
         """.trimIndent())
         val msg = ctx.evalBridje("test.hostex/result").asString()
         assertTrue(msg.contains("not a number"), "Expected message about bad input, got: $msg")
@@ -298,5 +298,41 @@ class ErrorHandlingTest {
         }
         assertTrue(ex.isGuestException)
         assertEquals("user 123 not found", ex.message)
+    }
+
+    @Test
+    fun `a caught value is an anomaly`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.caught.anomaly
+                def: x
+                  try:
+                    throw(Fault({}))
+                    catch:
+                      e not(e)
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Anomaly is not a subtype of Bool") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `throw takes an anomaly`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""throw("boom")""")
+        }
+        assertTrue(ex.message?.contains("Str is not a subtype of Anomaly") == true, "got: ${ex.message}")
+    }
+
+    // An anomaly declares no keys: nothing says a caught Fault carries .exnMessage, so it is read with .?exnMessage.
+    @Test
+    fun `a tag pattern destructures only the tag's own keys`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                try: throw(Fault{.exnMessage "boom"})
+                  catch:
+                    Fault{exnMessage} exnMessage
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Fault does not declare brj.core/.exnMessage: read it with .?exnMessage") == true, "got: ${ex.message}")
     }
 }

@@ -1204,6 +1204,12 @@ data class Analyser(
 
     private class TypeFormError(message: String, val loc: SourceSection?) : Exception(message)
 
+    // A key's type, and a tag's arguments to its keys, are declarations: nothing quantifies a variable in them
+    // but the declaration's own, so a name written without its type arguments, which gets fresh ones, is an error.
+    private fun unnamedArgsError(what: String, type: Type, declared: Collection<TypeVar>): String? =
+        if ((type.typeVars() - declared.toSet()).isEmpty()) null
+        else "$what leaves type arguments unnamed: give every tag, enum and key in it its arguments, from the declaration's variables"
+
     // A record type form's keys: `.k` present, `.?k` perhaps, and a key with type variables at the arguments
     // given, `.k(Int)`, or at fresh ones, which a declaration quantifies.
     private fun recordTypeSlots(form: RecordForm, typeVars: Map<String, TypeVar>): Map<QSymbol, Slot> =
@@ -1331,7 +1337,10 @@ data class Analyser(
                 val types = (0 until sigForm.els.size step 2).associate { i ->
                     val typeForm = sigForm.els.getOrNull(i + 1)
                         ?: return errorExpr("${sigForm.els[i]} needs a type: every key is declared with one", sigForm.els[i].loc)
-                    (sigForm.els[i] as DotSymbolForm).sym to analyseTypeForm(typeForm)
+                    val key = (sigForm.els[i] as DotSymbolForm).sym
+                    val type = analyseTypeForm(typeForm)
+                    unnamedArgsError(".${key.name}'s type", type, emptyList())?.let { return errorExpr(it, typeForm.loc) }
+                    key to type
                 }
                 DefKeysExpr(names, types, form.loc)
             }
@@ -1371,7 +1380,9 @@ data class Analyser(
             sigForm is DotSymbolForm -> {
                 val typeForm = forms.getOrNull(1)
                     ?: return errorExpr("decl: $sigForm needs a type: every key is declared with one", sigForm.loc)
-                DefKeysExpr(listOf(sigForm.sym), mapOf(sigForm.sym to analyseTypeForm(typeForm, typeVars)), loc, typeVars.values.toList())
+                val type = analyseTypeForm(typeForm, typeVars)
+                unnamedArgsError(".${sigForm.sym.name}'s type", type, typeVars.values)?.let { return errorExpr(it, typeForm.loc) }
+                DefKeysExpr(listOf(sigForm.sym), mapOf(sigForm.sym to type), loc, typeVars.values.toList())
             }
 
             sigForm is ListForm -> {
@@ -1471,6 +1482,8 @@ data class Analyser(
                         el is ListForm && el.els.firstOrNull() is DotSymbolForm -> {
                             val key = (el.els.first() as DotSymbolForm).sym
                             keyArgs[key] = el.els.drop(1).map { analyseTypeForm(it, typeVars) }
+                            keyArgs.getValue(key).firstNotNullOfOrNull { unnamedArgsError("$name's .${key.name}", it, typeVars.values) }
+                                ?.let { return errorExpr(it, el.loc) }
                             key
                         }
                         else -> return errorExpr("tag payload entries must be members: .k or .k(a)", el.loc)

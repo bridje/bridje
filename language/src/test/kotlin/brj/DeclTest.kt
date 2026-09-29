@@ -109,6 +109,21 @@ class DeclTest {
     }
 
     @Test
+    fun `a tag declared to carry a key must be constructed with it`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.tagkeys2
+                decl: .email Str
+                decl: .name Str
+                tag: User{.name}
+                decl: user User{.email}
+                def: user User{.name "James"}
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("lacks {test.decl.tagkeys2/.email}") == true, "got: ${ex.message}")
+    }
+
+    @Test
     fun `decl without def does not error`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
             ns: test.decl.pending
@@ -172,6 +187,43 @@ class DeclTest {
         """.trimIndent())
         val declType = ctx.varMeta("test.decl.touch", "touch").getMember("declaredType")
         assertEquals("[a] Fn([{& a}] {test.decl.touch/.dirty & a})", declType.displayString())
+    }
+
+    @Test
+    fun `decl of the same record out rejects a definition returning a new one`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.touch2
+                decl: .dirty Bool
+                decl: [a] touch({& a}) {.dirty & a}
+                def: touch(r) {.dirty true}
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("more general than the definition") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a declared variable is rejected where the definition demands a type of it`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.rigid1
+                decl: [a] f(a) Bool
+                def: f(x) not(x)
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("more general than the definition") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `two declared variables are not one`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.rigid2
+                decl: [a, b] f(a) b
+                def: f(x) x
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("more general than the definition") == true, "got: ${ex.message}")
     }
 
     @Test

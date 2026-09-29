@@ -142,7 +142,7 @@ class CaseTest {
     }
 
     @Test
-    fun `case throws when no branch matches`() = withContext { ctx ->
+    fun `case that cannot match is a type error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
@@ -152,7 +152,7 @@ class CaseTest {
                     A 1
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("No matching") == true)
+        assertTrue(ex.message?.contains("not a subtype") == true, "Expected type error, got: ${ex.message}")
     }
 
     @Test
@@ -165,10 +165,10 @@ class CaseTest {
     }
 
     @Test
-    fun `case destructures an anomaly's record`() = withContext { ctx ->
+    fun `case binds an anomaly and reads its record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             case: Fault{.exnMessage "boom"}
-              Fault{exnMessage} exnMessage
+              Fault(f) .?exnMessage(f)
               "none"
         """.trimIndent())
         assertEquals("boom", result.asString())
@@ -226,5 +226,20 @@ class CaseTest {
             """.trimIndent())
         }
         assertTrue(ex.message?.contains("use ifLet") == true, "Expected ifLet hint, got: ${ex.message}")
+    }
+
+    // A tag with no record carries no keys, so whether its type is open says nothing: the declared Done matches.
+    @Test
+    fun `a nullary tag declared as a type matches its pattern`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            tag: Done
+            decl: finish() Done
+            def: finish() Done
+            def: g()
+              case: finish()
+                Done 1
+            g()
+        """.trimIndent())
+        assertEquals(1L, result.asLong())
     }
 }
