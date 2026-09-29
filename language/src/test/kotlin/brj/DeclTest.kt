@@ -128,6 +128,17 @@ class DeclTest {
     }
 
     @Test
+    fun `decl polymorphic function type`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.poly
+            decl: [a] identity(a) a
+            def: identity(x) x
+        """.trimIndent())
+        val declType = ctx.varMeta("test.decl.poly", "identity").getMember("declaredType")
+        assertEquals("[a] Fn([a] a)", declType.displayString())
+    }
+
+    @Test
     fun `decl record type is its key set`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.decl.rec
@@ -137,6 +148,30 @@ class DeclTest {
         """.trimIndent())
         val declType = ctx.varMeta("test.decl.rec", "user").getMember("declaredType")
         assertEquals("{test.decl.rec/.name}", declType.displayString())
+    }
+
+    @Test
+    fun `decl record type on a base`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.based
+            decl: .dirty Bool
+            decl: [a] same({.dirty & a}) {.dirty & a}
+            def: same(r) r
+        """.trimIndent())
+        val declType = ctx.varMeta("test.decl.based", "same").getMember("declaredType")
+        assertEquals("[a] Fn([{test.decl.based/.dirty & a}] {test.decl.based/.dirty & a})", declType.displayString())
+    }
+
+    @Test
+    fun `decl of a record in and the same record out, carrying a key`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.touch
+            decl: .dirty Bool
+            decl: [a] touch({& a}) {.dirty & a}
+            def: touch(r) with(r, .dirty true)
+        """.trimIndent())
+        val declType = ctx.varMeta("test.decl.touch", "touch").getMember("declaredType")
+        assertEquals("[a] Fn([{& a}] {test.decl.touch/.dirty & a})", declType.displayString())
     }
 
     @Test
