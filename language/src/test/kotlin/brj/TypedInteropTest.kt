@@ -1,7 +1,9 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class TypedInteropTest {
 
@@ -141,6 +143,23 @@ class TypedInteropTest {
         val present = ctx.evalBridje("test.interop.nullable3/present")
         assertFalse(present.isNull, "present property should not be nil")
         assertTrue(present.isString, "present property should be a string")
+    }
+
+    @Test
+    fun `nullable interop return passed to non-null param is type error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.interop.nullable4
+                  import:
+                    java.lang:
+                      as(System, Sys)
+                decl: Sys/getProperty(Str) Str?
+                decl: Sys/getenv(Str) Str
+                def: result
+                  ->: Sys/getProperty("no.such.property") Sys/getenv()
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("nullable") == true, "Expected nullable type error, got: ${ex.message}")
     }
 
     @Test

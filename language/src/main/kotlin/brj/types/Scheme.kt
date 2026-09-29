@@ -62,3 +62,24 @@ internal fun Type.substitute(s: Map<TypeVar, Type>): Type = when (val b = base) 
     }
     else -> copy(base = b.mapTypes { it.substitute(s) })
 }
+
+// The scheme of a top-level definition's body. A free local here is an analyser bug, not a type error.
+internal fun Typing.generalise(): Scheme {
+    check(monoEnv.isEmpty()) { "cannot generalise a typing with free locals: ${monoEnv.keys}" }
+    return Scheme(type, bounds)
+}
+
+// The inferred scheme must be at least as general as the declaration: the definition is checked against
+// the declared type with the declaration's variables held rigid, so the solver rejects any bound that
+// reaches one. The declared type is then the exported one, so an annotation may narrow but never widen
+// (D29 on #129).
+fun checkDeclared(inferred: Scheme, declared: Type, ctx: TypeCtx): Scheme {
+    val rigid = declared.typeVars().associateWith { TypeVar(rigid = true) }
+    val (type, bounds) = inferred.instantiate()
+    try {
+        bounds.constrain(type, declared.mapVars { rigid[it] ?: it }, ctx)
+    } catch (_: RigidBoundException) {
+        throw TypeCheckException("declared type ${Scheme(declared).simplify(ctx)} is more general than the definition, whose type is ${inferred.simplify(ctx)}")
+    }
+    return Scheme(declared)
+}

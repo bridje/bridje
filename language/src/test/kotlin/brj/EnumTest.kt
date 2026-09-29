@@ -151,4 +151,24 @@ class EnumTest {
         """.trimIndent())
         assertEquals(5L, result.asLong())
     }
+
+    // A value both cased over Maybe and read as a record is the one variant with a record.
+    @Test
+    fun `a record demanded of an enum is its one variant with a record`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ns: test.enum.onlyRecord
+            decl: .value Int
+            enum: Maybe
+              tag: Just{.value}
+              tag: None
+            def: f(m)
+              do:
+                .?value(m)
+                case: m
+                  Just(r) .value(r)
+                  None 0
+            def: x f(Just{.value 42})
+        """.trimIndent())
+        assertEquals(42L, ctx.evalBridje("test.enum.onlyRecord/x").asLong())
+    }
 }

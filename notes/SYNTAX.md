@@ -411,7 +411,7 @@ Locals and host classes cannot be syntax-quoted — only defs, effect vars, and 
 #### Member key declarations
 
 A dot-prefixed name declares an instance member with a globally fixed type.
-A member has one meaning everywhere (the clojure.spec approach).
+A member has one meaning everywhere (the clojure.spec approach), and every member is declared, with its type, before anything uses it.
 
 ```bridje
 decl: .name Str, .age Int
@@ -420,7 +420,11 @@ decl:
   .host Str
   .port Int
   .timeout Duration
+
+decl: [a] .value a                       // each record holds .value at an instance of a
 ```
+
+A member declared with type variables holds its value at an instance each record carries: `{.value 1}` is a `{.value(Int)}`, and `.value` read off it an `Int`.
 
 Each declared member creates a callable accessor function (`.name`) and an optional variant (`.?name`).
 
@@ -432,9 +436,16 @@ A symbol or call form declares a type signature for a value or function.
 decl: x Int
 decl: foo(Int, Str) Bool
 decl: callback Fn([Int, Str] Bool)
-decl: identity(a) a
-decl: map([a], Fn([a] b)) [b]
+decl: [a] identity(a) a
+decl: [a, b] map([a], Fn([a] b)) [b]
+decl: greet({.name, .?title}) Str
+decl: [a] touch({& a}) {.dirty & a}
 ```
+
+Type variables are named in a leading vector.
+A record type names the keys a value must carry; `.?title` documents a key it may carry, and `& a` puts the keys on a type variable.
+`User{.email}` is a `User` whose record is known to carry `.email` as well.
+The type each key holds comes from the key's own declaration.
 
 ### Records
 
@@ -490,7 +501,9 @@ A tag is distinct from any other tag, even with identical members.
 A tag is a name over one record payload, or over none:
 
 ```bridje
-tag: User{.fn, .ln}            // each key is declared in this namespace, as with decl: .fn
+decl: .fn Str, .ln Str, .fst Int, .snd Int
+
+tag: User{.fn, .ln}            // each key is declared beforehand, in this namespace
 tag: Pair{.fst, .snd}
 tag: Nothing                   // nullary — a singleton value
 ```
@@ -511,7 +524,7 @@ A record without a tag matches no tag pattern.
 
 A tag is applied only by its constructor, and a value's tag never changes: if `r` is already tagged, `User(r)` is a new value, and `r` keeps its own tag.
 
-A tag's type parameter reaches its payload through the key:
+A tag's type parameter reaches its payload through the key, and a key declared with type variables takes them from the tag:
 
 ```bridje
 decl: [a] .value a
@@ -522,8 +535,9 @@ tag: [a] Box{.value(a)}        // .value instantiated at the tag's a
 ### enum
 
 Closed sum type — a fixed set of variants.
-Variants are constructors owned by the enum, not standalone types.
-`Ok{.value x}` has type `Result(a, e)`, not type `Ok`.
+Closed sum type — a fixed set of variants.
+A variant's constructor is typed as its tag, and the tag is a subtype of the enum: `Ok{.value x}` has type `Ok(a, e)`, and a value that is an `Ok` or an `Err` has type `Result(a, e)`.
+Two tags of different enums join to the record of the keys they share, as a record is a tag with no name: `Ok{.value 1}` or `Just{.value 2}` is a `{.value}`.
 
 ```bridje
 enum: ServerRole
@@ -860,6 +874,8 @@ def: testElection()
 ^{.doc "Returns the majority threshold for a cluster"}
 def: majority(state) ...
 ```
+
+`meta(x)` reads it back as a record nothing is known to carry, so its keys are read with `.?`: `.?doc(meta(v))`.
 
 Privacy is by convention — prefix with `_` to indicate private.
 There is no access control in the language (consenting adults):
