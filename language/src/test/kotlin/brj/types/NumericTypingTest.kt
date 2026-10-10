@@ -24,7 +24,7 @@ class NumericTypingTest {
     @Test
     fun `arithmetic and comparison reject what is not numeric`() {
         rejected("add(\"a\", \"b\")", "Str is not numeric")
-        rejected("lt(true, false)", "Bool is not numeric")
+        rejected("lt({}, {})", "{} is not numeric")
         rejected("mul(not, 1)", "Fn([Bool] Bool) is not numeric")
     }
 

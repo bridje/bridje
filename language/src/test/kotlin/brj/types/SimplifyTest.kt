@@ -78,6 +78,40 @@ class SimplifyTest {
     }
 
     @Test
+    fun `the with-or-input idiom is a pass-through over records`() {
+        val p = lv("p")
+        val r = lv("r", 1)
+        val body = IfExpr(LocalVarExpr(p), with(LocalVarExpr(r), "dirty" to BoolExpr(true)), LocalVarExpr(r))
+        assertEquals("[a] Fn([Bool, {& a}] a)", fn(p, r, body = body).shown())
+    }
+
+    @Test
+    fun `a key demanded of a variable is written on it`() {
+        val p = lv("p")
+        val s = lv("s", 1)
+        val body = DoExpr(
+            listOf(get("log", LocalVarExpr(s))),
+            IfExpr(LocalVarExpr(p), with(LocalVarExpr(s), "dirty" to BoolExpr(true)), LocalVarExpr(s)),
+        )
+        val shown = fn(p, s, body = body).shown()
+        assertEquals("[a] Fn([Bool, {.log & a}] a)", shown.replace("t/.", "."))
+    }
+
+    @Test
+    fun `with on a variable that already carries the key is the variable`() {
+        val r = lv("r")
+        val shown = fn(r, body = with(LocalVarExpr(r), "a" to get("a", LocalVarExpr(r)))).shown()
+        assertEquals("[a] Fn([{.a & a}] a)", shown.replace("t/.", "."))
+    }
+
+    @Test
+    fun `with on a variable puts the key on it`() {
+        val r = lv("r")
+        val shown = fn(r, body = with(LocalVarExpr(r), "a" to IntExpr(1))).shown()
+        assertEquals("[a] Fn([{& a}] {.a & a})", shown.replace("t/.", "."))
+    }
+
+    @Test
     fun `a positive-only variable collapses to what flows into it`() {
         val p = lv("p")
         assertEquals("Fn([Bool] Int?)", fn(p, body = IfExpr(LocalVarExpr(p), IntExpr(1), NilExpr())).shown())
@@ -149,6 +183,12 @@ class SimplifyTest {
     fun `a variable passed through is one quantified variable`() {
         val (a, b) = List(2) { freshVar() }
         assertEquals("[a] Fn([a] a)", shown(FnType(listOf(a), b), a to b))
+    }
+
+    @Test
+    fun `a key demanded of a variable passed through is written on it`() {
+        val (a, b) = List(2) { freshVar() }
+        assertEquals("[a] Fn([{t/.a & a}] a)", shown(FnType(listOf(a), b), a to b, a to RecordType(setOf(key("a")))))
     }
 
     // Either argument may be returned, so the two are one variable at the type's return and apart at its parameters.

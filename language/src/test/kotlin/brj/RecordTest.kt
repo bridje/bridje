@@ -132,8 +132,7 @@ class RecordTest {
 
     @Test
     fun `key on empty record - no args gets empty record padded`() = withContext { ctx ->
-        // .foo() with no args gets an empty record padded via trailing record subtyping.
-        // BridjeKey then tries to read .foo from the empty record and fails at runtime.
+        // .foo() with no args would read .foo from the {} the runtime pads with, so the checker rejects it.
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
@@ -141,11 +140,11 @@ class RecordTest {
                   .foo()
             """.trimIndent())
         }
-        assertNotNull(ex.message, "Expected runtime error from key lookup on empty record")
+        assertTrue(ex.message?.contains("function arity mismatch: 1 vs 0") == true, "got: ${ex.message}")
     }
 
     @Test
-    fun `key arity error - too many args`() = withContext { ctx ->
+    fun `a key's surplus argument is an arity error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
@@ -153,8 +152,7 @@ class RecordTest {
                   .foo({.foo 1}, {.foo 2})
             """.trimIndent())
         }
-        assertTrue(ex.message?.contains("Arity") == true || ex.message?.contains("arity") == true,
-            "Expected arity error, got: ${ex.message}")
+        assertTrue(ex.message?.contains("function arity mismatch: 1 vs 2") == true, "got: ${ex.message}")
     }
 
     @Test

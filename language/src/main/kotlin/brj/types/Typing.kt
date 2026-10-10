@@ -1,6 +1,9 @@
 package brj.types
 
 import brj.analyser.*
+import brj.runtime.BridjeKey
+import brj.runtime.BridjeOptionalKey
+import brj.runtime.QSymbol
 
 // A typing scheme in Dolan's sense: the positive result type, the negative demand on each free local,
 // and the bounds of every variable it mentions. Each occurrence of a local is its own variable and
@@ -56,6 +59,8 @@ internal class Infer(private val ctx: TypeCtx) {
         return Typing(type, bounds = bounds)
     }
 
+    private fun freshSlots(keys: List<QSymbol>): Map<QSymbol, Slot> = keys.associateWith { Slot(true, ctx.freshInstance(it)) }
+
     private fun local(lv: LocalVar): Typing = freshVar().let { Typing(it, mapOf(lv to it)) }
 
     fun typing(expr: ValueExpr): Typing = when (expr) {
@@ -71,7 +76,15 @@ internal class Infer(private val ctx: TypeCtx) {
         is LocalVarExpr -> local(expr.localVar)
         is CapturedVarExpr -> local(expr.outerLocalVar)
 
-        is GlobalVarExpr -> instantiated(expr.globalVar)
+        is GlobalVarExpr -> when (val v = expr.globalVar.value) {
+            is BridjeKey -> ctx.freshInstance(v.sym).let { inst ->
+                Typing(FnType(listOf(RecType(null, emptyList(), mapOf(v.sym to Slot(true, inst)))), ctx.keyTypeAt(v.sym, inst)))
+            }
+            is BridjeOptionalKey -> ctx.freshInstance(v.key.sym).let { inst ->
+                Typing(FnType(listOf(RecType(null, emptyList(), mapOf(v.key.sym to Slot(false, inst)))), ctx.keyTypeAt(v.key.sym, inst).nullable()))
+            }
+            else -> instantiated(expr.globalVar)
+        }
 
         is EffectVarExpr -> instantiated(expr.effectVar)
 
@@ -132,8 +145,29 @@ internal class Infer(private val ctx: TypeCtx) {
             build(SetType(el), elTypings, elTypings.map { it.type subOf el })
         }
 
-        is RecordExpr, is RecordUpdateExpr, is CaseExpr, is TryCatchExpr, is LoopExpr, is RecurExpr, is WithFxExpr ->
-            Typing(freshVar())
+        is RecordExpr -> {
+            val slots = freshSlots(expr.fields.map { it.first })
+            val valueTypings = expr.fields.map { (_, v) -> typing(v) }
+            build(
+                RecType(null, emptyList(), slots, closed = true),
+                valueTypings,
+                expr.fields.zip(valueTypings).map { (field, t) -> t.type subOf ctx.keyTypeAt(field.first, slots.getValue(field.first).args) },
+            )
+        }
+
+        is RecordUpdateExpr -> {
+            val record = typing(expr.recordExpr)
+            val slots = freshSlots(expr.fields.map { it.first })
+            val valueTypings = expr.fields.map { (_, v) -> typing(v) }
+            build(
+                withKeys(record.type, slots, ctx),
+                listOf(record) + valueTypings,
+                listOf(record.type subOf AnyRecord) +
+                    expr.fields.zip(valueTypings).map { (field, t) -> t.type subOf ctx.keyTypeAt(field.first, slots.getValue(field.first).args) },
+            )
+        }
+
+        is CaseExpr, is TryCatchExpr, is LoopExpr, is RecurExpr, is WithFxExpr -> Typing(freshVar())
 
         // Undeclared host members and raw host objects: the checker knows nothing about them.
         is HostStaticMethodExpr, is HostConstructorExpr, is TruffleObjectExpr -> Typing(freshVar())
