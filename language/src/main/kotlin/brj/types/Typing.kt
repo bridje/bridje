@@ -244,7 +244,23 @@ internal class Infer(private val ctx: TypeCtx) {
 
         is CaseExpr -> caseTyping(expr)
 
-        is TryCatchExpr, is LoopExpr, is RecurExpr, is WithFxExpr -> Typing(freshVar())
+        is TryCatchExpr, is LoopExpr, is RecurExpr -> Typing(freshVar())
+
+        // A handler serves every call in the body, each at whatever instance of the effect's declared type it
+        // takes, so it is checked against that type with its variables held rigid, as a definition is.
+        is WithFxExpr -> {
+            val handlers = expr.bindings.map { (_, e) -> typing(e) }
+            val body = typing(expr.bodyExpr)
+            val built = build(body.type, handlers + body)
+            val bounds = expr.bindings.zip(handlers).fold(built.bounds) { env, (binding, handler) ->
+                val effect = binding.first
+                val declared = ctx.globalScheme(effect) ?: return@fold env
+                env.constrainRigidly(handler.type, declared, ctx) {
+                    "the handler for ${effect.name} is less general than its declared type, ${declared.simplify(ctx)}"
+                }
+            }
+            Typing(built.type, built.monoEnv, bounds, built.recurs)
+        }
 
         // Undeclared host members and raw host objects: the checker knows nothing about them.
         is HostStaticMethodExpr, is HostConstructorExpr, is TruffleObjectExpr -> Typing(freshVar())
