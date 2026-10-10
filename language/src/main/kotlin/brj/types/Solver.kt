@@ -105,6 +105,7 @@ private class Solve(start: BoundEnv, private val ctx: TypeCtx) {
                 if (l.rigid && u.rigid) rigidFail("$l is not $u")
                 val edges = upperOf(l).tvs
                 val nilOk = upper.nullable && edges[u] != false
+                if (upperOf(u).numeric && (!nilOk || l.rigid)) markNumeric(l)
                 if (edges[u] == nilOk) return
                 setUpper(l, upperOf(l).copy(tvs = edges + (u to nilOk)))
                 if (!nilOk || l.rigid) addLowerVar(u, l)
@@ -280,8 +281,22 @@ private class Solve(start: BoundEnv, private val ctx: TypeCtx) {
         }
     }
 
+    // What flows into a numeric variable is numeric, so a variable that flows into it, but for nil, is too. What a
+    // numeric variable flows into is not: `if: p add(x, 1) nil` joins nil with a numeric one.
+    private fun markNumeric(tv: TypeVar) {
+        if (upperOf(tv).numeric) return
+        if (tv.rigid) rigidFail("$tv is not numeric")
+        setUpper(tv, upperOf(tv).copy(numeric = true))
+        val lower = lowerOf(tv)
+        if (lower.nullable) fail("nil is not numeric")
+        lower.concreteType()?.let { if (!it.base.isNumeric) fail("$it is not numeric") }
+        if (lower.meets.isNotEmpty()) fail("a record is not numeric")
+        lower.tvs.forEach(::markNumeric)
+    }
+
     private fun addNil(tv: TypeVar) {
         if (tv.rigid) rigidFail("nil is not a $tv")
+        if (upperOf(tv).numeric) fail("nil is not numeric")
         val b = lowerOf(tv)
         if (b.nullable) return
         setLower(tv, b.copy(concrete = b.concrete.nullable()))
@@ -299,6 +314,7 @@ private class Solve(start: BoundEnv, private val ctx: TypeCtx) {
 
     private fun addLower(tv: TypeVar, l: Base): Type? {
         val b = lowerOf(tv)
+        if (upperOf(tv).numeric && l != Base.Nothing && !l.isNumeric) fail("${Type(l)} is not numeric")
         if (l is Base.OnVar) {
             if ((l.base == tv || l.base in b.tvs) && l.keys.keys.all(ctx::isMono)) return null
             if (!isRecordKind(b.concrete.base)) fail("Cannot join ${b.concrete} with $l")

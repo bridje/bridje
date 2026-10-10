@@ -4,6 +4,7 @@ class Rendered(
     val type: Type,
     val constraints: List<Pair<Type, Type>>,
     private val names: Map<TypeVar, String>,
+    val numeric: List<TypeVar> = emptyList(),
 ) {
     fun render(t: Type): String = if (t.nullable) "${render(t.base)}?" else render(t.base)
 
@@ -33,7 +34,7 @@ class Rendered(
     }
 
     override fun toString(): String {
-        val head = names.values + constraints.map { (l, u) -> "isa(${render(l)}, ${render(u)})" }
+        val head = names.values + numeric.map { "Num(${names[it]})" } + constraints.map { (l, u) -> "isa(${render(l)}, ${render(u)})" }
         return if (head.isEmpty()) render(type) else "[${head.joinToString(", ")}] ${render(type)}"
     }
 }

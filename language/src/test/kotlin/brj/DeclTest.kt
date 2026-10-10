@@ -258,6 +258,43 @@ class DeclTest {
     }
 
     @Test
+    fun `a declaration demands a variable be numeric with Num`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.num
+            decl: [a, Num(a)] double(a) a
+            def: double(x) add(x, x)
+            def: four double(2)
+        """.trimIndent())
+        assertEquals(4L, ctx.evalBridje("test.decl.num/four").asLong())
+        assertEquals("[a, Num(a)] Fn([a] a)", ctx.varMeta("test.decl.num", "double").getMember("declaredType").displayString())
+        val ex = assertThrows(PolyglotException::class.java) { ctx.evalBridje("test.decl.num/double(\"s\")") }
+        assertTrue(ex.message!!.contains("Str is not numeric"), ex.message)
+    }
+
+    @Test
+    fun `a declaration without Num cannot be met by a numeric definition`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [a] double(a) a
+                def: double(x) add(x, x)
+            """.trimIndent())
+        }
+        assertTrue(ex.message!!.contains("more general than the definition"), ex.message)
+    }
+
+    @Test
+    fun `a Num constraint names a variable of its declaration`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("decl: [a, Num(b)] f(a) a")
+        }
+        assertTrue(ex.message!!.contains("b is not a type variable of this declaration"), ex.message)
+        val ex2 = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("decl: [a, Ord(a)] f(a) a")
+        }
+        assertTrue(ex2.message!!.contains("takes type variables and Num(a)"), ex2.message)
+    }
+
+    @Test
     fun `decl in value position is an error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
