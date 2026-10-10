@@ -148,4 +148,21 @@ class HostAndControlTypingTest {
     private fun lv(name: String, slot: Int = 0) = LocalVar(name.sym, slot)
     private fun ValueExpr.positiveType(): Type = typing(ctx).let { it.type.shown(it.bounds, ctx) }
 
+    @Test
+    fun `try joins the body with every handler and binds the anomaly payload`() {
+        val e = lv("e")
+        val t = TryCatchExpr(IntExpr(1), listOf(CaseBranch(TagPattern(notFound, PayloadBinding.Whole(e)), IntExpr(0))), null)
+        assertEquals(IntType, t.positiveType())
+
+        val readsPayload = TryCatchExpr(
+            IntExpr(1),
+            listOf(CaseBranch(TagPattern(notFound, PayloadBinding.Whole(e)), CallExpr(
+                GlobalVarExpr(brj.GlobalVar(ns, "message".sym, brj.runtime.BridjeKey(ns, "message".sym))),
+                listOf(LocalVarExpr(e)),
+            ))),
+            null,
+        )
+        assertThrows<TypeCheckException> { readsPayload.typing(ctx) }
+    }
+
 }

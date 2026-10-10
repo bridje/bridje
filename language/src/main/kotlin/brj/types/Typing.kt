@@ -244,7 +244,34 @@ internal class Infer(private val ctx: TypeCtx) {
 
         is CaseExpr -> caseTyping(expr)
 
-        is TryCatchExpr, is LoopExpr, is RecurExpr -> Typing(freshVar())
+        is TryCatchExpr -> {
+            val body = typing(expr.bodyExpr)
+            val result = freshVar()
+            val children = mutableListOf(body)
+            val constraints = mutableListOf(body.type subOf result)
+            for (branch in expr.catchBranches) {
+                val handler = typing(branch.bodyExpr)
+                when (val p = branch.pattern) {
+                    is TagPattern -> {
+                        val info = ctx.tagInfo(p.tagValue)
+                        if (info.enum != AnomalyEnum) fail("${info.tag} is not an anomaly, so a catch cannot match it")
+                        TagInstance(ctx, info).bind(p, handler, constraints)
+                        children += handler.without(p.payload.locals)
+                    }
+                    // Whatever is caught is an anomaly: `throw` takes one, and a host exception is caught as `Host`.
+                    is CatchAllBindingPattern -> {
+                        handler.monoEnv[p.binding]?.let { constraints += AnomalyType subOf it }
+                        children += handler.without(listOf(p.binding))
+                    }
+                    is DefaultPattern -> children += handler
+                }
+                constraints += handler.type subOf result
+            }
+            expr.finallyExpr?.let { children += typing(it) }
+            build(result, children, constraints)
+        }
+
+        is LoopExpr, is RecurExpr -> Typing(freshVar())
 
         // A handler serves every call in the body, each at whatever instance of the effect's declared type it
         // takes, so it is checked against that type with its variables held rigid, as a definition is.
