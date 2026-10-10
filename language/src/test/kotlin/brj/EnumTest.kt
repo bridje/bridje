@@ -151,4 +151,111 @@ class EnumTest {
         """.trimIndent())
         assertEquals(5L, result.asLong())
     }
+
+    @Test
+    fun `a record demanded of an enum is its one variant with a record`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            ns: test.enum.onlyRecord
+            decl: .value Int
+            enum: Maybe
+              tag: Just{.value}
+              tag: None
+            def: f(m)
+              do:
+                .?value(m)
+                case: m
+                  Just(r) .value(r)
+                  None 0
+            def: x f(Just{.value 42})
+        """.trimIndent())
+        assertEquals(42L, ctx.evalBridje("test.enum.onlyRecord/x").asLong())
+    }
+
+    @Test
+    fun `a key only some variants declare may be carried by the others at any type`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [a] .value a
+                decl: [e] .error e
+                enum: Result(a, e)
+                  tag: Ok{.value(a)}
+                  tag: Err{.error(e)}
+                decl: f(Result(Int, Str)) Int?
+                def: f(r) .?value(r)
+                f(Err{.error "x", .value "s"})
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("may carry") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `with on a key one variant declares gives it an instance the case sees`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [a] .value a
+                decl: [e] .error e
+                enum: Result(a, e)
+                  tag: Ok{.value(a)}
+                  tag: Err{.error(e)}
+                def: f(r)
+                  case: with(r, .value "s")
+                    Ok{value} add(value, 1)
+                    Err(e) 0
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Str is not numeric") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `with giving a variant's own key a new instance yields the record without the name`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [a] .value a
+                decl: [e] .error e
+                enum: Result(a, e)
+                  tag: Ok{.value(a)}
+                  tag: Err{.error(e)}
+                def: f()
+                  case: with(Ok{.value 1}, .value "s")
+                    Ok{value} value
+                    Err(e) 0
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("is not a subtype of Result") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a join keeps the instance a variant carries beyond the enum's`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [e] .error e
+                decl: [a] .value a
+                enum: Result(a, e)
+                  tag: Ok{.value(a)}
+                  tag: Err{.error(e)}
+                def: pick(c)
+                  if: c
+                    Err{.error "x", .value 1}
+                    Ok{.value "s"}
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Cannot join Int with Str") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `with on a key every variant declares gives it one type`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            decl: [a] .value a
+            decl: .warn Bool
+            enum: Res(a)
+              tag: Ok{.value(a)}
+              tag: Partial{.value(a), .warn}
+            def: v
+              if: true
+                Ok{.value 1}
+                Partial{.value 2, .warn true}
+            .value(with(v, .value "s"))
+        """.trimIndent())
+        assertEquals("s", result.asString())
+    }
 }

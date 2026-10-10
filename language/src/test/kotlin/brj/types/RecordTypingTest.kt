@@ -182,4 +182,23 @@ class RecordTypingTest {
         env.constrain(RecType(null, emptyList(), emptyMap(), closed = true), a.type(), ctx)
     }
 
+    @Test
+    fun `with gives one type to a key every variant declares at one instance`() {
+        val value = key("value")
+        val warn = key("warn")
+        val res = EnumRef(ns, "Res".sym)
+        val ok = TagRef(ns, "Ok".sym)
+        val partial = TagRef(ns, "Partial".sym)
+        val (p, q, own) = List(3) { TypeVar() }
+        val ctx = TypeCtx(
+            keyTypes = { mapOf(value to KeyType(listOf(own), own.type()), warn to KeyType(BoolType))[it] },
+            tagsByValue = mapOf(
+                ok to TagInfo(ok, res, listOf(p), Payload.Record(setOf(value), mapOf(value to listOf(p.type())))),
+                partial to TagInfo(partial, res, listOf(q), Payload.Record(setOf(value, warn), mapOf(value to listOf(q.type())))),
+            ),
+            variantsByEnum = mapOf(res to listOf(ok, partial)),
+        )
+        val t = withKeys(RecType(res, listOf(IntType), emptyMap()), mapOf(value to Slot(true, listOf(StrType))), ctx)
+        assertEquals(RecType(null, emptyList(), mapOf(value to Slot(true, listOf(StrType)), warn to Slot(false))), t)
+    }
 }
