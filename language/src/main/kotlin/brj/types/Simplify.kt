@@ -162,18 +162,31 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
     // does not occur wherever c does, and merging them would put a's demands on b.
     private val classLower = HashMap<TypeVar, Base>()
     private val classUpper = HashMap<TypeVar, Base>()
+    private val classNumeric = HashMap<TypeVar, Boolean>()
+
+    // A variable that is numeric, or is only fed by numeric ones: it holds what they do, and may be nil besides.
+    private fun numericLike(v: TypeVar, visiting: MutableSet<TypeVar> = HashSet()): Boolean {
+        if (upperOf(v).numeric) return true
+        if (!visiting.add(v)) return true
+        val lo = lowerOf(v)
+        return lo.tvs.isNotEmpty() && lo.meets.isEmpty() && lo.concreteBase().let { it == null || it.isNumeric } &&
+            lo.tvs.all { numericLike(it, visiting) }
+    }
 
     private fun unifyCoOccurring() {
         for (m in vars) {
             val r = find(m)
             lowerOf(m).concreteBase()?.let { classLower.putIfAbsent(r, it) }
             upperOf(m).concrete?.base?.let { classUpper.putIfAbsent(r, it) }
+            if (numericLike(m)) classNumeric[r] = true
         }
+        fun numeric(r: TypeVar) = classNumeric[r] == true
         fun agree(a: Base?, b: Base?) = a == null || b == null || a == b
         fun merge(rv: TypeVar, rw: TypeVar) {
             union(rv, rw)
             classLower[rw]?.let { classLower.putIfAbsent(rv, it) }
             classUpper[rw]?.let { classUpper.putIfAbsent(rv, it) }
+            if (numeric(rw)) classNumeric[rv] = true
         }
         fun both(v: TypeVar) = (coPos[v] ?: emptySet<TypeVar>()) intersect (coNeg[v] ?: emptySet<TypeVar>())
         for (v in posOcc intersect negOcc) {
@@ -182,7 +195,7 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
                 val rv = find(v)
                 val rw = find(w)
                 if (rv == rw) continue
-                if (!agree(classLower[rv], classLower[rw]) || !agree(classUpper[rv], classUpper[rw])) continue
+                if (!agree(classLower[rv], classLower[rw]) || !agree(classUpper[rv], classUpper[rw]) || numeric(rv) != numeric(rw)) continue
                 merge(rv, rw)
             }
         }
@@ -196,7 +209,7 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
                     if (rv == rw) continue
                     val merging = setOf(rv, rw)
                     val apart = if (pos) upperSig(rv, merging) == upperSig(rw, merging) else lowerSig(rv, merging) == lowerSig(rw, merging)
-                    val together = if (pos) agree(classLower[rv], classLower[rw]) else agree(classUpper[rv], classUpper[rw])
+                    val together = if (pos) agree(classLower[rv], classLower[rw]) else agree(classUpper[rv], classUpper[rw]) && numeric(rv) == numeric(rw)
                     if (apart && together) merge(rv, rw)
                 }
             }
@@ -215,10 +228,13 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
         return out
     }
 
-    private fun upperSig(r: TypeVar, merging: Set<TypeVar>): Pair<Set<Type>, Set<Pair<TypeVar, Boolean>>> {
+    private fun upperSig(r: TypeVar, merging: Set<TypeVar>): Triple<Set<Type>, Set<Pair<TypeVar, Boolean>>, Boolean> {
         val us = closure(r) { upperOf(it).tvs.keys }.map { upperOf(it) }
-        return us.mapNotNull { it.concrete }.toSet() to
-            us.flatMap { it.tvs.entries }.map { (k, nilOk) -> find(k) to nilOk }.filter { it.first !in merging }.toSet()
+        return Triple(
+            us.mapNotNull { it.concrete }.toSet(),
+            us.flatMap { it.tvs.entries }.map { (k, nilOk) -> find(k) to nilOk }.filter { it.first !in merging }.toSet(),
+            us.any { it.numeric },
+        )
     }
 
     private fun lowerSig(r: TypeVar, merging: Set<TypeVar>): Triple<Set<Type>, Set<TypeVar>, Set<Pair<TypeVar, Map<QSymbol, Slot>>>> {
@@ -252,6 +268,7 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
             concrete = us.firstNotNullOfOrNull { it.concrete }?.copy(nullable = us.all { it.concrete?.nullable ?: true }),
             tvs = us.flatMap { it.tvs.entries }.filter { find(it.key) != rep }
                 .groupBy({ find(it.key) }, { it.value }).mapValues { (_, nilOks) -> nilOks.all { it } },
+            numeric = us.any { it.numeric },
         )
     }
 
@@ -291,6 +308,7 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
             .filterNot { r -> (r.base as? Base.OnVar)?.let { it.base.type() in kept && it.keys.keys.all(ctx::isMono) } == true }
         val concrete = lo.concreteBase()?.let { subst(Type(it), true) }
         val parts = kept + records + listOfNotNull(concrete)
+        if (mergedUpper(rep).numeric && parts.size == 1 && !parts.single().isNumeric()) return null
         return when {
             parts.isEmpty() -> if (lo.nullable) NothingType.nullable() else NothingType
             parts.size == 1 -> parts.single().let { if (lo.nullable) it.nullable() else it }
@@ -302,8 +320,12 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
         val up = mergedUpper(rep)
         val parts = listOfNotNull(up.concrete?.let { subst(it, false) }) +
             up.tvs.map { (w, nilOk) -> resolve(w).let { if (nilOk) it.nullable() else it } }
-        return parts.toSet().singleOrNull()
+        return parts.toSet().singleOrNull()?.takeIf { !up.numeric || it.isNumeric() }
     }
+
+    private fun isNumericVar(v: TypeVar) = mergedUpper(find(v)).numeric
+
+    private fun Type.isNumeric(): Boolean = base.isNumeric || bareVar?.let(::isNumericVar) == true
 
     // --- Substitution: a type with every variable resolved. [pos] is its polarity: true at a positive
     // occurrence, false at a negative one, null where it varies both ways. A kept variable that may be nil
@@ -416,7 +438,7 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
             while (pending.isNotEmpty()) {
                 val x = pending.removeFirst()
                 if (!seen.add(x)) continue
-                if (x in kept || mergedUpper(x).concrete != null) return false
+                if (x in kept || mergedUpper(x).concrete != null || mergedUpper(x).numeric) return false
                 pending += mergedUpper(x).tvs.keys.map(::find)
             }
             return true
@@ -505,7 +527,10 @@ private class Simplifier(scheme: Scheme, private val ctx: TypeCtx) {
         val (folded, left) = fold(type, pruned)
         val used = folded.typeVars() + left.flatMap { (l, u) -> l.typeVars() + u.typeVars() }
         val names = kept.filter { it in used }.withIndex().associate { (i, v) -> v to varName(i) }
-        return Rendered(folded, left, names)
+        val numeric = kept.filter { v ->
+            v in used && isNumericVar(v) && left.none { (l, u) -> l.bareVar == v && u.bareVar?.let(::isNumericVar) == true }
+        }
+        return Rendered(folded, left, names, numeric)
     }
 
     // - A primitive bound is the primitive: joins are per kind, so only Nothing lies below one.

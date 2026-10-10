@@ -36,6 +36,7 @@ data class Scheme(val type: Type, val bounds: BoundEnv = emptyMap()) {
                     UpperBound(
                         concrete = b.upper.concrete?.let(::rename),
                         tvs = b.upper.tvs.entries.associate { (k, nilOk) -> rename(k) to nilOk },
+                        numeric = b.upper.numeric,
                     ),
                 )
             }

@@ -10,9 +10,16 @@ import com.oracle.truffle.api.nodes.RootNode
 
 object Builtins {
     fun createBuiltinFunctions(language: BridjeLanguage): Map<Symbol, GlobalVar> {
+        fun numeric(t: Type): BoundEnv = mapOf(t.bareVar!! to Bounds(upper = UpperBound(numeric = true)))
+
         fun numericBinOp(name: String, node: RootNode): GlobalVar {
             val t = freshVar()
-            return createBuiltinFunction(name, node, FnType(listOf(t, t), t))
+            return createBuiltinFunction(name, node, FnType(listOf(t, t), t), numeric(t))
+        }
+
+        fun numericComparison(name: String, node: RootNode): GlobalVar {
+            val t = freshVar()
+            return createBuiltinFunction(name, node, FnType(listOf(t, t), BoolType), numeric(t))
         }
 
         fun comparisonOp(name: String, node: RootNode): GlobalVar {
@@ -27,10 +34,10 @@ object Builtins {
             numericBinOp("div", DivNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             comparisonOp("eq", EqNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             comparisonOp("neq", NeqNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            comparisonOp("lt", LtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            comparisonOp("gt", GtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            comparisonOp("lte", LteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            comparisonOp("gte", GteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            numericComparison("lt", LtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            numericComparison("gt", GtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            numericComparison("lte", LteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            numericComparison("gte", GteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             createBuiltinFunction("println", PrintlnNode(language), run { val t = freshVar(); FnType(listOf(t), t) }),
             // TODO: gensym is variadic (0 or 1 args) — FnType can't represent optional arity yet
             createBuiltinFunction("gensym", GensymNode(language), freshVar(), arity = 1),
@@ -54,6 +61,6 @@ object Builtins {
         ).associateBy { it.name }
     }
 
-    private fun createBuiltinFunction(name: String, node: RootNode, type: Type, arity: Int = (type.base as Base.Fn).paramTypes.size) =
-        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget, arity), scheme = Scheme(type))
+    private fun createBuiltinFunction(name: String, node: RootNode, type: Type, bounds: BoundEnv = emptyMap(), arity: Int = (type.base as Base.Fn).paramTypes.size) =
+        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget, arity), scheme = Scheme(type, bounds))
 }
