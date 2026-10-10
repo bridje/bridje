@@ -20,6 +20,7 @@ class CaseTest {
     fun `case matches unary tag and binds value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               case: Just{.value 10}
                 Just(r) .value(r)
@@ -31,6 +32,7 @@ class CaseTest {
     fun `case matches a tag alone, whatever its record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               case: Just{.value 10}
                 Just 1
@@ -43,6 +45,8 @@ class CaseTest {
     fun `case destructures a tag's record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .first Int
+              decl: .second Int
               tag: Pair{.first, .second}
               case: Pair{.first 3, .second 4}
                 Pair{first, second} [first, second]
@@ -56,6 +60,7 @@ class CaseTest {
     fun `case selects correct branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               enum: Maybe
                 tag: Nothing
                 tag: Just{.value}
@@ -70,6 +75,7 @@ class CaseTest {
     fun `case selects nothing branch`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               enum: Maybe
                 tag: Nothing
                 tag: Just{.value}
@@ -85,6 +91,7 @@ class CaseTest {
         val result = ctx.evalBridje("""
             do:
               tag: Nothing
+              decl: .value Int
               tag: Just{.value}
               case: Nothing
                 Just{value} value
@@ -112,6 +119,7 @@ class CaseTest {
     fun `case bindings are scoped to branch body`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               let: [value 100]
                 case: Just{.value 42}
@@ -124,6 +132,7 @@ class CaseTest {
     fun `case branch can return tagged value`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               case: Just{.value 10}
                 Just(r) Just(r)
@@ -170,6 +179,8 @@ class CaseTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
+                  decl: .first Int
+                  decl: .second Int
                   tag: Pair{.first, .second}
                   case: Pair{.first 3, .second 4}
                     Pair(a, b) a
@@ -196,6 +207,7 @@ class CaseTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
+                  decl: .value Int
                   tag: Just{.value}
                   case: Just{.value 1}
                     Just{nope} nope
