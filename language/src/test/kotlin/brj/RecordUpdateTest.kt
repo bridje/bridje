@@ -163,4 +163,12 @@ class RecordUpdateTest {
         assertEquals(30L, result.getMember("a").asLong())
         assertEquals(12L, result.getMember("b").asLong())
     }
+
+    @Test
+    fun `with on a value that is not a record is an error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("do:\n  decl: .k Int\n  def: extend(x) with(x, .k 1)\n  extend('foo)")
+        }
+        assertTrue(ex.message?.contains("with needs a record, got foo") == true, "got: ${ex.message}")
+    }
 }
