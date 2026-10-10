@@ -117,6 +117,16 @@ abstract class BridjeRootNode protected constructor(
                 for (i in keys.indices) result = result.put(keys[i], values[i])
                 return result
             }
+
+            @JvmStatic
+            @Fallback
+            @TruffleBoundary
+            fun notRecord(
+                @Suppress("UNUSED_PARAMETER") keys: Array<QSymbol>,
+                record: Any?,
+                @Suppress("UNUSED_PARAMETER") @Variadic values: Array<Any?>,
+                @Bind node: Node,
+            ): Any = throw incorrect("with needs a record, got ${InteropLibrary.getUncached().toDisplayString(record)}", node)
         }
     }
 
