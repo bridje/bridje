@@ -246,6 +246,18 @@ class DeclTest {
     }
 
     @Test
+    fun `a def's metadata is type-checked`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  decl: .test Str
+                  ^{.test 42} def: x 1
+            """.trimIndent())
+        }
+        assertTrue(ex.message!!.contains("Int is not a subtype of Str"), ex.message)
+    }
+
+    @Test
     fun `a type error names its form, and the forms after it are still checked`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
