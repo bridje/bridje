@@ -18,6 +18,51 @@ class PolymorphicKeyTest {
     """, "Int is not a subtype of Bool")
 
     @Test
+    fun `a key read from a tag is at the tag's argument`() = rejects("""
+        do:
+          decl: [a] .value a
+          tag: [a] Just{.value(a)}
+          not(.value(Just{.value "s"}))
+    """, "Str is not a subtype of Bool")
+
+    @Test
+    fun `a tag's binding reads its key at the tag's argument`() = rejects("""
+        do:
+          decl: [a] .value a
+          enum: Maybe(a)
+            tag: Just{.value(a)}
+            tag: None
+          case: Just{.value "s"}
+            Just(r) not(.value(r))
+            None true
+    """, "Str is not a subtype of Bool")
+
+    @Test
+    fun `a tag argument a key takes as a parameter is contravariant`() = rejects("""
+        ns: test.pkey.contra
+        decl: [a] .h Fn([a] Bool)
+        enum: E(a)
+          tag: H{.h(a)}
+          tag: G
+        def: g(y)
+          case: y
+            H{h} h("str")
+            G true
+        def: x g(H{.h not})
+    """, "Str is not a subtype of Bool")
+
+    @Test
+    fun `a key read at its instance gives it back`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              decl: [a] .value a
+              tag: [a] Just{.value(a)}
+              .value(.value(Just{.value Just{.value 42}}))
+        """.trimIndent())
+        assertEquals(42L, result.asLong())
+    }
+
+    @Test
     fun `an optional read of a key a closed record lacks is nil`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
