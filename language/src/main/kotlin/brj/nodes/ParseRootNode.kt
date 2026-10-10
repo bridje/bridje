@@ -5,6 +5,7 @@ import brj.analyser.*
 import brj.effects.collectEffectfulCallees
 import brj.effects.inferEffects
 import brj.runtime.*
+import brj.types.FnType
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.bytecode.BytecodeConfig
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -73,7 +74,7 @@ class ParseRootNode(
     private fun evalEffectfulDef(fnExpr: FnExpr): Any {
         val ctx = BridjeContext.get(this)
         val root = buildRoot { b -> Emitter(lang, ctx, b, source, 0).emitEffectfulDefRoot(fnExpr) }
-        return BridjeFunction(root.callTarget)
+        return BridjeFunction(root.callTarget, 1)
     }
 
     private fun locMeta(expr: Expr): BridjeRecord =
@@ -174,6 +175,7 @@ class ParseRootNode(
                             ?: throw Analyser.Error("Unknown import alias: ${member.importAlias}", expr.loc)
                         val hostClass = ctx.truffleEnv.lookupHostSymbol(fqClass) as TruffleObject
                         val memberName = member.memberName.name
+                        val arity = (member.declaredType.base as? FnType)?.paramTypes?.size ?: 0
 
                         when (member.kind) {
                             InteropMemberKind.STATIC_FIELD -> {
@@ -188,15 +190,15 @@ class ParseRootNode(
                                     HostConstructorNode(lang, hostClass)
                                 else
                                     HostStaticMethodInvokeNode(lang, hostClass, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declaredType)
                             }
                             InteropMemberKind.INSTANCE_METHOD -> {
                                 val rootNode = HostInstanceMethodInvokeNode(lang, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declaredType)
                             }
                             InteropMemberKind.INSTANCE_FIELD -> {
                                 val rootNode = HostInstanceFieldReadNode(lang, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declaredType)
                             }
                         }
                     }

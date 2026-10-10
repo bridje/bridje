@@ -35,7 +35,6 @@ object FileMeta : BuiltinMetaObj("File".sym, "brj.fs".sym) {
     override fun isMetaInstance(instance: Any?) = instance is BridjeFile
 
     override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw com.oracle.truffle.api.interop.ArityException.create(1, 1, arguments.size)
-        return BridjeFile(arguments[0] as TruffleFile)
+        return BridjeFile(arguments.fitted(1)[0] as TruffleFile)
     }
 }

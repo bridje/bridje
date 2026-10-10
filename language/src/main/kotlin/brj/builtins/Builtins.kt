@@ -35,7 +35,7 @@ object Builtins {
             createBuiltinFunction("println", PrintlnNode(language),
                 FnType(listOf(freshType()), nullType()).notNull()),
             // TODO: gensym is variadic (0 or 1 args) — FnType can't represent optional arity yet
-            createBuiltinFunction("gensym", GensymNode(language), freshType()),
+            createBuiltinFunction("gensym", GensymNode(language), freshType(), arity = 1),
             createBuiltinFunction("nth", NthNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1)),
                 run { val el = freshType(); FnType(listOf(VectorType(el).notNull(), IntType.notNull()), el).notNull() }),
             createBuiltinFunction("meta", MetaNode(language),
@@ -63,6 +63,6 @@ object Builtins {
         ).associateBy { it.name }
     }
 
-    private fun createBuiltinFunction(name: String, node: RootNode, type: Type) =
-        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget), type = type)
+    private fun createBuiltinFunction(name: String, node: RootNode, type: Type, arity: Int = (type.base as FnType).paramTypes.size) =
+        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget, arity), type = type)
 }

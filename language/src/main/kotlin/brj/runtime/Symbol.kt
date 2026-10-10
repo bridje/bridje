@@ -53,8 +53,7 @@ object SymbolMeta : BuiltinMetaObj("Symbol".sym, "brj.core".sym) {
     @Throws(ArityException::class)
     @TruffleBoundary
     override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val name = (arguments[0] as TruffleString).toJavaStringUncached()
+        val name = (arguments.fitted(1)[0] as TruffleString).toJavaStringUncached()
         return Symbol.intern(name)
     }
 }

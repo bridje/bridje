@@ -502,9 +502,9 @@ class Emitter(
         )
 
         if (captures.isEmpty()) {
-            b.emitLoadFunction(innerRoot)
+            b.emitLoadFunction(innerRoot, expr.params.size)
         } else {
-            b.beginMakeClosure(innerRoot)
+            b.beginMakeClosure(innerRoot, expr.params.size)
             captures.forEach { it.emit(b) }
             b.endMakeClosure()
         }
@@ -579,7 +579,7 @@ class Emitter(
         )
 
         b.beginReturn()
-        b.beginMakeClosure(innerRoot)
+        b.beginMakeClosure(innerRoot, fnExpr.params.size)
         b.emitLoadLocal(fxLocal)
         calleeLocals.forEach { b.emitLoadLocal(it) }
         b.endMakeClosure()

@@ -75,20 +75,13 @@ abstract class BridjeRootNode protected constructor(
         }
     }
 
-    /**
-     * Reads argument [index], defaulting to an empty record where the caller passed fewer
-     * arguments than the function declares.
-     */
     @Operation
     @ConstantOperand(type = Int::class)
     class LoadParam {
         companion object {
             @JvmStatic
             @Specialization
-            fun read(frame: VirtualFrame, index: Int): Any? {
-                val args = frame.arguments
-                return if (index < args.size) args[index] else BridjeRecord.EMPTY
-            }
+            fun read(frame: VirtualFrame, index: Int): Any? = frame.arguments[index]
         }
     }
 
@@ -136,31 +129,35 @@ abstract class BridjeRootNode protected constructor(
      */
     @Operation
     @ConstantOperand(type = BridjeRootNode::class)
+    @ConstantOperand(type = Int::class)
     class LoadFunction {
         companion object {
             @JvmStatic
             @Specialization
             fun load(
                 rootNode: BridjeRootNode,
-                @Cached(value = "createFunction(rootNode)", neverDefault = true) function: BridjeFunction,
+                arity: Int,
+                @Cached(value = "createFunction(rootNode, arity)", neverDefault = true) function: BridjeFunction,
             ): Any = function
 
             @JvmStatic
-            fun createFunction(rootNode: BridjeRootNode): BridjeFunction = BridjeFunction(rootNode.callTarget)
+            fun createFunction(rootNode: BridjeRootNode, arity: Int): BridjeFunction = BridjeFunction(rootNode.callTarget, arity)
         }
     }
 
     @Operation
     @ConstantOperand(type = BridjeRootNode::class)
+    @ConstantOperand(type = Int::class)
     class MakeClosure {
         companion object {
             @JvmStatic
             @Specialization
             fun make(
                 rootNode: BridjeRootNode,
+                arity: Int,
                 @Variadic captures: Array<Any?>,
                 @Cached(value = "rootNode.getCallTarget()", neverDefault = true) callTarget: RootCallTarget,
-            ): Any = BridjeFunction(callTarget, captures)
+            ): Any = BridjeFunction(callTarget, arity, captures)
         }
     }
 

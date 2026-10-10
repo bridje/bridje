@@ -3,6 +3,7 @@ package brj.builtins
 import brj.BridjeLanguage
 import brj.SymbolForm
 import brj.runtime.BridjeContext
+import brj.runtime.BridjeRecord
 import brj.runtime.Symbol
 import com.oracle.truffle.api.frame.VirtualFrame
 import com.oracle.truffle.api.nodes.RootNode
@@ -12,15 +13,8 @@ class GensymNode(language: BridjeLanguage) : RootNode(language) {
         val ctx = BridjeContext.get(this)
         val id = ctx.nextGensymId()
 
-        val prefix = if (frame.arguments.isNotEmpty()) {
-            val arg = frame.arguments[0]
-            when (arg) {
-                is String -> arg
-                else -> arg.toString()
-            }
-        } else {
-            "G"
-        }
+        val arg = frame.arguments[0]
+        val prefix = if (arg is BridjeRecord) "G" else arg.toString()
 
         return SymbolForm(Symbol.intern("${prefix}__${id}"))
     }

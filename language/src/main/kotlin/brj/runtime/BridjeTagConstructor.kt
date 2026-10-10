@@ -18,9 +18,9 @@ class BridjeTagConstructor(
 
     @TruffleBoundary
     private fun construct(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val record = arguments[0] as? BridjeRecord
-            ?: throw Anomaly.incorrect("$tag expects a record, got ${INTEROP.toDisplayString(arguments[0])}")
+        val argument = arguments.fitted(1)[0]
+        val record = argument as? BridjeRecord
+            ?: throw Anomaly.incorrect("$tag expects a record, got ${INTEROP.toDisplayString(argument)}")
         val missing = keys.filterNot { record.hasKey(it) }
         if (missing.isNotEmpty())
             throw Anomaly.incorrect("$tag requires ${missing.joinToString(", ") { it.toDisplayString() }}")

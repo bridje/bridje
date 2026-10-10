@@ -60,11 +60,9 @@ class Anomaly(
         @ExportMessage
         @Throws(ArityException::class)
         fun execute(arguments: Array<Any?>): Any {
-            if (arguments.size != 1)
-                throw ArityException.create(1, 1, arguments.size)
-
-            val data = arguments[0] as? BridjeRecord
-                ?: throw incorrect("$tag expects a record, got ${arguments[0]}")
+            val argument = arguments.fitted(1)[0]
+            val data = argument as? BridjeRecord
+                ?: throw incorrect("$tag expects a record, got $argument")
 
             return Anomaly(this, data)
         }

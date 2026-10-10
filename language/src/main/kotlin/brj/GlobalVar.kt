@@ -3,6 +3,7 @@ package brj
 import brj.runtime.Anomaly.Companion.incorrect
 import brj.runtime.BridjeContext
 import brj.runtime.BridjeRecord
+import brj.runtime.fitted
 import brj.runtime.BuiltinMetaObj
 import brj.runtime.Meta
 import brj.runtime.Symbol
@@ -58,9 +59,9 @@ object VarMeta : BuiltinMetaObj("Var".sym, "brj.core".sym) {
     @Throws(ArityException::class)
     @TruffleBoundary
     override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val qsym = arguments[0] as? QSymbolForm
-            ?: throw incorrect("Var: expected a qualified symbol, got ${arguments[0]?.let { it::class.simpleName }}")
+        val argument = arguments.fitted(1)[0]
+        val qsym = argument as? QSymbolForm
+            ?: throw incorrect("Var: expected a qualified symbol, got ${argument?.let { it::class.simpleName }}")
 
         val ctx = BridjeContext.current()
         val nsEnv = ctx.namespaces[qsym.ns]

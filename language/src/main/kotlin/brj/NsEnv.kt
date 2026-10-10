@@ -93,7 +93,7 @@ data class NsEnv(
 
             fun readerFn(name: String, node: RootNode, paramType: Type): Pair<Symbol, GlobalVar> {
                 val sym = name.sym
-                return sym to GlobalVar(readerNs, sym, BridjeFunction(node.callTarget),
+                return sym to GlobalVar(readerNs, sym, BridjeFunction(node.callTarget, 1),
                     type = FnType(listOf(paramType), formVec).notNull())
             }
 
@@ -135,8 +135,8 @@ data class NsEnv(
         }
 
         fun withConcurrentBuiltins(language: BridjeLanguage): NsEnv {
-            val spawnFn = BridjeFunction(SpawnNode(language).callTarget)
-            val awaitFn = BridjeFunction(AwaitNode(language).callTarget)
+            val spawnFn = BridjeFunction(SpawnNode(language).callTarget, 1)
+            val awaitFn = BridjeFunction(AwaitNode(language).callTarget, 1)
             val concurrentNs = "brj.concurrent".sym
             return NsEnv(vars = mapOf(
                 "spawn".sym to GlobalVar(concurrentNs, "spawn".sym, spawnFn),
@@ -152,7 +152,7 @@ data class NsEnv(
             val bytes = BytesType.notNull()
 
             fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
-                name to GlobalVar(fsNs, name, BridjeFunction(node.callTarget),
+                name to GlobalVar(fsNs, name, BridjeFunction(node.callTarget, params.size),
                     type = FnType(params, ret).notNull())
 
             return NsEnv(vars = mapOf(
@@ -177,7 +177,7 @@ data class NsEnv(
             val int = IntType.notNull()
 
             fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
-                name to GlobalVar(bytesNs, name, BridjeFunction(node.callTarget),
+                name to GlobalVar(bytesNs, name, BridjeFunction(node.callTarget, params.size),
                     type = FnType(params, ret).notNull())
 
             return NsEnv(vars = mapOf(
@@ -193,7 +193,7 @@ data class NsEnv(
             val str = StringType.notNull()
 
             fun gv(name: Symbol, node: RootNode, params: List<Type>, ret: Type): Pair<Symbol, GlobalVar> =
-                name to GlobalVar(strNs, name, BridjeFunction(node.callTarget),
+                name to GlobalVar(strNs, name, BridjeFunction(node.callTarget, params.size),
                     type = FnType(params, ret).notNull())
 
             return NsEnv(vars = mapOf(

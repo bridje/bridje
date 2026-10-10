@@ -1,6 +1,7 @@
 package brj
 
 import brj.runtime.BridjeRecord
+import brj.runtime.fitted
 import brj.runtime.BridjeVector
 import brj.runtime.Anomaly.Companion.incorrect
 import brj.runtime.BuiltinMetaObj
@@ -45,9 +46,9 @@ abstract class FormMeta(tagName: String, override val keys: List<QSymbol>) :
     @Throws(ArityException::class)
     @TruffleBoundary
     override fun execute(arguments: Array<Any?>): Any {
-        if (arguments.size != 1) throw ArityException.create(1, 1, arguments.size)
-        val record = arguments[0] as? BridjeRecord
-            ?: throw incorrect("rdr/${tagName.name} expects a record, got ${arguments[0]}")
+        val argument = arguments.fitted(1)[0]
+        val record = argument as? BridjeRecord
+            ?: throw incorrect("rdr/${tagName.name} expects a record, got $argument")
         val missing = keys.filterNot { record.hasKey(it) }
         if (missing.isNotEmpty())
             throw incorrect("rdr/${tagName.name} requires ${missing.joinToString(", ") { it.toDisplayString() }}")
