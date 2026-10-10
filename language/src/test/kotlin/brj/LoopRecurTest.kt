@@ -169,4 +169,18 @@ class LoopRecurTest {
         """.trimIndent())
         assertEquals(10L, result.asLong())
     }
+
+    @Test
+    fun `a fn's recur is checked against its parameters`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                def: f(n)
+                  if: gt(n, 10)
+                    n
+                    recur("x")
+                f(5)
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Str is not numeric") == true, "got: ${ex.message}")
+    }
 }

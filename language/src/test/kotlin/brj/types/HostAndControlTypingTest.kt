@@ -165,4 +165,26 @@ class HostAndControlTypingTest {
         assertThrows<TypeCheckException> { readsPayload.typing(ctx) }
     }
 
+    @Test
+    fun `loop binding is the join of its initial value and what recur sends`() {
+        val x = lv("x")
+        assertEquals(IntType, LoopExpr(listOf(x to IntExpr(1)), LocalVarExpr(x)).positiveType())
+
+        val p = lv("p", 1)
+        val looped = LoopExpr(
+            listOf(x to IntExpr(1)),
+            IfExpr(LocalVarExpr(p), RecurExpr(listOf(x), listOf(IntExpr(2))), LocalVarExpr(x)),
+        )
+        val typing = FnExpr("f".sym, listOf(p), looped, 1, emptyList(), false).typing(ctx)
+        assertEquals(IntType, typing.type.fn.returnType.shown(typing.bounds, ctx))
+
+        // A binding nobody reads joins nothing; one that is read must join what recur sends it.
+        LoopExpr(listOf(x to IntExpr(1)), RecurExpr(listOf(x), listOf(StringExpr("s")))).typing(ctx)
+        assertThrows<TypeCheckException> {
+            LoopExpr(
+                listOf(x to IntExpr(1)),
+                IfExpr(LocalVarExpr(p), RecurExpr(listOf(x), listOf(StringExpr("s"))), LocalVarExpr(x)),
+            ).typing(ctx)
+        }
+    }
 }
