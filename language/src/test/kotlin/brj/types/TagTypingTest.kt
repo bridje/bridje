@@ -289,6 +289,16 @@ class TagTypingTest {
     }
 
     @Test
+    fun `ifLet narrows its binding past nil`() {
+        val x = lv("x")
+        val d = lv("d", 1)
+        val y = lv("y", 2)
+        val orElse = fn(x, d, body = IfLetExpr(y, LocalVarExpr(x), LocalVarExpr(y), LocalVarExpr(d)))
+        val call = CallExpr(orElse, listOf(IfExpr(BoolExpr(true), IntExpr(1), NilExpr()), IntExpr(0)))
+        assertEquals(IntType, call.positiveType())
+    }
+
+    @Test
     fun `a standalone tag over keys of one type each has no arguments`() {
         val t = ctor(pairCtor, record("fst" to IntExpr(1), "snd" to StringExpr("s"))).positiveType().base as Base.Rec
         assertEquals(tagRef("Pair"), t.name)

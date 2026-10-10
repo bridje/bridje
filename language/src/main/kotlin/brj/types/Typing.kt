@@ -183,7 +183,18 @@ internal class Infer(private val ctx: TypeCtx) {
             )
         }
 
-        is IfLetExpr -> Typing(freshVar())
+        is IfLetExpr -> {
+            val value = typing(expr.valueExpr)
+            val then = typing(expr.thenExpr)
+            val els = typing(expr.elseExpr)
+            val result = freshVar()
+            build(
+                result,
+                listOf(value, then.without(listOf(expr.localVar)), els),
+                listOfNotNull(then.monoEnv[expr.localVar]?.let { value.type subOf it.nullable() }) +
+                    listOf(then.type subOf result, els.type subOf result),
+            )
+        }
 
         is LetExpr -> {
             val binding = typing(expr.bindingExpr)
@@ -271,7 +282,18 @@ internal class Infer(private val ctx: TypeCtx) {
             build(result, children, constraints)
         }
 
-        is LoopExpr, is RecurExpr -> Typing(freshVar())
+        is LoopExpr -> {
+            val inits = expr.bindings.map { (_, e) -> typing(e) }
+            val (rest, demands, flows) = typing(expr.bodyExpr).recurInto(expr.bindings.map { it.first })
+            val initFlows = inits.zip(demands).mapNotNull { (init, demand) -> demand?.let { init.type subOf it } }
+            build(rest.type, inits + rest, initFlows + flows)
+        }
+
+        is RecurExpr -> {
+            val args = expr.argExprs.map { typing(it) }
+            val flows = expr.bindings.zip(args).associate { (lv, arg) -> lv to listOf(arg.type) }
+            build(NothingType, args).let { Typing(it.type, it.monoEnv, it.bounds, it.recurs + flows) }
+        }
 
         // A handler serves every call in the body, each at whatever instance of the effect's declared type it
         // takes, so it is checked against that type with its variables held rigid, as a definition is.
