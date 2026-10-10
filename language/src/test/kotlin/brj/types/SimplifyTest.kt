@@ -139,6 +139,14 @@ class SimplifyTest {
     }
 
     @Test
+    fun `an ifLet value is nullable, and its binding is not`() {
+        val x = lv("x")
+        val y = lv("y", 1)
+        val body = IfLetExpr(y, LocalVarExpr(x), LocalVarExpr(y), IntExpr(0))
+        assertEquals("Fn([Int?] Int)", fn(x, body = body).shown())
+    }
+
+    @Test
     fun `a value the checker knows nothing about adds nothing to a join`() {
         val p = lv("p")
         val x = lv("x", 1)
