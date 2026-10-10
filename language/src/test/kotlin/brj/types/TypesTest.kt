@@ -211,6 +211,45 @@ class TypesTest {
         assertThrows<TypeCheckException> { env.constrain(IntType, a) }
     }
 
+    private fun numeric(): Pair<TypeVar, BoundEnv> = TypeVar().let { it to mapOf(it to Bounds(upper = UpperBound(numeric = true))) }
+
+    @Test
+    fun `a numeric demand admits an Int or a Double and nothing else`() {
+        val (a, env) = numeric()
+        env.constrain(IntType, a.type())
+        env.constrain(DoubleType, a.type())
+        assertThrows<TypeCheckException> { env.constrain(StrType, a.type()) }
+        assertThrows<TypeCheckException> { env.constrain(NothingType.nullable(), a.type()) }
+        assertThrows<TypeCheckException> { env.constrain(RecordType(emptySet()), a.type()) }
+        assertThrows<TypeCheckException> { env.constrain(FnType(emptyList(), IntType), a.type()) }
+    }
+
+    @Test
+    fun `a variable flowing into a numeric one is numeric, and what it flows into is not`() {
+        val (a, env) = numeric()
+        val b = freshVar()
+        val c = freshVar()
+        val env2 = env.constrain(b, a.type()).constrain(a.type(), c)
+        assertTrue(env2.upper(b.tv).numeric)
+        assertFalse(env2.upper(c.tv).numeric)
+        assertThrows<TypeCheckException> { env2.constrain(StrType, b) }
+        env2.constrain(NothingType.nullable(), c)
+    }
+
+    @Test
+    fun `a demand already in a variable rejects what flowed in before it`() {
+        val (n, env) = numeric()
+        val a = freshVar()
+        val env2 = env.constrain(StrType, a)
+        assertThrows<TypeCheckException> { env2.constrain(a, n.type()) }
+    }
+
+    @Test
+    fun `a rigid variable cannot be demanded numeric`() {
+        val (a, env) = numeric()
+        assertThrows<TypeCheckException> { env.constrain(TypeVar(rigid = true).type(), a.type()) }
+    }
+
     @Test
     fun `a variable below a nullable variable passes its nil no further`() {
         val a = freshVar()

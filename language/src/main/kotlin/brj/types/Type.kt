@@ -14,6 +14,8 @@ fun Type.nullable(): Type = if (nullable) this else copy(nullable = true)
 
 val Type.bareVar: TypeVar? get() = if (nullable) null else base as? TypeVar
 
+val Base.isNumeric: Boolean get() = this == Base.Int || this == Base.Double
+
 sealed interface Base {
     sealed class Prim : Base
     data object Int : Prim()
@@ -219,15 +221,18 @@ data class LowerBound(
 // The upper bound holds at most one concrete product (same-kind concretes merge by the kind's meet, and
 // across kinds the meet is Nothing), and the variables it flows into, each with whether nil may go too:
 // α ≤ β? is the edge (β, true), along which what flows into α flows into β with nil stripped.
+// [numeric]: what flows in is an Int or a Double, and never nil. That is a union, which no type can say, so it is
+// a demand on the variable and nothing else, `Num(a)` when rendered; the solver checks each lower bound as it arrives.
 data class UpperBound(
     val concrete: Type? = null,
     val tvs: Map<TypeVar, Boolean> = emptyMap(),
+    val numeric: Boolean = false,
 ) {
     init {
         require(concrete?.base !is TypeVar && concrete?.base !is Base.OnVar) { "a concrete upper bound is not a variable: $concrete" }
     }
 
-    val isEmpty get() = concrete == null && tvs.isEmpty()
+    val isEmpty get() = concrete == null && tvs.isEmpty() && !numeric
 
     fun asTypes(): List<Type> = listOfNotNull(concrete) + tvs.map { (tv, nilOk) -> tv.type(nilOk) }
 }

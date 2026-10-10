@@ -1245,7 +1245,7 @@ data class Analyser(
         return variants.map(::tagKeys).reduceOrNull { a, b -> a intersect b }.orEmpty()
     }
 
-    private fun analyseInteropDecl(forms: List<Form>, typeVars: Map<String, TypeVar>, loc: SourceSection?): Expr {
+    private fun analyseInteropDecl(forms: List<Form>, typeVars: Map<String, TypeVar>, loc: SourceSection?, bounds: BoundEnv): Expr {
         val specForm = forms[0]
         val retForm = forms.getOrNull(1)
             ?: return errorExpr("interop decl missing return type", specForm.loc)
@@ -1258,7 +1258,7 @@ data class Analyser(
                     importAlias = specForm.ns,
                     memberName = specForm.member,
                     kind = InteropMemberKind.STATIC_FIELD,
-                    declared = Scheme(returnType),
+                    declared = Scheme(returnType, bounds),
                 )
             }
 
@@ -1272,7 +1272,7 @@ data class Analyser(
                     importAlias = specForm.ns,
                     memberName = specForm.member,
                     kind = InteropMemberKind.INSTANCE_FIELD,
-                    declared = Scheme(FnType(listOf(receiverType), returnType)),
+                    declared = Scheme(FnType(listOf(receiverType), returnType), bounds),
                 )
             }
 
@@ -1289,7 +1289,7 @@ data class Analyser(
                             importAlias = callee.ns,
                             memberName = callee.member,
                             kind = InteropMemberKind.STATIC_METHOD,
-                            declared = Scheme(FnType(paramTypes, returnType)),
+                            declared = Scheme(FnType(paramTypes, returnType), bounds),
                         )
                     }
 
@@ -1302,7 +1302,7 @@ data class Analyser(
                             importAlias = callee.ns,
                             memberName = callee.member,
                             kind = InteropMemberKind.INSTANCE_METHOD,
-                            declared = Scheme(FnType(listOf(receiverType) + paramTypes, returnType)),
+                            declared = Scheme(FnType(listOf(receiverType) + paramTypes, returnType), bounds),
                         )
                     }
 
@@ -1341,12 +1341,19 @@ data class Analyser(
             sigForm is RecordForm -> analyseKeyDecls(sigForm.els, emptyMap(), form.loc)
 
             sigForm is VectorForm -> {
-                val typeVarNames = sigForm.els.map { tvForm ->
-                    (tvForm as? SymbolForm)?.sym?.name
-                        ?: return errorExpr("type variable must be a symbol", tvForm.loc)
+                val typeVars = sigForm.els.filterIsInstance<SymbolForm>().associate { it.sym.name to TypeVar() }
+                val bounds = HashMap<TypeVar, Bounds>()
+                for (el in sigForm.els) {
+                    if (el is SymbolForm) continue
+                    val call = el as? ListForm
+                    val head = (call?.els?.firstOrNull() as? SymbolForm)?.sym?.name
+                    val arg = (call?.els?.getOrNull(1) as? SymbolForm)?.sym?.name
+                    if (head != "Num" || arg == null || call.els.size != 2)
+                        return errorExpr("a declaration's leading vector takes type variables and Num(a): $el", el.loc)
+                    val tv = typeVars[arg] ?: return errorExpr("$arg is not a type variable of this declaration", el.loc)
+                    bounds[tv] = Bounds(upper = UpperBound(numeric = true))
                 }
-                val typeVars = typeVarNames.associateWith { TypeVar() }
-                analyseSingleDecl(els.drop(2), typeVars, form.loc)
+                analyseSingleDecl(els.drop(2), typeVars, form.loc, bounds)
             }
 
             // single decl without type vars
@@ -1354,7 +1361,7 @@ data class Analyser(
         }
     }
 
-    private fun analyseSingleDecl(forms: List<Form>, typeVars: Map<String, TypeVar>, loc: SourceSection?): Expr {
+    private fun analyseSingleDecl(forms: List<Form>, typeVars: Map<String, TypeVar>, loc: SourceSection?, bounds: BoundEnv = emptyMap()): Expr {
         val sigForm = forms.firstOrNull()
             ?: return errorExpr("decl requires a signature", loc)
 
@@ -1369,9 +1376,11 @@ data class Analyser(
         }
 
         return when {
-            isInteropForm(sigForm) -> analyseInteropDecl(forms, typeVars, loc)
+            isInteropForm(sigForm) -> analyseInteropDecl(forms, typeVars, loc, bounds)
 
-            sigForm is DotSymbolForm -> analyseKeyDecls(forms, typeVars, loc)
+            sigForm is DotSymbolForm ->
+                if (bounds.isEmpty()) analyseKeyDecls(forms, typeVars, loc)
+                else errorExpr("a key's type takes no Num(a): a key holds one type at each instance", loc)
 
             sigForm is ListForm -> {
                 // decl: foo(Int, Str) Bool — function type declaration
@@ -1381,14 +1390,14 @@ data class Analyser(
                     ?: return errorExpr("decl function requires a return type", loc)
                 val paramTypes = sigForm.els.drop(1).map { analyseTypeForm(it, typeVars) }
                 val returnType = analyseTypeForm(retForm, typeVars)
-                DeclExpr(nameForm.sym, Scheme(FnType(paramTypes, returnType)), loc)
+                DeclExpr(nameForm.sym, Scheme(FnType(paramTypes, returnType), bounds), loc)
             }
 
             sigForm is SymbolForm -> {
                 // decl: x Int — value type declaration
                 val typeForm = forms.getOrNull(1)
                     ?: return errorExpr("decl requires a type", loc)
-                DeclExpr(sigForm.sym, Scheme(analyseTypeForm(typeForm, typeVars)), loc)
+                DeclExpr(sigForm.sym, Scheme(analyseTypeForm(typeForm, typeVars), bounds), loc)
             }
 
             else -> errorExpr("decl requires a name or signature", loc)

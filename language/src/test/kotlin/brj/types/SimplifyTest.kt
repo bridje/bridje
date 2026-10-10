@@ -166,6 +166,22 @@ class SimplifyTest {
         assertEquals("[a, b, isa(a, Iterable(Int)), isa(a, b)] Fn([a, b] b)", shown(FnType(listOf(a, b), c), a to c, b to c, a to IterableType(IntType)))
     }
 
+    @Test
+    fun `a numeric variable renders its demand once, on the one that flows into the rest`() {
+        val a = TypeVar()
+        val b = TypeVar()
+        val env = mapOf(b to Bounds(upper = UpperBound(numeric = true))).constrain(a.type(), b.type())
+        assertEquals("[a, Num(a)] Fn([a] a)", Scheme(FnType(listOf(a.type()), b.type()), env).simplify().toString())
+        assertEquals("[a, Num(a)] Fn([a, a] a)", Scheme(FnType(listOf(b.type(), b.type()), b.type()), env).simplify().toString())
+    }
+
+    @Test
+    fun `a numeric variable met by a primitive is that primitive`() {
+        val a = TypeVar()
+        val env = mapOf(a to Bounds(upper = UpperBound(numeric = true))).constrain(IntType, a.type())
+        assertEquals("Fn([Int] Int)", Scheme(FnType(listOf(a.type()), a.type()), env).simplify().toString())
+    }
+
     // x holds an Int and y a Str, and z nothing concrete, all three between p and q. z agrees with each alone,
     // but merging all three would keep one concrete bound and drop the other.
     @Test
