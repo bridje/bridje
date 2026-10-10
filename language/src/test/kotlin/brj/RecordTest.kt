@@ -255,7 +255,7 @@ class RecordTest {
     fun `keyword metadata shorthand`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              decl: .test Str
+              decl: .test Bool
               ^.test def: myVal 42
               myVal
         """.trimIndent())
@@ -332,6 +332,7 @@ class RecordTest {
     fun `record sugar desugars to call with record arg`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .x Int
               tag: Wrapper{.x}
               Wrapper{.x 42}
         """.trimIndent())

@@ -3,7 +3,10 @@ package brj.analyser
 import brj.Form
 import brj.GlobalVar
 import brj.runtime.Symbol
+import brj.types.KeyType
+import brj.types.Scheme
 import brj.types.Type
+import brj.types.TypeVar
 import com.oracle.truffle.api.source.SourceSection
 
 sealed interface Expr {
@@ -24,7 +27,10 @@ class DefTagExpr(
     val name: Symbol,
     val keys: List<Symbol>?,
     val typeVarNames: List<String> = emptyList(),
-    override val loc: SourceSection? = null
+    override val loc: SourceSection? = null,
+    val typeVars: List<TypeVar> = emptyList(),
+    // `.value(a)`: the types, in terms of [typeVars], that the key's declared type is instantiated at.
+    val keyArgs: Map<Symbol, List<Type>> = emptyMap(),
 ) : Expr {
     override fun toString(): String =
         if (keys == null) "(tag $name)"
@@ -51,17 +57,18 @@ class DefMacroExpr(
 
 class DefKeysExpr(
     val names: List<Symbol>,
-    override val loc: SourceSection? = null
+    val types: Map<Symbol, KeyType> = emptyMap(),
+    override val loc: SourceSection? = null,
 ) : Expr {
     override fun toString(): String = "(decl ${names.joinToString(" ") { ".${it.name}" }})"
 }
 
 class DeclExpr(
     val name: Symbol,
-    val declaredType: Type,
+    val declared: Scheme,
     override val loc: SourceSection? = null
 ) : Expr {
-    override fun toString(): String = "(decl $name $declaredType)"
+    override fun toString(): String = "(decl $name ${declared.type})"
 }
 
 class DefxExpr(
@@ -79,7 +86,7 @@ data class InteropMember(
     val importAlias: Symbol,
     val memberName: Symbol,
     val kind: InteropMemberKind,
-    val declaredType: Type,
+    val declared: Scheme,
 )
 
 class InteropDeclExpr(
