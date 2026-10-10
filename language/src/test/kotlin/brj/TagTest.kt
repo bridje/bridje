@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 class TagTest {
     @Test
     fun `tag creates constructor in scope`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("tag: Just{.value}")
+        val constructor = ctx.evalBridje("decl: .value Int\ntag: Just{.value}")
         assertTrue(constructor.canExecute())
         assertEquals("Just", constructor.toString())
     }
@@ -16,6 +16,7 @@ class TagTest {
     fun `a tag is constructed from a record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               def: r {.value 42}
               Just(r)
@@ -28,6 +29,7 @@ class TagTest {
     fun `curly-brace sugar constructs a tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               .value(Just{.value 42})
         """.trimIndent())
@@ -38,6 +40,7 @@ class TagTest {
     fun `a parenthesised record literal is the same call as the curly-brace sugar`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               case: Just({.value 42})
                 Just({value}) value
@@ -79,6 +82,7 @@ class TagTest {
     fun `tag display string is the tag and its record`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               Just{.value 42}
         """.trimIndent())
@@ -89,6 +93,8 @@ class TagTest {
     fun `multi-key tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .fst Int
+              decl: .snd Int
               tag: Pair{.fst, .snd}
               Pair{.fst 1, .snd 2}
         """.trimIndent())
@@ -101,6 +107,7 @@ class TagTest {
         val result = ctx.evalBridje("""
             do:
               decl: .email Str
+              decl: .name Str
               tag: User{.name}
               .email(User{.name "James", .email "j@example.com"})
         """.trimIndent())
@@ -112,6 +119,8 @@ class TagTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
+                  decl: .fst Int
+                  decl: .snd Int
                   tag: Pair{.fst, .snd}
                   Pair{.fst 1}
             """.trimIndent())
@@ -124,6 +133,7 @@ class TagTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
+                  decl: .value Int
                   tag: Just{.value}
                   def: x 42
                   Just(x)
@@ -137,6 +147,8 @@ class TagTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
+                  decl: .fst Int
+                  decl: .snd Int
                   tag: Pair{.fst, .snd}
                   Pair(1, 2)
             """.trimIndent())
@@ -165,7 +177,8 @@ class TagTest {
     fun `nested tags`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
-              tag: Just{.value}
+              decl: [a] .value a
+              tag: [a] Just{.value(a)}
               .value(.value(Just{.value Just{.value 42}}))
         """.trimIndent())
         assertEquals(42L, result.asLong())
@@ -175,6 +188,7 @@ class TagTest {
     fun `with keeps a tagged value's tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .name Str
               tag: User{.name}
               with(User{.name "a"}, .name "b")
         """.trimIndent())
@@ -186,6 +200,7 @@ class TagTest {
     fun `a tag pattern binds the tagged value itself`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               case: Just{.value 1}
                 Just(r) with(r, .value 2)
@@ -197,6 +212,7 @@ class TagTest {
     fun `tagging a tagged value gives a new value, and the original keeps its tag`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .term Int
               tag: Leader{.term}
               tag: Follower{.term}
               let: [l Leader{.term 1}]
@@ -212,6 +228,7 @@ class TagTest {
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
                 do:
+                  decl: .value Int
                   tag: Just{.value}
                   case: {.value 1}
                     Just 1
@@ -224,6 +241,8 @@ class TagTest {
     fun `record keys resolve among the tag's own keys first`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: tag_keys_test
+            decl: .fn Str
+            decl: .ln Str
             tag: User{.fn, .ln}
         """.trimIndent())
 
@@ -238,7 +257,7 @@ class TagTest {
 
     @Test
     fun `constructor is executable and instantiable`() = withContext { ctx ->
-        val constructor = ctx.evalBridje("tag: Just{.value}")
+        val constructor = ctx.evalBridje("decl: .value Int\ntag: Just{.value}")
         assertTrue(constructor.canExecute())
         assertTrue(constructor.canInstantiate())
     }
@@ -247,6 +266,7 @@ class TagTest {
     fun `can instantiate using constructor`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: tag_interop_test
+            decl: .value Int
             tag: Just{.value}
         """.trimIndent())
         val constructor = ctx.evalBridje("tag_interop_test/Just")
@@ -259,6 +279,7 @@ class TagTest {
     fun `tagged record has meta object`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: .value Int
               tag: Just{.value}
               Just{.value 42}
         """.trimIndent())
@@ -272,6 +293,7 @@ class TagTest {
     fun `meta object isMetaInstance works`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: tag_meta_test
+            decl: .value Int
             tag: Just{.value}
             tag: Other{.value}
         """.trimIndent())
@@ -301,6 +323,7 @@ class TagTest {
     fun `constructor is the tagged record's meta object`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: tag_record_test
+            decl: .value Int
             tag: Just{.value}
         """.trimIndent())
 
@@ -315,6 +338,7 @@ class TagTest {
     fun `parameterised tag with type variable`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: [a] .value a
               tag: [t] Box{.value(t)}
               case: Box{.value 42}
                 Box{value} value
@@ -326,6 +350,7 @@ class TagTest {
     fun `parameterised tag preserves type identity`() = withContext { ctx ->
         val result = ctx.evalBridje("""
             do:
+              decl: [a] .value a
               tag: [t] Wrapper{.value(t)}
               decl: [t] unwrap(Wrapper(t)) t
               def: unwrap(w) case: w
@@ -340,6 +365,7 @@ class TagTest {
         val result = ctx.evalBridje("""
             do:
               decl: [a] .value a
+              decl: [a] .error a
               enum: Result(a, e)
                 tag: Ok{.value(a)}
                 tag: Err{.error(e)}
@@ -353,7 +379,7 @@ class TagTest {
     @Test
     fun `a key's type argument must be the tag's type variable`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
-            ctx.evalBridje("tag: [t] Box{.value(u)}")
+            ctx.evalBridje("decl: [a] .value a\ntag: [t] Box{.value(u)}")
         }
         assertTrue(ex.message?.contains("u") == true, "got: ${ex.message}")
     }
