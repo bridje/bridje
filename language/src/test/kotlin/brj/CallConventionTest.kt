@@ -9,7 +9,9 @@ class CallConventionTest {
 
     private fun wrongArity(ctx: Context, src: String, expected: Int, got: Int) {
         val ex = assertThrows(PolyglotException::class.java) { ctx.evalBridje(src) }
-        assertTrue(ex.message?.contains("Wrong arity: expected $expected, got $got") == true, "got: ${ex.message}")
+        val atRuntime = "Wrong arity: expected $expected, got $got"
+        val atChecker = "function arity mismatch: $expected vs $got"
+        assertTrue(ex.message?.let { it.contains(atRuntime) || it.contains(atChecker) } == true, "got: ${ex.message}")
     }
 
     @Test

@@ -61,3 +61,27 @@ internal fun Type.substitute(s: Map<TypeVar, Type>): Type = when (val b = base) 
     }
     else -> copy(base = b.mapTypes { it.substitute(s) })
 }
+internal fun Typing.generalise(): Scheme {
+    check(monoEnv.isEmpty()) { "cannot generalise a typing with free locals: ${monoEnv.keys}" }
+    return Scheme(type, bounds)
+}
+
+internal fun BoundEnv.constrainRigidly(actual: Type, declared: Scheme, ctx: TypeCtx, error: () -> String): BoundEnv {
+    val rigid = declared.type.typeVars().associateWith { TypeVar(rigid = true) }
+    val start = this + declared.bounds.entries.associate { (tv, b) -> (rigid[tv] ?: tv) to b }
+    try {
+        return start.constrain(actual, declared.type.mapVars { rigid[it] ?: it }, ctx)
+    } catch (_: RigidBoundException) {
+        throw TypeCheckException(error())
+    }
+}
+
+// The inferred scheme must be at least as general as the declaration, so the declared type is the exported
+// one, and an annotation may narrow but never widen (D29 on #129).
+fun checkDeclared(inferred: Scheme, declared: Scheme, ctx: TypeCtx): Scheme {
+    val (type, bounds) = inferred.instantiate()
+    bounds.constrainRigidly(type, declared, ctx) {
+        "declared type ${declared.simplify(ctx)} is more general than the definition, whose type is ${inferred.simplify(ctx)}"
+    }
+    return declared
+}
