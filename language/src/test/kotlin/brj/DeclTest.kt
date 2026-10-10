@@ -246,6 +246,18 @@ class DeclTest {
     }
 
     @Test
+    fun `a type error names its form, and the forms after it are still checked`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.located
+                def: x not(1)
+                def: y add("a", 1)
+            """.trimIndent())
+        }
+        assertTrue(ex.message!!.contains("(2:") && ex.message!!.contains("(3:"), ex.message)
+    }
+
+    @Test
     fun `decl in value position is an error`() = withContext { ctx ->
         val ex = assertThrows(PolyglotException::class.java) {
             ctx.evalBridje("""
@@ -271,6 +283,21 @@ class DeclTest {
         assertTrue(meta.hasMember("declaredType"))
         assertTrue(meta.hasMember("test"))
         assertEquals(true, meta.getMember("test").asBoolean())
+    }
+
+    @Test
+    fun `a definition that fails to type is anything to the forms after it, which are not evaluated`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.after.error
+                def: x not(1)
+                def: y add(x, 2)
+                def: z println(throw(Incorrect{}))
+            """.trimIndent())
+        }
+        val message = ex.message!!
+        assertTrue(message.contains("(2:") && message.contains("Int is not a subtype of Bool"), message)
+        assertFalse(message.contains("Unknown symbol") || message.contains("(3:"), message)
     }
 
     @Test

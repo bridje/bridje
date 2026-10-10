@@ -112,6 +112,14 @@ class ParseRootNode(
         return defKey(name, key).defKey(optName, optKey).def(optName, optKey)
     }
 
+    private inline fun <T> MutableList<Analyser.Error>.typed(expr: Expr, f: () -> T): T? =
+        try {
+            f()
+        } catch (e: TypeCheckException) {
+            add(Analyser.Error(e.message ?: e.toString(), expr.loc))
+            null
+        }
+
     @TruffleBoundary
     private fun List<Form>.evalForms(ctx: BridjeContext, nsEnv: NsEnv): Pair<NsEnv, Any?> {
         var nsEnv = nsEnv
@@ -119,6 +127,7 @@ class ParseRootNode(
 
         val res = fold(null as Any?) { _, form ->
             val analyser = Analyser(ctx, nsEnv)
+            val evaluating = errors.isEmpty()
 
             when (val expr = analyser.analyse(form)) {
                 is TopLevelDo -> {
@@ -128,7 +137,16 @@ class ParseRootNode(
                 }
 
                 is DefExpr -> {
+                    val scheme = errors.typed(expr) {
+                        expr.metaExpr?.let { Types.check(ctx, nsEnv, it) }
+                        Types.inferDef(ctx, nsEnv, expr.valueExpr, nsEnv.pendingDecls[expr.name])
+                    }
                     val effects = expr.valueExpr.inferEffects().toList()
+                    if (scheme == null || !evaluating) {
+                        nsEnv = nsEnv.def(expr.name, null, locMeta(expr), scheme = scheme)
+                        if (effects.isNotEmpty()) nsEnv = nsEnv.withEffects(expr.name, effects)
+                        return@fold null
+                    }
                     val userMeta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
                     val meta = expr.loc?.let { userMeta.put(LOC_KEY, Loc(it)) } ?: userMeta
 
@@ -137,11 +155,11 @@ class ParseRootNode(
                             throw Analyser.Error("effects can only be used within a function body: ${expr.name}", expr.loc)
                         }
                         val value = evalEffectfulDef(expr.valueExpr)
-                        nsEnv = nsEnv.def(expr.name, value, meta).withEffects(expr.name, effects)
+                        nsEnv = nsEnv.def(expr.name, value, meta, scheme = scheme).withEffects(expr.name, effects)
                         value
                     } else {
                         val value = evalExpr(expr.valueExpr, analyser.slotCount)
-                        nsEnv = nsEnv.def(expr.name, value, meta)
+                        nsEnv = nsEnv.def(expr.name, value, meta, scheme = scheme)
                         value
                     }
                     value
@@ -167,10 +185,15 @@ class ParseRootNode(
                 }
 
                 is DefMacroExpr -> {
+                    val scheme = errors.typed(expr) { Types.inferMacro(ctx, nsEnv, expr.fn) }
+                    if (scheme == null || !evaluating) {
+                        nsEnv = nsEnv.def(expr.name, null, meta = locMeta(expr))
+                        return@fold null
+                    }
                     val fn = evalExpr(expr.fn, analyser.slotCount)
                     val fixedArity = if (expr.fn.isVariadic) expr.fn.params.size - 1 else expr.fn.params.size
                     val macro = BridjeMacro(fn!!, fixedArity, expr.fn.isVariadic)
-                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr))
+                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr), scheme = scheme)
                     macro
                 }
 
@@ -217,7 +240,8 @@ class ParseRootNode(
                 }
 
                 is DefxExpr -> {
-                    val defaultValue = expr.defaultExpr?.let { evalExpr(it, analyser.slotCount) }
+                    val typed = expr.defaultExpr?.let { d -> errors.typed(expr) { Types.inferDef(ctx, nsEnv, d, Scheme(expr.declaredType)) } } != null
+                    val defaultValue = expr.defaultExpr?.takeIf { typed && evaluating }?.let { evalExpr(it, analyser.slotCount) }
                     nsEnv = nsEnv.defx(expr.name, defaultValue, Scheme(expr.declaredType), meta = locMeta(expr))
                     defaultValue
                 }
@@ -229,7 +253,8 @@ class ParseRootNode(
                 }
 
                 is ValueExpr -> {
-                    evalExpr(expr, analyser.slotCount)
+                    errors.typed(expr) { Types.check(ctx, nsEnv, expr) } ?: return@fold null
+                    if (evaluating) evalExpr(expr, analyser.slotCount) else null
                 }
 
                 is AnalyserErrors -> {
