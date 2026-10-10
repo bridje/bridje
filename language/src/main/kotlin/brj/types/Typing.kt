@@ -2,6 +2,11 @@ package brj.types
 
 import brj.analyser.*
 import brj.runtime.BridjeKey
+import brj.runtime.BridjeTagConstructor
+import brj.runtime.BridjeTaggedSingleton
+import brj.runtime.BuiltinMetaObj
+import brj.runtime.Anomaly
+import brj.runtime.TagConstructor
 import brj.runtime.BridjeOptionalKey
 import brj.runtime.QSymbol
 
@@ -59,6 +64,73 @@ internal class Infer(private val ctx: TypeCtx) {
         return Typing(type, bounds = bounds)
     }
 
+    private class TagInstance(val ctx: TypeCtx, val info: TagInfo, val args: List<Type> = List(info.paramCount) { freshVar() }) {
+
+        private val record = info.payload as? Payload.Record
+
+        fun instance(key: QSymbol): List<Type> = info.instance(key, args)
+
+        fun keyType(key: QSymbol): Type = ctx.keyTypeAt(key, instance(key))
+
+        private fun ownRecord(): Type = RecType(null, emptyList(), record!!.keys.associateWith { Slot(true, instance(it)) })
+
+        fun argTypes(): List<Type> = when (val p = info.payload) {
+            Payload.None -> emptyList()
+            is Payload.Record -> listOf(ownRecord())
+            is Payload.Opaque -> List(p.arity) { freshVar() }
+        }
+
+        // The tag at these arguments. Built from a record it may carry more keys than its own, so it is open;
+        // a tag with no record is exactly its name.
+        val type get() = RecType(info.tag, args, emptyMap(), closed = record == null)
+
+        // A bare pattern matches the tag and ignores its payload. A declared tag's value is its record, so
+        // `Just(r)` binds the tagged value itself; a builtin meta's binds the record inside it.
+        fun bind(pattern: TagPattern, body: Typing, constraints: MutableList<Pair<Type, Type>>) {
+            when (val payload = pattern.payload) {
+                null -> {}
+                is PayloadBinding.Whole -> body.monoEnv[payload.binding]?.let {
+                    val bound = if (pattern.tagValue is BridjeTagConstructor) type else ownRecord()
+                    constraints += bound subOf it
+                }
+                // Only the tag's own keys: nothing says another is there, as neither a `catch` nor a `case` over
+                // several variants has one value's type to demand it of. Another key is read with `.?k`.
+                is PayloadBinding.Keys -> payload.bindings.forEach { (key, lv) ->
+                    if (record == null || key.sym !in record.keys)
+                        fail("${info.tag} does not declare ${key.sym.toDisplayString()}: read it with .?${key.sym.name.name}")
+                    body.monoEnv[lv]?.let { constraints += keyType(key.sym) subOf it }
+                }
+            }
+        }
+    }
+
+    private val PayloadBinding?.locals: List<LocalVar>
+        get() = when (this) {
+            null -> emptyList()
+            is PayloadBinding.Whole -> listOf(binding)
+            is PayloadBinding.Keys -> bindings.map { it.second }
+        }
+
+    private fun constructed(expr: CallExpr): Typing? {
+        val ctor = (expr.fnExpr as? GlobalVarExpr)?.globalVar?.value ?: return null
+        if (ctor !is TagConstructor) return null
+        val fields = (expr.argExprs.singleOrNull() as? RecordExpr)?.fields ?: return null
+        val inst = TagInstance(ctx, ctx.tagInfo(ctor))
+        val keys = (inst.info.payload as? Payload.Record)?.keys ?: return null
+        val given = fields.map { it.first }.toSet()
+        (keys - given).takeIf { it.isNotEmpty() }?.let { fail("${RecordType(given)} lacks ${RecordType(it)}") }
+        val extras = (given - keys).associateWith { Slot(true, ctx.freshInstance(it)) }
+        val values = fields.map { (_, e) -> typing(e) }
+        return build(
+            RecType(inst.info.tag, inst.args, extras, closed = true),
+            values,
+            fields.zip(values).map { (f, v) ->
+                val k = f.first
+                v.type subOf (extras[k]?.let { ctx.keyTypeAt(k, it.args) } ?: inst.keyType(k))
+            },
+        )
+    }
+
     private fun freshSlots(keys: List<QSymbol>): Map<QSymbol, Slot> = keys.associateWith { Slot(true, ctx.freshInstance(it)) }
 
     private fun local(lv: LocalVar): Typing = freshVar().let { Typing(it, mapOf(lv to it)) }
@@ -83,6 +155,9 @@ internal class Infer(private val ctx: TypeCtx) {
             is BridjeOptionalKey -> ctx.freshInstance(v.key.sym).let { inst ->
                 Typing(FnType(listOf(RecType(null, emptyList(), mapOf(v.key.sym to Slot(false, inst)))), ctx.keyTypeAt(v.key.sym, inst).nullable()))
             }
+            is BridjeTagConstructor, is BuiltinMetaObj, is Anomaly.AnomalyMeta ->
+                TagInstance(ctx, ctx.tagInfo(v)).let { Typing(FnType(it.argTypes(), it.type)) }
+            is BridjeTaggedSingleton -> Typing(TagInstance(ctx, ctx.tagInfo(v)).type)
             else -> instantiated(expr.globalVar)
         }
 
@@ -126,7 +201,7 @@ internal class Infer(private val ctx: TypeCtx) {
             build(FnType(demands.map { it ?: freshVar() }, rest.type), listOf(rest), flows)
         }
 
-        is CallExpr -> run {
+        is CallExpr -> constructed(expr) ?: run {
             val fn = typing(expr.fnExpr)
             val args = expr.argExprs.map { typing(it) }
             val result = freshVar()
@@ -167,11 +242,89 @@ internal class Infer(private val ctx: TypeCtx) {
             )
         }
 
-        is CaseExpr, is TryCatchExpr, is LoopExpr, is RecurExpr, is WithFxExpr -> Typing(freshVar())
+        is CaseExpr -> caseTyping(expr)
+
+        is TryCatchExpr, is LoopExpr, is RecurExpr, is WithFxExpr -> Typing(freshVar())
 
         // Undeclared host members and raw host objects: the checker knows nothing about them.
         is HostStaticMethodExpr, is HostConstructorExpr, is TruffleObjectExpr -> Typing(freshVar())
 
         is ErrorValueExpr -> Typing(freshVar())
+    }
+
+    // case: the tag patterns instantiate one nominal family, and the scrutinee is demanded to be it.
+    // Without a default the handled tags must cover it. A catch-all binding sees the scrutinee narrowed:
+    // to the one remaining variant when exactly one remains.
+    // Standalone tags have no enum to be the sum of: two of them need a default, which then handles
+    // whatever else the scrutinee may be, and the case demands nothing of it.
+    private fun caseTyping(expr: CaseExpr): Typing {
+        val scrutineeTyping = typing(expr.scrutinee)
+        val result = freshVar()
+        val children = mutableListOf(scrutineeTyping)
+        val constraints = mutableListOf<Pair<Type, Type>>()
+
+        var family: TagInstance? = null
+        val handled = LinkedHashSet<TagRef>()
+        var hasDefault = false
+
+        val hasDefaultAnywhere = expr.branches.any { it.pattern is DefaultPattern || it.pattern is CatchAllBindingPattern }
+        var mixedStandalone = false
+
+        fun instance(info: TagInfo): TagInstance {
+            family?.let { f ->
+                val sameFamily = if (f.info.enum != null) f.info.enum == info.enum else f.info.tag == info.tag
+                if (sameFamily) return TagInstance(ctx, info, f.args)
+                if (f.info.enum == null && info.enum == null && hasDefaultAnywhere) {
+                    mixedStandalone = true
+                    return TagInstance(ctx, info)
+                }
+                fail("case patterns ${f.info.tag} and ${info.tag} belong to different enums")
+            }
+            return TagInstance(ctx, info).also { family = it }
+        }
+
+        fun remainingVariants(): List<TagRef>? =
+            family?.info?.enum?.let { e -> ctx.variants(e).map { it.tag } - handled }
+
+        fun narrowed(): Type =
+            remainingVariants()?.singleOrNull()?.let { TagType(it, family!!.args) } ?: scrutineeTyping.type
+
+        for (branch in expr.branches) {
+            val body = typing(branch.bodyExpr)
+            when (val p = branch.pattern) {
+                is TagPattern -> {
+                    val inst = instance(ctx.tagInfo(p.tagValue))
+                    handled += inst.info.tag
+                    inst.bind(p, body, constraints)
+                    children += body.without(p.payload.locals)
+                }
+                is DefaultPattern -> {
+                    hasDefault = true
+                    children += body
+                }
+                is CatchAllBindingPattern -> {
+                    hasDefault = true
+                    body.monoEnv[p.binding]?.let { constraints += narrowed() subOf it }
+                    children += body.without(listOf(p.binding))
+                }
+            }
+            constraints += body.type subOf result
+        }
+
+        val demand: Type? = family?.let { f ->
+            when {
+                mixedStandalone -> null
+                f.info.enum == null && hasDefault -> null
+                else -> f.info.enum?.let { EnumType(it, f.args) } ?: f.type
+            }
+        }
+        demand?.let { constraints += scrutineeTyping.type subOf it }
+
+        if (!hasDefault) {
+            val missing = remainingVariants().orEmpty()
+            if (missing.isNotEmpty()) fail("non-exhaustive case: missing ${missing.joinToString(", ")}")
+        }
+
+        return build(result, children, constraints)
     }
 }
