@@ -243,4 +243,72 @@ class EffectTest {
 
         assertEquals(15L, ns.getMember("use").execute(5L).asLong())
     }
+
+    @Test
+    fun `a defx default is checked against the declared type`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                defx: count(Str) Int
+                  fn: c(s) s
+                add(count("a"), 1)
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Str is not a subtype of Int") == true, "got: ${ex.message}")
+    }
+
+    // `Maybe` alone is Maybe(a) for every a, which only None is, so a handler giving a Just is rejected.
+    @Test
+    fun `a handler serves every instance of the effect's declared type`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [a] .value a
+                enum: Maybe(a)
+                  tag: Just{.value(a)}
+                  tag: None
+                defx: get() Maybe
+                  fn: dflt() None
+                withFx: [get fn: g() Just{.value 1}]
+                  case: get()
+                    Just{value} not(value)
+                    None true
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("the handler for get is less general than its declared type") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a handler is checked against the declared instance`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [a] .value a
+                enum: Maybe(a)
+                  tag: Just{.value(a)}
+                  tag: None
+                defx: get() Maybe(Int)
+                  fn: dflt() None
+                withFx: [get fn: g() Just{.value "s"}]
+                  case: get()
+                    Just{value} add(value, 1)
+                    None 0
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Str is not a subtype of Int") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a handler at the declared instance serves its callers`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            decl: [a] .value a
+            enum: Maybe(a)
+              tag: Just{.value(a)}
+              tag: None
+            defx: get() Maybe(Int)
+              fn: dflt() None
+            withFx: [get fn: g() Just{.value 1}]
+              case: get()
+                Just{value} add(value, 1)
+                None 0
+        """.trimIndent())
+        assertEquals(2L, result.asLong())
+    }
 }
