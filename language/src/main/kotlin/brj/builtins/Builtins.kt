@@ -6,19 +6,25 @@ import brj.runtime.BridjeFunction
 import brj.runtime.Symbol
 import brj.runtime.sym
 import brj.types.*
-import brj.types.Type
 import com.oracle.truffle.api.nodes.RootNode
 
 object Builtins {
     fun createBuiltinFunctions(language: BridjeLanguage): Map<Symbol, GlobalVar> {
+        fun numeric(t: Type): BoundEnv = mapOf(t.bareVar!! to Bounds(upper = UpperBound(numeric = true)))
+
         fun numericBinOp(name: String, node: RootNode): GlobalVar {
-            val t = freshType()
-            return createBuiltinFunction(name, node, FnType(listOf(t, t), t).notNull())
+            val t = freshVar()
+            return createBuiltinFunction(name, node, FnType(listOf(t, t), t), numeric(t))
+        }
+
+        fun numericComparison(name: String, node: RootNode): GlobalVar {
+            val t = freshVar()
+            return createBuiltinFunction(name, node, FnType(listOf(t, t), BoolType), numeric(t))
         }
 
         fun comparisonOp(name: String, node: RootNode): GlobalVar {
-            val t = freshType()
-            return createBuiltinFunction(name, node, FnType(listOf(t, t), BoolType.notNull()).notNull())
+            val t = freshVar()
+            return createBuiltinFunction(name, node, FnType(listOf(t, t), BoolType))
         }
 
         return listOf(
@@ -28,41 +34,33 @@ object Builtins {
             numericBinOp("div", DivNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             comparisonOp("eq", EqNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
             comparisonOp("neq", NeqNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            comparisonOp("lt", LtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            comparisonOp("gt", GtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            comparisonOp("lte", LteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            comparisonOp("gte", GteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
-            createBuiltinFunction("println", PrintlnNode(language),
-                FnType(listOf(freshType()), nullType()).notNull()),
+            numericComparison("lt", LtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            numericComparison("gt", GtNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            numericComparison("lte", LteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            numericComparison("gte", GteNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1))),
+            createBuiltinFunction("println", PrintlnNode(language), run { val t = freshVar(); FnType(listOf(t), t) }),
             // TODO: gensym is variadic (0 or 1 args) — FnType can't represent optional arity yet
-            createBuiltinFunction("gensym", GensymNode(language), freshType(), arity = 1),
+            createBuiltinFunction("gensym", GensymNode(language), freshVar(), arity = 1),
             createBuiltinFunction("nth", NthNodeGen.create(language, ReadArgumentNode(0), ReadArgumentNode(1)),
-                run { val el = freshType(); FnType(listOf(VectorType(el).notNull(), IntType.notNull()), el).notNull() }),
-            createBuiltinFunction("meta", MetaNode(language),
-                FnType(listOf(freshType()), RecordType.notNull()).notNull()),
+                run { val el = freshVar(); FnType(listOf(VectorType(el), IntType), el) }),
+            // meta yields a record nothing is known to carry, so its keys are read with `.?`.
+            createBuiltinFunction("meta", MetaNode(language), FnType(listOf(freshVar()), RecordType(emptySet()))),
             createBuiltinFunction("withMeta", WithMetaNode(language),
-                run { val t = freshType(); FnType(listOf(t, RecordType.notNull()), t).notNull() }),
-            createBuiltinFunction("throw", ThrowNode(language),
-                FnType(listOf(freshType()), nothingType()).notNull()),
-            createBuiltinFunction("not", NotNode(language),
-                FnType(listOf(BoolType.notNull()), BoolType.notNull()).notNull()),
+                run { val t = freshVar(); FnType(listOf(t, RecordType(emptySet())), t) }),
+            createBuiltinFunction("throw", ThrowNode(language), FnType(listOf(AnomalyType), NothingType)),
+            createBuiltinFunction("not", NotNode(language), FnType(listOf(BoolType), BoolType)),
             comparisonOp("isSame", SameNode(language)),
             createBuiltinFunction("itr", ItrNode(language),
-                run { val a = freshType(); FnType(listOf(IterableType(a).notNull()), IteratorType(a).notNull()).notNull() }),
+                run { val a = freshVar(); FnType(listOf(IterableType(a)), IteratorType(a)) }),
             createBuiltinFunction("itrHasNext", ItrHasNextNode(language),
-                run { val a = freshType(); FnType(listOf(IteratorType(a).notNull()), BoolType.notNull()).notNull() }),
+                run { val a = freshVar(); FnType(listOf(IteratorType(a)), BoolType) }),
             createBuiltinFunction("itrNext", ItrNextNode(language),
-                run { val a = freshType(); FnType(listOf(IteratorType(a).notNull()), a).notNull() }),
-            createBuiltinFunction("allNses", AllNsesNode(language),
-                FnType(emptyList(), VectorType(TagType("brj.core".sym, "Symbol".sym).notNull()).notNull()).notNull()),
-            createBuiltinFunction("nsVars", NsVarsNode(language),
-                FnType(
-                    listOf(TagType("brj.core".sym, "Symbol".sym).notNull()),
-                    VectorType(TagType("brj.core".sym, "Var".sym).notNull()).notNull()
-                ).notNull()),
+                run { val a = freshVar(); FnType(listOf(IteratorType(a)), a) }),
+            createBuiltinFunction("allNses", AllNsesNode(language), FnType(emptyList(), VectorType(SymbolType))),
+            createBuiltinFunction("nsVars", NsVarsNode(language), FnType(listOf(SymbolType), VectorType(VarType))),
         ).associateBy { it.name }
     }
 
-    private fun createBuiltinFunction(name: String, node: RootNode, type: Type, arity: Int = (type.base as FnType).paramTypes.size) =
-        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget, arity), type = type)
+    private fun createBuiltinFunction(name: String, node: RootNode, type: Type, bounds: BoundEnv = emptyMap(), arity: Int = (type.base as Base.Fn).paramTypes.size) =
+        GlobalVar("brj.core".sym, Symbol.intern(name), BridjeFunction(node.callTarget, arity), scheme = Scheme(type, bounds))
 }

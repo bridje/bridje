@@ -5,7 +5,7 @@ import brj.analyser.*
 import brj.effects.collectEffectfulCallees
 import brj.effects.inferEffects
 import brj.runtime.*
-import brj.types.FnType
+import brj.types.*
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary
 import com.oracle.truffle.api.bytecode.BytecodeConfig
 import com.oracle.truffle.api.frame.VirtualFrame
@@ -80,7 +80,7 @@ class ParseRootNode(
     private fun locMeta(expr: Expr): BridjeRecord =
         expr.loc?.let { BridjeRecord.EMPTY.put(LOC_KEY, Loc(it)) } ?: BridjeRecord.EMPTY
 
-    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv): Pair<Any, NsEnv> {
+    private fun evalDefTag(expr: DefTagExpr, nsEnv: NsEnv, enumName: Symbol? = null): Pair<Any, NsEnv> {
         val ns = nsEnv.nsSymbol
         val keys = expr.keys
 
@@ -88,7 +88,17 @@ class ParseRootNode(
             if (keys == null) BridjeTaggedSingleton(expr.name.name)
             else BridjeTagConstructor(expr.name.name, keys.map { QSymbol(ns, it) })
 
-        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr))
+        val params = expr.typeVars.ifEmpty { expr.typeVarNames.map { TypeVar() } }
+        val info = TagInfo(
+            TagRef(ns, expr.name),
+            enumName?.let { EnumRef(ns, it) },
+            params,
+            keys?.let { ks ->
+                Payload.Record(ks.map { QSymbol(ns, it) }.toSet(), expr.keyArgs.mapKeys { (k, _) -> QSymbol(ns, k) })
+            } ?: Payload.None,
+        )
+
+        var updatedNs = nsEnv.def(expr.name, value, meta = locMeta(expr)).defTag(expr.name, info)
 
         for (keySym in keys.orEmpty()) updatedNs = updatedNs.withKey(keySym)
 
@@ -102,6 +112,14 @@ class ParseRootNode(
         return defKey(name, key).defKey(optName, optKey).def(optName, optKey)
     }
 
+    private inline fun <T> MutableList<Analyser.Error>.typed(expr: Expr, f: () -> T): T? =
+        try {
+            f()
+        } catch (e: TypeCheckException) {
+            add(Analyser.Error(e.message ?: e.toString(), expr.loc))
+            null
+        }
+
     @TruffleBoundary
     private fun List<Form>.evalForms(ctx: BridjeContext, nsEnv: NsEnv): Pair<NsEnv, Any?> {
         var nsEnv = nsEnv
@@ -109,6 +127,7 @@ class ParseRootNode(
 
         val res = fold(null as Any?) { _, form ->
             val analyser = Analyser(ctx, nsEnv)
+            val evaluating = errors.isEmpty()
 
             when (val expr = analyser.analyse(form)) {
                 is TopLevelDo -> {
@@ -118,22 +137,32 @@ class ParseRootNode(
                 }
 
                 is DefExpr -> {
+                    val scheme = errors.typed(expr) {
+                        expr.metaExpr?.let { Types.check(ctx, nsEnv, it) }
+                        Types.inferDef(ctx, nsEnv, expr.valueExpr, nsEnv.pendingDecls[expr.name])
+                    }
                     val effects = expr.valueExpr.inferEffects().toList()
+                    if (scheme == null || !evaluating) {
+                        nsEnv = nsEnv.def(expr.name, null, locMeta(expr), scheme = scheme)
+                        if (effects.isNotEmpty()) nsEnv = nsEnv.withEffects(expr.name, effects)
+                        return@fold null
+                    }
                     val userMeta = expr.metaExpr?.let { evalExpr(it, analyser.slotCount) as? BridjeRecord } ?: BridjeRecord.EMPTY
                     val meta = expr.loc?.let { userMeta.put(LOC_KEY, Loc(it)) } ?: userMeta
 
-                    if (effects.isNotEmpty()) {
+                    val value = if (effects.isNotEmpty()) {
                         if (expr.valueExpr !is FnExpr) {
                             throw Analyser.Error("effects can only be used within a function body: ${expr.name}", expr.loc)
                         }
                         val value = evalEffectfulDef(expr.valueExpr)
-                        nsEnv = nsEnv.def(expr.name, value, meta).withEffects(expr.name, effects)
+                        nsEnv = nsEnv.def(expr.name, value, meta, scheme = scheme).withEffects(expr.name, effects)
                         value
                     } else {
                         val value = evalExpr(expr.valueExpr, analyser.slotCount)
-                        nsEnv = nsEnv.def(expr.name, value, meta)
+                        nsEnv = nsEnv.def(expr.name, value, meta, scheme = scheme)
                         value
                     }
+                    value
                 }
 
                 is DefTagExpr -> {
@@ -146,7 +175,7 @@ class ParseRootNode(
                     val variantNames = mutableSetOf<Symbol>()
                     var lastValue: Any? = null
                     for (tagExpr in expr.variants) {
-                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv)
+                        val (value, updatedNsEnv) = evalDefTag(tagExpr, nsEnv, enumName = expr.name)
                         nsEnv = updatedNsEnv
                         variantNames.add(tagExpr.name)
                         lastValue = value
@@ -156,15 +185,20 @@ class ParseRootNode(
                 }
 
                 is DefMacroExpr -> {
+                    val scheme = errors.typed(expr) { Types.inferMacro(ctx, nsEnv, expr.fn) }
+                    if (scheme == null || !evaluating) {
+                        nsEnv = nsEnv.def(expr.name, null, meta = locMeta(expr))
+                        return@fold null
+                    }
                     val fn = evalExpr(expr.fn, analyser.slotCount)
                     val fixedArity = if (expr.fn.isVariadic) expr.fn.params.size - 1 else expr.fn.params.size
                     val macro = BridjeMacro(fn!!, fixedArity, expr.fn.isVariadic)
-                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr))
+                    nsEnv = nsEnv.def(expr.name, macro, meta = locMeta(expr), scheme = scheme)
                     macro
                 }
 
                 is DeclExpr -> {
-                    nsEnv = nsEnv.decl(expr.name, expr.declaredType)
+                    nsEnv = nsEnv.decl(expr.name, expr.declared)
                     null
                 }
 
@@ -175,7 +209,7 @@ class ParseRootNode(
                             ?: throw Analyser.Error("Unknown import alias: ${member.importAlias}", expr.loc)
                         val hostClass = ctx.truffleEnv.lookupHostSymbol(fqClass) as TruffleObject
                         val memberName = member.memberName.name
-                        val arity = (member.declaredType.base as? FnType)?.paramTypes?.size ?: 0
+                        val arity = (member.declared.type.base as? Base.Fn)?.paramTypes?.size ?: 0
 
                         when (member.kind) {
                             InteropMemberKind.STATIC_FIELD -> {
@@ -183,22 +217,22 @@ class ParseRootNode(
                                     throw Analyser.Error("$memberName is not a readable field on ${member.importAlias} — did you mean $memberName()?", expr.loc)
                                 }
                                 val value = interopLib.readMember(hostClass, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, value, member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, value, member.declared)
                             }
                             InteropMemberKind.STATIC_METHOD -> {
                                 val rootNode = if (memberName == "new")
                                     HostConstructorNode(lang, hostClass)
                                 else
                                     HostStaticMethodInvokeNode(lang, hostClass, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declared)
                             }
                             InteropMemberKind.INSTANCE_METHOD -> {
                                 val rootNode = HostInstanceMethodInvokeNode(lang, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declared)
                             }
                             InteropMemberKind.INSTANCE_FIELD -> {
                                 val rootNode = HostInstanceFieldReadNode(lang, memberName)
-                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declaredType)
+                                nsEnv = nsEnv.defInterop(member.importAlias, member.memberName, BridjeFunction(rootNode.callTarget, arity), member.declared)
                             }
                         }
                     }
@@ -206,18 +240,21 @@ class ParseRootNode(
                 }
 
                 is DefxExpr -> {
-                    val defaultValue = expr.defaultExpr?.let { evalExpr(it, analyser.slotCount) }
-                    nsEnv = nsEnv.defx(expr.name, defaultValue, expr.declaredType, meta = locMeta(expr))
+                    val typed = expr.defaultExpr?.let { d -> errors.typed(expr) { Types.inferDef(ctx, nsEnv, d, Scheme(expr.declaredType)) } } != null
+                    val defaultValue = expr.defaultExpr?.takeIf { typed && evaluating }?.let { evalExpr(it, analyser.slotCount) }
+                    nsEnv = nsEnv.defx(expr.name, defaultValue, Scheme(expr.declaredType), meta = locMeta(expr))
                     defaultValue
                 }
 
                 is DefKeysExpr -> {
                     for (name in expr.names) nsEnv = nsEnv.withKey(name)
+                    nsEnv = nsEnv.declKeyTypes(expr.types)
                     expr.names.lastOrNull()?.let { nsEnv.key(it)?.value }
                 }
 
                 is ValueExpr -> {
-                    evalExpr(expr, analyser.slotCount)
+                    errors.typed(expr) { Types.check(ctx, nsEnv, expr) } ?: return@fold null
+                    if (evaluating) evalExpr(expr, analyser.slotCount) else null
                 }
 
                 is AnalyserErrors -> {

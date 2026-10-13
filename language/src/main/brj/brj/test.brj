@@ -5,8 +5,13 @@ ns: brj.test
 
 decl: .test Bool
 
+decl: .form Form
+decl: .message Str?
 tag: Failure{.form, .message}
-tag: TestResult{.failures, .exn}
+
+decl: .failures AL(Failure)
+decl: [e] .exn e
+tag: [e] TestResult{.failures, .exn(e)}
 
 decl: [a] AL/new() AL(a)
 decl: [a] AL/.add(a) Bool
