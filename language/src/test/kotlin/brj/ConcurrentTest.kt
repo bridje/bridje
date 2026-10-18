@@ -175,7 +175,7 @@ class ConcurrentTest {
               import:
                 java.util.concurrent.atomic:
                   as(AtomicBoolean, AB)
-            decl: AB/.set(Bool) Nothing
+            decl: AB/.set(Bool) Nothing?
             def: go(flag)
               c/spawn(fn: outer()
                 c/spawn(fn: inner()
@@ -282,5 +282,18 @@ class ConcurrentTest {
         assertEquals("fault", result.asString())
         assertTrue(elapsed < 2000, "Should resolve quickly after deep failure, elapsed: ${elapsed}ms")
         Thread.sleep(50) // let cancelled threads wind down before context closes
+    }
+
+    @Test fun `awaiting a spawned function gives what it returns`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.spawn.typed
+                  require:
+                    brj:
+                      as(concurrent, c)
+                def: x not(c/await(c/spawn(fn: f() 42)))
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("Int is not a subtype of Bool") == true, "got: ${ex.message}")
     }
 }

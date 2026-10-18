@@ -1,5 +1,6 @@
 package brj
 
+import org.graalvm.polyglot.PolyglotException
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -81,13 +82,26 @@ class MetaTest {
     }
 
     @Test
+    fun `withMeta nil is a type error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  decl: .foo Str
+                  let: [v withMeta([1 2], {.foo "bar"})]
+                    meta(withMeta(v, nil))
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("nullable") == true, "Expected nullable type error, got: ${ex.message}")
+    }
+
+    @Test
     fun `form default meta carries rdr-loc`() = withContext { ctx ->
         val ns = ctx.evalBridje("""
             ns: test.form.meta.default
               require:
                 brj: rdr
 
-            def: loc rdr/.loc(meta('foo))
+            def: loc rdr/.?loc(meta('foo))
         """.trimIndent())
 
         val loc = ns.getMember("loc")

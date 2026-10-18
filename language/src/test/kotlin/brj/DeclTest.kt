@@ -83,6 +83,7 @@ class DeclTest {
     fun `decl tag type`() = withContext { ctx ->
         ctx.evalBridje("""
             ns: test.decl.tag
+            decl: .name Str
             tag: User{.name}
             decl: user User
             def: user User{.name "James"}
@@ -90,7 +91,36 @@ class DeclTest {
         val meta = ctx.varMeta("test.decl.tag", "user")
         assertTrue(meta.hasMember("declaredType"))
         val declType = meta.getMember("declaredType")
-        assertEquals("test.decl.tag.User", declType.displayString())
+        assertEquals("User", declType.displayString())
+    }
+
+    @Test
+    fun `decl tag type known to carry more keys than its own`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.tagkeys
+            decl: .email Str
+            decl: .name Str
+            tag: User{.name}
+            decl: user User{.name, .email}
+            def: user User{.name "James", .email "j@example.com"}
+        """.trimIndent())
+        val declType = ctx.varMeta("test.decl.tagkeys", "user").getMember("declaredType")
+        assertEquals("User{test.decl.tagkeys/.email}", declType.displayString())
+    }
+
+    @Test
+    fun `a tag declared to carry a key must be constructed with it`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.tagkeys2
+                decl: .email Str
+                decl: .name Str
+                tag: User{.name}
+                decl: user User{.email}
+                def: user User{.name "James"}
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("lacks {test.decl.tagkeys2/.email}") == true, "got: ${ex.message}")
     }
 
     @Test
@@ -120,7 +150,93 @@ class DeclTest {
             def: identity(x) x
         """.trimIndent())
         val declType = ctx.varMeta("test.decl.poly", "identity").getMember("declaredType")
-        assertEquals("Fn([?] ?)", declType.displayString())
+        assertEquals("[a] Fn([a] a)", declType.displayString())
+    }
+
+    @Test
+    fun `decl record type is its key set`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.rec
+            decl: .name Str
+            decl: user {.name}
+            def: user {.name "James"}
+        """.trimIndent())
+        val declType = ctx.varMeta("test.decl.rec", "user").getMember("declaredType")
+        assertEquals("{test.decl.rec/.name}", declType.displayString())
+    }
+
+    @Test
+    fun `decl record type on a base`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.based
+            decl: .dirty Bool
+            decl: [a] same({.dirty & a}) {.dirty & a}
+            def: same(r) r
+        """.trimIndent())
+        val declType = ctx.varMeta("test.decl.based", "same").getMember("declaredType")
+        assertEquals("[a] Fn([{test.decl.based/.dirty & a}] {test.decl.based/.dirty & a})", declType.displayString())
+    }
+
+    @Test
+    fun `decl of a record in and the same record out, carrying a key`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.touch
+            decl: .dirty Bool
+            decl: [a] touch({& a}) {.dirty & a}
+            def: touch(r) with(r, .dirty true)
+        """.trimIndent())
+        val declType = ctx.varMeta("test.decl.touch", "touch").getMember("declaredType")
+        assertEquals("[a] Fn([{& a}] {test.decl.touch/.dirty & a})", declType.displayString())
+    }
+
+    @Test
+    fun `decl of the same record out rejects a definition returning a new one`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.touch2
+                decl: .dirty Bool
+                decl: [a] touch({& a}) {.dirty & a}
+                def: touch(r) {.dirty true}
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("more general than the definition") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a declared variable is rejected where the definition demands a type of it`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.rigid1
+                decl: [a] f(a) Bool
+                def: f(x) not(x)
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("more general than the definition") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `two declared variables are not one`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.rigid2
+                decl: [a, b] f(a) b
+                def: f(x) x
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("more general than the definition") == true, "got: ${ex.message}")
+    }
+
+    @Test
+    fun `a record type's base is a type variable`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.badbase
+                decl: .dirty Bool
+                decl: x {.dirty & Int}
+                def: x {.dirty true}
+            """.trimIndent())
+        }
+        assertTrue(ex.message?.contains("a record type's base is a type variable") == true, "got: ${ex.message}")
     }
 
     @Test
@@ -131,6 +247,115 @@ class DeclTest {
               .value({.value 42})
         """.trimIndent())
         assertEquals(42L, result.asLong())
+    }
+
+    @Test
+    fun `decl declares several keys in pairs`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              decl: .host Str, .port Int
+              decl:
+                .user Str
+                .retries Int
+              add(.port({.host "h", .port 8080}), .retries({.user "u", .retries 2}))
+        """.trimIndent())
+        assertEquals(8082L, result.asLong())
+    }
+
+    @Test
+    fun `a key declared beside one with a type variable takes only the variables its type names`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              decl: [a] .value a, .count Int
+              tag: [a] Counted{.value(a), .count}
+              .count(Counted{.value "s", .count 3})
+        """.trimIndent())
+        assertEquals(3L, result.asLong())
+    }
+
+    @Test
+    fun `a key decl without a type for its last key is an error`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  decl: .host Str, .port
+            """.trimIndent())
+        }
+        assertTrue(ex.message!!.contains(".port needs a type"), ex.message)
+    }
+
+    @Test
+    fun `a key's type is a scheme, instantiated at each use`() = withContext { ctx ->
+        val result = ctx.evalBridje("""
+            do:
+              decl: .email Str
+              decl: [a] .greet Fn([{.email & a}] Str)
+              def: greeting(r) .email(r)
+              let: [greet .greet({.greet greeting})]
+                greet({.email "hi"})
+        """.trimIndent())
+        assertEquals("hi", result.asString())
+    }
+
+    @Test
+    fun `a def's metadata is type-checked`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                do:
+                  decl: .test Str
+                  ^{.test 42} def: x 1
+            """.trimIndent())
+        }
+        assertTrue(ex.message!!.contains("Int is not a subtype of Str"), ex.message)
+    }
+
+    @Test
+    fun `a type error names its form, and the forms after it are still checked`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.located
+                def: x not(1)
+                def: y add("a", 1)
+            """.trimIndent())
+        }
+        assertTrue(ex.message!!.contains("(2:") && ex.message!!.contains("(3:"), ex.message)
+    }
+
+    @Test
+    fun `a declaration demands a variable be numeric with Num`() = withContext { ctx ->
+        ctx.evalBridje("""
+            ns: test.decl.num
+            decl: [a, Num(a)] double(a) a
+            def: double(x) add(x, x)
+            def: four double(2)
+        """.trimIndent())
+        assertEquals(4L, ctx.evalBridje("test.decl.num/four").asLong())
+        assertEquals("[a, Num(a)] Fn([a] a)", ctx.varMeta("test.decl.num", "double").getMember("declaredType").displayString())
+        val ex = assertThrows(PolyglotException::class.java) { ctx.evalBridje("test.decl.num/double(\"s\")") }
+        assertTrue(ex.message!!.contains("Str is not numeric"), ex.message)
+    }
+
+    @Test
+    fun `a declaration without Num cannot be met by a numeric definition`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                decl: [a] double(a) a
+                def: double(x) add(x, x)
+            """.trimIndent())
+        }
+        assertTrue(ex.message!!.contains("more general than the definition"), ex.message)
+    }
+
+    @Test
+    fun `a Num constraint names a variable of its declaration`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("decl: [a, Num(b)] f(a) a")
+        }
+        assertTrue(ex.message!!.contains("b is not a type variable of this declaration"), ex.message)
+        val ex2 = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("decl: [a, Ord(a)] f(a) a")
+        }
+        assertTrue(ex2.message!!.contains("takes type variables and Num(a)"), ex2.message)
     }
 
     @Test
@@ -159,5 +384,35 @@ class DeclTest {
         assertTrue(meta.hasMember("declaredType"))
         assertTrue(meta.hasMember("test"))
         assertEquals(true, meta.getMember("test").asBoolean())
+    }
+
+    @Test
+    fun `a definition that fails to type is anything to the forms after it, which are not evaluated`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.after.error
+                def: x not(1)
+                def: y add(x, 2)
+                def: z println(throw(Incorrect{}))
+            """.trimIndent())
+        }
+        val message = ex.message!!
+        assertTrue(message.contains("(2:") && message.contains("Int is not a subtype of Bool"), message)
+        assertFalse(message.contains("Unknown symbol") || message.contains("(3:"), message)
+    }
+
+    @Test
+    fun `a host class carries no keys`() = withContext { ctx ->
+        val ex = assertThrows(PolyglotException::class.java) {
+            ctx.evalBridje("""
+                ns: test.decl.host.keys
+                  import:
+                    java.util:
+                      as(ArrayList, AL)
+                decl: .name Str
+                decl: f(AL({.name})) Int
+            """.trimIndent())
+        }
+        assertTrue(ex.message!!.contains("AL is a host class, which carries no keys"), ex.message)
     }
 }
